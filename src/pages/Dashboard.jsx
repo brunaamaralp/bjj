@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw } from 'lucide-react';
 
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
@@ -14,10 +14,13 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads } = useLeadStore();
     const [dateFilter, setDateFilter] = useState('all');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    React.useEffect(() => {
-        fetchLeads();
-    }, []);
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await fetchLeads();
+        setIsRefreshing(false);
+    };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -103,6 +106,13 @@ const Dashboard = () => {
                     <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Calendar size={18} color="var(--accent)" /> Aulas Experimentais
                     </h3>
+                    <button
+                        className="refresh-btn"
+                        onClick={handleRefresh}
+                        disabled={loading || isRefreshing}
+                    >
+                        <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} />
+                    </button>
                 </div>
 
                 <div className="filter-tabs mb-3">
@@ -258,6 +268,16 @@ const Dashboard = () => {
           min-height: 36px; gap: 6px; color: var(--text-secondary);
         }
         .followup-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .refresh-btn {
+          background: none; border: none; color: var(--text-muted);
+          width: 32px; height: 32px; padding: 0; min-height: auto;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; transition: var(--transition);
+        }
+        .refresh-btn:hover { color: var(--accent); }
+        .refresh-btn:disabled { opacity: 0.5; }
+        .spin-refresh { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}} />
         </div>
     );
