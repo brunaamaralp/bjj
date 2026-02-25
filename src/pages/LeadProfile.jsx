@@ -123,6 +123,16 @@ const LeadProfile = () => {
                             <span className="info-badge">
                                 {lead.isFirstExperience === 'Sim' ? '🔰 Iniciante' : `🥋 Já treina (${lead.belt})`}
                             </span>
+                            {lead.borrowedKimono && (
+                                <span className="info-badge" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
+                                    👘 Kimono: {lead.borrowedKimono}
+                                </span>
+                            )}
+                            {lead.borrowedShirt && (
+                                <span className="info-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                                    👕 Camiseta: {lead.borrowedShirt}
+                                </span>
+                            )}
                         </div>
 
                         {lead.scheduledDate && (

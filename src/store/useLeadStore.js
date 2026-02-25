@@ -35,6 +35,8 @@ export const useLeadStore = create((set, get) => ({
         let history = [];
         let isFirstExperience = 'Sim';
         let belt = '';
+        let borrowedKimono = '';
+        let borrowedShirt = '';
 
         if (doc.notes) {
           try {
@@ -45,6 +47,8 @@ export const useLeadStore = create((set, get) => ({
               history = parsed.history || [];
               isFirstExperience = parsed.isFirstExperience || 'Sim';
               belt = parsed.belt || '';
+              borrowedKimono = parsed.borrowedKimono || '';
+              borrowedShirt = parsed.borrowedShirt || '';
             }
           } catch (e) {
             console.warn('Notes parse error, treating as empty history');
@@ -65,6 +69,8 @@ export const useLeadStore = create((set, get) => ({
           notes: history,
           isFirstExperience,
           belt,
+          borrowedKimono,
+          borrowedShirt,
           createdAt: doc.$createdAt,
         };
       });
@@ -84,7 +90,9 @@ export const useLeadStore = create((set, get) => ({
       const notesData = {
         history: lead.notes || [],
         isFirstExperience: lead.isFirstExperience || 'Sim',
-        belt: lead.belt || ''
+        belt: lead.belt || '',
+        borrowedKimono: lead.borrowedKimono || '',
+        borrowedShirt: lead.borrowedShirt || ''
       };
 
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
@@ -125,7 +133,9 @@ export const useLeadStore = create((set, get) => ({
       const notesData = {
         history: mergedLead.notes || [],
         isFirstExperience: mergedLead.isFirstExperience || 'Sim',
-        belt: mergedLead.belt || ''
+        belt: mergedLead.belt || '',
+        borrowedKimono: mergedLead.borrowedKimono || '',
+        borrowedShirt: mergedLead.borrowedShirt || ''
       };
 
       const payload = {
@@ -138,6 +148,8 @@ export const useLeadStore = create((set, get) => ({
       delete payload.createdAt;
       delete payload.isFirstExperience;
       delete payload.belt;
+      delete payload.borrowedKimono;
+      delete payload.borrowedShirt;
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 
