@@ -31,20 +31,43 @@ export const useLeadStore = create((set, get) => ({
         Query.limit(500),
         Query.orderDesc('$createdAt'),
       ]);
-      const leads = response.documents.map(doc => ({
-        id: doc.$id,
-        name: doc.name,
-        phone: doc.phone,
-        type: doc.type || 'Adulto',
-        origin: doc.origin || '',
-        status: doc.status,
-        scheduledDate: doc.scheduledDate || '',
-        scheduledTime: doc.scheduledTime || '',
-        parentName: doc.parentName || '',
-        age: doc.age || '',
-        notes: doc.notes ? JSON.parse(doc.notes) : [],
-        createdAt: doc.$createdAt,
-      }));
+      const leads = response.documents.map(doc => {
+        let history = [];
+        let isFirstExperience = 'Sim';
+        let belt = '';
+
+        if (doc.notes) {
+          try {
+            const parsed = JSON.parse(doc.notes);
+            if (Array.isArray(parsed)) {
+              history = parsed;
+            } else {
+              history = parsed.history || [];
+              isFirstExperience = parsed.isFirstExperience || 'Sim';
+              belt = parsed.belt || '';
+            }
+          } catch (e) {
+            console.warn('Notes parse error, treating as empty history');
+          }
+        }
+
+        return {
+          id: doc.$id,
+          name: doc.name,
+          phone: doc.phone,
+          type: doc.type || 'Adulto',
+          origin: doc.origin || '',
+          status: doc.status,
+          scheduledDate: doc.scheduledDate || '',
+          scheduledTime: doc.scheduledTime || '',
+          parentName: doc.parentName || '',
+          age: doc.age || '',
+          notes: history,
+          isFirstExperience,
+          belt,
+          createdAt: doc.$createdAt,
+        };
+      });
       set({ leads, loading: false });
     } catch (e) {
       console.error('fetchLeads error:', e);
@@ -57,6 +80,13 @@ export const useLeadStore = create((set, get) => ({
     if (!academyId) return;
 
     try {
+      // Pack metadata into notes
+      const notesData = {
+        history: lead.notes || [],
+        isFirstExperience: lead.isFirstExperience || 'Sim',
+        belt: lead.belt || ''
+      };
+
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
         name: lead.name,
         phone: lead.phone,
@@ -67,7 +97,7 @@ export const useLeadStore = create((set, get) => ({
         scheduledTime: lead.scheduledTime || '',
         parentName: lead.parentName || '',
         age: lead.age || '',
-        notes: lead.notes ? JSON.stringify(lead.notes) : '',
+        notes: JSON.stringify(notesData),
         academyId,
       });
 
@@ -86,13 +116,28 @@ export const useLeadStore = create((set, get) => ({
 
   updateLead: async (id, updates) => {
     try {
-      const payload = { ...updates };
-      if (payload.notes) {
-        payload.notes = JSON.stringify(payload.notes);
-      }
-      // Remove fields Appwrite doesn't expect
+      const currentLead = get().leads.find(l => l.id === id);
+      if (!currentLead) return;
+
+      const mergedLead = { ...currentLead, ...updates };
+
+      // Pack metadata into notes for storage
+      const notesData = {
+        history: mergedLead.notes || [],
+        isFirstExperience: mergedLead.isFirstExperience || 'Sim',
+        belt: mergedLead.belt || ''
+      };
+
+      const payload = {
+        ...updates,
+        notes: JSON.stringify(notesData)
+      };
+
+      // Remove fields Appwrite doesn't expect or that shouldn't be in the payload
       delete payload.id;
       delete payload.createdAt;
+      delete payload.isFirstExperience;
+      delete payload.belt;
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 

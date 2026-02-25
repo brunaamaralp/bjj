@@ -108,9 +108,25 @@ const LeadProfile = () => {
                 <div className="flex justify-between items-start">
                     <div>
                         <h2 style={{ fontSize: '1.3rem', color: 'var(--text)' }}>{lead.name}</h2>
-                        <p className="text-small mt-1">{lead.type} • {lead.origin}</p>
+                        <p className="text-small mt-1">
+                            {lead.type} • {lead.origin}
+                            {lead.age && ` • ${lead.age} anos`}
+                        </p>
+
+                        {(lead.parentName) && (
+                            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                👤 Responsável: <strong>{lead.parentName}</strong>
+                            </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="info-badge">
+                                {lead.isFirstExperience === 'Sim' ? '🔰 Iniciante' : `🥋 Já treina (${lead.belt})`}
+                            </span>
+                        </div>
+
                         {lead.scheduledDate && (
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center gap-2 mt-3">
                                 <Clock size={14} color="var(--accent)" />
                                 <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 600 }}>
                                     {lead.scheduledTime || '--:--'} — {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -224,6 +240,10 @@ const LeadProfile = () => {
           padding: 5px 12px; border-radius: var(--radius-full); 
           font-size: 0.72rem; font-weight: 700; text-transform: uppercase; 
           letter-spacing: 0.03em; white-space: nowrap;
+        }
+        .info-badge {
+          font-size: 0.7rem; font-weight: 700; background: var(--border-light);
+          padding: 3px 10px; border-radius: var(--radius-full); color: var(--text-secondary);
         }
         .contact-btn { 
           flex: 1; height: 48px; border-radius: var(--radius-sm); 

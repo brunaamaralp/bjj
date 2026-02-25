@@ -6,7 +6,7 @@ import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle } from 'l
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
-    'Teen': <Users size={20} />,
+    'Juniores': <Users size={20} />,
     'Adulto': <Dumbbell size={20} />,
 };
 
@@ -18,12 +18,14 @@ const NewLead = () => {
         defaultValues: {
             type: 'Adulto',
             origin: 'Instagram',
-            status: LEAD_STATUS.SCHEDULED
+            status: LEAD_STATUS.SCHEDULED,
+            isFirstExperience: 'Sim'
         }
     });
 
     const leadType = watch('type');
     const phoneValue = watch('phone');
+    const isFirstExperience = watch('isFirstExperience');
 
     // Duplicate detection
     const findDuplicate = (phone) => {
@@ -31,7 +33,7 @@ const NewLead = () => {
         const cleanInput = phone.replace(/\D/g, '');
         if (cleanInput.length < 8) return null;
         return leads.find(l => {
-            const cleanExisting = l.phone.replace(/\D/g, '');
+            const cleanExisting = l.phone?.replace(/\D/g, '') || '';
             return cleanExisting === cleanInput || cleanExisting.endsWith(cleanInput.slice(-8)) || cleanInput.endsWith(cleanExisting.slice(-8));
         });
     };
@@ -100,7 +102,7 @@ const NewLead = () => {
                 <div className="card animate-in" style={{ animationDelay: '0.1s' }}>
                     <label className="type-label">Perfil</label>
                     <div className="type-grid">
-                        {['Criança', 'Teen', 'Adulto'].map(type => (
+                        {['Criança', 'Juniores', 'Adulto'].map(type => (
                             <label key={type} className={`type-option ${leadType === type ? 'selected' : ''}`}>
                                 <input {...register('type')} type="radio" value={type} />
                                 <span className="type-icon">{TYPE_ICONS[type]}</span>
@@ -110,11 +112,11 @@ const NewLead = () => {
                     </div>
                 </div>
 
-                {/* Campos criança */}
-                {leadType === 'Criança' && (
+                {/* Campos criança/teen */}
+                {(leadType === 'Criança' || leadType === 'Juniores') && (
                     <div className="card animate-in" style={{ borderLeft: '4px solid var(--warning)' }}>
                         <div className="form-group">
-                            <label>Nome do Responsável</label>
+                            <label>Nome do Responsável {leadType === 'Juniores' && '(Opcional)'}</label>
                             <input {...register('parentName')} className="form-input" placeholder="Nome do pai/mãe" />
                         </div>
                         <div className="form-group mt-3">
@@ -123,6 +125,38 @@ const NewLead = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Experiência */}
+                <div className="card animate-in" style={{ animationDelay: '0.12s' }}>
+                    <label className="type-label">Primeira experiência no Jiu-Jitsu?</label>
+                    <div className="flex gap-4 mt-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input {...register('isFirstExperience')} type="radio" value="Sim" />
+                            <span className="text-small">Sim</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input {...register('isFirstExperience')} type="radio" value="Não" />
+                            <span className="text-small">Não (Já treinou)</span>
+                        </label>
+                    </div>
+
+                    {isFirstExperience === 'Não' && (
+                        <div className="form-group mt-4">
+                            <label>Qual a sua faixa atual?</label>
+                            <select {...register('belt')} className="form-input">
+                                <option value="Branca">Branca</option>
+                                <option value="Cinza">Cinza</option>
+                                <option value="Amarela">Amarela</option>
+                                <option value="Laranja">Laranja</option>
+                                <option value="Verde">Verde</option>
+                                <option value="Azul">Azul</option>
+                                <option value="Roxa">Roxa</option>
+                                <option value="Marrom">Marrom</option>
+                                <option value="Preta">Preta</option>
+                            </select>
+                        </div>
+                    )}
+                </div>
 
                 {/* Agendamento */}
                 <div className="card animate-in" style={{ animationDelay: '0.15s' }}>
