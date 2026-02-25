@@ -1,14 +1,16 @@
-import { Client, Account, Databases } from 'appwrite';
+import { Client, Account, Databases } from "appwrite";
 
 const client = new Client()
-    .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
-    .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+    .setEndpoint("https://sfo.cloud.appwrite.io/v1")
+    .setProject("699f020c00171ce26206");
 
-export const account = new Account(client);
-export const databases = new Databases(client);
+const account = new Account(client);
+const databases = new Databases(client);
 
-export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID;
-export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID;
+// IDs para as collections e banco (necessários para o funcionamento do CRM)
+export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a11c21825";
+export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID || "699f10500032d0fd5b80";
+export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "699f1068000e1b1ca1d2";
 
+export { client, account, databases };
 export default client;

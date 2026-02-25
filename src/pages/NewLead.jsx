@@ -39,7 +39,11 @@ const NewLead = () => {
     const duplicate = findDuplicate(phoneValue);
 
     const onSubmit = async (data) => {
-        await addLead(data);
+        const payload = {
+            ...data,
+            status: LEAD_STATUS.SCHEDULED
+        };
+        await addLead(payload);
         navigate('/');
     };
 
