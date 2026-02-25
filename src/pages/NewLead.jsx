@@ -14,6 +14,9 @@ const NewLead = () => {
     const navigate = useNavigate();
     const addLead = useLeadStore((state) => state.addLead);
     const leads = useLeadStore((state) => state.leads);
+    const academyId = useLeadStore((state) => state.academyId);
+    const [submitting, setSubmitting] = useState(false);
+
     const { register, handleSubmit, watch, formState: { errors } } = useForm({
         defaultValues: {
             type: 'Adulto',
@@ -41,12 +44,24 @@ const NewLead = () => {
     const duplicate = findDuplicate(phoneValue);
 
     const onSubmit = async (data) => {
-        const payload = {
-            ...data,
-            status: LEAD_STATUS.SCHEDULED
-        };
-        await addLead(payload);
-        navigate('/');
+        if (!academyId) {
+            alert('Erro: Academia não identificada. Por favor, recarregue a página.');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const payload = {
+                ...data,
+                status: LEAD_STATUS.SCHEDULED
+            };
+            await addLead(payload);
+            navigate('/');
+        } catch (e) {
+            alert('Erro ao salvar interessado: ' + e.message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -207,8 +222,21 @@ const NewLead = () => {
                 </div>
 
                 {/* Submit */}
-                <button type="submit" className="btn-secondary btn-large mt-2 animate-in" style={{ animationDelay: '0.25s' }}>
-                    <CalendarPlus size={20} /> Salvar e Agendar
+                <button
+                    type="submit"
+                    className="btn-secondary btn-large mt-2 animate-in"
+                    style={{ animationDelay: '0.25s' }}
+                    disabled={submitting}
+                >
+                    {submitting ? (
+                        <div className="flex items-center gap-2">
+                            Salvando...
+                        </div>
+                    ) : (
+                        <>
+                            <CalendarPlus size={20} /> Salvar e Agendar
+                        </>
+                    )}
                 </button>
             </form>
 

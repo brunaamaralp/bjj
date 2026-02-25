@@ -12,8 +12,12 @@ const DAY_FILTERS = [
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { leads } = useLeadStore();
+    const { leads, loading, fetchLeads } = useLeadStore();
     const [dateFilter, setDateFilter] = useState('all');
+
+    React.useEffect(() => {
+        fetchLeads();
+    }, []);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -115,7 +119,11 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex-col gap-2">
-                    {agendaLeads.length > 0 ? agendaLeads.map((lead, i) => (
+                    {loading ? (
+                        <div className="flex justify-center p-8">
+                            <div className="spinner" />
+                        </div>
+                    ) : agendaLeads.length > 0 ? agendaLeads.map((lead, i) => (
                         <div key={lead.id} className="card agenda-card animate-in" style={{ animationDelay: `${0.04 * i}s` }}>
                             <div className="flex justify-between items-center" onClick={() => navigate(`/lead/${lead.id}`)} style={{ cursor: 'pointer' }}>
                                 <div style={{ flex: 1 }}>
