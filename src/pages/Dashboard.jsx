@@ -12,9 +12,16 @@ const DAY_FILTERS = [
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { leads, loading, fetchLeads } = useLeadStore();
+    const { leads, loading, fetchLeads, academyId } = useLeadStore();
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Fetch leads on mount if not already loaded or if returning to dashboard
+    React.useEffect(() => {
+        if (academyId) {
+            fetchLeads();
+        }
+    }, [academyId]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -231,6 +238,28 @@ const Dashboard = () => {
                     )}
                 </div>
             </section>
+
+            {/* Diagnostics (Hidden by default, shown if leads are missing) */}
+            {leads.length > 0 && agendaLeads.length === 0 && (
+                <section className="mt-8 p-4 bg-muted rounded animate-in" style={{ background: '#f1f5f9', borderRadius: 8 }}>
+                    <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        <AlertTriangle size={16} />
+                        <strong>Diagnóstico:</strong>
+                    </div>
+                    <p className="text-xs text-secondary">
+                        Total de leads: {leads.length} |
+                        Agendados: {leads.filter(l => l.status === LEAD_STATUS.SCHEDULED).length} |
+                        Novos: {leads.filter(l => l.status === LEAD_STATUS.NEW).length}
+                    </p>
+                    <button
+                        className="btn-outline mt-2"
+                        style={{ minHeight: 32, fontSize: '0.75rem', padding: '0 12px' }}
+                        onClick={handleRefresh}
+                    >
+                        Sincronizar Dados 🔄
+                    </button>
+                </section>
+            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `
