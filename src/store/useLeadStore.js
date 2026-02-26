@@ -74,7 +74,23 @@ export const useLeadStore = create((set, get) => ({
           createdAt: doc.$createdAt,
         };
       });
-      set({ leads, loading: false });
+
+      set((state) => {
+        // Prevent race condition: keep local leads created in the last 2 mins 
+        // that are not yet in the server response
+        const serverIds = new Set(leads.map(l => l.id));
+        const now = new Date();
+        const recentLocals = state.leads.filter(l => {
+          const created = new Date(l.createdAt);
+          const isRecentlyCreated = (now - created) < 120000; // 2 minutes
+          return !serverIds.has(l.id) && isRecentlyCreated;
+        });
+
+        return {
+          leads: [...recentLocals, ...leads],
+          loading: false
+        };
+      });
     } catch (e) {
       console.error('fetchLeads error:', e);
       set({ loading: false });
