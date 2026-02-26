@@ -23,6 +23,7 @@ export const useLeadStore = create((set, get) => ({
   fetchLeads: async () => {
     const academyId = get().academyId;
     if (!academyId) return;
+    if (get().loading) return;
 
     set({ loading: true });
     try {
@@ -76,18 +77,17 @@ export const useLeadStore = create((set, get) => ({
       });
 
       set((state) => {
-        // Prevent race condition: keep local leads created in the last 2 mins 
-        // that are not yet in the server response
         const serverIds = new Set(leads.map(l => l.id));
         const now = new Date();
-        const recentLocals = state.leads.filter(l => {
+        const localsToKeep = state.leads.filter(l => {
+          if (!l._isNew) return false;
           const created = new Date(l.createdAt);
-          const isRecentlyCreated = (now - created) < 120000; // 2 minutes
+          const isRecentlyCreated = (now - created) < 300000; // 5 minutes
           return !serverIds.has(l.id) && isRecentlyCreated;
         });
 
         return {
-          leads: [...recentLocals, ...leads],
+          leads: [...localsToKeep, ...leads],
           loading: false
         };
       });
@@ -130,12 +130,14 @@ export const useLeadStore = create((set, get) => ({
         ...lead,
         notes: lead.notes || [],
         createdAt: doc.$createdAt,
+        _isNew: true,
       };
 
       console.log('✅ addLead success:', newLead);
       set((state) => ({ leads: [newLead, ...state.leads] }));
     } catch (e) {
       console.error('❌ addLead error:', e);
+      throw e; // Rethrow to allow handling in the UI
     }
   },
 
@@ -177,6 +179,7 @@ export const useLeadStore = create((set, get) => ({
       }));
     } catch (e) {
       console.error('updateLead error:', e);
+      throw e; // Rethrow to allow handling in the UI
     }
   },
 

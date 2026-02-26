@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Zap } from 'lucide-react';
 
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
@@ -50,10 +50,14 @@ const Dashboard = () => {
     const agendaLeads = allScheduled.filter(lead => {
         if (dateFilter === 'all') return true;
         if (!lead.scheduledDate) return false;
-        const d = new Date(lead.scheduledDate + 'T00:00:00');
-        if (dateFilter === 'today') return d.toDateString() === today.toDateString();
-        if (dateFilter === 'tomorrow') return d.toDateString() === tomorrow.toDateString();
-        if (dateFilter === 'week') return d >= today && d < weekEnd;
+
+        // Use YYYY-MM-DD from lead.scheduledDate directly for comparison to avoid TZ shifts
+        const [y, m, d] = lead.scheduledDate.split('-').map(Number);
+        const leadDate = new Date(y, m - 1, d);
+
+        if (dateFilter === 'today') return leadDate.toDateString() === today.toDateString();
+        if (dateFilter === 'tomorrow') return leadDate.toDateString() === tomorrow.toDateString();
+        if (dateFilter === 'week') return leadDate >= today && leadDate < weekEnd;
         return true;
     });
 
@@ -88,10 +92,11 @@ const Dashboard = () => {
         if (key === 'all') return allScheduled.length;
         return allScheduled.filter(l => {
             if (!l.scheduledDate) return false;
-            const d = new Date(l.scheduledDate + 'T00:00:00');
-            if (key === 'today') return d.toDateString() === today.toDateString();
-            if (key === 'tomorrow') return d.toDateString() === tomorrow.toDateString();
-            if (key === 'week') return d >= today && d < weekEnd;
+            const [y, m, d] = l.scheduledDate.split('-').map(Number);
+            const leadDate = new Date(y, m - 1, d);
+            if (key === 'today') return leadDate.toDateString() === today.toDateString();
+            if (key === 'tomorrow') return leadDate.toDateString() === tomorrow.toDateString();
+            if (key === 'week') return leadDate >= today && leadDate < weekEnd;
             return false;
         }).length;
     };
@@ -245,38 +250,59 @@ const Dashboard = () => {
                 </div>
             </section>
 
-            {/* Diagnostics (Hidden by default, shown if leads are missing) */}
-            {leads.length > 0 && agendaLeads.length === 0 && (
-                <section className="mt-8 p-4 animate-in" style={{ background: '#fefce8', border: '1px solid #fef08a', borderRadius: 12 }}>
-                    <div className="flex items-center gap-2 mb-3" style={{ color: '#854d0e', fontSize: '0.85rem' }}>
-                        <AlertTriangle size={16} />
-                        <strong>Verificação de Dados:</strong>
+            {/* Diagnostics (Shown if agenda is empty to help debug) */}
+            {agendaLeads.length === 0 && (
+                <section className="mt-8 p-5 animate-in" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 16 }}>
+                    <div className="flex items-center gap-2 mb-4" style={{ color: 'var(--text-secondary)' }}>
+                        <Zap size={18} color="var(--accent)" />
+                        <strong style={{ fontSize: '1rem' }}>Painel de Suporte</strong>
                     </div>
-                    <div className="flex-col gap-2">
-                        <p className="text-xs" style={{ color: '#854d0e' }}>
-                            Total no sistema: <strong>{leads.length}</strong> interessados.
-                        </p>
-                        <div className="mt-2 text-xs" style={{ maxHeight: 150, overflowY: 'auto', background: 'rgba(255,255,255,0.5)', padding: 8, borderRadius: 6 }}>
-                            <p style={{ fontWeight: 700, marginBottom: 4 }}>Lista Recente e Status:</p>
-                            {leads.slice(0, 10).map(l => (
-                                <div key={l.id} className="flex justify-between py-1 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-                                    <span>{l.name}</span>
-                                    <span style={{ fontWeight: 600 }}>{l.status || '(sem status)'}</span>
-                                </div>
-                            ))}
+
+                    <div className="flex-col gap-3">
+                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
+                            <span className="text-small">Academia ID:</span>
+                            <span className="text-xs font-mono" style={{ background: '#cbd5e1', padding: '2px 6px', borderRadius: 4 }}>
+                                {academyId?.slice(-8) || 'Não definido'}
+                            </span>
                         </div>
-                        <p className="mt-3 text-xs" style={{ color: '#854d0e', lineHeight: 1.4 }}>
-                            💡 Se o nome cadastrado aparece acima mas não na agenda, o status dele pode estar como "Novo" em vez de "Agendado".
-                        </p>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                        <button
-                            className="btn-primary flex-1"
-                            style={{ minHeight: 40, fontSize: '0.85rem' }}
-                            onClick={handleRefresh}
-                        >
-                            Sincronizar Dados 🔄
-                        </button>
+                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
+                            <span className="text-small">Total no Sistema:</span>
+                            <strong className="text-small">{leads.length} interessados</strong>
+                        </div>
+
+                        {leads.length > 0 && (
+                            <div className="mt-3">
+                                <p className="text-xs mb-2" style={{ fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Últimos cadastros (Qualquer status):</p>
+                                <div className="flex-col gap-1" style={{ maxHeight: 150, overflowY: 'auto' }}>
+                                    {[...leads].slice(0, 8).map(l => (
+                                        <div key={l.id} className="flex justify-between py-1 text-xs border-b last:border-0" style={{ borderColor: '#e2e8f0' }}>
+                                            <div className="flex-col">
+                                                <span>{l.name}</span>
+                                                <span className="text-muted" style={{ fontSize: '0.6rem' }}>{l.scheduledDate || 'Sem data'} {l.scheduledTime}</span>
+                                            </div>
+                                            <span className={`badge ${l.status === LEAD_STATUS.SCHEDULED ? 'badge-primary' : 'badge-secondary'}`} style={{ height: 18, fontSize: '0.65rem' }}>
+                                                {l.status || 'Sem status'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-4 p-3 bg-white" style={{ borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                {leads.length === 0
+                                    ? "Nenhum dado encontrado. Clique no botão abaixo para tentar forçar uma nova busca na nuvem."
+                                    : "Se o interessado aparece na lista acima mas não na agenda, verifique se ele foi salvo como 'Agendado'."}
+                            </p>
+                            <button
+                                className="btn-secondary w-full mt-3"
+                                style={{ minHeight: 44, fontSize: '0.85rem' }}
+                                onClick={handleRefresh}
+                            >
+                                Sincronizar Agora 🔄
+                            </button>
+                        </div>
                     </div>
                 </section>
             )}
