@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Zap } from 'lucide-react';
+import { DB_ID, LEADS_COL } from '../lib/appwrite';
 
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
@@ -263,6 +264,18 @@ const Dashboard = () => {
                             <span className="text-small">Academia ID:</span>
                             <span className="text-xs font-mono" style={{ background: '#cbd5e1', padding: '2px 6px', borderRadius: 4 }}>
                                 {academyId?.slice(-8) || 'Não definido'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
+                            <span className="text-small">Database ID:</span>
+                            <span className="text-xs font-mono" style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
+                                {DB_ID?.slice(-8) || 'N/A'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
+                            <span className="text-small">Leads Col ID:</span>
+                            <span className="text-xs font-mono" style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
+                                {LEADS_COL?.slice(-8) || 'N/A'}
                             </span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
