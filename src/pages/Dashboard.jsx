@@ -37,9 +37,15 @@ const Dashboard = () => {
     weekEnd.setDate(today.getDate() + 7);
 
     // Agenda with date filter
-    const allScheduled = leads
+    const allScheduled = (leads || [])
         .filter(l => l.status === LEAD_STATUS.SCHEDULED)
-        .sort((a, b) => new Date(a.scheduledDate || a.createdAt) - new Date(b.scheduledDate || b.createdAt));
+        .sort((a, b) => {
+            const dateA = new Date(a.scheduledDate || a.createdAt);
+            const dateB = new Date(b.scheduledDate || b.createdAt);
+            if (isNaN(dateA)) return 1;
+            if (isNaN(dateB)) return -1;
+            return dateA - dateB;
+        });
 
     const agendaLeads = allScheduled.filter(lead => {
         if (dateFilter === 'all') return true;
@@ -241,23 +247,37 @@ const Dashboard = () => {
 
             {/* Diagnostics (Hidden by default, shown if leads are missing) */}
             {leads.length > 0 && agendaLeads.length === 0 && (
-                <section className="mt-8 p-4 bg-muted rounded animate-in" style={{ background: '#f1f5f9', borderRadius: 8 }}>
-                    <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                <section className="mt-8 p-4 animate-in" style={{ background: '#fefce8', border: '1px solid #fef08a', borderRadius: 12 }}>
+                    <div className="flex items-center gap-2 mb-3" style={{ color: '#854d0e', fontSize: '0.85rem' }}>
                         <AlertTriangle size={16} />
-                        <strong>Diagnóstico:</strong>
+                        <strong>Verificação de Dados:</strong>
                     </div>
-                    <p className="text-xs text-secondary">
-                        Total de leads: {leads.length} |
-                        Agendados: {leads.filter(l => l.status === LEAD_STATUS.SCHEDULED).length} |
-                        Novos: {leads.filter(l => l.status === LEAD_STATUS.NEW).length}
-                    </p>
-                    <button
-                        className="btn-outline mt-2"
-                        style={{ minHeight: 32, fontSize: '0.75rem', padding: '0 12px' }}
-                        onClick={handleRefresh}
-                    >
-                        Sincronizar Dados 🔄
-                    </button>
+                    <div className="flex-col gap-2">
+                        <p className="text-xs" style={{ color: '#854d0e' }}>
+                            Total no sistema: <strong>{leads.length}</strong> interessados.
+                        </p>
+                        <div className="mt-2 text-xs" style={{ maxHeight: 150, overflowY: 'auto', background: 'rgba(255,255,255,0.5)', padding: 8, borderRadius: 6 }}>
+                            <p style={{ fontWeight: 700, marginBottom: 4 }}>Lista Recente e Status:</p>
+                            {leads.slice(0, 10).map(l => (
+                                <div key={l.id} className="flex justify-between py-1 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+                                    <span>{l.name}</span>
+                                    <span style={{ fontWeight: 600 }}>{l.status || '(sem status)'}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-3 text-xs" style={{ color: '#854d0e', lineHeight: 1.4 }}>
+                            💡 Se o nome cadastrado aparece acima mas não na agenda, o status dele pode estar como "Novo" em vez de "Agendado".
+                        </p>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                        <button
+                            className="btn-primary flex-1"
+                            style={{ minHeight: 40, fontSize: '0.85rem' }}
+                            onClick={handleRefresh}
+                        >
+                            Sincronizar Dados 🔄
+                        </button>
+                    </div>
                 </section>
             )}
 
