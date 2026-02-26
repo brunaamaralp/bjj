@@ -132,9 +132,10 @@ export const useLeadStore = create((set, get) => ({
         createdAt: doc.$createdAt,
       };
 
+      console.log('✅ addLead success:', newLead);
       set((state) => ({ leads: [newLead, ...state.leads] }));
     } catch (e) {
-      console.error('addLead error:', e);
+      console.error('❌ addLead error:', e);
     }
   },
 
@@ -225,3 +226,9 @@ export const useLeadStore = create((set, get) => ({
 
   getLeadById: (id) => get().leads.find((l) => l.id === id),
 }));
+
+// Debug exposure
+if (typeof window !== 'undefined') {
+  window.useLeadStore = useLeadStore;
+  console.log('🥋 useLeadStore exposed to window');
+}
