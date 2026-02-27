@@ -101,6 +101,8 @@ export const useLeadStore = create((set, get) => ({
     const academyId = get().academyId;
     if (!academyId) return;
 
+    console.log('📝 addLead starting with LEADS_COL:', LEADS_COL);
+
     try {
       // Pack metadata into notes
       const notesData = {

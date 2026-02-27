@@ -12,5 +12,10 @@ export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a1
 export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID || "699f10500032d0fd5b80";
 export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "699f1068000e1b1ca1d2";
 
+console.log('🔌 Appwrite Config Loaded:');
+console.log('   - Database:', DB_ID);
+console.log('   - Leads Col:', LEADS_COL);
+console.log('   - Academies Col:', ACADEMIES_COL);
+
 export { client, account, databases };
 export default client;
