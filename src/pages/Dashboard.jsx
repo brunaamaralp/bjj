@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Zap } from 'lucide-react';
-import { DB_ID, LEADS_COL } from '../lib/appwrite';
-
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -15,7 +13,6 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId } = useLeadStore();
     const [dateFilter, setDateFilter] = useState('all');
-    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Fetch leads on mount if not already loaded or if returning to dashboard
     React.useEffect(() => {
@@ -23,12 +20,6 @@ const Dashboard = () => {
             fetchLeads();
         }
     }, [academyId]);
-
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        await fetchLeads();
-        setIsRefreshing(false);
-    };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -251,74 +242,7 @@ const Dashboard = () => {
                 </div>
             </section>
 
-            {/* Diagnostics (Shown if agenda is empty to help debug) */}
-            {agendaLeads.length === 0 && (
-                <section className="mt-8 p-5 animate-in" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 16 }}>
-                    <div className="flex items-center gap-2 mb-4" style={{ color: 'var(--text-secondary)' }}>
-                        <Zap size={18} color="var(--accent)" />
-                        <strong style={{ fontSize: '1rem' }}>Painel de Suporte</strong>
-                    </div>
 
-                    <div className="flex-col gap-3">
-                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
-                            <span className="text-small">Academia ID:</span>
-                            <span className="text-xs font-mono" style={{ background: '#cbd5e1', padding: '2px 6px', borderRadius: 4 }}>
-                                {academyId?.slice(-8) || 'Não definido'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
-                            <span className="text-small">Database ID:</span>
-                            <span className="text-xs font-mono" style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
-                                {DB_ID?.slice(-8) || 'N/A'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
-                            <span className="text-small">Leads Col ID:</span>
-                            <span className="text-xs font-mono" style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
-                                {LEADS_COL?.slice(-8) || 'N/A'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: '#e2e8f0' }}>
-                            <span className="text-small">Total no Sistema:</span>
-                            <strong className="text-small">{leads.length} interessados</strong>
-                        </div>
-
-                        {leads.length > 0 && (
-                            <div className="mt-3">
-                                <p className="text-xs mb-2" style={{ fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Últimos cadastros (Qualquer status):</p>
-                                <div className="flex-col gap-1" style={{ maxHeight: 150, overflowY: 'auto' }}>
-                                    {[...leads].slice(0, 8).map(l => (
-                                        <div key={l.id} className="flex justify-between py-1 text-xs border-b last:border-0" style={{ borderColor: '#e2e8f0' }}>
-                                            <div className="flex-col">
-                                                <span>{l.name}</span>
-                                                <span className="text-muted" style={{ fontSize: '0.6rem' }}>{l.scheduledDate || 'Sem data'} {l.scheduledTime}</span>
-                                            </div>
-                                            <span className={`badge ${l.status === LEAD_STATUS.SCHEDULED ? 'badge-primary' : 'badge-secondary'}`} style={{ height: 18, fontSize: '0.65rem' }}>
-                                                {l.status || 'Sem status'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-4 p-3 bg-white" style={{ borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                            <p className="text-xs" style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                {leads.length === 0
-                                    ? "Nenhum dado encontrado. Clique no botão abaixo para tentar forçar uma nova busca na nuvem."
-                                    : "Se o interessado aparece na lista acima mas não na agenda, verifique se ele foi salvo como 'Agendado'."}
-                            </p>
-                            <button
-                                className="btn-secondary w-full mt-3"
-                                style={{ minHeight: 44, fontSize: '0.85rem' }}
-                                onClick={handleRefresh}
-                            >
-                                Sincronizar Agora 🔄
-                            </button>
-                        </div>
-                    </div>
-                </section>
-            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `
