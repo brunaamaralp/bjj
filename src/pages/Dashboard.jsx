@@ -18,6 +18,7 @@ const Dashboard = () => {
     const [editLead, setEditLead] = useState(null);
     const [editDate, setEditDate] = useState('');
     const [editTime, setEditTime] = useState('');
+    const [editStatus, setEditStatus] = useState(LEAD_STATUS.SCHEDULED);
 
     // Fetch leads on mount if not already loaded or if returning to dashboard
     React.useEffect(() => {
@@ -40,6 +41,7 @@ const Dashboard = () => {
         setEditLead(lead);
         setEditDate(lead.scheduledDate || '');
         setEditTime(lead.scheduledTime || '');
+        setEditStatus(lead.status || LEAD_STATUS.SCHEDULED);
         setEditOpen(true);
     };
 
@@ -54,7 +56,18 @@ const Dashboard = () => {
         if (!editLead) return;
         await useLeadStore.getState().updateLead(editLead.id, {
             scheduledDate: editDate,
-            scheduledTime: editTime
+            scheduledTime: editTime,
+            status: editStatus
+        });
+        closeEdit();
+    };
+
+    const removeSchedule = async () => {
+        if (!editLead) return;
+        await useLeadStore.getState().updateLead(editLead.id, {
+            scheduledDate: '',
+            scheduledTime: '',
+            status: LEAD_STATUS.NEW
         });
         closeEdit();
     };
@@ -301,7 +314,19 @@ const Dashboard = () => {
                                 <input type="time" className="form-input" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
                             </div>
                         </div>
+                        <div className="form-group mt-2">
+                            <label>Status</label>
+                            <select className="form-input" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                                <option value={LEAD_STATUS.NEW}>Novo</option>
+                                <option value={LEAD_STATUS.SCHEDULED}>Agendado</option>
+                                <option value={LEAD_STATUS.COMPLETED}>Compareceu</option>
+                                <option value={LEAD_STATUS.MISSED}>Não Compareceu</option>
+                                <option value={LEAD_STATUS.CONVERTED}>Matriculado</option>
+                                <option value={LEAD_STATUS.LOST}>Não fechou</option>
+                            </select>
+                        </div>
                         <div className="edit-actions">
+                            <button className="btn-outline danger-outline" onClick={removeSchedule} title="Remover agendamento e voltar para Novo">Remover agendamento</button>
                             <button className="btn-outline" onClick={closeEdit}>Cancelar</button>
                             <button className="btn-secondary" onClick={saveEdit}>Salvar</button>
                         </div>
@@ -370,6 +395,7 @@ const Dashboard = () => {
           padding: 16px; box-shadow: var(--shadow);
         }
         .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+        .danger-outline { border-color: var(--danger) !important; color: var(--danger) !important; }
       `}} />
         </div>
     );
