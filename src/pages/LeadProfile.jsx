@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
-import { ArrowLeft, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check } from 'lucide-react';
+import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { ArrowLeft, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save } from 'lucide-react';
 
 const STATUS_CONFIG = {
     [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
@@ -55,6 +55,21 @@ const LeadProfile = () => {
     const [note, setNote] = useState('');
     const [showTemplates, setShowTemplates] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
+    const [editing, setEditing] = useState(false);
+    const [form, setForm] = useState({
+        name: '',
+        phone: '',
+        type: 'Adulto',
+        origin: '',
+        parentName: '',
+        age: '',
+        isFirstExperience: 'Sim',
+        belt: '',
+        borrowedKimono: '',
+        borrowedShirt: '',
+        scheduledDate: '',
+        scheduledTime: ''
+    });
 
     if (!lead) return (
         <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
@@ -62,6 +77,39 @@ const LeadProfile = () => {
             <button className="btn-primary mt-4" onClick={() => navigate('/')}>Voltar</button>
         </div>
     );
+
+    const startEdit = () => {
+        setForm({
+            name: lead.name || '',
+            phone: lead.phone || '',
+            type: lead.type || 'Adulto',
+            origin: lead.origin || '',
+            parentName: lead.parentName || '',
+            age: lead.age || '',
+            isFirstExperience: lead.isFirstExperience || 'Sim',
+            belt: lead.belt || '',
+            borrowedKimono: lead.borrowedKimono || '',
+            borrowedShirt: lead.borrowedShirt || '',
+            scheduledDate: lead.scheduledDate || '',
+            scheduledTime: lead.scheduledTime || ''
+        });
+        setEditing(true);
+    };
+
+    const cancelEdit = () => {
+        setEditing(false);
+    };
+
+    const onChange = (e) => {
+        const { name, value } = e.target;
+        setForm((f) => ({ ...f, [name]: value }));
+    };
+
+    const handleSave = async () => {
+        const payload = { ...form };
+        await updateLead(id, payload);
+        setEditing(false);
+    };
 
     const handleUpdateStatus = (newStatus) => {
         updateLead(id, { status: newStatus });
@@ -101,17 +149,106 @@ const LeadProfile = () => {
             <div className="flex items-center gap-4">
                 <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
                 <h2>Perfil</h2>
+                {!editing ? (
+                    <button className="btn-outline" style={{ marginLeft: 'auto' }} onClick={startEdit}>
+                        <Pencil size={16} /> Editar
+                    </button>
+                ) : (
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                        <button className="btn-outline" onClick={cancelEdit}><X size={16} /> Cancelar</button>
+                        <button className="btn-secondary" onClick={handleSave}><Save size={16} /> Salvar</button>
+                    </div>
+                )}
             </div>
 
             {/* Header Card */}
             <div className="card mt-4 animate-in profile-header">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h2 style={{ fontSize: '1.3rem', color: 'var(--text)' }}>{lead.name}</h2>
-                        <p className="text-small mt-1">
-                            {lead.type} • {lead.origin}
-                            {lead.age && ` • ${lead.age} anos`}
-                        </p>
+                        {!editing ? (
+                            <>
+                                <h2 style={{ fontSize: '1.3rem', color: 'var(--text)' }}>{lead.name}</h2>
+                                <p className="text-small mt-1">
+                                    {lead.type} • {lead.origin}
+                                    {lead.age && ` • ${lead.age} anos`}
+                                </p>
+                            </>
+                        ) : (
+                            <div className="flex-col gap-3">
+                                <div className="form-group">
+                                    <label>Nome</label>
+                                    <input name="name" value={form.name} onChange={onChange} className="form-input" />
+                                </div>
+                                <div className="form-group mt-2">
+                                    <label>Telefone</label>
+                                    <input name="phone" value={form.phone} onChange={onChange} className="form-input" type="tel" />
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Perfil</label>
+                                        <select name="type" value={form.type} onChange={onChange} className="form-input">
+                                            <option value="Criança">Criança</option>
+                                            <option value="Juniores">Juniores</option>
+                                            <option value="Adulto">Adulto</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Origem</label>
+                                        <select name="origin" value={form.origin} onChange={onChange} className="form-input">
+                                            {LEAD_ORIGIN.map(o => <option key={o} value={o}>{o}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                {(form.type === 'Criança' || form.type === 'Juniores') && (
+                                    <div className="flex gap-2 mt-2">
+                                        <div className="form-group" style={{ flex: 1 }}>
+                                            <label>Responsável</label>
+                                            <input name="parentName" value={form.parentName} onChange={onChange} className="form-input" />
+                                        </div>
+                                        <div className="form-group" style={{ flex: 1 }}>
+                                            <label>Idade</label>
+                                            <input name="age" value={form.age} onChange={onChange} type="number" className="form-input" />
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex gap-4 mt-2">
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Primeira experiência?</label>
+                                        <select name="isFirstExperience" value={form.isFirstExperience} onChange={onChange} className="form-input">
+                                            <option value="Sim">Sim</option>
+                                            <option value="Não">Não</option>
+                                        </select>
+                                    </div>
+                                    {form.isFirstExperience === 'Não' && (
+                                        <div className="form-group" style={{ flex: 1 }}>
+                                            <label>Faixa</label>
+                                            <select name="belt" value={form.belt} onChange={onChange} className="form-input">
+                                                <option value="">Selecione</option>
+                                                <option value="Branca">Branca</option>
+                                                <option value="Cinza">Cinza</option>
+                                                <option value="Amarela">Amarela</option>
+                                                <option value="Laranja">Laranja</option>
+                                                <option value="Verde">Verde</option>
+                                                <option value="Azul">Azul</option>
+                                                <option value="Roxa">Roxa</option>
+                                                <option value="Marrom">Marrom</option>
+                                                <option value="Preta">Preta</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Tam. Kimono</label>
+                                        <input name="borrowedKimono" value={form.borrowedKimono} onChange={onChange} className="form-input" />
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Tam. Camiseta</label>
+                                        <input name="borrowedShirt" value={form.borrowedShirt} onChange={onChange} className="form-input" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {(lead.parentName) && (
                             <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -119,28 +256,43 @@ const LeadProfile = () => {
                             </p>
                         )}
 
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            <span className="info-badge">
-                                {lead.isFirstExperience === 'Sim' ? 'Iniciante' : `Já treina (${lead.belt})`}
-                            </span>
-                            {lead.borrowedKimono && (
-                                <span className="info-badge" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
-                                    Kimono: {lead.borrowedKimono}
+                        {!editing ? (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                <span className="info-badge">
+                                    {lead.isFirstExperience === 'Sim' ? 'Iniciante' : `Já treina (${lead.belt})`}
                                 </span>
-                            )}
-                            {lead.borrowedShirt && (
-                                <span className="info-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                                    Camiseta: {lead.borrowedShirt}
-                                </span>
-                            )}
-                        </div>
+                                {lead.borrowedKimono && (
+                                    <span className="info-badge" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
+                                        Kimono: {lead.borrowedKimono}
+                                    </span>
+                                )}
+                                {lead.borrowedShirt && (
+                                    <span className="info-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                                        Camiseta: {lead.borrowedShirt}
+                                    </span>
+                                )}
+                            </div>
+                        ) : null}
 
-                        {lead.scheduledDate && (
-                            <div className="flex items-center gap-2 mt-3">
-                                <Clock size={14} color="var(--accent)" />
-                                <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                                    {lead.scheduledTime || '--:--'} — {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                                </span>
+                        {!editing ? (
+                            lead.scheduledDate && (
+                                <div className="flex items-center gap-2 mt-3">
+                                    <Clock size={14} color="var(--accent)" />
+                                    <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                                        {lead.scheduledTime || '--:--'} — {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                    </span>
+                                </div>
+                            )
+                        ) : (
+                            <div className="flex gap-2 mt-3">
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label>Data</label>
+                                    <input name="scheduledDate" value={form.scheduledDate} onChange={onChange} type="date" className="form-input" />
+                                </div>
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label>Horário</label>
+                                    <input name="scheduledTime" value={form.scheduledTime} onChange={onChange} type="time" className="form-input" />
+                                </div>
                             </div>
                         )}
                     </div>

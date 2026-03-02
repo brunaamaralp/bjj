@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Pencil } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -14,6 +14,10 @@ const Dashboard = () => {
     const { leads, loading, fetchLeads, academyId } = useLeadStore();
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editLead, setEditLead] = useState(null);
+    const [editDate, setEditDate] = useState('');
+    const [editTime, setEditTime] = useState('');
 
     // Fetch leads on mount if not already loaded or if returning to dashboard
     React.useEffect(() => {
@@ -30,6 +34,29 @@ const Dashboard = () => {
         } finally {
             setTimeout(() => setIsRefreshing(false), 300);
         }
+    };
+
+    const openEdit = (lead) => {
+        setEditLead(lead);
+        setEditDate(lead.scheduledDate || '');
+        setEditTime(lead.scheduledTime || '');
+        setEditOpen(true);
+    };
+
+    const closeEdit = () => {
+        setEditOpen(false);
+        setEditLead(null);
+        setEditDate('');
+        setEditTime('');
+    };
+
+    const saveEdit = async () => {
+        if (!editLead) return;
+        await useLeadStore.getState().updateLead(editLead.id, {
+            scheduledDate: editDate,
+            scheduledTime: editTime
+        });
+        closeEdit();
     };
 
     const today = new Date();
@@ -167,6 +194,13 @@ const Dashboard = () => {
                                     <div className="flex items-center gap-2" style={{ justifyContent: 'flex-end' }}>
                                         <Clock size={14} color="var(--accent)" />
                                         <strong style={{ color: 'var(--accent)', fontSize: '1.05rem' }}>{lead.scheduledTime || '--:--'}</strong>
+                                        <button
+                                            className="edit-time-btn"
+                                            onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
+                                            title="Editar agendamento"
+                                        >
+                                            <Pencil size={14} />
+                                        </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
                                 </div>
@@ -253,8 +287,27 @@ const Dashboard = () => {
                 </div>
             </section>
 
-
-
+            {editOpen && (
+                <div className="edit-modal-overlay" onClick={closeEdit}>
+                    <div className="edit-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3 style={{ marginBottom: 8 }}>Editar Agendamento</h3>
+                        <div className="flex gap-2">
+                            <div className="form-group" style={{ flex: 1 }}>
+                                <label>Data</label>
+                                <input type="date" className="form-input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                            </div>
+                            <div className="form-group" style={{ flex: 1 }}>
+                                <label>Horário</label>
+                                <input type="time" className="form-input" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="edit-actions">
+                            <button className="btn-outline" onClick={closeEdit}>Cancelar</button>
+                            <button className="btn-secondary" onClick={saveEdit}>Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <style dangerouslySetInnerHTML={{
                 __html: `
         .agenda-card { border-left: 4px solid var(--accent); }
@@ -301,6 +354,22 @@ const Dashboard = () => {
         .refresh-btn:disabled { opacity: 0.5; }
         .spin-refresh { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .edit-time-btn { 
+          width: 28px; height: 28px; border-radius: 50%; 
+          background: var(--border-light); color: var(--text-muted);
+          display: inline-flex; align-items: center; justify-content: center;
+          border: none; cursor: pointer;
+        }
+        .edit-time-btn:hover { background: var(--border); }
+        .edit-modal-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 300;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .edit-modal {
+          background: var(--surface); border-radius: var(--radius); width: 92%; max-width: 420px;
+          padding: 16px; box-shadow: var(--shadow);
+        }
+        .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
       `}} />
         </div>
     );
