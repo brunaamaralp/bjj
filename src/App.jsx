@@ -119,7 +119,7 @@ const App = () => {
       <header className="main-header">
         <div className="container flex justify-between items-center gap-4">
           <h1 className="header-logo" onClick={() => navigate('/')}>
-            <Shield size={24} style={{ marginRight: 8, display: 'inline-block', verticalAlign: 'middle' }} /> BJJ CRM
+            <Shield size={24} style={{ marginRight: 8, display: 'inline-block', verticalAlign: 'middle' }} /> BJJ Manager
           </h1>
         </div>
       </header>
@@ -187,7 +187,8 @@ const App = () => {
             bottom: 0;
             left: 0;
             right: 0;
-            background: var(--surface);
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: saturate(180%) blur(12px);
             display: flex;
             justify-content: space-around;
             align-items: center;

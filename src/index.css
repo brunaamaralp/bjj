@@ -162,9 +162,9 @@ button:active {
 }
 
 .btn-outline:hover {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: var(--danger-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
 }
 
 .btn-large {

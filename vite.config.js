@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['vite.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Jiu Jitsu CRM',
-        short_name: 'BJJ CRM',
-        description: 'CRM para escolas de Jiu Jitsu',
+        name: 'BJJ Manager',
+        short_name: 'BJJ Manager',
+        description: 'Gestão moderna para academias de Jiu-Jitsu',
         theme_color: '#0f172a',
         background_color: '#ffffff',
         display: 'standalone',
