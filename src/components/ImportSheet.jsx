@@ -83,7 +83,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                 }
 
                 setRows(transformed);
-            } catch (err) {
+            } catch {
                 setError('Erro ao ler o arquivo. Verifique o formato.');
             }
         };

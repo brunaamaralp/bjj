@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { authService } from '../lib/auth';
-import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Shield } from 'lucide-react';
 
 const Login = ({ onLogin }) => {
     const [isRegister, setIsRegister] = useState(false);
@@ -38,7 +38,9 @@ const Login = ({ onLogin }) => {
     return (
         <div className="login-page">
             <div className="login-card">
-                <div className="login-logo">🥋</div>
+                <div className="login-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                    <Shield size={48} color="var(--accent)" />
+                </div>
                 <h1 className="login-title">BJJ CRM</h1>
                 <p className="login-subtitle">
                     {isRegister ? 'Crie sua conta' : 'Acesse sua conta'}

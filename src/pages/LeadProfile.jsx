@@ -20,28 +20,28 @@ const getTemplates = (lead) => {
     return [
         {
             id: 'confirm',
-            label: '✅ Confirmar Aula',
-            text: `Olá ${name}! 😊 Confirmando sua aula experimental ${dateStr ? `no dia ${dateStr}` : ''}${timeStr ? ` às ${timeStr}` : ''}. Venha com roupa confortável! Qualquer dúvida, estamos à disposição. 🥋`,
+            label: 'Confirmar Aula',
+            text: `Olá ${name}! Confirmando sua aula experimental ${dateStr ? `no dia ${dateStr}` : ''}${timeStr ? ` às ${timeStr}` : ''}. Venha com roupa confortável! Qualquer dúvida, estamos à disposição.`,
         },
         {
             id: 'reminder',
-            label: '⏰ Lembrete',
-            text: `Oi ${name}! Passando para lembrar da sua aula experimental ${dateStr ? `amanhã (${dateStr})` : 'amanhã'}${timeStr ? ` às ${timeStr}` : ''}. Estamos te esperando! 💪`,
+            label: 'Lembrete',
+            text: `Oi ${name}! Passando para lembrar da sua aula experimental ${dateStr ? `amanhã (${dateStr})` : 'amanhã'}${timeStr ? ` às ${timeStr}` : ''}. Estamos te esperando!`,
         },
         {
             id: 'post_class',
-            label: '🎉 Pós-Aula',
-            text: `${name}, foi um prazer ter você na nossa academia! 🥋 O que achou da aula? Temos condições especiais para matrícula essa semana. Posso te passar mais informações?`,
+            label: 'Pós-Aula',
+            text: `${name}, foi um prazer ter você na nossa academia! O que achou da aula? Temos condições especiais para matrícula essa semana. Posso te passar mais informações?`,
         },
         {
             id: 'missed',
-            label: '😢 Não Compareceu',
-            text: `Oi ${name}! Sentimos sua falta na aula experimental. 😕 Sei que imprevistos acontecem! Quer remarcar para outro dia? Estamos com horários disponíveis essa semana. 🥋`,
+            label: 'Não Compareceu',
+            text: `Oi ${name}! Sentimos sua falta na aula experimental. Sei que imprevistos acontecem! Quer remarcar para outro dia? Estamos com horários disponíveis essa semana.`,
         },
         {
             id: 'recovery',
-            label: '🔄 Recuperação',
-            text: `Olá ${name}! Tudo bem? 😊 Vi que você visitou nossa academia recentemente. Ainda tem interesse em começar no Jiu-Jitsu? Temos turmas nos horários da manhã e noite. Vou adorar ajudar! 💪`,
+            label: 'Recuperação',
+            text: `Olá ${name}! Tudo bem? Vi que você visitou nossa academia recentemente. Ainda tem interesse em começar no Jiu-Jitsu? Temos turmas nos horários da manhã e noite. Vou adorar ajudar!`,
         },
     ];
 };
@@ -115,22 +115,22 @@ const LeadProfile = () => {
 
                         {(lead.parentName) && (
                             <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                👤 Responsável: <strong>{lead.parentName}</strong>
+                                Responsável: <strong>{lead.parentName}</strong>
                             </p>
                         )}
 
                         <div className="flex flex-wrap gap-2 mt-2">
                             <span className="info-badge">
-                                {lead.isFirstExperience === 'Sim' ? '🔰 Iniciante' : `🥋 Já treina (${lead.belt})`}
+                                {lead.isFirstExperience === 'Sim' ? 'Iniciante' : `Já treina (${lead.belt})`}
                             </span>
                             {lead.borrowedKimono && (
                                 <span className="info-badge" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
-                                    👘 Kimono: {lead.borrowedKimono}
+                                    Kimono: {lead.borrowedKimono}
                                 </span>
                             )}
                             {lead.borrowedShirt && (
                                 <span className="info-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                                    👕 Camiseta: {lead.borrowedShirt}
+                                    Camiseta: {lead.borrowedShirt}
                                 </span>
                             )}
                         </div>

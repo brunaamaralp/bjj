@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL } from './lib/appwrite';
 import { ID, Query } from 'appwrite';
@@ -19,7 +19,6 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const setAcademyId = useLeadStore((s) => s.setAcademyId);
-  const fetchLeads = useLeadStore((s) => s.fetchLeads);
 
   const isActive = (path) => location.pathname === path;
 
@@ -92,7 +91,9 @@ const App = () => {
         background: 'var(--primary-gradient)',
       }}>
         <div style={{ textAlign: 'center', color: 'white' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 12 }}>🥋</div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+            <Shield size={48} color="white" />
+          </div>
           <div className="spinner-white" />
         </div>
         <style dangerouslySetInnerHTML={{
@@ -118,7 +119,7 @@ const App = () => {
       <header className="main-header">
         <div className="container flex justify-between items-center gap-4">
           <h1 className="header-logo" onClick={() => navigate('/')}>
-            🥋 BJJ CRM
+            <Shield size={24} style={{ marginRight: 8, display: 'inline-block', verticalAlign: 'middle' }} /> BJJ CRM
           </h1>
         </div>
       </header>

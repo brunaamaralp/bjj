@@ -2,9 +2,9 @@
 
 :root {
   /* Primary Palette */
-  --primary: #0A1628;
-  --primary-light: #1A2D4A;
-  --primary-gradient: linear-gradient(135deg, #0A1628 0%, #1A3A5C 100%);
+  --primary: #09111C;
+  --primary-light: #15263B;
+  --primary-gradient: linear-gradient(135deg, #09111C 0%, #15263B 100%);
 
   /* Accent Colors */
   --accent: #3B82F6;
@@ -38,10 +38,10 @@
   --text-muted: #94A3B8;
 
   /* Effects */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
-  --shadow-accent: 0 4px 14px rgba(59, 130, 246, 0.25);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
+  --shadow-accent: 0 6px 20px rgba(59, 130, 246, 0.25);
   --radius: 16px;
   --radius-sm: 10px;
   --radius-full: 50px;

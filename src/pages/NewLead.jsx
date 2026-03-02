@@ -175,7 +175,7 @@ const NewLead = () => {
 
                 {/* Equipamento */}
                 <div className="card animate-in" style={{ animationDelay: '0.14s' }}>
-                    <label className="type-label">🥋 Equipamento Emprestado</label>
+                    <label className="type-label">Equipamento Emprestado</label>
                     <div className="flex gap-4 mt-2">
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Tamanho Kimono</label>
@@ -190,7 +190,7 @@ const NewLead = () => {
 
                 {/* Agendamento */}
                 <div className="card animate-in" style={{ animationDelay: '0.15s' }}>
-                    <label className="type-label" style={{ marginBottom: 12 }}>📅 Agendar Aula Experimental</label>
+                    <label className="type-label" style={{ marginBottom: 12 }}>Agendar Aula Experimental</label>
                     <div className="flex gap-2">
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Data</label>

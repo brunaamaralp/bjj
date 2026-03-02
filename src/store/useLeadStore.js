@@ -51,7 +51,7 @@ export const useLeadStore = create((set, get) => ({
               borrowedKimono = parsed.borrowedKimono || '';
               borrowedShirt = parsed.borrowedShirt || '';
             }
-          } catch (e) {
+          } catch {
             console.warn('Notes parse error, treating as empty history');
           }
         }

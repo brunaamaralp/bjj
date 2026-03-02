@@ -13,6 +13,7 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId } = useLeadStore();
     const [dateFilter, setDateFilter] = useState('all');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Fetch leads on mount if not already loaded or if returning to dashboard
     React.useEffect(() => {
@@ -20,6 +21,16 @@ const Dashboard = () => {
             fetchLeads();
         }
     }, [academyId]);
+
+    const handleRefresh = async () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        try {
+            await fetchLeads();
+        } finally {
+            setTimeout(() => setIsRefreshing(false), 300);
+        }
+    };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -65,10 +76,10 @@ const Dashboard = () => {
         .sort((a, b) => b.daysAgo - a.daysAgo);
 
     const getUrgency = (days) => {
-        if (days >= 5) return { level: 'critical', label: '⚠️ Urgente', color: 'var(--danger)' };
-        if (days >= 3) return { level: 'high', label: '🔴 Atenção', color: 'var(--warning)' };
-        if (days >= 1) return { level: 'medium', label: '🟡 Acompanhar', color: 'var(--accent)' };
-        return { level: 'low', label: '🟢 Recente', color: 'var(--success)' };
+        if (days >= 5) return { level: 'critical', label: 'Urgente', color: 'var(--danger)' };
+        if (days >= 3) return { level: 'high', label: 'Atenção', color: 'var(--warning)' };
+        if (days >= 1) return { level: 'medium', label: 'Acompanhar', color: 'var(--accent)' };
+        return { level: 'low', label: 'Recente', color: 'var(--success)' };
     };
 
     const formatDate = (dateStr) => {
@@ -95,7 +106,7 @@ const Dashboard = () => {
 
     const handleWhatsApp = (phone, name) => {
         const cleanPhone = phone.replace(/\D/g, '');
-        const msg = encodeURIComponent(`Olá ${name}! Tudo bem? 😊 Estamos entrando em contato sobre sua aula experimental. Podemos conversar?`);
+        const msg = encodeURIComponent(`Olá ${name}! Tudo bem? Estamos entrando em contato sobre sua aula experimental. Podemos conversar?`);
         window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
     };
 
@@ -190,7 +201,7 @@ const Dashboard = () => {
             <section className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        🔔 Follow-ups Pendentes
+                        Follow-ups Pendentes
                     </h3>
                     <span className="badge badge-secondary">{followUps.length}</span>
                 </div>
@@ -236,7 +247,7 @@ const Dashboard = () => {
                         );
                     }) : (
                         <div className="empty-state">
-                            <p>Nada pendente por agora. 🎉</p>
+                            <p>Nada pendente por agora.</p>
                         </div>
                     )}
                 </div>
