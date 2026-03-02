@@ -10,6 +10,17 @@ const TYPE_ICONS = {
     'Adulto': <Dumbbell size={20} />,
 };
 
+const COMMON_TIMES = ['07:00', '08:00', '12:00', '18:00', '19:00', '20:00'];
+const nextQuarterTime = () => {
+    const d = new Date();
+    let m = d.getMinutes();
+    const add = 15 - (m % 15 || 15);
+    d.setMinutes(m + add, 0, 0);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+};
+
 const NewLead = () => {
     const navigate = useNavigate();
     const addLead = useLeadStore((state) => state.addLead);
@@ -17,7 +28,7 @@ const NewLead = () => {
     const academyId = useLeadStore((state) => state.academyId);
     const [submitting, setSubmitting] = useState(false);
 
-    const { register, handleSubmit, watch, formState: { errors } } = useForm({
+    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
         defaultValues: {
             type: 'Adulto',
             origin: 'Instagram',
@@ -206,9 +217,25 @@ const NewLead = () => {
                             <input
                                 {...register('scheduledTime', { required: true })}
                                 type="time"
+                                step="300"
                                 className="form-input"
                             />
                             {errors.scheduledTime && <span className="error">Obrigatório</span>}
+                            <div className="time-chips mt-2">
+                                <button type="button" className="time-chip" onClick={() => setValue('scheduledTime', nextQuarterTime())}>
+                                    Próximo
+                                </button>
+                                {COMMON_TIMES.map(t => (
+                                    <button
+                                        key={t}
+                                        type="button"
+                                        className={`time-chip ${watch('scheduledTime') === t ? 'active' : ''}`}
+                                        onClick={() => setValue('scheduledTime', t)}
+                                    >
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -246,6 +273,13 @@ const NewLead = () => {
           font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); 
           text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; 
         }
+        .time-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .time-chip {
+          min-height: 32px; padding: 6px 10px; border-radius: var(--radius-full);
+          background: var(--surface-hover); border: 1px solid var(--border);
+          font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
+        }
+        .time-chip.active, .time-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
         .type-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .type-option {
           display: flex; flex-direction: column; align-items: center; justify-content: center;

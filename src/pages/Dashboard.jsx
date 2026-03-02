@@ -8,6 +8,16 @@ const DAY_FILTERS = [
     { key: 'week', label: 'Semana' },
     { key: 'all', label: 'Todos' },
 ];
+const COMMON_TIMES = ['07:00', '08:00', '12:00', '18:00', '19:00', '20:00'];
+const nextQuarterTime = () => {
+    const d = new Date();
+    let m = d.getMinutes();
+    const add = 15 - (m % 15 || 15);
+    d.setMinutes(m + add, 0, 0);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+};
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -211,8 +221,9 @@ const Dashboard = () => {
                                             className="edit-time-btn"
                                             onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
                                             title="Editar agendamento"
+                                            aria-label="Editar agendamento"
                                         >
-                                            <Pencil size={14} />
+                                            <Pencil size={16} />
                                         </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
@@ -311,7 +322,22 @@ const Dashboard = () => {
                             </div>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label>Horário</label>
-                                <input type="time" className="form-input" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+                                <input type="time" step="300" className="form-input" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+                                <div className="time-chips mt-2">
+                                    <button type="button" className="time-chip" onClick={() => setEditTime(nextQuarterTime())}>
+                                        Próximo
+                                    </button>
+                                    {COMMON_TIMES.map(t => (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            className={`time-chip ${editTime === t ? 'active' : ''}`}
+                                            onClick={() => setEditTime(t)}
+                                        >
+                                            {t}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                         <div className="form-group mt-2">
@@ -380,12 +406,15 @@ const Dashboard = () => {
         .spin-refresh { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .edit-time-btn { 
-          width: 28px; height: 28px; border-radius: 50%; 
-          background: var(--border-light); color: var(--text-muted);
+          width: 32px; height: 32px; border-radius: 50%;
+          background: var(--surface); color: var(--accent);
           display: inline-flex; align-items: center; justify-content: center;
-          border: none; cursor: pointer;
+          border: 1.5px solid var(--accent); cursor: pointer;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+          transition: var(--transition);
         }
-        .edit-time-btn:hover { background: var(--border); }
+        .edit-time-btn:hover { background: var(--accent); color: #fff; }
+        .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .edit-modal-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 300;
           display: flex; align-items: center; justify-content: center;
@@ -396,6 +425,13 @@ const Dashboard = () => {
         }
         .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
         .danger-outline { border-color: var(--danger) !important; color: var(--danger) !important; }
+        .time-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .time-chip {
+          min-height: 30px; padding: 6px 10px; border-radius: var(--radius-full);
+          background: var(--surface-hover); border: 1px solid var(--border);
+          font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);
+        }
+        .time-chip.active, .time-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
       `}} />
         </div>
     );
