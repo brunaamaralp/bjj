@@ -223,7 +223,7 @@ const Dashboard = () => {
                                             title="Editar agendamento"
                                             aria-label="Editar agendamento"
                                         >
-                                            <Pencil size={16} />
+                                            <Pencil size={18} strokeWidth={2.25} />
                                         </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
@@ -407,14 +407,15 @@ const Dashboard = () => {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .edit-time-btn { 
           width: 32px; height: 32px; border-radius: 50%;
-          background: var(--surface); color: var(--accent);
+          background: var(--accent); color: #fff;
           display: inline-flex; align-items: center; justify-content: center;
-          border: 1.5px solid var(--accent); cursor: pointer;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-          transition: var(--transition);
+          border: none; cursor: pointer;
+          box-shadow: 0 4px 16px rgba(35, 99, 255, 0.22);
+          transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
-        .edit-time-btn:hover { background: var(--accent); color: #fff; }
-        .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .edit-time-btn:hover { filter: brightness(0.96); }
+        .edit-time-btn:active { transform: translateY(1px); }
+        .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(35,99,255,0.16); }
         .edit-modal-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 300;
           display: flex; align-items: center; justify-content: center;

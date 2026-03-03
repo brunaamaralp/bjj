@@ -8,7 +8,7 @@ const Account = ({ user, onLogout }) => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
 
-    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '' });
+    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '' });
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -22,6 +22,7 @@ const Account = ({ user, onLogout }) => {
                 phone: doc.phone || '',
                 email: doc.email || '',
                 address: doc.address || '',
+                quickTimes: doc.quickTimes || '',
             }))
             .catch(e => console.error('fetch academy:', e));
     }, [academyId]);
@@ -39,6 +40,7 @@ const Account = ({ user, onLogout }) => {
                 phone: academy.phone,
                 email: academy.email,
                 address: academy.address,
+                quickTimes: academy.quickTimes || '',
             });
             setEditing(false);
         } catch (e) {
@@ -127,6 +129,13 @@ const Account = ({ user, onLogout }) => {
                                     onChange={e => setAcademy({ ...academy, address: e.target.value })}
                                     placeholder="Rua, número, bairro" />
                             </div>
+                            <div className="form-group">
+                                <label>Horários rápidos (reagendar)</label>
+                                <input className="form-input" value={academy.quickTimes}
+                                    onChange={e => setAcademy({ ...academy, quickTimes: e.target.value })}
+                                    placeholder="Ex: 18:00, 19:00, 20:00" />
+                                <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de “Não Compareceu”.</p>
+                            </div>
                             <div className="flex gap-2">
                                 <button className="btn-outline" style={{ flex: 1 }} onClick={() => setEditing(false)}>Cancelar</button>
                                 <button className="btn-secondary" style={{ flex: 2 }} onClick={saveAcademy} disabled={saving}>
@@ -140,6 +149,7 @@ const Account = ({ user, onLogout }) => {
                             <InfoRow icon={<Phone size={16} />} label="Telefone" value={academy.phone} />
                             <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
                             <InfoRow icon={<MapPin size={16} />} label="Endereço" value={academy.address} />
+                            <InfoRow icon={<ClockIcon />} label="Horários rápidos" value={academy.quickTimes} />
                         </div>
                     )}
                 </div>
@@ -290,6 +300,8 @@ const Account = ({ user, onLogout }) => {
         </div>
     );
 };
+
+const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
 
 const InfoRow = ({ icon, label, value }) => (
     <div className="info-row">

@@ -151,7 +151,7 @@ const LeadProfile = () => {
                 <h2>Perfil</h2>
                 {!editing ? (
                     <button className="btn-outline" style={{ marginLeft: 'auto' }} onClick={startEdit}>
-                        <Pencil size={16} /> Editar
+                        <Pencil size={16} color="var(--text-secondary)" /> Editar
                     </button>
                 ) : (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>

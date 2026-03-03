@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL } from './lib/appwrite';
 import { ID, Query } from 'appwrite';
@@ -12,6 +12,8 @@ import NewLead from './pages/NewLead';
 import Students from './pages/Students';
 import Account from './pages/Account';
 import Login from './pages/Login';
+import Inventory from './pages/Inventory';
+import Sales from './pages/Sales';
 
 const App = () => {
   const navigate = useNavigate();
@@ -124,16 +126,59 @@ const App = () => {
         </div>
       </header>
 
-      <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/pipeline" element={<Pipeline />} />
-          <Route path="/lead/:id" element={<LeadProfile />} />
-          <Route path="/new-lead" element={<NewLead />} />
-          <Route path="/students" element={<Students />} />
-          <Route path="/profile" element={<Account user={user} onLogout={handleLogout} />} />
-        </Routes>
-      </main>
+      <div className="layout">
+        <aside className="side-nav">
+          <div className="side-section">
+            <span className="side-section-title">CRM</span>
+            <Link to="/" className={`side-link ${isActive('/') ? 'active' : ''}`}>
+              <LayoutGrid size={18} />
+              <span>Início</span>
+            </Link>
+            <Link to="/pipeline" className={`side-link ${isActive('/pipeline') ? 'active' : ''}`}>
+              <Users size={18} />
+              <span>Leads</span>
+            </Link>
+            <Link to="/students" className={`side-link ${isActive('/students') ? 'active' : ''}`}>
+              <GraduationCap size={18} />
+              <span>Alunos</span>
+            </Link>
+            <Link to="/new-lead" className="side-link primary">
+              <PlusCircle size={18} />
+              <span>Novo Lead</span>
+            </Link>
+          </div>
+          <div className="side-section">
+            <span className="side-section-title">Operações</span>
+            <Link to="/estoque" className={`side-link ${isActive('/estoque') ? 'active' : ''}`}>
+              <Boxes size={18} />
+              <span>Estoque</span>
+            </Link>
+            <Link to="/vendas" className={`side-link ${isActive('/vendas') ? 'active' : ''}`}>
+              <ShoppingBag size={18} />
+              <span>Vendas</span>
+            </Link>
+          </div>
+          <div className="side-section">
+            <Link to="/profile" className={`side-link ${isActive('/profile') ? 'active' : ''}`}>
+              <User size={18} />
+              <span>Conta</span>
+            </Link>
+          </div>
+        </aside>
+
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/pipeline" element={<Pipeline />} />
+            <Route path="/lead/:id" element={<LeadProfile />} />
+            <Route path="/new-lead" element={<NewLead />} />
+            <Route path="/estoque" element={<Inventory />} />
+            <Route path="/vendas" element={<Sales />} />
+            <Route path="/students" element={<Students />} />
+            <Route path="/profile" element={<Account user={user} onLogout={handleLogout} />} />
+          </Routes>
+        </main>
+      </div>
 
       <nav className="bottom-nav">
         <Link to="/" className={`nav-item ${isActive('/') ? 'active' : ''}`}>
@@ -152,6 +197,10 @@ const App = () => {
         <Link to="/students" className={`nav-item ${isActive('/students') ? 'active' : ''}`}>
           <GraduationCap size={22} />
           <span>Alunos</span>
+        </Link>
+        <Link to="/vendas" className={`nav-item ${isActive('/vendas') ? 'active' : ''}`}>
+          <ShoppingBag size={22} />
+          <span>Loja</span>
         </Link>
         <Link to="/profile" className={`nav-item ${isActive('/profile') ? 'active' : ''}`}>
           <User size={22} />
@@ -182,6 +231,63 @@ const App = () => {
             cursor: pointer;
             letter-spacing: -0.02em;
           }
+          .layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0;
+          }
+          .side-nav {
+            display: none;
+          }
+          @media (min-width: 1024px) {
+            .layout {
+              grid-template-columns: 260px 1fr;
+              gap: 16px;
+              padding: 16px;
+            }
+            .side-nav {
+              display: flex;
+              flex-direction: column;
+              background: var(--surface);
+              border-right: 1px solid var(--border-light);
+              border-radius: var(--radius);
+              padding: 16px;
+              height: calc(100vh - 120px);
+              position: sticky;
+              top: 88px;
+            }
+            .main-content {
+              padding-right: 8px;
+            }
+          }
+          .side-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
+          }
+          .side-section-title {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 4px 8px;
+          }
+          .side-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            transition: var(--transition);
+          }
+          .side-link:hover { background: var(--surface-hover); }
+          .side-link.active { background: var(--accent-light); color: var(--accent); }
+          .side-link.primary { background: var(--accent); color: white; }
           .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -198,6 +304,10 @@ const App = () => {
             padding: 0 8px;
             padding-bottom: env(safe-area-inset-bottom, 0);
             z-index: 100;
+          }
+          @media (min-width: 1024px) {
+            .bottom-nav { display: none; }
+            .app-container { padding-bottom: 0; }
           }
           .nav-item {
             display: flex;

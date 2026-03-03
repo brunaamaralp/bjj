@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "provision:stock": "node scripts/provision_stock_schema.js"
   },
   "dependencies": {
     "appwrite": "^22.4.1",
