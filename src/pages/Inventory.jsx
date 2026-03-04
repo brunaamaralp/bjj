@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { PackagePlus, Wrench, ArrowDownToLine, ArrowUpFromLine, Scissors } from 'lucide-react';
 import { KIMONO_SIZES, databases, DB_ID, STOCK_ITEMS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
+import { useUiStore } from '../store/useUiStore';
 
 const Inventory = () => {
   const { inventoryMove, lastResult, loading, error } = useInventoryStore();
+  const addToast = useUiStore(s => s.addToast);
   const [form, setForm] = useState({
     item_estoque_id: '',
     tipo: 'entrada',
@@ -17,9 +19,20 @@ const Inventory = () => {
   const [kimonoSize, setKimonoSize] = useState(KIMONO_SIZES.adulto_unissex[0]);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupMsg, setLookupMsg] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchBusy, setSearchBusy] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.item_estoque_id) {
+      addToast({ type: 'error', message: 'Informe o ID do item' });
+      return;
+    }
+    if (!Number.isFinite(Number(form.quantidade)) || Number(form.quantidade) <= 0) {
+      addToast({ type: 'error', message: 'Quantidade inválida' });
+      return;
+    }
     const payload = {
       item_estoque_id: form.item_estoque_id,
       tipo: form.tipo,
@@ -28,9 +41,66 @@ const Inventory = () => {
       status_par: form.tipo === 'avulso' ? form.status_par : undefined
     };
     await inventoryMove(payload);
+    const st = useInventoryStore.getState();
+    if (st.error) {
+      addToast({ type: 'error', message: `Erro: ${st.error}` });
+    } else {
+      addToast({ type: 'success', message: 'Movimentação aplicada' });
+    }
   };
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      const t = String(searchText || '').trim();
+      if (t.length < 2 || !DB_ID || !STOCK_ITEMS_COL) {
+        if (active) setSuggestions([]);
+        return;
+      }
+      setSearchBusy(true);
+      try {
+        let docs = [];
+        try {
+          const res = await databases.listDocuments(DB_ID, STOCK_ITEMS_COL, [
+            Query.search('nome', t),
+            Query.limit(8),
+          ]);
+          docs = res.documents;
+        } catch {
+          try {
+            const res2 = await databases.listDocuments(DB_ID, STOCK_ITEMS_COL, [
+              Query.search('descricao', t),
+              Query.limit(8),
+            ]);
+            docs = res2.documents;
+          } catch {
+            docs = [];
+          }
+        }
+        if (!active) return;
+        const mapped = docs.map((d) => ({
+          id: d.$id,
+          nome: d.nome || d.descricao || d.$id,
+        }));
+        setSuggestions(mapped);
+      } finally {
+        if (active) setSearchBusy(false);
+      }
+    };
+    const h = setTimeout(run, 300);
+    return () => {
+      active = false;
+      clearTimeout(h);
+    };
+  }, [searchText]);
+
+  const chooseSuggestion = (s) => {
+    setField('item_estoque_id', s.id);
+    setSuggestions([]);
+    setSearchText('');
+  };
 
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
@@ -43,6 +113,25 @@ const Inventory = () => {
         <div className="form-group">
           <label>ID do Item de Estoque</label>
           <input className="form-input" value={form.item_estoque_id} onChange={(e) => setField('item_estoque_id', e.target.value)} placeholder="stock_item_id" />
+        </div>
+        <div className="form-group mt-2">
+          <label>Buscar item por nome</label>
+          <input
+            className="form-input"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="digite parte do nome"
+          />
+          {suggestions.length > 0 && (
+            <div className="suggestions">
+              {suggestions.map((s) => (
+                <div key={s.id} className="suggestion" onClick={() => chooseSuggestion(s)}>
+                  <div style={{ flex: 1 }}>{s.nome}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {searchBusy && <div className="text-small" style={{ opacity: 0.7, marginTop: 4 }}>Buscando...</div>}
         </div>
 
         <div className="form-group mt-2">
@@ -190,6 +279,11 @@ const Inventory = () => {
           </div>
         )}
       </div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .suggestions { margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .suggestion { display: flex; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: center; }
+        .suggestion:hover { background: var(--bg-hover); }
+      `}} />
     </div>
   );
 };

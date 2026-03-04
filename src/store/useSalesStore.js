@@ -7,14 +7,16 @@ export const useSalesStore = create((set) => ({
   lastSale: null,
   error: null,
 
-  createSale: async ({ aluno_id = null, forma_pagamento, itens }) => {
+  createSale: async ({ aluno_id = null, forma_pagamento, itens, idempotency_key = undefined }) => {
     if (!SALES_CREATE_FN_ID) {
       set({ error: 'SALES_CREATE_FN_ID not set', lastSale: null });
       return;
     }
     set({ creating: true, error: null });
     try {
-      const exec = await functions.createExecution(SALES_CREATE_FN_ID, JSON.stringify({ aluno_id, forma_pagamento, itens }), false);
+      const payload = { aluno_id, forma_pagamento, itens };
+      if (idempotency_key) payload.idempotency_key = idempotency_key;
+      const exec = await functions.createExecution(SALES_CREATE_FN_ID, JSON.stringify(payload), false);
       const code = exec.responseStatusCode || 200;
       let body = {};
       try { body = JSON.parse(exec.responseBody || '{}'); } catch { body = { raw: exec.responseBody }; }

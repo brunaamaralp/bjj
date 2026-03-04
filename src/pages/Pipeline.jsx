@@ -187,7 +187,25 @@ const Pipeline = () => {
 
             <div className="kanban-wrapper">
                 {COLUMN_CONFIG.map(col => {
-                    const colLeads = leads.filter(l => l.status === col.status);
+                    const colLeads = leads
+                      .filter(l => l.status === col.status)
+                      .sort((a, b) => {
+                        if (col.status !== LEAD_STATUS.SCHEDULED) return 0;
+                        const toDateTime = (lead) => {
+                          const base = lead.scheduledDate || lead.createdAt || '';
+                          if (!base) return new Date(8640000000000000);
+                          const [y, m, d] = base.split('T')[0].split('-').map(Number);
+                          let hh = 23, mm = 59;
+                          if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
+                            const [h, mi] = lead.scheduledTime.split(':').map(Number);
+                            if (Number.isFinite(h) && Number.isFinite(mi)) {
+                              hh = h; mm = mi;
+                            }
+                          }
+                          return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
+                        };
+                        return toDateTime(a) - toDateTime(b);
+                      });
                     return (
                         <div
                             key={col.status}

@@ -3,7 +3,7 @@ import sdk from "node-appwrite";
 export default async function (req, res) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const { aluno_id = null, forma_pagamento, itens } = body;
+    const { aluno_id = null, forma_pagamento, itens, idempotency_key = null } = body;
     if (!Array.isArray(itens) || itens.length === 0 || !forma_pagamento) {
       return res.json({ error: "invalid_payload" }, 400);
     }
@@ -28,6 +28,23 @@ export default async function (req, res) {
       return res.json({ error: "missing_env" }, 500);
     }
 
+    // Idempotência: retornar venda já criada para a mesma chave
+    if (idempotency_key) {
+      try {
+        const existing = await databases.listDocuments(DB_ID, SALES_COL, [
+          sdk.Query.equal("idempotency_key", idempotency_key),
+          sdk.Query.limit(1),
+        ]);
+        if (existing.total > 0) {
+          const doc = existing.documents[0];
+          console.log(JSON.stringify({ level: "info", action: "sales_create_idempotent_hit", venda_id: doc.$id, status: doc.status }));
+          return res.json({ ok: true, venda_id: doc.$id, total: Number(doc.total || 0), status: String(doc.status || "") }, 200);
+        }
+      } catch (e) {
+        console.warn("idempotency lookup failed", e?.message || e);
+      }
+    }
+
     // 1) Disponibilidade
     const stockSnapshots = {};
     for (const it of itens) {
@@ -50,6 +67,7 @@ export default async function (req, res) {
       total: totalVenda,
       forma_pagamento,
       status: "rascunho",
+      idempotency_key: idempotency_key || null,
     });
 
     const createdItems = [];
@@ -86,6 +104,15 @@ export default async function (req, res) {
 
       // 4) Finalizar venda
       await databases.updateDocument(DB_ID, SALES_COL, vendaDoc.$id, { status: "concluida" });
+      console.log(JSON.stringify({
+        level: "info",
+        action: "sales_create",
+        venda_id: vendaDoc.$id,
+        items_count: itens.length,
+        total: totalVenda,
+        user_id: req.headers["x-user-id"] || "",
+        idempotency_key: idempotency_key || null
+      }));
       return res.json({ ok: true, venda_id: vendaDoc.$id, total: totalVenda, status: "concluida" }, 200);
     } catch (err) {
       // Best-effort rollback
@@ -104,9 +131,20 @@ export default async function (req, res) {
         try { await databases.deleteDocument(DB_ID, SALE_ITEMS_COL, id); } catch (e) { console.warn("rollback sale_item delete error", e); }
       }
       try { await databases.deleteDocument(DB_ID, SALES_COL, vendaDoc.$id); } catch (e) { console.warn("rollback sale delete error", e); }
+      console.error(JSON.stringify({
+        level: "error",
+        action: "sales_create_failed",
+        venda_id: vendaDoc?.$id || null,
+        error: String(err && err.message ? err.message : err)
+      }));
       return res.json({ error: "create_failed", detail: String(err && err.message ? err.message : err) }, 500);
     }
   } catch (e) {
+    console.error(JSON.stringify({
+      level: "error",
+      action: "sales_create_server_error",
+      error: String(e && e.message ? e.message : e)
+    }));
     return res.json({ error: "server_error", detail: String(e && e.message ? e.message : e) }, 500);
   }
 }

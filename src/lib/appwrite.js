@@ -1,8 +1,10 @@
 import { Client, Account, Databases, Functions } from "appwrite";
 
+const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1";
+const project = import.meta.env.VITE_APPWRITE_PROJECT || "699f020c00171ce26206";
 const client = new Client()
-    .setEndpoint("https://sfo.cloud.appwrite.io/v1")
-    .setProject("699f020c00171ce26206");
+    .setEndpoint(endpoint)
+    .setProject(project);
 
 const account = new Account(client);
 const databases = new Databases(client);
@@ -26,6 +28,8 @@ export const KIMONO_SIZES = {
 };
 
 console.log('🔌 Appwrite Config Loaded:');
+console.log('   - Endpoint:', endpoint);
+console.log('   - Project:', project);
 console.log('   - Database:', DB_ID);
 console.log('   - Leads Col:', LEADS_COL);
 console.log('   - Academies Col:', ACADEMIES_COL);

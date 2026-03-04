@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes } from 'lucide-react';
 import { authService } from './lib/auth';
-import { databases, DB_ID, ACADEMIES_COL } from './lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
+import { useUiStore } from './store/useUiStore';
 import Dashboard from './pages/Dashboard';
 import Pipeline from './pages/Pipeline';
 import LeadProfile from './pages/LeadProfile';
@@ -21,6 +22,8 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const setAcademyId = useLeadStore((s) => s.setAcademyId);
+  const toasts = useUiStore((s) => s.toasts);
+  const removeToast = useUiStore((s) => s.removeToast);
 
   const isActive = (path) => location.pathname === path;
 
@@ -126,6 +129,14 @@ const App = () => {
         </div>
       </header>
 
+      {(!DB_ID || !LEADS_COL || !ACADEMIES_COL || !STOCK_ITEMS_COL || !INVENTORY_MOVE_FN_ID || !SALES_CREATE_FN_ID || !SALES_CANCEL_FN_ID) && (
+        <div style={{ background: 'var(--warning-bg)', color: 'var(--warning-text)', padding: '8px 0' }}>
+          <div className="container text-small">
+            Algumas configurações do Appwrite estão ausentes. Verifique IDs de coleções/funções nas variáveis VITE_*.
+          </div>
+        </div>
+      )}
+
       <div className="layout">
         <aside className="side-nav">
           <div className="side-section">
@@ -208,6 +219,16 @@ const App = () => {
         </Link>
       </nav>
 
+      {toasts && toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map((t) => (
+            <div key={t.id} className={`toast ${t.type}`} onClick={() => removeToast(t.id)}>
+              <span>{t.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <style dangerouslySetInnerHTML={{
         __html: `
           .app-container {
@@ -215,6 +236,30 @@ const App = () => {
             flex-direction: column;
             min-height: 100vh;
             padding-bottom: 85px;
+          }
+          .toast-container {
+            position: fixed;
+            right: 16px;
+            bottom: 90px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 9999;
+          }
+          .toast {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 10px 12px;
+            border-radius: var(--radius);
+            cursor: pointer;
+          }
+          .toast.success { border-color: #2ecc71; }
+          .toast.error { border-color: var(--danger); }
+          :root {
+            --warning-bg: #fff7e6;
+            --warning-text: #8a6d3b;
           }
           .main-header {
             background: var(--primary-gradient);

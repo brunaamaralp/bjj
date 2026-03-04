@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Pencil } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Edit3 } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -90,15 +90,23 @@ const Dashboard = () => {
     weekEnd.setDate(today.getDate() + 7);
 
     // Agenda with date filter
+    const toDateTime = (lead) => {
+        const base = lead.scheduledDate || lead.createdAt || '';
+        if (!base) return new Date(8640000000000000); // max date
+        const [y, m, d] = base.split('T')[0].split('-').map(Number);
+        let hh = 23, mm = 59;
+        if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
+            const [h, mi] = lead.scheduledTime.split(':').map(Number);
+            if (Number.isFinite(h) && Number.isFinite(mi)) {
+                hh = h; mm = mi;
+            }
+        }
+        return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
+    };
+
     const allScheduled = (leads || [])
         .filter(l => l.status === LEAD_STATUS.SCHEDULED)
-        .sort((a, b) => {
-            const dateA = new Date(a.scheduledDate || a.createdAt);
-            const dateB = new Date(b.scheduledDate || b.createdAt);
-            if (isNaN(dateA)) return 1;
-            if (isNaN(dateB)) return -1;
-            return dateA - dateB;
-        });
+        .sort((a, b) => toDateTime(a) - toDateTime(b));
 
     const agendaLeads = allScheduled.filter(lead => {
         if (dateFilter === 'all') return true;
@@ -223,7 +231,7 @@ const Dashboard = () => {
                                             title="Editar agendamento"
                                             aria-label="Editar agendamento"
                                         >
-                                            <Pencil size={18} strokeWidth={2.25} />
+                                            <Edit3 size={20} strokeWidth={2.6} color="#ffffff" />
                                         </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
@@ -413,6 +421,7 @@ const Dashboard = () => {
           box-shadow: 0 4px 16px rgba(35, 99, 255, 0.22);
           transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
+        .edit-time-btn svg { color: #fff; stroke: #fff; filter: drop-shadow(0 0 1px rgba(0,0,0,0.18)); }
         .edit-time-btn:hover { filter: brightness(0.96); }
         .edit-time-btn:active { transform: translateY(1px); }
         .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(35,99,255,0.16); }
