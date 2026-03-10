@@ -31,6 +31,12 @@ const App = () => {
   const [academyList, setAcademyList] = useState([]);
   const toasts = useUiStore((s) => s.toasts);
   const removeToast = useUiStore((s) => s.removeToast);
+  const leadSingular = (plural) => {
+    const base = String(plural || '').trim();
+    if (!base) return 'lead';
+    const lower = base.toLowerCase();
+    return lower.endsWith('s') ? lower.slice(0, -1) : lower;
+  };
 
   const isActive = (path) => location.pathname === path;
 
@@ -178,58 +184,82 @@ const App = () => {
           <h1 className="header-logo" onClick={() => navigate('/')}>
             <img src="/pwa-192x192.svg" alt="FitGrow" width="24" height="24" style={{ marginRight: 8, verticalAlign: 'middle' }} /> FitGrow
           </h1>
-          {academyList && academyList.length > 1 && (
-            <select
-              className="form-input"
-              value={useLeadStore.getState().academyId || ''}
-              onChange={async (e) => {
-                const id = e.target.value;
-                setAcademyId(id);
-                localStorage.setItem('activeAcademyId', id);
-                try {
-                  const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
-                  let uiLabels = null;
-                  let mods = null;
+          <div className="flex items-center gap-4">
+            {academyList && academyList.length > 1 && (
+              <select
+                className="form-input"
+                value={useLeadStore.getState().academyId || ''}
+                onChange={async (e) => {
+                  const id = e.target.value;
+                  setAcademyId(id);
+                  localStorage.setItem('activeAcademyId', id);
                   try {
-                    if (doc.uiLabels) {
-                      uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
+                    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
+                    let uiLabels = null;
+                    let mods = null;
+                    try {
+                      if (doc.uiLabels) {
+                        uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
+                      }
+                      if (doc.modules) {
+                        mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
+                      }
+                    } catch { uiLabels = null; mods = null; }
+                    if (uiLabels && typeof uiLabels === 'object') {
+                      setLabels({
+                        leads: uiLabels.leads || 'Leads',
+                        students: uiLabels.students || 'Alunos',
+                        classes: uiLabels.classes || 'Aulas',
+                      });
                     }
-                    if (doc.modules) {
-                      mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
+                    if (mods && typeof mods === 'object') {
+                      setModules({
+                        sales: Boolean(mods.sales),
+                        inventory: Boolean(mods.inventory),
+                        finance: Boolean(mods.finance),
+                      });
                     }
-                  } catch { uiLabels = null; mods = null; }
-                  if (uiLabels && typeof uiLabels === 'object') {
-                    setLabels({
-                      leads: uiLabels.leads || 'Leads',
-                      students: uiLabels.students || 'Alunos',
-                      classes: uiLabels.classes || 'Aulas',
-                    });
-                  }
-                  if (mods && typeof mods === 'object') {
-                    setModules({
-                      sales: Boolean(mods.sales),
-                      inventory: Boolean(mods.inventory),
-                      finance: Boolean(mods.finance),
-                    });
-                  }
-                } catch (e) { void e; }
-                await useLeadStore.getState().fetchLeads();
-              }}
-              style={{ maxWidth: 280 }}
+                  } catch (e) { void e; }
+                  await useLeadStore.getState().fetchLeads();
+                }}
+                style={{ maxWidth: 280 }}
+              >
+                {academyList.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            )}
+            <button
+              className="btn-outline"
+              onClick={handleLogout}
+              style={{ background: 'transparent', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
             >
-              {academyList.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          )}
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 
-      {(!DB_ID || !LEADS_COL || !ACADEMIES_COL || !STOCK_ITEMS_COL || !INVENTORY_MOVE_FN_ID || !SALES_CREATE_FN_ID || !SALES_CANCEL_FN_ID) && (
-        <div style={{ background: 'var(--warning-bg)', color: 'var(--warning-text)', padding: '8px 0' }}>
-          <div className="container text-small">
-            Algumas configurações do Appwrite estão ausentes. Verifique IDs de coleções/funções nas variáveis VITE_*.
+      {(() => {
+        const missing = [];
+        if (!DB_ID) missing.push('VITE_APPWRITE_DATABASE_ID');
+        if (!LEADS_COL) missing.push('VITE_APPWRITE_LEADS_COLLECTION_ID');
+        if (!ACADEMIES_COL) missing.push('VITE_APPWRITE_ACADEMIES_COLLECTION_ID');
+        if (modules.inventory === true) {
+          if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
+          if (!INVENTORY_MOVE_FN_ID) missing.push('VITE_APPWRITE_INVENTORY_MOVE_FN_ID');
+        }
+        if (modules.sales === true) {
+          if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
+          if (!SALES_CREATE_FN_ID) missing.push('VITE_APPWRITE_SALES_CREATE_FN_ID');
+          if (!SALES_CANCEL_FN_ID) missing.push('VITE_APPWRITE_SALES_CANCEL_FN_ID');
+        }
+        return missing.length > 0 && (
+          <div style={{ background: 'var(--warning-bg)', color: 'var(--warning-text)', padding: '8px 0' }}>
+            <div className="container text-small">
+              Algumas configurações do Appwrite estão ausentes: {missing.join(', ')}.
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="layout">
         <aside className="side-nav">
@@ -249,7 +279,7 @@ const App = () => {
             </Link>
             <Link to="/new-lead" className="side-link primary">
               <PlusCircle size={18} />
-              <span>Novo {labels.leads.slice(0, -1) || 'Lead'}</span>
+              <span>Novo {leadSingular(labels.leads)}</span>
             </Link>
           </div>
           {((modules.inventory === true) || (modules.sales === true)) && (
