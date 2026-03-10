@@ -3,7 +3,7 @@ import sdk from "node-appwrite";
 export default async function (req, res) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const { aluno_id = null, forma_pagamento, itens, idempotency_key = null } = body;
+    const { aluno_id = null, forma_pagamento, itens, idempotency_key = null, academy_id = null } = body;
     if (!Array.isArray(itens) || itens.length === 0 || !forma_pagamento) {
       return res.json({ error: "invalid_payload" }, 400);
     }
@@ -63,6 +63,7 @@ export default async function (req, res) {
     const totalVenda = itens.reduce((acc, it) => acc + (it.preco_unitario * it.quantidade), 0);
     const vendaId = sdk.ID.unique();
     const vendaDoc = await databases.createDocument(DB_ID, SALES_COL, vendaId, {
+      academyId: academy_id || null,
       aluno_id: aluno_id || null,
       total: totalVenda,
       forma_pagamento,

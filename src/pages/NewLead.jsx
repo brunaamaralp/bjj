@@ -75,11 +75,18 @@ const NewLead = () => {
         }
     };
 
+    const singular = (plural) => {
+        if (!plural) return 'Lead';
+        const p = String(plural).trim();
+        if (p.toLowerCase().endsWith('s') && p.length > 1) return p.slice(0, -1);
+        return p;
+    };
+    const leadLabelSingular = singular(useLeadStore.getState().labels?.leads || 'Leads');
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="flex items-center gap-4">
                 <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <h2>Novo Interessado</h2>
+                <h2>{`Novo ${leadLabelSingular}`}</h2>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex-col gap-4 mt-4">

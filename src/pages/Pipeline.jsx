@@ -60,6 +60,7 @@ const COLUMN_CONFIG = [
 const Pipeline = () => {
     const navigate = useNavigate();
     const { leads, importLeads, updateLead } = useLeadStore();
+    const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const [showImport, setShowImport] = useState(false);
     const [quickItems, setQuickItems] = useState([]);
@@ -73,6 +74,18 @@ const Pipeline = () => {
     const handleImport = (rows) => {
         importLeads(rows);
     };
+    const singular = (plural) => {
+        if (!plural) return 'Lead';
+        const p = String(plural).trim();
+        if (p.toLowerCase().endsWith('s') && p.length > 1) return p.slice(0, -1);
+        return p;
+    };
+    const slug = (txt) => String(txt || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
 
     useEffect(() => {
         if (!academyId) return;
@@ -177,9 +190,9 @@ const Pipeline = () => {
                 <div className="container flex justify-between items-center">
                     <h2>Fluxo de Matrícula</h2>
                     <div className="flex gap-2">
-                        <ExportButton leads={leads} fileName="leads-pipeline" label="Exportar" />
+                        <ExportButton leads={leads} fileName={`${slug(labels.leads)}-pipeline`} label="Exportar" />
                         <button className="import-btn-pipe" onClick={() => setShowImport(true)}>
-                            <Upload size={16} /> Importar Leads
+                            <Upload size={16} /> {`Importar ${labels.leads}`}
                         </button>
                     </div>
                 </div>
@@ -291,7 +304,7 @@ const Pipeline = () => {
                                 ))}
                                 {colLeads.length === 0 && (
                                     <div className="col-empty">
-                                        <p>Nenhum lead</p>
+                                        <p>{`Nenhum ${singular(labels.leads).toLowerCase()}`}</p>
                                     </div>
                                 )}
                             </div>
@@ -305,7 +318,7 @@ const Pipeline = () => {
                 onClose={() => setShowImport(false)}
                 onImport={handleImport}
                 defaultStatus={LEAD_STATUS.NEW}
-                title="Importar Leads"
+                title={`Importar ${labels.leads}`}
             />
 
             <style dangerouslySetInnerHTML={{

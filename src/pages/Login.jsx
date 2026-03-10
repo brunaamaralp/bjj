@@ -3,7 +3,7 @@ import { authService } from '../lib/auth';
 import { Eye, EyeOff, LogIn, UserPlus, Shield } from 'lucide-react';
 
 const Login = ({ onLogin }) => {
-    const [isRegister, setIsRegister] = useState(false);
+    const [isRegister, setIsRegister] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
@@ -41,7 +41,7 @@ const Login = ({ onLogin }) => {
                 <div className="login-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
                     <Shield size={48} color="var(--accent)" />
                 </div>
-                <h1 className="login-title">BJJ CRM</h1>
+                <h1 className="login-title">FitGrow</h1>
                 <p className="login-subtitle">
                     {isRegister ? 'Crie sua conta' : 'Acesse sua conta'}
                 </p>

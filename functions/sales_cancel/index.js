@@ -1,9 +1,11 @@
 import sdk from "node-appwrite";
 
 export default async function (req, res) {
+  let venda_id;
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const { venda_id, motivo = "cancelamento_venda", idempotency_key = null } = body;
+    const { venda_id: _venda_id, motivo = "cancelamento_venda", idempotency_key = null, academy_id = null } = body;
+    venda_id = _venda_id;
     if (!venda_id) return res.json({ error: "invalid_payload" }, 400);
 
     const client = new sdk.Client()
@@ -24,6 +26,9 @@ export default async function (req, res) {
     const venda = await databases.getDocument(DB_ID, SALES_COL, venda_id);
     if (!venda || venda.status !== "concluida") {
       return res.json({ error: "invalid_status" }, 400);
+    }
+    if (academy_id && venda.academyId && String(venda.academyId) !== String(academy_id)) {
+      return res.json({ error: "forbidden_tenant" }, 403);
     }
 
     // Idempotência simples: se já está cancelada, retornar ok

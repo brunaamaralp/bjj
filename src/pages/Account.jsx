@@ -8,7 +8,7 @@ const Account = ({ user, onLogout }) => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
 
-    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '' });
+    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' }, modules: { sales: false, inventory: false, finance: false } });
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -17,13 +17,33 @@ const Account = ({ user, onLogout }) => {
     useEffect(() => {
         if (!academyId) return;
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-            .then(doc => setAcademy({
-                name: doc.name || '',
-                phone: doc.phone || '',
-                email: doc.email || '',
-                address: doc.address || '',
-                quickTimes: doc.quickTimes || '',
-            }))
+            .then(doc => {
+                let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas' };
+                let mods = { sales: false, inventory: false, finance: false };
+                try {
+                    if (doc.uiLabels) {
+                        const parsed = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
+                        if (parsed && typeof parsed === 'object') {
+                            labels = { ...labels, ...parsed };
+                        }
+                    }
+                    if (doc.modules) {
+                        const parsedMods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
+                        if (parsedMods && typeof parsedMods === 'object') {
+                            mods = { ...mods, ...parsedMods };
+                        }
+                    }
+                } catch (e) { void e; }
+                setAcademy({
+                    name: doc.name || '',
+                    phone: doc.phone || '',
+                    email: doc.email || '',
+                    address: doc.address || '',
+                    quickTimes: doc.quickTimes || '',
+                    uiLabels: labels,
+                    modules: mods,
+                });
+            })
             .catch(e => console.error('fetch academy:', e));
     }, [academyId]);
 
@@ -41,7 +61,13 @@ const Account = ({ user, onLogout }) => {
                 email: academy.email,
                 address: academy.address,
                 quickTimes: academy.quickTimes || '',
+                uiLabels: JSON.stringify(academy.uiLabels || {}),
+                modules: JSON.stringify(academy.modules || {}),
             });
+            try {
+                useLeadStore.getState().setLabels(academy.uiLabels || {});
+                useLeadStore.getState().setModules(academy.modules || {});
+            } catch (e) { void e; }
             setEditing(false);
         } catch (e) {
             console.error('save academy:', e);
@@ -81,7 +107,7 @@ const Account = ({ user, onLogout }) => {
             <div className="stats-grid mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
                 <div className="stat-card">
                     <span className="stat-number">{totalLeads}</span>
-                    <span className="stat-label">Leads</span>
+                    <span className="stat-label">{academy.uiLabels?.leads || 'Leads'}</span>
                 </div>
                 <div className="stat-card">
                     <span className="stat-number">{scheduled}</span>
@@ -89,7 +115,7 @@ const Account = ({ user, onLogout }) => {
                 </div>
                 <div className="stat-card">
                     <span className="stat-number">{students}</span>
-                    <span className="stat-label">Alunos</span>
+                    <span className="stat-label">{academy.uiLabels?.students || 'Alunos'}</span>
                 </div>
             </div>
 
@@ -136,6 +162,42 @@ const Account = ({ user, onLogout }) => {
                                     placeholder="Ex: 18:00, 19:00, 20:00" />
                                 <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de “Não Compareceu”.</p>
                             </div>
+                            <div className="form-group">
+                                <label>Rótulo para Leads (plural)</label>
+                                <input className="form-input" value={academy.uiLabels.leads}
+                                    onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, leads: e.target.value } })}
+                                    placeholder="Ex: Leads" />
+                            </div>
+                            <div className="form-group">
+                                <label>Rótulo para Alunos (plural)</label>
+                                <input className="form-input" value={academy.uiLabels.students}
+                                    onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, students: e.target.value } })}
+                                    placeholder="Ex: Alunos" />
+                            </div>
+                            <div className="form-group">
+                                <label>Rótulo para Aulas (plural)</label>
+                                <input className="form-input" value={academy.uiLabels.classes}
+                                    onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, classes: e.target.value } })}
+                                    placeholder="Ex: Aulas" />
+                            </div>
+                            <div className="form-group">
+                                <label>Módulos</label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={!!academy.modules.sales} onChange={(e) => setAcademy({ ...academy, modules: { ...academy.modules, sales: e.target.checked } })} />
+                                        <span className="text-small">Vendas</span>
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={!!academy.modules.inventory} onChange={(e) => setAcademy({ ...academy, modules: { ...academy.modules, inventory: e.target.checked } })} />
+                                        <span className="text-small">Estoque</span>
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={!!academy.modules.finance} onChange={(e) => setAcademy({ ...academy, modules: { ...academy.modules, finance: e.target.checked } })} />
+                                        <span className="text-small">Financeiro</span>
+                                    </label>
+                                </div>
+                                <p className="text-xs text-light">Define módulos ativos apenas para esta academia.</p>
+                            </div>
                             <div className="flex gap-2">
                                 <button className="btn-outline" style={{ flex: 1 }} onClick={() => setEditing(false)}>Cancelar</button>
                                 <button className="btn-secondary" style={{ flex: 2 }} onClick={saveAcademy} disabled={saving}>
@@ -150,6 +212,10 @@ const Account = ({ user, onLogout }) => {
                             <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
                             <InfoRow icon={<MapPin size={16} />} label="Endereço" value={academy.address} />
                             <InfoRow icon={<ClockIcon />} label="Horários rápidos" value={academy.quickTimes} />
+                            <div className="info-row">
+                                <span className="info-row-label">Módulos</span>
+                                <span className="info-row-value">{Object.entries(academy.modules || {}).filter(([,v]) => v).map(([k]) => k).join(', ') || 'Nenhum habilitado'}</span>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -207,7 +273,7 @@ const Account = ({ user, onLogout }) => {
                     <div className="flex items-center gap-4">
                         <Info size={16} color="var(--text-muted)" />
                         <div>
-                            <p className="text-small" style={{ color: 'var(--text)' }}>BJJ CRM v2.0</p>
+                            <p className="text-small" style={{ color: 'var(--text)' }}>FitGrow v2.0</p>
                             <p className="text-xs text-light">Dados armazenados na nuvem via Appwrite</p>
                         </div>
                     </div>

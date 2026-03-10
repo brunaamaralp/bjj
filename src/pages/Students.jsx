@@ -27,8 +27,8 @@ const Students = () => {
             <header className="animate-in">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h2>Alunos Ativos</h2>
-                        <p className="text-small">Total: {students.length} aluno{students.length !== 1 ? 's' : ''}</p>
+                        <h2>{(useLeadStore.getState().labels?.students || 'Alunos')} Ativos</h2>
+                        <p className="text-small">Total: {students.length}</p>
                     </div>
                     <div className="flex gap-2">
                         <ExportButton leads={students} fileName="alunos-ativos" label="Exportar" />
@@ -78,7 +78,7 @@ const Students = () => {
                 )) : (
                     <div className="empty-state mt-4 animate-in">
                         <GraduationCap size={36} color="var(--text-muted)" style={{ marginBottom: 12, opacity: 0.4 }} />
-                        <p>{searchTerm ? `Nenhum aluno encontrado para "${searchTerm}"` : 'Nenhum aluno matriculado ainda.'}</p>
+                        <p>{searchTerm ? `Nenhum ${(useLeadStore.getState().labels?.students || 'aluno').toLowerCase()} encontrado para "${searchTerm}"` : `Nenhum ${(useLeadStore.getState().labels?.students || 'aluno').toLowerCase()} matriculado ainda.`}</p>
                         <p className="text-xs text-light mt-1">Importe uma planilha ou matricule leads pelo pipeline.</p>
                     </div>
                 )}

@@ -17,8 +17,12 @@ export const useLeadStore = create((set, get) => ({
   leads: [],
   loading: false,
   academyId: null,
+  labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' },
+  modules: { sales: false, inventory: false, finance: false },
 
   setAcademyId: (id) => set({ academyId: id }),
+  setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
+  setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
 
   fetchLeads: async () => {
     const academyId = get().academyId;

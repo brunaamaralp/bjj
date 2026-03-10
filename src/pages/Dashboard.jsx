@@ -176,7 +176,11 @@ const Dashboard = () => {
             </div>
 
             <button className="btn-secondary btn-large mt-4" onClick={() => navigate('/new-lead')} style={{ borderRadius: 'var(--radius)' }}>
-                <Plus size={22} /> Novo Interessado
+                <Plus size={22} /> {`Novo ${(() => {
+                    const l = useLeadStore.getState().labels?.leads || 'Leads';
+                    const base = l.toLowerCase().endsWith('s') && l.length > 1 ? l.slice(0, -1) : l;
+                    return base.slice(0,1).toUpperCase() + base.slice(1,-0);
+                })()}`}
             </button>
 
             {/* Date Filter Tabs */}

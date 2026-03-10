@@ -10,10 +10,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['vite.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'BJJ Manager',
-        short_name: 'BJJ Manager',
-        description: 'Gestão moderna para academias de Jiu-Jitsu',
-        theme_color: '#0f172a',
+        name: 'FitGrow',
+        short_name: 'FitGrow',
+        description: 'CRM simples para academias de esportes',
+        theme_color: '#0b0b0b',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [

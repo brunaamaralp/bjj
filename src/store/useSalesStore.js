@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { functions, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID } from '../lib/appwrite';
+import { useLeadStore } from './useLeadStore';
 
 export const useSalesStore = create((set) => ({
   creating: false,
@@ -14,7 +15,8 @@ export const useSalesStore = create((set) => ({
     }
     set({ creating: true, error: null });
     try {
-      const payload = { aluno_id, forma_pagamento, itens };
+      const academyId = useLeadStore.getState().academyId || null;
+      const payload = { aluno_id, forma_pagamento, itens, academy_id: academyId };
       if (idempotency_key) payload.idempotency_key = idempotency_key;
       const exec = await functions.createExecution(SALES_CREATE_FN_ID, JSON.stringify(payload), false);
       const code = exec.responseStatusCode || 200;
@@ -37,7 +39,8 @@ export const useSalesStore = create((set) => ({
     }
     set({ cancelling: true, error: null });
     try {
-      const exec = await functions.createExecution(SALES_CANCEL_FN_ID, JSON.stringify({ venda_id }), false);
+      const academyId = useLeadStore.getState().academyId || null;
+      const exec = await functions.createExecution(SALES_CANCEL_FN_ID, JSON.stringify({ venda_id, academy_id: academyId }), false);
       const code = exec.responseStatusCode || 200;
       let body = {};
       try { body = JSON.parse(exec.responseBody || '{}'); } catch { body = { raw: exec.responseBody }; }

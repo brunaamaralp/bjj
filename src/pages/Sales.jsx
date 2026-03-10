@@ -176,7 +176,7 @@ const Sales = () => {
         nome: doc.nome || doc.descricao || '',
         disponivel
       });
-    } catch (e) {
+    } catch {
       setLocalError('Item não encontrado');
     } finally {
       setLookupLoading(false);

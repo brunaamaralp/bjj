@@ -1,15 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  /* Primary Palette */
-  --primary: #09111C;
-  --primary-light: #15263B;
-  --primary-gradient: linear-gradient(135deg, #09111C 0%, #15263B 100%);
+  --primary: #0b0b0b;
+  --primary-light: #1f2937;
+  --primary-gradient: linear-gradient(135deg, #0b0b0b 0%, #1f2937 100%);
 
-  /* Accent Colors */
-  --accent: #3B82F6;
-  --accent-light: rgba(59, 130, 246, 0.12);
-  --accent-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+  --accent: #00bc8e;
+  --accent-light: rgba(0, 188, 142, 0.12);
+  --accent-glow: 0 0 20px rgba(0, 188, 142, 0.3);
 
   --secondary: #EF4444;
   --secondary-light: rgba(239, 68, 68, 0.1);
@@ -41,7 +39,7 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
-  --shadow-accent: 0 6px 20px rgba(59, 130, 246, 0.25);
+  --shadow-accent: 0 6px 20px rgba(0, 188, 142, 0.25);
   --radius: 16px;
   --radius-sm: 10px;
   --radius-full: 50px;
