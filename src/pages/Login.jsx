@@ -89,7 +89,11 @@ const Login = ({ onLogin }) => {
                     </button>
                 </form>
 
-                <Link className="toggle-mode" to="/register">Não tem conta? Cadastre-se</Link>
+                <div className="link-row">
+                    <Link className="toggle-mode" to="/register">Não tem conta? Cadastre-se</Link>
+                    <span className="sep">•</span>
+                    <Link className="toggle-mode" to="/welcome">Voltar ao início</Link>
+                </div>
             </div>
 
             <style dangerouslySetInnerHTML={{
@@ -133,6 +137,8 @@ const Login = ({ onLogin }) => {
           background: none; border: none; color: var(--accent); font-weight: 600;
           font-size: 0.85rem; margin-top: 20px; cursor: pointer; padding: 0; min-height: auto;
         }
+        .link-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+        .sep { color: var(--text-muted); }
         .spinner {
           width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3);
           border-top-color: white; border-radius: 50%;

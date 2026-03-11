@@ -101,8 +101,57 @@ const Register = ({ onLogin }) => {
           </button>
         </form>
 
-        <Link className="toggle-mode" to="/login"><LogIn size={16} /> Já tem conta? Entrar</Link>
+        <div className="link-row">
+          <Link className="toggle-mode" to="/login"><LogIn size={16} /> Já tem conta? Entrar</Link>
+          <span className="sep">•</span>
+          <Link className="toggle-mode" to="/welcome">Voltar ao início</Link>
+        </div>
       </div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .login-page {
+          min-height: 100vh; display: flex; align-items: center; justify-content: center;
+          background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 100%); padding: 20px;
+        }
+        .login-card {
+          width: 100%; max-width: 400px; background: var(--surface);
+          border-radius: var(--radius); padding: 40px 30px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
+          animation: fadeInUp 0.5s ease;
+        }
+        .btn-exit {
+          position: absolute; right: 0; top: 0; transform: translate(30%, -30%);
+          background: white; border: 1px solid var(--border); color: var(--text);
+          border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
+          box-shadow: var(--shadow-sm);
+        }
+        .login-title { font-size: 1.8rem; font-weight: 900; color: var(--text); margin-bottom: 4px }
+        .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+        .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }
+        .password-wrapper { position: relative; }
+        .password-toggle {
+          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+          background: none; border: none; color: var(--text-muted); padding: 0;
+          min-height: auto; cursor: pointer;
+        }
+        .login-error {
+          padding: 10px 14px; background: var(--danger-light); color: var(--danger);
+          border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 500;
+        }
+        .login-btn { margin-top: 4px; }
+        .login-btn:disabled { opacity: 0.6; cursor: wait; }
+        .toggle-mode {
+          background: none; border: none; color: var(--accent); font-weight: 600;
+          font-size: 0.85rem; margin-top: 20px; cursor: pointer; padding: 0; min-height: auto;
+        }
+        .link-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+        .sep { color: var(--text-muted); }
+        .spinner {
+          width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white; border-radius: 50%;
+          animation: spin 0.6s linear infinite; display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}} />
     </div>
   );
 };

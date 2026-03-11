@@ -11,9 +11,14 @@ const Welcome = () => {
             <img src="/pwa-192x192.svg" alt="FitGrow" width="28" height="28" />
             <span className="brand-title">FitGrow</span>
           </div>
-          <Link to="/login" className="btn-ghost">
-            <LogIn size={16} /> Entrar
-          </Link>
+          <div className="flex items-center" style={{ gap: 8 }}>
+            <Link to="/register" className="btn-ghost">
+              Criar conta
+            </Link>
+            <Link to="/login" className="btn-ghost">
+              <LogIn size={16} /> Entrar
+            </Link>
+          </div>
         </div>
       </header>
 
