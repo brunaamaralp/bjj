@@ -291,9 +291,9 @@ const Pipeline = () => {
     return (
         <div className="pipeline-container">
             <div className="pipeline-header">
-                <div className="container flex justify-between items-center">
-                    <h2>Fluxo de Matrícula</h2>
-                    <div className="flex gap-2 header-actions">
+                <div className="container header-layout">
+                    <div className="header-left">
+                        <h2>Fluxo de Matrícula</h2>
                         <div className="filters">
                             <button className={`filter-chip ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
                             <button className={`filter-chip ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
@@ -306,6 +306,8 @@ const Pipeline = () => {
                                 </select>
                             </div>
                         </div>
+                    </div>
+                    <div className="header-right">
                         <ExportButton leads={leads} fileName={`${slug(labels.leads)}-pipeline`} label="Exportar" />
                         <button className="import-btn-pipe" onClick={() => setShowImport(true)}>
                             <Upload size={16} /> {`Importar ${labels.leads}`}
@@ -511,12 +513,20 @@ const Pipeline = () => {
                 __html: `
         .pipeline-container { height: calc(100vh - 140px); display: flex; flex-direction: column; }
         .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); overflow-x: hidden; }
-        .pipeline-header .container { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; }
-        .pipeline-header .container h2 { margin: 0; flex: 0 0 auto; }
-        .header-actions { align-items: center; gap: 8px; flex-wrap: wrap; max-width: 100%; min-width: 0; }
+        .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
+        .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .header-left h2 { margin: 0; }
+        .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
         .filters .filter-chip { flex: 0 0 auto; }
         .origin-group { flex: 0 0 auto; }
+        @media (max-width: 1024px) {
+          .header-layout { align-items: flex-start; }
+          .header-left { width: 100%; }
+          .filters { width: 100%; margin-right: 0; }
+          .header-right { width: 100%; justify-content: flex-start; }
+        }
         .kanban-wrapper { 
           display: flex; gap: 16px; overflow-x: auto; padding: 12px 16px 16px; flex: 1;
           scroll-snap-type: x mandatory;
