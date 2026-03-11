@@ -8,7 +8,7 @@ const Account = ({ user, onLogout }) => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
 
-    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' }, modules: { sales: false, inventory: false, finance: false } });
+    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' }, modules: { sales: false, inventory: false, finance: false }, onboardingChecklist: [] });
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -20,6 +20,13 @@ const Account = ({ user, onLogout }) => {
             .then(doc => {
                 let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas' };
                 let mods = { sales: false, inventory: false, finance: false };
+                let checklist = [
+                    { id: 'academy_info', title: 'Atualizar dados da academia', done: false },
+                    { id: 'ui_labels', title: 'Definir rótulos (Aulas/Alunos/Leads)', done: false },
+                    { id: 'quick_times', title: 'Adicionar horários rápidos', done: false },
+                    { id: 'first_lead', title: 'Criar primeiro lead', done: false },
+                    { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
+                ];
                 try {
                     if (doc.uiLabels) {
                         const parsed = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
@@ -33,6 +40,13 @@ const Account = ({ user, onLogout }) => {
                             mods = { ...mods, ...parsedMods };
                         }
                     }
+                    if (doc.onboardingChecklist) {
+                        const parsedCL = typeof doc.onboardingChecklist === 'string' ? JSON.parse(doc.onboardingChecklist) : doc.onboardingChecklist;
+                        if (Array.isArray(parsedCL)) {
+                            const byId = Object.fromEntries(parsedCL.map(i => [i.id, i]));
+                            checklist = checklist.map(def => byId[def.id] ? { ...def, ...byId[def.id] } : def);
+                        }
+                    }
                 } catch (e) { void e; }
                 setAcademy({
                     name: doc.name || '',
@@ -42,6 +56,7 @@ const Account = ({ user, onLogout }) => {
                     quickTimes: doc.quickTimes || '',
                     uiLabels: labels,
                     modules: mods,
+                    onboardingChecklist: checklist,
                 });
             })
             .catch(e => console.error('fetch academy:', e));
@@ -120,6 +135,36 @@ const Account = ({ user, onLogout }) => {
             </div>
 
             {/* Academy Info */}
+            <section className="mt-6 animate-in" style={{ animationDelay: '0.12s' }}>
+                <div className="flex justify-between items-center mb-2">
+                    <h3>Checklist Inicial</h3>
+                    <span className="text-small" style={{ color: 'var(--text-muted)' }}>
+                        {`${(academy.onboardingChecklist || []).filter(i => i.done).length}/${(academy.onboardingChecklist || []).length || 0} concluídos`}
+                    </span>
+                </div>
+                <div className="card">
+                    <div className="flex-col gap-2">
+                        {(academy.onboardingChecklist || []).map(item => (
+                            <label key={item.id} className="info-row" style={{ cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={!!item.done}
+                                    onChange={async (e) => {
+                                        const list = (academy.onboardingChecklist || []).map(it => it.id === item.id ? { ...it, done: e.target.checked } : it);
+                                        setAcademy({ ...academy, onboardingChecklist: list });
+                                        try {
+                                            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { onboardingChecklist: JSON.stringify(list) });
+                                        } catch (e) { void e; }
+                                    }}
+                                    style={{ marginRight: 10 }}
+                                />
+                                <span className="info-row-value">{item.title}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             <section className="mt-6 animate-in" style={{ animationDelay: '0.15s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3>Dados da Academia</h3>

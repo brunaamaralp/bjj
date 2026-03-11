@@ -84,6 +84,13 @@ const App = () => {
           bankAccounts: [],
           plans: []
         };
+        const checklist = [
+          { id: 'academy_info', title: 'Atualizar dados da academia', done: false },
+          { id: 'ui_labels', title: 'Definir rótulos (Aulas/Alunos/Leads)', done: false },
+          { id: 'quick_times', title: 'Adicionar horários rápidos', done: false },
+          { id: 'first_lead', title: 'Criar primeiro lead', done: false },
+          { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
+        ];
         const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), {
           name: u.name || '',
           phone: '',
@@ -93,7 +100,8 @@ const App = () => {
           uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
           modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
           quickTimes: [],
-          financeConfig: JSON.stringify(defaultFinance)
+          financeConfig: JSON.stringify(defaultFinance),
+          onboardingChecklist: JSON.stringify(checklist)
         });
         academyId = doc.$id;
       }
