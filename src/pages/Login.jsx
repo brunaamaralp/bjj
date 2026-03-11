@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { authService } from '../lib/auth';
-import { Eye, EyeOff, LogIn, UserPlus, Shield } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Shield, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Login = ({ onLogin }) => {
+    const navigate = useNavigate();
     const [isRegister, setIsRegister] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -38,7 +40,16 @@ const Login = ({ onLogin }) => {
     return (
         <div className="login-page">
             <div className="login-card">
-                <div className="login-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <div className="login-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, position: 'relative' }}>
+                    <button
+                        type="button"
+                        aria-label="Sair"
+                        title="Sair"
+                        className="btn-exit"
+                        onClick={async () => { try { await authService.logout(); } catch (e) { void e; } navigate('/welcome'); }}
+                    >
+                        <X size={18} />
+                    </button>
                     <Shield size={48} color="var(--accent)" />
                 </div>
                 <h1 className="login-title">FitGrow</h1>
@@ -122,13 +133,19 @@ const Login = ({ onLogin }) => {
                 __html: `
         .login-page {
           min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          background: var(--primary-gradient); padding: 20px;
+          background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 100%); padding: 20px;
         }
         .login-card {
           width: 100%; max-width: 400px; background: var(--surface);
           border-radius: var(--radius); padding: 40px 30px;
           box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
           animation: fadeInUp 0.5s ease;
+        }
+        .btn-exit {
+          position: absolute; right: 0; top: 0; transform: translate(30%, -30%);
+          background: white; border: 1px solid var(--border); color: var(--text);
+          border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
+          box-shadow: var(--shadow-sm);
         }
         .login-logo { font-size: 3rem; margin-bottom: 8px; }
         .login-title {
