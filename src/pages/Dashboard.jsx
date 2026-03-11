@@ -178,8 +178,11 @@ const Dashboard = () => {
             <button className="btn-secondary btn-large mt-4" onClick={() => navigate('/new-lead')} style={{ borderRadius: 'var(--radius)' }}>
                 <Plus size={22} /> {`Novo ${(() => {
                     const l = useLeadStore.getState().labels?.leads || 'Leads';
-                    const base = l.toLowerCase().endsWith('s') && l.length > 1 ? l.slice(0, -1) : l;
-                    return base.slice(0,1).toUpperCase() + base.slice(1,-0);
+                    const basePlural = String(l).trim();
+                    const singular = basePlural.toLowerCase().endsWith('s') && basePlural.length > 1
+                        ? basePlural.slice(0, -1)
+                        : basePlural.toLowerCase();
+                    return singular.slice(0,1).toUpperCase() + singular.slice(1);
                 })()}`}
             </button>
 
