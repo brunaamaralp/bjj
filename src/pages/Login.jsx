@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { authService } from '../lib/auth';
 import { Eye, EyeOff, LogIn, UserPlus, Shield, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login = ({ onLogin }) => {
     const navigate = useNavigate();
-    const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -19,13 +17,7 @@ const Login = ({ onLogin }) => {
         setLoading(true);
 
         try {
-            if (isRegister) {
-                if (!name.trim()) { setError('Informe o nome.'); setLoading(false); return; }
-                if (password.length < 8) { setError('Senha deve ter no mínimo 8 caracteres.'); setLoading(false); return; }
-                await authService.register(email, password, name);
-            } else {
-                await authService.login(email, password);
-            }
+            await authService.login(email, password);
             const user = await authService.getCurrentUser();
             onLogin(user);
         } catch (err) {
@@ -53,25 +45,9 @@ const Login = ({ onLogin }) => {
                     <Shield size={48} color="var(--accent)" />
                 </div>
                 <h1 className="login-title">FitGrow</h1>
-                <p className="login-subtitle">
-                    {isRegister ? 'Crie sua conta' : 'Acesse sua conta'}
-                </p>
+                <p className="login-subtitle">Acesse sua conta</p>
 
                 <form onSubmit={handleSubmit} className="login-form">
-                    {isRegister && (
-                        <div className="form-group">
-                            <label>Nome da Academia</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                placeholder="Ex: Team BJJ"
-                                autoFocus={isRegister}
-                            />
-                        </div>
-                    )}
-
                     <div className="form-group">
                         <label>E-mail</label>
                         <input
@@ -81,7 +57,7 @@ const Login = ({ onLogin }) => {
                             onChange={e => setEmail(e.target.value)}
                             placeholder="seu@email.com"
                             required
-                            autoFocus={!isRegister}
+                            autoFocus
                         />
                     </div>
 
@@ -93,7 +69,7 @@ const Login = ({ onLogin }) => {
                                 className="form-input"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                placeholder={isRegister ? 'Mínimo 8 caracteres' : 'Sua senha'}
+                                placeholder="Sua senha"
                                 required
                             />
                             <button
@@ -109,24 +85,11 @@ const Login = ({ onLogin }) => {
                     {error && <div className="login-error">{error}</div>}
 
                     <button type="submit" className="btn-secondary btn-large login-btn" disabled={loading}>
-                        {loading ? (
-                            <span className="spinner" />
-                        ) : isRegister ? (
-                            <><UserPlus size={18} /> Criar Conta</>
-                        ) : (
-                            <><LogIn size={18} /> Entrar</>
-                        )}
+                        {loading ? <span className="spinner" /> : (<><LogIn size={18} /> Entrar</>)}
                     </button>
                 </form>
 
-                <button
-                    className="toggle-mode"
-                    onClick={() => { setIsRegister(!isRegister); setError(''); }}
-                >
-                    {isRegister
-                        ? 'Já tem conta? Faça login'
-                        : 'Não tem conta? Cadastre-se'}
-                </button>
+                <Link className="toggle-mode" to="/register">Não tem conta? Cadastre-se</Link>
             </div>
 
             <style dangerouslySetInnerHTML={{

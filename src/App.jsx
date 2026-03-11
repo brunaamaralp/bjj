@@ -13,6 +13,7 @@ import NewLead from './pages/NewLead';
 import Students from './pages/Students';
 import Account from './pages/Account';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
@@ -192,6 +193,7 @@ const App = () => {
         <Routes>
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/register" element={<Register onLogin={handleLogin} />} />
           <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
       </div>

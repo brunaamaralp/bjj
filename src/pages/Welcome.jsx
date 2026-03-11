@@ -29,7 +29,7 @@ const Welcome = () => {
               O FitGrow foi criado para academias, estúdios e escolas esportivas que precisam organizar o crescimento sem complicação.
             </p>
             <div className="hero-cta">
-              <Link to="/login" className="btn-primary btn-large">
+              <Link to="/register" className="btn-primary btn-large">
                 Criar conta <ArrowRight size={18} />
               </Link>
             </div>
