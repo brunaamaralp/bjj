@@ -76,6 +76,7 @@ export const useLeadStore = create((set, get) => ({
           belt,
           borrowedKimono,
           borrowedShirt,
+          statusChangedAt: doc.statusChangedAt || '',
           createdAt: doc.$createdAt,
         };
       });
@@ -129,6 +130,7 @@ export const useLeadStore = create((set, get) => ({
         parentName: lead.parentName || '',
         age: lead.age || '',
         notes: JSON.stringify(notesData),
+        statusChangedAt: new Date().toISOString(),
         academyId,
       });
 
@@ -191,6 +193,9 @@ export const useLeadStore = create((set, get) => ({
         ...updates,
         notes: JSON.stringify(notesData)
       };
+      if (typeof updates.status !== 'undefined' && updates.status !== currentLead.status) {
+        payload.statusChangedAt = new Date().toISOString();
+      }
 
       // Remove fields Appwrite doesn't expect or that shouldn't be in the payload
       delete payload.id;
@@ -204,7 +209,7 @@ export const useLeadStore = create((set, get) => ({
 
       set((state) => ({
         leads: state.leads.map((l) =>
-          l.id === id ? { ...l, ...updates } : l
+          l.id === id ? { ...l, ...updates, ...(payload.statusChangedAt ? { statusChangedAt: payload.statusChangedAt } : {}) } : l
         ),
       }));
     } catch (e) {

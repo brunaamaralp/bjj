@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -49,13 +49,22 @@ const timeStartMinutes = (timePart) => {
     return parseTimeToMinutes(start);
 };
 
-const COLUMN_CONFIG = [
-    { title: 'Novo', status: LEAD_STATUS.NEW, color: 'var(--accent)', bg: 'var(--accent-light)' },
-    { title: 'Agendado', status: LEAD_STATUS.SCHEDULED, color: 'var(--warning)', bg: 'var(--warning-light)' },
-    { title: 'Não Compareceu', status: LEAD_STATUS.MISSED, color: 'var(--danger)', bg: 'var(--danger-light)' },
-    { title: 'Compareceu', status: LEAD_STATUS.COMPLETED, color: 'var(--success)', bg: 'var(--success-light)' },
-    { title: 'Matriculou', status: LEAD_STATUS.CONVERTED, color: 'var(--purple)', bg: 'var(--purple-light)' },
+const DEFAULT_STAGE_LABELS = [
+    { id: 'Novo', label: 'Novo' },
+    { id: 'Contato feito', label: 'Contato feito' },
+    { id: 'Aula experimental', label: 'Aula experimental' },
+    { id: 'Negociação', label: 'Negociação' },
+    { id: 'Matriculado', label: 'Matrícula' },
 ];
+const STAGE_COLORS = [
+    { color: 'var(--accent)', bg: 'var(--accent-light)' },
+    { color: 'var(--warning)', bg: 'var(--warning-light)' },
+    { color: 'var(--danger)', bg: 'var(--danger-light)' },
+    { color: 'var(--success)', bg: 'var(--success-light)' },
+    { color: 'var(--purple)', bg: 'var(--purple-light)' },
+    { color: 'var(--cyan)', bg: 'rgba(0, 188, 212, 0.15)' },
+];
+const DEFAULT_STAGE_SLA_DAYS = 3;
 
 const Pipeline = () => {
     const navigate = useNavigate();
@@ -72,6 +81,11 @@ const Pipeline = () => {
     const [noteText, setNoteText] = useState('');
     const [schedulerOpenId, setSchedulerOpenId] = useState(null);
     const [moverOpenId, setMoverOpenId] = useState(null);
+    const [stages, setStages] = useState(DEFAULT_STAGE_LABELS);
+    const [editStages, setEditStages] = useState(false);
+    const [tempStages, setTempStages] = useState(DEFAULT_STAGE_LABELS);
+    const [dayFilter, setDayFilter] = useState('all'); // all | today | tomorrow
+    const [originFilter, setOriginFilter] = useState('all'); // all | origin
 
     const handleImport = (rows) => {
         importLeads(rows);
@@ -99,6 +113,24 @@ const Pipeline = () => {
                 const parsed = parseQuickItems(raw);
                 if (parsed.length > 0) setQuickItems(parsed);
                 else setQuickItems(parseQuickItems(['18:00', '19:00']));
+                try {
+                    if (doc.stagesConfig) {
+                        const conf = typeof doc.stagesConfig === 'string' ? JSON.parse(doc.stagesConfig) : doc.stagesConfig;
+                        if (Array.isArray(conf) && conf.length > 0) {
+                            setStages(conf);
+                            setTempStages(conf);
+                        } else {
+                            setStages(DEFAULT_STAGE_LABELS);
+                            setTempStages(DEFAULT_STAGE_LABELS);
+                        }
+                    } else {
+                        setStages(DEFAULT_STAGE_LABELS);
+                        setTempStages(DEFAULT_STAGE_LABELS);
+                    }
+                } catch {
+                    setStages(DEFAULT_STAGE_LABELS);
+                    setTempStages(DEFAULT_STAGE_LABELS);
+                }
             })
             .catch(() => {});
     }, [academyId]);
@@ -163,6 +195,43 @@ const Pipeline = () => {
         setToast('Movido no pipeline');
         setTimeout(() => setToast(''), 2000);
     };
+    const saveStages = async () => {
+        try {
+            const cleaned = tempStages.filter(s => s && String(s.id).trim()).map((s) => ({
+                id: String(s.id).trim(),
+                label: String(s.label || s.id).trim(),
+                slaDays: Number.isFinite(s.slaDays) ? s.slaDays : DEFAULT_STAGE_SLA_DAYS,
+            }));
+            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+                stagesConfig: JSON.stringify(cleaned),
+            });
+            setStages(cleaned);
+            setEditStages(false);
+        } catch (e) {
+            console.error('saveStages error', e);
+        }
+    };
+    const addStage = () => {
+        const id = `custom-${Date.now()}`;
+        setTempStages(prev => [...prev, { id, label: 'Nova etapa', slaDays: DEFAULT_STAGE_SLA_DAYS }]);
+    };
+    const mapLeadToStageId = (lead) => {
+        const hasDirect = stages.find(s => s.id === lead.status);
+        if (hasDirect) return lead.status;
+        const s = (lead.status || '').toLowerCase();
+        if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
+        if (s.includes('agendado')) return 'Aula experimental';
+        if (s.includes('compareceu')) return 'Negociação';
+        if (s.includes('não compareceu') || s.includes('nao compareceu')) return 'Contato feito';
+        if (s.includes('matricul')) return 'Matriculado';
+        return 'Novo';
+    };
+    const renderNow = new Date();
+    const daysInStage = (lead) => {
+        const start = lead.statusChangedAt ? new Date(lead.statusChangedAt) : (lead.createdAt ? new Date(lead.createdAt) : renderNow);
+        const diff = Math.floor((renderNow.getTime() - start.getTime()) / 86400000);
+        return diff < 0 ? 0 : diff;
+    };
     const onDragStart = (e, leadId) => {
         e.dataTransfer.setData('text/plain', leadId);
     };
@@ -209,20 +278,77 @@ const Pipeline = () => {
                 <div className="container flex justify-between items-center">
                     <h2>Fluxo de Matrícula</h2>
                     <div className="flex gap-2">
+                        <div className="filters">
+                            <button className={`filter-chip ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
+                            <button className={`filter-chip ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
+                            <button className={`filter-chip ${dayFilter === 'tomorrow' ? 'active' : ''}`} onClick={() => setDayFilter('tomorrow')}>Amanhã</button>
+                            <div className="origin-group">
+                                <SlidersHorizontal size={14} />
+                                <select className="origin-select" value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
+                                    <option value="all">Todas origens</option>
+                                    {LEAD_ORIGIN.map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                            </div>
+                        </div>
                         <ExportButton leads={leads} fileName={`${slug(labels.leads)}-pipeline`} label="Exportar" />
                         <button className="import-btn-pipe" onClick={() => setShowImport(true)}>
                             <Upload size={16} /> {`Importar ${labels.leads}`}
                         </button>
+                        <button className="import-btn-pipe" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
+                            <SlidersHorizontal size={16} /> Etapas
+                        </button>
                     </div>
                 </div>
+                {editStages && (
+                    <div className="container stage-editor">
+                        {tempStages.map((st, idx) => (
+                            <div className="stage-row" key={st.id}>
+                                <input
+                                    className="stage-input"
+                                    value={st.label}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        setTempStages(prev => prev.map((s, i) => i === idx ? { ...s, label: v } : s));
+                                    }}
+                                />
+                                <input
+                                    className="stage-sla"
+                                    type="number"
+                                    min="1"
+                                    value={st.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
+                                    onChange={(e) => {
+                                        const v = parseInt(e.target.value, 10);
+                                        setTempStages(prev => prev.map((s, i) => i === idx ? { ...s, slaDays: v } : s));
+                                    }}
+                                    title="SLA (dias)"
+                                />
+                            </div>
+                        ))}
+                        <div className="stage-actions">
+                            <button className="btn-secondary" onClick={addStage}><PlusCircle size={14} /> Adicionar etapa</button>
+                            <div className="grow"></div>
+                            <button className="btn-outline" onClick={() => setEditStages(false)}>Cancelar</button>
+                            <button className="btn-primary" onClick={saveStages}>Salvar</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="kanban-wrapper">
-                {COLUMN_CONFIG.map(col => {
+                {stages.map((col, idx) => {
+                    const color = STAGE_COLORS[idx % STAGE_COLORS.length];
+                    const todayYMD = toYMD(new Date());
+                    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowYMD = toYMD(tomorrow);
                     const colLeads = leads
-                      .filter(l => l.status === col.status)
+                      .filter(l => mapLeadToStageId(l) === col.id)
+                      .filter(l => {
+                          if (dayFilter === 'today') return (l.scheduledDate || '') === todayYMD;
+                          if (dayFilter === 'tomorrow') return (l.scheduledDate || '') === tomorrowYMD;
+                          return true;
+                      })
+                      .filter(l => originFilter === 'all' ? true : (l.origin || '') === originFilter)
                       .sort((a, b) => {
-                        if (col.status !== LEAD_STATUS.SCHEDULED) return 0;
                         const toDateTime = (lead) => {
                           const base = lead.scheduledDate || lead.createdAt || '';
                           if (!base) return new Date(8640000000000000);
@@ -240,19 +366,19 @@ const Pipeline = () => {
                       });
                     return (
                         <div
-                            key={col.status}
-                            className={`kanban-column ${dragOver === col.status ? 'drop-target' : ''}`}
+                            key={col.id}
+                            className={`kanban-column ${dragOver === col.id ? 'drop-target' : ''}`}
                             onDragOver={onDragOver}
-                            onDragEnter={() => onDragEnter(col.status)}
+                            onDragEnter={() => onDragEnter(col.id)}
                             onDragLeave={onDragLeave}
-                            onDrop={(e) => onDrop(e, col.status)}
+                            onDrop={(e) => onDrop(e, col.id)}
                         >
                             <div className="col-header">
                                 <div className="flex items-center gap-2">
-                                    <span className="col-dot" style={{ background: col.color }}></span>
-                                    <h3>{col.title}</h3>
+                                    <span className="col-dot" style={{ background: color.color }}></span>
+                                    <h3>{col.label}</h3>
                                 </div>
-                                <span className="col-count" style={{ background: col.bg, color: col.color }}>
+                                <span className="col-count" style={{ background: color.bg, color: color.color }}>
                                     {colLeads.length}
                                 </span>
                             </div>
@@ -279,6 +405,11 @@ const Pipeline = () => {
                                                 <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
                                             </div>
                                         )}
+                                        <div className="lead-meta mt-1 flex items-center gap-2">
+                                            <span className={`stage-age ${daysInStage(lead) >= (col.slaDays ?? DEFAULT_STAGE_SLA_DAYS) ? 'over-sla' : ''}`}>
+                                                {daysInStage(lead)}d no estágio
+                                            </span>
+                                        </div>
                                         <div className="action-bar mt-2">
                                             <button className="action-btn" onClick={(e) => handleWhatsApp(e, lead)}>
                                                 <MessageCircle size={14} /> WhatsApp
@@ -325,15 +456,18 @@ const Pipeline = () => {
                                         )}
                                         {moverOpenId === lead.id && (
                                             <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
-                                                {COLUMN_CONFIG.map(s => (
-                                                    <button
-                                                        key={`${lead.id}-${s.status}`}
-                                                        className={`dropdown-item${lead.status === s.status ? ' active' : ''}`}
-                                                        onClick={(e) => moveToStatus(e, lead.id, s.status)}
-                                                    >
-                                                        {s.title}
-                                                    </button>
-                                                ))}
+                                                {stages.map(s => {
+                                                    const active = (mapLeadToStageId(lead) === s.id);
+                                                    return (
+                                                        <button
+                                                            key={`${lead.id}-${s.id}`}
+                                                            className={`dropdown-item${active ? ' active' : ''}`}
+                                                            onClick={(e) => moveToStatus(e, lead.id, s.id)}
+                                                        >
+                                                            {s.label}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -420,6 +554,23 @@ const Pipeline = () => {
           gap: 6px; white-space: nowrap;
         }
         .import-btn-pipe:hover { filter: brightness(1.1); }
+        .filters { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+        .filter-chip {
+          min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
+          border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+          font-size: 0.78rem; font-weight: 700;
+        }
+        .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .origin-group { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 8px; background: var(--surface); }
+        .origin-select { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 700; }
+        .stage-editor { margin-top: 10px; padding-bottom: 10px; }
+        .stage-row { display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-bottom: 8px; }
+        .stage-input, .stage-sla { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--surface); color: var(--text); }
+        .stage-actions { display: flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--accent); color: white; border: 1px solid var(--accent); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 700; }
+        .btn-secondary { background: var(--surface-hover); color: var(--text-secondary); border: 1px solid var(--border); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-outline { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 700; }
+        .grow { flex: 1 1 auto; }
         .quick-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .quick-btn {
           min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
