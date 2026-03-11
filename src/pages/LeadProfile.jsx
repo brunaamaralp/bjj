@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
-import { ArrowLeft, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save } from 'lucide-react';
 
 const STATUS_CONFIG = {
     [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
@@ -53,6 +53,7 @@ const LeadProfile = () => {
     const lead = getLeadById(id);
 
     const [note, setNote] = useState('');
+    const [eventTypeFilter, setEventTypeFilter] = useState('all');
     const [showTemplates, setShowTemplates] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const [editing, setEditing] = useState(false);
@@ -112,7 +113,10 @@ const LeadProfile = () => {
     };
 
     const handleUpdateStatus = (newStatus) => {
-        updateLead(id, { status: newStatus });
+        const existing = Array.isArray(lead.notes) ? lead.notes : [];
+        const event = { type: 'stage_change', from: lead.status || '', to: newStatus, at: new Date().toISOString(), by: 'user' };
+        const newNotes = [...existing, event];
+        updateLead(id, { status: newStatus, notes: newNotes });
     };
 
     const handleWhatsApp = (customMsg) => {
@@ -121,17 +125,34 @@ const LeadProfile = () => {
             ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(customMsg)}`
             : `https://wa.me/55${cleanPhone}`;
         window.open(url, '_blank');
+        try {
+            const existing = Array.isArray(lead.notes) ? lead.notes : [];
+            const event = { type: 'message', channel: 'whatsapp', text: customMsg ? 'Mensagem WhatsApp enviada (template)' : 'Mensagem WhatsApp iniciada', at: new Date().toISOString(), by: 'user' };
+            const newNotes = [...existing, event];
+            updateLead(id, { notes: newNotes });
+        } catch { /* noop */ }
     };
 
     const handleCall = () => {
         window.open(`tel:${lead.phone.replace(/\D/g, '')}`, '_self');
+        try {
+            const existing = Array.isArray(lead.notes) ? lead.notes : [];
+            const event = { type: 'call', text: 'Ligação iniciada', at: new Date().toISOString(), by: 'user' };
+            const newNotes = [...existing, event];
+            updateLead(id, { notes: newNotes });
+        } catch { /* noop */ }
     };
 
     const addNote = () => {
         if (!note.trim()) return;
-        const newNotes = [...(lead.notes || []), { text: note, date: new Date().toISOString() }];
+        const newNotes = [...(lead.notes || []), { type: 'note', text: note, at: new Date().toISOString(), by: 'user' }];
         updateLead(id, { notes: newNotes });
         setNote('');
+    };
+    const addNoteQuick = (text) => {
+        if (!text) return;
+        const newNotes = [...(lead.notes || []), { type: 'note', text, at: new Date().toISOString(), by: 'user' }];
+        updateLead(id, { notes: newNotes });
     };
 
     const handleCopyTemplate = (template) => {
@@ -367,9 +388,9 @@ const LeadProfile = () => {
                 </div>
             </div>
 
-            {/* Notes */}
+            {/* Timeline */}
             <div className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
-                <h3 className="mb-2">Observações</h3>
+                <h3 className="mb-2">Linha do tempo</h3>
                 <div className="note-input-group">
                     <textarea
                         value={note}
@@ -382,16 +403,51 @@ const LeadProfile = () => {
                         <Send size={16} /> Salvar
                     </button>
                 </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                    <button className="tpl-chip" onClick={() => addNoteQuick('Ligação realizada')}>Ligação realizada</button>
+                    <button className="tpl-chip" onClick={() => addNoteQuick('Proposta enviada')}>Proposta enviada</button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                    <button className={`filter-chip${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
+                    <button className={`filter-chip${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
+                    <button className={`filter-chip${eventTypeFilter === 'call' ? ' active' : ''}`} onClick={() => setEventTypeFilter('call')}>Ligações</button>
+                    <button className={`filter-chip${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
+                    <button className={`filter-chip${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
+                    <button className={`filter-chip${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
+                    <button className={`filter-chip${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
+                </div>
 
                 <div className="flex-col gap-2 mt-3">
-                    {lead.notes?.map((n, i) => (
-                        <div key={i} className="card note-item">
-                            <p style={{ fontSize: '0.9rem' }}>{n.text}</p>
-                            <span className="text-xs text-light mt-1" style={{ display: 'block' }}>
-                                {new Date(n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                        </div>
-                    ))}
+                    {([...((lead.notes || []))]
+                      .filter(ev => eventTypeFilter === 'all' ? true : (ev.type || 'note') === eventTypeFilter)
+                      .sort((a,b) => {
+                        const ta = new Date(a.at || a.date || 0).getTime();
+                        const tb = new Date(b.at || b.date || 0).getTime();
+                        return tb - ta;
+                      })).map((n, i) => {
+                        const when = new Date(n.at || n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                        let icon = null;
+                        let tag = '';
+                        let label = n.text || '';
+                        if ((n.type || 'note') === 'message') { icon = <MessageCircle size={16} color="#25D366" />; tag = 'Mensagem'; label = n.text || 'Mensagem WhatsApp'; }
+                        else if (n.type === 'call') { icon = <Phone size={16} color="var(--accent)" />; tag = 'Ligação'; label = n.text || 'Ligação'; }
+                        else if (n.type === 'schedule') { icon = <Calendar size={16} color="var(--warning)" />; tag = 'Agendamento'; label = `Agendado para ${n.date} ${n.time || ''}`.trim(); }
+                        else if (n.type === 'stage_change') { icon = <ArrowRight size={16} color="var(--text-secondary)" />; tag = 'Mudança'; label = `Mudou de ${n.from} para ${n.to}`; }
+                        else if (n.type === 'import') { icon = <Copy size={16} color="var(--text-secondary)" />; tag = 'Importação'; label = `Importado (${n.source || 'Import'})`; }
+                        else { icon = <Check size={16} color="var(--text-secondary)" />; tag = 'Nota'; }
+                        return (
+                            <div key={i} className="card note-item event-row">
+                                <div className="event-icon">{icon}</div>
+                                <div className="event-content">
+                                    <div className="event-head">
+                                        <span className="event-tag">{tag}</span>
+                                        <span className="event-time">{when}</span>
+                                    </div>
+                                    <p className="event-text">{label}</p>
+                                </div>
+                            </div>
+                        );
+                      })}
                 </div>
             </div>
 
@@ -457,6 +513,25 @@ const LeadProfile = () => {
         .note-send-btn { min-height: 42px; align-self: flex-end; padding: 0 20px; }
         .note-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .note-item { border-left: 3px solid var(--border); padding: 12px 16px; }
+        .tpl-chip {
+          min-height: 28px; padding: 6px 12px; border-radius: var(--radius-full);
+          background: var(--surface); border: 1px solid var(--border);
+          font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
+        }
+        .tpl-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .filter-chip {
+          min-height: 28px; padding: 6px 12px; border-radius: var(--radius-full);
+          background: var(--surface); border: 1px solid var(--border);
+          font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
+        }
+        .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .event-row { display: flex; gap: 10px; align-items: flex-start; }
+        .event-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+        .event-content { flex: 1; }
+        .event-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+        .event-tag { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+        .event-time { font-size: 0.72rem; color: var(--text-muted); }
+        .event-text { font-size: 0.9rem; color: var(--text); margin-top: 2px; }
       `}} />
         </div>
     );

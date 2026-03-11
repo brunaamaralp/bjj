@@ -71,6 +71,7 @@ const Pipeline = () => {
     const { leads, importLeads, updateLead } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
+    const getLeadById = useLeadStore((s) => s.getLeadById);
     const [showImport, setShowImport] = useState(false);
     const [quickItems, setQuickItems] = useState([]);
     const [toast, setToast] = useState('');
@@ -167,7 +168,14 @@ const Pipeline = () => {
         const base = new Date();
         if (day === 'tomorrow') base.setDate(base.getDate() + 1);
         const ymd = toYMD(base);
-        await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time });
+        try {
+            const existing = Array.isArray(lead.notes) ? lead.notes : [];
+            const event = { type: 'schedule', date: ymd, time, at: new Date().toISOString(), by: 'user' };
+            const newNotes = [...existing, event];
+            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, notes: newNotes });
+        } catch {
+            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time });
+        }
         const label = day === 'tomorrow' ? 'amanhã' : 'hoje';
         setToast(`Reagendado para ${label} ${time}`);
         setTimeout(() => setToast(''), 2500);
@@ -190,7 +198,15 @@ const Pipeline = () => {
     };
     const moveToStatus = async (e, leadId, status) => {
         e.stopPropagation();
-        await updateLead(leadId, { status });
+        try {
+            const lead = getLeadById(leadId);
+            const existing = Array.isArray(lead?.notes) ? lead.notes : [];
+            const event = { type: 'stage_change', from: lead?.status || '', to: status, at: new Date().toISOString(), by: 'user' };
+            const newNotes = [...existing, event];
+            await updateLead(leadId, { status, notes: newNotes });
+        } catch {
+            await updateLead(leadId, { status });
+        }
         setMoverOpenId(null);
         setToast('Movido no pipeline');
         setTimeout(() => setToast(''), 2000);

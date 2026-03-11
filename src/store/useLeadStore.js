@@ -237,6 +237,8 @@ export const useLeadStore = create((set, get) => ({
     const newLeads = [];
     for (const lead of leadsArray) {
       try {
+        const nowIso = new Date().toISOString();
+        const history = [{ type: 'import', source: 'Planilha', at: nowIso, by: 'system' }];
         const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
           name: lead.name,
           phone: lead.phone || '',
@@ -247,13 +249,14 @@ export const useLeadStore = create((set, get) => ({
           scheduledTime: lead.scheduledTime || '',
           parentName: lead.parentName || '',
           age: lead.age || '',
-          notes: '',
+          notes: JSON.stringify({ history }),
+          statusChangedAt: nowIso,
           academyId,
         });
         newLeads.push({
           id: doc.$id,
           ...lead,
-          notes: [],
+          notes: history,
           createdAt: doc.$createdAt,
         });
       } catch (e) {

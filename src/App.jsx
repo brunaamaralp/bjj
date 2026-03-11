@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes, BarChart3 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query } from 'appwrite';
@@ -16,6 +16,7 @@ import Login from './pages/Login';
 import Welcome from './pages/Welcome';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
+import Reports from './pages/Reports';
 import { FEATURES } from './config/features';
 
 const App = () => {
@@ -301,6 +302,10 @@ const App = () => {
               <GraduationCap size={18} />
               <span>{labels.students}</span>
             </Link>
+            <Link to="/reports" className={`side-link ${isActive('/reports') ? 'active' : ''}`}>
+              <BarChart3 size={18} />
+              <span>Relatórios</span>
+            </Link>
           </div>
           {((modules.inventory === true) || (modules.sales === true)) && (
             <div className="side-section">
@@ -333,6 +338,7 @@ const App = () => {
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/lead/:id" element={<LeadProfile />} />
             <Route path="/new-lead" element={<NewLead />} />
+            <Route path="/reports" element={<Reports />} />
             {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
             {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
             <Route path="/students" element={<Students />} />

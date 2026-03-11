@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Edit3 } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -174,6 +174,55 @@ const Dashboard = () => {
                 <h1 style={{ fontSize: '1.5rem', marginBottom: 2 }}>Agenda da Recepção</h1>
                 <p className="text-small">Controle de aulas experimentais e retornos</p>
             </div>
+            {(() => {
+                const startOfWeek = (d) => { const dd = new Date(d); const day = dd.getDay(); const diff = (day + 6) % 7; dd.setDate(dd.getDate()-diff); dd.setHours(0,0,0,0); return dd; };
+                const endOfWeek = (d) => { const dd = startOfWeek(d); dd.setDate(dd.getDate()+6); dd.setHours(23,59,59,999); return dd; };
+                const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
+                const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+                const parseYMD = (s) => { if (!s) return null; const [Y,M,D] = s.split('-').map(Number); return new Date(Y,(M||1)-1,D||1); };
+                const inRange = (ts,a,b) => { if (!ts) return false; const t = new Date(ts).getTime(); return t>=a.getTime() && t<=b.getTime(); };
+                const stageEventWithin = (lead, toStatus, cmp) => {
+                    const evs = Array.isArray(lead.notes) ? lead.notes : [];
+                    const hit = evs.find(e => e && e.type === 'stage_change' && e.to === toStatus && cmp(e.at || e.date));
+                    if (hit) return true;
+                    if (lead.status === toStatus && lead.statusChangedAt && cmp(lead.statusChangedAt)) return true;
+                    return false;
+                };
+                const now = new Date();
+                const mFrom = startOfMonth(now), mTo = endOfMonth(now);
+                const pmFrom = startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), pmTo = endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1));
+                const wFrom = startOfWeek(now), wTo = endOfWeek(now);
+                const pwFrom = new Date(wFrom); pwFrom.setDate(pwFrom.getDate()-7);
+                const pwTo = new Date(wTo); pwTo.setDate(pwTo.getDate()-7);
+                const pctVar = (cur, prev) => { if (prev === 0) return cur > 0 ? 100 : 0; return Math.round(((cur - prev) / prev) * 100); };
+                const newLeadsCur = leads.filter(l => inRange(l.createdAt, mFrom, mTo)).length;
+                const newLeadsPrev = leads.filter(l => inRange(l.createdAt, pmFrom, pmTo)).length;
+                const schedCur = leads.filter(l => { const d = parseYMD(l.scheduledDate); return d && inRange(d, wFrom, wTo); }).length;
+                const schedPrev = leads.filter(l => { const d = parseYMD(l.scheduledDate); return d && inRange(d, pwFrom, pwTo); }).length;
+                const convCur = leads.filter(l => stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, mFrom, mTo))).length;
+                const convPrev = leads.filter(l => stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, pmFrom, pmTo))).length;
+                const cards = [
+                    { title: 'Novos leads no mês', cur: newLeadsCur, var: pctVar(newLeadsCur, newLeadsPrev) },
+                    { title: 'Aulas agendadas (semana)', cur: schedCur, var: pctVar(schedCur, schedPrev) },
+                    { title: 'Matrículas no mês', cur: convCur, var: pctVar(convCur, convPrev) },
+                ];
+                return (
+                    <div className="kpi-row mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+                        {cards.map((c, i) => {
+                            const up = c.var >= 0;
+                            return (
+                                <div key={i} className="card kpi-mini">
+                                    <div className="kpi-mini-head"><span>{c.title}</span></div>
+                                    <div className="kpi-mini-val">{c.cur}</div>
+                                    <div className={`kpi-mini-var ${up ? 'up':'down'}`}>
+                                        {up ? <TrendingUp size={14}/> : <TrendingDown size={14}/> } {c.var}%
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })()}
 
             <button className="btn-secondary btn-large mt-4" onClick={() => navigate('/new-lead')} style={{ borderRadius: 'var(--radius)' }}>
                 <Plus size={22} /> {`Novo ${(() => {
@@ -376,6 +425,15 @@ const Dashboard = () => {
             )}
             <style dangerouslySetInnerHTML={{
                 __html: `
+        .kpi-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+        @media (max-width: 900px) { .kpi-row { grid-template-columns: 1fr; } }
+        .kpi-mini { padding: 14px; }
+        .kpi-mini-head { display: flex; justify-content: space-between; align-items: center; }
+        .kpi-mini-head span { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); }
+        .kpi-mini-val { font-size: 1.6rem; font-weight: 800; margin-top: 6px; }
+        .kpi-mini-var { margin-top: 6px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
+        .kpi-mini-var.up { color: var(--success); }
+        .kpi-mini-var.down { color: var(--danger); }
         .agenda-card { border-left: 4px solid var(--accent); }
         .follow-card { border-left: 4px solid var(--warning); }
         .filter-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
