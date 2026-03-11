@@ -74,6 +74,16 @@ const App = () => {
       } else if (list.length > 0) {
         academyId = list[0].$id;
       } else {
+        const defaultFinance = {
+          cardFees: {
+            pix: { percent: 0, fixed: 0 },
+            debito: { percent: 0, fixed: 0 },
+            credito_avista: { percent: 0, fixed: 0 },
+            credito_parcelado: { '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '11': 0, '12': 0 }
+          },
+          bankAccounts: [],
+          plans: []
+        };
         const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), {
           name: u.name || '',
           phone: '',
@@ -82,6 +92,8 @@ const App = () => {
           ownerId: u.$id,
           uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
           modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
+          quickTimes: [],
+          financeConfig: JSON.stringify(defaultFinance)
         });
         academyId = doc.$id;
       }
