@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Functions } from "appwrite";
+import { Client, Account, Databases, Functions, Teams } from "appwrite";
 
 const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1";
 const project = import.meta.env.VITE_APPWRITE_PROJECT || "699f020c00171ce26206";
@@ -9,6 +9,7 @@ const client = new Client()
 const account = new Account(client);
 const databases = new Databases(client);
 const functions = new Functions(client);
+const teams = new Teams(client);
 
 // IDs para as collections e banco (necessários para o funcionamento do CRM)
 export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a11c21825";
@@ -39,5 +40,5 @@ console.log('   - Fn Sales Create:', SALES_CREATE_FN_ID || '(unset)');
 console.log('   - Fn Sales Cancel:', SALES_CANCEL_FN_ID || '(unset)');
 console.log('   - Fn Inventory Seed Kimonos:', INVENTORY_SEED_KIMONOS_FN_ID || '(unset)');
 
-export { client, account, databases, functions };
+export { client, account, databases, functions, teams };
 export default client;

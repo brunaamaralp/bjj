@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "provision:stock": "node scripts/provision_stock_schema.js"
+    "provision:stock": "node scripts/provision_stock_schema.js",
+    "provision:core": "node scripts/setup-appwrite.mjs"
   },
   "dependencies": {
     "appwrite": "^22.4.1",

@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
-import { Building2, Phone, Mail, MapPin, Trash2, Download, ChevronRight, LogOut, Info } from 'lucide-react';
+import { databases, DB_ID, ACADEMIES_COL, teams } from '../lib/appwrite';
+import { Building2, Phone, Mail, MapPin, Trash2, Download, ChevronRight, LogOut, Info, Plus, X } from 'lucide-react';
 import ExportButton from '../components/ExportButton';
 
 const Account = ({ user, onLogout }) => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
 
-    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' }, modules: { sales: false, inventory: false, finance: false }, onboardingChecklist: [] });
+    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' }, modules: { sales: false, inventory: false, finance: false }, onboardingChecklist: [], customLeadQuestions: [] });
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [memberEmail, setMemberEmail] = useState('');
+    const [memberRole, setMemberRole] = useState('viewer');
+    const [inviting, setInviting] = useState(false);
+    const [memberships, setMemberships] = useState([]);
 
     // Fetch academy data from Appwrite
     useEffect(() => {
         if (!academyId) return;
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-            .then(doc => {
+            .then(async (doc) => {
                 let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas' };
                 let mods = { sales: false, inventory: false, finance: false };
                 let checklist = [
@@ -57,7 +61,22 @@ const Account = ({ user, onLogout }) => {
                     uiLabels: labels,
                     modules: mods,
                     onboardingChecklist: checklist,
+                    teamId: doc.teamId || '',
+                    customLeadQuestions: (() => {
+                        try {
+                            const raw = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : (doc.customLeadQuestions || []);
+                            return Array.isArray(raw) ? raw : [];
+                        } catch { return []; }
+                    })(),
                 });
+                try {
+                    if (doc.teamId) {
+                        const res = await teams.listMemberships({ teamId: doc.teamId });
+                        setMemberships(res.memberships || []);
+                    } else {
+                        setMemberships([]);
+                    }
+                } catch { setMemberships([]); }
             })
             .catch(e => console.error('fetch academy:', e));
     }, [academyId]);
@@ -96,6 +115,41 @@ const Account = ({ user, onLogout }) => {
             await useLeadStore.getState().deleteLead(lead.id);
         }
         setShowClearConfirm(false);
+    };
+
+    const inviteMember = async () => {
+        if (!academy.teamId || !memberEmail) return;
+        setInviting(true);
+        try {
+            await teams.createMembership({
+                teamId: academy.teamId,
+                email: memberEmail,
+                roles: [memberRole],
+                url: window.location.origin + '/welcome'
+            });
+            setMemberEmail('');
+            try {
+                const res = await teams.listMemberships({ teamId: academy.teamId });
+                setMemberships(res.memberships || []);
+            } catch (e) { void e; }
+            alert('Convite enviado por e-mail.');
+        } catch (e) {
+            console.error('invite member:', e);
+            alert('Não foi possível enviar o convite. Verifique o SMTP no Appwrite.');
+        } finally {
+            setInviting(false);
+        }
+    };
+
+    const [newQuestion, setNewQuestion] = useState('');
+    const saveQuestions = async (qs) => {
+        if (!academyId) return;
+        try {
+            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+                customLeadQuestions: JSON.stringify(qs)
+            });
+            setAcademy(a => ({ ...a, customLeadQuestions: qs }));
+        } catch (e) { console.error('save questions:', e); }
     };
 
     return (
@@ -161,6 +215,60 @@ const Account = ({ user, onLogout }) => {
                                 <span className="info-row-value">{item.title}</span>
                             </label>
                         ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Custom Lead Questions */}
+            <section className="mt-6 animate-in" style={{ animationDelay: '0.18s' }}>
+                <div className="flex justify-between items-center mb-2">
+                    <h3>Perguntas do Lead</h3>
+                </div>
+                <div className="card">
+                    <div className="flex-col gap-3">
+                        <div className="flex gap-2">
+                            <input
+                                className="form-input"
+                                placeholder="Ex: Qual é seu objetivo principal?"
+                                value={newQuestion}
+                                onChange={(e) => setNewQuestion(e.target.value)}
+                            />
+                            <button
+                                className="btn-secondary"
+                                onClick={() => {
+                                    const q = (newQuestion || '').trim();
+                                    if (!q) return;
+                                    const qs = [...(academy.customLeadQuestions || []), q];
+                                    setNewQuestion('');
+                                    saveQuestions(qs);
+                                }}
+                            >
+                                <Plus size={16} /> Adicionar
+                            </button>
+                        </div>
+                        <div className="flex-col gap-2">
+                            {(academy.customLeadQuestions || []).map((q, idx) => (
+                                <div key={`${q}-${idx}`} className="info-row">
+                                    <span className="info-row-label">{q}</span>
+                                    <button
+                                        className="icon-btn"
+                                        title="Remover"
+                                        onClick={() => {
+                                            const qs = (academy.customLeadQuestions || []).filter((_, i) => i !== idx);
+                                            saveQuestions(qs);
+                                        }}
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                            {(academy.customLeadQuestions || []).length === 0 && (
+                                <div className="text-small" style={{ color: 'var(--text-muted)' }}>
+                                    Nenhuma pergunta configurada. Adicione perguntas personalizadas para acompanhar no perfil do lead.
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-xs text-light">As respostas são preenchidas no card do lead, não no cadastro inicial.</p>
                     </div>
                 </div>
             </section>
@@ -308,6 +416,52 @@ const Account = ({ user, onLogout }) => {
                         </div>
                         <ChevronRight size={18} color="var(--text-muted)" />
                     </div>
+                </div>
+            </section>
+
+            {/* Team Management */}
+            <section className="mt-6 animate-in" style={{ animationDelay: '0.22s' }}>
+                <h3 className="mb-2">Equipe</h3>
+                <div className="card">
+                    {academy.teamId ? (
+                        <div className="flex-col gap-3">
+                            <div className="info-row">
+                                <span className="info-row-label">Team ID</span>
+                                <span className="info-row-value">{academy.teamId}</span>
+                            </div>
+                            <div className="form-group">
+                                <label>Convidar por e-mail</label>
+                                <div className="flex gap-2">
+                                    <input className="form-input" type="email" placeholder="email@exemplo.com" value={memberEmail} onChange={e => setMemberEmail(e.target.value)} />
+                                    <select className="form-input" value={memberRole} onChange={e => setMemberRole(e.target.value)}>
+                                        <option value="viewer">viewer</option>
+                                        <option value="editor">editor</option>
+                                        <option value="owner">owner</option>
+                                    </select>
+                                    <button className="btn-secondary" onClick={inviteMember} disabled={inviting || !memberEmail}>Convidar</button>
+                                </div>
+                                <p className="text-xs text-light">É necessário SMTP configurado no Appwrite para envio do convite.</p>
+                            </div>
+                            <div>
+                                <label style={{ fontWeight: 600, fontSize: '0.95rem' }}>Membros</label>
+                                <div className="flex-col gap-1 mt-2">
+                                    {(memberships || []).map(m => (
+                                        <div key={m.$id} className="info-row">
+                                            <span className="info-row-label">{m.userName || m.userId}</span>
+                                            <span className="info-row-value">{(m.roles || []).join(', ')}</span>
+                                        </div>
+                                    ))}
+                                    {(memberships || []).length === 0 && (
+                                        <div className="text-small" style={{ color: 'var(--text-muted)' }}>Nenhum membro listado.</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-small" style={{ color: 'var(--text-muted)' }}>
+                            Nenhum time associado. Faça logout e login novamente para criar/associar automaticamente.
+                        </div>
+                    )}
                 </div>
             </section>
 

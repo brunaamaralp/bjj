@@ -39,7 +39,6 @@ const NewLead = () => {
 
     const leadType = watch('type');
     const phoneValue = watch('phone');
-    const isFirstExperience = watch('isFirstExperience');
 
     // Duplicate detection
     const findDuplicate = (phone) => {
@@ -161,7 +160,7 @@ const NewLead = () => {
 
                 {/* Experiência */}
                 <div className="card animate-in" style={{ animationDelay: '0.12s' }}>
-                    <label className="type-label">Primeira experiência no Jiu-Jitsu?</label>
+                    <label className="type-label">Primeira experiência na modalidade?</label>
                     <div className="flex gap-4 mt-2">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input {...register('isFirstExperience')} type="radio" value="Sim" />
@@ -173,32 +172,13 @@ const NewLead = () => {
                         </label>
                     </div>
 
-                    {isFirstExperience === 'Não' && (
-                        <div className="form-group mt-4">
-                            <label>Qual a sua faixa atual?</label>
-                            <select {...register('belt')} className="form-input">
-                                <option value="Branca">Branca</option>
-                                <option value="Cinza">Cinza</option>
-                                <option value="Amarela">Amarela</option>
-                                <option value="Laranja">Laranja</option>
-                                <option value="Verde">Verde</option>
-                                <option value="Azul">Azul</option>
-                                <option value="Roxa">Roxa</option>
-                                <option value="Marrom">Marrom</option>
-                                <option value="Preta">Preta</option>
-                            </select>
-                        </div>
-                    )}
+                    {/* Campo de faixa removido; pode ser configurado em Perguntas do Lead */}
                 </div>
 
                 {/* Equipamento */}
                 <div className="card animate-in" style={{ animationDelay: '0.14s' }}>
                     <label className="type-label">Equipamento Emprestado</label>
                     <div className="flex gap-4 mt-2">
-                        <div className="form-group" style={{ flex: 1 }}>
-                            <label>Tamanho Kimono</label>
-                            <input {...register('borrowedKimono')} className="form-input" placeholder="Ex: A2, M2" />
-                        </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Tamanho Camiseta</label>
                             <input {...register('borrowedShirt')} className="form-input" placeholder="Ex: G, 12" />

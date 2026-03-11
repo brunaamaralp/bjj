@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { ArrowLeft, ArrowRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save } from 'lucide-react';
+import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const STATUS_CONFIG = {
     [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
@@ -50,6 +51,7 @@ const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { getLeadById, updateLead } = useLeadStore();
+    const academyId = useLeadStore((s) => s.academyId);
     const lead = getLeadById(id);
 
     const [note, setNote] = useState('');
@@ -57,6 +59,7 @@ const LeadProfile = () => {
     const [showTemplates, setShowTemplates] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const [editing, setEditing] = useState(false);
+    const [customQuestions, setCustomQuestions] = useState([]);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -65,12 +68,27 @@ const LeadProfile = () => {
         parentName: '',
         age: '',
         isFirstExperience: 'Sim',
-        belt: '',
         borrowedKimono: '',
         borrowedShirt: '',
+        customAnswers: {},
         scheduledDate: '',
         scheduledTime: ''
     });
+
+    useEffect(() => {
+        if (!academyId) return;
+        databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
+            .then(doc => {
+                try {
+                    const arr = typeof doc.customLeadQuestions === 'string'
+                        ? JSON.parse(doc.customLeadQuestions || '[]')
+                        : (doc.customLeadQuestions || []);
+                    if (Array.isArray(arr)) setCustomQuestions(arr.filter(q => typeof q === 'string' && q.trim()));
+                    else setCustomQuestions([]);
+                } catch { setCustomQuestions([]); }
+            })
+            .catch(() => setCustomQuestions([]));
+    }, [academyId]);
 
     if (!lead) return (
         <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
@@ -88,9 +106,9 @@ const LeadProfile = () => {
             parentName: lead.parentName || '',
             age: lead.age || '',
             isFirstExperience: lead.isFirstExperience || 'Sim',
-            belt: lead.belt || '',
             borrowedKimono: lead.borrowedKimono || '',
             borrowedShirt: lead.borrowedShirt || '',
+            customAnswers: lead.customAnswers || {},
             scheduledDate: lead.scheduledDate || '',
             scheduledTime: lead.scheduledTime || ''
         });
@@ -104,6 +122,9 @@ const LeadProfile = () => {
     const onChange = (e) => {
         const { name, value } = e.target;
         setForm((f) => ({ ...f, [name]: value }));
+    };
+    const onChangeCustom = (q, value) => {
+        setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [q]: value } }));
     };
 
     const handleSave = async () => {
@@ -240,34 +261,28 @@ const LeadProfile = () => {
                                             <option value="Não">Não</option>
                                         </select>
                                     </div>
-                                    {form.isFirstExperience === 'Não' && (
-                                        <div className="form-group" style={{ flex: 1 }}>
-                                            <label>Faixa</label>
-                                            <select name="belt" value={form.belt} onChange={onChange} className="form-input">
-                                                <option value="">Selecione</option>
-                                                <option value="Branca">Branca</option>
-                                                <option value="Cinza">Cinza</option>
-                                                <option value="Amarela">Amarela</option>
-                                                <option value="Laranja">Laranja</option>
-                                                <option value="Verde">Verde</option>
-                                                <option value="Azul">Azul</option>
-                                                <option value="Roxa">Roxa</option>
-                                                <option value="Marrom">Marrom</option>
-                                                <option value="Preta">Preta</option>
-                                            </select>
-                                        </div>
-                                    )}
+                                    {/* Campo de faixa removido; pode ser configurado como pergunta personalizada */}
                                 </div>
                                 <div className="flex gap-2 mt-2">
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>Tam. Kimono</label>
-                                        <input name="borrowedKimono" value={form.borrowedKimono} onChange={onChange} className="form-input" />
-                                    </div>
                                     <div className="form-group" style={{ flex: 1 }}>
                                         <label>Tam. Camiseta</label>
                                         <input name="borrowedShirt" value={form.borrowedShirt} onChange={onChange} className="form-input" />
                                     </div>
                                 </div>
+                                {customQuestions.length > 0 && (
+                                    <div className="flex-col gap-2 mt-2">
+                                        {customQuestions.map((q) => (
+                                            <div key={q} className="form-group">
+                                                <label>{q}</label>
+                                                <input
+                                                    className="form-input"
+                                                    value={(form.customAnswers || {})[q] || ''}
+                                                    onChange={(e) => onChangeCustom(q, e.target.value)}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -280,13 +295,8 @@ const LeadProfile = () => {
                         {!editing ? (
                             <div className="flex flex-wrap gap-2 mt-2">
                                 <span className="info-badge">
-                                    {lead.isFirstExperience === 'Sim' ? 'Iniciante' : `Já treina (${lead.belt})`}
+                                    {lead.isFirstExperience === 'Sim' ? 'Iniciante' : 'Já treina'}
                                 </span>
-                                {lead.borrowedKimono && (
-                                    <span className="info-badge" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
-                                        Kimono: {lead.borrowedKimono}
-                                    </span>
-                                )}
                                 {lead.borrowedShirt && (
                                     <span className="info-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
                                         Camiseta: {lead.borrowedShirt}
@@ -294,6 +304,19 @@ const LeadProfile = () => {
                                 )}
                             </div>
                         ) : null}
+                        {!editing && customQuestions.length > 0 && (
+                            <div className="flex-col gap-2 mt-2">
+                                {customQuestions.map((q) => {
+                                    const ans = (lead.customAnswers || {})[q];
+                                    return (
+                                        <div key={q} className="info-row">
+                                            <span className="info-row-label">{q}</span>
+                                            <span className="info-row-value">{ans || '-'}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         {!editing ? (
                             lead.scheduledDate && (

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes, BarChart3 } from 'lucide-react';
 import { authService } from './lib/auth';
-import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
-import { ID, Query } from 'appwrite';
+import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, teams } from './lib/appwrite';
+import { ID, Query, Permission, Role } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
 import { useUiStore } from './store/useUiStore';
 import Dashboard from './pages/Dashboard';
@@ -93,24 +93,60 @@ const App = () => {
           { id: 'first_lead', title: 'Criar primeiro lead', done: false },
           { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
         ];
+        // Create team for this academy
+        const teamResp = await teams.create({ teamId: ID.unique(), name: (u.name ? `${u.name} — Academia` : 'Academia') });
+        const tId = teamResp.$id;
         const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), {
           name: u.name || '',
           phone: '',
           email: u.email || '',
           address: '',
           ownerId: u.$id,
+          teamId: tId,
           uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
           modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
           quickTimes: [],
           financeConfig: JSON.stringify(defaultFinance),
-          onboardingChecklist: JSON.stringify(checklist)
-        });
+          onboardingChecklist: JSON.stringify(checklist),
+          customLeadQuestions: JSON.stringify(['Faixa'])
+        }, [
+          Permission.read(Role.team(tId)),
+          Permission.update(Role.team(tId, 'owner')),
+          Permission.delete(Role.team(tId, 'owner')),
+        ]);
         academyId = doc.$id;
       }
       setAcademyId(academyId);
       localStorage.setItem('activeAcademyId', academyId);
       try {
         const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        // Migrate missing teamId on existing academies
+        if (!doc.teamId) {
+          const teamResp = await teams.create({ teamId: ID.unique(), name: (doc.name ? `${doc.name} — Academia` : 'Academia') });
+          const tId = teamResp.$id;
+          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { teamId: tId }, [
+            Permission.read(Role.team(tId)),
+            Permission.update(Role.team(tId, 'owner')),
+            Permission.delete(Role.team(tId, 'owner')),
+          ]);
+          doc.teamId = tId;
+        }
+        try { useLeadStore.getState().setTeamId(doc.teamId || null); } catch (e) { void e; }
+        // Ensure default custom question 'Faixa' exists once
+        try {
+          let clq = [];
+          if (doc.customLeadQuestions) {
+            clq = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : doc.customLeadQuestions;
+            if (!Array.isArray(clq)) clq = [];
+          }
+          if (!clq.includes('Faixa')) {
+            const updated = [...clq, 'Faixa'];
+            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+              customLeadQuestions: JSON.stringify(updated)
+            });
+            doc.customLeadQuestions = JSON.stringify(updated);
+          }
+        } catch (e) { void e; }
         let uiLabels = null;
         let mods = null;
         try {
@@ -149,6 +185,7 @@ const App = () => {
   const handleLogin = async (u) => {
     setUser(u);
     await setupAcademy(u);
+    navigate('/');
   };
 
   const handleLogout = async () => {

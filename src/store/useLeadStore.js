@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
-import { ID, Query } from 'appwrite';
+import { ID, Query, Permission, Role } from 'appwrite';
 
 export const LEAD_STATUS = {
   NEW: 'Novo',
@@ -17,10 +17,12 @@ export const useLeadStore = create((set, get) => ({
   leads: [],
   loading: false,
   academyId: null,
+  teamId: null,
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' },
   modules: { sales: false, inventory: false, finance: false },
 
   setAcademyId: (id) => set({ academyId: id }),
+  setTeamId: (id) => set({ teamId: id }),
   setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
   setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
 
@@ -54,6 +56,27 @@ export const useLeadStore = create((set, get) => ({
               belt = parsed.belt || '';
               borrowedKimono = parsed.borrowedKimono || '';
               borrowedShirt = parsed.borrowedShirt || '';
+              const customAnswers = parsed.customAnswers || {};
+              return {
+                id: doc.$id,
+                name: doc.name,
+                phone: doc.phone,
+                type: doc.type || 'Adulto',
+                origin: doc.origin || '',
+                status: doc.status,
+                scheduledDate: doc.scheduledDate || '',
+                scheduledTime: doc.scheduledTime || '',
+                parentName: doc.parentName || '',
+                age: doc.age || '',
+                notes: history,
+                isFirstExperience,
+                belt,
+                borrowedKimono,
+                borrowedShirt,
+                customAnswers,
+                statusChangedAt: doc.statusChangedAt || '',
+                createdAt: doc.$createdAt,
+              };
             }
           } catch {
             console.warn('Notes parse error, treating as empty history');
@@ -116,8 +139,15 @@ export const useLeadStore = create((set, get) => ({
         isFirstExperience: lead.isFirstExperience || 'Sim',
         belt: lead.belt || '',
         borrowedKimono: lead.borrowedKimono || '',
-        borrowedShirt: lead.borrowedShirt || ''
+        borrowedShirt: lead.borrowedShirt || '',
+        customAnswers: lead.customAnswers || {}
       };
+      const teamId = get().teamId;
+      const perms = teamId ? [
+        Permission.read(Role.team(teamId)),
+        Permission.update(Role.team(teamId, 'owner')),
+        Permission.delete(Role.team(teamId, 'owner')),
+      ] : undefined;
 
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
         name: lead.name,
@@ -132,7 +162,7 @@ export const useLeadStore = create((set, get) => ({
         notes: JSON.stringify(notesData),
         statusChangedAt: new Date().toISOString(),
         academyId,
-      });
+      }, perms);
 
       const newLead = {
         id: doc.$id,
@@ -235,6 +265,12 @@ export const useLeadStore = create((set, get) => ({
 
     const wasEmpty = get().leads.length === 0;
     const newLeads = [];
+    const teamId = get().teamId;
+    const perms = teamId ? [
+      Permission.read(Role.team(teamId)),
+      Permission.update(Role.team(teamId, 'owner')),
+      Permission.delete(Role.team(teamId, 'owner')),
+    ] : undefined;
     for (const lead of leadsArray) {
       try {
         const nowIso = new Date().toISOString();
@@ -252,7 +288,7 @@ export const useLeadStore = create((set, get) => ({
           notes: JSON.stringify({ history }),
           statusChangedAt: nowIso,
           academyId,
-        });
+        }, perms);
         newLeads.push({
           id: doc.$id,
           ...lead,
