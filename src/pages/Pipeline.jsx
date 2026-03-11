@@ -327,9 +327,25 @@ const Pipeline = () => {
         .pipeline-header { padding: 16px 0; background: var(--surface); border-bottom: 1px solid var(--border-light); }
         .kanban-wrapper { 
           display: flex; gap: 16px; overflow-x: auto; padding: 16px; flex: 1;
-          scrollbar-width: none; scroll-snap-type: x mandatory;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: thin;
+          scrollbar-gutter: stable both-edges;
         }
-        .kanban-wrapper::-webkit-scrollbar { display: none; }
+        .kanban-wrapper::-webkit-scrollbar {
+          height: 12px;
+        }
+        .kanban-wrapper::-webkit-scrollbar-track {
+          background: var(--surface);
+          border-top: 1px solid var(--border-light);
+        }
+        .kanban-wrapper::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, var(--border) 0%, var(--accent) 100%);
+          border-radius: 999px;
+          border: 2px solid var(--surface);
+        }
+        .kanban-wrapper::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, var(--accent) 0%, var(--accent) 100%);
+        }
         .kanban-column { 
           min-width: 280px; display: flex; flex-direction: column; 
           gap: 10px; scroll-snap-align: start;

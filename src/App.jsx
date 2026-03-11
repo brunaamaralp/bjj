@@ -289,6 +289,10 @@ const App = () => {
               <LayoutGrid size={18} />
               <span>Início</span>
             </Link>
+            <Link to="/new-lead" className="side-link primary">
+              <PlusCircle size={18} />
+              <span>Novo {leadSingular(labels.leads)}</span>
+            </Link>
             <Link to="/pipeline" className={`side-link ${isActive('/pipeline') ? 'active' : ''}`}>
               <Users size={18} />
               <span>{labels.leads}</span>
@@ -296,10 +300,6 @@ const App = () => {
             <Link to="/students" className={`side-link ${isActive('/students') ? 'active' : ''}`}>
               <GraduationCap size={18} />
               <span>{labels.students}</span>
-            </Link>
-            <Link to="/new-lead" className="side-link primary">
-              <PlusCircle size={18} />
-              <span>Novo {leadSingular(labels.leads)}</span>
             </Link>
           </div>
           {((modules.inventory === true) || (modules.sales === true)) && (
