@@ -510,9 +510,13 @@ const Pipeline = () => {
             <style dangerouslySetInnerHTML={{
                 __html: `
         .pipeline-container { height: calc(100vh - 140px); display: flex; flex-direction: column; }
-        .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); }
-        .pipeline-header .container h2 { margin: 0; }
-        .header-actions { align-items: center; gap: 8px; flex-wrap: wrap; }
+        .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); overflow-x: hidden; }
+        .pipeline-header .container { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; }
+        .pipeline-header .container h2 { margin: 0; flex: 0 0 auto; }
+        .header-actions { align-items: center; gap: 8px; flex-wrap: wrap; max-width: 100%; min-width: 0; }
+        .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
+        .filters .filter-chip { flex: 0 0 auto; }
+        .origin-group { flex: 0 0 auto; }
         .kanban-wrapper { 
           display: flex; gap: 16px; overflow-x: auto; padding: 12px 16px 16px; flex: 1;
           scroll-snap-type: x mandatory;
