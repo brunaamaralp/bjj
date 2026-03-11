@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
+import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query } from 'appwrite';
 
 export const LEAD_STATUS = {
@@ -108,6 +108,7 @@ export const useLeadStore = create((set, get) => ({
     console.log('📝 addLead starting with LEADS_COL:', LEADS_COL);
 
     try {
+      const wasEmpty = get().leads.length === 0;
       // Pack metadata into notes
       const notesData = {
         history: lead.notes || [],
@@ -141,6 +142,29 @@ export const useLeadStore = create((set, get) => ({
 
       console.log('✅ addLead success:', newLead);
       set((state) => ({ leads: [newLead, ...state.leads] }));
+
+      if (wasEmpty) {
+        try {
+          const acad = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+          let checklist = [];
+          try {
+            if (acad.onboardingChecklist) {
+              checklist = typeof acad.onboardingChecklist === 'string' ? JSON.parse(acad.onboardingChecklist) : acad.onboardingChecklist;
+              if (!Array.isArray(checklist)) checklist = [];
+            }
+          } catch { checklist = []; }
+          const updated = checklist.map(it => it.id === 'first_lead' ? { ...it, done: true } : it);
+          // If first_lead not present (older academies), append done item.
+          if (!updated.find(it => it.id === 'first_lead')) {
+            updated.push({ id: 'first_lead', title: 'Criar primeiro lead', done: true });
+          }
+          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+            onboardingChecklist: JSON.stringify(updated)
+          });
+        } catch (e) {
+          console.warn('onboardingChecklist update failed:', e?.message || e);
+        }
+      }
     } catch (e) {
       console.error('❌ addLead error:', e);
       throw e; // Rethrow to allow handling in the UI
@@ -204,6 +228,7 @@ export const useLeadStore = create((set, get) => ({
     const academyId = get().academyId;
     if (!academyId) return;
 
+    const wasEmpty = get().leads.length === 0;
     const newLeads = [];
     for (const lead of leadsArray) {
       try {
@@ -231,6 +256,28 @@ export const useLeadStore = create((set, get) => ({
       }
     }
     set((state) => ({ leads: [...newLeads, ...state.leads] }));
+
+    if (wasEmpty && newLeads.length > 0) {
+      try {
+        const acad = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        let checklist = [];
+        try {
+          if (acad.onboardingChecklist) {
+            checklist = typeof acad.onboardingChecklist === 'string' ? JSON.parse(acad.onboardingChecklist) : acad.onboardingChecklist;
+            if (!Array.isArray(checklist)) checklist = [];
+          }
+        } catch { checklist = []; }
+        const updated = checklist.map(it => it.id === 'first_lead' ? { ...it, done: true } : it);
+        if (!updated.find(it => it.id === 'first_lead')) {
+          updated.push({ id: 'first_lead', title: 'Criar primeiro lead', done: true });
+        }
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+          onboardingChecklist: JSON.stringify(updated)
+        });
+      } catch (e) {
+        console.warn('onboardingChecklist update failed (import):', e?.message || e);
+      }
+    }
   },
 
   getLeadById: (id) => get().leads.find((l) => l.id === id),
