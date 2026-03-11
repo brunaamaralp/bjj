@@ -425,7 +425,7 @@ const Dashboard = () => {
             )}
             <style dangerouslySetInnerHTML={{
                 __html: `
-        .kpi-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+        .kpi-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
         @media (max-width: 900px) { .kpi-row { grid-template-columns: 1fr; } }
         .kpi-mini { padding: 14px; }
         .kpi-mini-head { display: flex; justify-content: space-between; align-items: center; }

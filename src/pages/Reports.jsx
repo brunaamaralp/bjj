@@ -202,8 +202,8 @@ const Reports = () => {
         </button>
       </div>
 
-      <div className="card mt-4" style={{ padding: 12 }}>
-        <div className="flex items-center gap-2">
+      <div className="card mt-4 filters-card" style={{ padding: 14 }}>
+        <div className="filters-row">
           <Calendar size={16} />
           {presets.map(p => (
             <button key={p.key} className={`filter-chip ${preset === p.key ? 'active' : ''}`} onClick={() => setPreset(p.key)}>
@@ -211,7 +211,7 @@ const Reports = () => {
             </button>
           ))}
           {preset === 'custom' && (
-            <div className="flex items-center gap-2">
+            <div className="custom-range">
               <input type="date" className="form-input" value={from} onChange={e => setFrom(e.target.value)} />
               <span>até</span>
               <input type="date" className="form-input" value={to} onChange={e => setTo(e.target.value)} />
@@ -230,20 +230,20 @@ const Reports = () => {
       </div>
 
       <div className="card mt-4">
-        <div className="flex justify-between items-center mb-2">
-          <h3>Evolução</h3>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
+        <div className="evo-header">
+          <h3 className="evo-title">Evolução</h3>
+          <div className="evo-controls">
+            <div className="evo-group">
               <span className="text-small">Métrica:</span>
-              <div className="flex gap-2">
+              <div className="chip-row">
                 <button className={`filter-chip ${chartMetric === 'new' ? 'active' : ''}`} onClick={() => setChartMetric('new')}>Novos leads</button>
                 <button className={`filter-chip ${chartMetric === 'scheduled' ? 'active' : ''}`} onClick={() => setChartMetric('scheduled')}>Agendados</button>
                 <button className={`filter-chip ${chartMetric === 'converted' ? 'active' : ''}`} onClick={() => setChartMetric('converted')}>Matrículas</button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="evo-group">
               <span className="text-small">Período:</span>
-              <div className="flex gap-2">
+              <div className="chip-row">
                 <button className={`filter-chip ${chartMode === 'weekly' ? 'active' : ''}`} onClick={() => setChartMode('weekly')}>Semanal</button>
                 <button className={`filter-chip ${chartMode === 'monthly' ? 'active' : ''}`} onClick={() => setChartMode('monthly')}>Mensal</button>
               </div>
@@ -300,7 +300,8 @@ const Reports = () => {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .kpi-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 12px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; }
+        @media (min-width: 1400px) { .kpi-grid { grid-template-columns: repeat(6, minmax(0,1fr)); } }
         @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
         @media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
         .kpi-card { padding: 14px; }
@@ -311,6 +312,15 @@ const Reports = () => {
         .kpi-var { margin-top: 6px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
         .kpi-var.up { color: var(--success); }
         .kpi-var.down { color: var(--danger); }
+        .filters-card { margin-top: 12px; }
+        .filters-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .filters-row .filter-chip { margin-right: 0; }
+        .custom-range { display: inline-flex; align-items: center; gap: 8px; }
+        .evo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .evo-title { margin: 0; margin-right: 12px; }
+        .evo-controls { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+        .evo-group { display: inline-flex; align-items: center; gap: 8px; }
+        .chip-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filter-chip {
           min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full); 
           border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);

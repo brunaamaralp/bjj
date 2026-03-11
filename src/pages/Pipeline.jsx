@@ -293,7 +293,7 @@ const Pipeline = () => {
             <div className="pipeline-header">
                 <div className="container flex justify-between items-center">
                     <h2>Fluxo de Matrícula</h2>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 header-actions">
                         <div className="filters">
                             <button className={`filter-chip ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
                             <button className={`filter-chip ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
@@ -510,9 +510,11 @@ const Pipeline = () => {
             <style dangerouslySetInnerHTML={{
                 __html: `
         .pipeline-container { height: calc(100vh - 140px); display: flex; flex-direction: column; }
-        .pipeline-header { padding: 16px 0; background: var(--surface); border-bottom: 1px solid var(--border-light); }
+        .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); }
+        .pipeline-header .container h2 { margin: 0; }
+        .header-actions { align-items: center; gap: 8px; flex-wrap: wrap; }
         .kanban-wrapper { 
-          display: flex; gap: 16px; overflow-x: auto; padding: 16px; flex: 1;
+          display: flex; gap: 16px; overflow-x: auto; padding: 12px 16px 16px; flex: 1;
           scroll-snap-type: x mandatory;
           scrollbar-width: thin;
           scrollbar-gutter: stable both-edges;
