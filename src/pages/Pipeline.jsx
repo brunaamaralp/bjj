@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -70,6 +70,8 @@ const Pipeline = () => {
     const [noteOpen, setNoteOpen] = useState(false);
     const [noteLead, setNoteLead] = useState(null);
     const [noteText, setNoteText] = useState('');
+    const [schedulerOpenId, setSchedulerOpenId] = useState(null);
+    const [moverOpenId, setMoverOpenId] = useState(null);
 
     const handleImport = (rows) => {
         importLeads(rows);
@@ -143,6 +145,23 @@ const Pipeline = () => {
     const toggleExpanded = (e, leadId) => {
         e.stopPropagation();
         setExpanded(prev => ({ ...prev, [leadId]: !prev[leadId] }));
+    };
+    const openScheduler = (e, leadId) => {
+        e.stopPropagation();
+        setSchedulerOpenId(prev => prev === leadId ? null : leadId);
+        setMoverOpenId(null);
+    };
+    const openMover = (e, leadId) => {
+        e.stopPropagation();
+        setMoverOpenId(prev => prev === leadId ? null : leadId);
+        setSchedulerOpenId(null);
+    };
+    const moveToStatus = async (e, leadId, status) => {
+        e.stopPropagation();
+        await updateLead(leadId, { status });
+        setMoverOpenId(null);
+        setToast('Movido no pipeline');
+        setTimeout(() => setToast(''), 2000);
     };
     const onDragStart = (e, leadId) => {
         e.dataTransfer.setData('text/plain', leadId);
@@ -260,23 +279,27 @@ const Pipeline = () => {
                                                 <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
                                             </div>
                                         )}
-                                        {(col.status === LEAD_STATUS.SCHEDULED || col.status === LEAD_STATUS.COMPLETED || col.status === LEAD_STATUS.MISSED) && (
-                                            <div className="quick-actions mt-2">
-                                                <button className="quick-btn" onClick={(e) => openNote(e, lead)}>
-                                                    <MessageCircle size={14} /> Obs.
-                                                </button>
-                                            </div>
-                                        )}
-                                        {col.status === LEAD_STATUS.MISSED && (
-                                            <div className="quick-actions mt-2">
-                                                <button className="quick-btn whatsapp-btn" onClick={(e) => handleWhatsApp(e, lead)}>
-                                                    WhatsApp
-                                                </button>
-                                                <div className="quick-block">
-                                                    <div className="quick-label">Hoje</div>
-                                                    <div className="quick-times">
+                                        <div className="action-bar mt-2">
+                                            <button className="action-btn" onClick={(e) => handleWhatsApp(e, lead)}>
+                                                <MessageCircle size={14} /> WhatsApp
+                                            </button>
+                                            <button className="action-btn" onClick={(e) => openScheduler(e, lead.id)}>
+                                                <Calendar size={14} /> Agendar <ChevronDown size={14} />
+                                            </button>
+                                            <button className="action-btn" onClick={(e) => openMover(e, lead.id)}>
+                                                <ChevronRight size={14} /> Mover
+                                            </button>
+                                            <button className="action-btn" onClick={(e) => openNote(e, lead)}>
+                                                <MessageCircle size={14} /> Obs.
+                                            </button>
+                                        </div>
+                                        {schedulerOpenId === lead.id && (
+                                            <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
+                                                <div className="dropdown-section">
+                                                    <div className="dropdown-label">Hoje</div>
+                                                    <div className="dropdown-times">
                                                         {(isExpanded(lead.id) ? itemsForDay('today') : itemsForDay('today').slice(0, MAX_CHIPS)).map((it, idx) => (
-                                                            <button key={`t-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'today', it.value)}>Hoje {it.label}</button>
+                                                            <button key={`t-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'today', it.value)}>{it.label}</button>
                                                         ))}
                                                         {itemsForDay('today').length > MAX_CHIPS && (
                                                             <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
@@ -285,11 +308,11 @@ const Pipeline = () => {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="quick-block">
-                                                    <div className="quick-label">Amanhã</div>
-                                                    <div className="quick-times">
+                                                <div className="dropdown-section">
+                                                    <div className="dropdown-label">Amanhã</div>
+                                                    <div className="dropdown-times">
                                                         {(isExpanded(lead.id) ? itemsForDay('tomorrow') : itemsForDay('tomorrow').slice(0, MAX_CHIPS)).map((it, idx) => (
-                                                            <button key={`m-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'tomorrow', it.value)}>Amanhã {it.label}</button>
+                                                            <button key={`m-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'tomorrow', it.value)}>{it.label}</button>
                                                         ))}
                                                         {itemsForDay('tomorrow').length > MAX_CHIPS && (
                                                             <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
@@ -298,6 +321,19 @@ const Pipeline = () => {
                                                         )}
                                                     </div>
                                                 </div>
+                                            </div>
+                                        )}
+                                        {moverOpenId === lead.id && (
+                                            <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
+                                                {COLUMN_CONFIG.map(s => (
+                                                    <button
+                                                        key={`${lead.id}-${s.status}`}
+                                                        className={`dropdown-item${lead.status === s.status ? ' active' : ''}`}
+                                                        onClick={(e) => moveToStatus(e, lead.id, s.status)}
+                                                    >
+                                                        {s.title}
+                                                    </button>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -408,6 +444,28 @@ const Pipeline = () => {
           background: var(--surface); color: var(--text-muted);
         }
         .more-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .action-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+        .action-btn {
+          min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
+          font-size: 0.78rem; font-weight: 700; border: 1px solid var(--border);
+          background: var(--surface); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;
+        }
+        .action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .lead-card { position: relative; }
+        .dropdown-panel {
+          position: absolute; left: 14px; right: 14px; top: 100%; margin-top: 6px;
+          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow-lg); padding: 10px; z-index: 5;
+        }
+        .dropdown-section { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+        .dropdown-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; }
+        .dropdown-times { display: flex; gap: 6px; flex-wrap: wrap; }
+        .dropdown-item {
+          width: 100%; text-align: left; padding: 8px 10px; border-radius: var(--radius-sm);
+          border: 1px solid var(--border); background: var(--surface);
+          font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
+        }
+        .dropdown-item.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
         .toast {
           position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
           background: var(--success); color: white; padding: 10px 14px; border-radius: var(--radius-full);
