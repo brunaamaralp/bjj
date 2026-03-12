@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes, BarChart3 } from 'lucide-react';
 import { authService } from './lib/auth';
-import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, teams } from './lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
 import { useUiStore } from './store/useUiStore';
@@ -49,10 +49,15 @@ const App = () => {
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
+          try { useLeadStore.getState().setUserId(currentUser.$id); } catch (e) { void e; }
           await setupAcademy(currentUser);
+          try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
+          navigate('/', { replace: true });
+        } else {
+          navigate('/login', { replace: true });
         }
       } catch {
-        // No session
+        navigate('/login', { replace: true });
       } finally {
         setLoading(false);
       }
@@ -64,7 +69,7 @@ const App = () => {
   const setupAcademy = async (u) => {
     try {
       const res = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
-        Query.equal('ownerId', u.$id),
+        Query.equal('ownerId', [u.$id]),
         Query.limit(50),
       ]);
       let academyId = null;
@@ -93,16 +98,12 @@ const App = () => {
           { id: 'first_lead', title: 'Criar primeiro lead', done: false },
           { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
         ];
-        // Create team for this academy
-        const teamResp = await teams.create({ teamId: ID.unique(), name: (u.name ? `${u.name} — Academia` : 'Academia') });
-        const tId = teamResp.$id;
         const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), {
           name: u.name || '',
           phone: '',
           email: u.email || '',
           address: '',
           ownerId: u.$id,
-          teamId: tId,
           uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
           modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
           quickTimes: [],
@@ -110,9 +111,9 @@ const App = () => {
           onboardingChecklist: JSON.stringify(checklist),
           customLeadQuestions: JSON.stringify(['Faixa'])
         }, [
-          Permission.read(Role.team(tId)),
-          Permission.update(Role.team(tId, 'owner')),
-          Permission.delete(Role.team(tId, 'owner')),
+          Permission.read(Role.users()),
+          Permission.update(Role.users()),
+          Permission.delete(Role.users()),
         ]);
         academyId = doc.$id;
       }
@@ -120,18 +121,8 @@ const App = () => {
       localStorage.setItem('activeAcademyId', academyId);
       try {
         const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-        // Migrate missing teamId on existing academies
-        if (!doc.teamId) {
-          const teamResp = await teams.create({ teamId: ID.unique(), name: (doc.name ? `${doc.name} — Academia` : 'Academia') });
-          const tId = teamResp.$id;
-          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { teamId: tId }, [
-            Permission.read(Role.team(tId)),
-            Permission.update(Role.team(tId, 'owner')),
-            Permission.delete(Role.team(tId, 'owner')),
-          ]);
-          doc.teamId = tId;
-        }
-        try { useLeadStore.getState().setTeamId(doc.teamId || null); } catch (e) { void e; }
+        try { useLeadStore.getState().setTeamId(null); } catch (e) { void e; }
+        try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
         // Ensure default custom question 'Faixa' exists once
         try {
           let clq = [];
@@ -179,13 +170,25 @@ const App = () => {
       await useLeadStore.getState().fetchLeads();
     } catch (e) {
       console.error('setupAcademy error:', e);
+      try {
+        const code = String(e?.code || '');
+        const msg = String(e?.message || '');
+        if (code === '401' || /authorized|scopes|unauthorized/i.test(msg)) {
+          await authService.logout();
+          setUser(null);
+          useLeadStore.getState().setAcademyId(null);
+          navigate('/login', { replace: true });
+        }
+      } catch { /* noop */ }
     }
   };
 
   const handleLogin = async (u) => {
     setUser(u);
+    try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
     await setupAcademy(u);
-    navigate('/');
+    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
+    navigate('/', { replace: true });
   };
 
   const handleLogout = async () => {

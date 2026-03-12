@@ -18,11 +18,13 @@ export const useLeadStore = create((set, get) => ({
   loading: false,
   academyId: null,
   teamId: null,
+  userId: null,
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' },
   modules: { sales: false, inventory: false, finance: false },
 
   setAcademyId: (id) => set({ academyId: id }),
   setTeamId: (id) => set({ teamId: id }),
+  setUserId: (id) => set({ userId: id }),
   setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
   setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
 
@@ -142,12 +144,11 @@ export const useLeadStore = create((set, get) => ({
         borrowedShirt: lead.borrowedShirt || '',
         customAnswers: lead.customAnswers || {}
       };
-      const teamId = get().teamId;
-      const perms = teamId ? [
-        Permission.read(Role.team(teamId)),
-        Permission.update(Role.team(teamId, 'owner')),
-        Permission.delete(Role.team(teamId, 'owner')),
-      ] : undefined;
+      const perms = [
+        Permission.read(Role.users()),
+        Permission.update(Role.users()),
+        Permission.delete(Role.users()),
+      ];
 
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
         name: lead.name,
@@ -265,12 +266,11 @@ export const useLeadStore = create((set, get) => ({
 
     const wasEmpty = get().leads.length === 0;
     const newLeads = [];
-    const teamId = get().teamId;
-    const perms = teamId ? [
-      Permission.read(Role.team(teamId)),
-      Permission.update(Role.team(teamId, 'owner')),
-      Permission.delete(Role.team(teamId, 'owner')),
-    ] : undefined;
+    const perms = [
+      Permission.read(Role.users()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users()),
+    ];
     for (const lead of leadsArray) {
       try {
         const nowIso = new Date().toISOString();
