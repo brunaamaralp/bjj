@@ -6,16 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "eslint src",
     "preview": "vite preview",
     "provision:stock": "node scripts/provision_stock_schema.js",
     "provision:core": "node scripts/setup-appwrite.mjs",
-    "migrate:perms": "node scripts/migrate-permissions.mjs"
+    "migrate:perms": "node scripts/migrate-permissions.mjs",
+    "start:server": "node server/index.js"
   },
   "dependencies": {
     "appwrite": "^22.4.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.575.0",
+    "express": "^4.19.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.71.2",
