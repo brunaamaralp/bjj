@@ -120,13 +120,7 @@ export default async function handler(req, res) {
     const created = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
       name: String(contato.nome || '').trim() || telefone,
       phone: telefone,
-      type: 'Adulto',
-      origin: 'WhatsApp',
       status: 'Novo',
-      scheduledDate: '',
-      scheduledTime: '',
-      parentName: '',
-      age: '',
       notes: newNotes,
       academyId: DEFAULT_ACADEMY_ID
     }, [
