@@ -81,7 +81,9 @@ export default async function handler(req, res) {
       }
       if (!parsed.history || !Array.isArray(parsed.history)) parsed.history = [];
       parsed.history.push(msgEvent);
-      if (toBoolSim(classificacao.lead_quente)) parsed.priority = 'sim';
+    parsed.whatsappIntention = intencao;
+    parsed.whatsappPriority = prioridade;
+    if (toBoolSim(classificacao.lead_quente)) parsed.whatsappLeadQuente = 'sim';
       if (toBoolSim(atendimento.precisa_resposta_humana)) parsed.needHuman = 'sim';
       return JSON.stringify(parsed);
     };
@@ -121,6 +123,7 @@ export default async function handler(req, res) {
       name: String(contato.nome || '').trim() || telefone,
       phone: telefone,
       status: 'Novo',
+      origin: 'WhatsApp',
       notes: newNotes,
       academyId: DEFAULT_ACADEMY_ID
     }, [

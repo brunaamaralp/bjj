@@ -418,6 +418,13 @@ const Pipeline = () => {
                                         <div className="lead-meta mt-2 flex items-center gap-2">
                                             <Phone size={12} /> {lead.phone}
                                         </div>
+                                        <div className="lead-meta mt-1 flex items-center gap-2">
+                                            {lead.hotLead ? <span className="type-pill">🔥</span> : null}
+                                            {lead.needHuman ? <span className="type-pill">Precisa resposta</span> : null}
+                                            {lead.intention ? <span className="type-pill">{lead.intention}</span> : null}
+                                            {lead.priority ? <span className="type-pill">{lead.priority}</span> : null}
+                                            {(lead.origin || '') === 'WhatsApp' ? <span className="type-pill">WhatsApp</span> : null}
+                                        </div>
                                         {lead.scheduledDate && (
                                             <div className="lead-meta mt-1 flex items-center gap-2">
                                                 <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}

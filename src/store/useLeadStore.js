@@ -59,6 +59,10 @@ export const useLeadStore = create((set, get) => ({
               borrowedKimono = parsed.borrowedKimono || '';
               borrowedShirt = parsed.borrowedShirt || '';
               const customAnswers = parsed.customAnswers || {};
+              const intention = parsed.whatsappIntention || '';
+              const priority = parsed.whatsappPriority || '';
+              const hotLead = String(parsed.whatsappLeadQuente || parsed.priority || '').toLowerCase() === 'sim';
+              const needHuman = String(parsed.needHuman || '').toLowerCase() === 'sim';
               return {
                 id: doc.$id,
                 name: doc.name,
@@ -76,6 +80,10 @@ export const useLeadStore = create((set, get) => ({
                 borrowedKimono,
                 borrowedShirt,
                 customAnswers,
+                intention,
+                priority,
+                hotLead,
+                needHuman,
                 statusChangedAt: doc.statusChangedAt || '',
                 createdAt: doc.$createdAt,
               };
@@ -101,6 +109,10 @@ export const useLeadStore = create((set, get) => ({
           belt,
           borrowedKimono,
           borrowedShirt,
+          intention: '',
+          priority: '',
+          hotLead: false,
+          needHuman: false,
           statusChangedAt: doc.statusChangedAt || '',
           createdAt: doc.$createdAt,
         };

@@ -274,7 +274,7 @@ const Dashboard = () => {
                                 <div style={{ flex: 1 }}>
                                     <strong style={{ fontSize: '1rem' }}>{lead.name}</strong>
                                     <p className="text-small" style={{ marginTop: 2 }}>
-                                        {lead.type || 'Adulto'} • {lead.phone}
+                                        {lead.type || 'Adulto'} • {lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''}
                                     </p>
                                 </div>
                                 <div className="text-right">
@@ -341,7 +341,7 @@ const Dashboard = () => {
                                                 {lead.daysAgo === 0 ? 'Hoje' : `${lead.daysAgo}d`}
                                             </span>
                                         </div>
-                                        <p className="text-small">{lead.phone} • {urgency.label}</p>
+                                        <p className="text-small">{lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''} • {urgency.label}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
