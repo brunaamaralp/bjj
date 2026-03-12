@@ -128,7 +128,6 @@ export default async function handler(req, res) {
       parentName: '',
       age: '',
       notes: newNotes,
-      statusChangedAt: new Date().toISOString(),
       academyId: DEFAULT_ACADEMY_ID
     }, [
       Permission.read(Role.users()),
