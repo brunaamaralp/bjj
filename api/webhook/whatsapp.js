@@ -1,4 +1,4 @@
-const { Client, Databases, Permission, Role, Query, ID } = require('node-appwrite');
+import { Client, Databases, Permission, Role, Query, ID } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -38,7 +38,7 @@ function ensureJson(req, res) {
   return true;
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
@@ -155,5 +155,4 @@ module.exports = async (req, res) => {
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }
-};
-
+}
