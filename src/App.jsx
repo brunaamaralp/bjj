@@ -193,10 +193,37 @@ const App = () => {
       await useLeadStore.getState().fetchLeads();
     } catch (e) {
       console.error('setupAcademy error:', e);
+      const code = String(e?.code || '');
+      const msg = String(e?.message || '');
       try {
-        const code = String(e?.code || '');
-        const msg = String(e?.message || '');
         if (code === '401' || /authorized|scopes|unauthorized/i.test(msg)) {
+          try {
+            // Tentar criar academia via endpoint admin usando JWT do usuário
+            const jwt = localStorage.getItem('appwrite_jwt') || '';
+            if (jwt) {
+              const resp = await fetch('/api/academies/create', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${jwt}`,
+                },
+                body: JSON.stringify({}),
+              });
+              const data = await resp.json().catch(() => ({}));
+              if (resp.ok && data && data.id) {
+                const newId = data.id;
+                setAcademyId(newId);
+                localStorage.setItem('activeAcademyId', newId);
+                try { useLeadStore.getState().setAcademyId(newId); } catch (e2) { void e2; }
+                try { await useLeadStore.getState().fetchLeads(); } catch (e3) { void e3; }
+                navigate('/', { replace: true });
+                return;
+              }
+            }
+          } catch (inner) {
+            void inner;
+          }
+          // Se falhar, efetuar logout e ir para welcome
           await authService.logout();
           setUser(null);
           useLeadStore.getState().setAcademyId(null);
