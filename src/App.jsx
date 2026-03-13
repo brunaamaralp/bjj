@@ -69,6 +69,9 @@ const App = () => {
   // Create or find academy for user
   const setupAcademy = async (u) => {
     try {
+      if (!u || !u.$id) {
+        throw new Error('invalid_user');
+      }
       const res = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
         Query.equal('ownerId', [u.$id]),
         Query.limit(50),
@@ -204,6 +207,10 @@ const App = () => {
   };
 
   const handleLogin = async (u) => {
+    if (!u || !u.$id) {
+      navigate('/login', { replace: true });
+      return;
+    }
     setUser(u);
     try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
     try { await authService.refreshJwt(); } catch (e) { void e; }
