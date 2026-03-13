@@ -99,24 +99,43 @@ const App = () => {
           { id: 'first_lead', title: 'Criar primeiro lead', done: false },
           { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
         ];
-        const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), {
-          name: u.name || '',
-          phone: '',
-          email: u.email || '',
-          address: '',
-          ownerId: u.$id,
-          uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
-          modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
-          quickTimes: [],
-          financeConfig: JSON.stringify(defaultFinance),
-          onboardingChecklist: JSON.stringify(checklist),
-          customLeadQuestions: JSON.stringify(['Faixa'])
-        }, [
-          Permission.read(Role.users()),
-          Permission.update(Role.users()),
-          Permission.delete(Role.users()),
-        ]);
-        academyId = doc.$id;
+        try {
+          const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), {
+            name: u.name || '',
+            phone: '',
+            email: u.email || '',
+            address: '',
+            ownerId: u.$id,
+            uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
+            modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
+            quickTimes: [],
+            financeConfig: JSON.stringify(defaultFinance),
+            onboardingChecklist: JSON.stringify(checklist),
+            customLeadQuestions: JSON.stringify(['Faixa'])
+          }, [
+            Permission.read(Role.users()),
+            Permission.update(Role.users()),
+            Permission.delete(Role.users()),
+          ]);
+          academyId = doc.$id;
+        } catch {
+            const jwt = localStorage.getItem('appwrite_jwt') || '';
+            const resp = await fetch('/api/academies/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({}),
+            });
+            const data = await resp.json();
+            if (resp.ok && data && data.id) {
+              academyId = data.id;
+            } else {
+              throw new Error(data?.erro || 'Falha ao criar academia');
+            }
+          
+        }
       }
       setAcademyId(academyId);
       localStorage.setItem('activeAcademyId', academyId);
