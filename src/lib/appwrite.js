@@ -1,6 +1,7 @@
 import { Client, Account, Databases, Functions, Teams } from "appwrite";
 
 const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1";
+const endpointFallback = import.meta.env.VITE_APPWRITE_ENDPOINT_FALLBACK || "";
 const project = import.meta.env.VITE_APPWRITE_PROJECT || "699f020c00171ce26206";
 const client = new Client()
     .setEndpoint(endpoint)
@@ -31,6 +32,7 @@ export const KIMONO_SIZES = {
 console.log('🔌 Appwrite Config Loaded:');
 console.log('   - Endpoint:', endpoint);
 console.log('   - Project:', project);
+if (endpointFallback) console.log('   - Endpoint Fallback:', endpointFallback);
 console.log('   - Database:', DB_ID);
 console.log('   - Leads Col:', LEADS_COL);
 console.log('   - Academies Col:', ACADEMIES_COL);
@@ -40,5 +42,8 @@ console.log('   - Fn Sales Create:', SALES_CREATE_FN_ID || '(unset)');
 console.log('   - Fn Sales Cancel:', SALES_CANCEL_FN_ID || '(unset)');
 console.log('   - Fn Inventory Seed Kimonos:', INVENTORY_SEED_KIMONOS_FN_ID || '(unset)');
 
+export const ENDPOINT = endpoint;
+export const ENDPOINT_FALLBACK = endpointFallback;
+export function setClientEndpoint(ep) { client.setEndpoint(ep); }
 export { client, account, databases, functions, teams };
 export default client;

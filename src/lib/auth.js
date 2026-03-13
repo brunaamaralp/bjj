@@ -1,4 +1,4 @@
-import { account, client } from './appwrite';
+import { account, client, ENDPOINT_FALLBACK, setClientEndpoint } from './appwrite';
 import { ID } from 'appwrite';
 
 export const authService = {
@@ -38,7 +38,18 @@ export const authService = {
         return false;
     },
     async login(email, password) {
-        const session = await account.createEmailPasswordSession(email, password);
+        let session;
+        try {
+            session = await account.createEmailPasswordSession(email, password);
+        } catch (e) {
+            const msg = String(e?.message || e);
+            if (ENDPOINT_FALLBACK && /fetch|cors|origin|failed/i.test(msg)) {
+                setClientEndpoint(ENDPOINT_FALLBACK);
+                session = await account.createEmailPasswordSession(email, password);
+            } else {
+                throw e;
+            }
+        }
         await this._setJwtFromSession();
         return session;
     },
