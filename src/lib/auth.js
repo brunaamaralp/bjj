@@ -12,7 +12,7 @@ export const authService = {
         try {
             localStorage.setItem(this._jwtKey, data.jwt);
             localStorage.setItem(this._jwtExpKey, String(exp));
-        } catch {}
+        } catch (e) { void e; }
         if (this._jwtTimer) clearTimeout(this._jwtTimer);
         this._jwtTimer = setTimeout(() => {
             this.refreshJwt().catch(() => {});
@@ -34,7 +34,7 @@ export const authService = {
                 client.setJWT(jwt);
                 return true;
             }
-        } catch {}
+        } catch (e) { void e; }
         return false;
     },
     async login(email, password) {
@@ -53,7 +53,7 @@ export const authService = {
             if (!this._loadJwtFromStorage()) {
                 try {
                     await this._setJwtFromSession();
-                } catch {}
+                } catch (e) { void e; }
             }
             return await account.get();
         } catch {
@@ -67,7 +67,7 @@ export const authService = {
         try {
             localStorage.removeItem(this._jwtKey);
             localStorage.removeItem(this._jwtExpKey);
-        } catch {}
+        } catch (e) { void e; }
         if (this._jwtTimer) clearTimeout(this._jwtTimer);
         this._jwtTimer = null;
     },

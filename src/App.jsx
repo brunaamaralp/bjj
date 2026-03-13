@@ -50,6 +50,7 @@ const App = () => {
         if (currentUser) {
           setUser(currentUser);
           try { useLeadStore.getState().setUserId(currentUser.$id); } catch (e) { void e; }
+          try { await authService.refreshJwt(); } catch (e) { void e; }
           await setupAcademy(currentUser);
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
           navigate('/', { replace: true });
@@ -177,7 +178,7 @@ const App = () => {
           await authService.logout();
           setUser(null);
           useLeadStore.getState().setAcademyId(null);
-          navigate('/login', { replace: true });
+          navigate('/welcome', { replace: true });
         }
       } catch { /* noop */ }
     }
@@ -186,6 +187,7 @@ const App = () => {
   const handleLogin = async (u) => {
     setUser(u);
     try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
+    try { await authService.refreshJwt(); } catch (e) { void e; }
     await setupAcademy(u);
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
     navigate('/', { replace: true });
