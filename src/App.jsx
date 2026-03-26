@@ -148,19 +148,56 @@ const App = () => {
         try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
         // Ensure default custom question 'Faixa' exists once
         try {
-          let clq = [];
+          const createId = () => {
+            try {
+              if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+            } catch { void 0; }
+            const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+            return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+          };
+
+          let raw = [];
           if (doc.customLeadQuestions) {
-            clq = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : doc.customLeadQuestions;
-            if (!Array.isArray(clq)) clq = [];
+            raw = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : doc.customLeadQuestions;
+            if (!Array.isArray(raw)) raw = [];
           }
-          if (!clq.includes('Faixa')) {
-            const updated = [...clq, 'Faixa'];
+
+          let migrated = false;
+          let list = [];
+          if (raw.length > 0 && typeof raw[0] === 'string') {
+            migrated = true;
+            list = raw.map((label) => String(label || '').trim()).filter(Boolean).map((label) => ({ id: createId(), label, type: 'text' }));
+          } else {
+            list = raw.map((q) => {
+              const label = String(q?.label || q?.name || '').trim();
+              let id = String(q?.id || '').trim();
+              const type = String(q?.type || 'text').trim() || 'text';
+              const options = Array.isArray(q?.options)
+                ? q.options.filter(Boolean).map((s) => String(s).trim()).filter(Boolean)
+                : (typeof q?.options === 'string'
+                  ? q.options.split(',').map((s) => s.trim()).filter(Boolean)
+                  : undefined);
+              if (!label) { migrated = true; return null; }
+              if (!id) { migrated = true; id = createId(); }
+              if (q?.label !== label || q?.id !== id || q?.type !== type) migrated = true;
+              const base = { id, label, type };
+              if (type === 'select') return { ...base, options: options || [] };
+              return base;
+            }).filter(Boolean);
+          }
+
+          if (!list.some((q) => String(q?.label || '').trim() === 'Faixa')) {
+            migrated = true;
+            list.push({ id: createId(), label: 'Faixa', type: 'text' });
+          }
+
+          if (migrated) {
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-              customLeadQuestions: JSON.stringify(updated)
+              customLeadQuestions: JSON.stringify(list)
             }).catch(e => {
               console.warn('[setupAcademy] Failed to update customLeadQuestions, probably due to permissions:', e);
             });
-            doc.customLeadQuestions = JSON.stringify(updated);
+            doc.customLeadQuestions = JSON.stringify(list);
           }
         } catch (e) { void e; }
         let uiLabels = null;

@@ -75,16 +75,73 @@ const LeadProfile = () => {
         scheduledTime: ''
     });
 
+    const createId = () => {
+        try {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        } catch { void 0; }
+        const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+        return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+    };
+
+    const isUuidLike = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
+
+    const normalizeQuestions = (input) => {
+        let raw = input;
+        if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch { raw = []; }
+        }
+        if (!Array.isArray(raw)) return { questions: [], migrated: false };
+        const cleaned = raw.filter(Boolean);
+        if (cleaned.length === 0) return { questions: [], migrated: false };
+
+        let migrated = false;
+        if (typeof cleaned[0] === 'string') {
+            migrated = true;
+            const questions = cleaned
+                .map((label) => String(label || '').trim())
+                .filter(Boolean)
+                .map((label) => ({ id: createId(), label, type: 'text' }));
+            return { questions, migrated };
+        }
+
+        const questions = cleaned.map((q) => {
+            const label = String(q?.label || q?.name || '').trim();
+            let id = String(q?.id || '').trim();
+            const type = String(q?.type || 'text').trim() || 'text';
+            const options = Array.isArray(q?.options)
+                ? q.options.filter(Boolean).map((s) => String(s).trim()).filter(Boolean)
+                : (typeof q?.options === 'string'
+                    ? q.options.split(',').map((s) => s.trim()).filter(Boolean)
+                    : undefined);
+            if (!label) {
+                migrated = true;
+                return null;
+            }
+            if (!id) {
+                migrated = true;
+                id = createId();
+            }
+            if (q?.label !== label || q?.id !== id || q?.type !== type) migrated = true;
+            const base = { id, label, type };
+            if (type === 'select') return { ...base, options: options || [] };
+            return base;
+        }).filter(Boolean);
+
+        return { questions, migrated };
+    };
+
     useEffect(() => {
         if (!academyId) return;
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 try {
-                    const arr = typeof doc.customLeadQuestions === 'string'
-                        ? JSON.parse(doc.customLeadQuestions || '[]')
-                        : (doc.customLeadQuestions || []);
-                    if (Array.isArray(arr)) setCustomQuestions(arr.filter(q => typeof q === 'string' && q.trim()));
-                    else setCustomQuestions([]);
+                    const normalized = normalizeQuestions(doc.customLeadQuestions);
+                    setCustomQuestions(normalized.questions);
+                    if (normalized.migrated) {
+                        databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+                            customLeadQuestions: JSON.stringify(normalized.questions)
+                        }).catch(() => void 0);
+                    }
                 } catch { setCustomQuestions([]); }
             })
             .catch(() => setCustomQuestions([]));
@@ -98,6 +155,16 @@ const LeadProfile = () => {
     );
 
     const startEdit = () => {
+        const existing = (lead.customAnswers && typeof lead.customAnswers === 'object') ? lead.customAnswers : {};
+        const preserved = Object.fromEntries(Object.entries(existing).filter(([k]) => isUuidLike(k)));
+        const migratedAnswers = { ...preserved };
+        for (const q of (customQuestions || [])) {
+            const id = String(q?.id || '').trim();
+            const label = String(q?.label || '').trim();
+            if (!id || !label) continue;
+            const value = (existing[id] ?? existing[label] ?? migratedAnswers[id] ?? '');
+            migratedAnswers[id] = value;
+        }
         setForm({
             name: lead.name || '',
             phone: lead.phone || '',
@@ -108,7 +175,7 @@ const LeadProfile = () => {
             isFirstExperience: lead.isFirstExperience || 'Sim',
             borrowedKimono: lead.borrowedKimono || '',
             borrowedShirt: lead.borrowedShirt || '',
-            customAnswers: lead.customAnswers || {},
+            customAnswers: migratedAnswers,
             scheduledDate: lead.scheduledDate || '',
             scheduledTime: lead.scheduledTime || ''
         });
@@ -124,7 +191,9 @@ const LeadProfile = () => {
         setForm((f) => ({ ...f, [name]: value }));
     };
     const onChangeCustom = (q, value) => {
-        setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [q]: value } }));
+        const id = String(q?.id || q || '').trim();
+        if (!id) return;
+        setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [id]: value } }));
     };
 
     const handleSave = async () => {
@@ -271,16 +340,64 @@ const LeadProfile = () => {
                                 </div>
                                 {customQuestions.length > 0 && (
                                     <div className="flex-col gap-2 mt-2">
-                                        {customQuestions.map((q) => (
-                                            <div key={q} className="form-group">
-                                                <label>{q}</label>
-                                                <input
-                                                    className="form-input"
-                                                    value={(form.customAnswers || {})[q] || ''}
-                                                    onChange={(e) => onChangeCustom(q, e.target.value)}
-                                                />
-                                            </div>
-                                        ))}
+                                        {customQuestions.map((q) => {
+                                            const val = (form.customAnswers || {})[q?.id] ?? (form.customAnswers || {})[q?.label] ?? '';
+                                            if ((q?.type || 'text') === 'boolean') {
+                                                return (
+                                                    <div key={q?.id || q?.label} className="form-group">
+                                                        <label>{q?.label || '-'}</label>
+                                                        <select
+                                                            className="form-input"
+                                                            value={String(val || '')}
+                                                            onChange={(e) => onChangeCustom(q, e.target.value)}
+                                                        >
+                                                            <option value="">-</option>
+                                                            <option value="Sim">Sim</option>
+                                                            <option value="Não">Não</option>
+                                                        </select>
+                                                    </div>
+                                                );
+                                            }
+                                            if ((q?.type || 'text') === 'number') {
+                                                return (
+                                                    <div key={q?.id || q?.label} className="form-group">
+                                                        <label>{q?.label || '-'}</label>
+                                                        <input
+                                                            className="form-input"
+                                                            type="number"
+                                                            value={val || ''}
+                                                            onChange={(e) => onChangeCustom(q, e.target.value)}
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+                                            if ((q?.type || 'text') === 'select') {
+                                                const opts = Array.isArray(q?.options) ? q.options : [];
+                                                return (
+                                                    <div key={q?.id || q?.label} className="form-group">
+                                                        <label>{q?.label || '-'}</label>
+                                                        <select
+                                                            className="form-input"
+                                                            value={val || ''}
+                                                            onChange={(e) => onChangeCustom(q, e.target.value)}
+                                                        >
+                                                            <option value="">-</option>
+                                                            {opts.map((o, i) => <option key={`${q?.id || q?.label}-${i}`} value={o}>{o}</option>)}
+                                                        </select>
+                                                    </div>
+                                                );
+                                            }
+                                            return (
+                                                <div key={q?.id || q?.label} className="form-group">
+                                                    <label>{q?.label || '-'}</label>
+                                                    <input
+                                                        className="form-input"
+                                                        value={val || ''}
+                                                        onChange={(e) => onChangeCustom(q, e.target.value)}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -307,10 +424,10 @@ const LeadProfile = () => {
                         {!editing && customQuestions.length > 0 && (
                             <div className="flex-col gap-2 mt-2">
                                 {customQuestions.map((q) => {
-                                    const ans = (lead.customAnswers || {})[q];
+                                    const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
                                     return (
-                                        <div key={q} className="info-row">
-                                            <span className="info-row-label">{q}</span>
+                                        <div key={q?.id || q?.label} className="info-row">
+                                            <span className="info-row-label">{q?.label || '-'}</span>
                                             <span className="info-row-value">{ans || '-'}</span>
                                         </div>
                                     );

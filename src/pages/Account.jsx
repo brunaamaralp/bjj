@@ -17,6 +17,52 @@ const Account = ({ user, onLogout }) => {
     const [inviting, setInviting] = useState(false);
     const [memberships, setMemberships] = useState([]);
 
+    const createId = () => {
+        try {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        } catch { void 0; }
+        const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+        return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+    };
+
+    const normalizeQuestions = (input) => {
+        let raw = input;
+        if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch { raw = []; }
+        }
+        if (!Array.isArray(raw)) return { questions: [], migrated: false };
+        const cleaned = raw.filter(Boolean);
+        if (cleaned.length === 0) return { questions: [], migrated: false };
+
+        let migrated = false;
+        if (typeof cleaned[0] === 'string') {
+            migrated = true;
+            const questions = cleaned
+                .map((label) => String(label || '').trim())
+                .filter(Boolean)
+                .map((label) => ({ id: createId(), label, type: 'text' }));
+            return { questions, migrated };
+        }
+
+        const questions = cleaned.map((q) => {
+            const label = String(q?.label || q?.name || '').trim();
+            let id = String(q?.id || '').trim();
+            const type = String(q?.type || 'text').trim() || 'text';
+            if (!label) {
+                migrated = true;
+                return null;
+            }
+            if (!id) {
+                migrated = true;
+                id = createId();
+            }
+            if (q?.label !== label || q?.id !== id || q?.type !== type) migrated = true;
+            return { id, label, type };
+        }).filter(Boolean);
+
+        return { questions, migrated };
+    };
+
     // Fetch academy data from Appwrite
     useEffect(() => {
         if (!academyId) return;
@@ -52,6 +98,7 @@ const Account = ({ user, onLogout }) => {
                         }
                     }
                 } catch (e) { void e; }
+                const normalized = normalizeQuestions(doc.customLeadQuestions);
                 setAcademy({
                     name: doc.name || '',
                     phone: doc.phone || '',
@@ -62,13 +109,15 @@ const Account = ({ user, onLogout }) => {
                     modules: mods,
                     onboardingChecklist: checklist,
                     teamId: doc.teamId || '',
-                    customLeadQuestions: (() => {
-                        try {
-                            const raw = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : (doc.customLeadQuestions || []);
-                            return Array.isArray(raw) ? raw : [];
-                        } catch { return []; }
-                    })(),
+                    customLeadQuestions: normalized.questions,
                 });
+                if (normalized.migrated) {
+                    try {
+                        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+                            customLeadQuestions: JSON.stringify(normalized.questions)
+                        });
+                    } catch (e) { void e; }
+                }
                 try {
                     if (doc.teamId) {
                         const res = await teams.listMemberships({ teamId: doc.teamId });
@@ -238,7 +287,7 @@ const Account = ({ user, onLogout }) => {
                                 onClick={() => {
                                     const q = (newQuestion || '').trim();
                                     if (!q) return;
-                                    const qs = [...(academy.customLeadQuestions || []), q];
+                                    const qs = [...(academy.customLeadQuestions || []), { id: createId(), label: q, type: 'text' }];
                                     setNewQuestion('');
                                     saveQuestions(qs);
                                 }}
@@ -248,18 +297,111 @@ const Account = ({ user, onLogout }) => {
                         </div>
                         <div className="flex-col gap-2">
                             {(academy.customLeadQuestions || []).map((q, idx) => (
-                                <div key={`${q}-${idx}`} className="info-row">
-                                    <span className="info-row-label">{q}</span>
+                                <div key={`${q?.id || q?.label || idx}`} className="info-row">
+                                    <div className="flex gap-2" style={{ flex: 1 }}>
+                                        <input
+                                            className="form-input"
+                                            value={q?.label || ''}
+                                            placeholder="Pergunta"
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                const id = q?.id;
+                                                setAcademy((a) => ({
+                                                    ...a,
+                                                    customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
+                                                        if (id && it?.id === id) return { ...it, label: value };
+                                                        if (!id && i === idx) return { ...it, label: value };
+                                                        return it;
+                                                    }),
+                                                }));
+                                            }}
+                                            style={{ flex: 1 }}
+                                        />
+                                        <select
+                                            className="form-input"
+                                            value={q?.type || 'text'}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                const id = q?.id;
+                                                setAcademy((a) => ({
+                                                    ...a,
+                                                    customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
+                                                        if (id && it?.id === id) return { ...it, type: value };
+                                                        if (!id && i === idx) return { ...it, type: value };
+                                                        return it;
+                                                    }),
+                                                }));
+                                            }}
+                                            style={{ maxWidth: 140 }}
+                                        >
+                                            <option value="text">Texto</option>
+                                            <option value="number">Número</option>
+                                            <option value="boolean">Sim/Não</option>
+                                            <option value="select">Lista</option>
+                                        </select>
+                                        {(q?.type === 'select') && (
+                                            <input
+                                                className="form-input"
+                                                value={Array.isArray(q?.options) ? q.options.join(', ') : (q?.options || '')}
+                                                placeholder="Opções (separadas por vírgula)"
+                                                onChange={(e) => {
+                                                    const raw = e.target.value;
+                                                    const arr = raw.split(',').map(s => s.trim()).filter(Boolean);
+                                                    const id = q?.id;
+                                                    setAcademy((a) => ({
+                                                        ...a,
+                                                        customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
+                                                            if (id && it?.id === id) return { ...it, options: arr };
+                                                            if (!id && i === idx) return { ...it, options: arr };
+                                                            return it;
+                                                        }),
+                                                    }));
+                                                }}
+                                                style={{ flex: 1 }}
+                                            />
+                                        )}
+                                    </div>
                                     <button
                                         className="icon-btn"
                                         title="Remover"
                                         onClick={() => {
-                                            const qs = (academy.customLeadQuestions || []).filter((_, i) => i !== idx);
+                                            const id = q?.id;
+                                            const qs = id
+                                                ? (academy.customLeadQuestions || []).filter((it) => it?.id !== id)
+                                                : (academy.customLeadQuestions || []).filter((_, i) => i !== idx);
                                             saveQuestions(qs);
                                         }}
                                     >
                                         <X size={14} />
                                     </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            className="icon-btn"
+                                            title="Mover para cima"
+                                            onClick={() => {
+                                                if (idx <= 0) return;
+                                                const list = [...(academy.customLeadQuestions || [])];
+                                                const [item] = list.splice(idx, 1);
+                                                list.splice(idx - 1, 0, item);
+                                                setAcademy((a) => ({ ...a, customLeadQuestions: list }));
+                                            }}
+                                        >
+                                            <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />
+                                        </button>
+                                        <button
+                                            className="icon-btn"
+                                            title="Mover para baixo"
+                                            onClick={() => {
+                                                const list = [...(academy.customLeadQuestions || [])];
+                                                if (idx >= list.length - 1) return;
+                                                const [item] = list.splice(idx, 1);
+                                                list.splice(idx + 1, 0, item);
+                                                setAcademy((a) => ({ ...a, customLeadQuestions: list }));
+                                            }}
+                                        >
+                                            <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                             {(academy.customLeadQuestions || []).length === 0 && (
@@ -268,7 +410,15 @@ const Account = ({ user, onLogout }) => {
                                 </div>
                             )}
                         </div>
-                        <p className="text-xs text-light">As respostas são preenchidas no card do lead, não no cadastro inicial.</p>
+                        <div className="flex gap-2 mt-2">
+                            <button
+                                className="btn-secondary"
+                                onClick={() => saveQuestions(academy.customLeadQuestions || [])}
+                            >
+                                Salvar alterações
+                            </button>
+                        </div>
+                        <p className="text-xs text-light">As respostas são preenchidas no card do lead.</p>
                     </div>
                 </div>
             </section>
