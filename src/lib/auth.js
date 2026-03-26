@@ -6,18 +6,25 @@ export const authService = {
     _jwtKey: 'appwrite_jwt',
     _jwtExpKey: 'appwrite_jwt_exp',
     async _setJwtFromSession() {
-        const data = await account.createJWT();
-        const exp = Date.now() + 14 * 60 * 1000;
-        client.setJWT(data.jwt);
+        console.log('[Auth] _setJwtFromSession called. Requesting JWT from Appwrite...');
         try {
-            localStorage.setItem(this._jwtKey, data.jwt);
-            localStorage.setItem(this._jwtExpKey, String(exp));
-        } catch (e) { void e; }
-        if (this._jwtTimer) clearTimeout(this._jwtTimer);
-        this._jwtTimer = setTimeout(() => {
-            this.refreshJwt().catch(() => {});
-        }, 10 * 60 * 1000);
-        return data.jwt;
+            const data = await account.createJWT();
+            console.log('[Auth] JWT received successfully:', data ? 'Yes (hidden)' : 'No data');
+            const exp = Date.now() + 14 * 60 * 1000;
+            client.setJWT(data.jwt);
+            try {
+                localStorage.setItem(this._jwtKey, data.jwt);
+                localStorage.setItem(this._jwtExpKey, String(exp));
+            } catch (e) { void e; }
+            if (this._jwtTimer) clearTimeout(this._jwtTimer);
+            this._jwtTimer = setTimeout(() => {
+                this.refreshJwt().catch(() => {});
+            }, 10 * 60 * 1000);
+            return data.jwt;
+        } catch (error) {
+            console.error('[Auth] Failed to create JWT in _setJwtFromSession:', error);
+            throw error;
+        }
     },
     async refreshJwt() {
         try {
@@ -39,18 +46,45 @@ export const authService = {
     },
     async login(email, password) {
         let session;
+        console.log('[Auth] Attempting login for:', email);
+        console.log('[Auth] Current Client Config:', {
+            endpoint: client.config.endpoint,
+            project: client.config.project
+        });
         try {
             session = await account.createEmailPasswordSession(email, password);
+            console.log('[Auth] Login successful (primary endpoint)', session);
         } catch (e) {
+            console.error('[Auth] Error on primary login attempt:', e);
             const msg = String(e?.message || e);
+            console.log('[Auth] Error message pattern check:', msg);
             if (ENDPOINT_FALLBACK && /fetch|cors|origin|failed/i.test(msg)) {
+                console.warn(`[Auth] Fallback triggered! Switching endpoint to: ${ENDPOINT_FALLBACK}`);
                 setClientEndpoint(ENDPOINT_FALLBACK);
-                session = await account.createEmailPasswordSession(email, password);
+                console.log('[Auth] Client config after fallback:', {
+                    endpoint: client.config.endpoint,
+                    project: client.config.project
+                });
+                try {
+                    session = await account.createEmailPasswordSession(email, password);
+                    console.log('[Auth] Login successful (fallback endpoint)', session);
+                } catch (fallbackError) {
+                    console.error('[Auth] Error on fallback login attempt:', fallbackError);
+                    throw fallbackError;
+                }
             } else {
                 throw e;
             }
         }
-        await this._setJwtFromSession();
+        try {
+            console.log('[Auth] Attempting to create JWT after successful login...');
+            await this._setJwtFromSession();
+            console.log('[Auth] JWT created successfully');
+        } catch (jwtError) {
+             console.error('[Auth] Error creating JWT after login:', jwtError);
+             // Não jogamos erro aqui para não quebrar o fluxo caso a sessão já tenha sido criada,
+             // mas logamos para entender onde está parando
+        }
         return session;
     },
 
