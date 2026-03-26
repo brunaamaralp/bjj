@@ -387,6 +387,22 @@ const Dashboard = () => {
                                         <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
                                             {lead.status === LEAD_STATUS.COMPLETED ? 'Pós-Aula' : 'Recuperar'}
                                         </span>
+                                        <button
+                                            className="agenda-mini-btn lost"
+                                            onClick={(e) => { e.stopPropagation(); markLostFromCard(lead); }}
+                                            title="Marcar como perdido"
+                                            aria-label="Marcar como perdido"
+                                        >
+                                            <AlertTriangle size={16} />
+                                        </button>
+                                        <button
+                                            className="agenda-mini-btn danger"
+                                            onClick={(e) => { e.stopPropagation(); deleteLeadFromCard(lead); }}
+                                            title="Excluir lead"
+                                            aria-label="Excluir lead"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                 </div>
 

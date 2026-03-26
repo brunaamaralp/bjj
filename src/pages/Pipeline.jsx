@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, Trash2, AlertTriangle } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -68,7 +68,7 @@ const DEFAULT_STAGE_SLA_DAYS = 3;
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead } = useLeadStore();
+    const { leads, importLeads, updateLead, deleteLead } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const getLeadById = useLeadStore((s) => s.getLeadById);
@@ -209,6 +209,26 @@ const Pipeline = () => {
         }
         setMoverOpenId(null);
         setToast('Movido no pipeline');
+        setTimeout(() => setToast(''), 2000);
+    };
+    const markLostFromCard = async (e, lead) => {
+        e.stopPropagation();
+        const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como perdido?`);
+        if (!ok) return;
+        await updateLead(lead.id, {
+            status: LEAD_STATUS.LOST,
+            scheduledDate: '',
+            scheduledTime: '',
+        });
+        setToast('Marcado como perdido');
+        setTimeout(() => setToast(''), 2000);
+    };
+    const deleteLeadFromCard = async (e, lead) => {
+        e.stopPropagation();
+        const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
+        if (!ok) return;
+        await deleteLead(lead.id);
+        setToast('Lead excluído');
         setTimeout(() => setToast(''), 2000);
     };
     const saveStages = async () => {
@@ -455,6 +475,12 @@ const Pipeline = () => {
                                             <button className="action-btn" draggable={false} onClick={(e) => openNote(e, lead)}>
                                                 <MessageCircle size={14} /> Obs.
                                             </button>
+                                            <button className="action-btn lost" draggable={false} onClick={(e) => markLostFromCard(e, lead)}>
+                                                <AlertTriangle size={14} /> Perdido
+                                            </button>
+                                            <button className="action-btn danger" draggable={false} onClick={(e) => deleteLeadFromCard(e, lead)}>
+                                                <Trash2 size={14} /> Excluir
+                                            </button>
                                         </div>
                                         {schedulerOpenId === lead.id && (
                                             <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
@@ -649,6 +675,10 @@ const Pipeline = () => {
           background: var(--surface); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;
         }
         .action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .action-btn.danger { border-color: var(--danger); color: var(--danger); }
+        .action-btn.danger:hover { background: var(--danger-light); }
+        .action-btn.lost { border-color: var(--warning); color: var(--warning); }
+        .action-btn.lost:hover { background: var(--warning-light); }
         .lead-card { position: relative; }
         .dropdown-panel {
           position: absolute; left: 14px; right: 14px; top: 100%; margin-top: 6px;
