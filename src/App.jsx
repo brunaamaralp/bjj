@@ -157,6 +157,8 @@ const App = () => {
             const updated = [...clq, 'Faixa'];
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
               customLeadQuestions: JSON.stringify(updated)
+            }).catch(e => {
+              console.warn('[setupAcademy] Failed to update customLeadQuestions, probably due to permissions:', e);
             });
             doc.customLeadQuestions = JSON.stringify(updated);
           }
