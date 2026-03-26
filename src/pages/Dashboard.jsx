@@ -510,7 +510,11 @@ const Dashboard = () => {
           background: var(--surface); border-radius: var(--radius); width: 92%; max-width: 420px;
           padding: 16px; box-shadow: var(--shadow);
         }
-        .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+        .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+        @media (max-width: 460px) {
+          .edit-actions { flex-direction: column; align-items: stretch; }
+          .edit-actions button { width: 100%; }
+        }
         .danger-outline { border-color: var(--danger) !important; color: var(--danger) !important; }
         .time-chips { display: flex; flex-wrap: wrap; gap: 6px; }
         .time-chip {
