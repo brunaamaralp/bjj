@@ -75,11 +75,10 @@ export const authService = {
 
     async getCurrentUser() {
         try {
-            const user = await account.get();
             if (!this._loadJwtFromStorage()) {
                 try { await this._setJwtFromSession(); } catch (e) { void e; }
             }
-            return user;
+            return await account.get();
         } catch {
             return null;
         }
