@@ -249,6 +249,13 @@ const Pipeline = () => {
         return diff < 0 ? 0 : diff;
     };
     const onDragStart = (e, leadId) => {
+        const el = e?.target;
+        if (el && typeof el.closest === 'function') {
+            if (el.closest('button') || el.closest('a') || el.closest('input') || el.closest('select') || el.closest('textarea') || el.closest('.dropdown-panel')) {
+                e.preventDefault();
+                return;
+            }
+        }
         e.dataTransfer.setData('text/plain', leadId);
     };
     const onDragOver = (e) => {
@@ -408,7 +415,7 @@ const Pipeline = () => {
                                         className="card lead-card animate-in"
                                         style={{ animationDelay: `${0.03 * i}s` }}
                                         onClick={() => navigate(`/lead/${lead.id}`)}
-                                        draggable
+                                        draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id)}
                                         onDragStart={(e) => onDragStart(e, lead.id)}
                                     >
                                         <div className="flex justify-between items-center">
@@ -436,16 +443,16 @@ const Pipeline = () => {
                                             </span>
                                         </div>
                                         <div className="action-bar mt-2">
-                                            <button className="action-btn" onClick={(e) => handleWhatsApp(e, lead)}>
+                                            <button className="action-btn" draggable={false} onClick={(e) => handleWhatsApp(e, lead)}>
                                                 <MessageCircle size={14} /> WhatsApp
                                             </button>
-                                            <button className="action-btn" onClick={(e) => openScheduler(e, lead.id)}>
+                                            <button className="action-btn" draggable={false} onClick={(e) => openScheduler(e, lead.id)}>
                                                 <Calendar size={14} /> Agendar <ChevronDown size={14} />
                                             </button>
-                                            <button className="action-btn" onClick={(e) => openMover(e, lead.id)}>
+                                            <button className="action-btn" draggable={false} onClick={(e) => openMover(e, lead.id)}>
                                                 <ChevronRight size={14} /> Mover
                                             </button>
-                                            <button className="action-btn" onClick={(e) => openNote(e, lead)}>
+                                            <button className="action-btn" draggable={false} onClick={(e) => openNote(e, lead)}>
                                                 <MessageCircle size={14} /> Obs.
                                             </button>
                                         </div>
@@ -487,6 +494,7 @@ const Pipeline = () => {
                                                         <button
                                                             key={`${lead.id}-${s.id}`}
                                                             className={`dropdown-item${active ? ' active' : ''}`}
+                                                            draggable={false}
                                                             onClick={(e) => moveToStatus(e, lead.id, s.id)}
                                                         >
                                                             {s.label}
