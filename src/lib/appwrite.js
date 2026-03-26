@@ -3,6 +3,7 @@ import { Client, Account, Databases, Functions, Teams } from "appwrite";
 const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1";
 const endpointFallback = import.meta.env.VITE_APPWRITE_ENDPOINT_FALLBACK || "";
 const project = import.meta.env.VITE_APPWRITE_PROJECT || "699f020c00171ce26206";
+const buildMarker = "2026-03-26_699f020c";
 const selectedEndpoint = endpointFallback || endpoint;
 const client = new Client()
     .setEndpoint(selectedEndpoint)
@@ -31,7 +32,9 @@ export const KIMONO_SIZES = {
 };
 
 console.log('🔌 Appwrite Config Loaded:');
+console.log('   - Build Marker:', buildMarker);
 console.log('   - Endpoint:', endpoint);
+console.log('   - Project (env):', import.meta.env.VITE_APPWRITE_PROJECT || '(unset)');
 console.log('   - Project:', project);
 if (endpointFallback) {
     console.log('   - Endpoint Fallback:', endpointFallback);

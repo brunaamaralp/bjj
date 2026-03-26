@@ -1,4 +1,4 @@
-import { account, client, ENDPOINT_FALLBACK, setClientEndpoint } from './appwrite';
+import { account, client } from './appwrite';
 import { ID } from 'appwrite';
 
 export const authService = {
@@ -75,12 +75,11 @@ export const authService = {
 
     async getCurrentUser() {
         try {
+            const user = await account.get();
             if (!this._loadJwtFromStorage()) {
-                try {
-                    await this._setJwtFromSession();
-                } catch (e) { void e; }
+                try { await this._setJwtFromSession(); } catch (e) { void e; }
             }
-            return await account.get();
+            return user;
         } catch {
             return null;
         }
