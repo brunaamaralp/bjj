@@ -53,28 +53,10 @@ export const authService = {
         });
         try {
             session = await account.createEmailPasswordSession(email, password);
-            console.log('[Auth] Login successful (primary endpoint)', session);
+            console.log('[Auth] Login successful', session);
         } catch (e) {
-            console.error('[Auth] Error on primary login attempt:', e);
-            const msg = String(e?.message || e);
-            console.log('[Auth] Error message pattern check:', msg);
-            if (ENDPOINT_FALLBACK && /fetch|cors|origin|failed/i.test(msg)) {
-                console.warn(`[Auth] Fallback triggered! Switching endpoint to: ${ENDPOINT_FALLBACK}`);
-                setClientEndpoint(ENDPOINT_FALLBACK);
-                console.log('[Auth] Client config after fallback:', {
-                    endpoint: client.config.endpoint,
-                    project: client.config.project
-                });
-                try {
-                    session = await account.createEmailPasswordSession(email, password);
-                    console.log('[Auth] Login successful (fallback endpoint)', session);
-                } catch (fallbackError) {
-                    console.error('[Auth] Error on fallback login attempt:', fallbackError);
-                    throw fallbackError;
-                }
-            } else {
-                throw e;
-            }
+            console.error('[Auth] Error on login attempt:', e);
+            throw e;
         }
         try {
             console.log('[Auth] Attempting to create JWT after successful login...');
@@ -82,8 +64,6 @@ export const authService = {
             console.log('[Auth] JWT created successfully');
         } catch (jwtError) {
              console.error('[Auth] Error creating JWT after login:', jwtError);
-             // Não jogamos erro aqui para não quebrar o fluxo caso a sessão já tenha sido criada,
-             // mas logamos para entender onde está parando
         }
         return session;
     },

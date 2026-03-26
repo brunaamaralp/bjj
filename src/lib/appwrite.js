@@ -1,6 +1,6 @@
 import { Client, Account, Databases, Functions, Teams } from "appwrite";
 
-const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1";
+const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1";
 const endpointFallback = import.meta.env.VITE_APPWRITE_ENDPOINT_FALLBACK || "";
 const project = import.meta.env.VITE_APPWRITE_PROJECT || "69ad727d001fdb4d65e6";
 const selectedEndpoint = endpointFallback || endpoint;
