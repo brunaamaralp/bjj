@@ -84,7 +84,7 @@ export const useLeadStore = create((set, get) => ({
                 priority,
                 hotLead,
                 needHuman,
-                statusChangedAt: doc.statusChangedAt || '',
+                statusChangedAt: parsed.statusChangedAt || doc.statusChangedAt || '',
                 createdAt: doc.$createdAt,
               };
             }
@@ -154,7 +154,8 @@ export const useLeadStore = create((set, get) => ({
         belt: lead.belt || '',
         borrowedKimono: lead.borrowedKimono || '',
         borrowedShirt: lead.borrowedShirt || '',
-        customAnswers: lead.customAnswers || {}
+        customAnswers: lead.customAnswers || {},
+        statusChangedAt: new Date().toISOString()
       };
       const perms = [
         Permission.read(Role.users()),
@@ -173,7 +174,6 @@ export const useLeadStore = create((set, get) => ({
         parentName: lead.parentName || '',
         age: lead.age || '',
         notes: JSON.stringify(notesData),
-        statusChangedAt: new Date().toISOString(),
         academyId,
       }, perms);
 
@@ -229,16 +229,18 @@ export const useLeadStore = create((set, get) => ({
         isFirstExperience: mergedLead.isFirstExperience || 'Sim',
         belt: mergedLead.belt || '',
         borrowedKimono: mergedLead.borrowedKimono || '',
-        borrowedShirt: mergedLead.borrowedShirt || ''
+        borrowedShirt: mergedLead.borrowedShirt || '',
+        statusChangedAt: currentLead.statusChangedAt || ''
       };
+
+      if (typeof updates.status !== 'undefined' && updates.status !== currentLead.status) {
+        notesData.statusChangedAt = new Date().toISOString();
+      }
 
       const payload = {
         ...updates,
         notes: JSON.stringify(notesData)
       };
-      if (typeof updates.status !== 'undefined' && updates.status !== currentLead.status) {
-        payload.statusChangedAt = new Date().toISOString();
-      }
 
       // Remove fields Appwrite doesn't expect or that shouldn't be in the payload
       delete payload.id;
@@ -247,12 +249,13 @@ export const useLeadStore = create((set, get) => ({
       delete payload.belt;
       delete payload.borrowedKimono;
       delete payload.borrowedShirt;
+      delete payload.statusChangedAt;
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 
       set((state) => ({
         leads: state.leads.map((l) =>
-          l.id === id ? { ...l, ...updates, ...(payload.statusChangedAt ? { statusChangedAt: payload.statusChangedAt } : {}) } : l
+          l.id === id ? { ...l, ...updates, statusChangedAt: notesData.statusChangedAt } : l
         ),
       }));
     } catch (e) {
@@ -297,8 +300,7 @@ export const useLeadStore = create((set, get) => ({
           scheduledTime: lead.scheduledTime || '',
           parentName: lead.parentName || '',
           age: lead.age || '',
-          notes: JSON.stringify({ history }),
-          statusChangedAt: nowIso,
+          notes: JSON.stringify({ history, statusChangedAt: nowIso }),
           academyId,
         }, perms);
         newLeads.push({
