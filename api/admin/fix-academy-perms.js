@@ -22,6 +22,54 @@ function ensureConfigOk(res) {
   return true;
 }
 
+async function ensureCustomLeadQuestionsAttribute() {
+  const headers = {
+    'X-Appwrite-Project': PROJECT_ID,
+    'X-Appwrite-Key': API_KEY,
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    const listRes = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${ACADEMIES_COL}/attributes`, { headers });
+    if (listRes.ok) {
+      const data = await listRes.json().catch(() => ({}));
+      const attrs = Array.isArray(data?.attributes) ? data.attributes : [];
+      if (attrs.some((a) => a && a.key === 'customLeadQuestions')) {
+        return { ok: true, created: false, exists: true };
+      }
+    }
+  } catch {
+    void 0;
+  }
+
+  const body = {
+    key: 'customLeadQuestions',
+    size: 10000,
+    required: false,
+    default: '[]',
+    array: false,
+    encrypt: false,
+  };
+
+  const createRes = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${ACADEMIES_COL}/attributes/string`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (createRes.ok) {
+    return { ok: true, created: true, exists: true };
+  }
+
+  const err = await createRes.json().catch(() => ({}));
+  const msg = String(err?.message || '');
+  const typ = String(err?.type || '');
+  if (/already/i.test(msg) || /already/i.test(typ)) {
+    return { ok: true, created: false, exists: true };
+  }
+  throw new Error(msg || `Falha ao criar atributo customLeadQuestions (HTTP ${createRes.status})`);
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Method Not Allowed' });
@@ -33,6 +81,11 @@ export default async function handler(req, res) {
   }
   try {
     const body = req.body || {};
+    const schema = await ensureCustomLeadQuestionsAttribute();
+    const onlySchema = Boolean(body.onlySchema);
+    if (onlySchema) {
+      return res.status(200).json({ sucesso: true, schema });
+    }
     const ownerId = String(body.ownerId || '').trim();
     const queries = [Query.limit(500)];
     if (ownerId) queries.unshift(Query.equal('ownerId', [ownerId]));
@@ -49,7 +102,7 @@ export default async function handler(req, res) {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, doc.$id, {}, perms);
       updated.push(doc.$id);
     }
-    return res.status(200).json({ sucesso: true, count: updated.length, ids: updated });
+    return res.status(200).json({ sucesso: true, schema, count: updated.length, ids: updated });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }
