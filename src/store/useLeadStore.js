@@ -230,6 +230,7 @@ export const useLeadStore = create((set, get) => ({
         belt: mergedLead.belt || '',
         borrowedKimono: mergedLead.borrowedKimono || '',
         borrowedShirt: mergedLead.borrowedShirt || '',
+        customAnswers: mergedLead.customAnswers || {},
         statusChangedAt: currentLead.statusChangedAt || ''
       };
 
@@ -249,6 +250,7 @@ export const useLeadStore = create((set, get) => ({
       delete payload.belt;
       delete payload.borrowedKimono;
       delete payload.borrowedShirt;
+      delete payload.customAnswers;
       delete payload.statusChangedAt;
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
