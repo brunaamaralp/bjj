@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -79,6 +79,14 @@ const Dashboard = () => {
             scheduledTime: '',
             status: LEAD_STATUS.NEW
         });
+        closeEdit();
+    };
+
+    const deleteLead = async () => {
+        if (!editLead) return;
+        const ok = window.confirm(`Excluir o lead "${editLead.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
+        if (!ok) return;
+        await useLeadStore.getState().deleteLead(editLead.id);
         closeEdit();
     };
 
@@ -416,7 +424,10 @@ const Dashboard = () => {
                             </select>
                         </div>
                         <div className="edit-actions">
-                            <button className="btn-outline danger-outline" onClick={removeSchedule} title="Remover agendamento e voltar para Novo">Remover agendamento</button>
+                            <button className="btn-outline danger-outline" onClick={removeSchedule} title="Excluir agendamento e voltar para Novo">Excluir agendamento</button>
+                            <button className="btn-outline danger-outline" onClick={deleteLead} title="Excluir lead">
+                                <Trash2 size={14} /> Excluir lead
+                            </button>
                             <button className="btn-outline" onClick={closeEdit}>Cancelar</button>
                             <button className="btn-secondary" onClick={saveEdit}>Salvar</button>
                         </div>
