@@ -90,6 +90,22 @@ const Dashboard = () => {
         closeEdit();
     };
 
+    const deleteLeadFromCard = async (lead) => {
+        const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
+        if (!ok) return;
+        await useLeadStore.getState().deleteLead(lead.id);
+    };
+
+    const markLostFromCard = async (lead) => {
+        const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como perdido?`);
+        if (!ok) return;
+        await useLeadStore.getState().updateLead(lead.id, {
+            status: LEAD_STATUS.LOST,
+            scheduledDate: '',
+            scheduledTime: '',
+        });
+    };
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -297,6 +313,22 @@ const Dashboard = () => {
                                         >
                                             <Edit3 size={18} strokeWidth={2.6} />
                                         </button>
+                                        <button
+                                            className="agenda-mini-btn lost"
+                                            onClick={(e) => { e.stopPropagation(); markLostFromCard(lead); }}
+                                            title="Marcar como perdido"
+                                            aria-label="Marcar como perdido"
+                                        >
+                                            <AlertTriangle size={16} />
+                                        </button>
+                                        <button
+                                            className="agenda-mini-btn danger"
+                                            onClick={(e) => { e.stopPropagation(); deleteLeadFromCard(lead); }}
+                                            title="Excluir lead"
+                                            aria-label="Excluir lead"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
                                 </div>
@@ -502,6 +534,21 @@ const Dashboard = () => {
         .edit-time-btn:hover { filter: brightness(0.96); }
         .edit-time-btn:active { transform: translateY(1px); }
         .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(35,99,255,0.16); }
+        .agenda-mini-btn {
+          width: 32px; height: 32px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 0; min-height: auto;
+          background: var(--surface); border: 1.5px solid var(--border);
+          color: var(--text-secondary);
+          transition: var(--transition);
+        }
+        .agenda-mini-btn svg { display: block; }
+        .agenda-mini-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .agenda-mini-btn:active { transform: translateY(1px); }
+        .agenda-mini-btn.danger { border-color: var(--danger); color: var(--danger); }
+        .agenda-mini-btn.danger:hover { background: var(--danger-light); }
+        .agenda-mini-btn.lost { border-color: var(--warning); color: var(--warning); }
+        .agenda-mini-btn.lost:hover { background: var(--warning-light); }
         .edit-modal-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 300;
           display: flex; align-items: center; justify-content: center;
