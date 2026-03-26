@@ -287,7 +287,7 @@ const Dashboard = () => {
                                             title="Editar agendamento"
                                             aria-label="Editar agendamento"
                                         >
-                                            <Edit3 size={20} strokeWidth={2.6} color="#ffffff" />
+                                            <Edit3 size={18} strokeWidth={2.6} />
                                         </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
@@ -483,10 +483,11 @@ const Dashboard = () => {
           background: var(--accent); color: #fff;
           display: inline-flex; align-items: center; justify-content: center;
           border: none; cursor: pointer;
+          padding: 0; min-height: auto; flex: 0 0 32px;
           box-shadow: 0 4px 16px rgba(35, 99, 255, 0.22);
           transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
-        .edit-time-btn svg { color: #fff; stroke: #fff; filter: drop-shadow(0 0 1px rgba(0,0,0,0.18)); }
+        .edit-time-btn svg { display: block; color: #fff; stroke: currentColor; fill: none; filter: drop-shadow(0 0 1px rgba(0,0,0,0.18)); }
         .edit-time-btn:hover { filter: brightness(0.96); }
         .edit-time-btn:active { transform: translateY(1px); }
         .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(35,99,255,0.16); }

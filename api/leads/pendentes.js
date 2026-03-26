@@ -10,6 +10,12 @@ const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DE
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(client);
 
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 function ensureConfigOk(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !LEADS_COL) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
@@ -23,7 +29,13 @@ function ensureConfigOk(res) {
 }
 
 export default async function handler(req, res) {
+  setCors(res);
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Allow', 'GET, OPTIONS');
+    return res.status(204).end();
+  }
   if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET, OPTIONS');
     return res.status(405).json({ erro: 'Method Not Allowed' });
   }
   if (!ensureConfigOk(res)) return;
@@ -61,7 +73,8 @@ export default async function handler(req, res) {
       });
     };
     const seen = new Set();
-    for (const doc of list.documents) {
+    const docs = Array.isArray(list?.documents) ? list.documents : [];
+    for (const doc of docs) {
       let parsed = {};
       try {
         parsed = doc.notes ? JSON.parse(doc.notes) : {};
