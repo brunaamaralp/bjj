@@ -76,7 +76,11 @@ export const authService = {
     async getCurrentUser() {
         try {
             if (!this._loadJwtFromStorage()) {
-                try { await this._setJwtFromSession(); } catch (e) { void e; }
+                try { 
+                    await this._setJwtFromSession(); 
+                } catch (e) { 
+                    return null; // Stop early if there's no active session/JWT
+                }
             }
             return await account.get();
         } catch {
