@@ -186,9 +186,20 @@ const Dashboard = () => {
         }).length;
     };
 
-    const handleWhatsApp = (phone, name) => {
-        const cleanPhone = phone.replace(/\D/g, '');
-        const msg = encodeURIComponent(`Olá ${name}! Tudo bem? Estamos entrando em contato sobre sua aula experimental. Podemos conversar?`);
+    const handleWhatsApp = (lead) => {
+        const cleanPhone = String(lead?.phone || '').replace(/\D/g, '');
+        const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
+        const dateStr = lead?.scheduledDate ? new Date(`${lead.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : '';
+        const timeStr = String(lead?.scheduledTime || '').trim();
+
+        let text = `Olá ${firstName}! Tudo bem?`;
+        if (lead?.status === LEAD_STATUS.MISSED) {
+            text += ` Sentimos sua falta na aula experimental${dateStr ? ` do dia ${dateStr}` : ''}${timeStr ? ` às ${timeStr}` : ''}. Quer remarcar para outro dia?`;
+        } else {
+            text += ` O que achou da aula experimental${dateStr ? ` do dia ${dateStr}` : ''}? Quer que eu te envie os valores e horários para começar?`;
+        }
+
+        const msg = encodeURIComponent(text);
         window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
     };
 
@@ -410,7 +421,7 @@ const Dashboard = () => {
                                 <div className="flex gap-2 mt-3 pt-3 border-t">
                                     <button
                                         className="followup-action-btn flex-1"
-                                        onClick={(e) => { e.stopPropagation(); handleWhatsApp(lead.phone, lead.name); }}
+                                        onClick={(e) => { e.stopPropagation(); handleWhatsApp(lead); }}
                                     >
                                         <MessageCircle size={14} color="#25D366" /> WhatsApp
                                     </button>

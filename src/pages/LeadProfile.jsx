@@ -13,38 +13,12 @@ const STATUS_CONFIG = {
     [LEAD_STATUS.LOST]: { bg: '#f1f5f9', color: '#64748b' },
 };
 
-const getTemplates = (lead) => {
-    const name = lead.name?.split(' ')[0] || 'Aluno';
-    const dateStr = lead.scheduledDate ? new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR') : '';
-    const timeStr = lead.scheduledTime || '';
-
-    return [
-        {
-            id: 'confirm',
-            label: 'Confirmar Aula',
-            text: `Olá ${name}! Confirmando sua aula experimental ${dateStr ? `no dia ${dateStr}` : ''}${timeStr ? ` às ${timeStr}` : ''}. Venha com roupa confortável! Qualquer dúvida, estamos à disposição.`,
-        },
-        {
-            id: 'reminder',
-            label: 'Lembrete',
-            text: `Oi ${name}! Passando para lembrar da sua aula experimental ${dateStr ? `amanhã (${dateStr})` : 'amanhã'}${timeStr ? ` às ${timeStr}` : ''}. Estamos te esperando!`,
-        },
-        {
-            id: 'post_class',
-            label: 'Pós-Aula',
-            text: `${name}, foi um prazer ter você na nossa academia! O que achou da aula? Temos condições especiais para matrícula essa semana. Posso te passar mais informações?`,
-        },
-        {
-            id: 'missed',
-            label: 'Não Compareceu',
-            text: `Oi ${name}! Sentimos sua falta na aula experimental. Sei que imprevistos acontecem! Quer remarcar para outro dia? Estamos com horários disponíveis essa semana.`,
-        },
-        {
-            id: 'recovery',
-            label: 'Recuperação',
-            text: `Olá ${name}! Tudo bem? Vi que você visitou nossa academia recentemente. Ainda tem interesse em começar no Jiu-Jitsu? Temos turmas nos horários da manhã e noite. Vou adorar ajudar!`,
-        },
-    ];
+const DEFAULT_TEMPLATES = {
+    confirm: 'Olá {primeiroNome}! Confirmando sua aula experimental {dataAula}{horaAula}. Venha com roupa confortável! Qualquer dúvida, estamos à disposição.',
+    reminder: 'Oi {primeiroNome}! Passando para lembrar da sua aula experimental {amanhaData}{horaAula}. Estamos te esperando!',
+    post_class: '{primeiroNome}, foi um prazer ter você na nossa academia! O que achou da aula? Quer que eu te envie os valores e horários para começar?',
+    missed: 'Oi {primeiroNome}! Sentimos sua falta na aula experimental. Sei que imprevistos acontecem! Quer remarcar para outro dia? Estamos com horários disponíveis essa semana.',
+    recovery: 'Olá {primeiroNome}! Tudo bem? Vi que você visitou nossa academia recentemente. Ainda tem interesse em começar no Jiu-Jitsu? Temos turmas nos horários da manhã e noite. Vou adorar ajudar!',
 };
 
 const LeadProfile = () => {
@@ -59,6 +33,8 @@ const LeadProfile = () => {
     const [showTemplates, setShowTemplates] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const [editing, setEditing] = useState(false);
+    const [templateOverrides, setTemplateOverrides] = useState({});
+    const [academyName, setAcademyName] = useState('');
     const [customQuestions, setCustomQuestions] = useState([]);
     const [form, setForm] = useState({
         name: '',
@@ -135,6 +111,7 @@ const LeadProfile = () => {
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 try {
+                    setAcademyName(String(doc?.name || '').trim());
                     const normalized = normalizeQuestions(doc.customLeadQuestions);
                     setCustomQuestions(normalized.questions);
                     if (normalized.migrated) {
@@ -142,6 +119,15 @@ const LeadProfile = () => {
                             customLeadQuestions: JSON.stringify(normalized.questions)
                         }).catch(() => void 0);
                     }
+                    try {
+                        const raw = doc.whatsappTemplates;
+                        const parsed = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+                        if (parsed && typeof parsed === 'object') {
+                            setTemplateOverrides(parsed);
+                        } else {
+                            setTemplateOverrides({});
+                        }
+                    } catch { setTemplateOverrides({}); }
                 } catch { setCustomQuestions([]); }
             })
             .catch(() => setCustomQuestions([]));
@@ -253,7 +239,24 @@ const LeadProfile = () => {
     };
 
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
-    const templates = getTemplates(lead);
+    const firstName = lead.name?.split(' ')[0] || 'Aluno';
+    const dateStr = lead.scheduledDate ? new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+    const timeStr = lead.scheduledTime || '';
+    const render = (text) => {
+        return String(text || '')
+            .replaceAll('{primeiroNome}', firstName)
+            .replaceAll('{dataAula}', dateStr)
+            .replaceAll('{horaAula}', timeStr ? ` às ${timeStr}` : '')
+            .replaceAll('{amanhaData}', dateStr ? `amanhã (${dateStr})` : 'amanhã')
+            .replaceAll('{nomeAcademia}', academyName || 'nossa academia');
+    };
+    const templates = [
+        { id: 'confirm', label: 'Confirmar Aula', text: render(templateOverrides.confirm || DEFAULT_TEMPLATES.confirm) },
+        { id: 'reminder', label: 'Lembrete', text: render(templateOverrides.reminder || DEFAULT_TEMPLATES.reminder) },
+        { id: 'post_class', label: 'Pós-Aula', text: render(templateOverrides.post_class || DEFAULT_TEMPLATES.post_class) },
+        { id: 'missed', label: 'Não Compareceu', text: render(templateOverrides.missed || DEFAULT_TEMPLATES.missed) },
+        { id: 'recovery', label: 'Recuperação', text: render(templateOverrides.recovery || DEFAULT_TEMPLATES.recovery) },
+    ];
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>

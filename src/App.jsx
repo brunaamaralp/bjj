@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes, BarChart3 } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes, BarChart3, MessageCircle } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
@@ -18,6 +18,7 @@ import Welcome from './pages/Welcome';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
+import Templates from './pages/Templates';
 import { FEATURES } from './config/features';
 
 const App = () => {
@@ -465,6 +466,10 @@ const App = () => {
               <User size={18} />
               <span>Conta</span>
             </Link>
+            <Link to="/templates" className={`side-link ${isActive('/templates') ? 'active' : ''}`}>
+              <MessageCircle size={18} />
+              <span>Templates</span>
+            </Link>
           </div>
         </aside>
 
@@ -479,6 +484,7 @@ const App = () => {
             {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
             <Route path="/students" element={<Students />} />
             <Route path="/profile" element={<Account user={user} onLogout={handleLogout} />} />
+            <Route path="/templates" element={<Templates />} />
           </Routes>
         </main>
       </div>
