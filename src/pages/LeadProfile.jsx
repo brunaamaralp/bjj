@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
-import { ArrowLeft, ArrowRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const STATUS_CONFIG = {
@@ -24,7 +24,7 @@ const DEFAULT_TEMPLATES = {
 const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { getLeadById, updateLead } = useLeadStore();
+    const { getLeadById, updateLead, deleteLead } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const lead = getLeadById(id);
 
@@ -36,6 +36,7 @@ const LeadProfile = () => {
     const [templateOverrides, setTemplateOverrides] = useState({});
     const [academyName, setAcademyName] = useState('');
     const [customQuestions, setCustomQuestions] = useState([]);
+    const templatesSectionRef = useRef(null);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -192,7 +193,33 @@ const LeadProfile = () => {
         const existing = Array.isArray(lead.notes) ? lead.notes : [];
         const event = { type: 'stage_change', from: lead.status || '', to: newStatus, at: new Date().toISOString(), by: 'user' };
         const newNotes = [...existing, event];
-        updateLead(id, { status: newStatus, notes: newNotes });
+        const pipelineStage =
+            newStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
+                : newStatus === LEAD_STATUS.COMPLETED ? 'Negociação'
+                    : newStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
+                        : newStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
+                            : newStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
+                                : undefined;
+
+        updateLead(id, {
+            status: newStatus,
+            ...(pipelineStage ? { pipelineStage } : {}),
+            notes: newNotes
+        });
+    };
+    const handleMarkLost = () => {
+        const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como Não fechou?`);
+        if (!ok) return;
+        const existing = Array.isArray(lead.notes) ? lead.notes : [];
+        const event = { type: 'stage_change', from: lead.status || '', to: LEAD_STATUS.LOST, at: new Date().toISOString(), by: 'user' };
+        const newNotes = [...existing, event];
+        updateLead(id, { status: LEAD_STATUS.LOST, scheduledDate: '', scheduledTime: '', pipelineStage: LEAD_STATUS.LOST, notes: newNotes });
+    };
+    const handleDeleteLead = async () => {
+        const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
+        if (!ok) return;
+        await deleteLead(id);
+        navigate(-1);
     };
 
     const handleWhatsApp = (customMsg) => {
@@ -209,14 +236,11 @@ const LeadProfile = () => {
         } catch { /* noop */ }
     };
 
-    const handleCall = () => {
-        window.open(`tel:${lead.phone.replace(/\D/g, '')}`, '_self');
-        try {
-            const existing = Array.isArray(lead.notes) ? lead.notes : [];
-            const event = { type: 'call', text: 'Ligação iniciada', at: new Date().toISOString(), by: 'user' };
-            const newNotes = [...existing, event];
-            updateLead(id, { notes: newNotes });
-        } catch { /* noop */ }
+    const openTemplates = () => {
+        setShowTemplates(true);
+        setTimeout(() => {
+            templatesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 0);
     };
 
     const addNote = () => {
@@ -470,14 +494,14 @@ const LeadProfile = () => {
                     <button className="contact-btn whatsapp" onClick={() => handleWhatsApp()}>
                         <MessageCircle size={18} /> WhatsApp
                     </button>
-                    <button className="contact-btn call" onClick={handleCall}>
-                        <Phone size={18} /> Ligar
+                    <button className="contact-btn call" onClick={openTemplates}>
+                        <Send size={18} /> Mensagens prontas
                     </button>
                 </div>
             </div>
 
             {/* WhatsApp Templates */}
-            <div className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+            <div ref={templatesSectionRef} className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
                 <button
                     className={`templates-toggle ${showTemplates ? 'active' : ''}`}
                     onClick={() => setShowTemplates(!showTemplates)}
@@ -531,6 +555,20 @@ const LeadProfile = () => {
                 </div>
             </div>
 
+            {!editing && (
+                <div className="mt-4 animate-in" style={{ animationDelay: '0.12s' }}>
+                    <h3 className="mb-2">Mais Ações</h3>
+                    <div className="more-actions">
+                        <button className="btn-outline danger-btn" onClick={handleMarkLost}>
+                            <AlertTriangle size={16} /> Não fechou
+                        </button>
+                        <button className="btn-outline danger-btn" onClick={handleDeleteLead}>
+                            <Trash2 size={16} /> Excluir lead
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Timeline */}
             <div className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
                 <h3 className="mb-2">Linha do tempo</h3>
@@ -547,7 +585,7 @@ const LeadProfile = () => {
                     </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                    <button className="tpl-chip" onClick={() => addNoteQuick('Ligação realizada')}>Ligação realizada</button>
+                    <button className="tpl-chip" onClick={() => addNoteQuick('WhatsApp enviado')}>WhatsApp enviado</button>
                     <button className="tpl-chip" onClick={() => addNoteQuick('Proposta enviada')}>Proposta enviada</button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
@@ -556,6 +594,7 @@ const LeadProfile = () => {
                     <button className={`filter-chip${eventTypeFilter === 'call' ? ' active' : ''}`} onClick={() => setEventTypeFilter('call')}>Ligações</button>
                     <button className={`filter-chip${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
                     <button className={`filter-chip${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
+                    <button className={`filter-chip${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
                     <button className={`filter-chip${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
                     <button className={`filter-chip${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
                 </div>
@@ -576,6 +615,7 @@ const LeadProfile = () => {
                         else if (n.type === 'call') { icon = <Phone size={16} color="var(--accent)" />; tag = 'Ligação'; label = n.text || 'Ligação'; }
                         else if (n.type === 'schedule') { icon = <Calendar size={16} color="var(--warning)" />; tag = 'Agendamento'; label = `Agendado para ${n.date} ${n.time || ''}`.trim(); }
                         else if (n.type === 'stage_change') { icon = <ArrowRight size={16} color="var(--text-secondary)" />; tag = 'Mudança'; label = `Mudou de ${n.from} para ${n.to}`; }
+                        else if (n.type === 'pipeline_change') { icon = <ChevronRight size={16} color="var(--text-secondary)" />; tag = 'Pipeline'; label = `Pipeline: de ${n.from} para ${n.to}`; }
                         else if (n.type === 'import') { icon = <Copy size={16} color="var(--text-secondary)" />; tag = 'Importação'; label = `Importado (${n.source || 'Import'})`; }
                         else { icon = <Check size={16} color="var(--text-secondary)" />; tag = 'Nota'; }
                         return (
@@ -645,6 +685,11 @@ const LeadProfile = () => {
         .action-btn:active { transform: scale(0.95); }
         .action-highlight { border-color: var(--accent); background: var(--accent-light); }
         .action-highlight span { color: var(--accent); }
+
+        .more-actions { display: flex; gap: 10px; }
+        .more-actions button { flex: 1; }
+        .danger-btn { border-color: var(--danger); color: var(--danger); }
+        .danger-btn:hover { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
         
         .note-input-group { display: flex; flex-direction: column; gap: 8px; }
         .note-area { 

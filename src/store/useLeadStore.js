@@ -35,6 +35,7 @@ export const useLeadStore = create((set, get) => ({
 
     set({ loading: true });
     try {
+      const operationalStatusSet = new Set(Object.values(LEAD_STATUS));
       const response = await databases.listDocuments(DB_ID, LEADS_COL, [
         Query.equal('academyId', academyId),
         Query.limit(500),
@@ -46,6 +47,8 @@ export const useLeadStore = create((set, get) => ({
         let belt = '';
         let borrowedKimono = '';
         let borrowedShirt = '';
+        let pipelineStage = '';
+        let pipelineStageChangedAt = '';
 
         if (doc.notes) {
           try {
@@ -58,18 +61,23 @@ export const useLeadStore = create((set, get) => ({
               belt = parsed.belt || '';
               borrowedKimono = parsed.borrowedKimono || '';
               borrowedShirt = parsed.borrowedShirt || '';
+              pipelineStage = parsed.pipelineStage || '';
+              pipelineStageChangedAt = parsed.pipelineStageChangedAt || '';
               const customAnswers = parsed.customAnswers || {};
               const intention = parsed.whatsappIntention || '';
               const priority = parsed.whatsappPriority || '';
               const hotLead = String(parsed.whatsappLeadQuente || parsed.priority || '').toLowerCase() === 'sim';
               const needHuman = String(parsed.needHuman || '').toLowerCase() === 'sim';
+              const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
+              const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
               return {
                 id: doc.$id,
                 name: doc.name,
                 phone: doc.phone,
                 type: doc.type || 'Adulto',
                 origin: doc.origin || '',
-                status: doc.status,
+                status,
+                pipelineStage: effectivePipelineStage,
                 scheduledDate: doc.scheduledDate || '',
                 scheduledTime: doc.scheduledTime || '',
                 parentName: doc.parentName || '',
@@ -85,6 +93,7 @@ export const useLeadStore = create((set, get) => ({
                 hotLead,
                 needHuman,
                 statusChangedAt: parsed.statusChangedAt || doc.statusChangedAt || '',
+                pipelineStageChangedAt: pipelineStageChangedAt || parsed.statusChangedAt || doc.$createdAt || '',
                 createdAt: doc.$createdAt,
               };
             }
@@ -93,13 +102,16 @@ export const useLeadStore = create((set, get) => ({
           }
         }
 
+        const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
+        const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
         return {
           id: doc.$id,
           name: doc.name,
           phone: doc.phone,
           type: doc.type || 'Adulto',
           origin: doc.origin || '',
-          status: doc.status,
+          status,
+          pipelineStage: effectivePipelineStage,
           scheduledDate: doc.scheduledDate || '',
           scheduledTime: doc.scheduledTime || '',
           parentName: doc.parentName || '',
@@ -114,6 +126,7 @@ export const useLeadStore = create((set, get) => ({
           hotLead: false,
           needHuman: false,
           statusChangedAt: doc.statusChangedAt || '',
+          pipelineStageChangedAt: doc.$createdAt,
           createdAt: doc.$createdAt,
         };
       });
@@ -155,6 +168,8 @@ export const useLeadStore = create((set, get) => ({
         borrowedKimono: lead.borrowedKimono || '',
         borrowedShirt: lead.borrowedShirt || '',
         customAnswers: lead.customAnswers || {},
+        pipelineStage: lead.pipelineStage || 'Novo',
+        pipelineStageChangedAt: new Date().toISOString(),
         statusChangedAt: new Date().toISOString()
       };
       const perms = [
@@ -180,8 +195,10 @@ export const useLeadStore = create((set, get) => ({
       const newLead = {
         id: doc.$id,
         ...lead,
+        pipelineStage: lead.pipelineStage || 'Novo',
         notes: lead.notes || [],
         createdAt: doc.$createdAt,
+        pipelineStageChangedAt: notesData.pipelineStageChangedAt,
         _isNew: true,
       };
 
@@ -231,11 +248,16 @@ export const useLeadStore = create((set, get) => ({
         borrowedKimono: mergedLead.borrowedKimono || '',
         borrowedShirt: mergedLead.borrowedShirt || '',
         customAnswers: mergedLead.customAnswers || {},
+        pipelineStage: mergedLead.pipelineStage || 'Novo',
+        pipelineStageChangedAt: currentLead.pipelineStageChangedAt || '',
         statusChangedAt: currentLead.statusChangedAt || ''
       };
 
       if (typeof updates.status !== 'undefined' && updates.status !== currentLead.status) {
         notesData.statusChangedAt = new Date().toISOString();
+      }
+      if (typeof updates.pipelineStage !== 'undefined' && updates.pipelineStage !== currentLead.pipelineStage) {
+        notesData.pipelineStageChangedAt = new Date().toISOString();
       }
 
       const payload = {
@@ -251,13 +273,14 @@ export const useLeadStore = create((set, get) => ({
       delete payload.borrowedKimono;
       delete payload.borrowedShirt;
       delete payload.customAnswers;
+      delete payload.pipelineStage;
       delete payload.statusChangedAt;
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 
       set((state) => ({
         leads: state.leads.map((l) =>
-          l.id === id ? { ...l, ...updates, statusChangedAt: notesData.statusChangedAt } : l
+          l.id === id ? { ...l, ...updates, statusChangedAt: notesData.statusChangedAt, pipelineStageChangedAt: notesData.pipelineStageChangedAt } : l
         ),
       }));
     } catch (e) {
@@ -302,14 +325,16 @@ export const useLeadStore = create((set, get) => ({
           scheduledTime: lead.scheduledTime || '',
           parentName: lead.parentName || '',
           age: lead.age || '',
-          notes: JSON.stringify({ history, statusChangedAt: nowIso }),
+          notes: JSON.stringify({ history, pipelineStage: lead.pipelineStage || 'Novo', pipelineStageChangedAt: nowIso, statusChangedAt: nowIso }),
           academyId,
         }, perms);
         newLeads.push({
           id: doc.$id,
           ...lead,
+          pipelineStage: lead.pipelineStage || 'Novo',
           notes: history,
           createdAt: doc.$createdAt,
+          pipelineStageChangedAt: nowIso,
         });
       } catch (e) {
         console.error('import error for', lead.name, e);

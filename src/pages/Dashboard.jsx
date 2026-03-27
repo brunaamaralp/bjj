@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, AlertTriangle, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -64,10 +64,18 @@ const Dashboard = () => {
 
     const saveEdit = async () => {
         if (!editLead) return;
+        const pipelineStage =
+            editStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
+                : editStatus === LEAD_STATUS.COMPLETED ? 'Negociação'
+                    : editStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
+                        : editStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
+                            : editStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
+                                : undefined;
         await useLeadStore.getState().updateLead(editLead.id, {
             scheduledDate: editDate,
             scheduledTime: editTime,
-            status: editStatus
+            status: editStatus,
+            ...(pipelineStage ? { pipelineStage } : {})
         });
         closeEdit();
     };
@@ -88,22 +96,6 @@ const Dashboard = () => {
         if (!ok) return;
         await useLeadStore.getState().deleteLead(editLead.id);
         closeEdit();
-    };
-
-    const deleteLeadFromCard = async (lead) => {
-        const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
-        if (!ok) return;
-        await useLeadStore.getState().deleteLead(lead.id);
-    };
-
-    const markLostFromCard = async (lead) => {
-        const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como perdido?`);
-        if (!ok) return;
-        await useLeadStore.getState().updateLead(lead.id, {
-            status: LEAD_STATUS.LOST,
-            scheduledDate: '',
-            scheduledTime: '',
-        });
     };
 
     const today = new Date();
@@ -324,22 +316,6 @@ const Dashboard = () => {
                                         >
                                             <Edit3 size={18} strokeWidth={2.6} />
                                         </button>
-                                        <button
-                                            className="agenda-mini-btn lost"
-                                            onClick={(e) => { e.stopPropagation(); markLostFromCard(lead); }}
-                                            title="Marcar como perdido"
-                                            aria-label="Marcar como perdido"
-                                        >
-                                            <AlertTriangle size={16} />
-                                        </button>
-                                        <button
-                                            className="agenda-mini-btn danger"
-                                            onClick={(e) => { e.stopPropagation(); deleteLeadFromCard(lead); }}
-                                            title="Excluir lead"
-                                            aria-label="Excluir lead"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
                                     </div>
                                     <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
                                 </div>
@@ -348,13 +324,13 @@ const Dashboard = () => {
                             <div className="flex gap-2 mt-3 pt-3 border-t">
                                 <button
                                     className="btn-success flex-1"
-                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.COMPLETED }); }}
+                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.COMPLETED, pipelineStage: 'Negociação' }); }}
                                 >
                                     <CheckCircle size={16} /> Compareceu
                                 </button>
                                 <button
                                     className="btn-outline flex-1"
-                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.MISSED }); }}
+                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED }); }}
                                 >
                                     <XCircle size={16} /> Faltou
                                 </button>
@@ -398,22 +374,6 @@ const Dashboard = () => {
                                         <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
                                             {lead.status === LEAD_STATUS.COMPLETED ? 'Pós-Aula' : 'Recuperar'}
                                         </span>
-                                        <button
-                                            className="agenda-mini-btn lost"
-                                            onClick={(e) => { e.stopPropagation(); markLostFromCard(lead); }}
-                                            title="Marcar como perdido"
-                                            aria-label="Marcar como perdido"
-                                        >
-                                            <AlertTriangle size={16} />
-                                        </button>
-                                        <button
-                                            className="agenda-mini-btn danger"
-                                            onClick={(e) => { e.stopPropagation(); deleteLeadFromCard(lead); }}
-                                            title="Excluir lead"
-                                            aria-label="Excluir lead"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
                                     </div>
                                 </div>
 

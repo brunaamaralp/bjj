@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -55,6 +55,8 @@ const DEFAULT_STAGE_LABELS = [
     { id: 'Aula experimental', label: 'Aula experimental' },
     { id: 'Negociação', label: 'Negociação' },
     { id: 'Matriculado', label: 'Matrícula' },
+    { id: LEAD_STATUS.MISSED, label: 'Não compareceu' },
+    { id: LEAD_STATUS.LOST, label: 'Perdidos' },
 ];
 const STAGE_COLORS = [
     { color: 'var(--accent)', bg: 'var(--accent-light)' },
@@ -68,7 +70,7 @@ const DEFAULT_STAGE_SLA_DAYS = 3;
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead, deleteLead } = useLeadStore();
+    const { leads, importLeads, updateLead } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const getLeadById = useLeadStore((s) => s.getLeadById);
@@ -106,6 +108,14 @@ const Pipeline = () => {
 
     useEffect(() => {
         if (!academyId) return;
+        const ensureSpecialColumns = (cols) => {
+            const base = Array.isArray(cols) ? cols.filter(Boolean) : [];
+            const ids = new Set(base.map((c) => String(c?.id || '').trim()).filter(Boolean));
+            const out = [...base];
+            if (!ids.has(LEAD_STATUS.MISSED)) out.push({ id: LEAD_STATUS.MISSED, label: 'Não compareceu' });
+            if (!ids.has(LEAD_STATUS.LOST)) out.push({ id: LEAD_STATUS.LOST, label: 'Perdidos' });
+            return out;
+        };
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 let raw = [];
@@ -118,19 +128,23 @@ const Pipeline = () => {
                     if (doc.stagesConfig) {
                         const conf = typeof doc.stagesConfig === 'string' ? JSON.parse(doc.stagesConfig) : doc.stagesConfig;
                         if (Array.isArray(conf) && conf.length > 0) {
-                            setStages(conf);
-                            setTempStages(conf);
+                            const normalized = ensureSpecialColumns(conf);
+                            setStages(normalized);
+                            setTempStages(normalized);
                         } else {
-                            setStages(DEFAULT_STAGE_LABELS);
-                            setTempStages(DEFAULT_STAGE_LABELS);
+                            const normalized = ensureSpecialColumns(DEFAULT_STAGE_LABELS);
+                            setStages(normalized);
+                            setTempStages(normalized);
                         }
                     } else {
-                        setStages(DEFAULT_STAGE_LABELS);
-                        setTempStages(DEFAULT_STAGE_LABELS);
+                        const normalized = ensureSpecialColumns(DEFAULT_STAGE_LABELS);
+                        setStages(normalized);
+                        setTempStages(normalized);
                     }
                 } catch {
-                    setStages(DEFAULT_STAGE_LABELS);
-                    setTempStages(DEFAULT_STAGE_LABELS);
+                    const normalized = ensureSpecialColumns(DEFAULT_STAGE_LABELS);
+                    setStages(normalized);
+                    setTempStages(normalized);
                 }
             })
             .catch(() => {});
@@ -158,7 +172,10 @@ const Pipeline = () => {
         const clean = (lead.phone || '').replace(/\D/g, '');
         const sugArr = itemsForDay('today').slice(0, 2).map(it => it.label);
         const sug = sugArr.join('/');
-        const msg = `Olá ${lead.name.split(' ')[0]}, sentimos sua ausência na aula combinada. Quer reagendar? Tenho hoje às ${sug} ou amanhã nos mesmos horários.`;
+        const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
+        const msg = (lead?.status === LEAD_STATUS.MISSED)
+            ? `Olá ${firstName}, sentimos sua ausência na aula combinada. Quer reagendar? Tenho hoje às ${sug} ou amanhã nos mesmos horários.`
+            : `Olá ${firstName}! Tudo bem? Quer agendar uma aula experimental? Tenho horários hoje às ${sug} ou amanhã nos mesmos horários.`;
         const url = `https://wa.me/55${clean}?text=${encodeURIComponent(msg)}`;
         window.open(url, '_blank');
     };
@@ -172,9 +189,9 @@ const Pipeline = () => {
             const existing = Array.isArray(lead.notes) ? lead.notes : [];
             const event = { type: 'schedule', date: ymd, time, at: new Date().toISOString(), by: 'user' };
             const newNotes = [...existing, event];
-            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, notes: newNotes });
+            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental', notes: newNotes });
         } catch {
-            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time });
+            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental' });
         }
         const label = day === 'tomorrow' ? 'amanhã' : 'hoje';
         setToast(`Reagendado para ${label} ${time}`);
@@ -196,44 +213,45 @@ const Pipeline = () => {
         setMoverOpenId(prev => prev === leadId ? null : leadId);
         setSchedulerOpenId(null);
     };
-    const moveToStatus = async (e, leadId, status) => {
+    const moveToStatus = async (e, leadId, stageId) => {
         e.stopPropagation();
+        const lead = getLeadById(leadId);
+        if (stageId === LEAD_STATUS.MISSED) {
+            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
+            if (!ok) return;
+            await updateLead(leadId, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED });
+            setMoverOpenId(null);
+            setToast('Marcado como não compareceu');
+            setTimeout(() => setToast(''), 2000);
+            return;
+        }
+        if (stageId === LEAD_STATUS.LOST) {
+            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Perdidos"? Isso marca o status como Não fechou.`);
+            if (!ok) return;
+            await updateLead(leadId, { status: LEAD_STATUS.LOST, scheduledDate: '', scheduledTime: '', pipelineStage: LEAD_STATUS.LOST });
+            setMoverOpenId(null);
+            setToast('Marcado como perdido');
+            setTimeout(() => setToast(''), 2000);
+            return;
+        }
         try {
-            const lead = getLeadById(leadId);
             const existing = Array.isArray(lead?.notes) ? lead.notes : [];
-            const event = { type: 'stage_change', from: lead?.status || '', to: status, at: new Date().toISOString(), by: 'user' };
+            const event = { type: 'pipeline_change', from: lead?.pipelineStage || '', to: stageId, at: new Date().toISOString(), by: 'user' };
             const newNotes = [...existing, event];
-            await updateLead(leadId, { status, notes: newNotes });
+            await updateLead(leadId, { pipelineStage: stageId, notes: newNotes });
         } catch {
-            await updateLead(leadId, { status });
+            await updateLead(leadId, { pipelineStage: stageId });
         }
         setMoverOpenId(null);
         setToast('Movido no pipeline');
         setTimeout(() => setToast(''), 2000);
     };
-    const markLostFromCard = async (e, lead) => {
-        e.stopPropagation();
-        const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como perdido?`);
-        if (!ok) return;
-        await updateLead(lead.id, {
-            status: LEAD_STATUS.LOST,
-            scheduledDate: '',
-            scheduledTime: '',
-        });
-        setToast('Marcado como perdido');
-        setTimeout(() => setToast(''), 2000);
-    };
-    const deleteLeadFromCard = async (e, lead) => {
-        e.stopPropagation();
-        const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
-        if (!ok) return;
-        await deleteLead(lead.id);
-        setToast('Lead excluído');
-        setTimeout(() => setToast(''), 2000);
-    };
     const saveStages = async () => {
         try {
-            const cleaned = tempStages.filter(s => s && String(s.id).trim()).map((s) => ({
+            const cleaned = tempStages
+                .filter(s => s && String(s.id).trim())
+                .filter(s => s.id !== LEAD_STATUS.MISSED && s.id !== LEAD_STATUS.LOST)
+                .map((s) => ({
                 id: String(s.id).trim(),
                 label: String(s.label || s.id).trim(),
                 slaDays: Number.isFinite(s.slaDays) ? s.slaDays : DEFAULT_STAGE_SLA_DAYS,
@@ -241,7 +259,8 @@ const Pipeline = () => {
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 stagesConfig: JSON.stringify(cleaned),
             });
-            setStages(cleaned);
+            const normalized = [...cleaned, { id: LEAD_STATUS.MISSED, label: 'Não compareceu' }, { id: LEAD_STATUS.LOST, label: 'Perdidos' }];
+            setStages(normalized);
             setEditStages(false);
         } catch (e) {
             console.error('saveStages error', e);
@@ -252,19 +271,24 @@ const Pipeline = () => {
         setTempStages(prev => [...prev, { id, label: 'Nova etapa', slaDays: DEFAULT_STAGE_SLA_DAYS }]);
     };
     const mapLeadToStageId = (lead) => {
+        if (lead?.status === LEAD_STATUS.MISSED) return LEAD_STATUS.MISSED;
+        if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
+        if (lead?.pipelineStage) return lead.pipelineStage;
+
         const hasDirect = stages.find(s => s.id === lead.status);
         if (hasDirect) return lead.status;
         const s = (lead.status || '').toLowerCase();
         if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
         if (s.includes('agendado')) return 'Aula experimental';
         if (s.includes('compareceu')) return 'Negociação';
-        if (s.includes('não compareceu') || s.includes('nao compareceu')) return 'Contato feito';
+        if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
+        if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
         if (s.includes('matricul')) return 'Matriculado';
         return 'Novo';
     };
     const renderNow = new Date();
     const daysInStage = (lead) => {
-        const start = lead.statusChangedAt ? new Date(lead.statusChangedAt) : (lead.createdAt ? new Date(lead.createdAt) : renderNow);
+        const start = lead.pipelineStageChangedAt ? new Date(lead.pipelineStageChangedAt) : (lead.createdAt ? new Date(lead.createdAt) : renderNow);
         const diff = Math.floor((renderNow.getTime() - start.getTime()) / 86400000);
         return diff < 0 ? 0 : diff;
     };
@@ -291,7 +315,19 @@ const Pipeline = () => {
         e.preventDefault();
         const id = e.dataTransfer.getData('text/plain');
         if (!id) return;
-        await updateLead(id, { status });
+        if (status === LEAD_STATUS.MISSED) {
+            const lead = getLeadById(id);
+            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
+            if (!ok) { setDragOver(null); return; }
+            await updateLead(id, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED });
+        } else if (status === LEAD_STATUS.LOST) {
+            const lead = getLeadById(id);
+            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Perdidos"? Isso marca o status como Não fechou.`);
+            if (!ok) { setDragOver(null); return; }
+            await updateLead(id, { status: LEAD_STATUS.LOST, scheduledDate: '', scheduledTime: '', pipelineStage: LEAD_STATUS.LOST });
+        } else {
+            await updateLead(id, { pipelineStage: status });
+        }
         setDragOver(null);
         setToast('Movido no pipeline');
         setTimeout(() => setToast(''), 2000);
@@ -351,6 +387,7 @@ const Pipeline = () => {
                                 <input
                                     className="stage-input"
                                     value={st.label}
+                                    disabled={st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST}
                                     onChange={(e) => {
                                         const v = e.target.value;
                                         setTempStages(prev => prev.map((s, i) => i === idx ? { ...s, label: v } : s));
@@ -361,6 +398,7 @@ const Pipeline = () => {
                                     type="number"
                                     min="1"
                                     value={st.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
+                                    disabled={st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST}
                                     onChange={(e) => {
                                         const v = parseInt(e.target.value, 10);
                                         setTempStages(prev => prev.map((s, i) => i === idx ? { ...s, slaDays: v } : s));
@@ -388,6 +426,7 @@ const Pipeline = () => {
                     const colLeads = leads
                       .filter(l => mapLeadToStageId(l) === col.id)
                       .filter(l => {
+                          if (col.id === LEAD_STATUS.MISSED || col.id === LEAD_STATUS.LOST) return true;
                           if (dayFilter === 'today') return (l.scheduledDate || '') === todayYMD;
                           if (dayFilter === 'tomorrow') return (l.scheduledDate || '') === tomorrowYMD;
                           return true;
@@ -474,12 +513,6 @@ const Pipeline = () => {
                                             </button>
                                             <button className="action-btn" draggable={false} onClick={(e) => openNote(e, lead)}>
                                                 <MessageCircle size={14} /> Obs.
-                                            </button>
-                                            <button className="action-btn lost" draggable={false} onClick={(e) => markLostFromCard(e, lead)}>
-                                                <AlertTriangle size={14} /> Perdido
-                                            </button>
-                                            <button className="action-btn danger" draggable={false} onClick={(e) => deleteLeadFromCard(e, lead)}>
-                                                <Trash2 size={14} /> Excluir
                                             </button>
                                         </div>
                                         {schedulerOpenId === lead.id && (
