@@ -117,7 +117,7 @@ async function sendZapsterText({ recipient, text }) {
     return { ok: false, erro: 'ZAPSTER_TOKEN/ZAPSTER_INSTANCE_ID ausentes' };
   }
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
-  const url = `${urlBase}/wa/messages`;
+  const url = `${urlBase}/v1/wa/messages`;
   const body = { recipient, text, instance_id: ZAPSTER_INSTANCE_ID };
 
   try {
