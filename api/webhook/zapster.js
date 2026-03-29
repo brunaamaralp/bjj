@@ -216,7 +216,12 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({ sucesso: true, enviado: true });
+    return res.status(200).json({
+      sucesso: true,
+      enviado: true,
+      resposta,
+      classificacao: agentData?.classificacao || null
+    });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }
