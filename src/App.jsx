@@ -19,6 +19,7 @@ import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Templates from './pages/Templates';
+import Inbox from './pages/Inbox';
 import { FEATURES } from './config/features';
 
 const App = () => {
@@ -435,6 +436,10 @@ const App = () => {
               <Users size={18} />
               <span>{labels.leads}</span>
             </Link>
+            <Link to="/inbox" className={`side-link ${isActive('/inbox') ? 'active' : ''}`}>
+              <MessageCircle size={18} />
+              <span>Inbox WhatsApp</span>
+            </Link>
             <Link to="/students" className={`side-link ${isActive('/students') ? 'active' : ''}`}>
               <GraduationCap size={18} />
               <span>{labels.students}</span>
@@ -477,6 +482,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/pipeline" element={<Pipeline />} />
+            <Route path="/inbox" element={<Inbox />} />
             <Route path="/lead/:id" element={<LeadProfile />} />
             <Route path="/new-lead" element={<NewLead />} />
             <Route path="/reports" element={<Reports />} />

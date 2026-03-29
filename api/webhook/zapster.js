@@ -1,7 +1,22 @@
+import { Client, Databases, Query } from 'node-appwrite';
+
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || 'https://api.zapsterapi.com';
 const ZAPSTER_TOKEN = process.env.ZAPSTER_TOKEN || process.env.ZAPSTER_API_TOKEN || '';
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
 const ZAPSTER_WEBHOOK_TOKEN = process.env.ZAPSTER_WEBHOOK_TOKEN || '';
+const ZAPSTER_SEND_VARIANT = String(process.env.ZAPSTER_SEND_VARIANT || 'text').trim();
+const ZAPSTER_SEND_URL = String(process.env.ZAPSTER_SEND_URL || '').trim();
+
+const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
+const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
+const API_KEY = process.env.APPWRITE_API_KEY || '';
+const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
+const CONVERSATIONS_COL =
+  process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
+const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
+
+const appwriteClient = PROJECT_ID && API_KEY ? new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY) : null;
+const databases = appwriteClient ? new Databases(appwriteClient) : null;
 
 function ensureJson(req, res) {
   const ct = String(req.headers['content-type'] || '');
@@ -72,6 +87,12 @@ function extractIncomingText(msg) {
   return { type, text: t };
 }
 
+function extractMessageId(body, msg) {
+  const v = msg?.id || msg?.message?.id || body?.id || body?.message?.id || body?.data?.id || body?.payload?.id || '';
+  const id = String(v || '').trim();
+  return id || '';
+}
+
 function getBaseUrl(req) {
   const xfProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   const proto = xfProto || 'https';
@@ -79,45 +100,54 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+async function isHumanHandoffActive(phone) {
+  if (!databases || !DB_ID || !CONVERSATIONS_COL || !DEFAULT_ACADEMY_ID) return false;
+  const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
+    Query.equal('academy_id', [DEFAULT_ACADEMY_ID]),
+    Query.equal('phone_number', [phone]),
+    Query.limit(1)
+  ]);
+  const doc = list.documents && list.documents[0] ? list.documents[0] : null;
+  const until = doc && typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '';
+  if (!until) return false;
+  const ms = new Date(until).getTime();
+  return Number.isFinite(ms) && ms > Date.now();
+}
+
 async function sendZapsterText({ recipient, text }) {
   if (!ZAPSTER_TOKEN || !ZAPSTER_INSTANCE_ID) {
     return { ok: false, erro: 'ZAPSTER_TOKEN/ZAPSTER_INSTANCE_ID ausentes' };
   }
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
-  const candidates = [
-    {
-      url: `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages/text`,
-      body: { recipient, text }
-    },
-    {
-      url: `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages/send-text`,
-      body: { recipient, text }
-    },
-    {
-      url: `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages`,
-      body: { recipient, type: 'text', content: { text } }
-    }
-  ];
+  const url =
+    ZAPSTER_SEND_URL ||
+    (ZAPSTER_SEND_VARIANT === 'send-text'
+      ? `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages/send-text`
+      : ZAPSTER_SEND_VARIANT === 'generic'
+        ? `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages`
+        : `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages/text`);
+  const body =
+    ZAPSTER_SEND_VARIANT === 'generic'
+      ? { recipient, type: 'text', content: { text } }
+      : { recipient, text };
 
-  let lastErr = '';
-  for (const c of candidates) {
-    try {
-      const resp = await fetch(c.url, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${ZAPSTER_TOKEN}`,
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify(c.body)
-      });
-      const raw = await resp.text();
-      if (resp.ok) return { ok: true, raw };
-      lastErr = raw || `HTTP ${resp.status}`;
-    } catch (e) {
-      lastErr = e?.message || 'Erro ao enviar';
-    }
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${ZAPSTER_TOKEN}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const raw = await resp.text();
+    if (resp.ok) return { ok: true, raw };
+    console.error('Zapster send failed', { status: resp.status, body: raw.slice(0, 500) });
+    return { ok: false, erro: raw || `HTTP ${resp.status}` };
+  } catch (e) {
+    console.error('Zapster send error', { erro: e?.message || 'Erro ao enviar' });
+    return { ok: false, erro: e?.message || 'Erro ao enviar' };
   }
-  return { ok: false, erro: lastErr || 'Falha ao enviar' };
 }
 
 export default async function handler(req, res) {
@@ -151,20 +181,36 @@ export default async function handler(req, res) {
     if (!text) return res.status(200).json({ sucesso: true, ignorado: true });
     if (type && type !== 'text') return res.status(200).json({ sucesso: true, ignorado: true });
 
+    try {
+      const active = await isHumanHandoffActive(phone);
+      if (active) return res.status(200).json({ sucesso: true, ignorado: true, modo_humano: true });
+    } catch {}
+
     const name = String(msg?.sender?.name || body?.sender?.name || '').trim();
+    const messageId = extractMessageId(body, msg);
 
     const baseUrl = getBaseUrl(req);
-    const agentResp = await fetch(`${baseUrl}/api/agent/respond`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone, name, message: text })
-    });
-    const agentRaw = await agentResp.text();
-    if (!agentResp.ok) {
-      return res.status(500).json({ sucesso: false, erro: agentRaw.slice(0, 500) || 'Falha no agente' });
+    const payload = { phone, name, message: text, ...(messageId ? { message_id: messageId } : {}) };
+
+    let agentData = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const agentResp = await fetch(`${baseUrl}/api/agent/respond`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const agentRaw = await agentResp.text();
+      if (!agentResp.ok) {
+        return res.status(500).json({ sucesso: false, erro: agentRaw.slice(0, 500) || 'Falha no agente' });
+      }
+      agentData = JSON.parse(agentRaw);
+      if (!agentData?.em_processamento) break;
+      await new Promise((r) => setTimeout(r, 750));
+    }
+    if (agentData?.em_processamento) {
+      return res.status(503).json({ sucesso: false, erro: 'Em processamento' });
     }
 
-    const agentData = JSON.parse(agentRaw);
     const resposta = String(agentData?.resposta || '').trim();
     if (!resposta) {
       return res.status(200).json({ sucesso: true, ignorado: true });
@@ -186,4 +232,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }
 }
-

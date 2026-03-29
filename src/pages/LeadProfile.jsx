@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { account, databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const STATUS_CONFIG = {
     [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
@@ -36,6 +36,12 @@ const LeadProfile = () => {
     const [templateOverrides, setTemplateOverrides] = useState({});
     const [academyName, setAcademyName] = useState('');
     const [customQuestions, setCustomQuestions] = useState([]);
+    const [showAi, setShowAi] = useState(false);
+    const [aiInput, setAiInput] = useState('');
+    const [aiSuggestion, setAiSuggestion] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiSending, setAiSending] = useState(false);
+    const [aiError, setAiError] = useState('');
     const templatesSectionRef = useRef(null);
     const [form, setForm] = useState({
         name: '',
@@ -234,6 +240,66 @@ const LeadProfile = () => {
             const newNotes = [...existing, event];
             updateLead(id, { notes: newNotes });
         } catch { /* noop */ }
+    };
+
+    const getJwt = async () => {
+        const jwt = await account.createJWT();
+        return String(jwt?.jwt || '').trim();
+    };
+
+    const handleAiGenerate = async () => {
+        const cleanPhone = String(lead.phone || '').replace(/\D/g, '');
+        if (!cleanPhone) return;
+        const inbound = String(aiInput || '').trim();
+        if (!inbound) return;
+        setAiError('');
+        setAiSuggestion('');
+        setAiLoading(true);
+        try {
+            const resp = await fetch('/api/agent/respond?mode=suggest', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ phone: cleanPhone, name: lead.name || '', message: inbound })
+            });
+            const raw = await resp.text();
+            if (!resp.ok) throw new Error(raw || 'Falha ao gerar sugestão');
+            const data = JSON.parse(raw);
+            const text = String(data?.resposta || '').trim();
+            if (!text) throw new Error('Resposta vazia');
+            setAiSuggestion(text);
+        } catch (e) {
+            setAiError(e?.message || 'Erro');
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const handleAiSend = async () => {
+        const cleanPhone = String(lead.phone || '').replace(/\D/g, '');
+        const text = String(aiSuggestion || '').trim();
+        if (!cleanPhone || !text) return;
+        setAiError('');
+        setAiSending(true);
+        try {
+            const jwt = await getJwt();
+            const resp = await fetch('/api/whatsapp/send', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ phone: cleanPhone, text })
+            });
+            const raw = await resp.text();
+            if (!resp.ok) throw new Error(raw || 'Falha ao enviar');
+            try {
+                const existing = Array.isArray(lead.notes) ? lead.notes : [];
+                const event = { type: 'message', channel: 'whatsapp', text: 'Mensagem WhatsApp enviada (IA)', at: new Date().toISOString(), by: 'user' };
+                const newNotes = [...existing, event];
+                updateLead(id, { notes: newNotes });
+            } catch { /* noop */ }
+        } catch (e) {
+            setAiError(e?.message || 'Erro');
+        } finally {
+            setAiSending(false);
+        }
     };
 
     const openTemplates = () => {
@@ -497,6 +563,9 @@ const LeadProfile = () => {
                     <button className="contact-btn call" onClick={openTemplates}>
                         <Send size={18} /> Mensagens prontas
                     </button>
+                    <button className="contact-btn ai" onClick={() => setShowAi(!showAi)}>
+                        <MessageCircle size={18} /> Usar IA
+                    </button>
                 </div>
             </div>
 
@@ -529,6 +598,60 @@ const LeadProfile = () => {
                                 <p className="template-text">{t.text}</p>
                             </div>
                         ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-3 animate-in" style={{ animationDelay: '0.06s' }}>
+                <button
+                    className={`templates-toggle ${showAi ? 'active' : ''}`}
+                    onClick={() => setShowAi(!showAi)}
+                >
+                    <MessageCircle size={16} color="var(--accent)" />
+                    <span>Usar IA</span>
+                    <span className="toggle-arrow">{showAi ? '▲' : '▼'}</span>
+                </button>
+                {showAi && (
+                    <div className="card mt-2" style={{ padding: 14 }}>
+                        {aiError && (
+                            <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 10 }}>
+                                {aiError}
+                            </div>
+                        )}
+                        <div className="form-group">
+                            <label>Mensagem recebida</label>
+                            <textarea
+                                value={aiInput}
+                                onChange={(e) => setAiInput(e.target.value)}
+                                className="note-area"
+                                rows={3}
+                                placeholder="Cole aqui a mensagem do WhatsApp…"
+                            />
+                        </div>
+                        <div className="flex gap-2" style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <button className="btn-secondary" onClick={handleAiGenerate} disabled={aiLoading || !String(aiInput || '').trim()}>
+                                {aiLoading ? 'Gerando…' : 'Gerar sugestão'}
+                            </button>
+                        </div>
+                        {aiSuggestion && (
+                            <div style={{ marginTop: 12 }}>
+                                <label>Sugestão</label>
+                                <div className="note-area" style={{ whiteSpace: 'pre-wrap', minHeight: 80 }}>
+                                    {aiSuggestion}
+                                </div>
+                                <div className="flex gap-2 mt-2" style={{ justifyContent: 'flex-end' }}>
+                                    <button
+                                        className="btn-outline"
+                                        onClick={() => navigator.clipboard.writeText(aiSuggestion)}
+                                    >
+                                        <Copy size={16} /> Copiar
+                                    </button>
+                                    <button className="btn-primary" onClick={handleAiSend} disabled={aiSending}>
+                                        <Send size={16} /> {aiSending ? 'Enviando…' : 'Enviar pelo sistema'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -654,6 +777,8 @@ const LeadProfile = () => {
         .contact-btn.whatsapp:hover { filter: brightness(1.05); }
         .contact-btn.call { background: var(--border-light); color: var(--text); }
         .contact-btn.call:hover { background: var(--border); }
+        .contact-btn.ai { background: var(--accent); color: white; }
+        .contact-btn.ai:hover { filter: brightness(1.05); }
         
         .templates-toggle {
           width: 100%; background: var(--surface); border: 1.5px solid var(--border);
