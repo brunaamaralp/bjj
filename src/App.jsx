@@ -504,6 +504,10 @@ const App = () => {
           <Users size={22} />
           <span>{labels.leads}</span>
         </Link>
+        <Link to="/inbox" className={`nav-item ${isActive('/inbox') ? 'active' : ''}`}>
+          <MessageCircle size={22} />
+          <span>Inbox</span>
+        </Link>
         <Link to="/new-lead" className="nav-item nav-fab">
           <div className="fab-btn">
             <PlusCircle size={28} />
