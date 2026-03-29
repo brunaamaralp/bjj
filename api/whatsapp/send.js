@@ -12,8 +12,6 @@ const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DE
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || 'https://api.zapsterapi.com';
 const ZAPSTER_TOKEN = process.env.ZAPSTER_TOKEN || process.env.ZAPSTER_API_TOKEN || '';
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
-const ZAPSTER_SEND_VARIANT = String(process.env.ZAPSTER_SEND_VARIANT || 'text').trim();
-const ZAPSTER_SEND_URL = String(process.env.ZAPSTER_SEND_URL || '').trim();
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
@@ -140,17 +138,8 @@ async function getOrCreateConversationDoc(phone) {
 
 async function sendZapsterText({ recipient, text }) {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
-  const url =
-    ZAPSTER_SEND_URL ||
-    (ZAPSTER_SEND_VARIANT === 'send-text'
-      ? `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages/send-text`
-      : ZAPSTER_SEND_VARIANT === 'generic'
-        ? `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages`
-        : `${urlBase}/v1/wa/instances/${encodeURIComponent(ZAPSTER_INSTANCE_ID)}/messages/text`);
-  const body =
-    ZAPSTER_SEND_VARIANT === 'generic'
-      ? { recipient, type: 'text', content: { text } }
-      : { recipient, text };
+  const url = `${urlBase}/wa/messages`;
+  const body = { recipient, text, instance_id: ZAPSTER_INSTANCE_ID };
 
   const resp = await fetch(url, {
     method: 'POST',
