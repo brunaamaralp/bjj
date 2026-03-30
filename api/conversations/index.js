@@ -1,4 +1,4 @@
-import { Client, Databases, Query, Account } from 'node-appwrite';
+import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -7,18 +7,20 @@ const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATA
 const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
+const teams = new Teams(adminClient);
 
 function ensureConfigOk(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !CONVERSATIONS_COL) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
     return false;
   }
-  if (!DEFAULT_ACADEMY_ID) {
-    res.status(500).json({ sucesso: false, erro: 'DEFAULT_ACADEMY_ID não configurado' });
+  if (!ACADEMIES_COL) {
+    res.status(500).json({ sucesso: false, erro: 'ACADEMIES_COL não configurado' });
     return false;
   }
   return true;
@@ -146,6 +148,43 @@ async function getLeadNameByIdMap(leadIds) {
   }
 }
 
+function resolveAcademyId(req) {
+  const h = String(req.headers['x-academy-id'] || '').trim();
+  if (h) return h;
+  return String(DEFAULT_ACADEMY_ID || '').trim();
+}
+
+async function ensureAcademyAccess(req, res, me) {
+  const academyId = resolveAcademyId(req);
+  if (!academyId) {
+    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
+    return null;
+  }
+  try {
+    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+    const ownerId = String(doc?.ownerId || '').trim();
+    const userId = String(me?.$id || '').trim();
+    if (ownerId && userId && ownerId === userId) return academyId;
+
+    const teamId = String(doc?.teamId || '').trim();
+    if (teamId && userId) {
+      try {
+        const memberships = await teams.listMemberships(teamId, [Query.equal('userId', [userId]), Query.limit(1)]);
+        const list = Array.isArray(memberships?.memberships) ? memberships.memberships : [];
+        if (list.length > 0) return academyId;
+      } catch {
+        void 0;
+      }
+    }
+
+    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
+    return null;
+  } catch (e) {
+    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -154,6 +193,8 @@ export default async function handler(req, res) {
   if (!ensureConfigOk(res)) return;
   const me = await ensureAuth(req, res);
   if (!me) return;
+  const academyId = await ensureAcademyAccess(req, res, me);
+  if (!academyId) return;
 
   try {
     const limit = clampInt(req.query?.limit, { min: 1, max: 200, fallback: 50 });
@@ -161,7 +202,7 @@ export default async function handler(req, res) {
     const search = normalizePhone(req.query?.search || '');
 
     const queries = [
-      Query.equal('academy_id', [DEFAULT_ACADEMY_ID]),
+      Query.equal('academy_id', [academyId]),
       Query.orderDesc('updated_at'),
       Query.limit(limit)
     ];

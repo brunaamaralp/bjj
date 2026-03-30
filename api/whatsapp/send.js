@@ -1,4 +1,4 @@
-import { Account, Client, Databases, ID, Permission, Query, Role } from 'node-appwrite';
+import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -7,6 +7,7 @@ const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATA
 const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
 
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || 'https://api.zapsterapi.com';
@@ -15,18 +16,19 @@ const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
+const teams = new Teams(adminClient);
 
 function ensureConfigOk(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !CONVERSATIONS_COL) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
     return false;
   }
-  if (!DEFAULT_ACADEMY_ID) {
-    res.status(500).json({ sucesso: false, erro: 'DEFAULT_ACADEMY_ID não configurado' });
+  if (!ACADEMIES_COL) {
+    res.status(500).json({ sucesso: false, erro: 'ACADEMIES_COL não configurado' });
     return false;
   }
-  if (!ZAPSTER_TOKEN || !ZAPSTER_INSTANCE_ID) {
-    res.status(500).json({ sucesso: false, erro: 'Configuração Zapster ausente' });
+  if (!ZAPSTER_TOKEN) {
+    res.status(500).json({ sucesso: false, erro: 'ZAPSTER_TOKEN ausente' });
     return false;
   }
   return true;
@@ -73,6 +75,43 @@ function normalizePhone(v) {
   return raw.replace(/[^\d]/g, '');
 }
 
+function resolveAcademyId(req) {
+  const h = String(req.headers['x-academy-id'] || '').trim();
+  if (h) return h;
+  return String(DEFAULT_ACADEMY_ID || '').trim();
+}
+
+async function ensureAcademyAccess(req, res, me) {
+  const academyId = resolveAcademyId(req);
+  if (!academyId) {
+    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
+    return null;
+  }
+  try {
+    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+    const ownerId = String(doc?.ownerId || '').trim();
+    const userId = String(me?.$id || '').trim();
+    if (ownerId && userId && ownerId === userId) return doc;
+
+    const teamId = String(doc?.teamId || '').trim();
+    if (teamId && userId) {
+      try {
+        const memberships = await teams.listMemberships(teamId, [Query.equal('userId', [userId]), Query.limit(1)]);
+        const list = Array.isArray(memberships?.memberships) ? memberships.memberships : [];
+        if (list.length > 0) return doc;
+      } catch {
+        void 0;
+      }
+    }
+
+    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
+    return null;
+  } catch (e) {
+    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
+    return null;
+  }
+}
+
 function safeParseMessages(raw) {
   if (!raw) return [];
   try {
@@ -90,7 +129,22 @@ function safeParseMessages(raw) {
   }
 }
 
-async function findLeadByPhone(phone) {
+async function getZapsterInstanceIdForAcademy(academyDoc, academyId) {
+  const fallback = String(ZAPSTER_INSTANCE_ID || '').trim();
+  const id = String(academyId || '').trim();
+  if (!id || !ACADEMIES_COL) return fallback;
+  const direct = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
+  if (direct) return direct;
+  try {
+    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
+    const v = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
+    return v || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function findLeadByPhone(phone, academyId) {
   if (!LEADS_COL) return null;
   const candidates = [];
   const p = normalizePhone(phone);
@@ -101,7 +155,7 @@ async function findLeadByPhone(phone) {
   for (const c of candidates) {
     try {
       const list = await databases.listDocuments(DB_ID, LEADS_COL, [
-        Query.equal('academyId', [DEFAULT_ACADEMY_ID]),
+        Query.equal('academyId', [academyId]),
         Query.equal('phone', [c]),
         Query.limit(1)
       ]);
@@ -112,10 +166,20 @@ async function findLeadByPhone(phone) {
   return null;
 }
 
-async function getOrCreateConversationDoc(phone) {
+function permissionsForAcademyDoc(academyDoc) {
+  const ownerId = String(academyDoc?.ownerId || '').trim();
+  const teamId = String(academyDoc?.teamId || '').trim();
+  const perms = [];
+  if (ownerId) perms.push(Permission.read(Role.user(ownerId)), Permission.update(Role.user(ownerId)), Permission.delete(Role.user(ownerId)));
+  if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
+  if (perms.length > 0) return perms;
+  return [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())];
+}
+
+async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
   const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
     Query.equal('phone_number', [phone]),
-    Query.equal('academy_id', [DEFAULT_ACADEMY_ID]),
+    Query.equal('academy_id', [academyId]),
     Query.limit(1)
   ]);
   const existing = list.documents && list.documents[0] ? list.documents[0] : null;
@@ -130,16 +194,18 @@ async function getOrCreateConversationDoc(phone) {
       phone_number: phone,
       messages: JSON.stringify([]),
       updated_at: nowIso,
-      academy_id: DEFAULT_ACADEMY_ID
+      academy_id: academyId
     },
-    [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]
+    permissionsForAcademyDoc(academyDoc)
   );
 }
 
-async function sendZapsterText({ recipient, text }) {
+async function sendZapsterText({ recipient, text, instanceId }) {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
   const url = `${urlBase}/v1/wa/messages`;
-  const body = { recipient, text, instance_id: ZAPSTER_INSTANCE_ID };
+  const inst = String(instanceId || '').trim();
+  if (!inst) throw new Error('ZAPSTER_INSTANCE_ID ausente');
+  const body = { recipient, text, instance_id: inst };
 
   const resp = await fetch(url, {
     method: 'POST',
@@ -166,6 +232,9 @@ export default async function handler(req, res) {
   if (!ensureJson(req, res)) return;
   const me = await ensureAuth(req, res);
   if (!me) return;
+  const academyDoc = await ensureAcademyAccess(req, res, me);
+  if (!academyDoc) return;
+  const academyId = String(academyDoc.$id || '').trim();
 
   const phone = normalizePhone(req.body?.phone || '');
   const text = String(req.body?.text || '').trim();
@@ -174,9 +243,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    await sendZapsterText({ recipient: phone, text });
+    const instanceId = await getZapsterInstanceIdForAcademy(academyDoc, academyId);
+    await sendZapsterText({ recipient: phone, text, instanceId });
 
-    const doc = await getOrCreateConversationDoc(phone);
+    const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
     const messages = safeParseMessages(doc.messages);
     const nowIso = new Date().toISOString();
     messages.push({ role: 'assistant', content: text, timestamp: nowIso });
@@ -186,7 +256,7 @@ export default async function handler(req, res) {
       updated_at: nowIso
     });
     try {
-      const leadDoc = await findLeadByPhone(phone);
+      const leadDoc = await findLeadByPhone(phone, academyId);
       if (leadDoc) await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { lead_id: leadDoc.$id });
     } catch {}
 

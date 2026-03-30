@@ -258,7 +258,7 @@ const LeadProfile = () => {
         try {
             const resp = await fetch('/api/agent/respond?mode=suggest', {
                 method: 'POST',
-                headers: { 'content-type': 'application/json' },
+                headers: { 'content-type': 'application/json', 'x-academy-id': String(academyId || '') },
                 body: JSON.stringify({ phone: cleanPhone, name: lead.name || '', message: inbound })
             });
             const raw = await resp.text();
@@ -284,7 +284,7 @@ const LeadProfile = () => {
             const jwt = await getJwt();
             const resp = await fetch('/api/whatsapp/send', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyId || ''), 'content-type': 'application/json' },
                 body: JSON.stringify({ phone: cleanPhone, text })
             });
             const raw = await resp.text();

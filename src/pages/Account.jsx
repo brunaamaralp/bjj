@@ -120,7 +120,7 @@ const Account = ({ user, onLogout }) => {
                 }
                 try {
                     if (doc.teamId) {
-                        const res = await teams.listMemberships({ teamId: doc.teamId });
+                        const res = await teams.listMemberships(doc.teamId);
                         setMemberships(res.memberships || []);
                     } else {
                         setMemberships([]);
@@ -170,15 +170,10 @@ const Account = ({ user, onLogout }) => {
         if (!academy.teamId || !memberEmail) return;
         setInviting(true);
         try {
-            await teams.createMembership({
-                teamId: academy.teamId,
-                email: memberEmail,
-                roles: [memberRole],
-                url: window.location.origin + '/welcome'
-            });
+            await teams.createMembership(academy.teamId, memberEmail, [memberRole], window.location.origin + '/welcome');
             setMemberEmail('');
             try {
-                const res = await teams.listMemberships({ teamId: academy.teamId });
+                const res = await teams.listMemberships(academy.teamId);
                 setMemberships(res.memberships || []);
             } catch (e) { void e; }
             alert('Convite enviado por e-mail.');

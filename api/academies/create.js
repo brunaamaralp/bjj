@@ -1,4 +1,4 @@
-import { Client, Databases, Permission, Role, Account } from 'node-appwrite';
+import { Client, Databases, Permission, Role, Account, Teams, ID, Query } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -30,9 +30,50 @@ export default async function handler(req, res) {
     const account = new Account(userClient);
     const me = await account.get();
     const ownerId = me.$id;
+    const userTeams = new Teams(userClient);
 
     const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
     const databases = new Databases(adminClient);
+
+    const permsFor = (teamId) => {
+      const p = [Permission.read(Role.user(ownerId)), Permission.update(Role.user(ownerId)), Permission.delete(Role.user(ownerId))];
+      const tid = String(teamId || '').trim();
+      if (tid) {
+        p.push(Permission.read(Role.team(tid)), Permission.update(Role.team(tid)), Permission.delete(Role.team(tid)));
+      }
+      return p;
+    };
+
+    const createTeamForOwner = async () => {
+      const display = String(me?.name || '').trim() || 'Equipe';
+      const team = await userTeams.create(ID.unique(), display);
+      return String(team?.$id || team?.id || '').trim();
+    };
+
+    let existing = null;
+    try {
+      const list = await databases.listDocuments(DB_ID, ACADEMIES_COL, [Query.equal('ownerId', [ownerId]), Query.limit(1)]);
+      existing = Array.isArray(list?.documents) && list.documents[0] ? list.documents[0] : null;
+    } catch {
+      existing = null;
+    }
+
+    if (existing && existing.$id) {
+      const academyId = String(existing.$id || '').trim();
+      const teamIdExisting = String(existing.teamId || '').trim();
+      if (teamIdExisting) return res.status(200).json({ sucesso: true, id: academyId, teamId: teamIdExisting });
+
+      const teamId = await createTeamForOwner();
+      if (teamId) {
+        const perms = permsFor(teamId);
+        try {
+          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { teamId }, perms);
+        } catch {
+          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { teamId });
+        }
+      }
+      return res.status(200).json({ sucesso: true, id: academyId, teamId: teamId || '' });
+    }
 
     const defaultFinance = {
       cardFees: {
@@ -57,6 +98,7 @@ export default async function handler(req, res) {
       email: me.email || '',
       address: '',
       ownerId,
+      teamId: '',
       uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
       modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
       quickTimes: [],
@@ -64,13 +106,11 @@ export default async function handler(req, res) {
       onboardingChecklist: JSON.stringify(checklist),
       customLeadQuestions: JSON.stringify(['Faixa'])
     };
-    const perms = [
-      Permission.read(Role.user(ownerId)),
-      Permission.update(Role.user(ownerId)),
-      Permission.delete(Role.user(ownerId)),
-    ];
-    const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, 'unique()', payload, perms);
-    return res.status(200).json({ sucesso: true, id: doc.$id });
+    const teamId = await createTeamForOwner().catch(() => '');
+    payload.teamId = teamId || '';
+    const perms = permsFor(teamId);
+    const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), payload, perms);
+    return res.status(200).json({ sucesso: true, id: doc.$id, teamId: teamId || '' });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }

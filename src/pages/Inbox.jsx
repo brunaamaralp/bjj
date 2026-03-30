@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { account } from '../lib/appwrite';
+import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 
@@ -157,6 +157,7 @@ export default function Inbox() {
   const fetchLeads = useLeadStore((s) => s.fetchLeads);
   const leads = useLeadStore((s) => s.leads);
   const leadsLoading = useLeadStore((s) => s.loading);
+  const academyId = useLeadStore((s) => s.academyId);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
@@ -186,6 +187,7 @@ export default function Inbox() {
   const [leadSearch, setLeadSearch] = useState('');
   const [linkingLead, setLinkingLead] = useState(false);
   const [highlighted, setHighlighted] = useState({});
+  const [realtimeOn, setRealtimeOn] = useState(false);
   const [promptModal, setPromptModal] = useState(false);
   const [promptIntro, setPromptIntro] = useState('');
   const [promptBody, setPromptBody] = useState('');
@@ -200,6 +202,10 @@ export default function Inbox() {
   const lastAutoScrollPhoneRef = useRef('');
   const listMetaRef = useRef(new Map());
   const notifiedOnceRef = useRef(false);
+  const loadListRef = useRef(null);
+  const loadThreadRef = useRef(null);
+  const realtimeTimersRef = useRef({ list: null, thread: null });
+  const academyIdRef = useRef('');
 
   const normalizedSearch = useMemo(() => normalizePhone(search), [search]);
 
@@ -210,6 +216,10 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  useEffect(() => {
+    academyIdRef.current = String(academyId || '').trim();
+  }, [academyId]);
 
   useEffect(() => {
     setLeadPanel(null);
@@ -327,7 +337,7 @@ export default function Inbox() {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}/read`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${jwt}` }
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como lida'));
@@ -360,7 +370,9 @@ export default function Inbox() {
     setPromptModal(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', { headers: { Authorization: `Bearer ${jwt}` } });
+      const resp = await fetch('/api/settings/ai-prompt', {
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
       const data = await resp.json();
       if (resp.ok && data && typeof data === 'object') {
         setPromptIntro(String(data.prompt_intro || ''));
@@ -382,7 +394,11 @@ export default function Inbox() {
       const jwt = await getJwt();
       const resp = await fetch('/api/settings/ai-prompt', {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
         body: JSON.stringify({ prompt_intro: promptIntro, prompt_body: promptBody, prompt_suffix: promptSuffix })
       });
       const raw = await resp.text();
@@ -413,7 +429,7 @@ export default function Inbox() {
       if (cursorToUse) qs.set('cursor', cursorToUse);
       if (normalizedSearch) qs.set('search', normalizedSearch);
       const resp = await fetch(`/api/conversations?${qs.toString()}`, {
-        headers: { Authorization: `Bearer ${jwt}` }
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversas'));
@@ -491,7 +507,7 @@ export default function Inbox() {
     try {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
-        headers: { Authorization: `Bearer ${jwt}` }
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversa'));
@@ -523,6 +539,62 @@ export default function Inbox() {
     }
   }
 
+  useEffect(() => {
+    loadListRef.current = loadList;
+  }, [loadList]);
+
+  useEffect(() => {
+    loadThreadRef.current = loadThread;
+  }, [loadThread]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!DB_ID || !CONVERSATIONS_COL) return;
+    let unsub = null;
+    try {
+      unsub = realtime.subscribe(`databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`, (ev) => {
+        const payload = ev && typeof ev === 'object' ? ev.payload : null;
+        const academy = payload && typeof payload === 'object' ? String(payload.academy_id || payload.academyId || '').trim() : '';
+        const expected = String(academyIdRef.current || '').trim();
+        if (academy && expected && academy !== expected) return;
+        const phone = payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
+
+        if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
+        realtimeTimersRef.current.list = setTimeout(() => {
+          const fn = loadListRef.current;
+          if (typeof fn === 'function') fn({ reset: true, silent: true });
+        }, 250);
+
+        const selectedNow = String(selectedPhoneRef.current || '').trim();
+        if (phone && selectedNow && phone === selectedNow) {
+          if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
+          realtimeTimersRef.current.thread = setTimeout(() => {
+            const fn = loadThreadRef.current;
+            if (typeof fn === 'function') fn(phone, { silent: true });
+          }, 250);
+        }
+      });
+      setRealtimeOn(true);
+    } catch {
+      setRealtimeOn(false);
+    }
+    return () => {
+      try {
+        if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
+        if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
+      } catch {
+        void 0;
+      }
+      try {
+        if (unsub && typeof unsub === 'function') unsub();
+        if (unsub && typeof unsub.unsubscribe === 'function') unsub.unsubscribe();
+      } catch {
+        void 0;
+      }
+      setRealtimeOn(false);
+    };
+  }, []);
+
   async function setHandoffActive(ativo, { silent = false } = {}) {
     const phone = String(selectedPhoneRef.current || '').trim();
     if (!phone) return false;
@@ -531,7 +603,11 @@ export default function Inbox() {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}/handoff`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
         body: JSON.stringify({ ativo: Boolean(ativo) })
       });
       const raw = await resp.text();
@@ -573,7 +649,11 @@ export default function Inbox() {
       const jwt = await getJwt();
       const resp = await fetch('/api/whatsapp/send', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
         body: JSON.stringify({ phone, text })
       });
       const raw = await resp.text();
@@ -615,7 +695,11 @@ export default function Inbox() {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
         body: JSON.stringify({ action: 'link_lead', lead_id: leadId })
       });
       const raw = await resp.text();
@@ -856,6 +940,7 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!autoRefresh) return;
+    if (realtimeOn) return;
     const id = setInterval(() => {
       loadList({ reset: true, silent: true });
       const phone = selectedPhoneRef.current;
@@ -864,7 +949,7 @@ export default function Inbox() {
       }
     }, 10000);
     return () => clearInterval(id);
-  }, [autoRefresh, normalizedSearch]);
+  }, [autoRefresh, normalizedSearch, realtimeOn]);
 
   const listPanel = (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>

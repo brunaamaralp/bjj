@@ -7,6 +7,7 @@ const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATA
 const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const CONVERSATION_SUMMARY_ENABLED = String(process.env.CONVERSATION_SUMMARY_ENABLED || '').toLowerCase() === 'true' ||
@@ -22,8 +23,8 @@ function ensureConfigOk(res) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
     return false;
   }
-  if (!DEFAULT_ACADEMY_ID) {
-    res.status(500).json({ sucesso: false, erro: 'DEFAULT_ACADEMY_ID não configurado' });
+  if (!ACADEMIES_COL) {
+    res.status(500).json({ sucesso: false, erro: 'ACADEMIES_COL não configurado' });
     return false;
   }
   if (!ANTHROPIC_API_KEY) {
@@ -87,6 +88,44 @@ function safeParseMessages(raw) {
       }));
   } catch {
     return [];
+  }
+}
+
+function resolveAcademyId(req) {
+  const h = String(req.headers['x-academy-id'] || '').trim();
+  if (h) return h;
+  const b = req.body && typeof req.body === 'object' ? req.body : {};
+  const fromBody = String(b.academy_id || b.academyId || '').trim();
+  if (fromBody) return fromBody;
+  return String(DEFAULT_ACADEMY_ID || '').trim();
+}
+
+function permissionsForAcademyDoc(academyDoc) {
+  const ownerId = String(academyDoc?.ownerId || '').trim();
+  const teamId = String(academyDoc?.teamId || '').trim();
+  const perms = [];
+  if (ownerId) perms.push(Permission.read(Role.user(ownerId)), Permission.update(Role.user(ownerId)), Permission.delete(Role.user(ownerId)));
+  if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
+  if (perms.length > 0) return perms;
+  return [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())];
+}
+
+async function ensureAcademyExists(req, res) {
+  const academyId = resolveAcademyId(req);
+  if (!academyId) {
+    res.status(400).json({ sucesso: false, erro: 'academy_id ausente' });
+    return null;
+  }
+  try {
+    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+    if (!doc || !doc.$id) {
+      res.status(404).json({ sucesso: false, erro: 'Academia não encontrada' });
+      return null;
+    }
+    return doc;
+  } catch {
+    res.status(404).json({ sucesso: false, erro: 'Academia não encontrada' });
+    return null;
   }
 }
 
@@ -156,10 +195,12 @@ async function generateSummary({ previousSummaryText, recentMessages }) {
   return String(text || '').trim();
 }
 
-async function getOrCreateConversationDoc(phone) {
+async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
+  const a = String(academyId || '').trim();
+  if (!a) throw new Error('academy_id ausente');
   const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
     Query.equal('phone_number', [phone]),
-    Query.equal('academy_id', [DEFAULT_ACADEMY_ID]),
+    Query.equal('academy_id', [a]),
     Query.limit(1)
   ]);
   const existing = list.documents && list.documents[0] ? list.documents[0] : null;
@@ -174,9 +215,9 @@ async function getOrCreateConversationDoc(phone) {
       phone_number: phone,
       messages: JSON.stringify([]),
       updated_at: nowIso,
-      academy_id: DEFAULT_ACADEMY_ID
+      academy_id: a
     },
-    [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]
+    permissionsForAcademyDoc(academyDoc)
   );
 }
 
@@ -271,8 +312,10 @@ function escapeRegExp(s) {
   return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function findLeadByPhone(phone) {
+async function findLeadByPhone(phone, academyId) {
   if (!LEADS_COL) return null;
+  const a = String(academyId || '').trim();
+  if (!a) return null;
   const p = normalizePhone(phone);
   const candidates = [];
   if (p) candidates.push(p);
@@ -290,7 +333,7 @@ async function findLeadByPhone(phone) {
     for (const combo of queryCombos) {
       try {
         const list = await databases.listDocuments(DB_ID, LEADS_COL, [
-          Query.equal(combo.academy, [DEFAULT_ACADEMY_ID]),
+          Query.equal(combo.academy, [a]),
           Query.equal(combo.phone, [c]),
           Query.limit(1)
         ]);
@@ -335,17 +378,19 @@ function profileLineForSystemPrompt(profile) {
   );
 }
 
-async function createMinimalLeadIfMissing({ phone, name }) {
+async function createMinimalLeadIfMissing({ academyId, phone, name, academyDoc }) {
   if (!LEADS_COL) return null;
+  const a = String(academyId || '').trim();
+  if (!a) return null;
   const telefone = normalizePhone(phone) || String(phone || '').trim();
   if (!telefone) return null;
 
   const displayName = String(name || '').trim() || telefone;
-  const perms = [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())];
+  const perms = permissionsForAcademyDoc(academyDoc);
 
   const payloads = [
-    { name: displayName, phone_number: telefone, status: 'Novo', origin: 'WhatsApp', academy_id: DEFAULT_ACADEMY_ID },
-    { name: displayName, phone: telefone, status: 'Novo', origin: 'WhatsApp', academyId: DEFAULT_ACADEMY_ID }
+    { name: displayName, phone_number: telefone, status: 'Novo', origin: 'WhatsApp', academy_id: a },
+    { name: displayName, phone: telefone, status: 'Novo', origin: 'WhatsApp', academyId: a }
   ];
 
   for (const data of payloads) {
@@ -357,10 +402,12 @@ async function createMinimalLeadIfMissing({ phone, name }) {
   return null;
 }
 
-async function getPromptSettings() {
+async function getPromptSettings(academyId) {
+  const a = String(academyId || '').trim();
+  if (!a) return { intro: '', body: '', suffix: '' };
   try {
     if (SETTINGS_COL) {
-      const list = await databases.listDocuments(DB_ID, SETTINGS_COL, [Query.equal('academy_id', [DEFAULT_ACADEMY_ID]), Query.limit(1)]);
+      const list = await databases.listDocuments(DB_ID, SETTINGS_COL, [Query.equal('academy_id', [a]), Query.limit(1)]);
       const doc = list.documents && list.documents[0] ? list.documents[0] : null;
       if (doc) {
         return {
@@ -371,7 +418,7 @@ async function getPromptSettings() {
       }
     }
     const list2 = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-      Query.equal('academy_id', [DEFAULT_ACADEMY_ID]),
+      Query.equal('academy_id', [a]),
       Query.equal('phone_number', ['__settings__']),
       Query.limit(1)
     ]);
@@ -626,6 +673,9 @@ export default async function handler(req, res) {
   }
   if (!ensureConfigOk(res)) return;
   if (!ensureJson(req, res)) return;
+  const academyDoc = await ensureAcademyExists(req, res);
+  if (!academyDoc) return;
+  const academyId = String(academyDoc.$id || '').trim();
 
   const mode = String(req.query?.mode || '').trim();
   const isSuggest = mode === 'suggest';
@@ -642,9 +692,9 @@ export default async function handler(req, res) {
     let leadDoc = null;
     let perfilContato = 'lead';
     try {
-      leadDoc = await findLeadByPhone(phone);
+      leadDoc = await findLeadByPhone(phone, academyId);
       if (!leadDoc) {
-        if (!isSuggest) leadDoc = await createMinimalLeadIfMissing({ phone, name });
+        if (!isSuggest) leadDoc = await createMinimalLeadIfMissing({ academyId, phone, name, academyDoc });
       }
       perfilContato = leadProfileFromStatus(leadDoc?.status);
     } catch {
@@ -652,7 +702,7 @@ export default async function handler(req, res) {
       perfilContato = 'lead';
     }
 
-    const doc = await getOrCreateConversationDoc(phone);
+    const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
     let history = safeParseMessages(doc.messages);
     const userName = firstName(name) || 'amigo';
     const summaryParsed = parseSummaryField(doc?.summary);
@@ -685,7 +735,7 @@ export default async function handler(req, res) {
     if (isSuggest || !messageId) claudeMessages.push({ role: 'user', content: message });
 
     const profileLine = profileLineForSystemPrompt(perfilContato);
-    const settings = await getPromptSettings();
+    const settings = await getPromptSettings(academyId);
     const effectiveIntro = String(settings.intro || '') || SYSTEM_PROMPT_INTRO;
     const effectiveBody = String(settings.body || '') || SYSTEM_PROMPT_BODY;
     const extraSuffix = String(settings.suffix || '').trim();

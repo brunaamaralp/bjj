@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Functions, Teams } from "appwrite";
+import { Client, Account, Databases, Functions, Teams, Realtime } from "appwrite";
 
 const endpoint = "https://sfo.cloud.appwrite.io/v1"; // Forçado para ignorar a Vercel temporariamente
 const endpointFallback = "";
@@ -13,11 +13,13 @@ const account = new Account(client);
 const databases = new Databases(client);
 const functions = new Functions(client);
 const teams = new Teams(client);
+const realtime = new Realtime(client);
 
 // IDs para as collections e banco (necessários para o funcionamento do CRM)
 export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a11c21825";
 export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID || "699f10500032d0fd5b80";
 export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "699f1068000e1b1ca1d2";
+export const CONVERSATIONS_COL = import.meta.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || "";
 export const STOCK_ITEMS_COL = import.meta.env.VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID || "";
 export const INVENTORY_MOVE_FN_ID = import.meta.env.VITE_APPWRITE_INVENTORY_MOVE_FN_ID || "";
 export const SALES_CREATE_FN_ID = import.meta.env.VITE_APPWRITE_SALES_CREATE_FN_ID || "";
@@ -52,5 +54,5 @@ console.log('   - Fn Inventory Seed Kimonos:', INVENTORY_SEED_KIMONOS_FN_ID || '
 export const ENDPOINT = endpoint;
 export const ENDPOINT_FALLBACK = endpointFallback;
 export function setClientEndpoint(ep) { client.setEndpoint(ep); }
-export { client, account, databases, functions, teams };
+export { client, account, databases, functions, teams, realtime };
 export default client;
