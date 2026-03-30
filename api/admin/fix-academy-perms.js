@@ -1,4 +1,4 @@
-import { Client, Databases, Permission, Role, Query } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Role, Query } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -74,6 +74,82 @@ async function ensureCustomLeadQuestionsAttribute() {
   throw new Error(msg || `Falha ao criar atributo customLeadQuestions (HTTP ${createRes.status})`);
 }
 
+async function ensureSettingsSchema() {
+  if (!SETTINGS_COL) return { ok: false, skipped: true, reason: 'SETTINGS_COL_ausente' };
+  const headers = {
+    'X-Appwrite-Project': PROJECT_ID,
+    'X-Appwrite-Key': API_KEY,
+    'Content-Type': 'application/json',
+  };
+
+  const ensureStringAttr = async ({ key, size, required }) => {
+    try {
+      const listRes = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${SETTINGS_COL}/attributes`, { headers });
+      if (listRes.ok) {
+        const data = await listRes.json().catch(() => ({}));
+        const attrs = Array.isArray(data?.attributes) ? data.attributes : [];
+        if (attrs.some((a) => a && a.key === key)) return { ok: true, key, created: false };
+      }
+    } catch {
+      void 0;
+    }
+
+    const createRes = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${SETTINGS_COL}/attributes/string`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ key, size, required: Boolean(required), default: '', array: false, encrypt: false }),
+    });
+    if (createRes.ok) return { ok: true, key, created: true };
+
+    const err = await createRes.json().catch(() => ({}));
+    const msg = String(err?.message || '');
+    const typ = String(err?.type || '');
+    if (/already/i.test(msg) || /already/i.test(typ)) return { ok: true, key, created: false };
+    return { ok: false, key, erro: msg || `Falha ao criar atributo ${key} (HTTP ${createRes.status})` };
+  };
+
+  const ensureIndex = async ({ key, attributes }) => {
+    try {
+      const listRes = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${SETTINGS_COL}/indexes`, { headers });
+      if (listRes.ok) {
+        const data = await listRes.json().catch(() => ({}));
+        const idx = Array.isArray(data?.indexes) ? data.indexes : [];
+        if (idx.some((i) => i && i.key === key)) return { ok: true, key, created: false };
+      }
+    } catch {
+      void 0;
+    }
+
+    const createRes = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${SETTINGS_COL}/indexes`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ key, type: 'key', attributes, orders: ['ASC'] }),
+    });
+    if (createRes.ok) return { ok: true, key, created: true };
+
+    const err = await createRes.json().catch(() => ({}));
+    const msg = String(err?.message || '');
+    const typ = String(err?.type || '');
+    if (/already/i.test(msg) || /already/i.test(typ)) return { ok: true, key, created: false };
+    return { ok: false, key, erro: msg || `Falha ao criar index ${key} (HTTP ${createRes.status})` };
+  };
+
+  const out = {
+    ok: true,
+    attributes: [],
+    indexes: [],
+  };
+
+  out.attributes.push(await ensureStringAttr({ key: 'academy_id', size: 128, required: true }));
+  out.attributes.push(await ensureStringAttr({ key: 'prompt_intro', size: 10000, required: false }));
+  out.attributes.push(await ensureStringAttr({ key: 'prompt_body', size: 10000, required: false }));
+  out.attributes.push(await ensureStringAttr({ key: 'prompt_suffix', size: 10000, required: false }));
+  out.indexes.push(await ensureIndex({ key: 'academy_id_idx', attributes: ['academy_id'] }));
+
+  out.ok = out.attributes.every((a) => a && a.ok) && out.indexes.every((i) => i && i.ok);
+  return out;
+}
+
 function getAcademyIdFromDoc(doc) {
   if (!doc || typeof doc !== 'object') return '';
   const v = doc.academy_id || doc.academyId || doc.academy || doc.academyID || '';
@@ -105,6 +181,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ sucesso: true, schema });
     }
 
+    const migratePromptDocs = typeof body.migratePromptDocs === 'boolean' ? body.migratePromptDocs : true;
+    const deleteOldPromptDocs = Boolean(body.deleteOldPromptDocs);
+
     const includeAcademies = typeof body.includeAcademies === 'boolean' ? body.includeAcademies : true;
     const includeLeads = typeof body.includeLeads === 'boolean' ? body.includeLeads : true;
     const includeConversations = typeof body.includeConversations === 'boolean' ? body.includeConversations : true;
@@ -115,6 +194,8 @@ export default async function handler(req, res) {
       : 200;
     const maxDocs = Number.isFinite(Number(body.maxDocs)) ? Math.max(1, Math.min(20000, Number(body.maxDocs))) : 5000;
     const cursors = body && typeof body.cursors === 'object' && body.cursors ? body.cursors : {};
+
+    const settingsSchema = migratePromptDocs ? await ensureSettingsSchema() : { ok: true, skipped: true };
 
     const academyCache = new Map();
     const getAcademy = async (academyId) => {
@@ -196,6 +277,93 @@ export default async function handler(req, res) {
       return { ok: true, kind, processed, updated, skipped, errors, done: exhausted, nextCursor: cursor };
     };
 
+    const migratePromptDocsFromConversations = async () => {
+      if (!migratePromptDocs) return { ok: true, skipped: true, processed: 0, created: 0, updated: 0, deleted: 0, skippedDocs: 0, errors: 0, done: true, nextCursor: '' };
+      if (!SETTINGS_COL) return { ok: false, erro: 'collection_id_ausente', processed: 0, created: 0, updated: 0, deleted: 0, skippedDocs: 0, errors: 0, done: true, nextCursor: '' };
+      if (!CONVERSATIONS_COL) return { ok: false, erro: 'CONVERSATIONS_COL_ausente', processed: 0, created: 0, updated: 0, deleted: 0, skippedDocs: 0, errors: 0, done: true, nextCursor: '' };
+
+      let processed = 0;
+      let created = 0;
+      let updated = 0;
+      let deleted = 0;
+      let skippedDocs = 0;
+      let errors = 0;
+      let cursor = String(cursors?.promptDocs || '').trim();
+      let exhausted = false;
+
+      const hardLimit = Math.min(maxDocs, limitPerCollection);
+      while (processed < hardLimit) {
+        const limit = Math.min(100, hardLimit - processed);
+        const queries = [Query.orderAsc('$id'), Query.limit(limit), Query.equal('phone_number', ['__settings__'])];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, queries);
+        const docs = Array.isArray(list?.documents) ? list.documents : [];
+        if (docs.length === 0) {
+          exhausted = true;
+          break;
+        }
+
+        for (const doc of docs) {
+          processed += 1;
+          cursor = String(doc?.$id || '').trim() || cursor;
+
+          const academyId = String(doc?.academy_id || '').trim();
+          if (!academyId) {
+            skippedDocs += 1;
+            continue;
+          }
+
+          const academy = await getAcademy(academyId);
+          if (!academy || !academy.ownerId) {
+            skippedDocs += 1;
+            continue;
+          }
+
+          const perms = permissionsForAcademy(academy);
+          if (perms.length === 0) {
+            skippedDocs += 1;
+            continue;
+          }
+
+          const data = {
+            academy_id: academyId,
+            prompt_intro: String(doc?.prompt_intro || ''),
+            prompt_body: String(doc?.prompt_body || ''),
+            prompt_suffix: String(doc?.prompt_suffix || ''),
+          };
+
+          try {
+            const exists = await databases.listDocuments(DB_ID, SETTINGS_COL, [Query.equal('academy_id', [academyId]), Query.limit(1)]);
+            const existing = exists?.documents && exists.documents[0] ? exists.documents[0] : null;
+            if (existing) {
+              await databases.updateDocument(DB_ID, SETTINGS_COL, existing.$id, data);
+              updated += 1;
+            } else {
+              await databases.createDocument(DB_ID, SETTINGS_COL, ID.unique(), data, perms);
+              created += 1;
+            }
+            if (deleteOldPromptDocs) {
+              try {
+                await databases.deleteDocument(DB_ID, CONVERSATIONS_COL, String(doc.$id));
+                deleted += 1;
+              } catch {
+                void 0;
+              }
+            }
+          } catch {
+            errors += 1;
+          }
+        }
+
+        if (docs.length < limit) {
+          exhausted = true;
+          break;
+        }
+      }
+
+      return { ok: true, processed, created, updated, deleted, skippedDocs, errors, done: exhausted, nextCursor: cursor };
+    };
+
     const results = {};
     if (includeAcademies) {
       const ownerId = String(body.ownerId || '').trim();
@@ -220,6 +388,7 @@ export default async function handler(req, res) {
     if (includeConversations)
       results.conversations = await migrateCollection({ colId: CONVERSATIONS_COL, kind: 'conversations', academyIdFieldHint: 'academy_id' });
     if (includeSettings) results.settings = await migrateCollection({ colId: SETTINGS_COL, kind: 'settings', academyIdFieldHint: 'academy_id' });
+    if (migratePromptDocs) results.promptDocs = await migratePromptDocsFromConversations();
 
     const nextCursors = {};
     for (const k of Object.keys(results)) {
@@ -227,6 +396,7 @@ export default async function handler(req, res) {
       if (r && r.nextCursor) nextCursors[k] = r.nextCursor;
     }
 
+    if (migratePromptDocs && settingsSchema) results.settingsSchema = settingsSchema;
     return res.status(200).json({ sucesso: true, schema, results, nextCursors });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
