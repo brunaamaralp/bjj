@@ -469,7 +469,7 @@ export default function Inbox() {
     setWaSyncing(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/whatsapp/reconcile', {
+      const resp = await fetch('/api/whatsapp?action=reconcile', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -937,7 +937,7 @@ export default function Inbox() {
         await setHandoffActive(true, { silent: true });
       }
       const jwt = await getJwt();
-      const resp = await fetch('/api/whatsapp/send', {
+      const resp = await fetch('/api/whatsapp?action=send', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1000,7 +1000,7 @@ export default function Inbox() {
     setCancelingMsgId(mid);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/whatsapp/cancel', {
+      const resp = await fetch('/api/whatsapp?action=cancel', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,

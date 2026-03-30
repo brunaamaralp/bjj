@@ -282,7 +282,7 @@ const LeadProfile = () => {
         setAiSending(true);
         try {
             const jwt = await getJwt();
-            const resp = await fetch('/api/whatsapp/send', {
+            const resp = await fetch('/api/whatsapp?action=send', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyId || ''), 'content-type': 'application/json' },
                 body: JSON.stringify({ phone: cleanPhone, text })
