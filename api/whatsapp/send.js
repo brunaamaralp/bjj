@@ -122,11 +122,38 @@ function safeParseMessages(raw) {
       .map((m) => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
         content: typeof m.content === 'string' ? m.content : String(m.content || ''),
-        timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString()
+        timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+        sender: typeof m.sender === 'string' ? m.sender : undefined,
+        in_reply_to: typeof m.in_reply_to === 'string' ? m.in_reply_to : undefined,
+        message_id: typeof m.message_id === 'string' ? m.message_id : undefined,
+        status: typeof m.status === 'string' ? m.status : undefined,
+        send_at: typeof m.send_at === 'string' ? m.send_at : undefined,
+        canceled_at: typeof m.canceled_at === 'string' ? m.canceled_at : undefined,
+        classificacao: m.classificacao && typeof m.classificacao === 'object' ? m.classificacao : undefined
       }));
   } catch {
     return [];
   }
+}
+
+function safeParseJson(raw) {
+  const t = String(raw || '').trim();
+  if (!t) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+}
+
+function pickMessageId(v) {
+  if (!v || typeof v !== 'object') return '';
+  const candidates = [v.id, v.message_id, v.wamid, v.whatsapp_message_id];
+  for (const c of candidates) {
+    const s = String(c || '').trim();
+    if (s) return s;
+  }
+  return '';
 }
 
 async function getZapsterInstanceIdForAcademy(academyDoc, academyId) {
@@ -200,12 +227,12 @@ async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
   );
 }
 
-async function sendZapsterText({ recipient, text, instanceId }) {
+async function sendZapsterText({ recipient, text, instanceId, sendAt }) {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
   const url = `${urlBase}/v1/wa/messages`;
   const inst = String(instanceId || '').trim();
   if (!inst) throw new Error('ZAPSTER_INSTANCE_ID ausente');
-  const body = { recipient, text, instance_id: inst };
+  const body = { recipient, text, instance_id: inst, ...(sendAt ? { send_at: sendAt } : {}) };
 
   const resp = await fetch(url, {
     method: 'POST',
@@ -220,7 +247,9 @@ async function sendZapsterText({ recipient, text, instanceId }) {
     console.error('Zapster send failed', { status: resp.status, body: raw.slice(0, 500) });
     throw new Error(raw || `HTTP ${resp.status}`);
   }
-  return raw;
+  const data = safeParseJson(raw);
+  const messageId = pickMessageId(data);
+  return { raw, data, message_id: messageId || null };
 }
 
 export default async function handler(req, res) {
@@ -238,21 +267,39 @@ export default async function handler(req, res) {
 
   const phone = normalizePhone(req.body?.phone || '');
   const text = String(req.body?.text || '').trim();
+  const sendAtRaw = String(req.body?.send_at || '').trim();
   if (!phone || !text) {
     return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
   }
 
   try {
     const instanceId = await getZapsterInstanceIdForAcademy(academyDoc, academyId);
-    await sendZapsterText({ recipient: phone, text, instanceId });
+    let sendAtIso = '';
+    if (sendAtRaw) {
+      const ms = new Date(sendAtRaw).getTime();
+      if (!Number.isFinite(ms)) return res.status(400).json({ sucesso: false, erro: 'send_at inválido (use ISO 8601)' });
+      const now = Date.now();
+      const max = now + 7 * 24 * 60 * 60 * 1000;
+      if (ms <= now + 30 * 1000) return res.status(400).json({ sucesso: false, erro: 'send_at deve ser no futuro' });
+      if (ms > max) return res.status(400).json({ sucesso: false, erro: 'send_at excede o limite do plano (até 7 dias)' });
+      sendAtIso = new Date(ms).toISOString();
+    }
+    const sent = await sendZapsterText({ recipient: phone, text, instanceId, sendAt: sendAtIso });
 
     const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
     const messages = safeParseMessages(doc.messages);
     const nowIso = new Date().toISOString();
-    messages.push({ role: 'assistant', content: text, timestamp: nowIso });
-    const last10 = messages.slice(-10);
+    messages.push({
+      role: 'assistant',
+      content: text,
+      timestamp: nowIso,
+      sender: 'human',
+      ...(sendAtIso ? { status: 'scheduled', send_at: sendAtIso } : { status: 'sent' }),
+      ...(sent?.message_id ? { message_id: String(sent.message_id) } : {})
+    });
+    const last50 = messages.slice(-50);
     await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-      messages: JSON.stringify(last10),
+      messages: JSON.stringify(last50),
       updated_at: nowIso
     });
     try {
@@ -260,7 +307,13 @@ export default async function handler(req, res) {
       if (leadDoc) await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { lead_id: leadDoc.$id });
     } catch {}
 
-    return res.status(200).json({ sucesso: true, enviado: true });
+    return res.status(200).json({
+      sucesso: true,
+      enviado: true,
+      status: sendAtIso ? 'scheduled' : 'sent',
+      send_at: sendAtIso || null,
+      message_id: sent?.message_id ? String(sent.message_id) : null
+    });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }

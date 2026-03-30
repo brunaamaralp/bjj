@@ -72,7 +72,10 @@ function safeParseMessages(raw) {
       .map((m) => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
         content: typeof m.content === 'string' ? m.content : String(m.content || ''),
-        timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString()
+        timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+        status: typeof m.status === 'string' ? m.status : undefined,
+        send_at: typeof m.send_at === 'string' ? m.send_at : undefined,
+        canceled_at: typeof m.canceled_at === 'string' ? m.canceled_at : undefined
       }));
   } catch {
     return [];

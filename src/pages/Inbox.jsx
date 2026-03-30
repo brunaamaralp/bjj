@@ -165,7 +165,10 @@ export default function Inbox() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
+  const [scheduleOn, setScheduleOn] = useState(false);
+  const [scheduleAtLocal, setScheduleAtLocal] = useState('');
   const [sending, setSending] = useState(false);
+  const [cancelingMsgId, setCancelingMsgId] = useState('');
   const [error, setError] = useState('');
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -195,6 +198,14 @@ export default function Inbox() {
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [inboxTab, setInboxTab] = useState('conversas');
+  const [waLoading, setWaLoading] = useState(false);
+  const [waInfo, setWaInfo] = useState({ instance_id: null, status: 'disconnected', qrcode: null });
+  const [waTokenMissing, setWaTokenMissing] = useState(false);
+  const [waQrError, setWaQrError] = useState(false);
+  const [waQrTick, setWaQrTick] = useState(0);
+  const [waSyncing, setWaSyncing] = useState(false);
+  const waOpen = inboxTab === 'dispositivo';
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
@@ -278,6 +289,240 @@ export default function Inbox() {
     }
     return s;
   }
+
+  async function fetchWaInfo({ silent = false } = {}) {
+    if (!academyIdRef.current) return;
+    if (!silent) setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/zapster/instances', {
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao consultar WhatsApp'));
+      const data = safeParseJson(raw) || {};
+      const instance_id = data?.instance_id || null;
+      const status = String(data?.status || '').trim() || 'unknown';
+      const qrcode = data?.qrcode ?? null;
+      setWaInfo({ instance_id, status, qrcode });
+      setWaTokenMissing(false);
+      setWaQrError(false);
+      setWaQrTick((v) => v + 1);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
+        setWaTokenMissing(true);
+      }
+      if (!silent) setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function createWaInstance() {
+    if (!academyIdRef.current) return;
+    setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/zapster/instances', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao criar instância'));
+      const data = safeParseJson(raw) || {};
+      const instance_id = data?.instance_id || null;
+      const status = String(data?.status || '').trim() || 'unknown';
+      const qrcode = data?.qrcode ?? null;
+      setWaInfo({ instance_id, status, qrcode });
+      addToast({ type: 'success', message: 'Instância criada' });
+      setWaTokenMissing(false);
+      setWaQrError(false);
+      setWaQrTick((v) => v + 1);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
+        setWaTokenMissing(true);
+      }
+      setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function disconnectWaInstance() {
+    const id = String(waInfo?.instance_id || '').trim();
+    if (!id) return;
+    setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao desconectar'));
+      addToast({ type: 'success', message: 'Dispositivo desconectado' });
+      setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+      setWaTokenMissing(false);
+      setWaQrError(false);
+      setWaQrTick(0);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
+        setWaTokenMissing(true);
+      }
+      setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function powerOnInstance() {
+    const id = String(waInfo?.instance_id || '').trim();
+    if (!id) return;
+    setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}/power-on`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      if (!(resp.ok || resp.status === 204)) {
+        const raw = await resp.text();
+        throw new Error(normalizeApiError(raw, 'Falha ao ligar instância'));
+      }
+      addToast({ type: 'success', message: 'Instância ligada' });
+      await fetchWaInfo({ silent: true });
+    } catch (e) {
+      const msg = String(e?.message || '');
+      setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function powerOffInstance() {
+    const id = String(waInfo?.instance_id || '').trim();
+    if (!id) return;
+    setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}/power-off`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      if (!(resp.ok || resp.status === 204)) {
+        const raw = await resp.text();
+        throw new Error(normalizeApiError(raw, 'Falha ao desligar instância'));
+      }
+      addToast({ type: 'success', message: 'Instância desligada' });
+      await fetchWaInfo({ silent: true });
+    } catch (e) {
+      const msg = String(e?.message || '');
+      setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function restartInstance() {
+    const id = String(waInfo?.instance_id || '').trim();
+    if (!id) return;
+    setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}/restart`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      if (!(resp.ok || resp.status === 204)) {
+        const raw = await resp.text();
+        throw new Error(normalizeApiError(raw, 'Falha ao reiniciar instância'));
+      }
+      addToast({ type: 'success', message: 'Reiniciando instância…' });
+      setTimeout(() => {
+        fetchWaInfo({ silent: true });
+      }, 1200);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function reconcileLast24h() {
+    if (!academyIdRef.current) return;
+    setError('');
+    setWaSyncing(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/whatsapp/reconcile', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar'));
+      const data = safeParseJson(raw) || {};
+      const updated = Number.isFinite(Number(data?.conversations_updated)) ? Number(data.conversations_updated) : 0;
+      const created = Number.isFinite(Number(data?.conversations_created)) ? Number(data.conversations_created) : 0;
+      const merged = Number.isFinite(Number(data?.messages_merged)) ? Number(data.messages_merged) : 0;
+      addToast({
+        type: 'success',
+        message: `Atualizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
+      });
+      await loadList({ reset: true, silent: true });
+      const phone = String(selectedPhoneRef.current || '').trim();
+      if (phone) await loadThread(phone);
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao atualizar' });
+    } finally {
+      setWaSyncing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!academyId) return;
+    fetchWaInfo({ silent: true });
+  }, [academyId]);
+
+  useEffect(() => {
+    if (!waOpen) return;
+    if (!waInfo || waInfo.status === 'connected') return;
+    const id = setInterval(() => {
+      fetchWaInfo({ silent: true });
+    }, 3000);
+    return () => clearInterval(id);
+  }, [waOpen, waInfo?.status]);
+
+  useEffect(() => {
+    if (!waOpen) return;
+    if (!waInfo?.instance_id) return;
+    if (waInfo?.status === 'connected') return;
+    if (waTokenMissing) return;
+    const id = setInterval(() => {
+      setWaQrTick((v) => v + 1);
+      setWaQrError(false);
+    }, 6000);
+    return () => clearInterval(id);
+  }, [waOpen, waInfo?.instance_id, waInfo?.status, waTokenMissing]);
 
   function playNotificationSound() {
     if (typeof window === 'undefined') return;
@@ -368,7 +613,7 @@ export default function Inbox() {
 
   async function openPromptSettings() {
     setLoadingPrompt(true);
-    setPromptModal(true);
+    setInboxTab('agente');
     try {
       const jwt = await getJwt();
       const resp = await fetch('/api/settings/ai-prompt', {
@@ -405,7 +650,6 @@ export default function Inbox() {
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
       addToast({ type: 'success', message: 'Prompt atualizado' });
-      setPromptModal(false);
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
     } finally {
@@ -657,6 +901,20 @@ export default function Inbox() {
     }
   }
 
+  function toIsoFromLocalDatetime(value) {
+    const s = String(value || '').trim();
+    if (!s) return '';
+    const [d, t] = s.split('T');
+    if (!d || !t) return '';
+    const [yy, mm, dd] = d.split('-').map((v) => Number(v));
+    const [hh, mi] = t.split(':').map((v) => Number(v));
+    if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd) || !Number.isFinite(hh) || !Number.isFinite(mi)) return '';
+    const dt = new Date(yy, mm - 1, dd, hh, mi, 0, 0);
+    const ms = dt.getTime();
+    if (!Number.isFinite(ms)) return '';
+    return dt.toISOString();
+  }
+
   async function sendManual() {
     const phone = String(selectedPhone || '').trim();
     const text = String(draft || '').trim();
@@ -664,6 +922,11 @@ export default function Inbox() {
     setError('');
     setSending(true);
     try {
+      const sendAtIso = scheduleOn ? toIsoFromLocalDatetime(scheduleAtLocal) : '';
+      if (scheduleOn && !sendAtIso) {
+        addToast({ type: 'error', message: 'Escolha data e hora para agendar' });
+        return;
+      }
       const shouldAssume = !selected?.need_human;
       if (shouldAssume) {
         await setHandoffActive(true, { silent: true });
@@ -676,20 +939,34 @@ export default function Inbox() {
           'x-academy-id': String(academyIdRef.current || ''),
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ phone, text })
+        body: JSON.stringify({ phone, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) })
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao enviar'));
+      const data = safeParseJson(raw) || {};
+      const status = String(data?.status || '').trim();
+      const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
+      const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
       const nowIso = new Date().toISOString();
       setSelected((prev) => {
         if (!prev || prev.phone !== phone) return prev;
         const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
-        msgs.push({ role: 'assistant', content: text, timestamp: nowIso });
+        msgs.push({
+          role: 'assistant',
+          content: text,
+          timestamp: nowIso,
+          sender: 'human',
+          ...(status ? { status } : {}),
+          ...(sendAt ? { send_at: sendAt } : {}),
+          ...(msgId ? { message_id: msgId } : {})
+        });
         return { ...prev, messages: msgs.slice(-50) };
       });
       markSeen(phone);
       setDraft('');
-      addToast({ type: 'success', message: 'Enviado' });
+      setScheduleOn(false);
+      setScheduleAtLocal('');
+      addToast({ type: 'success', message: status === 'scheduled' ? 'Agendado' : 'Enviado' });
       await loadList({ reset: true, silent: true });
       try {
         setTimeout(() => {
@@ -705,6 +982,46 @@ export default function Inbox() {
       setError(e?.message || 'Erro');
     } finally {
       setSending(false);
+    }
+  }
+
+  async function cancelScheduledMessage(messageId) {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    const mid = String(messageId || '').trim();
+    if (!phone || !mid) return;
+    if (cancelingMsgId) return;
+    const ok = window.confirm('Cancelar esta mensagem agendada?');
+    if (!ok) return;
+    setCancelingMsgId(mid);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/whatsapp/cancel', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ phone, message_id: mid })
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao cancelar'));
+      const data = safeParseJson(raw) || {};
+      const canceledAt = typeof data?.canceled_at === 'string' ? data.canceled_at : new Date().toISOString();
+      setSelected((prev) => {
+        if (!prev || prev.phone !== phone) return prev;
+        const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
+        const i = msgs.findIndex((m) => String(m?.message_id || '').trim() === mid);
+        if (i < 0) return prev;
+        msgs[i] = { ...(msgs[i] && typeof msgs[i] === 'object' ? msgs[i] : {}), status: 'canceled', canceled_at: canceledAt };
+        return { ...prev, messages: msgs };
+      });
+      addToast({ type: 'success', message: 'Agendamento cancelado' });
+      await loadList({ reset: true, silent: true });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao cancelar' });
+    } finally {
+      setCancelingMsgId('');
     }
   }
 
@@ -886,7 +1203,8 @@ export default function Inbox() {
       const lastRole = String(it?.last_message_role || '').trim() || '';
       const lastSender = String(it?.last_message_sender || '').trim() || '';
       const unreadCount = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
-      const needsHuman = Boolean(it?.need_human) || Boolean(lead?.needHuman);
+      const handoffActive = Boolean(it?.need_human);
+      const aiSuggestHuman = Boolean(lead?.needHuman);
       const hotLead = Boolean(lead?.hotLead);
       const priority = String(lead?.priority || '').trim();
       const intention = String(lead?.intention || '').trim();
@@ -898,7 +1216,9 @@ export default function Inbox() {
         _displaySubtitle: name ? phone : '',
         _lead: lead || null,
         _hotLead: hotLead,
-        _needsHuman: needsHuman,
+        _handoffActive: handoffActive,
+        _aiSuggestHuman: aiSuggestHuman,
+        _needsHuman: handoffActive,
         _priority: priority,
         _intention: intention,
         _status: status,
@@ -915,7 +1235,7 @@ export default function Inbox() {
     const f = String(listFilter || 'all');
     if (f === 'unread') return arr.filter((it) => Number(it?._unreadCount || 0) > 0);
     if (f === 'hot') return arr.filter((it) => Boolean(it?._hotLead));
-    if (f === 'need_human') return arr.filter((it) => Boolean(it?._needsHuman));
+    if (f === 'need_human') return arr.filter((it) => Boolean(it?._handoffActive));
     return arr;
   }, [enrichedItems, listFilter]);
 
@@ -1030,7 +1350,8 @@ export default function Inbox() {
           const phone = String(it?._phone || it?.phone_number || '');
           const active = phone === selectedPhone;
           const hotLead = Boolean(it?._hotLead);
-          const needsHuman = Boolean(it?._needsHuman);
+          const handoffActive = Boolean(it?._handoffActive);
+          const aiSuggestHuman = Boolean(it?._aiSuggestHuman);
           const unreadCount = Number(it?._unreadCount || 0);
           const lastRole = String(it?._lastRole || '').trim();
           const lastSender = String(it?._lastSender || '').trim();
@@ -1076,7 +1397,8 @@ export default function Inbox() {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                         <span>{String(it?._displayTitle || '-')}</span>
                         {hotLead && <span title="Lead quente">🔥</span>}
-                        {needsHuman && <span title="Precisa resposta humana">⚠️</span>}
+                        {handoffActive && <span title="Atendimento assumido (agente pausado)">⏸️</span>}
+                        {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção humana">⚠️</span>}
                       </span>
                     </div>
                     {!!String(it?._displaySubtitle || '').trim() && (
@@ -1173,33 +1495,60 @@ export default function Inbox() {
               </div>
             )}
           </div>
-          {selected?.need_human && (
-            <span
-              className="text-small"
-              style={{
-                background: 'var(--danger-light)',
-                color: 'var(--danger)',
-                padding: '2px 8px',
-                borderRadius: 999
-              }}
-            >
-              Pausado
-            </span>
-          )}
-          {!selected?.need_human && (
-            <span
-              className="text-small"
-              style={{
-                background: 'rgba(34, 197, 94, 0.10)',
-                color: '#16a34a',
-                padding: '1px 6px',
-                borderRadius: 999,
-                fontSize: 12
-              }}
-            >
-              Agente IA ativo
-            </span>
-          )}
+          {(() => {
+            const phone = String(selectedPhone || '').trim();
+            const leadId = String(selected?.lead_id || '').trim();
+            const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+            const aiSuggestHuman = Boolean(lead?.needHuman);
+            const until = String(selected?.human_handoff_until || '').trim();
+            const untilLabel = until ? formatTimeOnly(until) || formatWhen(until) : '';
+            if (selected?.need_human) {
+              return (
+                <span
+                  className="text-small"
+                  style={{
+                    background: 'var(--danger-light)',
+                    color: 'var(--danger)',
+                    padding: '2px 8px',
+                    borderRadius: 999
+                  }}
+                  title={untilLabel ? `Atendimento humano até ${untilLabel}` : 'Atendimento humano ativo'}
+                >
+                  {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
+                </span>
+              );
+            }
+            if (aiSuggestHuman) {
+              return (
+                <span
+                  className="text-small"
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#b45309',
+                    padding: '2px 8px',
+                    borderRadius: 999
+                  }}
+                  title="IA sugere intervenção humana (agente ainda está ativo)"
+                >
+                  IA sugere humano
+                </span>
+              );
+            }
+            return (
+              <span
+                className="text-small"
+                style={{
+                  background: 'rgba(34, 197, 94, 0.10)',
+                  color: '#16a34a',
+                  padding: '1px 6px',
+                  borderRadius: 999,
+                  fontSize: 12
+                }}
+              >
+                Agente IA ativo
+              </span>
+            );
+          })()}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
@@ -1248,7 +1597,7 @@ export default function Inbox() {
             </button>
           )}
           <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
-            Configurar IA
+            Agente IA
           </button>
           {!selected?.lead_id && (
             <button
@@ -1469,6 +1818,13 @@ export default function Inbox() {
             return hasAiHints ? 'ai' : 'human';
           })();
           const senderIcon = senderKind === 'ai' ? '🤖' : senderKind === 'human' ? '👤' : '';
+          const statusLower = String(m?.status || '').trim().toLowerCase();
+          const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
+          const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
+          const isScheduled = statusLower === 'scheduled' && !!scheduledAt;
+          const isCanceled = statusLower === 'canceled';
+          const mid = String(m?.message_id || '').trim();
+          const canCancel = mine && (statusLower === 'scheduled' || statusLower === 'pending') && !!mid;
           return (
             <div key={idx} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
               <div
@@ -1489,6 +1845,21 @@ export default function Inbox() {
                 </div>
                 <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                   <span>{formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}</span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {isCanceled && <span title="Mensagem cancelada">Cancelada {canceledAt ? formatWhen(canceledAt) : ''}</span>}
+                    {isScheduled && <span title="Mensagem agendada">Agendada {formatWhen(scheduledAt)}</span>}
+                    {canCancel && (
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '2px 8px', minHeight: 26 }}
+                        onClick={() => cancelScheduledMessage(mid)}
+                        disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
+                        type="button"
+                      >
+                        {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1608,6 +1979,27 @@ export default function Inbox() {
             style={{ flex: 1, resize: 'vertical', minHeight: 88 }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                className={scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'}
+                style={{ padding: '6px 10px' }}
+                onClick={() => setScheduleOn((v) => !v)}
+                disabled={sending || !selectedPhone}
+                type="button"
+              >
+                Agendar
+              </button>
+              {scheduleOn && (
+                <input
+                  type="datetime-local"
+                  className="form-input"
+                  value={scheduleAtLocal}
+                  onChange={(e) => setScheduleAtLocal(e.target.value)}
+                  disabled={sending || !selectedPhone}
+                  style={{ width: 210 }}
+                />
+              )}
+            </div>
             <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
               {String(draft || '').length} caracteres
             </div>
@@ -1624,27 +2016,222 @@ export default function Inbox() {
     <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0 }}>Inbox WhatsApp</h2>
+          <h2 style={{ margin: 0 }}>Atendimento</h2>
           <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 4 }}>
             {loading ? 'Carregando…' : `${items.length} conversas${lastUpdatedAt ? ` • atualizado ${formatWhen(lastUpdatedAt)}` : ''}`}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por telefone…"
-            className="form-input"
-            style={{ width: 220 }}
-          />
-          <button className="btn btn-secondary" onClick={() => loadList({ reset: true })} disabled={loading}>
-            Atualizar
-          </button>
-          <button className="btn btn-outline" onClick={() => setAutoRefresh((v) => !v)} title="Atualiza automaticamente a cada 10s">
-            Auto: {autoRefresh ? 'On' : 'Off'}
-          </button>
-        </div>
+        {inboxTab === 'conversas' ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por telefone…"
+              className="form-input"
+              style={{ width: 220 }}
+            />
+            <button className="btn btn-secondary" onClick={() => loadList({ reset: true })} disabled={loading}>
+              Atualizar
+            </button>
+            <button className="btn btn-outline" onClick={() => setAutoRefresh((v) => !v)} title="Atualiza automaticamente a cada 10s">
+              Auto: {autoRefresh ? 'On' : 'Off'}
+            </button>
+          </div>
+        ) : (
+          <div />
+        )}
       </div>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+        <button
+          className={inboxTab === 'conversas' ? 'btn btn-primary' : 'btn btn-outline'}
+          type="button"
+          onClick={() => setInboxTab('conversas')}
+        >
+          Conversas
+        </button>
+        <button
+          className={inboxTab === 'dispositivo' ? 'btn btn-primary' : 'btn btn-outline'}
+          type="button"
+          onClick={() => {
+            setInboxTab('dispositivo');
+            setWaQrError(false);
+            setWaQrTick((v) => v + 1);
+            fetchWaInfo();
+          }}
+        >
+          Dispositivo
+        </button>
+        <button
+          className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
+          type="button"
+          onClick={openPromptSettings}
+        >
+          Agente IA
+        </button>
+      </div>
+
+      {inboxTab === 'dispositivo' && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
+            <div
+              style={{
+                padding: 10,
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontWeight: 800 }}>Dispositivo WhatsApp</div>
+                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                  {waInfo?.status === 'connected' ? 'Conectado' : waInfo?.status || '—'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => fetchWaInfo()} disabled={waLoading} type="button">
+                  Verificar status
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{ padding: '6px 10px' }}
+                  onClick={reconcileLast24h}
+                  disabled={waLoading || waSyncing || waTokenMissing}
+                  type="button"
+                  title="Sincroniza mensagens das últimas 24 horas"
+                >
+                  {waSyncing ? 'Atualizando…' : 'Atualizar'}
+                </button>
+                {!waInfo?.instance_id && (
+                  <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={createWaInstance} disabled={waLoading || waTokenMissing} type="button">
+                    Conectar dispositivo
+                  </button>
+                )}
+                {!!waInfo?.instance_id && (
+                  <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={disconnectWaInstance} disabled={waLoading || waTokenMissing} type="button">
+                    Desconectar
+                  </button>
+                )}
+                {!!waInfo?.instance_id && waInfo?.status === 'offline' && (
+                  <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={powerOnInstance} disabled={waLoading || waTokenMissing} type="button" title="Liga a instância se estiver offline">
+                    Ligar instância
+                  </button>
+                )}
+                {!!waInfo?.instance_id && (
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '6px 10px' }}
+                    onClick={powerOffInstance}
+                    disabled={waLoading || waTokenMissing}
+                    type="button"
+                    title="Desliga a instância (mantém sessão quando possível)"
+                  >
+                    Desligar instância
+                  </button>
+                )}
+                {!!waInfo?.instance_id && (
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '6px 10px' }}
+                    onClick={restartInstance}
+                    disabled={waLoading || waTokenMissing}
+                    type="button"
+                    title="Reinicia a instância (pode ficar offline por até 1 minuto)"
+                  >
+                    Reiniciar
+                  </button>
+                )}
+              </div>
+            </div>
+            {waTokenMissing && (
+              <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'var(--danger-light)', color: 'var(--danger)' }}>
+                Backend não configurado: defina a variável de ambiente ZAPSTER_API_TOKEN no servidor.
+              </div>
+            )}
+            <div style={{ padding: 12, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {!waInfo?.instance_id && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhuma instância criada.</div>}
+              {!!waInfo?.instance_id && (
+                <>
+                  <div style={{ minWidth: 260 }}>
+                    <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Instância</div>
+                    <div className="text-small" style={{ wordBreak: 'break-all' }}>{waInfo.instance_id}</div>
+                  </div>
+                  <div style={{ minWidth: 260 }}>
+                    <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>QR Code</div>
+                    {waInfo?.status !== 'connected' && !!waInfo?.instance_id && !waTokenMissing && !waQrError && (
+                      <img
+                        src={`/api/zapster/instances/${encodeURIComponent(String(waInfo.instance_id))}/qrcode?ts=${waQrTick}`}
+                        alt="QR"
+                        onError={() => setWaQrError(true)}
+                        style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
+                      />
+                    )}
+                    {(waTokenMissing || waQrError || waInfo?.status === 'connected' || !waInfo?.instance_id) && (
+                      <div className="text-small" style={{ color: 'var(--text-secondary)', maxWidth: 480 }}>
+                        {waTokenMissing
+                          ? 'Backend não configurado para QR.'
+                          : waInfo?.status === 'connected'
+                          ? 'Dispositivo conectado'
+                          : waQrError
+                          ? 'QR Code indisponível no momento (instância pode estar conectada).'
+                          : 'Aguardando QR… toque em Verificar status'}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inboxTab === 'agente' && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
+            <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ fontWeight: 800 }}>Configurar Agente IA</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button" disabled={loadingPrompt || savingPrompt}>
+                  Recarregar
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => {
+                    setPromptIntro(ANA_PROMPT_INTRO);
+                    setPromptBody(ANA_PROMPT_BODY);
+                    setPromptSuffix('');
+                  }}
+                  type="button"
+                  disabled={savingPrompt || loadingPrompt}
+                >
+                  Aplicar prompt Ana
+                </button>
+                <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={savePromptSettings} disabled={savingPrompt || loadingPrompt} type="button">
+                  {savingPrompt ? 'Salvando…' : loadingPrompt ? 'Carregando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: 12, display: 'grid', gap: 12 }}>
+              {loadingPrompt && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Introdução</div>
+                <textarea className="input" value={promptIntro} onChange={(e) => setPromptIntro(e.target.value)} rows={5} placeholder="Texto de introdução" disabled={loadingPrompt} />
+              </div>
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Corpo</div>
+                <textarea className="input" value={promptBody} onChange={(e) => setPromptBody(e.target.value)} rows={10} placeholder="Regras, horários, preços, etc." disabled={loadingPrompt} />
+              </div>
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Complemento</div>
+                <textarea className="input" value={promptSuffix} onChange={(e) => setPromptSuffix(e.target.value)} rows={5} placeholder="Instruções adicionais" disabled={loadingPrompt} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12 }}>
@@ -1652,31 +2239,32 @@ export default function Inbox() {
         </div>
       )}
 
-      {isMobile ? (
-        <div>{selectedPhone ? threadPanel : listPanel}</div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: `${listWidth}px 10px minmax(0, 1fr)`, gap: 0, alignItems: 'stretch' }}>
-          <div style={{ paddingRight: 14 }}>{listPanel}</div>
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            onMouseDown={startResize}
-            onDoubleClick={() => setListWidth(420)}
-            style={{
-              cursor: 'col-resize',
-              width: 10,
-              borderRadius: 999,
-              background: 'transparent',
-              display: 'flex',
-              justifyContent: 'center'
-            }}
-            title="Arraste para ajustar a largura"
-          >
-            <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
+      {inboxTab === 'conversas' &&
+        (isMobile ? (
+          <div>{selectedPhone ? threadPanel : listPanel}</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: `${listWidth}px 10px minmax(0, 1fr)`, gap: 0, alignItems: 'stretch' }}>
+            <div style={{ paddingRight: 14 }}>{listPanel}</div>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              onMouseDown={startResize}
+              onDoubleClick={() => setListWidth(420)}
+              style={{
+                cursor: 'col-resize',
+                width: 10,
+                borderRadius: 999,
+                background: 'transparent',
+                display: 'flex',
+                justifyContent: 'center'
+              }}
+              title="Arraste para ajustar a largura"
+            >
+              <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
+            </div>
+            <div style={{ paddingLeft: 14 }}>{threadPanel}</div>
           </div>
-          <div style={{ paddingLeft: 14 }}>{threadPanel}</div>
-        </div>
-      )}
+        ))}
     </div>
   );
 }

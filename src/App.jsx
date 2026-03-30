@@ -456,7 +456,7 @@ const App = () => {
             </Link>
             <Link to="/inbox" className={`side-link ${isActive('/inbox') ? 'active' : ''}`}>
               <MessageCircle size={18} />
-              <span>Inbox WhatsApp</span>
+              <span>Atendimento</span>
             </Link>
             <Link to="/students" className={`side-link ${isActive('/students') ? 'active' : ''}`}>
               <GraduationCap size={18} />
@@ -524,7 +524,7 @@ const App = () => {
         </Link>
         <Link to="/inbox" className={`nav-item ${isActive('/inbox') ? 'active' : ''}`}>
           <MessageCircle size={22} />
-          <span>Inbox</span>
+          <span>Atendimento</span>
         </Link>
         <Link to="/new-lead" className="nav-item nav-fab">
           <div className="fab-btn">

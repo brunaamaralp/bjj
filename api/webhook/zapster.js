@@ -404,7 +404,24 @@ export default async function handler(req, res) {
         if (!resposta) return;
         const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
         const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
-        await sendZapsterText({ recipient: phone, text: resposta, instanceId: outInstanceId });
+        const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: outInstanceId });
+        if (sent?.ok) {
+          const nowIso = new Date().toISOString();
+          const conv =
+            inbound?.docId ? { $id: inbound.docId } : await getOrCreateConversationDoc(phone, academyId, academyDoc).catch(() => null);
+          const convId = String(conv?.$id || '').trim();
+          if (convId) {
+            const mid = String(messageId || '').trim();
+            const assistantMsg = {
+              role: 'assistant',
+              content: resposta,
+              timestamp: nowIso,
+              sender: 'ai',
+              ...(mid ? { in_reply_to: mid } : {})
+            };
+            await updateConversationWithMerge(convId, [assistantMsg]);
+          }
+        }
       } catch {}
     };
 

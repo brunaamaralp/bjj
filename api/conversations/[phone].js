@@ -133,6 +133,9 @@ function safeParseMessages(raw) {
         sender: typeof m.sender === 'string' ? m.sender : undefined,
         in_reply_to: typeof m.in_reply_to === 'string' ? m.in_reply_to : undefined,
         message_id: typeof m.message_id === 'string' ? m.message_id : undefined,
+        status: typeof m.status === 'string' ? m.status : undefined,
+        send_at: typeof m.send_at === 'string' ? m.send_at : undefined,
+        canceled_at: typeof m.canceled_at === 'string' ? m.canceled_at : undefined,
         classificacao: m.classificacao && typeof m.classificacao === 'object' ? m.classificacao : undefined
       }));
   } catch {
