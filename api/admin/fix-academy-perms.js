@@ -101,8 +101,7 @@ export default async function handler(req, res) {
   try {
     const body = req.body || {};
     const schema = await ensureCustomLeadQuestionsAttribute();
-    const onlySchema = Boolean(body.onlySchema);
-    if (onlySchema) {
+    if (Boolean(body.onlySchema)) {
       return res.status(200).json({ sucesso: true, schema });
     }
 
@@ -110,7 +109,12 @@ export default async function handler(req, res) {
     const includeLeads = typeof body.includeLeads === 'boolean' ? body.includeLeads : true;
     const includeConversations = typeof body.includeConversations === 'boolean' ? body.includeConversations : true;
     const includeSettings = typeof body.includeSettings === 'boolean' ? body.includeSettings : true;
+
+    const limitPerCollection = Number.isFinite(Number(body.limitPerCollection))
+      ? Math.max(1, Math.min(500, Number(body.limitPerCollection)))
+      : 200;
     const maxDocs = Number.isFinite(Number(body.maxDocs)) ? Math.max(1, Math.min(20000, Number(body.maxDocs))) : 5000;
+    const cursors = body && typeof body.cursors === 'object' && body.cursors ? body.cursors : {};
 
     const academyCache = new Map();
     const getAcademy = async (academyId) => {
@@ -124,29 +128,33 @@ export default async function handler(req, res) {
     };
 
     const migrateCollection = async ({ colId, kind, academyIdFieldHint }) => {
-      if (!colId) return { ok: false, kind, erro: 'collection_id_ausente', processed: 0, updated: 0, skipped: 0, errors: 0 };
+      if (!colId) return { ok: false, kind, erro: 'collection_id_ausente', processed: 0, updated: 0, skipped: 0, errors: 0, done: true, nextCursor: '' };
+
       let processed = 0;
       let updated = 0;
       let skipped = 0;
       let errors = 0;
-      let cursor = '';
+      let cursor = String(cursors?.[kind] || '').trim();
+      let exhausted = false;
 
-      while (processed < maxDocs) {
-        const limit = Math.min(500, maxDocs - processed);
-        const queries = [Query.limit(limit)];
+      const hardLimit = Math.min(maxDocs, limitPerCollection);
+      while (processed < hardLimit) {
+        const limit = Math.min(100, hardLimit - processed);
+        const queries = [Query.orderAsc('$id'), Query.limit(limit)];
         if (cursor) queries.push(Query.cursorAfter(cursor));
         const list = await databases.listDocuments(DB_ID, colId, queries);
         const docs = Array.isArray(list?.documents) ? list.documents : [];
-        if (docs.length === 0) break;
+        if (docs.length === 0) {
+          exhausted = true;
+          break;
+        }
 
         for (const doc of docs) {
           processed += 1;
           cursor = String(doc?.$id || '').trim() || cursor;
 
           let academyId = '';
-          if (kind === 'academies') {
-            academyId = String(doc?.$id || '').trim();
-          } else if (academyIdFieldHint === 'academyId') {
+          if (academyIdFieldHint === 'academyId') {
             academyId = String(doc?.academyId || '').trim() || getAcademyIdFromDoc(doc);
           } else if (academyIdFieldHint === 'academy_id') {
             academyId = String(doc?.academy_id || '').trim() || getAcademyIdFromDoc(doc);
@@ -159,10 +167,7 @@ export default async function handler(req, res) {
             continue;
           }
 
-          const academy = kind === 'academies'
-            ? { id: academyId, ownerId: String(doc?.ownerId || ''), teamId: String(doc?.teamId || '') }
-            : await getAcademy(academyId);
-
+          const academy = await getAcademy(academyId);
           if (!academy || !academy.ownerId) {
             skipped += 1;
             continue;
@@ -182,21 +187,25 @@ export default async function handler(req, res) {
           }
         }
 
-        if (docs.length < limit) break;
+        if (docs.length < limit) {
+          exhausted = true;
+          break;
+        }
       }
 
-      return { ok: true, kind, processed, updated, skipped, errors };
+      return { ok: true, kind, processed, updated, skipped, errors, done: exhausted, nextCursor: cursor };
     };
-    const ownerId = String(body.ownerId || '').trim();
-    const queries = [Query.limit(500)];
-    if (ownerId) queries.unshift(Query.equal('ownerId', [ownerId]));
-    const list = await databases.listDocuments(DB_ID, ACADEMIES_COL, queries);
-    const list = await databases.listDocuments(DB_ID, ACADEMIES_COL, queries);
 
     const results = {};
     if (includeAcademies) {
+      const ownerId = String(body.ownerId || '').trim();
+      const queries = [Query.orderAsc('$id'), Query.limit(500)];
+      if (ownerId) queries.unshift(Query.equal('ownerId', [ownerId]));
+      const list = await databases.listDocuments(DB_ID, ACADEMIES_COL, queries);
+
       const updatedAcademies = [];
-      for (const doc of list.documents) {
+      const docs = Array.isArray(list?.documents) ? list.documents : [];
+      for (const doc of docs) {
         const owner = String(doc.ownerId || '').trim();
         if (!owner) continue;
         const teamId = String(doc.teamId || '').trim();
@@ -206,13 +215,20 @@ export default async function handler(req, res) {
       }
       results.academies = { ok: true, updated: updatedAcademies.length, ids: updatedAcademies.slice(0, 200) };
     }
+
     if (includeLeads) results.leads = await migrateCollection({ colId: LEADS_COL, kind: 'leads', academyIdFieldHint: 'academyId' });
     if (includeConversations)
       results.conversations = await migrateCollection({ colId: CONVERSATIONS_COL, kind: 'conversations', academyIdFieldHint: 'academy_id' });
     if (includeSettings) results.settings = await migrateCollection({ colId: SETTINGS_COL, kind: 'settings', academyIdFieldHint: 'academy_id' });
 
-    return res.status(200).json({ sucesso: true, schema, results });
+    const nextCursors = {};
+    for (const k of Object.keys(results)) {
+      const r = results[k];
+      if (r && r.nextCursor) nextCursors[k] = r.nextCursor;
+    }
+
+    return res.status(200).json({ sucesso: true, schema, results, nextCursors });
+  } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }
-}
 }
