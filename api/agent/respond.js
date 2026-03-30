@@ -13,6 +13,7 @@ const CONVERSATION_SUMMARY_ENABLED = String(process.env.CONVERSATION_SUMMARY_ENA
   String(process.env.CONVERSATION_SUMMARY_ENABLED || '') === '1';
 const HUMAN_HANDOFF_HOURS = Number.parseInt(String(process.env.HUMAN_HANDOFF_HOURS || '6'), 10);
 
+const SETTINGS_COL = process.env.APPWRITE_SETTINGS_COLLECTION_ID || process.env.VITE_APPWRITE_SETTINGS_COLLECTION_ID || '';
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(client);
 
@@ -356,6 +357,36 @@ async function createMinimalLeadIfMissing({ phone, name }) {
   return null;
 }
 
+async function getPromptSettings() {
+  try {
+    if (SETTINGS_COL) {
+      const list = await databases.listDocuments(DB_ID, SETTINGS_COL, [Query.equal('academy_id', [DEFAULT_ACADEMY_ID]), Query.limit(1)]);
+      const doc = list.documents && list.documents[0] ? list.documents[0] : null;
+      if (doc) {
+        return {
+          intro: String(doc.prompt_intro || '').trim(),
+          body: String(doc.prompt_body || '').trim(),
+          suffix: String(doc.prompt_suffix || '').trim()
+        };
+      }
+    }
+    const list2 = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
+      Query.equal('academy_id', [DEFAULT_ACADEMY_ID]),
+      Query.equal('phone_number', ['__settings__']),
+      Query.limit(1)
+    ]);
+    const doc2 = list2.documents && list2.documents[0] ? list2.documents[0] : null;
+    if (doc2) {
+      return {
+        intro: String(doc2.prompt_intro || '').trim(),
+        body: String(doc2.prompt_body || '').trim(),
+        suffix: String(doc2.prompt_suffix || '').trim()
+      };
+    }
+  } catch {}
+  return { intro: '', body: '', suffix: '' };
+}
+
 function shouldPromoteToExperimental({ classificacao, resposta, userName }) {
   if (String(classificacao?.intencao || '').trim() !== 'aula_experimental') return false;
   const txt = String(resposta || '').trim();
@@ -577,7 +608,11 @@ export default async function handler(req, res) {
     if (isSuggest || !messageId) claudeMessages.push({ role: 'user', content: message });
 
     const profileLine = profileLineForSystemPrompt(perfilContato);
-    const baseSystemPrompt = [SYSTEM_PROMPT_INTRO, profileLine, SYSTEM_PROMPT_BODY].filter(Boolean).join('\n');
+    const settings = await getPromptSettings();
+    const effectiveIntro = String(settings.intro || '') || SYSTEM_PROMPT_INTRO;
+    const effectiveBody = String(settings.body || '') || SYSTEM_PROMPT_BODY;
+    const extraSuffix = String(settings.suffix || '').trim();
+    const baseSystemPrompt = [effectiveIntro, profileLine, effectiveBody, extraSuffix].filter(Boolean).join('\n');
 
     const system = [
       baseSystemPrompt,

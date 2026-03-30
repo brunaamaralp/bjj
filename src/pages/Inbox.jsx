@@ -67,6 +67,12 @@ export default function Inbox() {
   const [leadSearch, setLeadSearch] = useState('');
   const [linkingLead, setLinkingLead] = useState(false);
   const [highlighted, setHighlighted] = useState({});
+  const [promptModal, setPromptModal] = useState(false);
+  const [promptIntro, setPromptIntro] = useState('');
+  const [promptBody, setPromptBody] = useState('');
+  const [promptSuffix, setPromptSuffix] = useState('');
+  const [loadingPrompt, setLoadingPrompt] = useState(false);
+  const [savingPrompt, setSavingPrompt] = useState(false);
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
@@ -227,6 +233,47 @@ export default function Inbox() {
       });
     } catch {
       void 0;
+    }
+  }
+
+  async function openPromptSettings() {
+    setLoadingPrompt(true);
+    setPromptModal(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/settings/ai-prompt', { headers: { Authorization: `Bearer ${jwt}` } });
+      const data = await resp.json();
+      if (resp.ok && data && typeof data === 'object') {
+        setPromptIntro(String(data.prompt_intro || ''));
+        setPromptBody(String(data.prompt_body || ''));
+        setPromptSuffix(String(data.prompt_suffix || ''));
+      } else {
+        throw new Error('Falha ao carregar');
+      }
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao carregar' });
+    } finally {
+      setLoadingPrompt(false);
+    }
+  }
+
+  async function savePromptSettings() {
+    setSavingPrompt(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/settings/ai-prompt', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt_intro: promptIntro, prompt_body: promptBody, prompt_suffix: promptSuffix })
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
+      addToast({ type: 'success', message: 'Prompt atualizado' });
+      setPromptModal(false);
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
+    } finally {
+      setSavingPrompt(false);
     }
   }
 
@@ -926,6 +973,9 @@ export default function Inbox() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
+            Configurar IA
+          </button>
           <button
             className="btn btn-primary"
             style={{ padding: '6px 10px' }}
@@ -1117,6 +1167,42 @@ export default function Inbox() {
             Resumo
           </div>
           <div className="text-small" style={{ whiteSpace: 'pre-wrap' }}>{selected.summary.text}</div>
+        </div>
+      )}
+
+      {promptModal && (
+        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 'min(960px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontWeight: 800 }}>Configurar Prompt da IA</div>
+              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPromptModal(false)} type="button">
+                Fechar
+              </button>
+            </div>
+            <div style={{ padding: 12, display: 'grid', gap: 12 }}>
+              {loadingPrompt && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Introdução</div>
+                <textarea className="input" value={promptIntro} onChange={(e) => setPromptIntro(e.target.value)} rows={5} placeholder="Texto de introdução" disabled={loadingPrompt} />
+              </div>
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Corpo</div>
+                <textarea className="input" value={promptBody} onChange={(e) => setPromptBody(e.target.value)} rows={10} placeholder="Regras, horários, preços, etc." disabled={loadingPrompt} />
+              </div>
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Complemento</div>
+                <textarea className="input" value={promptSuffix} onChange={(e) => setPromptSuffix(e.target.value)} rows={5} placeholder="Instruções adicionais" disabled={loadingPrompt} />
+              </div>
+            </div>
+            <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPromptModal(false)} type="button" disabled={savingPrompt}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={savePromptSettings} disabled={savingPrompt || loadingPrompt}>
+                {savingPrompt ? 'Salvando…' : loadingPrompt ? 'Carregando…' : 'Salvar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
