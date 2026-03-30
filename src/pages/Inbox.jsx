@@ -194,6 +194,7 @@ export default function Inbox() {
   const [promptSuffix, setPromptSuffix] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [threadLoading, setThreadLoading] = useState(false);
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
@@ -456,7 +457,8 @@ export default function Inbox() {
         const seen = new Set();
         const deduped = [];
         for (const it of incoming) {
-          const k = String(it?.id || it?.phone_number || '');
+          const phoneKey = String(it?.phone_number || '').trim();
+          const k = phoneKey || String(it?.id || '');
           if (!k || seen.has(k)) continue;
           seen.add(k);
           deduped.push(it);
@@ -505,6 +507,7 @@ export default function Inbox() {
     if (!p) return;
     if (!silent) setError('');
     try {
+      setThreadLoading(true);
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
@@ -525,6 +528,23 @@ export default function Inbox() {
         human_handoff_until: handoffUntil || null
       });
       try {
+        const last = messages.length > 0 ? messages[messages.length - 1] : null;
+        const textRaw = String(last?.content || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
+        const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}…` : textRaw;
+        if (preview) {
+          setItems((prev) => {
+            const arr = Array.isArray(prev) ? prev : [];
+            return arr.map((it) => {
+              const ph = String(it?.phone_number || '').trim();
+              if (ph !== p) return it;
+              return { ...it, last_preview: preview };
+            });
+          });
+        }
+      } catch {
+        void 0;
+      }
+      try {
         setTimeout(() => {
           const el = threadScrollRef.current;
           if (!el) return;
@@ -536,6 +556,8 @@ export default function Inbox() {
       }
     } catch (e) {
       if (!silent) setError(e?.message || 'Erro');
+    } finally {
+      setThreadLoading(false);
     }
   }
 
@@ -1019,6 +1041,8 @@ export default function Inbox() {
                 : { bg: '#22c55e', label: 'Agente IA' }
               : null;
           const isHighlighted = Boolean(it?._isHighlighted);
+          const rawPrev = String(it?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
+          const preview = rawPrev.length > 40 ? `${rawPrev.slice(0, 40)}…` : rawPrev;
           return (
             <button
               key={String(it?.id || phone)}
@@ -1092,7 +1116,7 @@ export default function Inbox() {
                   overflow: 'hidden'
                 }}
               >
-                {String(it?.last_preview || '') || '—'}
+                {preview || '—'}
               </div>
               {it?.lead_id && (
                 <div style={{ marginTop: 8 }}>
@@ -1166,20 +1190,18 @@ export default function Inbox() {
             <span
               className="text-small"
               style={{
-                background: 'rgba(34, 197, 94, 0.12)',
+                background: 'rgba(34, 197, 94, 0.10)',
                 color: '#16a34a',
-                padding: '2px 8px',
-                borderRadius: 999
+                padding: '1px 6px',
+                borderRadius: 999,
+                fontSize: 12
               }}
             >
               Agente IA ativo
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
-            Configurar IA
-          </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             className="btn btn-primary"
             style={{ padding: '6px 10px' }}
@@ -1191,8 +1213,8 @@ export default function Inbox() {
             Assumir atendimento
           </button>
           <button
-            className="btn btn-secondary"
-            style={{ padding: '6px 10px' }}
+            className="btn"
+            style={{ padding: '6px 10px', background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
             onClick={() => setHandoffActive(false)}
             disabled={!selectedPhone || !selected?.need_human}
             type="button"
@@ -1203,7 +1225,7 @@ export default function Inbox() {
           {!selected?.lead_id && (
             <>
               <button
-                className="btn btn-secondary"
+                className="btn btn-outline"
                 style={{ padding: '6px 10px' }}
                 onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))}
                 disabled={!selectedPhone || linkingLead}
@@ -1211,27 +1233,32 @@ export default function Inbox() {
               >
                 Converter em lead
               </button>
-              <button
-                className="btn btn-secondary"
-                style={{ padding: '6px 10px' }}
-                onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
-                disabled={!selectedPhone || linkingLead}
-                type="button"
-              >
-                Associar lead
-              </button>
             </>
           )}
           {!!selected?.lead_id && (
             <button
-              className="btn btn-secondary"
+              className="btn btn-outline"
               style={{ padding: '6px 10px' }}
               onClick={() => {
                 window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
               }}
               type="button"
             >
-              Abrir lead
+              Ver perfil completo
+            </button>
+          )}
+          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
+            Configurar IA
+          </button>
+          {!selected?.lead_id && (
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '6px 10px' }}
+              onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
+              disabled={!selectedPhone || linkingLead}
+              type="button"
+            >
+              Associar lead
             </button>
           )}
           {!!selected?.lead_id && (
@@ -1423,7 +1450,12 @@ export default function Inbox() {
         </div>
       )}
 
-      <div ref={threadScrollRef} style={{ padding: 12, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto' }}>
+      <div ref={threadScrollRef} style={{ padding: 14, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto', background: 'rgba(0,0,0,0.02)' }}>
+        {threadLoading && (
+          <div className="text-small" style={{ color: 'var(--text-secondary)', padding: 20, textAlign: 'center' }}>
+            Carregando mensagens…
+          </div>
+        )}
         {(selected?.messages || []).map((m, idx) => {
           const role = m?.role === 'assistant' ? 'assistant' : 'user';
           const mine = role === 'assistant';
@@ -1462,28 +1494,33 @@ export default function Inbox() {
             </div>
           );
         })}
-        {(selected?.messages || []).length === 0 && <div style={{ color: 'var(--text-secondary)' }}>Sem mensagens.</div>}
+        {!threadLoading && (selected?.messages || []).length === 0 && (
+          <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
+            <div>Nenhuma mensagem ainda</div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('*')} type="button">
+            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('*')} type="button">
               Negrito
             </button>
-            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('_')} type="button">
+            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('_')} type="button">
               Itálico
             </button>
-            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('~')} type="button">
+            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('~')} type="button">
               Riscado
             </button>
-            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('```')} type="button">
+            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('```')} type="button">
               Mono
             </button>
             <div style={{ position: 'relative' }}>
               <button
                 className="btn btn-outline"
-                style={{ minHeight: 34, padding: '0 12px' }}
+                style={{ minHeight: 30, padding: '0 8px' }}
                 onClick={() => setEmojiOpen((v) => !v)}
                 type="button"
                 aria-expanded={emojiOpen}
