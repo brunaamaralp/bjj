@@ -37,9 +37,11 @@ export default function Inbox() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
+  const textareaRef = useRef(null);
 
   const normalizedSearch = useMemo(() => normalizePhone(search), [search]);
 
@@ -185,6 +187,61 @@ export default function Inbox() {
     }
   }
 
+  const applyWrapToDraft = (prefix, suffix = prefix) => {
+    const cur = String(draftRef.current || '');
+    const el = textareaRef.current;
+    const start = el && Number.isFinite(el.selectionStart) ? el.selectionStart : cur.length;
+    const end = el && Number.isFinite(el.selectionEnd) ? el.selectionEnd : cur.length;
+    const selectedText = cur.slice(start, end);
+    const wrappingEmpty = start === end;
+    const insert = wrappingEmpty ? `${prefix}${suffix}` : `${prefix}${selectedText}${suffix}`;
+    const next = cur.slice(0, start) + insert + cur.slice(end);
+    setDraft(next);
+    setEmojiOpen(false);
+    try {
+      setTimeout(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        textarea.focus();
+        if (wrappingEmpty) {
+          const pos = start + prefix.length;
+          textarea.setSelectionRange(pos, pos);
+        } else {
+          const selStart = start + prefix.length;
+          const selEnd = selStart + selectedText.length;
+          textarea.setSelectionRange(selStart, selEnd);
+        }
+      }, 0);
+    } catch {
+      void 0;
+    }
+  };
+
+  const insertAtCursor = (text) => {
+    const cur = String(draftRef.current || '');
+    const el = textareaRef.current;
+    const start = el && Number.isFinite(el.selectionStart) ? el.selectionStart : cur.length;
+    const end = el && Number.isFinite(el.selectionEnd) ? el.selectionEnd : cur.length;
+    const next = cur.slice(0, start) + text + cur.slice(end);
+    setDraft(next);
+    try {
+      setTimeout(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        textarea.focus();
+        const pos = start + text.length;
+        textarea.setSelectionRange(pos, pos);
+      }, 0);
+    } catch {
+      void 0;
+    }
+  };
+
+  const emojis = useMemo(
+    () => ['😀', '😂', '😍', '🥰', '🙏', '👍', '👏', '🎉', '🔥', '✅', '❌', '🤝', '😢', '🤔', '⭐', '💪', '🥋', '📍', '📞', '⏰'],
+    []
+  );
+
   useEffect(() => {
     loadList({ reset: true });
   }, [normalizedSearch]);
@@ -234,16 +291,18 @@ export default function Inbox() {
               style={{
                 width: '100%',
                 textAlign: 'left',
-                padding: 12,
+                padding: 14,
                 border: 'none',
                 borderBottom: '1px solid var(--border)',
                 background: active ? 'var(--accent-light)' : 'transparent',
                 cursor: 'pointer'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div style={{ fontWeight: 700 }}>{phone || '-'}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {phone || '-'}
+                  </div>
                   {it?.need_human && (
                     <span
                       className="text-small"
@@ -262,7 +321,17 @@ export default function Inbox() {
                   {formatWhen(it?.updated_at)}
                 </div>
               </div>
-              <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
+              <div
+                className="text-small"
+                style={{
+                  color: 'var(--text-secondary)',
+                  marginTop: 8,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}
+              >
                 {String(it?.last_preview || '') || '—'}
               </div>
               {it?.lead_id && (
@@ -322,7 +391,7 @@ export default function Inbox() {
             <div key={idx} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
               <div
                 style={{
-                  maxWidth: 560,
+                  maxWidth: 720,
                   padding: '10px 12px',
                   borderRadius: 14,
                   background: mine ? 'var(--accent-light)' : 'var(--border)',
@@ -341,30 +410,116 @@ export default function Inbox() {
         {(selected?.messages || []).length === 0 && <div style={{ color: 'var(--text-secondary)' }}>Sem mensagens.</div>}
       </div>
 
-      <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              sendManual();
-            }
-          }}
-          placeholder="Responder manualmente…"
-          className="form-input"
-          rows={2}
-          style={{ flex: 1, resize: 'vertical', minHeight: 44 }}
-        />
-        <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone}>
-          {sending ? 'Enviando…' : 'Enviar'}
-        </button>
+      <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('*')} type="button">
+              Negrito
+            </button>
+            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('_')} type="button">
+              Itálico
+            </button>
+            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('~')} type="button">
+              Riscado
+            </button>
+            <button className="btn btn-outline" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => applyWrapToDraft('```')} type="button">
+              Mono
+            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                className="btn btn-outline"
+                style={{ minHeight: 34, padding: '0 12px' }}
+                onClick={() => setEmojiOpen((v) => !v)}
+                type="button"
+                aria-expanded={emojiOpen}
+              >
+                Emojis
+              </button>
+              {emojiOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 40,
+                    left: 0,
+                    width: 260,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    boxShadow: 'var(--shadow)',
+                    padding: 10,
+                    zIndex: 50
+                  }}
+                >
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
+                    {emojis.map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => {
+                          insertAtCursor(em);
+                          setEmojiOpen(false);
+                        }}
+                        style={{
+                          minHeight: 30,
+                          padding: 0,
+                          borderRadius: 10,
+                          background: 'transparent',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        <span style={{ fontSize: 18, lineHeight: '18px' }}>{em}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+            WhatsApp: *negrito* _itálico_ ~riscado~
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                const k = String(e.key || '').toLowerCase();
+                if (k === 'b') {
+                  e.preventDefault();
+                  applyWrapToDraft('*');
+                  return;
+                }
+                if (k === 'i') {
+                  e.preventDefault();
+                  applyWrapToDraft('_');
+                  return;
+                }
+              }
+              if (e.key === 'Escape') setEmojiOpen(false);
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendManual();
+              }
+            }}
+            placeholder="Responder manualmente…"
+            className="form-input"
+            rows={3}
+            style={{ flex: 1, resize: 'vertical', minHeight: 88 }}
+          />
+          <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone}>
+            {sending ? 'Enviando…' : 'Enviar'}
+          </button>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="container" style={{ paddingTop: 18, paddingBottom: 30 }}>
+    <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: 1200, width: '100%' }}>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
           <h2 style={{ margin: 0 }}>Inbox WhatsApp</h2>
@@ -398,7 +553,7 @@ export default function Inbox() {
       {isMobile ? (
         <div>{selectedPhone ? threadPanel : listPanel}</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) minmax(0, 1fr)', gap: 14 }}>
           {listPanel}
           {threadPanel}
         </div>
