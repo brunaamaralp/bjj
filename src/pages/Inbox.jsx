@@ -153,7 +153,6 @@ REGRAS DE VENDAS:
 export default function Inbox() {
   const navigate = useNavigate();
   const addToast = useUiStore((s) => s.addToast);
-  const addLead = useLeadStore((s) => s.addLead);
   const fetchLeads = useLeadStore((s) => s.fetchLeads);
   const leads = useLeadStore((s) => s.leads);
   const leadsLoading = useLeadStore((s) => s.loading);
@@ -1070,25 +1069,46 @@ export default function Inbox() {
 
   async function convertToLead() {
     const phone = String(selectedPhoneRef.current || '').trim();
-    const name = String(leadNameDraft || '').trim();
-    if (!phone || !name) return;
+    const name = String(leadNameDraft || '').trim() || String(selected?.lead_name || '').trim() || phone;
+    if (!phone) return;
     setLinkingLead(true);
     setError('');
     try {
-      const created = await addLead({
-        name,
-        phone,
-        type: leadTypeDraft || 'Adulto',
-        origin: 'WhatsApp',
-        status: LEAD_STATUS.NEW,
-        pipelineStage: 'Novo',
-        isFirstExperience: 'Sim',
-        notes: []
+      const latestClass = (() => {
+        const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const m = msgs[i];
+          if (m && m.classificacao && typeof m.classificacao === 'object') return m.classificacao;
+        }
+        return {};
+      })();
+      const jwt = await getJwt();
+      const resp = await fetch('/api/leads/convert', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone,
+          name,
+          classificacao: {
+            intencao: String(latestClass?.intencao || '').trim(),
+            prioridade: String(latestClass?.prioridade || '').trim(),
+            lead_quente: String(latestClass?.lead_quente || '').trim(),
+            precisa_resposta_humana: String(latestClass?.precisa_resposta_humana || '').trim()
+          }
+        })
       });
-      const leadId = String(created?.id || '').trim();
-      if (!leadId) throw new Error('Erro ao criar lead');
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao converter lead'));
+      const data = safeParseJson(raw) || {};
+      const leadId = String(data?.id || '').trim();
+      if (!leadId) throw new Error('ID do lead ausente');
       await linkLeadToConversation({ leadId });
-      addToast({ type: 'success', message: 'Lead criado' });
+      addToast({ type: 'success', message: data?.ja_existe ? 'Lead já existente' : 'Lead criado' });
+      window.location.href = `/lead/${encodeURIComponent(leadId)}`;
     } catch (e) {
       setError(e?.message || 'Erro');
     } finally {
@@ -1500,129 +1520,144 @@ export default function Inbox() {
               </div>
             )}
           </div>
-          {(() => {
-            const phone = String(selectedPhone || '').trim();
-            const leadId = String(selected?.lead_id || '').trim();
-            const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-            const aiSuggestHuman = Boolean(lead?.needHuman);
-            const until = String(selected?.human_handoff_until || '').trim();
-            const untilLabel = until ? formatTimeOnly(until) || formatWhen(until) : '';
-            if (selected?.need_human) {
-              return (
-                <span
-                  className="text-small"
-                  style={{
-                    background: 'var(--danger-light)',
-                    color: 'var(--danger)',
-                    padding: '2px 8px',
-                    borderRadius: 999
-                  }}
-                  title={untilLabel ? `Atendimento humano até ${untilLabel}` : 'Atendimento humano ativo'}
-                >
-                  {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
-                </span>
-              );
-            }
-            if (aiSuggestHuman) {
-              return (
-                <span
-                  className="text-small"
-                  style={{
-                    background: 'rgba(245, 158, 11, 0.12)',
-                    color: '#b45309',
-                    padding: '2px 8px',
-                    borderRadius: 999
-                  }}
-                  title="IA sugere intervenção humana (agente ainda está ativo)"
-                >
-                  IA sugere humano
-                </span>
-              );
-            }
-            return (
-              <span
-                className="text-small"
-                style={{
-                  background: 'rgba(34, 197, 94, 0.10)',
-                  color: '#16a34a',
-                  padding: '1px 6px',
-                  borderRadius: 999,
-                  fontSize: 12
-                }}
-              >
-                Agente IA ativo
-              </span>
-            );
-          })()}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
-            style={{ padding: '6px 10px' }}
-            onClick={() => setHandoffActive(true)}
-            disabled={!selectedPhone || Boolean(selected?.need_human)}
-            type="button"
-            title="Pausa o agente por 2 horas"
-          >
-            Assumir atendimento
-          </button>
-          <button
-            className="btn"
-            style={{ padding: '6px 10px', background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
-            onClick={() => setHandoffActive(false)}
-            disabled={!selectedPhone || !selected?.need_human}
-            type="button"
-            title="Reativa o agente agora"
-          >
-            Devolver ao agente
-          </button>
-          {!selected?.lead_id && (
-            <>
-              <button
-                className="btn btn-outline"
-                style={{ padding: '6px 10px' }}
-                onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))}
-                disabled={!selectedPhone || linkingLead}
-                type="button"
-              >
-                Converter em lead
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
+                Atendimento
+              </span>
+              {(() => {
+                const phone = String(selectedPhone || '').trim();
+                const leadId = String(selected?.lead_id || '').trim();
+                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+                const aiSuggestHuman = Boolean(lead?.needHuman);
+                const until = String(selected?.human_handoff_until || '').trim();
+                const untilLabel = until ? formatTimeOnly(until) || formatWhen(until) : '';
+                if (selected?.need_human) {
+                  return (
+                    <span
+                      className="text-small"
+                      style={{
+                        background: 'var(--danger-light)',
+                        color: 'var(--danger)',
+                        padding: '2px 8px',
+                        borderRadius: 999
+                      }}
+                      title={untilLabel ? `Atendimento humano até ${untilLabel}` : 'Atendimento humano ativo'}
+                    >
+                      {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
+                    </span>
+                  );
+                }
+                if (aiSuggestHuman) {
+                  return (
+                    <span
+                      className="text-small"
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.12)',
+                        color: '#b45309',
+                        padding: '2px 8px',
+                        borderRadius: 999
+                      }}
+                      title="IA sugere intervenção humana (agente ainda está ativo)"
+                    >
+                      IA sugere humano
+                    </span>
+                  );
+                }
+                return (
+                  <span
+                    className="text-small"
+                    style={{
+                      background: 'rgba(34, 197, 94, 0.10)',
+                      color: '#16a34a',
+                      padding: '1px 6px',
+                      borderRadius: 999,
+                      fontSize: 12
+                    }}
+                  >
+                    Agente IA ativo
+                  </span>
+                );
+              })()}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              {!selected?.need_human ? (
+                <button
+                  className="btn btn-primary"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => setHandoffActive(true)}
+                  disabled={!selectedPhone}
+                  type="button"
+                  title="Pausa o agente por 2 horas"
+                >
+                  Assumir atendimento
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => setHandoffActive(false)}
+                  disabled={!selectedPhone}
+                  type="button"
+                  title="Reativa o agente agora"
+                >
+                  Devolver ao agente
+                </button>
+              )}
+
+              <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
+                Recarregar
               </button>
-            </>
-          )}
-          {!!selected?.lead_id && (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px' }}
-              onClick={() => {
-                window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
-              }}
-              type="button"
-            >
-              Ver perfil completo
-            </button>
-          )}
-          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
-            Agente IA
-          </button>
-          {!selected?.lead_id && (
-            <button
-              className="btn btn-secondary"
-              style={{ padding: '6px 10px' }}
-              onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
-              disabled={!selectedPhone || linkingLead}
-              type="button"
-            >
-              Associar lead
-            </button>
-          )}
-          {!!selected?.lead_id && (
-            <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate('/pipeline')} type="button">
-              Kanban
-            </button>
-          )}
-          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone}>
-            Recarregar
-          </button>
+              <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
+                Configurar IA
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {!selected?.lead_id && (
+              <>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))}
+                  disabled={!selectedPhone || linkingLead}
+                  type="button"
+                >
+                  Converter em lead
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
+                  disabled={!selectedPhone || linkingLead}
+                  type="button"
+                >
+                  Associar lead
+                </button>
+              </>
+            )}
+            {!!selected?.lead_id && (
+              <>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => {
+                    window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
+                  }}
+                  type="button"
+                >
+                  Ver lead
+                </button>
+                <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate('/pipeline')} type="button">
+                  Kanban
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1698,8 +1733,8 @@ export default function Inbox() {
                 <option value="Juniores">Juniores</option>
               </select>
             </div>
-            <button className="btn btn-primary" onClick={convertToLead} disabled={linkingLead || !String(leadNameDraft || '').trim()} type="button">
-              Criar e enviar ao Kanban
+            <button className="btn btn-primary" onClick={convertToLead} disabled={linkingLead} type="button">
+              Converter em lead
             </button>
           </div>
         </div>
