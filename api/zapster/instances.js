@@ -121,6 +121,20 @@ async function zapsterGetInstance(id) {
   }
 }
 
+async function zapsterDeleteInstance(id) {
+  const url = `${baseUrl()}/v1/wa/instances/${encodeURIComponent(String(id))}`;
+  const resp = await fetch(url, { method: 'DELETE', headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+  const raw = await resp.text();
+  return { ok: resp.ok, status: resp.status, raw };
+}
+
+async function zapsterPower(id, action) {
+  const url = `${baseUrl()}/v1/wa/instances/${encodeURIComponent(id)}/${action}`;
+  const resp = await fetch(url, { method: 'POST', headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+  const raw = await resp.text();
+  return { ok: resp.status === 204, status: resp.status, raw };
+}
+
 function getWebhookTarget(req) {
   const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || 'https';
   const host = String(req.headers.host || '').trim();
@@ -138,7 +152,44 @@ export default async function handler(req, res) {
   if (!ctx) return;
   const { academyId, doc } = ctx;
 
+  const action = String(req.query?.action || '').trim().toLowerCase();
+  const idParam = String(req.query?.id || '').trim();
+
   if (req.method === 'GET') {
+    if (action === 'qrcode') {
+      if (!idParam) return res.status(400).json({ sucesso: false, erro: 'id ausente' });
+      try {
+        const url = `${baseUrl()}/v1/wa/instances/${encodeURIComponent(idParam)}/qrcode`;
+        const resp = await fetch(url, { headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+        if (resp.status === 200) {
+          const buf = Buffer.from(await resp.arrayBuffer());
+          res.setHeader('Content-Type', 'image/png');
+          res.status(200).send(buf);
+          return;
+        }
+        const text = await resp.text();
+        try {
+          const json = JSON.parse(text);
+          return res.status(resp.status || 500).json({ sucesso: false, erro: json?.errors?.[0]?.message || 'QR indisponível' });
+        } catch {
+          return res.status(resp.status || 500).json({ sucesso: false, erro: text || 'QR indisponível' });
+        }
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao obter QR' });
+      }
+    }
+    if (action === 'get') {
+      if (!idParam) return res.status(400).json({ sucesso: false, erro: 'id ausente' });
+      try {
+        const z = await zapsterGetInstance(idParam);
+        if (!z.ok) return res.status(404).json({ sucesso: false, erro: 'Instância não encontrada' });
+        const status = String(z.data?.status || '').trim() || 'unknown';
+        const qrcode = z.data?.qrcode ?? null;
+        return res.status(200).json({ sucesso: true, instance_id: idParam, status, qrcode });
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao consultar instância' });
+      }
+    }
     try {
       const inst = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
       if (!inst) return res.status(200).json({ sucesso: true, instance_id: null, status: 'disconnected', qrcode: null });
@@ -153,6 +204,20 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    if (action === 'power-on' || action === 'power-off' || action === 'restart') {
+      if (!idParam) return res.status(400).json({ sucesso: false, erro: 'id ausente' });
+      const current = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
+      if (current && current !== idParam) {
+        return res.status(403).json({ sucesso: false, erro: 'Instância não pertence a esta academia' });
+      }
+      try {
+        const z = await zapsterPower(idParam, action);
+        if (!z.ok) return res.status(z.status || 500).json({ sucesso: false, erro: z.raw || 'Falha' });
+        return res.status(204).end();
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro' });
+      }
+    }
     try {
       const name = String(req.body?.name || '').trim() || `CRM-${academyId.slice(0, 6)}`;
       const metadata = { academy_id: academyId };
@@ -182,6 +247,27 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', 'GET, POST');
+  if (req.method === 'DELETE') {
+    if (!idParam) return res.status(400).json({ sucesso: false, erro: 'id ausente' });
+    const current = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
+    if (current && current !== idParam) {
+      return res.status(403).json({ sucesso: false, erro: 'Instância não pertence a esta academia' });
+    }
+    try {
+      const z = await zapsterDeleteInstance(idParam);
+      try {
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { zapster_instance_id: '', zapsterInstanceId: '' });
+      } catch {
+        void 0;
+      }
+      if (!z.ok) return res.status(200).json({ sucesso: true, removido: false });
+      return res.status(200).json({ sucesso: true, removido: true });
+    } catch (e) {
+      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao remover' });
+    }
+  }
+
+  res.setHeader('Allow', 'GET, POST, DELETE');
   return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
 }
+

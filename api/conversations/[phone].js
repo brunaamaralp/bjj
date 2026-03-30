@@ -245,6 +245,27 @@ export default async function handler(req, res) {
     }
   }
 
+  if (req.method === 'PATCH') {
+    const action = String((req.body && req.body.action) || '').trim().toLowerCase() || 'read';
+    try {
+      const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
+      if (action === 'handoff') {
+        const ativo = Boolean(req.body?.ativo);
+        const until = ativo ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null;
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
+        return res.status(200).json({ sucesso: true, need_human: ativo, human_handoff_until: until });
+      }
+      if (action === 'read') {
+        const nowIso = new Date().toISOString();
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 0, last_read_at: nowIso });
+        return res.status(200).json({ sucesso: true, unread_count: 0, last_read_at: nowIso });
+      }
+      return res.status(400).json({ sucesso: false, erro: 'Ação inválida' });
+    } catch (e) {
+      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+    }
+  }
+
   if (req.method === 'POST') {
     if (!ensureJson(req, res)) return;
     const action = String(req.body?.action || '').trim();
@@ -297,6 +318,6 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', 'GET, POST');
+  res.setHeader('Allow', 'GET, POST, PATCH');
   return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
 }

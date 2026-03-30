@@ -364,7 +364,7 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}`, {
+      const resp = await fetch(`/api/zapster/instances?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -393,7 +393,7 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}/power-on`, {
+      const resp = await fetch(`/api/zapster/instances?action=power-on&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -418,7 +418,7 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}/power-off`, {
+      const resp = await fetch(`/api/zapster/instances?action=power-off&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -443,7 +443,7 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances/${encodeURIComponent(id)}/restart`, {
+      const resp = await fetch(`/api/zapster/instances?action=restart&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -581,9 +581,14 @@ export default function Inbox() {
     if (!p) return;
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}/read`, {
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'read' })
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como lida'));
@@ -867,14 +872,14 @@ export default function Inbox() {
     if (!silent) setError('');
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}/handoff`, {
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${jwt}`,
           'x-academy-id': String(academyIdRef.current || ''),
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ ativo: Boolean(ativo) })
+        body: JSON.stringify({ action: 'handoff', ativo: Boolean(ativo) })
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar handoff'));
@@ -2162,7 +2167,7 @@ export default function Inbox() {
                     <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>QR Code</div>
                     {waInfo?.status !== 'connected' && !!waInfo?.instance_id && !waTokenMissing && !waQrError && (
                       <img
-                        src={`/api/zapster/instances/${encodeURIComponent(String(waInfo.instance_id))}/qrcode?ts=${waQrTick}`}
+                        src={`/api/zapster/instances?action=qrcode&id=${encodeURIComponent(String(waInfo.instance_id))}&ts=${waQrTick}`}
                         alt="QR"
                         onError={() => setWaQrError(true)}
                         style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
