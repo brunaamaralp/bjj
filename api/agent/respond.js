@@ -266,6 +266,10 @@ function parseIsoToMs(iso) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function escapeRegExp(s) {
+  return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function findLeadByPhone(phone) {
   if (!LEADS_COL) return null;
   const p = normalizePhone(phone);
@@ -274,18 +278,97 @@ async function findLeadByPhone(phone) {
   const raw = String(phone || '').trim();
   if (raw && raw !== p) candidates.push(raw);
 
+  const queryCombos = [
+    { academy: 'academy_id', phone: 'phone_number' },
+    { academy: 'academy_id', phone: 'phone' },
+    { academy: 'academyId', phone: 'phone' },
+    { academy: 'academyId', phone: 'phone_number' }
+  ];
+
   for (const c of candidates) {
+    for (const combo of queryCombos) {
+      try {
+        const list = await databases.listDocuments(DB_ID, LEADS_COL, [
+          Query.equal(combo.academy, [DEFAULT_ACADEMY_ID]),
+          Query.equal(combo.phone, [c]),
+          Query.limit(1)
+        ]);
+        const doc = list.documents && list.documents[0] ? list.documents[0] : null;
+        if (doc) return doc;
+      } catch {}
+    }
+  }
+  return null;
+}
+
+function leadProfileFromStatus(statusRaw) {
+  const status = String(statusRaw || '').trim();
+  if (status === 'Matriculado') return 'aluno_ativo';
+  if (status === 'Experimental') return 'experimental';
+  return 'lead';
+}
+
+function profileLineForSystemPrompt(profile) {
+  if (profile === 'aluno_ativo') {
+    return (
+      'PERFIL DO CONTATO: Aluno ativo da academia.\n' +
+      'REGRAS ESPECIAIS PARA ALUNO:\n' +
+      '- Trate como membro da equipe, não como lead\n' +
+      '- NÃO ofereça aula experimental\n' +
+      '- NÃO mencione preços de planos ou matrículas\n' +
+      '- Responda dúvidas sobre horários, faltas e rotina normalmente\n' +
+      '- Para dúvidas sobre pagamento ou graduação, diga que vai passar para o responsável\n' +
+      '- Use um tom mais próximo e familiar'
+    );
+  }
+  if (profile === 'experimental') {
+    return (
+      'PERFIL DO CONTATO: Aula experimental agendada — pessoa\n' +
+      'que já demonstrou interesse e tem aula marcada. Seja\n' +
+      'acolhedor, reforce os benefícios e tire dúvidas finais.'
+    );
+  }
+  return (
+    'PERFIL DO CONTATO: Lead — pessoa interessada mas ainda\n' +
+    'não matriculada. Foco em converter para aula experimental.'
+  );
+}
+
+async function createMinimalLeadIfMissing({ phone, name }) {
+  if (!LEADS_COL) return null;
+  const telefone = normalizePhone(phone) || String(phone || '').trim();
+  if (!telefone) return null;
+
+  const displayName = String(name || '').trim() || telefone;
+  const perms = [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())];
+
+  const payloads = [
+    { name: displayName, phone_number: telefone, status: 'Novo', origin: 'WhatsApp', academy_id: DEFAULT_ACADEMY_ID },
+    { name: displayName, phone: telefone, status: 'Novo', origin: 'WhatsApp', academyId: DEFAULT_ACADEMY_ID }
+  ];
+
+  for (const data of payloads) {
     try {
-      const list = await databases.listDocuments(DB_ID, LEADS_COL, [
-        Query.equal('academyId', [DEFAULT_ACADEMY_ID]),
-        Query.equal('phone', [c]),
-        Query.limit(1)
-      ]);
-      const doc = list.documents && list.documents[0] ? list.documents[0] : null;
-      if (doc) return doc;
+      const created = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), data, perms);
+      return created || null;
     } catch {}
   }
   return null;
+}
+
+function shouldPromoteToExperimental({ classificacao, resposta, userName }) {
+  if (String(classificacao?.intencao || '').trim() !== 'aula_experimental') return false;
+  const txt = String(resposta || '').trim();
+  if (!txt) return false;
+  const lower = txt.toLowerCase();
+  const hasConfirm = /agendad|marcad|confirmad|fechad/.test(lower);
+  const hasTime = /\b\d{1,2}h(\d{2})?\b/i.test(txt) || /\b\d{1,2}:\d{2}\b/.test(txt);
+  const hasDay = /(seg|segunda|ter|terça|terca|qua|quarta|qui|quinta|sex|sexta|sab|sábado|sabado|dom|hoje|amanh)/i.test(txt);
+  const uname = String(userName || '').trim();
+  const hasSomeName = uname && uname.toLowerCase() !== 'amigo';
+  const hasName = hasSomeName ? new RegExp(`\\b${escapeRegExp(uname)}\\b`, 'i').test(txt) : false;
+  const looksLikeConfirmation = !/[?]\s*$/.test(txt);
+  return hasConfirm && (hasTime || hasDay) && looksLikeConfirmation && (hasName || hasSomeName);
 }
 
 async function updateLeadNotesFromClassification(leadDoc, classificacao) {
@@ -356,10 +439,17 @@ async function updateConversationWithMerge(docId, additions) {
       const history = safeParseMessages(current.messages);
       const merged = mergeConversationMessages(history, additions);
       const nowIso = new Date().toISOString();
-      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, docId, {
+      const userAdds = Array.isArray(additions) ? additions.filter((a) => a && a.role === 'user').length : 0;
+      const prevUnread = Number.isFinite(Number(current?.unread_count)) ? Number(current.unread_count) : 0;
+      const payload = {
         messages: JSON.stringify(merged),
         updated_at: nowIso
-      });
+      };
+      if (userAdds > 0) {
+        payload.unread_count = prevUnread + userAdds;
+        payload.last_user_msg_at = nowIso;
+      }
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, docId, payload);
 
       const check = await databases.getDocument(DB_ID, CONVERSATIONS_COL, docId);
       const after = safeParseMessages(check.messages);
@@ -381,18 +471,45 @@ async function updateConversationWithMerge(docId, additions) {
   return { ok: false, erro: lastErr || 'Erro ao atualizar conversa' };
 }
 
-const SYSTEM_PROMPT = `Você é um atendente da Gracie Barra Lagoa da Prata, academia de Jiu-Jitsu em Lagoa da Prata MG. Atenda de forma humana e direta. Use o primeiro nome da pessoa. Nunca mencione que é uma IA.
-HORÁRIOS ADULTO: Seg/Qua 7h e 19h10 | Ter/Qui 7h e 20h15 | Sex 7h e 18h | Sáb 10h-12h
+const SYSTEM_PROMPT_INTRO = `Você é um atendente da Gracie Barra Lagoa da Prata, academia de Jiu-Jitsu em Lagoa da Prata MG. Atenda de forma humana e direta. Use o primeiro nome da pessoa. Nunca mencione que é uma IA.`;
+
+const SYSTEM_PROMPT_BODY = `HORÁRIOS ADULTO: Seg/Qua 7h e 19h10 | Ter/Qui 7h e 20h15 | Sex 7h e 18h | Sáb 10h-12h
 Turma Feminina: Ter/Qui 19h | No-Gi Faixa Azul+: Seg-Sex 12h | Avançado Faixa Azul+: Seg/Qua 20h15
 INFANTIL 5-9 anos: Seg/Qua 8h | Ter/Qui 18h
 JUNIORES 10-15 anos: Ter/Qui 8h | Seg/Qua 18h
 PLANOS ADULTO: Anual 12x R$289 | Recorrente R$330 | Semestral 6x R$330 | Trimestral 3x R$360 | Mensal R$390 | Matrícula R$90
 PLANOS INFANTIL: Anual 12x R$239 | Recorrente R$279 | Semestral 6x R$279 | Trimestral 3x R$299 | Mensal R$319 | Matrícula R$90
-UNIFORME ADULTO: Kimono R$649,90 | Camiseta R$179,90 | Faixa R$79,90 | Kit 3x R$303,23
-UNIFORME INFANTIL: Kimono R$489,90 | Camiseta R$159,90 | Faixa R$79,90 | Kit 3x no cartão
+UNIFORME:
+- A Gracie Barra exige o uso do kimono oficial da equipe
+  durante os treinos — kimonos de outras equipes não são
+  permitidos
+- O uniforme completo é composto por kimono + camiseta
+  training + faixa
+- ADULTO: Kimono R$649,90 | Camiseta R$179,90 | Faixa R$79,90
+  Kit completo em até 3x de R$303,23
+- INFANTIL: Kimono R$489,90 | Camiseta R$159,90 | Faixa R$79,90
+  Kit completo em até 3x no cartão
+- Para quem quer fazer aulas avulsas: temos kimono para
+  ALUGUEL por aula
+- Na aula experimental: emprestamos o kimono gratuitamente,
+  sem necessidade de nenhum equipamento
 EXPERIMENTAL: gratuita, kimono emprestado. Pedir horário e nome completo.
 Endereço: Azure Residence, Av. Dr. Antônio Luciano Pereira Filho 843, Coronel Luciano.
-REGRAS: Respostas curtas. Emojis com moderação. Para pagamentos ou assuntos internos diga que vai passar para o responsável. Nunca invente informações.`;
+REGRAS: Respostas curtas. Emojis com moderação. Para pagamentos ou assuntos internos diga que vai passar para o responsável. Nunca invente informações.
+FORMATAÇÃO:
+- Nunca envie blocos longos de texto sem quebras
+- Use negrito (*texto*) para destacar informações importantes
+  como preços, horários e nomes de planos
+- Use emojis com moderação para deixar a mensagem mais
+  acolhedora — mas nunca em excesso
+- Separe tópicos diferentes em parágrafos distintos
+- Quando listar horários ou preços, use marcadores (•)
+  para facilitar a leitura
+- Prefira respostas curtas e diretas — se tiver muito
+  conteúdo, divida em duas mensagens ou priorize o mais
+  relevante
+- Nunca responda tudo de uma vez — conduza a conversa
+  fazendo uma pergunta ao final quando fizer sentido`;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -414,6 +531,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    let leadDoc = null;
+    let perfilContato = 'lead';
+    try {
+      leadDoc = await findLeadByPhone(phone);
+      if (!leadDoc) {
+        if (!isSuggest) leadDoc = await createMinimalLeadIfMissing({ phone, name });
+      }
+      perfilContato = leadProfileFromStatus(leadDoc?.status);
+    } catch {
+      leadDoc = null;
+      perfilContato = 'lead';
+    }
+
     const doc = await getOrCreateConversationDoc(phone);
     let history = safeParseMessages(doc.messages);
     const userName = firstName(name) || 'amigo';
@@ -446,8 +576,11 @@ export default async function handler(req, res) {
     const claudeMessages = history.map((m) => ({ role: m.role, content: m.content }));
     if (isSuggest || !messageId) claudeMessages.push({ role: 'user', content: message });
 
+    const profileLine = profileLineForSystemPrompt(perfilContato);
+    const baseSystemPrompt = [SYSTEM_PROMPT_INTRO, profileLine, SYSTEM_PROMPT_BODY].filter(Boolean).join('\n');
+
     const system = [
-      SYSTEM_PROMPT,
+      baseSystemPrompt,
       `Nome do contato: ${userName}.`,
       summaryText ? `Resumo do histórico (pode estar desatualizado):\n${summaryText}` : '',
       `Retorne SOMENTE um JSON válido (sem markdown) no seguinte formato:\n` +
@@ -485,7 +618,6 @@ export default async function handler(req, res) {
     const up2 = await updateConversationWithMerge(doc.$id, additions);
     if (!up2.ok) throw new Error(up2.erro || 'Erro ao salvar conversa');
 
-    const leadDoc = await findLeadByPhone(phone);
     if (leadDoc) {
       try {
         await updateLeadNotesFromClassification(leadDoc, classificacao);
@@ -496,6 +628,15 @@ export default async function handler(req, res) {
     if (classificacao.precisa_resposta_humana === 'sim') {
       const untilIso = addHoursIso(Number.isFinite(HUMAN_HANDOFF_HOURS) ? HUMAN_HANDOFF_HOURS : 6);
       await updateConversationMeta(doc.$id, { humanHandoffUntilIso: untilIso });
+    }
+
+    if (leadDoc && shouldPromoteToExperimental({ classificacao, resposta, userName })) {
+      const currentStatus = String(leadDoc?.status || '').trim();
+      if (currentStatus !== 'Matriculado' && currentStatus !== 'Experimental') {
+        try {
+          await databases.updateDocument(DB_ID, LEADS_COL, leadDoc.$id, { status: 'Experimental' });
+        } catch {}
+      }
     }
 
     if (shouldUpdateSummary({ enabled: CONVERSATION_SUMMARY_ENABLED, history: up2.history, currentSummaryRaw: doc?.summary })) {

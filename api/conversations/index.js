@@ -6,6 +6,7 @@ const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
+const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
 const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
@@ -76,6 +77,26 @@ function safeParseMessages(raw) {
   }
 }
 
+function lastMessageMeta(raw) {
+  if (!raw) return { role: '', timestamp: '', sender: '' };
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return { role: '', timestamp: '', sender: '' };
+    const last = parsed[parsed.length - 1];
+    if (!last || typeof last !== 'object') return { role: '', timestamp: '', sender: '' };
+    const role = last.role === 'assistant' ? 'assistant' : 'user';
+    const timestamp = typeof last.timestamp === 'string' ? last.timestamp : '';
+    if (role === 'user') return { role, timestamp, sender: 'user' };
+    const senderRaw = String(last.sender || '').trim().toLowerCase();
+    if (senderRaw === 'human' || senderRaw === 'humano') return { role, timestamp, sender: 'human' };
+    if (senderRaw === 'ai' || senderRaw === 'agent' || senderRaw === 'agente') return { role, timestamp, sender: 'ai' };
+    const hasAiHints = Boolean(last.in_reply_to) || (last.classificacao && typeof last.classificacao === 'object');
+    return { role, timestamp, sender: hasAiHints ? 'ai' : 'human' };
+  } catch {
+    return { role: '', timestamp: '', sender: '' };
+  }
+}
+
 function extractJsonObject(text) {
   const t = String(text || '').trim();
   if (!t) return null;
@@ -106,6 +127,25 @@ function previewText(messages) {
   return t.length > 140 ? `${t.slice(0, 140)}…` : t;
 }
 
+async function getLeadNameByIdMap(leadIds) {
+  const ids = Array.isArray(leadIds) ? leadIds.map((v) => String(v || '').trim()).filter(Boolean) : [];
+  const unique = Array.from(new Set(ids));
+  if (!LEADS_COL || unique.length === 0) return new Map();
+  try {
+    const list = await databases.listDocuments(DB_ID, LEADS_COL, [Query.equal('$id', unique), Query.limit(200)]);
+    const docs = Array.isArray(list?.documents) ? list.documents : [];
+    const map = new Map();
+    for (const d of docs) {
+      const id = String(d?.$id || '').trim();
+      if (!id) continue;
+      map.set(id, String(d?.name || '').trim());
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -131,21 +171,41 @@ export default async function handler(req, res) {
     const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, queries);
     const docs = Array.isArray(list?.documents) ? list.documents : [];
 
+    const leadNameMap = await getLeadNameByIdMap(
+      docs.map((d) => (d && typeof d.lead_id === 'string' ? d.lead_id : '')).filter(Boolean)
+    );
+
     const items = docs.map((doc) => {
       const messages = safeParseMessages(doc.messages);
+      const lastMeta = lastMessageMeta(doc.messages);
       const summary = parseSummaryField(doc.summary);
       const handoff = typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '';
       const handoffMs = handoff ? new Date(handoff).getTime() : 0;
       const needHuman = Number.isFinite(handoffMs) && handoffMs > Date.now();
+      const leadId = typeof doc.lead_id === 'string' ? doc.lead_id : null;
+      const unreadCount = Number.isFinite(Number(doc?.unread_count)) ? Number(doc.unread_count) : 0;
+      const lastReadAt = typeof doc?.last_read_at === 'string' ? doc.last_read_at : null;
+      const lastUserMsgAt = typeof doc?.last_user_msg_at === 'string' ? doc.last_user_msg_at : null;
+      const computedHasUnread =
+        lastMeta.role === 'user' &&
+        typeof lastMeta.timestamp === 'string' &&
+        (!lastReadAt || new Date(lastMeta.timestamp).getTime() > new Date(lastReadAt).getTime());
       return {
         id: doc.$id,
         phone_number: String(doc.phone_number || '').trim(),
         updated_at: String(doc.updated_at || doc.$updatedAt || doc.$createdAt || '').trim(),
-        lead_id: typeof doc.lead_id === 'string' ? doc.lead_id : null,
+        lead_id: leadId,
+        lead_name: leadId ? leadNameMap.get(leadId) || '' : '',
         human_handoff_until: handoff || null,
         need_human: needHuman,
         summary,
-        last_preview: previewText(messages)
+        last_preview: previewText(messages),
+        last_message_role: lastMeta.role || null,
+        last_message_sender: lastMeta.sender || null,
+        last_message_timestamp: lastMeta.timestamp || null,
+        unread_count: unreadCount || (computedHasUnread ? 1 : 0),
+        last_read_at: lastReadAt || null,
+        last_user_msg_at: lastUserMsgAt || null
       };
     });
 

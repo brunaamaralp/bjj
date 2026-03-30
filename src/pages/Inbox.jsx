@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { account } from '../lib/appwrite';
 import { useUiStore } from '../store/useUiStore';
+import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 
 function normalizePhone(v) {
   const raw = String(v || '').trim();
@@ -21,8 +23,21 @@ function formatWhen(iso) {
   return d.toLocaleString('pt-BR');
 }
 
+function formatTimeOnly(iso) {
+  const s = String(iso || '').trim();
+  if (!s) return '';
+  const d = new Date(s);
+  if (!Number.isFinite(d.getTime())) return '';
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function Inbox() {
+  const navigate = useNavigate();
   const addToast = useUiStore((s) => s.addToast);
+  const addLead = useLeadStore((s) => s.addLead);
+  const fetchLeads = useLeadStore((s) => s.fetchLeads);
+  const leads = useLeadStore((s) => s.leads);
+  const leadsLoading = useLeadStore((s) => s.loading);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
@@ -38,10 +53,28 @@ export default function Inbox() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [listFilter, setListFilter] = useState('all');
+  const [listWidth, setListWidth] = useState(() => {
+    if (typeof window === 'undefined') return 420;
+    const raw = window.localStorage.getItem('inbox_list_width');
+    const n = Number.parseInt(String(raw || ''), 10);
+    if (!Number.isFinite(n)) return 420;
+    return Math.max(320, Math.min(560, n));
+  });
+  const [leadPanel, setLeadPanel] = useState(null);
+  const [leadNameDraft, setLeadNameDraft] = useState('');
+  const [leadTypeDraft, setLeadTypeDraft] = useState('Adulto');
+  const [leadSearch, setLeadSearch] = useState('');
+  const [linkingLead, setLinkingLead] = useState(false);
+  const [highlighted, setHighlighted] = useState({});
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
   const textareaRef = useRef(null);
+  const threadScrollRef = useRef(null);
+  const lastAutoScrollPhoneRef = useRef('');
+  const listMetaRef = useRef(new Map());
+  const notifiedOnceRef = useRef(false);
 
   const normalizedSearch = useMemo(() => normalizePhone(search), [search]);
 
@@ -52,6 +85,31 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  useEffect(() => {
+    setLeadPanel(null);
+    setLeadSearch('');
+    setLeadNameDraft('');
+  }, [selectedPhone]);
+
+  useEffect(() => {
+    if (leadsLoading) return;
+    const arr = Array.isArray(leads) ? leads : [];
+    if (arr.length > 0) return;
+    fetchLeads();
+  }, [leadsLoading, leads, fetchLeads]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('inbox_list_width', String(listWidth));
+  }, [listWidth]);
+
+  useEffect(() => {
+    if (leadPanel !== 'associate') return;
+    if (leadsLoading) return;
+    if (Array.isArray(leads) && leads.length > 0) return;
+    fetchLeads();
+  }, [leadPanel, leadsLoading, leads, fetchLeads]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -85,6 +143,93 @@ export default function Inbox() {
     return s;
   }
 
+  function playNotificationSound() {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(740, ctx.currentTime);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.04, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.24);
+      osc.onended = () => {
+        try {
+          ctx.close();
+        } catch {
+          void 0;
+        }
+      };
+    } catch {
+      void 0;
+    }
+  }
+
+  function setHighlightedPhone(phone) {
+    const p = String(phone || '').trim();
+    if (!p) return;
+    const expiresAt = Date.now() + 25000;
+    setHighlighted((prev) => ({ ...(prev || {}), [p]: expiresAt }));
+    try {
+      setTimeout(() => {
+        setHighlighted((prev) => {
+          const cur = prev && typeof prev === 'object' ? prev : {};
+          const exp = Number(cur[p] || 0);
+          if (!Number.isFinite(exp) || exp <= Date.now()) {
+            const next = { ...cur };
+            delete next[p];
+            return next;
+          }
+          return cur;
+        });
+      }, 26000);
+    } catch {
+      void 0;
+    }
+  }
+
+  async function markSeen(phone) {
+    const p = String(phone || '').trim();
+    if (!p) return;
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${jwt}` }
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como lida'));
+      setItems((prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return arr.map((it) => {
+          const ph = String(it?.phone_number || '').trim();
+          if (ph !== p) return it;
+          return { ...it, unread_count: 0, last_read_at: new Date().toISOString() };
+        });
+      });
+      setSelected((prev) => {
+        if (!prev || prev.phone !== p) return prev;
+        return { ...prev, unread_count: 0, last_read_at: new Date().toISOString() };
+      });
+      setHighlighted((prev) => {
+        const cur = prev && typeof prev === 'object' ? prev : {};
+        if (!cur[p]) return cur;
+        const n = { ...cur };
+        delete n[p];
+        return n;
+      });
+    } catch {
+      void 0;
+    }
+  }
+
   async function loadList({ reset = false, silent = false } = {}) {
     if (reset) {
       setNextCursor(null);
@@ -109,6 +254,18 @@ export default function Inbox() {
       const data = safeParseJson(raw) || {};
       const next = Array.isArray(data?.items) ? data.items : [];
       const nextCur = data?.next_cursor ? String(data.next_cursor) : null;
+      const previousMeta = listMetaRef.current instanceof Map ? listMetaRef.current : new Map();
+      const nextMeta = reset ? new Map() : new Map(previousMeta);
+      for (const it of next) {
+        const phone = String(it?.phone_number || '').trim();
+        if (!phone) continue;
+        const ts = String(it?.last_message_timestamp || it?.updated_at || '').trim();
+        nextMeta.set(phone, {
+          ts,
+          role: String(it?.last_message_role || '').trim(),
+          sender: String(it?.last_message_sender || '').trim()
+        });
+      }
       setNextCursor(nextCur);
       setHasMore(Boolean(nextCur) && next.length > 0 && !normalizedSearch);
       setLastUpdatedAt(new Date().toISOString());
@@ -124,6 +281,32 @@ export default function Inbox() {
         }
         return deduped;
       });
+      if (reset && notifiedOnceRef.current) {
+        for (const it of next) {
+          const phone = String(it?.phone_number || '').trim();
+          if (!phone) continue;
+          const prevMeta = previousMeta.get(phone);
+          const curMeta = nextMeta.get(phone);
+          if (!prevMeta || !curMeta) continue;
+          const prevTs = new Date(String(prevMeta.ts || '')).getTime();
+          const curTs = new Date(String(curMeta.ts || '')).getTime();
+          if (!Number.isFinite(prevTs) || !Number.isFinite(curTs) || curTs <= prevTs) continue;
+          const role = String(curMeta.role || '').trim();
+          if (role !== 'user') continue;
+          if (String(selectedPhoneRef.current || '').trim() === phone) continue;
+          const preview = String(it?.last_preview || '').trim();
+          const name = String(it?.lead_name || '').trim() || phone;
+          playNotificationSound();
+          setHighlightedPhone(phone);
+          addToast({
+            type: 'info',
+            message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`
+          });
+        }
+      } else if (reset) {
+        notifiedOnceRef.current = true;
+      }
+      listMetaRef.current = nextMeta;
       if (reset) {
         if (!selectedPhoneRef.current && next.length > 0) setSelectedPhone(String(next[0].phone_number || ''));
       }
@@ -149,9 +332,64 @@ export default function Inbox() {
       const data = safeParseJson(raw) || {};
       const messages = Array.isArray(data?.messages) ? data.messages : [];
       const summary = data?.summary && typeof data.summary === 'object' ? data.summary : null;
-      setSelected({ phone: p, messages, summary });
+      const handoffUntil = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
+      setSelected({
+        phone: p,
+        messages,
+        summary,
+        lead_id: typeof data?.lead_id === 'string' ? data.lead_id : null,
+        lead_name: typeof data?.lead_name === 'string' ? data.lead_name : '',
+        need_human: Boolean(data?.need_human),
+        human_handoff_until: handoffUntil || null
+      });
+      try {
+        setTimeout(() => {
+          const el = threadScrollRef.current;
+          if (!el) return;
+          el.scrollTop = el.scrollHeight;
+          lastAutoScrollPhoneRef.current = p;
+        }, 0);
+      } catch {
+        void 0;
+      }
     } catch (e) {
       if (!silent) setError(e?.message || 'Erro');
+    }
+  }
+
+  async function setHandoffActive(ativo, { silent = false } = {}) {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    if (!phone) return false;
+    if (!silent) setError('');
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}/handoff`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ ativo: Boolean(ativo) })
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar handoff'));
+      const data = safeParseJson(raw) || {};
+      const until = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
+      const active = Boolean(data?.need_human);
+      setSelected((prev) => {
+        if (!prev || prev.phone !== phone) return prev;
+        return { ...prev, need_human: active, human_handoff_until: until || null };
+      });
+      setItems((prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return arr.map((it) => {
+          const p = String(it?.phone_number || '').trim();
+          if (p !== phone) return it;
+          return { ...it, need_human: active, human_handoff_until: until || null };
+        });
+      });
+      await loadList({ reset: true, silent: true });
+      return true;
+    } catch (e) {
+      if (!silent) setError(e?.message || 'Erro');
+      return false;
     }
   }
 
@@ -162,6 +400,10 @@ export default function Inbox() {
     setError('');
     setSending(true);
     try {
+      const shouldAssume = !selected?.need_human;
+      if (shouldAssume) {
+        await setHandoffActive(true, { silent: true });
+      }
       const jwt = await getJwt();
       const resp = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -177,13 +419,86 @@ export default function Inbox() {
         msgs.push({ role: 'assistant', content: text, timestamp: nowIso });
         return { ...prev, messages: msgs.slice(-50) };
       });
+      markSeen(phone);
       setDraft('');
       addToast({ type: 'success', message: 'Enviado' });
       await loadList({ reset: true, silent: true });
+      try {
+        setTimeout(() => {
+          const el = threadScrollRef.current;
+          if (!el) return;
+          el.scrollTop = el.scrollHeight;
+          lastAutoScrollPhoneRef.current = phone;
+        }, 0);
+      } catch {
+        void 0;
+      }
     } catch (e) {
       setError(e?.message || 'Erro');
     } finally {
       setSending(false);
+    }
+  }
+
+  async function linkLeadToConversation({ leadId }) {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    if (!phone || !leadId) return;
+    setLinkingLead(true);
+    setError('');
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'link_lead', lead_id: leadId })
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao associar lead'));
+      const data = safeParseJson(raw) || {};
+      setSelected((prev) => {
+        if (!prev || prev.phone !== phone) return prev;
+        return {
+          ...prev,
+          lead_id: typeof data?.lead_id === 'string' ? data.lead_id : leadId,
+          lead_name: typeof data?.lead_name === 'string' ? data.lead_name : prev.lead_name
+        };
+      });
+      await loadList({ reset: true, silent: true });
+      addToast({ type: 'success', message: 'Lead associado' });
+      setLeadPanel(null);
+      setLeadSearch('');
+    } catch (e) {
+      setError(e?.message || 'Erro');
+    } finally {
+      setLinkingLead(false);
+    }
+  }
+
+  async function convertToLead() {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    const name = String(leadNameDraft || '').trim();
+    if (!phone || !name) return;
+    setLinkingLead(true);
+    setError('');
+    try {
+      const created = await addLead({
+        name,
+        phone,
+        type: leadTypeDraft || 'Adulto',
+        origin: 'WhatsApp',
+        status: LEAD_STATUS.NEW,
+        pipelineStage: 'Novo',
+        isFirstExperience: 'Sim',
+        notes: []
+      });
+      const leadId = String(created?.id || '').trim();
+      if (!leadId) throw new Error('Erro ao criar lead');
+      await linkLeadToConversation({ leadId });
+      addToast({ type: 'success', message: 'Lead criado' });
+    } catch (e) {
+      setError(e?.message || 'Erro');
+    } finally {
+      setLinkingLead(false);
     }
   }
 
@@ -242,6 +557,20 @@ export default function Inbox() {
     []
   );
 
+  const leadCandidates = useMemo(() => {
+    const q = String(leadSearch || '').trim().toLowerCase();
+    const qPhone = normalizePhone(q);
+    const all = Array.isArray(leads) ? leads : [];
+    const filtered = all.filter((l) => {
+      const name = String(l?.name || '').toLowerCase();
+      const phone = normalizePhone(l?.phone || '');
+      if (!q && selectedPhone) return phone.endsWith(normalizePhone(selectedPhone));
+      if (qPhone) return phone.includes(qPhone);
+      return name.includes(q);
+    });
+    return filtered.slice(0, 20);
+  }, [leads, leadSearch, selectedPhone]);
+
   useEffect(() => {
     loadList({ reset: true });
   }, [normalizedSearch]);
@@ -249,6 +578,115 @@ export default function Inbox() {
   useEffect(() => {
     if (selectedPhone) loadThread(selectedPhone);
   }, [selectedPhone]);
+
+  const leadById = useMemo(() => {
+    const map = new Map();
+    const arr = Array.isArray(leads) ? leads : [];
+    for (const l of arr) {
+      const id = String(l?.id || '').trim();
+      if (!id) continue;
+      map.set(id, l);
+    }
+    return map;
+  }, [leads]);
+
+  const leadByPhone = useMemo(() => {
+    const map = new Map();
+    const arr = Array.isArray(leads) ? leads : [];
+    for (const l of arr) {
+      const phone = normalizePhone(l?.phone || '');
+      if (!phone) continue;
+      if (!map.has(phone)) map.set(phone, l);
+    }
+    return map;
+  }, [leads]);
+
+  const enrichedItems = useMemo(() => {
+    const arr = Array.isArray(items) ? items : [];
+    return arr.map((it) => {
+      const phone = String(it?.phone_number || '').trim();
+      const leadId = String(it?.lead_id || '').trim();
+      const leadFromId = leadId ? leadById.get(leadId) : null;
+      const leadFromPhone = phone ? leadByPhone.get(normalizePhone(phone)) : null;
+      const lead = leadFromId || leadFromPhone;
+      const name = String(lead?.name || '').trim() || String(it?.lead_name || '').trim();
+      const displayTitle = name || phone || '-';
+      const lastRole = String(it?.last_message_role || '').trim() || '';
+      const lastSender = String(it?.last_message_sender || '').trim() || '';
+      const unreadCount = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
+      const needsHuman = Boolean(it?.need_human) || Boolean(lead?.needHuman);
+      const hotLead = Boolean(lead?.hotLead);
+      const priority = String(lead?.priority || '').trim();
+      const intention = String(lead?.intention || '').trim();
+      const status = String(lead?.status || '').trim();
+      return {
+        ...it,
+        _phone: phone,
+        _displayTitle: displayTitle,
+        _displaySubtitle: name ? phone : '',
+        _lead: lead || null,
+        _hotLead: hotLead,
+        _needsHuman: needsHuman,
+        _priority: priority,
+        _intention: intention,
+        _status: status,
+        _lastRole: lastRole,
+        _lastSender: lastSender,
+        _unreadCount: unreadCount,
+        _isHighlighted: Boolean(highlighted && typeof highlighted === 'object' && highlighted[phone] && Number(highlighted[phone]) > Date.now())
+      };
+    });
+  }, [items, leadById, leadByPhone, highlighted]);
+
+  const filteredItems = useMemo(() => {
+    const arr = Array.isArray(enrichedItems) ? enrichedItems : [];
+    const f = String(listFilter || 'all');
+    if (f === 'unread') return arr.filter((it) => Number(it?._unreadCount || 0) > 0);
+    if (f === 'hot') return arr.filter((it) => Boolean(it?._hotLead));
+    if (f === 'need_human') return arr.filter((it) => Boolean(it?._needsHuman));
+    return arr;
+  }, [enrichedItems, listFilter]);
+
+  useEffect(() => {
+    const el = threadScrollRef.current;
+    if (!el) return;
+    if (!selectedPhone) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (remaining < 220) {
+      try {
+        el.scrollTop = el.scrollHeight;
+        lastAutoScrollPhoneRef.current = selectedPhone;
+      } catch {
+        void 0;
+      }
+    }
+  }, [selectedPhone, selected?.messages?.length]);
+
+  useEffect(() => {
+    const phone = String(selectedPhone || '').trim();
+    if (!phone) return;
+    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+    const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    if (last) markSeen(phone);
+  }, [selectedPhone, selected?.messages?.length]);
+
+  const startResize = (ev) => {
+    if (!ev) return;
+    ev.preventDefault();
+    const startX = ev.clientX;
+    const startW = listWidth;
+    const onMove = (e) => {
+      const dx = e.clientX - startX;
+      const next = Math.max(320, Math.min(560, startW + dx));
+      setListWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -258,7 +696,7 @@ export default function Inbox() {
       if (phone && !String(draftRef.current || '').trim()) {
         loadThread(phone, { silent: true });
       }
-    }, 15000);
+    }, 10000);
     return () => clearInterval(id);
   }, [autoRefresh, normalizedSearch]);
 
@@ -272,6 +710,40 @@ export default function Inbox() {
           </div>
         )}
       </div>
+      <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          type="button"
+          className={listFilter === 'all' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('all')}
+        >
+          Todos
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('unread')}
+        >
+          Não lidas
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('hot')}
+        >
+          Lead quente
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('need_human')}
+        >
+          Aguardando humano
+        </button>
+      </div>
       <div
         style={{ maxHeight: isMobile ? '72vh' : '70vh', overflow: 'auto' }}
         onScroll={(e) => {
@@ -281,9 +753,21 @@ export default function Inbox() {
           if (remaining < 240) loadList({ reset: false, silent: true });
         }}
       >
-        {items.map((it) => {
-          const phone = String(it?.phone_number || '');
+        {filteredItems.map((it) => {
+          const phone = String(it?._phone || it?.phone_number || '');
           const active = phone === selectedPhone;
+          const hotLead = Boolean(it?._hotLead);
+          const needsHuman = Boolean(it?._needsHuman);
+          const unreadCount = Number(it?._unreadCount || 0);
+          const lastRole = String(it?._lastRole || '').trim();
+          const lastSender = String(it?._lastSender || '').trim();
+          const lastAssistantDot =
+            lastRole === 'assistant'
+              ? lastSender === 'human'
+                ? { bg: '#f59e0b', label: 'Humano' }
+                : { bg: '#22c55e', label: 'Agente IA' }
+              : null;
+          const isHighlighted = Boolean(it?._isHighlighted);
           return (
             <button
               key={String(it?.id || phone)}
@@ -294,26 +778,51 @@ export default function Inbox() {
                 padding: 14,
                 border: 'none',
                 borderBottom: '1px solid var(--border)',
-                background: active ? 'var(--accent-light)' : 'transparent',
+                background: active ? 'var(--accent-light)' : isHighlighted ? 'rgba(34, 197, 94, 0.10)' : 'transparent',
                 cursor: 'pointer'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {phone || '-'}
+                  {lastAssistantDot && (
+                    <span
+                      title={lastAssistantDot.label}
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 999,
+                        background: lastAssistantDot.bg,
+                        flex: '0 0 auto'
+                      }}
+                    />
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span>{String(it?._displayTitle || '-')}</span>
+                        {hotLead && <span title="Lead quente">🔥</span>}
+                        {needsHuman && <span title="Precisa resposta humana">⚠️</span>}
+                      </span>
+                    </div>
+                    {!!String(it?._displaySubtitle || '').trim() && (
+                      <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                        {String(it?._displaySubtitle || '—')}
+                      </div>
+                    )}
                   </div>
-                  {it?.need_human && (
+                  {unreadCount > 0 && (
                     <span
                       className="text-small"
                       style={{
-                        background: 'var(--danger-light)',
-                        color: 'var(--danger)',
+                        background: 'var(--danger)',
+                        color: '#fff',
                         padding: '2px 8px',
-                        borderRadius: 999
+                        borderRadius: 999,
+                        fontWeight: 800
                       }}
+                      title="Mensagens não lidas"
                     >
-                      Humano
+                      {unreadCount}
                     </span>
                   )}
                 </div>
@@ -367,12 +876,240 @@ export default function Inbox() {
               Voltar
             </button>
           )}
-          <div style={{ fontWeight: 700 }}>{selectedPhone || '—'}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {(() => {
+                const phone = String(selectedPhone || '').trim();
+                const leadId = String(selected?.lead_id || '').trim();
+                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+                const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+                return name || phone || '—';
+              })()}
+            </div>
+            {(() => {
+              const phone = String(selectedPhone || '').trim();
+              const leadId = String(selected?.lead_id || '').trim();
+              const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+              const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+              return Boolean(name);
+            })() && (
+              <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                {selectedPhone || '—'}
+              </div>
+            )}
+          </div>
+          {selected?.need_human && (
+            <span
+              className="text-small"
+              style={{
+                background: 'var(--danger-light)',
+                color: 'var(--danger)',
+                padding: '2px 8px',
+                borderRadius: 999
+              }}
+            >
+              Pausado
+            </span>
+          )}
+          {!selected?.need_human && (
+            <span
+              className="text-small"
+              style={{
+                background: 'rgba(34, 197, 94, 0.12)',
+                color: '#16a34a',
+                padding: '2px 8px',
+                borderRadius: 999
+              }}
+            >
+              Agente IA ativo
+            </span>
+          )}
         </div>
-        <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone}>
-          Recarregar
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            className="btn btn-primary"
+            style={{ padding: '6px 10px' }}
+            onClick={() => setHandoffActive(true)}
+            disabled={!selectedPhone || Boolean(selected?.need_human)}
+            type="button"
+            title="Pausa o agente por 2 horas"
+          >
+            Assumir atendimento
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '6px 10px' }}
+            onClick={() => setHandoffActive(false)}
+            disabled={!selectedPhone || !selected?.need_human}
+            type="button"
+            title="Reativa o agente agora"
+          >
+            Devolver ao agente
+          </button>
+          {!selected?.lead_id && (
+            <>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '6px 10px' }}
+                onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))}
+                disabled={!selectedPhone || linkingLead}
+                type="button"
+              >
+                Converter em lead
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '6px 10px' }}
+                onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
+                disabled={!selectedPhone || linkingLead}
+                type="button"
+              >
+                Associar lead
+              </button>
+            </>
+          )}
+          {!!selected?.lead_id && (
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '6px 10px' }}
+              onClick={() => {
+                window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
+              }}
+              type="button"
+            >
+              Abrir lead
+            </button>
+          )}
+          {!!selected?.lead_id && (
+            <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate('/pipeline')} type="button">
+              Kanban
+            </button>
+          )}
+          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone}>
+            Recarregar
+          </button>
+        </div>
       </div>
+
+      {(() => {
+        const phone = String(selectedPhone || '').trim();
+        const leadId = String(selected?.lead_id || '').trim();
+        const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+        if (!lead) return null;
+        const name = String(lead?.name || '').trim();
+        const status = String(lead?.status || '').trim();
+        const intention = String(lead?.intention || '').trim();
+        const priority = String(lead?.priority || '').trim();
+        const hotLead = Boolean(lead?.hotLead);
+        return (
+          <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
+                <div style={{ fontWeight: 800, lineHeight: '20px' }}>{name || 'Sem nome'}</div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                  {lead?.phone || selectedPhone || ''}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {!!status && (
+                    <span className="text-small" style={{ background: 'var(--border)', padding: '2px 8px', borderRadius: 999 }}>
+                      {status}
+                    </span>
+                  )}
+                  {!!intention && (
+                    <span className="text-small" style={{ background: 'var(--border)', padding: '2px 8px', borderRadius: 999 }}>
+                      {intention}
+                    </span>
+                  )}
+                  {!!priority && (
+                    <span className="text-small" style={{ background: 'var(--border)', padding: '2px 8px', borderRadius: 999 }}>
+                      {priority}
+                    </span>
+                  )}
+                  {hotLead && (
+                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
+                      🔥 quente
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                {!!lead?.id && (
+                  <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => window.location.href = `/lead/${encodeURIComponent(String(lead.id))}`} type="button">
+                    Ver perfil completo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {leadPanel === 'convert' && !selected?.lead_id && (
+        <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
+                Nome
+              </div>
+              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
+            </div>
+            <div style={{ minWidth: 180 }}>
+              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
+                Tipo
+              </div>
+              <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
+                <option value="Adulto">Adulto</option>
+                <option value="Criança">Criança</option>
+                <option value="Juniores">Juniores</option>
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={convertToLead} disabled={linkingLead || !String(leadNameDraft || '').trim()} type="button">
+              Criar e enviar ao Kanban
+            </button>
+          </div>
+        </div>
+      )}
+
+      {leadPanel === 'associate' && !selected?.lead_id && (
+        <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+            <input
+              className="input"
+              value={leadSearch}
+              onChange={(e) => setLeadSearch(e.target.value)}
+              placeholder="Buscar por nome ou telefone"
+              style={{ flex: 1, minWidth: 220 }}
+            />
+            <button className="btn btn-secondary" onClick={() => fetchLeads()} disabled={leadsLoading || linkingLead} type="button">
+              Atualizar
+            </button>
+          </div>
+          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
+          {!leadsLoading && leadCandidates.length === 0 && (
+            <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhum lead encontrado.</div>
+          )}
+          {!leadsLoading && leadCandidates.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {leadCandidates.map((l) => (
+                <button
+                  key={l.id}
+                  className="btn btn-outline"
+                  style={{ justifyContent: 'space-between', display: 'flex' }}
+                  onClick={() => linkLeadToConversation({ leadId: l.id })}
+                  disabled={linkingLead}
+                  type="button"
+                >
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                    <span style={{ fontWeight: 800 }}>{l.name || 'Sem nome'}</span>
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || ''}</span>
+                  </span>
+                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.pipelineStage || l.status || ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {selected?.summary?.text && (
         <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
@@ -383,10 +1120,20 @@ export default function Inbox() {
         </div>
       )}
 
-      <div style={{ padding: 12, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto' }}>
+      <div ref={threadScrollRef} style={{ padding: 12, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto' }}>
         {(selected?.messages || []).map((m, idx) => {
           const role = m?.role === 'assistant' ? 'assistant' : 'user';
           const mine = role === 'assistant';
+          const content = String(m?.content || '');
+          const senderKind = (() => {
+            if (role !== 'assistant') return 'user';
+            const sender = String(m?.sender || '').trim().toLowerCase();
+            if (sender === 'human' || sender === 'humano') return 'human';
+            if (sender === 'ai' || sender === 'agent' || sender === 'agente') return 'ai';
+            const hasAiHints = Boolean(m?.in_reply_to) || (m?.classificacao && typeof m.classificacao === 'object');
+            return hasAiHints ? 'ai' : 'human';
+          })();
+          const senderIcon = senderKind === 'ai' ? '🤖' : senderKind === 'human' ? '👤' : '';
           return (
             <div key={idx} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
               <div
@@ -399,9 +1146,14 @@ export default function Inbox() {
                   whiteSpace: 'pre-wrap'
                 }}
               >
-                {String(m?.content || '')}
-                <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
-                  {formatWhen(m?.timestamp)}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                    {mine && <span title={senderKind === 'ai' ? 'Agente IA' : 'Humano'}>{senderIcon}</span>}
+                    <span>{content}</span>
+                  </div>
+                </div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <span>{formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}</span>
                 </div>
               </div>
             </div>
@@ -498,6 +1250,11 @@ export default function Inbox() {
                   applyWrapToDraft('_');
                   return;
                 }
+                if (k === 'enter') {
+                  e.preventDefault();
+                  sendManual();
+                  return;
+                }
               }
               if (e.key === 'Escape') setEmojiOpen(false);
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -505,21 +1262,26 @@ export default function Inbox() {
                 sendManual();
               }
             }}
-            placeholder="Responder manualmente…"
+            placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
             className="form-input"
             rows={3}
             style={{ flex: 1, resize: 'vertical', minHeight: 88 }}
           />
-          <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone}>
-            {sending ? 'Enviando…' : 'Enviar'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+              {String(draft || '').length} caracteres
+            </div>
+            <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
+              {sending ? 'Enviando…' : 'Enviar'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: 1200, width: '100%' }}>
+    <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
           <h2 style={{ margin: 0 }}>Inbox WhatsApp</h2>
@@ -538,7 +1300,7 @@ export default function Inbox() {
           <button className="btn btn-secondary" onClick={() => loadList({ reset: true })} disabled={loading}>
             Atualizar
           </button>
-          <button className="btn btn-outline" onClick={() => setAutoRefresh((v) => !v)} title="Atualiza automaticamente a cada 15s">
+          <button className="btn btn-outline" onClick={() => setAutoRefresh((v) => !v)} title="Atualiza automaticamente a cada 10s">
             Auto: {autoRefresh ? 'On' : 'Off'}
           </button>
         </div>
@@ -553,9 +1315,26 @@ export default function Inbox() {
       {isMobile ? (
         <div>{selectedPhone ? threadPanel : listPanel}</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) minmax(0, 1fr)', gap: 14 }}>
-          {listPanel}
-          {threadPanel}
+        <div style={{ display: 'grid', gridTemplateColumns: `${listWidth}px 10px minmax(0, 1fr)`, gap: 0, alignItems: 'stretch' }}>
+          <div style={{ paddingRight: 14 }}>{listPanel}</div>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            onMouseDown={startResize}
+            onDoubleClick={() => setListWidth(420)}
+            style={{
+              cursor: 'col-resize',
+              width: 10,
+              borderRadius: 999,
+              background: 'transparent',
+              display: 'flex',
+              justifyContent: 'center'
+            }}
+            title="Arraste para ajustar a largura"
+          >
+            <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
+          </div>
+          <div style={{ paddingLeft: 14 }}>{threadPanel}</div>
         </div>
       )}
     </div>

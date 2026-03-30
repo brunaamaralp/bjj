@@ -227,6 +227,7 @@ export const useLeadStore = create((set, get) => ({
           console.warn('onboardingChecklist update failed:', e?.message || e);
         }
       }
+      return newLead;
     } catch (e) {
       console.error('❌ addLead error:', e);
       throw e; // Rethrow to allow handling in the UI
