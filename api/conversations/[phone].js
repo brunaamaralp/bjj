@@ -196,6 +196,7 @@ async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
   const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
     Query.equal('phone_number', [phone]),
     Query.equal('academy_id', [academyId]),
+    Query.orderDesc('updated_at'),
     Query.limit(1)
   ]);
   const existing = list.documents && list.documents[0] ? list.documents[0] : null;
@@ -228,6 +229,7 @@ export default async function handler(req, res) {
       const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
         Query.equal('phone_number', [phone]),
         Query.equal('academy_id', [academyId]),
+        Query.orderDesc('updated_at'),
         Query.limit(1)
       ]);
       const existing = list.documents && list.documents[0] ? list.documents[0] : null;

@@ -1482,14 +1482,6 @@ export default function Inbox() {
     if (selectedPhone) loadThread(selectedPhone);
   }, [selectedPhone]);
 
-  // Auto-sync when a conversation opens with 0 messages
-  useEffect(() => {
-    if (!selected || !selectedPhone) return;
-    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-    if (msgs.length === 0 && !waSyncing) {
-      reconcileLast24h();
-    }
-  }, [selected?.phone]);
 
   const leadById = useMemo(() => {
     const map = new Map();
