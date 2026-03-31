@@ -1371,6 +1371,7 @@ export default function Inbox() {
         body: JSON.stringify({
           phone,
           name,
+          type: String(leadTypeDraft || 'Adulto').trim(),
           classificacao: {
             intencao: String(latestClass?.intencao || '').trim(),
             prioridade: String(latestClass?.prioridade || '').trim(),

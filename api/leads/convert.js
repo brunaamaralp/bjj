@@ -107,6 +107,7 @@ export default async function handler(req, res) {
 
   const phone = normalizePhone(req.body?.phone || '');
   const name = String(req.body?.name || '').trim() || phone;
+  const type = String(req.body?.type || 'Adulto').trim();
   const classificacao = req.body?.classificacao || {};
   if (!phone) return res.status(400).json({ sucesso: false, erro: 'phone ausente' });
 
@@ -124,6 +125,7 @@ export default async function handler(req, res) {
     const payload = {
       name,
       phone,
+      type,
       status: 'Novo',
       origin: 'WhatsApp',
       academyId,
