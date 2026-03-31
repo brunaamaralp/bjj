@@ -708,14 +708,23 @@ export default function Inbox() {
         body: JSON.stringify({})
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar'));
       const data = safeParseJson(raw) || {};
+      if (!resp.ok) {
+        if (data?.code === 'messages_retention_exceeded' || resp.status === 402) {
+          addToast({ type: 'warning', message: 'Plano Zapster limita o histórico a 24h. As mensagens recentes foram importadas normalmente.' });
+          await loadList({ reset: true, silent: true });
+          const phone2 = String(selectedPhoneRef.current || '').trim();
+          if (phone2) await loadThread(phone2);
+          return;
+        }
+        throw new Error(normalizeApiError(raw, 'Falha ao atualizar'));
+      }
       const updated = Number.isFinite(Number(data?.conversations_updated)) ? Number(data.conversations_updated) : 0;
       const created = Number.isFinite(Number(data?.conversations_created)) ? Number(data.conversations_created) : 0;
       const merged = Number.isFinite(Number(data?.messages_merged)) ? Number(data.messages_merged) : 0;
       addToast({
         type: 'success',
-        message: `Atualizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
+        message: `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
       });
       await loadList({ reset: true, silent: true });
       const phone = String(selectedPhoneRef.current || '').trim();

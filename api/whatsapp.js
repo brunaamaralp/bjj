@@ -353,8 +353,11 @@ async function listZapsterMessages({ from, to, after, limit, instanceId }) {
   const data = JSON.parse(raw);
   if (data && typeof data === 'object' && Array.isArray(data.errors) && data.errors.length > 0) {
     const first = data.errors[0];
+    const code = typeof first?.code === 'string' ? first.code : '';
     const msg = typeof first?.message === 'string' ? first.message : 'Erro Zapster';
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.zapsterCode = code;
+    throw err;
   }
   return data;
 }
@@ -453,7 +456,7 @@ export default async function handler(req, res) {
 
     const now = Date.now();
     const toIso = new Date(now).toISOString();
-    const fromIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const fromIso = new Date(now - 23 * 60 * 60 * 1000).toISOString();
     try {
       const items = [];
       let after = '';
@@ -543,6 +546,13 @@ export default async function handler(req, res) {
         errors
       });
     } catch (e) {
+      if (e?.zapsterCode === 'messages_retention_exceeded') {
+        return res.status(402).json({
+          sucesso: false,
+          code: 'messages_retention_exceeded',
+          erro: 'Seu plano Zapster permite sincronizar apenas as últimas 24h de mensagens. As mensagens mais recentes ainda foram importadas.'
+        });
+      }
       return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao atualizar' });
     }
   }
