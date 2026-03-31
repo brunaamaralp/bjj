@@ -1482,6 +1482,15 @@ export default function Inbox() {
     if (selectedPhone) loadThread(selectedPhone);
   }, [selectedPhone]);
 
+  // Auto-sync when a conversation opens with 0 messages
+  useEffect(() => {
+    if (!selected || !selectedPhone) return;
+    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+    if (msgs.length === 0 && !waSyncing) {
+      reconcileLast24h();
+    }
+  }, [selected?.phone]);
+
   const leadById = useMemo(() => {
     const map = new Map();
     const arr = Array.isArray(leads) ? leads : [];
@@ -1898,79 +1907,54 @@ export default function Inbox() {
                 cursor: 'pointer'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
                   {lastAssistantDot && (
                     <span
                       title={lastAssistantDot.label}
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 999,
-                        background: lastAssistantDot.bg,
-                        flex: '0 0 auto'
-                      }}
+                      style={{ width: 8, height: 8, borderRadius: 999, background: lastAssistantDot.bg, flex: '0 0 auto', marginTop: 2 }}
                     />
                   )}
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: 16, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <span>{String(it?._displayTitle || '-')}</span>
-                        {hotLead && <span title="Lead quente">🔥</span>}
-                        {handoffActive && <span title="Atendimento assumido (agente pausado)">⏸️</span>}
-                        {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção humana">⚠️</span>}
-                        {!!ticket?.label && !ticket?.isDefault && (
-                          <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '2px 8px', borderRadius: 999 }}>
-                            {ticket.label}
-                          </span>
-                        )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        {String(it?._displayTitle || '-')}
                       </span>
+                      {hotLead && <span title="Lead quente" style={{ fontSize: 12 }}>🔥</span>}
+                      {handoffActive && <span title="Atendimento assumido" style={{ fontSize: 12 }}>⏸️</span>}
+                      {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção" style={{ fontSize: 12 }}>⚠️</span>}
+                      {it?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
                     </div>
-                    {!!String(it?._displaySubtitle || '').trim() && (
-                      <div className="text-small" style={{ color: 'var(--text)', marginTop: 4, opacity: 0.86 }}>
-                        {String(it?._displaySubtitle || '—')}
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>
+                      <span
+                        className="text-small"
+                        style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                      >
+                        {preview || '—'}
+                      </span>
+                      {!!ticket?.label && !ticket?.isDefault && (
+                        <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '1px 6px', borderRadius: 999, flexShrink: 0 }}>
+                          {ticket.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {formatTimeOnly(it?.updated_at) || formatWhen(it?.updated_at)}
+                  </span>
                   {unreadCount > 0 && (
                     <span
                       className="text-small"
-                      style={{
-                        background: 'var(--danger)',
-                        color: '#fff',
-                        padding: '2px 8px',
-                        borderRadius: 999,
-                        fontWeight: 800
-                      }}
+                      style={{ background: 'var(--danger)', color: '#fff', padding: '1px 7px', borderRadius: 999, fontWeight: 800 }}
                       title="Mensagens não lidas"
                     >
                       {unreadCount}
                     </span>
                   )}
                 </div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: 700 }}>
-                  {formatTimeOnly(it?.updated_at) || formatWhen(it?.updated_at)}
-                </div>
               </div>
-              <div
-                className="text-small"
-                style={{
-                  color: 'var(--text)',
-                  marginTop: 9,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  opacity: 0.86
-                }}
-              >
-                {preview || '—'}
-              </div>
-              {it?.lead_id && (
-                <div style={{ marginTop: 4 }}>
-                  <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, opacity: 0.8 }}>● Lead</span>
-                </div>
-              )}
             </button>
           );
         })}

@@ -424,9 +424,9 @@ export default async function handler(req, res) {
       const messages = safeParseMessages(doc.messages);
       const nowIso = new Date().toISOString();
       messages.push({ role, content: content.trim(), timestamp: nowIso });
-      const last10 = messages.slice(-10);
+      const last50 = messages.slice(-50);
       const updatePayload = {
-        messages: JSON.stringify(last10),
+        messages: JSON.stringify(last50),
         updated_at: nowIso
       };
       if (role === 'user') {
