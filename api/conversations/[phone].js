@@ -398,11 +398,16 @@ export default async function handler(req, res) {
       const leadId = String(payloadBody?.lead_id || '').trim();
       if (!leadId) return res.status(400).json({ sucesso: false, erro: 'lead_id ausente' });
       let leadName = '';
+      let leadDoc = null;
       try {
-        const leadDoc = await databases.getDocument(DB_ID, LEADS_COL, leadId);
+        leadDoc = await databases.getDocument(DB_ID, LEADS_COL, leadId);
         leadName = String(leadDoc?.name || '').trim();
       } catch {
         return res.status(400).json({ sucesso: false, erro: 'Lead não encontrado' });
+      }
+      const leadAcademy = String(leadDoc?.academyId || '').trim();
+      if (!leadAcademy || leadAcademy !== academyId) {
+        return res.status(403).json({ sucesso: false, erro: 'Lead não pertence a esta academia' });
       }
       try {
         const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
