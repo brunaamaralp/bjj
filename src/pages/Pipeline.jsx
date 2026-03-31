@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, RefreshCw, StickyNote } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, RefreshCw, StickyNote, MoreVertical } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -67,6 +67,7 @@ const STAGE_COLORS = [
     { color: 'var(--cyan)', bg: 'rgba(0, 188, 212, 0.15)' },
 ];
 const DEFAULT_STAGE_SLA_DAYS = 3;
+const COMPACT_ACTIONS_MQ = '(max-width: 719px)';
 
 const Pipeline = () => {
     const navigate = useNavigate();
@@ -91,6 +92,44 @@ const Pipeline = () => {
     const [dayFilter, setDayFilter] = useState('all'); // all | today | tomorrow
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
     const [listRefreshing, setListRefreshing] = useState(false);
+    const [compactCardActions, setCompactCardActions] = useState(() =>
+        typeof window !== 'undefined' ? window.matchMedia(COMPACT_ACTIONS_MQ).matches : false
+    );
+    const [actionsMenuLeadId, setActionsMenuLeadId] = useState(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mq = window.matchMedia(COMPACT_ACTIONS_MQ);
+        const onChange = () => setCompactCardActions(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+
+    useEffect(() => {
+        if (!compactCardActions) setActionsMenuLeadId(null);
+    }, [compactCardActions]);
+
+    useEffect(() => {
+        if (!actionsMenuLeadId) return;
+        const close = (e) => {
+            const t = e.target;
+            if (t && typeof t.closest === 'function' && t.closest('.lead-card-actions-compact')) return;
+            setActionsMenuLeadId(null);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') setActionsMenuLeadId(null);
+        };
+        const touchOpts = { passive: true };
+        document.addEventListener('mousedown', close);
+        document.addEventListener('touchstart', close, touchOpts);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', close);
+            document.removeEventListener('touchstart', close, touchOpts);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [actionsMenuLeadId]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -312,7 +351,7 @@ const Pipeline = () => {
     const onDragStart = (e, leadId) => {
         const el = e?.target;
         if (el && typeof el.closest === 'function') {
-            if (el.closest('button') || el.closest('a') || el.closest('input') || el.closest('select') || el.closest('textarea') || el.closest('.dropdown-panel')) {
+            if (el.closest('button') || el.closest('a') || el.closest('input') || el.closest('select') || el.closest('textarea') || el.closest('.dropdown-panel') || el.closest('.action-menu-panel')) {
                 e.preventDefault();
                 return;
             }
@@ -508,7 +547,7 @@ const Pipeline = () => {
                                         className="card lead-card animate-in"
                                         style={{ animationDelay: `${0.03 * i}s` }}
                                         onClick={() => navigate(`/lead/${lead.id}`)}
-                                        draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id)}
+                                        draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id || actionsMenuLeadId === lead.id)}
                                         onDragStart={(e) => onDragStart(e, lead.id)}
                                     >
                                         <div className="flex justify-between items-center">
@@ -535,20 +574,93 @@ const Pipeline = () => {
                                                 {daysInStage(lead)}d no estágio
                                             </span>
                                         </div>
-                                        <div className="action-bar mt-2">
-                                            <button className="action-btn" draggable={false} onClick={(e) => handleWhatsApp(e, lead)}>
-                                                <MessageCircle size={14} /> WhatsApp
-                                            </button>
-                                            <button className="action-btn" draggable={false} onClick={(e) => openScheduler(e, lead.id)}>
-                                                <Calendar size={14} /> Agendar <ChevronDown size={14} />
-                                            </button>
-                                            <button className="action-btn" draggable={false} onClick={(e) => openMover(e, lead.id)}>
-                                                <ChevronRight size={14} /> Mover
-                                            </button>
-                                            <button className="action-btn" draggable={false} onClick={(e) => openNote(e, lead)}>
-                                                <StickyNote size={14} /> Obs.
-                                            </button>
-                                        </div>
+                                        {compactCardActions ? (
+                                            <div className="lead-card-actions-compact action-bar-compact mt-2">
+                                                <button
+                                                    type="button"
+                                                    className="action-btn action-btn-more"
+                                                    draggable={false}
+                                                    aria-expanded={actionsMenuLeadId === lead.id}
+                                                    aria-haspopup="menu"
+                                                    aria-label="Mais ações"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActionsMenuLeadId((v) => (v === lead.id ? null : lead.id));
+                                                    }}
+                                                >
+                                                    <MoreVertical size={18} strokeWidth={2.25} />
+                                                </button>
+                                                {actionsMenuLeadId === lead.id && (
+                                                    <div className="action-menu-panel" role="menu" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            type="button"
+                                                            className="action-menu-item"
+                                                            draggable={false}
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                handleWhatsApp(e, lead);
+                                                                setActionsMenuLeadId(null);
+                                                            }}
+                                                        >
+                                                            <MessageCircle size={16} /> WhatsApp
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="action-menu-item"
+                                                            draggable={false}
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActionsMenuLeadId(null);
+                                                                openScheduler(e, lead.id);
+                                                            }}
+                                                        >
+                                                            <Calendar size={16} /> Agendar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="action-menu-item"
+                                                            draggable={false}
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActionsMenuLeadId(null);
+                                                                openMover(e, lead.id);
+                                                            }}
+                                                        >
+                                                            <ChevronRight size={16} /> Mover de etapa
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="action-menu-item"
+                                                            draggable={false}
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                openNote(e, lead);
+                                                                setActionsMenuLeadId(null);
+                                                            }}
+                                                        >
+                                                            <StickyNote size={16} /> Observação
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="action-bar mt-2">
+                                                <button className="action-btn" draggable={false} onClick={(e) => handleWhatsApp(e, lead)}>
+                                                    <MessageCircle size={14} /> WhatsApp
+                                                </button>
+                                                <button className="action-btn" draggable={false} onClick={(e) => openScheduler(e, lead.id)}>
+                                                    <Calendar size={14} /> Agendar <ChevronDown size={14} />
+                                                </button>
+                                                <button className="action-btn" draggable={false} onClick={(e) => openMover(e, lead.id)}>
+                                                    <ChevronRight size={14} /> Mover
+                                                </button>
+                                                <button className="action-btn" draggable={false} onClick={(e) => openNote(e, lead)}>
+                                                    <StickyNote size={14} /> Obs.
+                                                </button>
+                                            </div>
+                                        )}
                                         {schedulerOpenId === lead.id && (
                                             <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
                                                 <div className="dropdown-section">
@@ -751,6 +863,21 @@ const Pipeline = () => {
         }
         .more-btn:hover { border-color: var(--accent); color: var(--accent); }
         .action-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+        .lead-card-actions-compact { position: relative; display: flex; justify-content: flex-end; align-items: flex-start; }
+        .action-btn-more { min-width: 42px; min-height: 38px; padding: 0 10px; justify-content: center; border-radius: var(--radius-sm); }
+        .action-menu-panel {
+          position: absolute; right: 0; left: 14px; top: calc(100% + 4px);
+          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow-lg); padding: 6px; z-index: 12;
+          display: flex; flex-direction: column; gap: 2px;
+        }
+        .action-menu-item {
+          width: 100%; display: flex; align-items: center; gap: 10px;
+          text-align: left; padding: 10px 12px; border: none; border-radius: var(--radius-sm);
+          background: transparent; font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);
+          cursor: pointer; font-family: inherit;
+        }
+        .action-menu-item:hover { background: var(--accent-light); color: var(--accent); }
         .action-btn {
           min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
           font-size: 0.78rem; font-weight: 700; border: 1px solid var(--border);
@@ -765,7 +892,7 @@ const Pipeline = () => {
         .dropdown-panel {
           position: absolute; left: 14px; right: 14px; top: 100%; margin-top: 6px;
           background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-          box-shadow: var(--shadow-lg); padding: 10px; z-index: 5;
+          box-shadow: var(--shadow-lg); padding: 10px; z-index: 15;
         }
         .dropdown-section { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
         .dropdown-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; }
