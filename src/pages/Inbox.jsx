@@ -2076,7 +2076,7 @@ export default function Inbox() {
             className="btn btn-outline"
             style={{ padding: '6px 10px', minHeight: 34 }}
             onClick={() => {
-              if (isMobile) setDetailsOpen(true);
+              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
               else setContextOpen((v) => !v);
             }}
             disabled={!selectedPhone}
@@ -3183,12 +3183,12 @@ export default function Inbox() {
                     className="inbox-menu-item"
                     type="button"
                     onClick={() => {
-                      if (isMobile) setDetailsOpen(true);
+                      if (isMobile || isNarrowDesktop) setDetailsOpen(true);
                       else setContextOpen((v) => !v);
                       closeMenu();
                     }}
                   >
-                    {isMobile ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
+                    {isMobile || isNarrowDesktop ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                       Painel
                     </span>
@@ -3256,7 +3256,7 @@ export default function Inbox() {
                         type="button"
                         onClick={() => {
                           setLeadPanel('convert');
-                          if (isMobile) setDetailsOpen(true);
+                          if (isMobile || isNarrowDesktop) setDetailsOpen(true);
                           else setContextOpen(true);
                           closeMenu();
                         }}
@@ -3272,7 +3272,7 @@ export default function Inbox() {
                         type="button"
                         onClick={() => {
                           setLeadPanel('associate');
-                          if (isMobile) setDetailsOpen(true);
+                          if (isMobile || isNarrowDesktop) setDetailsOpen(true);
                           else setContextOpen(true);
                           closeMenu();
                         }}
