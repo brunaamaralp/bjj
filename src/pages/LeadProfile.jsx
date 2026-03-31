@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
-import { account, databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const STATUS_CONFIG = {
     [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
@@ -11,14 +11,6 @@ const STATUS_CONFIG = {
     [LEAD_STATUS.MISSED]: { bg: 'var(--danger-light)', color: 'var(--danger)' },
     [LEAD_STATUS.CONVERTED]: { bg: 'var(--purple-light)', color: 'var(--purple)' },
     [LEAD_STATUS.LOST]: { bg: '#f1f5f9', color: '#64748b' },
-};
-
-const DEFAULT_TEMPLATES = {
-    confirm: 'Olá {primeiroNome}! Confirmando sua aula experimental {dataAula}{horaAula}. Venha com roupa confortável! Qualquer dúvida, estamos à disposição.',
-    reminder: 'Oi {primeiroNome}! Passando para lembrar da sua aula experimental {amanhaData}{horaAula}. Estamos te esperando!',
-    post_class: '{primeiroNome}, foi um prazer ter você na nossa academia! O que achou da aula? Quer que eu te envie os valores e horários para começar?',
-    missed: 'Oi {primeiroNome}! Sentimos sua falta na aula experimental. Sei que imprevistos acontecem! Quer remarcar para outro dia? Estamos com horários disponíveis essa semana.',
-    recovery: 'Olá {primeiroNome}! Tudo bem? Vi que você visitou nossa academia recentemente. Ainda tem interesse em começar no Jiu-Jitsu? Temos turmas nos horários da manhã e noite. Vou adorar ajudar!',
 };
 
 const LeadProfile = () => {
@@ -30,19 +22,8 @@ const LeadProfile = () => {
 
     const [note, setNote] = useState('');
     const [eventTypeFilter, setEventTypeFilter] = useState('all');
-    const [showTemplates, setShowTemplates] = useState(false);
-    const [copiedId, setCopiedId] = useState(null);
     const [editing, setEditing] = useState(false);
-    const [templateOverrides, setTemplateOverrides] = useState({});
-    const [academyName, setAcademyName] = useState('');
     const [customQuestions, setCustomQuestions] = useState([]);
-    const [showAi, setShowAi] = useState(false);
-    const [aiInput, setAiInput] = useState('');
-    const [aiSuggestion, setAiSuggestion] = useState('');
-    const [aiLoading, setAiLoading] = useState(false);
-    const [aiSending, setAiSending] = useState(false);
-    const [aiError, setAiError] = useState('');
-    const templatesSectionRef = useRef(null);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -118,7 +99,6 @@ const LeadProfile = () => {
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 try {
-                    setAcademyName(String(doc?.name || '').trim());
                     const normalized = normalizeQuestions(doc.customLeadQuestions);
                     setCustomQuestions(normalized.questions);
                     if (normalized.migrated) {
@@ -126,15 +106,6 @@ const LeadProfile = () => {
                             customLeadQuestions: JSON.stringify(normalized.questions)
                         }).catch(() => void 0);
                     }
-                    try {
-                        const raw = doc.whatsappTemplates;
-                        const parsed = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
-                        if (parsed && typeof parsed === 'object') {
-                            setTemplateOverrides(parsed);
-                        } else {
-                            setTemplateOverrides({});
-                        }
-                    } catch { setTemplateOverrides({}); }
                 } catch { setCustomQuestions([]); }
             })
             .catch(() => setCustomQuestions([]));
@@ -191,6 +162,11 @@ const LeadProfile = () => {
 
     const handleSave = async () => {
         const payload = { ...form };
+        const hasDate = String(payload.scheduledDate || '').trim().length > 0;
+        if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
+            payload.status = LEAD_STATUS.SCHEDULED;
+            payload.pipelineStage = 'Aula experimental';
+        }
         await updateLead(id, payload);
         setEditing(false);
     };
@@ -242,73 +218,6 @@ const LeadProfile = () => {
         } catch { /* noop */ }
     };
 
-    const getJwt = async () => {
-        const jwt = await account.createJWT();
-        return String(jwt?.jwt || '').trim();
-    };
-
-    const handleAiGenerate = async () => {
-        const cleanPhone = String(lead.phone || '').replace(/\D/g, '');
-        if (!cleanPhone) return;
-        const inbound = String(aiInput || '').trim();
-        if (!inbound) return;
-        setAiError('');
-        setAiSuggestion('');
-        setAiLoading(true);
-        try {
-            const resp = await fetch('/api/agent/respond?mode=suggest', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json', 'x-academy-id': String(academyId || '') },
-                body: JSON.stringify({ phone: cleanPhone, name: lead.name || '', message: inbound })
-            });
-            const raw = await resp.text();
-            if (!resp.ok) throw new Error(raw || 'Falha ao gerar sugestão');
-            const data = JSON.parse(raw);
-            const text = String(data?.resposta || '').trim();
-            if (!text) throw new Error('Resposta vazia');
-            setAiSuggestion(text);
-        } catch (e) {
-            setAiError(e?.message || 'Erro');
-        } finally {
-            setAiLoading(false);
-        }
-    };
-
-    const handleAiSend = async () => {
-        const cleanPhone = String(lead.phone || '').replace(/\D/g, '');
-        const text = String(aiSuggestion || '').trim();
-        if (!cleanPhone || !text) return;
-        setAiError('');
-        setAiSending(true);
-        try {
-            const jwt = await getJwt();
-            const resp = await fetch('/api/whatsapp?action=send', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyId || ''), 'content-type': 'application/json' },
-                body: JSON.stringify({ phone: cleanPhone, text })
-            });
-            const raw = await resp.text();
-            if (!resp.ok) throw new Error(raw || 'Falha ao enviar');
-            try {
-                const existing = Array.isArray(lead.notes) ? lead.notes : [];
-                const event = { type: 'message', channel: 'whatsapp', text: 'Mensagem WhatsApp enviada (IA)', at: new Date().toISOString(), by: 'user' };
-                const newNotes = [...existing, event];
-                updateLead(id, { notes: newNotes });
-            } catch { /* noop */ }
-        } catch (e) {
-            setAiError(e?.message || 'Erro');
-        } finally {
-            setAiSending(false);
-        }
-    };
-
-    const openTemplates = () => {
-        setShowTemplates(true);
-        setTimeout(() => {
-            templatesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 0);
-    };
-
     const addNote = () => {
         if (!note.trim()) return;
         const newNotes = [...(lead.notes || []), { type: 'note', text: note, at: new Date().toISOString(), by: 'user' }];
@@ -321,32 +230,7 @@ const LeadProfile = () => {
         updateLead(id, { notes: newNotes });
     };
 
-    const handleCopyTemplate = (template) => {
-        navigator.clipboard.writeText(template.text).then(() => {
-            setCopiedId(template.id);
-            setTimeout(() => setCopiedId(null), 2000);
-        });
-    };
-
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
-    const firstName = lead.name?.split(' ')[0] || 'Aluno';
-    const dateStr = lead.scheduledDate ? new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR') : '';
-    const timeStr = lead.scheduledTime || '';
-    const render = (text) => {
-        return String(text || '')
-            .replaceAll('{primeiroNome}', firstName)
-            .replaceAll('{dataAula}', dateStr)
-            .replaceAll('{horaAula}', timeStr ? ` às ${timeStr}` : '')
-            .replaceAll('{amanhaData}', dateStr ? `amanhã (${dateStr})` : 'amanhã')
-            .replaceAll('{nomeAcademia}', academyName || 'nossa academia');
-    };
-    const templates = [
-        { id: 'confirm', label: 'Confirmar Aula', text: render(templateOverrides.confirm || DEFAULT_TEMPLATES.confirm) },
-        { id: 'reminder', label: 'Lembrete', text: render(templateOverrides.reminder || DEFAULT_TEMPLATES.reminder) },
-        { id: 'post_class', label: 'Pós-Aula', text: render(templateOverrides.post_class || DEFAULT_TEMPLATES.post_class) },
-        { id: 'missed', label: 'Não Compareceu', text: render(templateOverrides.missed || DEFAULT_TEMPLATES.missed) },
-        { id: 'recovery', label: 'Recuperação', text: render(templateOverrides.recovery || DEFAULT_TEMPLATES.recovery) },
-    ];
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
@@ -555,105 +439,12 @@ const LeadProfile = () => {
                     </span>
                 </div>
 
-                {/* Contact Actions */}
+                {/* Contact */}
                 <div className="flex gap-2 mt-4">
-                    <button className="contact-btn whatsapp" onClick={() => handleWhatsApp()}>
+                    <button type="button" className="contact-btn whatsapp contact-btn-full" onClick={() => handleWhatsApp()}>
                         <MessageCircle size={18} /> WhatsApp
                     </button>
-                    <button className="contact-btn call" onClick={openTemplates}>
-                        <Send size={18} /> Mensagens prontas
-                    </button>
-                    <button className="contact-btn ai" onClick={() => setShowAi(!showAi)}>
-                        <MessageCircle size={18} /> Usar IA
-                    </button>
                 </div>
-            </div>
-
-            {/* WhatsApp Templates */}
-            <div ref={templatesSectionRef} className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-                <button
-                    className={`templates-toggle ${showTemplates ? 'active' : ''}`}
-                    onClick={() => setShowTemplates(!showTemplates)}
-                >
-                    <MessageCircle size={16} color="#25D366" />
-                    <span>Mensagens Prontas</span>
-                    <span className="toggle-arrow">{showTemplates ? '▲' : '▼'}</span>
-                </button>
-
-                {showTemplates && (
-                    <div className="templates-list mt-2 flex-col gap-2 animate-in">
-                        {templates.map(t => (
-                            <div key={t.id} className="card template-card">
-                                <div className="flex justify-between items-center mb-2">
-                                    <strong className="template-label">{t.label}</strong>
-                                    <div className="flex gap-2">
-                                        <button className="tpl-btn" onClick={() => handleCopyTemplate(t)} title="Copiar">
-                                            {copiedId === t.id ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
-                                        </button>
-                                        <button className="tpl-btn tpl-send" onClick={() => handleWhatsApp(t.text)} title="Enviar">
-                                            <Send size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <p className="template-text">{t.text}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <div className="mt-3 animate-in" style={{ animationDelay: '0.06s' }}>
-                <button
-                    className={`templates-toggle ${showAi ? 'active' : ''}`}
-                    onClick={() => setShowAi(!showAi)}
-                >
-                    <MessageCircle size={16} color="var(--accent)" />
-                    <span>Usar IA</span>
-                    <span className="toggle-arrow">{showAi ? '▲' : '▼'}</span>
-                </button>
-                {showAi && (
-                    <div className="card mt-2" style={{ padding: 14 }}>
-                        {aiError && (
-                            <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 10 }}>
-                                {aiError}
-                            </div>
-                        )}
-                        <div className="form-group">
-                            <label>Mensagem recebida</label>
-                            <textarea
-                                value={aiInput}
-                                onChange={(e) => setAiInput(e.target.value)}
-                                className="note-area"
-                                rows={3}
-                                placeholder="Cole aqui a mensagem do WhatsApp…"
-                            />
-                        </div>
-                        <div className="flex gap-2" style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
-                            <button className="btn-secondary" onClick={handleAiGenerate} disabled={aiLoading || !String(aiInput || '').trim()}>
-                                {aiLoading ? 'Gerando…' : 'Gerar sugestão'}
-                            </button>
-                        </div>
-                        {aiSuggestion && (
-                            <div style={{ marginTop: 12 }}>
-                                <label>Sugestão</label>
-                                <div className="note-area" style={{ whiteSpace: 'pre-wrap', minHeight: 80 }}>
-                                    {aiSuggestion}
-                                </div>
-                                <div className="flex gap-2 mt-2" style={{ justifyContent: 'flex-end' }}>
-                                    <button
-                                        className="btn-outline"
-                                        onClick={() => navigator.clipboard.writeText(aiSuggestion)}
-                                    >
-                                        <Copy size={16} /> Copiar
-                                    </button>
-                                    <button className="btn-primary" onClick={handleAiSend} disabled={aiSending}>
-                                        <Send size={16} /> {aiSending ? 'Enviando…' : 'Enviar pelo sistema'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* Action Buttons */}
@@ -775,30 +566,7 @@ const LeadProfile = () => {
         }
         .contact-btn.whatsapp { background: #25D366; color: white; }
         .contact-btn.whatsapp:hover { filter: brightness(1.05); }
-        .contact-btn.call { background: var(--border-light); color: var(--text); }
-        .contact-btn.call:hover { background: var(--border); }
-        .contact-btn.ai { background: var(--accent); color: white; }
-        .contact-btn.ai:hover { filter: brightness(1.05); }
-        
-        .templates-toggle {
-          width: 100%; background: var(--surface); border: 1.5px solid var(--border);
-          border-radius: var(--radius-sm); padding: 12px 16px; min-height: auto;
-          font-size: 0.9rem; font-weight: 600; color: var(--text);
-          display: flex; align-items: center; gap: 10px; justify-content: flex-start;
-        }
-        .templates-toggle.active { border-color: #25D366; background: rgba(37, 211, 102, 0.05); }
-        .toggle-arrow { margin-left: auto; font-size: 0.7rem; color: var(--text-muted); }
-        .template-card { padding: 14px; border-left: 3px solid #25D366; }
-        .template-label { font-size: 0.82rem; }
-        .template-text { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
-        .tpl-btn {
-          width: 32px; height: 32px; border-radius: 50%; background: var(--border-light);
-          padding: 0; min-height: auto; color: var(--text-muted);
-          display: flex; align-items: center; justify-content: center;
-        }
-        .tpl-btn:hover { background: var(--border); }
-        .tpl-send { background: #25D366; color: white; }
-        .tpl-send:hover { filter: brightness(1.1); background: #25D366; }
+        .contact-btn-full { width: 100%; max-width: 100%; flex: 1 1 100%; justify-content: center; }
 
         .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .action-btn { 
