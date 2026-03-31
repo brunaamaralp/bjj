@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, RefreshCw, StickyNote } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -70,9 +70,10 @@ const DEFAULT_STAGE_SLA_DAYS = 3;
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead } = useLeadStore();
+    const { leads, importLeads, updateLead, fetchLeads } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
+    const leadsLoading = useLeadStore((s) => s.loading);
     const getLeadById = useLeadStore((s) => s.getLeadById);
     const [showImport, setShowImport] = useState(false);
     const [quickItems, setQuickItems] = useState([]);
@@ -89,6 +90,22 @@ const Pipeline = () => {
     const [tempStages, setTempStages] = useState(DEFAULT_STAGE_LABELS);
     const [dayFilter, setDayFilter] = useState('all'); // all | today | tomorrow
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
+    const [listRefreshing, setListRefreshing] = useState(false);
+
+    useEffect(() => {
+        if (!academyId) return;
+        useLeadStore.getState().fetchLeads();
+    }, [academyId]);
+
+    const handleRefreshList = async () => {
+        if (listRefreshing || leadsLoading) return;
+        setListRefreshing(true);
+        try {
+            await fetchLeads();
+        } finally {
+            setListRefreshing(false);
+        }
+    };
 
     const handleImport = (rows) => {
         importLeads(rows);
@@ -356,7 +373,10 @@ const Pipeline = () => {
             <div className="pipeline-header">
                 <div className="container header-layout">
                     <div className="header-left">
-                        <h2>Fluxo de Matrícula</h2>
+                        <div className="pipeline-title-block">
+                            <h2>{labels.leads}</h2>
+                            <p className="pipeline-subtitle">Fluxo de matrícula até a conversão</p>
+                        </div>
                         <div className="filters">
                             <button className={`filter-chip ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
                             <button className={`filter-chip ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
@@ -371,6 +391,16 @@ const Pipeline = () => {
                         </div>
                     </div>
                     <div className="header-right">
+                        <button
+                            type="button"
+                            className="import-btn-pipe pipeline-refresh"
+                            onClick={handleRefreshList}
+                            disabled={listRefreshing || leadsLoading}
+                            title="Recarregar lista do servidor"
+                        >
+                            <RefreshCw size={16} className={listRefreshing || leadsLoading ? 'spin' : ''} />
+                            Atualizar
+                        </button>
                         <ExportButton leads={leads} fileName={`${slug(labels.leads)}-pipeline`} label="Exportar" />
                         <button className="import-btn-pipe" onClick={() => setShowImport(true)}>
                             <Upload size={16} /> {`Importar ${labels.leads}`}
@@ -382,6 +412,10 @@ const Pipeline = () => {
                 </div>
                 {editStages && (
                     <div className="container stage-editor">
+                        <div className="stage-editor-head">
+                            <span>Nome da etapa</span>
+                            <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
+                        </div>
                         {tempStages.map((st, idx) => (
                             <div className="stage-row" key={st.id}>
                                 <input
@@ -512,7 +546,7 @@ const Pipeline = () => {
                                                 <ChevronRight size={14} /> Mover
                                             </button>
                                             <button className="action-btn" draggable={false} onClick={(e) => openNote(e, lead)}>
-                                                <MessageCircle size={14} /> Obs.
+                                                <StickyNote size={14} /> Obs.
                                             </button>
                                         </div>
                                         {schedulerOpenId === lead.id && (
@@ -566,7 +600,12 @@ const Pipeline = () => {
                                 ))}
                                 {colLeads.length === 0 && (
                                     <div className="col-empty">
-                                        <p>{`Nenhum ${singular(labels.leads).toLowerCase()}`}</p>
+                                        <p>{`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}</p>
+                                        <p className="col-empty-hint">
+                                            {dayFilter !== 'all'
+                                                ? 'Troque o filtro para “Todos” para ver agendamentos futuros ou leads sem data.'
+                                                : 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.'}
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -590,7 +629,11 @@ const Pipeline = () => {
         .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
         .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .header-left h2 { margin: 0; }
+        .pipeline-title-block h2 { margin: 0; font-size: 1.35rem; }
+        .pipeline-subtitle { margin: 2px 0 0; font-size: 0.78rem; color: var(--text-muted); font-weight: 600; max-width: 42ch; }
+        .pipeline-refresh:disabled { opacity: 0.65; cursor: not-allowed; }
+        .pipeline-refresh .spin { animation: pipelineSpin 0.7s linear infinite; }
+        @keyframes pipelineSpin { to { transform: rotate(360deg); } }
         .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
         .filters .filter-chip { flex: 0 0 auto; }
@@ -650,10 +693,12 @@ const Pipeline = () => {
         }
         .lead-meta { font-size: 0.78rem; color: var(--text-secondary); }
         .col-empty { 
-          padding: 20px; text-align: center; color: var(--text-muted); 
+          padding: 16px 12px; text-align: center; color: var(--text-muted); 
           font-size: 0.82rem; border: 1.5px dashed var(--border); 
           border-radius: var(--radius-sm); 
         }
+        .col-empty p { margin: 0; font-weight: 600; color: var(--text-secondary); }
+        .col-empty-hint { margin-top: 8px !important; font-weight: 500 !important; font-size: 0.75rem !important; line-height: 1.35; color: var(--text-muted) !important; }
         .import-btn-pipe {
           background: var(--accent); color: white; padding: 0 14px; min-height: 38px;
           border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
@@ -670,6 +715,10 @@ const Pipeline = () => {
         .origin-group { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 8px; background: var(--surface); }
         .origin-select { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 700; }
         .stage-editor { margin-top: 10px; padding-bottom: 10px; }
+        .stage-editor-head {
+          display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-bottom: 6px;
+          font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+        }
         .stage-row { display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-bottom: 8px; }
         .stage-input, .stage-sla { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--surface); color: var(--text); }
         .stage-actions { display: flex; align-items: center; gap: 8px; }
@@ -728,10 +777,14 @@ const Pipeline = () => {
         }
         .dropdown-item.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
         .toast {
-          position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+          position: fixed; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
           background: var(--success); color: white; padding: 10px 14px; border-radius: var(--radius-full);
           font-size: 0.85rem; font-weight: 700; box-shadow: var(--shadow);
           z-index: 300; animation: fadeInUp 0.2s ease;
+          max-width: min(92vw, 420px); text-align: center;
+        }
+        @media (min-width: 900px) {
+          .toast { bottom: 24px; }
         }
         .note-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.5);

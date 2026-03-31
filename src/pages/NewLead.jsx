@@ -65,8 +65,12 @@ const NewLead = () => {
                 ...data,
                 status: LEAD_STATUS.SCHEDULED
             };
-            await addLead(payload);
-            navigate('/');
+            const created = await addLead(payload);
+            if (created?.id) {
+                navigate(`/lead/${encodeURIComponent(created.id)}`);
+            } else {
+                navigate('/pipeline');
+            }
         } catch (e) {
             alert('Erro ao salvar interessado: ' + e.message);
         } finally {
