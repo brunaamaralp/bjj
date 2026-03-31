@@ -61,6 +61,22 @@ function ensureJson(req, res) {
   return true;
 }
 
+async function readJsonBody(req) {
+  if (req?.body && typeof req.body === 'object') return req.body;
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    if (chunks.length === 0) return null;
+    const raw = Buffer.concat(chunks).toString('utf8').trim();
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function getPhone(req) {
   const raw = String(req.query?.phone || '').trim();
   if (!raw) return '';
@@ -186,18 +202,14 @@ async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
   if (existing) return existing;
 
   const nowIso = new Date().toISOString();
-  return databases.createDocument(
-    DB_ID,
-    CONVERSATIONS_COL,
-    ID.unique(),
-    {
-      phone_number: phone,
-      messages: JSON.stringify([]),
-      updated_at: nowIso,
-      academy_id: academyId
-    },
-    permissionsForAcademyDoc(academyDoc)
-  );
+  const perms = permissionsForAcademyDoc(academyDoc);
+  const base = { phone_number: phone, messages: JSON.stringify([]), updated_at: nowIso, academy_id: academyId };
+  const extended = { ...base, ticket_status: 'open', ticket_updated_at: nowIso };
+  try {
+    return await databases.createDocument(DB_ID, CONVERSATIONS_COL, ID.unique(), extended, perms);
+  } catch {
+    return await databases.createDocument(DB_ID, CONVERSATIONS_COL, ID.unique(), base, perms);
+  }
 }
 
 export default async function handler(req, res) {
@@ -229,11 +241,19 @@ export default async function handler(req, res) {
       const unreadCount = Number.isFinite(Number(existing?.unread_count)) ? Number(existing.unread_count) : 0;
       const lastReadAt = typeof existing?.last_read_at === 'string' ? existing.last_read_at : null;
       const lastUserMsgAt = typeof existing?.last_user_msg_at === 'string' ? existing.last_user_msg_at : null;
+      const ticketStatus = existing && typeof existing.ticket_status === 'string' ? String(existing.ticket_status).trim() : 'open';
+      const transferTo = existing && typeof existing.transfer_to === 'string' ? String(existing.transfer_to).trim() : '';
+      const resolvedAt = existing && typeof existing.resolved_at === 'string' ? existing.resolved_at : null;
+      const waitingSince = existing && typeof existing.waiting_since === 'string' ? existing.waiting_since : null;
       return res.status(200).json({
         messages,
         summary,
         lead_id: leadId,
         lead_name: leadName || '',
+        ticket_status: ticketStatus || 'open',
+        transfer_to: transferTo || null,
+        resolved_at: resolvedAt,
+        waiting_since: waitingSince,
         human_handoff_until: handoff || null,
         need_human: needHuman,
         unread_count: unreadCount || 0,
@@ -241,19 +261,54 @@ export default async function handler(req, res) {
         last_user_msg_at: lastUserMsgAt || null
       });
     } catch (e) {
-      return res.status(500).json({ messages: [], summary: { updated_at: null, text: '' } });
+      return res.status(500).json({ sucesso: false, messages: [], summary: { updated_at: null, text: '' }, erro: e?.message || 'Erro interno' });
     }
   }
 
   if (req.method === 'PATCH') {
-    const action = String((req.body && req.body.action) || '').trim().toLowerCase() || 'read';
     try {
+      const body = await readJsonBody(req);
+      const action = String((body && body.action) || '').trim().toLowerCase() || 'read';
       const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
       if (action === 'handoff') {
-        const ativo = Boolean(req.body?.ativo);
+        const ativo = Boolean(body?.ativo);
         const until = ativo ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null;
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
         return res.status(200).json({ sucesso: true, need_human: ativo, human_handoff_until: until });
+      }
+      if (action === 'ticket' || action === 'resolve' || action === 'waiting' || action === 'reopen' || action === 'transfer') {
+        const nowIso = new Date().toISOString();
+        const statusRaw =
+          action === 'resolve'
+            ? 'resolved'
+            : action === 'waiting'
+            ? 'waiting_customer'
+            : action === 'reopen'
+            ? 'open'
+            : action === 'transfer'
+            ? 'transferred'
+            : String(body?.status || '').trim().toLowerCase();
+        const allowed = new Set(['open', 'waiting_customer', 'resolved', 'transferred']);
+        if (!allowed.has(statusRaw)) return res.status(400).json({ sucesso: false, erro: 'Status inválido' });
+        const transferTo = String(body?.transfer_to || body?.transferTo || '').trim();
+        const payload = { ticket_status: statusRaw, ticket_updated_at: nowIso };
+        if (statusRaw === 'resolved') {
+          payload.resolved_at = nowIso;
+        } else if (statusRaw === 'waiting_customer') {
+          payload.waiting_since = nowIso;
+        } else if (statusRaw === 'open') {
+          payload.resolved_at = null;
+          payload.waiting_since = null;
+          payload.transfer_to = null;
+        } else if (statusRaw === 'transferred') {
+          payload.transfer_to = transferTo || null;
+        }
+        try {
+          await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
+        } catch (e) {
+          return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao atualizar ticket' });
+        }
+        return res.status(200).json({ sucesso: true, ticket_status: statusRaw, transfer_to: payload.transfer_to || null });
       }
       if (action === 'read') {
         const nowIso = new Date().toISOString();
@@ -267,10 +322,14 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    if (!ensureJson(req, res)) return;
-    const action = String(req.body?.action || '').trim();
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== 'object') {
+      if (!ensureJson(req, res)) return;
+    }
+    const payloadBody = body && typeof body === 'object' ? body : req.body;
+    const action = String(payloadBody?.action || '').trim();
     if (action === 'link_lead') {
-      const leadId = String(req.body?.lead_id || '').trim();
+      const leadId = String(payloadBody?.lead_id || '').trim();
       if (!leadId) return res.status(400).json({ sucesso: false, erro: 'lead_id ausente' });
       let leadName = '';
       try {
@@ -287,8 +346,8 @@ export default async function handler(req, res) {
         return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
       }
     }
-    const role = String(req.body?.role || '').trim();
-    const content = typeof req.body?.content === 'string' ? req.body.content : String(req.body?.content || '');
+    const role = String(payloadBody?.role || '').trim();
+    const content = typeof payloadBody?.content === 'string' ? payloadBody.content : String(payloadBody?.content || '');
     if (!role || (role !== 'user' && role !== 'assistant')) {
       return res.status(400).json({ sucesso: false, erro: 'Role inválida' });
     }

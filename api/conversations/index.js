@@ -230,6 +230,8 @@ export default async function handler(req, res) {
       const unreadCount = Number.isFinite(Number(doc?.unread_count)) ? Number(doc.unread_count) : 0;
       const lastReadAt = typeof doc?.last_read_at === 'string' ? doc.last_read_at : null;
       const lastUserMsgAt = typeof doc?.last_user_msg_at === 'string' ? doc.last_user_msg_at : null;
+      const ticketStatus = typeof doc?.ticket_status === 'string' ? String(doc.ticket_status).trim() : 'open';
+      const transferTo = typeof doc?.transfer_to === 'string' ? String(doc.transfer_to).trim() : '';
       const computedHasUnread =
         lastMeta.role === 'user' &&
         typeof lastMeta.timestamp === 'string' &&
@@ -242,6 +244,8 @@ export default async function handler(req, res) {
         lead_name: leadId ? leadNameMap.get(leadId) || '' : '',
         human_handoff_until: handoff || null,
         need_human: needHuman,
+        ticket_status: ticketStatus || 'open',
+        transfer_to: transferTo || null,
         summary,
         last_preview: previewText(messages),
         last_message_role: lastMeta.role || null,

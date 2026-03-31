@@ -1062,7 +1062,10 @@ export default function Inbox() {
         body: JSON.stringify({ action: 'handoff', ativo: Boolean(ativo) })
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar handoff'));
+      if (!resp.ok) {
+        const msg = String(raw || '').trim() ? normalizeApiError(raw, 'Falha ao atualizar handoff') : `Falha ao atualizar handoff (HTTP ${resp.status})`;
+        throw new Error(msg);
+      }
       const data = safeParseJson(raw) || {};
       const until = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
       const active = Boolean(data?.need_human);
@@ -1480,7 +1483,10 @@ export default function Inbox() {
         body: JSON.stringify({ action: 'ticket', status: s, ...(transferTo ? { transfer_to: String(transferTo) } : {}) })
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar ticket'));
+      if (!resp.ok) {
+        const msg = String(raw || '').trim() ? normalizeApiError(raw, 'Falha ao atualizar ticket') : `Falha ao atualizar ticket (HTTP ${resp.status})`;
+        throw new Error(msg);
+      }
       const data = safeParseJson(raw) || {};
       const nextStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : s;
       const nextTransferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
@@ -1925,7 +1931,7 @@ export default function Inbox() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', maxWidth: '100%' }}>
           {String(selected?.ticket_status || '') === 'resolved' ? (
             <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => updateTicket({ status: 'open' })} disabled={!selectedPhone || ticketUpdating} type="button">
               Reabrir
@@ -2754,7 +2760,7 @@ export default function Inbox() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por telefone ou nome…"
               className="form-input"
-              style={{ width: 220 }}
+              style={{ flex: '1 1 320px', minWidth: 260, maxWidth: 520 }}
             />
             <button className="btn btn-secondary" onClick={() => loadList({ reset: true })} disabled={loading}>
               Atualizar
@@ -3271,7 +3277,7 @@ export default function Inbox() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: contextOpen ? `${listWidth}px 10px minmax(0, 1fr) minmax(0, 360px)` : `${listWidth}px 10px minmax(0, 1fr)`,
+              gridTemplateColumns: contextOpen ? `${listWidth}px 10px minmax(0, 1fr) minmax(0, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
               gap: 0,
               alignItems: 'stretch'
             }}
