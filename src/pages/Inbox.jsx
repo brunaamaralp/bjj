@@ -183,7 +183,7 @@ export default function Inbox() {
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const [formattingOpen, setFormattingOpen] = useState(false);
+
   const [listFilter, setListFilter] = useState('all');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [stats, setStats] = useState({
@@ -2475,31 +2475,6 @@ export default function Inbox() {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              className={formattingOpen ? 'btn btn-secondary' : 'btn btn-outline'}
-              style={{ minHeight: 28, padding: '0 10px', fontSize: 13, fontWeight: 700 }}
-              onClick={() => setFormattingOpen((v) => !v)}
-              type="button"
-              title="Formatação de texto"
-            >
-              Aa
-            </button>
-            {formattingOpen && (
-              <>
-                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 13 }} onClick={() => applyWrapToDraft('*')} type="button" title="*negrito*">
-                  <strong>B</strong>
-                </button>
-                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 13 }} onClick={() => applyWrapToDraft('_')} type="button" title="_itálico_">
-                  <em>I</em>
-                </button>
-                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 13 }} onClick={() => applyWrapToDraft('~')} type="button" title="~riscado~">
-                  <s>S</s>
-                </button>
-                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 12, fontFamily: 'monospace' }} onClick={() => applyWrapToDraft('```')} type="button" title="```mono```">
-                  {'</>'}
-                </button>
-              </>
-            )}
             <div style={{ position: 'relative' }}>
               <button
                 className="btn btn-outline"
@@ -2507,7 +2482,7 @@ export default function Inbox() {
                 onClick={() => setEmojiOpen((v) => !v)}
                 type="button"
                 aria-expanded={emojiOpen}
-                title="Emojis"
+                title="Inserir emoji"
               >
                 😊
               </button>
