@@ -183,6 +183,7 @@ export default function Inbox() {
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [formattingOpen, setFormattingOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [stats, setStats] = useState({
@@ -1955,18 +1956,8 @@ export default function Inbox() {
                 {preview || '—'}
               </div>
               {it?.lead_id && (
-                <div style={{ marginTop: 8 }}>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 10px' }}
-                    onClick={(ev) => {
-                      ev.preventDefault();
-                      ev.stopPropagation();
-                      window.location.href = `/lead/${encodeURIComponent(String(it.lead_id))}`;
-                    }}
-                  >
-                    Abrir lead
-                  </button>
+                <div style={{ marginTop: 4 }}>
+                  <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, opacity: 0.8 }}>● Lead</span>
                 </div>
               )}
             </button>
@@ -2445,6 +2436,7 @@ export default function Inbox() {
       </div>
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {selectedPhone && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {quickTemplates.map((tpl) => (
             <button
@@ -2465,38 +2457,50 @@ export default function Inbox() {
             </button>
           ))}
         </div>
-        <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-          Atalhos: Ctrl/Cmd+R recarrega conversa, Ctrl/Cmd+T transfere, Ctrl/Cmd+K resolve/reabre, Ctrl/Cmd+I abre IA.
-        </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('*')} type="button">
-              Negrito
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              className={formattingOpen ? 'btn btn-secondary' : 'btn btn-outline'}
+              style={{ minHeight: 28, padding: '0 10px', fontSize: 13, fontWeight: 700 }}
+              onClick={() => setFormattingOpen((v) => !v)}
+              type="button"
+              title="Formatação de texto"
+            >
+              Aa
             </button>
-            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('_')} type="button">
-              Itálico
-            </button>
-            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('~')} type="button">
-              Riscado
-            </button>
-            <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('```')} type="button">
-              Mono
-            </button>
+            {formattingOpen && (
+              <>
+                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 13 }} onClick={() => applyWrapToDraft('*')} type="button" title="*negrito*">
+                  <strong>B</strong>
+                </button>
+                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 13 }} onClick={() => applyWrapToDraft('_')} type="button" title="_itálico_">
+                  <em>I</em>
+                </button>
+                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 13 }} onClick={() => applyWrapToDraft('~')} type="button" title="~riscado~">
+                  <s>S</s>
+                </button>
+                <button className="btn btn-outline" style={{ minHeight: 28, padding: '0 8px', fontSize: 12, fontFamily: 'monospace' }} onClick={() => applyWrapToDraft('```')} type="button" title="```mono```">
+                  {'</>'}
+                </button>
+              </>
+            )}
             <div style={{ position: 'relative' }}>
               <button
                 className="btn btn-outline"
-                style={{ minHeight: 30, padding: '0 8px' }}
+                style={{ minHeight: 28, padding: '0 8px', fontSize: 16 }}
                 onClick={() => setEmojiOpen((v) => !v)}
                 type="button"
                 aria-expanded={emojiOpen}
+                title="Emojis"
               >
-                Emojis
+                😊
               </button>
               {emojiOpen && (
                 <div
                   style={{
                     position: 'absolute',
-                    bottom: 40,
+                    bottom: 36,
                     left: 0,
                     width: 260,
                     background: 'var(--surface)',
@@ -2531,9 +2535,6 @@ export default function Inbox() {
                 </div>
               )}
             </div>
-          </div>
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-            WhatsApp: *negrito* _itálico_ ~riscado~
           </div>
         </div>
 
@@ -2594,9 +2595,11 @@ export default function Inbox() {
                 />
               )}
             </div>
-            <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-              {String(draft || '').length} caracteres
-            </div>
+            {String(draft || '').length > 160 && (
+              <div className="text-small" style={{ color: String(draft || '').length > 800 ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                {String(draft || '').length} chars
+              </div>
+            )}
             <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
               {sending ? 'Enviando…' : 'Enviar'}
             </button>
@@ -2665,21 +2668,6 @@ export default function Inbox() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           <button
-            className="btn btn-secondary"
-            style={{ padding: '6px 10px', minHeight: 34 }}
-            type="button"
-            onClick={() => {
-              try {
-                textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
-              } catch {
-                void 0;
-              }
-            }}
-            disabled={!selectedPhone}
-          >
-            Responder
-          </button>
-          <button
             className="btn btn-outline"
             style={{ padding: '6px 10px', minHeight: 34 }}
             type="button"
@@ -2691,27 +2679,6 @@ export default function Inbox() {
           >
             Transferir
           </button>
-          {String(selected?.ticket_status || '') === 'resolved' ? (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34 }}
-              type="button"
-              onClick={() => updateTicket({ status: 'open' })}
-              disabled={!selectedPhone || ticketUpdating}
-            >
-              Reabrir
-            </button>
-          ) : (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34 }}
-              type="button"
-              onClick={() => updateTicket({ status: 'resolved' })}
-              disabled={!selectedPhone || ticketUpdating}
-            >
-              Resolver
-            </button>
-          )}
           <button
             className="btn btn-outline"
             style={{ padding: '6px 10px', minHeight: 34 }}
@@ -2723,7 +2690,7 @@ export default function Inbox() {
             Aguardando cliente
           </button>
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
-            Recarregar conversa
+            Recarregar
           </button>
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
             Configurar IA
