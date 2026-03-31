@@ -8,6 +8,8 @@ const DAY_FILTERS = [
     { key: 'week', label: 'Semana' },
     { key: 'all', label: 'Todos' },
 ];
+/** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
+const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 const COMMON_TIMES = ['07:00', '08:00', '12:00', '18:00', '19:00', '20:00'];
 const nextQuarterTime = () => {
     const d = new Date();
@@ -138,16 +140,24 @@ const Dashboard = () => {
         return true;
     });
 
-    // Follow-ups with "days ago" calculation
-    const followUps = leads
+    // Follow-ups: dias desde a data da aula experimental; na agenda, só os primeiros 7 dias; mais recentes no topo
+    const followUpsAll = leads
         .filter(l => l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
         .map(l => {
             const classDate = l.scheduledDate ? new Date(l.scheduledDate + 'T00:00:00') : new Date(l.createdAt);
             const diffMs = new Date() - classDate;
             const daysAgo = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             return { ...l, daysAgo };
-        })
-        .sort((a, b) => b.daysAgo - a.daysAgo);
+        });
+    const followUpsKanbanOnlyCount = followUpsAll.filter((l) => l.daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS).length;
+    const followUps = followUpsAll
+        .filter((l) => l.daysAgo < FOLLOWUP_AGENDA_MAX_DAYS)
+        .sort((a, b) => {
+            if (a.daysAgo !== b.daysAgo) return a.daysAgo - b.daysAgo;
+            const ta = new Date(a.statusChangedAt || a.pipelineStageChangedAt || a.createdAt || 0).getTime();
+            const tb = new Date(b.statusChangedAt || b.pipelineStageChangedAt || b.createdAt || 0).getTime();
+            return tb - ta;
+        });
 
     const getUrgency = (days) => {
         if (days >= 5) return { level: 'critical', label: 'Urgente', color: 'var(--danger)' };
@@ -354,6 +364,9 @@ const Dashboard = () => {
                     </h3>
                     <span className="badge badge-secondary">{followUps.length}</span>
                 </div>
+                <p className="text-xs text-light" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+                    Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da aula, o follow-up sai desta lista e fica só no Kanban.
+                </p>
 
                 <div className="flex-col gap-2">
                     {followUps.length > 0 ? followUps.map((lead, i) => {
@@ -397,9 +410,19 @@ const Dashboard = () => {
                     }) : (
                         <div className="empty-state">
                             <p>Nada pendente por agora.</p>
+                            {followUpsKanbanOnlyCount > 0 && (
+                                <p className="text-xs text-light mt-2">
+                                    {followUpsKanbanOnlyCount} {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (aula há {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
+                {followUps.length > 0 && followUpsKanbanOnlyCount > 0 && (
+                    <p className="text-xs text-light mt-2" style={{ lineHeight: 1.35 }}>
+                        + {followUpsKanbanOnlyCount} no Kanban (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a aula).
+                    </p>
+                )}
             </section>
 
             {editOpen && (
