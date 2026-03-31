@@ -181,6 +181,7 @@ export default function Inbox() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -191,11 +192,11 @@ export default function Inbox() {
     transferredCount: 0
   });
   const [listWidth, setListWidth] = useState(() => {
-    if (typeof window === 'undefined') return 420;
+    if (typeof window === 'undefined') return 360;
     const raw = window.localStorage.getItem('inbox_list_width');
     const n = Number.parseInt(String(raw || ''), 10);
-    if (!Number.isFinite(n)) return 420;
-    return Math.max(320, Math.min(560, n));
+    if (!Number.isFinite(n)) return 360;
+    return Math.max(300, Math.min(480, n));
   });
   const [leadPanel, setLeadPanel] = useState(null);
   const [leadNameDraft, setLeadNameDraft] = useState('');
@@ -332,6 +333,25 @@ export default function Inbox() {
       else mq.removeListener(apply);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 1365px)');
+    const apply = () => setIsNarrowDesktop(Boolean(mq.matches));
+    apply();
+    if (mq.addEventListener) mq.addEventListener('change', apply);
+    else mq.addListener(apply);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', apply);
+      else mq.removeListener(apply);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isNarrowDesktop) return;
+    if (!contextOpen) return;
+    setContextOpen(false);
+  }, [isNarrowDesktop, contextOpen]);
 
   useEffect(() => {
     const unreadBacklog = (Array.isArray(items) ? items : []).reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
@@ -1651,7 +1671,7 @@ export default function Inbox() {
     const startW = listWidth;
     const onMove = (e) => {
       const dx = e.clientX - startX;
-      const next = Math.max(320, Math.min(560, startW + dx));
+      const next = Math.max(300, Math.min(480, startW + dx));
       setListWidth(next);
     };
     const onUp = () => {
@@ -2918,6 +2938,25 @@ export default function Inbox() {
     </div>
   );
 
+  const contextPanelVisible = contextOpen && !isNarrowDesktop;
+  const compactTabs = isMobile || isNarrowDesktop;
+  const onTabChange = (nextTab) => {
+    const tab = String(nextTab || '').trim();
+    if (!tab) return;
+    if (tab === 'agente') {
+      openPromptSettings();
+      return;
+    }
+    if (tab === 'dispositivo') {
+      setInboxTab('dispositivo');
+      setWaQrError(false);
+      setWaQrTick((v) => v + 1);
+      fetchWaInfo();
+      return;
+    }
+    setInboxTab('conversas');
+  };
+
   return (
     <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -2983,32 +3022,48 @@ export default function Inbox() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-        <button
-          className={inboxTab === 'conversas' ? 'btn btn-primary' : 'btn btn-outline'}
-          type="button"
-          onClick={() => setInboxTab('conversas')}
-        >
-          Conversas
-        </button>
-        <button
-          className={inboxTab === 'dispositivo' ? 'btn btn-primary' : 'btn btn-outline'}
-          type="button"
-          onClick={() => {
-            setInboxTab('dispositivo');
-            setWaQrError(false);
-            setWaQrTick((v) => v + 1);
-            fetchWaInfo();
-          }}
-        >
-          Dispositivo
-        </button>
-        <button
-          className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
-          type="button"
-          onClick={openPromptSettings}
-        >
-          Agente IA
-        </button>
+        {compactTabs ? (
+          <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              className="form-input"
+              value={inboxTab === 'agente' ? 'agente' : inboxTab}
+              onChange={(e) => onTabChange(e.target.value)}
+              style={{ minWidth: 220, maxWidth: 360, padding: '10px 12px' }}
+              aria-label="Selecionar aba"
+            >
+              <option value="conversas">Conversas</option>
+              <option value="dispositivo">Dispositivo</option>
+              <option value="agente">Agente IA</option>
+            </select>
+            <button className="btn btn-outline" type="button" onClick={() => onTabChange('agente')} style={{ minHeight: 40, padding: '0 12px' }}>
+              IA
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              className={inboxTab === 'conversas' ? 'btn btn-primary' : 'btn btn-outline'}
+              type="button"
+              onClick={() => onTabChange('conversas')}
+            >
+              Conversas
+            </button>
+            <button
+              className={inboxTab === 'dispositivo' ? 'btn btn-primary' : 'btn btn-outline'}
+              type="button"
+              onClick={() => onTabChange('dispositivo')}
+            >
+              Dispositivo
+            </button>
+            <button
+              className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
+              type="button"
+              onClick={() => onTabChange('agente')}
+            >
+              Agente IA
+            </button>
+          </>
+        )}
       </div>
 
       {menu && (
@@ -3155,7 +3210,7 @@ export default function Inbox() {
                       closeMenu();
                     }}
                   >
-                    {isMobile ? 'Abrir detalhes' : contextOpen ? 'Ocultar detalhes' : 'Mostrar detalhes'}
+                    {isMobile ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                       Painel
                     </span>
@@ -3485,12 +3540,12 @@ export default function Inbox() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: contextOpen ? `${listWidth}px 10px minmax(0, 1fr) minmax(0, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
+              gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
               gap: 0,
               alignItems: 'stretch'
             }}
           >
-            <div style={{ paddingRight: 14 }}>{listPanel}</div>
+            <div style={{ paddingRight: 10 }}>{listPanel}</div>
             <div
               role="separator"
               aria-orientation="vertical"
@@ -3508,8 +3563,8 @@ export default function Inbox() {
             >
               <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
             </div>
-            <div style={{ paddingLeft: 14, paddingRight: contextOpen ? 14 : 0 }}>{threadPanel}</div>
-            {contextOpen && <div style={{ paddingLeft: 14 }}>{contextPanel}</div>}
+            <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0 }}>{threadPanel}</div>
+            {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
           </div>
         ))}
     </div>
