@@ -5,7 +5,11 @@ import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircl
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
-    { key: 'week', label: 'Semana' },
+    {
+        key: 'week',
+        label: 'Semana',
+        title: 'Próximos 7 dias corridos a partir de hoje (não é semana civil segunda–domingo).',
+    },
     { key: 'all', label: 'Todos' },
 ];
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
@@ -188,6 +192,12 @@ const Dashboard = () => {
         }).length;
     };
 
+    const scheduledOutsideFilter =
+        !loading &&
+        agendaLeads.length === 0 &&
+        allScheduled.length > 0 &&
+        dateFilter !== 'all';
+
     const handleWhatsApp = (lead) => {
         const cleanPhone = String(lead?.phone || '').replace(/\D/g, '');
         const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
@@ -203,6 +213,23 @@ const Dashboard = () => {
 
         const msg = encodeURIComponent(text);
         window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
+    };
+
+    const handleWhatsAppScheduled = (lead) => {
+        const cleanPhone = String(lead?.phone || '').replace(/\D/g, '');
+        if (!cleanPhone) return;
+        const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
+        const dateStr = lead?.scheduledDate ? new Date(`${lead.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : '';
+        const timeStr = String(lead?.scheduledTime || '').trim();
+        let text = `Olá ${firstName}! Tudo bem?`;
+        if (dateStr && timeStr) {
+            text += ` Passando para confirmar sua aula experimental no dia ${dateStr} às ${timeStr}. Qualquer coisa, estamos à disposição!`;
+        } else if (dateStr) {
+            text += ` Passando para confirmar sua aula experimental no dia ${dateStr}. Qual horário combinamos?`;
+        } else {
+            text += ` Passando para combinar sua aula experimental. Qual o melhor dia e horário para você?`;
+        }
+        window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     return (
@@ -291,25 +318,45 @@ const Dashboard = () => {
                     {DAY_FILTERS.map(f => (
                         <button
                             key={f.key}
+                            type="button"
                             className={`filter-tab ${dateFilter === f.key ? 'active' : ''}`}
                             onClick={() => setDateFilter(f.key)}
+                            title={f.title || undefined}
                         >
                             {f.label}
                             {countFor(f.key) > 0 && <span className="tab-count">{countFor(f.key)}</span>}
                         </button>
                     ))}
                 </div>
+                {dateFilter === 'week' && (
+                    <p className="text-xs text-light mb-2" style={{ marginTop: -6, lineHeight: 1.35 }}>
+                        Filtro &quot;Semana&quot;: próximos 7 dias corridos a partir de hoje (não é segunda a domingo).
+                    </p>
+                )}
 
                 <div className="flex-col gap-2">
                     {loading ? (
                         <div className="flex justify-center p-8">
                             <div className="spinner" />
                         </div>
-                    ) : agendaLeads.length > 0 ? agendaLeads.map((lead, i) => (
-                        <div key={lead.id} className="card agenda-card animate-in" style={{ animationDelay: `${0.04 * i}s` }}>
+                    ) : agendaLeads.length > 0 ? agendaLeads.map((lead, i) => {
+                        const noScheduleDate = !String(lead.scheduledDate || '').trim();
+                        const showNoDateWarning = noScheduleDate && dateFilter === 'all';
+                        const hasPhone = String(lead.phone || '').replace(/\D/g, '').length >= 8;
+                        return (
+                        <div
+                            key={lead.id}
+                            className={`card agenda-card animate-in${showNoDateWarning ? ' agenda-card--no-date' : ''}`}
+                            style={{ animationDelay: `${0.04 * i}s` }}
+                        >
                             <div className="flex justify-between items-center" onClick={() => navigate(`/lead/${lead.id}`)} style={{ cursor: 'pointer' }}>
                                 <div style={{ flex: 1 }}>
-                                    <strong style={{ fontSize: '1rem' }}>{lead.name}</strong>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <strong style={{ fontSize: '1rem' }}>{lead.name}</strong>
+                                        {showNoDateWarning && (
+                                            <span className="agenda-no-date-badge">Sem data — defina no Remarcar</span>
+                                        )}
+                                    </div>
                                     <p className="text-small" style={{ marginTop: 2 }}>
                                         {lead.type || 'Adulto'} • {lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''}
                                     </p>
@@ -327,18 +374,41 @@ const Dashboard = () => {
                                             <Edit3 size={18} strokeWidth={2.6} />
                                         </button>
                                     </div>
-                                    <span className="text-xs text-light">{formatDate(lead.scheduledDate)}</span>
+                                    <span className="text-xs text-light">{noScheduleDate ? 'Definir data' : formatDate(lead.scheduledDate)}</span>
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 mt-3 pt-3 border-t">
+                            <div className="flex gap-2 mt-3 pt-3 border-t flex-wrap">
                                 <button
+                                    type="button"
+                                    className="followup-action-btn flex-1"
+                                    style={{ minWidth: '120px' }}
+                                    disabled={!hasPhone}
+                                    title={!hasPhone ? 'Cadastre um telefone válido no perfil' : 'Abrir WhatsApp com mensagem de confirmação'}
+                                    onClick={(e) => { e.stopPropagation(); handleWhatsAppScheduled(lead); }}
+                                >
+                                    <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                </button>
+                                <button
+                                    type="button"
+                                    className="followup-action-btn flex-1"
+                                    style={{ minWidth: '120px' }}
+                                    title="Alterar data, horário ou status"
+                                    onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
+                                >
+                                    <Calendar size={14} color="var(--accent)" /> Remarcar
+                                </button>
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                                <button
+                                    type="button"
                                     className="btn-success flex-1"
                                     onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.COMPLETED, pipelineStage: 'Negociação' }); }}
                                 >
                                     <CheckCircle size={16} /> Compareceu
                                 </button>
                                 <button
+                                    type="button"
                                     className="btn-outline flex-1"
                                     onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED }); }}
                                 >
@@ -346,11 +416,26 @@ const Dashboard = () => {
                                 </button>
                             </div>
                         </div>
-                    )) : (
+                        );
+                    }) : (
                         <div className="empty-state">
                             <Calendar size={32} color="var(--text-muted)" style={{ marginBottom: 10, opacity: 0.5 }} />
-                            <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
-                            <p className="text-xs text-light mt-1">Cadastre um novo interessado para começar!</p>
+                            {scheduledOutsideFilter ? (
+                                <>
+                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
+                                    <p className="text-xs text-light mt-2" style={{ lineHeight: 1.4 }}>
+                                        Existem {allScheduled.length} agendamento{allScheduled.length === 1 ? '' : 's'} em outras datas.
+                                    </p>
+                                    <button type="button" className="btn-secondary mt-3" onClick={() => setDateFilter('all')}>
+                                        Ver todos os agendados
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
+                                    <p className="text-xs text-light mt-1">Cadastre um novo interessado para começar!</p>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -488,6 +573,14 @@ const Dashboard = () => {
         .kpi-mini-var.up { color: var(--success); }
         .kpi-mini-var.down { color: var(--danger); }
         .agenda-card { border-left: 4px solid var(--accent); }
+        .agenda-card--no-date {
+          border-left-color: var(--warning);
+          box-shadow: inset 4px 0 0 0 rgba(245, 158, 11, 0.35);
+        }
+        .agenda-no-date-badge {
+          font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: var(--radius-full);
+          background: var(--warning-light); color: #b45309; text-transform: uppercase; letter-spacing: 0.02em;
+        }
         .follow-card { border-left: 4px solid var(--warning); }
         .filter-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
         .filter-tabs::-webkit-scrollbar { display: none; }
@@ -521,6 +614,8 @@ const Dashboard = () => {
           min-height: 36px; gap: 6px; color: var(--text-secondary);
         }
         .followup-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .followup-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .followup-action-btn:disabled:hover { border-color: var(--border-light); color: var(--text-secondary); }
         .refresh-btn {
           background: none; border: none; color: var(--text-muted);
           width: 32px; height: 32px; padding: 0; min-height: auto;
