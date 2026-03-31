@@ -810,7 +810,7 @@ export default function Inbox() {
     try {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
           'x-academy-id': String(academyIdRef.current || ''),
@@ -1146,7 +1146,7 @@ export default function Inbox() {
     try {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
           'x-academy-id': String(academyIdRef.current || ''),
@@ -1591,7 +1591,7 @@ export default function Inbox() {
     try {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
           'x-academy-id': String(academyIdRef.current || ''),

@@ -328,6 +328,70 @@ export default async function handler(req, res) {
     }
     const payloadBody = body && typeof body === 'object' ? body : req.body;
     const action = String(payloadBody?.action || '').trim();
+
+    if (action === 'handoff') {
+      try {
+        const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
+        const ativo = Boolean(payloadBody?.ativo);
+        const until = ativo ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null;
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
+        return res.status(200).json({ sucesso: true, need_human: ativo, human_handoff_until: until });
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+      }
+    }
+
+    if (action === 'ticket' || action === 'resolve' || action === 'waiting' || action === 'reopen' || action === 'transfer') {
+      try {
+        const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
+        const nowIso = new Date().toISOString();
+        const statusRaw =
+          action === 'resolve'
+            ? 'resolved'
+            : action === 'waiting'
+            ? 'waiting_customer'
+            : action === 'reopen'
+            ? 'open'
+            : action === 'transfer'
+            ? 'transferred'
+            : String(payloadBody?.status || '').trim().toLowerCase();
+        const allowed = new Set(['open', 'waiting_customer', 'resolved', 'transferred']);
+        if (!allowed.has(statusRaw)) return res.status(400).json({ sucesso: false, erro: 'Status inválido' });
+        const transferTo = String(payloadBody?.transfer_to || payloadBody?.transferTo || '').trim();
+        const payload = { ticket_status: statusRaw, ticket_updated_at: nowIso };
+        if (statusRaw === 'resolved') {
+          payload.resolved_at = nowIso;
+        } else if (statusRaw === 'waiting_customer') {
+          payload.waiting_since = nowIso;
+        } else if (statusRaw === 'open') {
+          payload.resolved_at = null;
+          payload.waiting_since = null;
+          payload.transfer_to = null;
+        } else if (statusRaw === 'transferred') {
+          payload.transfer_to = transferTo || null;
+        }
+        try {
+          await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
+        } catch (e) {
+          return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao atualizar ticket' });
+        }
+        return res.status(200).json({ sucesso: true, ticket_status: statusRaw, transfer_to: payload.transfer_to || null });
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+      }
+    }
+
+    if (action === 'read') {
+      try {
+        const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
+        const nowIso = new Date().toISOString();
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 0, last_read_at: nowIso });
+        return res.status(200).json({ sucesso: true, unread_count: 0, last_read_at: nowIso });
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+      }
+    }
+
     if (action === 'link_lead') {
       const leadId = String(payloadBody?.lead_id || '').trim();
       if (!leadId) return res.status(400).json({ sucesso: false, erro: 'lead_id ausente' });
