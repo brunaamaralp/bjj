@@ -136,9 +136,9 @@ async function getLeadNameById(leadId) {
 }
 
 function safeParseMessages(raw) {
-  if (!raw) return [];
+  if (raw === null || raw === undefined || raw === '') return [];
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((m) => m && typeof m === 'object')

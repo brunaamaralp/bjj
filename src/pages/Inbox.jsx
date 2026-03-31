@@ -2395,9 +2395,20 @@ export default function Inbox() {
           {!threadLoading && (selected?.messages || []).length === 0 && (
             <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
               <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
-              <div style={{ fontWeight: 700, color: 'var(--text)' }}>Esta conversa ainda não tem mensagens</div>
-              <div className="text-small" style={{ marginTop: 4 }}>Envie a primeira mensagem para iniciar o atendimento.</div>
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+              <div style={{ fontWeight: 700, color: 'var(--text)' }}>Nenhuma mensagem carregada</div>
+              <div className="text-small" style={{ marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>
+                Se já há mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histórico das últimas 24h.
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ padding: '6px 14px', minHeight: 34 }}
+                  type="button"
+                  disabled={waSyncing}
+                  onClick={reconcileLast24h}
+                >
+                  {waSyncing ? 'Sincronizando…' : '↻ Sincronizar com WhatsApp'}
+                </button>
                 <button
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', minHeight: 34 }}

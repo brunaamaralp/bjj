@@ -185,7 +185,7 @@ function mergeConversationMessages(existing, additions) {
     }
     out.push(a);
   }
-  return out.slice(-10);
+  return out.slice(-50);
 }
 
 function permissionsForAcademyDoc(academyDoc) {
