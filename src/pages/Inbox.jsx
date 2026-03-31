@@ -1579,7 +1579,7 @@ export default function Inbox() {
     if (s === 'resolved') return { label: 'Resolvido', bg: 'var(--success-light)', fg: 'var(--success)', tone: 'success' };
     if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'var(--warning-light)', fg: '#b45309', tone: 'warning' };
     if (s === 'transferred') return { label: transferTo ? `Transferido • ${transferTo}` : 'Transferido', bg: 'rgba(59, 130, 246, 0.12)', fg: '#1d4ed8', tone: 'info' };
-    return { label: 'Em andamento', bg: 'rgba(6, 182, 212, 0.12)', fg: 'var(--info)', tone: 'info' };
+    return { label: 'Em andamento', bg: 'rgba(6, 182, 212, 0.12)', fg: 'var(--info)', tone: 'info', isDefault: true };
   }
 
   async function updateTicket({ status, transferTo } = {}) {
@@ -1880,7 +1880,7 @@ export default function Inbox() {
               style={{
                 width: '100%',
                 textAlign: 'left',
-                padding: '16px 14px 14px',
+                padding: '10px 14px 10px',
                 border: 'none',
                 borderBottom: '1px solid var(--border)',
                 borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
@@ -1909,7 +1909,7 @@ export default function Inbox() {
                         {hotLead && <span title="Lead quente">🔥</span>}
                         {handoffActive && <span title="Atendimento assumido (agente pausado)">⏸️</span>}
                         {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção humana">⚠️</span>}
-                        {!!ticket?.label && (
+                        {!!ticket?.label && !ticket?.isDefault && (
                           <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '2px 8px', borderRadius: 999 }}>
                             {ticket.label}
                           </span>
@@ -2228,7 +2228,7 @@ export default function Inbox() {
                 <div
                   className={`inbox-bubble ${g.mine ? 'mine' : 'theirs'}`}
                   style={{
-                    maxWidth: '92%',
+                    maxWidth: '72%',
                     width: 'fit-content',
                     padding: '10px 12px',
                     borderRadius: 14,
@@ -2262,6 +2262,11 @@ export default function Inbox() {
                         style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 10 }}
                         onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
                       >
+                        {idx === 0 && g.mine && (
+                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, color: senderKind === 'ai' ? 'var(--accent)' : 'var(--text-secondary)', letterSpacing: '0.02em' }}>
+                            {senderKind === 'ai' ? 'Agente IA' : 'Você'}
+                          </div>
+                        )}
                         <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)' }}>
                           {content}
                         </div>
@@ -2437,7 +2442,7 @@ export default function Inbox() {
       </div>
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {selectedPhone && (
+        {selectedPhone && !String(draft || '').trim() && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {quickTemplates.map((tpl) => (
             <button
@@ -2959,24 +2964,32 @@ export default function Inbox() {
             {loading ? 'Carregando…' : `${items.length} conversas${lastUpdatedAt ? ` • atualizado ${formatWhen(lastUpdatedAt)}` : ''}`}
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
-              Não lidas: {Number(stats?.unreadBacklog || 0)}
-            </span>
-            <span className="text-small" style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 999 }} title="Conversas em status resolvido">
-              Resolvidas: {Number(stats?.resolvedCount || 0)}
-            </span>
-            <span className="text-small" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#1d4ed8', padding: '2px 8px', borderRadius: 999 }} title="Conversas transferidas">
-              Transferidas: {Number(stats?.transferredCount || 0)}
-            </span>
-            <span className="text-small" style={{ background: 'var(--warning-light)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="Tempo médio da primeira resposta">
-              TTFR: {(() => {
-                const samples = Array.isArray(stats?.firstResponseMs) ? stats.firstResponseMs : [];
-                if (!samples.length) return '—';
-                const avg = samples.reduce((acc, cur) => acc + Number(cur || 0), 0) / samples.length;
-                const mins = Math.round(avg / 60000);
-                return `${mins} min`;
-              })()}
-            </span>
+            {Number(stats?.unreadBacklog || 0) > 0 && (
+              <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
+                Não lidas: {Number(stats.unreadBacklog)}
+              </span>
+            )}
+            {Number(stats?.resolvedCount || 0) > 0 && (
+              <span className="text-small" style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 999 }} title="Conversas em status resolvido">
+                Resolvidas: {Number(stats.resolvedCount)}
+              </span>
+            )}
+            {Number(stats?.transferredCount || 0) > 0 && (
+              <span className="text-small" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#1d4ed8', padding: '2px 8px', borderRadius: 999 }} title="Conversas transferidas">
+                Transferidas: {Number(stats.transferredCount)}
+              </span>
+            )}
+            {(() => {
+              const samples = Array.isArray(stats?.firstResponseMs) ? stats.firstResponseMs : [];
+              if (!samples.length) return null;
+              const avg = samples.reduce((acc, cur) => acc + Number(cur || 0), 0) / samples.length;
+              const mins = Math.round(avg / 60000);
+              return (
+                <span className="text-small" style={{ background: 'var(--warning-light)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="Tempo médio da primeira resposta (sessão atual)">
+                  TTFR: {mins} min
+                </span>
+              );
+            })()}
           </div>
         </div>
         {inboxTab === 'conversas' ? (
@@ -2991,8 +3004,14 @@ export default function Inbox() {
             <button className="btn btn-secondary" onClick={() => loadList({ reset: true })} disabled={loading}>
               Atualizar
             </button>
-            <button className="btn btn-outline" onClick={() => setAutoRefresh((v) => !v)} title="Atualiza automaticamente a cada 10s">
-              Auto: {autoRefresh ? 'On' : 'Off'}
+            <button
+              className={autoRefresh ? 'btn btn-secondary' : 'btn btn-outline'}
+              onClick={() => setAutoRefresh((v) => !v)}
+              title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
+              style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+            >
+              <span style={{ fontSize: 14 }}>↻</span>
+              {autoRefresh ? 'Ao vivo' : 'Pausado'}
             </button>
           </div>
         ) : (
