@@ -197,6 +197,12 @@ export default function Inbox() {
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [threadPaging, setThreadPaging] = useState(false);
+  const [threadCursor, setThreadCursor] = useState(null);
+  const [threadHasMore, setThreadHasMore] = useState(false);
+  const [ticketUpdating, setTicketUpdating] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferToDraft, setTransferToDraft] = useState('');
   const [inboxTab, setInboxTab] = useState('conversas');
   const [waLoading, setWaLoading] = useState(false);
   const [waInfo, setWaInfo] = useState({ instance_id: null, status: 'disconnected', qrcode: null });
@@ -204,6 +210,29 @@ export default function Inbox() {
   const [waQrError, setWaQrError] = useState(false);
   const [waQrTick, setWaQrTick] = useState(0);
   const [waSyncing, setWaSyncing] = useState(false);
+  const [contextOpen, setContextOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const raw = window.localStorage.getItem('inbox_context_open');
+    if (raw === '0') return false;
+    if (raw === '1') return true;
+    return true;
+  });
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [menu, setMenu] = useState(null);
+  const [selectedMsgKey, setSelectedMsgKey] = useState('');
+  const [expandedMsgs, setExpandedMsgs] = useState({});
+  const [threadAtBottom, setThreadAtBottom] = useState(true);
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const [msgFlags, setMsgFlags] = useState(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem('inbox_msg_flags');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
   const waOpen = inboxTab === 'dispositivo';
 
   const draftRef = useRef('');
@@ -211,6 +240,7 @@ export default function Inbox() {
   const textareaRef = useRef(null);
   const threadScrollRef = useRef(null);
   const lastAutoScrollPhoneRef = useRef('');
+  const threadMsgCountRef = useRef(0);
   const listMetaRef = useRef(new Map());
   const notifiedOnceRef = useRef(false);
   const loadListRef = useRef(null);
@@ -218,7 +248,7 @@ export default function Inbox() {
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
 
-  const normalizedSearch = useMemo(() => normalizePhone(search), [search]);
+  const searchQuery = useMemo(() => String(search || '').trim(), [search]);
 
   useEffect(() => {
     draftRef.current = String(draft || '');
@@ -251,6 +281,20 @@ export default function Inbox() {
   }, [listWidth]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('inbox_context_open', contextOpen ? '1' : '0');
+  }, [contextOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('inbox_msg_flags', JSON.stringify(msgFlags || {}));
+    } catch {
+      void 0;
+    }
+  }, [msgFlags]);
+
+  useEffect(() => {
     if (leadPanel !== 'associate') return;
     if (leadsLoading) return;
     if (Array.isArray(leads) && leads.length > 0) return;
@@ -275,6 +319,98 @@ export default function Inbox() {
       return JSON.parse(raw);
     } catch {
       return null;
+    }
+  }
+
+  function formatDayLabel(iso) {
+    const s = String(iso || '').trim();
+    if (!s) return '';
+    const d = new Date(s);
+    if (!Number.isFinite(d.getTime())) return '';
+    const now = new Date();
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const nn = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diff = Math.round((dd.getTime() - nn.getTime()) / (24 * 60 * 60 * 1000));
+    if (diff === 0) return 'Hoje';
+    if (diff === -1) return 'Ontem';
+    return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+  }
+
+  function messageKey(m) {
+    const mid = String(m?.message_id || '').trim();
+    if (mid) return mid;
+    const role = String(m?.role || '').trim();
+    const ts = String(m?.timestamp || '').trim();
+    const content = String(m?.content || '').trim();
+    return `${role}:${ts}:${content.slice(0, 80)}`;
+  }
+
+  function senderKindFromMessage(m) {
+    const role = m?.role === 'assistant' ? 'assistant' : 'user';
+    if (role !== 'assistant') return 'user';
+    const sender = String(m?.sender || '').trim().toLowerCase();
+    if (sender === 'human' || sender === 'humano') return 'human';
+    if (sender === 'ai' || sender === 'agent' || sender === 'agente') return 'ai';
+    const hasAiHints = Boolean(m?.in_reply_to) || (m?.classificacao && typeof m.classificacao === 'object');
+    return hasAiHints ? 'ai' : 'human';
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(String(text || ''));
+      addToast({ type: 'success', message: 'Copiado' });
+      return true;
+    } catch {
+      addToast({ type: 'error', message: 'Falha ao copiar' });
+      return false;
+    }
+  }
+
+  function toggleMsgFlag(phone, key, kind) {
+    const p = String(phone || '').trim();
+    const k = String(key || '').trim();
+    const t = String(kind || '').trim();
+    if (!p || !k || (t !== 'pinned' && t !== 'important')) return;
+    setMsgFlags((prev) => {
+      const base = prev && typeof prev === 'object' ? prev : {};
+      const cur = base[p] && typeof base[p] === 'object' ? base[p] : {};
+      const next = { ...base };
+      const curMap = cur[t] && typeof cur[t] === 'object' ? cur[t] : {};
+      const has = Boolean(curMap[k]);
+      const nextMap = { ...curMap };
+      if (has) delete nextMap[k];
+      else nextMap[k] = true;
+      next[p] = { ...cur, [t]: nextMap };
+      return next;
+    });
+  }
+
+  function openMenu(kind, anchorEl, payload) {
+    const el = anchorEl && anchorEl.getBoundingClientRect ? anchorEl : null;
+    const rect = el ? el.getBoundingClientRect() : { left: 0, top: 0, bottom: 0, right: 0, width: 0, height: 0 };
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const w = 260;
+    const h = 260;
+    const x = Math.max(10, Math.min(rect.left, vw - w - 10));
+    const y = Math.max(10, Math.min(rect.bottom + 8, vh - h - 10));
+    setMenu({ kind: String(kind || '').trim(), x, y, payload: payload || null });
+  }
+
+  function closeMenu() {
+    setMenu(null);
+  }
+
+  function scrollThreadToBottom({ clearNew = true } = {}) {
+    const el = threadScrollRef.current;
+    if (!el) return;
+    try {
+      el.scrollTop = el.scrollHeight;
+      lastAutoScrollPhoneRef.current = String(selectedPhoneRef.current || '').trim();
+      setThreadAtBottom(true);
+      if (clearNew) setNewMsgCount(0);
+    } catch {
+      void 0;
     }
   }
 
@@ -676,7 +812,7 @@ export default function Inbox() {
       qs.set('limit', '50');
       const cursorToUse = reset ? '' : String(nextCursor || '').trim();
       if (cursorToUse) qs.set('cursor', cursorToUse);
-      if (normalizedSearch) qs.set('search', normalizedSearch);
+      if (searchQuery) qs.set('search', searchQuery);
       const resp = await fetch(`/api/conversations?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -698,7 +834,7 @@ export default function Inbox() {
         });
       }
       setNextCursor(nextCur);
-      setHasMore(Boolean(nextCur) && next.length > 0 && !normalizedSearch);
+      setHasMore(Boolean(nextCur) && next.length > 0 && !searchQuery);
       setLastUpdatedAt(new Date().toISOString());
       setItems((prev) => {
         const incoming = reset ? next : [...(Array.isArray(prev) ? prev : []), ...next];
@@ -750,33 +886,67 @@ export default function Inbox() {
     }
   }
 
-  async function loadThread(phone, { silent = false } = {}) {
+  async function loadThread(phone, { silent = false, cursor = '', append = false } = {}) {
     const p = String(phone || '').trim();
     if (!p) return;
     if (!silent) setError('');
+    const prevScroll = (() => {
+      if (!append) return null;
+      const el = threadScrollRef.current;
+      if (!el) return null;
+      return { height: el.scrollHeight, top: el.scrollTop };
+    })();
     try {
-      setThreadLoading(true);
+      if (append) setThreadPaging(true);
+      else setThreadLoading(true);
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
+      const params = new URLSearchParams();
+      params.set('limit', '50');
+      if (cursor) params.set('cursor', String(cursor));
+      const qs = params.toString();
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversa'));
       const data = safeParseJson(raw) || {};
-      const messages = Array.isArray(data?.messages) ? data.messages : [];
+      const incoming = Array.isArray(data?.messages) ? data.messages : [];
+      const nextCur = typeof data?.next_cursor === 'string' ? data.next_cursor : '';
       const summary = data?.summary && typeof data.summary === 'object' ? data.summary : null;
       const handoffUntil = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
-      setSelected({
-        phone: p,
-        messages,
-        summary,
-        lead_id: typeof data?.lead_id === 'string' ? data.lead_id : null,
-        lead_name: typeof data?.lead_name === 'string' ? data.lead_name : '',
-        need_human: Boolean(data?.need_human),
-        human_handoff_until: handoffUntil || null
+      const ticketStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : 'open';
+      const transferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
+      setThreadCursor(nextCur || null);
+      setThreadHasMore(Boolean(nextCur));
+      setSelected((prev) => {
+        const base = {
+          phone: p,
+          summary,
+          lead_id: typeof data?.lead_id === 'string' ? data.lead_id : null,
+          lead_name: typeof data?.lead_name === 'string' ? data.lead_name : '',
+          need_human: Boolean(data?.need_human),
+          human_handoff_until: handoffUntil || null,
+          ticket_status: String(ticketStatus || 'open'),
+          transfer_to: transferTo || null
+        };
+        if (!append || !prev || prev.phone !== p) {
+          return { ...base, messages: incoming };
+        }
+        const existing = Array.isArray(prev.messages) ? prev.messages : [];
+        const combined = [...incoming, ...existing];
+        const seen = new Set();
+        const deduped = [];
+        for (const m of combined) {
+          const mid = String(m?.message_id || '').trim();
+          const key = mid || `${String(m?.role || '')}:${String(m?.timestamp || '')}:${String(m?.content || '')}`;
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          deduped.push(m);
+        }
+        return { ...base, messages: deduped };
       });
       try {
-        const last = messages.length > 0 ? messages[messages.length - 1] : null;
+        const last = incoming.length > 0 ? incoming[incoming.length - 1] : null;
         const textRaw = String(last?.content || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
         const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}…` : textRaw;
         if (preview) {
@@ -793,12 +963,22 @@ export default function Inbox() {
         void 0;
       }
       try {
-        setTimeout(() => {
-          const el = threadScrollRef.current;
-          if (!el) return;
-          el.scrollTop = el.scrollHeight;
-          lastAutoScrollPhoneRef.current = p;
-        }, 0);
+        if (!append) {
+          setTimeout(() => {
+            const el = threadScrollRef.current;
+            if (!el) return;
+            el.scrollTop = el.scrollHeight;
+            lastAutoScrollPhoneRef.current = p;
+          }, 0);
+        } else if (prevScroll) {
+          setTimeout(() => {
+            const el = threadScrollRef.current;
+            if (!el) return;
+            const nextHeight = el.scrollHeight;
+            const delta = nextHeight - prevScroll.height;
+            el.scrollTop = prevScroll.top + delta;
+          }, 0);
+        }
       } catch {
         void 0;
       }
@@ -806,6 +986,7 @@ export default function Inbox() {
       if (!silent) setError(e?.message || 'Erro');
     } finally {
       setThreadLoading(false);
+      setThreadPaging(false);
     }
   }
 
@@ -1187,7 +1368,7 @@ export default function Inbox() {
 
   useEffect(() => {
     loadList({ reset: true });
-  }, [normalizedSearch]);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (selectedPhone) loadThread(selectedPhone);
@@ -1223,7 +1404,7 @@ export default function Inbox() {
       const leadFromId = leadId ? leadById.get(leadId) : null;
       const leadFromPhone = phone ? leadByPhone.get(normalizePhone(phone)) : null;
       const lead = leadFromId || leadFromPhone;
-      const name = String(lead?.name || '').trim() || String(it?.lead_name || '').trim();
+      const name = String(lead?.name || '').trim() || String(it?.lead_name || '').trim() || String(it?.contact_name || '').trim();
       const displayTitle = name || phone || '-';
       const lastRole = String(it?.last_message_role || '').trim() || '';
       const lastSender = String(it?.last_message_sender || '').trim() || '';
@@ -1234,6 +1415,8 @@ export default function Inbox() {
       const priority = String(lead?.priority || '').trim();
       const intention = String(lead?.intention || '').trim();
       const status = String(lead?.status || '').trim();
+      const ticketStatus = String(it?.ticket_status || '').trim() || 'open';
+      const transferTo = String(it?.transfer_to || '').trim();
       return {
         ...it,
         _phone: phone,
@@ -1250,6 +1433,8 @@ export default function Inbox() {
         _lastRole: lastRole,
         _lastSender: lastSender,
         _unreadCount: unreadCount,
+        _ticketStatus: ticketStatus,
+        _transferTo: transferTo,
         _isHighlighted: Boolean(highlighted && typeof highlighted === 'object' && highlighted[phone] && Number(highlighted[phone]) > Date.now())
       };
     });
@@ -1261,23 +1446,92 @@ export default function Inbox() {
     if (f === 'unread') return arr.filter((it) => Number(it?._unreadCount || 0) > 0);
     if (f === 'hot') return arr.filter((it) => Boolean(it?._hotLead));
     if (f === 'need_human') return arr.filter((it) => Boolean(it?._handoffActive));
+    if (f === 'waiting_customer') return arr.filter((it) => String(it?._ticketStatus || '') === 'waiting_customer');
+    if (f === 'resolved') return arr.filter((it) => String(it?._ticketStatus || '') === 'resolved');
+    if (f === 'transferred') return arr.filter((it) => String(it?._ticketStatus || '') === 'transferred');
     return arr;
   }, [enrichedItems, listFilter]);
 
-  useEffect(() => {
-    const el = threadScrollRef.current;
-    if (!el) return;
-    if (!selectedPhone) return;
-    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (remaining < 220) {
-      try {
-        el.scrollTop = el.scrollHeight;
-        lastAutoScrollPhoneRef.current = selectedPhone;
-      } catch {
-        void 0;
-      }
+  function ticketChip(status, transferTo) {
+    const s = String(status || '').trim();
+    if (s === 'resolved') return { label: 'Resolvido', bg: 'rgba(34, 197, 94, 0.10)', fg: '#16a34a' };
+    if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'rgba(245, 158, 11, 0.12)', fg: '#b45309' };
+    if (s === 'transferred') return { label: transferTo ? `Transferido • ${transferTo}` : 'Transferido', bg: 'rgba(59, 130, 246, 0.12)', fg: '#1d4ed8' };
+    return { label: 'Em aberto', bg: 'rgba(0,0,0,0.06)', fg: 'var(--text-secondary)' };
+  }
+
+  async function updateTicket({ status, transferTo } = {}) {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    if (!phone) return false;
+    const s = String(status || '').trim();
+    if (!s) return false;
+    if (ticketUpdating) return false;
+    setTicketUpdating(true);
+    setError('');
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'ticket', status: s, ...(transferTo ? { transfer_to: String(transferTo) } : {}) })
+      });
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao atualizar ticket'));
+      const data = safeParseJson(raw) || {};
+      const nextStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : s;
+      const nextTransferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
+      setSelected((prev) => {
+        if (!prev || prev.phone !== phone) return prev;
+        return { ...prev, ticket_status: nextStatus, transfer_to: nextTransferTo || null };
+      });
+      setItems((prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return arr.map((it) => {
+          const p = String(it?.phone_number || '').trim();
+          if (p !== phone) return it;
+          return { ...it, ticket_status: nextStatus, transfer_to: nextTransferTo || null };
+        });
+      });
+      await loadList({ reset: true, silent: true });
+      return true;
+    } catch (e) {
+      setError(e?.message || 'Erro');
+      return false;
+    } finally {
+      setTicketUpdating(false);
     }
-  }, [selectedPhone, selected?.messages?.length]);
+  }
+
+  useEffect(() => {
+    const phone = String(selectedPhone || '').trim();
+    if (!phone) return;
+    threadMsgCountRef.current = Array.isArray(selected?.messages) ? selected.messages.length : 0;
+    setSelectedMsgKey('');
+    setExpandedMsgs({});
+    setDetailsOpen(false);
+    setNewMsgCount(0);
+    setThreadAtBottom(true);
+    setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
+  }, [selectedPhone]);
+
+  useEffect(() => {
+    const phone = String(selectedPhone || '').trim();
+    if (!phone) return;
+    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+    const nextCount = msgs.length;
+    const prevCount = Number(threadMsgCountRef.current || 0);
+    threadMsgCountRef.current = nextCount;
+    if (nextCount <= prevCount) return;
+    if (threadAtBottom) {
+      setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
+      return;
+    }
+    setNewMsgCount((v) => v + (nextCount - prevCount));
+  }, [selected?.messages?.length, selectedPhone, threadAtBottom]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
@@ -1316,13 +1570,81 @@ export default function Inbox() {
       }
     }, 10000);
     return () => clearInterval(id);
-  }, [autoRefresh, normalizedSearch, realtimeOn]);
+  }, [autoRefresh, searchQuery, realtimeOn]);
+
+  const threadBlocks = useMemo(() => {
+    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+    const out = [];
+    let lastDayKey = '';
+    let group = null;
+    let lastTs = 0;
+    for (const m of msgs) {
+      const ts = String(m?.timestamp || '').trim();
+      const d = ts ? new Date(ts) : null;
+      const ms = d && Number.isFinite(d.getTime()) ? d.getTime() : 0;
+      const dayKey = d && Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` : '';
+      if (dayKey && dayKey !== lastDayKey) {
+        out.push({ type: 'day', key: dayKey, label: formatDayLabel(ts) || d.toLocaleDateString('pt-BR') });
+        lastDayKey = dayKey;
+        group = null;
+        lastTs = 0;
+      }
+
+      const role = m?.role === 'assistant' ? 'assistant' : 'user';
+      const mine = role === 'assistant';
+      const senderKind = senderKindFromMessage(m);
+      const key = messageKey(m);
+      const gapOk = ms && lastTs ? ms - lastTs <= 2 * 60 * 1000 : false;
+      const canAppend = group && group.mine === mine && group.senderKind === senderKind && gapOk;
+      if (!canAppend) {
+        group = { type: 'group', id: `${out.length}-${mine ? 'me' : 'them'}-${senderKind}`, mine, senderKind, items: [] };
+        out.push(group);
+      }
+      group.items.push({ key, m });
+      if (ms) lastTs = ms;
+    }
+    return out;
+  }, [selected?.messages]);
+
+  const selectedPhoneFlags = useMemo(() => {
+    const phone = String(selectedPhone || '').trim();
+    const base = msgFlags && typeof msgFlags === 'object' ? msgFlags : {};
+    const cur = phone && base[phone] && typeof base[phone] === 'object' ? base[phone] : {};
+    const pinned = cur.pinned && typeof cur.pinned === 'object' ? cur.pinned : {};
+    const important = cur.important && typeof cur.important === 'object' ? cur.important : {};
+    return { pinned, important };
+  }, [msgFlags, selectedPhone]);
+
+  const pinnedMessages = useMemo(() => {
+    const pinned = selectedPhoneFlags.pinned || {};
+    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+    const list = [];
+    for (const m of msgs) {
+      const k = messageKey(m);
+      if (!pinned[k]) continue;
+      const content = String(m?.content || '').trim();
+      list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}…` : content });
+    }
+    return list;
+  }, [selected?.messages, selectedPhoneFlags]);
+
+  const onThreadScroll = (e) => {
+    const el = e && e.currentTarget ? e.currentTarget : null;
+    if (!el) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = remaining < 40;
+    setThreadAtBottom(atBottom);
+    if (atBottom && newMsgCount) setNewMsgCount(0);
+    if (el.scrollTop < 140 && threadHasMore && !threadPaging && threadCursor) {
+      loadThread(selectedPhoneRef.current, { silent: true, cursor: String(threadCursor || ''), append: true });
+    }
+  };
 
   const listPanel = (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div>Conversas</div>
-        {!normalizedSearch && (
+        {!searchQuery && (
           <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
             {hasMore ? 'Role para carregar mais' : 'Fim'}
           </div>
@@ -1361,11 +1683,35 @@ export default function Inbox() {
         >
           Aguardando humano
         </button>
+        <button
+          type="button"
+          className={listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('waiting_customer')}
+        >
+          Aguardando cliente
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'resolved' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('resolved')}
+        >
+          Resolvidos
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('transferred')}
+        >
+          Transferidos
+        </button>
       </div>
       <div
         style={{ maxHeight: isMobile ? '72vh' : '70vh', overflow: 'auto' }}
         onScroll={(e) => {
-          if (normalizedSearch) return;
+          if (searchQuery) return;
           const el = e.currentTarget;
           const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
           if (remaining < 240) loadList({ reset: false, silent: true });
@@ -1387,6 +1733,7 @@ export default function Inbox() {
                 : { bg: '#22c55e', label: 'Agente IA' }
               : null;
           const isHighlighted = Boolean(it?._isHighlighted);
+          const ticket = ticketChip(it?._ticketStatus, it?._transferTo);
           const rawPrev = String(it?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
           const preview = rawPrev.length > 40 ? `${rawPrev.slice(0, 40)}…` : rawPrev;
           return (
@@ -1424,6 +1771,11 @@ export default function Inbox() {
                         {hotLead && <span title="Lead quente">🔥</span>}
                         {handoffActive && <span title="Atendimento assumido (agente pausado)">⏸️</span>}
                         {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção humana">⚠️</span>}
+                        {!!ticket?.label && (
+                          <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '2px 8px', borderRadius: 999 }}>
+                            {ticket.label}
+                          </span>
+                        )}
                       </span>
                     </div>
                     {!!String(it?._displaySubtitle || '').trim() && (
@@ -1492,9 +1844,17 @@ export default function Inbox() {
   const threadPanel = (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
           {isMobile && (
-            <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setSelectedPhone('')}>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => {
+                setSelectedPhone('');
+                setDetailsOpen(false);
+              }}
+              type="button"
+            >
               Voltar
             </button>
           )}
@@ -1508,25 +1868,28 @@ export default function Inbox() {
                 return name || phone || '—';
               })()}
             </div>
-            {(() => {
-              const phone = String(selectedPhone || '').trim();
-              const leadId = String(selected?.lead_id || '').trim();
-              const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-              const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
-              return Boolean(name);
-            })() && (
-              <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                {selectedPhone || '—'}
-              </div>
-            )}
-          </div>
-        </div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
-                Atendimento
-              </span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
+              {(() => {
+                const phone = String(selectedPhone || '').trim();
+                const leadId = String(selected?.lead_id || '').trim();
+                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+                const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+                const showPhone = Boolean(name) && Boolean(phone);
+                if (!showPhone) return null;
+                return (
+                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                    {phone}
+                  </span>
+                );
+              })()}
+              {(() => {
+                const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
+                return (
+                  <span className="text-small" style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }} title="Status do ticket">
+                    {chip.label}
+                  </span>
+                );
+              })()}
               {(() => {
                 const phone = String(selectedPhone || '').trim();
                 const leadId = String(selected?.lead_id || '').trim();
@@ -1538,12 +1901,7 @@ export default function Inbox() {
                   return (
                     <span
                       className="text-small"
-                      style={{
-                        background: 'var(--danger-light)',
-                        color: 'var(--danger)',
-                        padding: '2px 8px',
-                        borderRadius: 999
-                      }}
+                      style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
                       title={untilLabel ? `Atendimento humano até ${untilLabel}` : 'Atendimento humano ativo'}
                     >
                       {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
@@ -1552,243 +1910,65 @@ export default function Inbox() {
                 }
                 if (aiSuggestHuman) {
                   return (
-                    <span
-                      className="text-small"
-                      style={{
-                        background: 'rgba(245, 158, 11, 0.12)',
-                        color: '#b45309',
-                        padding: '2px 8px',
-                        borderRadius: 999
-                      }}
-                      title="IA sugere intervenção humana (agente ainda está ativo)"
-                    >
+                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="IA sugere intervenção humana">
                       IA sugere humano
                     </span>
                   );
                 }
                 return (
-                  <span
-                    className="text-small"
-                    style={{
-                      background: 'rgba(34, 197, 94, 0.10)',
-                      color: '#16a34a',
-                      padding: '1px 6px',
-                      borderRadius: 999,
-                      fontSize: 12
-                    }}
-                  >
+                  <span className="text-small" style={{ background: 'rgba(34, 197, 94, 0.10)', color: '#16a34a', padding: '2px 8px', borderRadius: 999 }}>
                     Agente IA ativo
                   </span>
                 );
               })()}
             </div>
-
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              {!selected?.need_human ? (
-                <button
-                  className="btn btn-primary"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => setHandoffActive(true)}
-                  disabled={!selectedPhone}
-                  type="button"
-                  title="Pausa o agente por 2 horas"
-                >
-                  Assumir atendimento
-                </button>
-              ) : (
-                <button
-                  className="btn btn-primary"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => setHandoffActive(false)}
-                  disabled={!selectedPhone}
-                  type="button"
-                  title="Reativa o agente agora"
-                >
-                  Devolver ao agente
-                </button>
-              )}
-
-              <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
-                Recarregar
-              </button>
-              <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button">
-                Configurar IA
-              </button>
-            </div>
           </div>
+        </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {!selected?.lead_id && (
-              <>
-                <button
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))}
-                  disabled={!selectedPhone || linkingLead}
-                  type="button"
-                >
-                  Converter em lead
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
-                  disabled={!selectedPhone || linkingLead}
-                  type="button"
-                >
-                  Associar lead
-                </button>
-              </>
-            )}
-            {!!selected?.lead_id && (
-              <>
-                <button
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => {
-                    window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
-                  }}
-                  type="button"
-                >
-                  Ver lead
-                </button>
-                <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate('/pipeline')} type="button">
-                  Kanban
-                </button>
-              </>
-            )}
-          </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {String(selected?.ticket_status || '') === 'resolved' ? (
+            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => updateTicket({ status: 'open' })} disabled={!selectedPhone || ticketUpdating} type="button">
+              Reabrir
+            </button>
+          ) : (
+            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => updateTicket({ status: 'resolved' })} disabled={!selectedPhone || ticketUpdating} type="button">
+              Resolver
+            </button>
+          )}
+          {!selected?.need_human ? (
+            <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => setHandoffActive(true)} disabled={!selectedPhone} type="button" title="Pausa o agente por 2 horas">
+              Assumir
+            </button>
+          ) : (
+            <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => setHandoffActive(false)} disabled={!selectedPhone} type="button" title="Reativa o agente agora">
+              Devolver
+            </button>
+          )}
+          <button
+            className="btn btn-outline"
+            style={{ padding: '6px 10px', minHeight: 34 }}
+            onClick={() => {
+              if (isMobile) setDetailsOpen(true);
+              else setContextOpen((v) => !v);
+            }}
+            disabled={!selectedPhone}
+            type="button"
+          >
+            Detalhes
+          </button>
+          <button
+            className="btn btn-outline"
+            style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900 }}
+            onClick={(e) => openMenu('thread', e.currentTarget, { phone: String(selectedPhone || '').trim() })}
+            disabled={!selectedPhone}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={menu?.kind === 'thread'}
+          >
+            ⋯
+          </button>
         </div>
       </div>
-
-      {(() => {
-        const phone = String(selectedPhone || '').trim();
-        const leadId = String(selected?.lead_id || '').trim();
-        const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-        if (!lead) return null;
-        const name = String(lead?.name || '').trim();
-        const status = String(lead?.status || '').trim();
-        const intention = String(lead?.intention || '').trim();
-        const priority = String(lead?.priority || '').trim();
-        const hotLead = Boolean(lead?.hotLead);
-        return (
-          <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
-                <div style={{ fontWeight: 800, lineHeight: '20px' }}>{name || 'Sem nome'}</div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                  {lead?.phone || selectedPhone || ''}
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {!!status && (
-                    <span className="text-small" style={{ background: 'var(--border)', padding: '2px 8px', borderRadius: 999 }}>
-                      {status}
-                    </span>
-                  )}
-                  {!!intention && (
-                    <span className="text-small" style={{ background: 'var(--border)', padding: '2px 8px', borderRadius: 999 }}>
-                      {intention}
-                    </span>
-                  )}
-                  {!!priority && (
-                    <span className="text-small" style={{ background: 'var(--border)', padding: '2px 8px', borderRadius: 999 }}>
-                      {priority}
-                    </span>
-                  )}
-                  {hotLead && (
-                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
-                      🔥 quente
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                {!!lead?.id && (
-                  <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => window.location.href = `/lead/${encodeURIComponent(String(lead.id))}`} type="button">
-                    Ver perfil completo
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {leadPanel === 'convert' && !selected?.lead_id && (
-        <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
-                Nome
-              </div>
-              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
-            </div>
-            <div style={{ minWidth: 180 }}>
-              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
-                Tipo
-              </div>
-              <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
-                <option value="Adulto">Adulto</option>
-                <option value="Criança">Criança</option>
-                <option value="Juniores">Juniores</option>
-              </select>
-            </div>
-            <button className="btn btn-primary" onClick={convertToLead} disabled={linkingLead} type="button">
-              Converter em lead
-            </button>
-          </div>
-        </div>
-      )}
-
-      {leadPanel === 'associate' && !selected?.lead_id && (
-        <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-            <input
-              className="input"
-              value={leadSearch}
-              onChange={(e) => setLeadSearch(e.target.value)}
-              placeholder="Buscar por nome ou telefone"
-              style={{ flex: 1, minWidth: 220 }}
-            />
-            <button className="btn btn-secondary" onClick={() => fetchLeads()} disabled={leadsLoading || linkingLead} type="button">
-              Atualizar
-            </button>
-          </div>
-          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
-          {!leadsLoading && leadCandidates.length === 0 && (
-            <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhum lead encontrado.</div>
-          )}
-          {!leadsLoading && leadCandidates.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {leadCandidates.map((l) => (
-                <button
-                  key={l.id}
-                  className="btn btn-outline"
-                  style={{ justifyContent: 'space-between', display: 'flex' }}
-                  onClick={() => linkLeadToConversation({ leadId: l.id })}
-                  disabled={linkingLead}
-                  type="button"
-                >
-                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                    <span style={{ fontWeight: 800 }}>{l.name || 'Sem nome'}</span>
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || ''}</span>
-                  </span>
-                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.pipelineStage || l.status || ''}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {selected?.summary?.text && (
-        <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
-            Resumo
-          </div>
-          <div className="text-small" style={{ whiteSpace: 'pre-wrap' }}>{selected.summary.text}</div>
-        </div>
-      )}
 
       {promptModal && (
         <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1839,76 +2019,261 @@ export default function Inbox() {
         </div>
       )}
 
-      <div ref={threadScrollRef} style={{ padding: 14, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto', background: 'rgba(0,0,0,0.02)' }}>
-        {threadLoading && (
-          <div className="text-small" style={{ color: 'var(--text-secondary)', padding: 20, textAlign: 'center' }}>
-            Carregando mensagens…
-          </div>
-        )}
-        {(selected?.messages || []).map((m, idx) => {
-          const role = m?.role === 'assistant' ? 'assistant' : 'user';
-          const mine = role === 'assistant';
-          const content = String(m?.content || '');
-          const senderKind = (() => {
-            if (role !== 'assistant') return 'user';
-            const sender = String(m?.sender || '').trim().toLowerCase();
-            if (sender === 'human' || sender === 'humano') return 'human';
-            if (sender === 'ai' || sender === 'agent' || sender === 'agente') return 'ai';
-            const hasAiHints = Boolean(m?.in_reply_to) || (m?.classificacao && typeof m.classificacao === 'object');
-            return hasAiHints ? 'ai' : 'human';
-          })();
-          const senderIcon = senderKind === 'ai' ? '🤖' : senderKind === 'human' ? '👤' : '';
-          const statusLower = String(m?.status || '').trim().toLowerCase();
-          const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
-          const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
-          const isScheduled = statusLower === 'scheduled' && !!scheduledAt;
-          const isCanceled = statusLower === 'canceled';
-          const mid = String(m?.message_id || '').trim();
-          const canCancel = mine && (statusLower === 'scheduled' || statusLower === 'pending') && !!mid;
-          return (
-            <div key={idx} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
-              <div
-                style={{
-                  maxWidth: 720,
-                  padding: '10px 12px',
-                  borderRadius: 14,
-                  background: mine ? 'var(--accent-light)' : 'var(--border)',
-                  color: 'var(--text)',
-                  whiteSpace: 'pre-wrap'
-                }}
-              >
-                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                    {mine && <span title={senderKind === 'ai' ? 'Agente IA' : 'Humano'}>{senderIcon}</span>}
-                    <span>{content}</span>
-                  </div>
-                </div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                  <span>{formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}</span>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {isCanceled && <span title="Mensagem cancelada">Cancelada {canceledAt ? formatWhen(canceledAt) : ''}</span>}
-                    {isScheduled && <span title="Mensagem agendada">Agendada {formatWhen(scheduledAt)}</span>}
-                    {canCancel && (
-                      <button
-                        className="btn btn-outline"
-                        style={{ padding: '2px 8px', minHeight: 26 }}
-                        onClick={() => cancelScheduledMessage(mid)}
-                        disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
-                        type="button"
-                      >
-                        {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
+      {transferModalOpen && (
+        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 'min(560px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontWeight: 800 }}>Transferir conversa</div>
+              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setTransferModalOpen(false)} type="button">
+                Fechar
+              </button>
+            </div>
+            <div style={{ padding: 12, display: 'grid', gap: 10 }}>
+              <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                Use para marcar para qual área essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
+              </div>
+              <div>
+                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Destino (opcional)</div>
+                <input className="input" value={transferToDraft} onChange={(e) => setTransferToDraft(e.target.value)} placeholder="Ex.: Financeiro" />
               </div>
             </div>
-          );
-        })}
-        {!threadLoading && (selected?.messages || []).length === 0 && (
-          <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
-            <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
-            <div>Nenhuma mensagem ainda</div>
+            <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setTransferModalOpen(false)} type="button" disabled={ticketUpdating}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ padding: '6px 10px' }}
+                onClick={async () => {
+                  const ok = await updateTicket({ status: 'transferred', transferTo: transferToDraft });
+                  if (ok) setTransferModalOpen(false);
+                }}
+                disabled={ticketUpdating}
+                type="button"
+              >
+                Transferir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ position: 'relative' }}>
+        <div
+          ref={threadScrollRef}
+          onScroll={onThreadScroll}
+          style={{ padding: 14, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto', background: 'rgba(0,0,0,0.02)' }}
+        >
+          {threadHasMore && !threadLoading && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <button
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', minHeight: 34 }}
+                onClick={() => loadThread(selectedPhoneRef.current, { silent: true, cursor: String(threadCursor || ''), append: true })}
+                disabled={threadPaging || !threadCursor}
+                type="button"
+              >
+                {threadPaging ? 'Carregando…' : 'Carregar mensagens anteriores'}
+              </button>
+            </div>
+          )}
+          {threadLoading && (
+            <div className="text-small" style={{ color: 'var(--text-secondary)', padding: 20, textAlign: 'center' }}>
+              Carregando mensagens…
+            </div>
+          )}
+
+          {threadBlocks.map((b) => {
+            if (b.type === 'day') {
+              return (
+                <div key={b.key} style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
+                  <span className="text-small" style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 999, color: 'var(--text-secondary)' }}>
+                    {b.label}
+                  </span>
+                </div>
+              );
+            }
+            const g = b;
+            return (
+              <div key={g.id} style={{ display: 'flex', justifyContent: g.mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
+                <div
+                  className={`inbox-bubble ${g.mine ? 'mine' : 'theirs'}`}
+                  style={{
+                    maxWidth: '92%',
+                    width: 'fit-content',
+                    padding: '10px 12px',
+                    borderRadius: 14,
+                    background: g.mine ? 'var(--accent-light)' : 'var(--surface)',
+                    border: `1px solid ${g.mine ? 'rgba(0, 188, 142, 0.25)' : 'var(--border)'}`,
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  {g.items.map(({ key, m }, idx) => {
+                    const contentRaw = String(m?.content || '');
+                    const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
+                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
+                    const statusLower = String(m?.status || '').trim().toLowerCase();
+                    const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
+                    const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
+                    const isScheduled = statusLower === 'scheduled' && !!scheduledAt;
+                    const isCanceled = statusLower === 'canceled';
+                    const mine = m?.role === 'assistant';
+                    const mid = String(m?.message_id || '').trim();
+                    const canCancel = mine && (statusLower === 'scheduled' || statusLower === 'pending') && !!mid;
+                    const isSelected = String(selectedMsgKey || '') === key;
+                    const pinned = Boolean(selectedPhoneFlags?.pinned && selectedPhoneFlags.pinned[key]);
+                    const important = Boolean(selectedPhoneFlags?.important && selectedPhoneFlags.important[key]);
+                    const senderKind = senderKindFromMessage(m);
+                    const senderLabel = senderKind === 'ai' ? 'Agente IA' : senderKind === 'human' ? 'Humano' : 'Cliente';
+                    return (
+                      <div
+                        key={`${key}-${idx}`}
+                        data-msgkey={key}
+                        className={isSelected ? 'inbox-msg selected' : 'inbox-msg'}
+                        style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 10 }}
+                        onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
+                      >
+                        <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)' }}>
+                          {content}
+                        </div>
+                        {!expanded && contentRaw.length > 600 && (
+                          <button
+                            className="btn btn-outline"
+                            style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExpandedMsgs((prev) => ({ ...(prev && typeof prev === 'object' ? prev : {}), [key]: true }));
+                            }}
+                          >
+                            Ver mais
+                          </button>
+                        )}
+                        <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                          <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                            {formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}
+                            {pinned ? ' • Fixada' : ''}
+                            {important ? ' • Importante' : ''}
+                          </span>
+                          <div className="inbox-msg-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <button
+                              className="btn btn-outline inbox-mini-btn"
+                              style={{ minHeight: 28, padding: '0 10px' }}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const base = contentRaw.replace(/\s+/g, ' ').trim();
+                                const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
+                                if (snippet) {
+                                  setDraft((prev) => {
+                                    const p = String(prev || '');
+                                    const prefix = p.trim() ? `${p}\n\n` : '';
+                                    return `${prefix}Respondendo: "${snippet}"\n\n`;
+                                  });
+                                  try {
+                                    textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
+                                  } catch {
+                                    void 0;
+                                  }
+                                }
+                              }}
+                            >
+                              Responder
+                            </button>
+                            <button
+                              className="btn btn-outline inbox-mini-btn"
+                              style={{ minHeight: 28, padding: '0 10px' }}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                copyToClipboard(contentRaw);
+                              }}
+                            >
+                              Copiar
+                            </button>
+                            <button
+                              className="btn btn-outline inbox-mini-btn"
+                              style={{ minHeight: 28, padding: '0 10px', fontWeight: 900 }}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openMenu('message', e.currentTarget, { key, phone: String(selectedPhoneRef.current || '').trim(), m, canCancel });
+                              }}
+                              aria-haspopup="menu"
+                              aria-expanded={menu?.kind === 'message' && menu?.payload?.key === key}
+                            >
+                              ⋯
+                            </button>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                              {senderLabel}
+                            </span>
+                            {!!String(statusLower || '').trim() && (
+                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                                Status: {statusLower}
+                              </span>
+                            )}
+                            {isScheduled && (
+                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                                Agendada: {formatWhen(scheduledAt)}
+                              </span>
+                            )}
+                            {isCanceled && (
+                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                                Cancelada: {canceledAt ? formatWhen(canceledAt) : '—'}
+                              </span>
+                            )}
+                            {canCancel && (
+                              <button
+                                className="btn btn-outline"
+                                style={{ minHeight: 28, padding: '0 10px' }}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  cancelScheduledMessage(mid);
+                                }}
+                                disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
+                              >
+                                {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar agendamento'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {!threadLoading && (selected?.messages || []).length === 0 && (
+            <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
+              <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
+              <div>Nenhuma mensagem ainda</div>
+            </div>
+          )}
+        </div>
+
+        {!threadAtBottom && newMsgCount > 0 && (
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '6px 12px', minHeight: 34, pointerEvents: 'auto' }}
+              type="button"
+              onClick={() => scrollThreadToBottom({ clearNew: true })}
+              title="Ir para o mais recente"
+            >
+              {newMsgCount} novas • Ir para o mais recente
+            </button>
           </div>
         )}
       </div>
@@ -2052,8 +2417,329 @@ export default function Inbox() {
     </div>
   );
 
+  const scrollToMsgKey = (k) => {
+    const key = String(k || '').trim();
+    if (!key) return;
+    const el = threadScrollRef.current;
+    if (!el) return;
+    try {
+      const nodes = el.querySelectorAll('[data-msgkey]');
+      for (const node of nodes) {
+        const dk = node && node.dataset ? String(node.dataset.msgkey || '') : '';
+        if (dk !== key) continue;
+        node.scrollIntoView({ block: 'center' });
+        break;
+      }
+    } catch {
+      void 0;
+    }
+  };
+
+  const contextPanelContent = (
+    <div style={{ padding: 12, display: 'grid', gap: 12 }}>
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+        <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+          Conversa
+        </div>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+              Telefone
+            </span>
+            <span className="text-small" style={{ color: 'var(--text)', fontWeight: 700, textAlign: 'right', wordBreak: 'break-all' }}>
+              {selectedPhone || '—'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+              Status
+            </span>
+            {(() => {
+              const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
+              return (
+                <span className="text-small" style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }}>
+                  {chip.label}
+                </span>
+              );
+            })()}
+          </div>
+          {!!String(selected?.transfer_to || '').trim() && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                Transferido para
+              </span>
+              <span className="text-small" style={{ color: 'var(--text)', fontWeight: 700, textAlign: 'right' }}>
+                {String(selected?.transfer_to || '').trim()}
+              </span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          <button
+            className="btn btn-outline"
+            style={{ padding: '6px 10px', minHeight: 34 }}
+            type="button"
+            onClick={() => updateTicket({ status: 'waiting_customer' })}
+            disabled={!selectedPhone || ticketUpdating}
+            title="Marca como aguardando resposta do cliente"
+          >
+            Aguardando cliente
+          </button>
+          <button
+            className="btn btn-outline"
+            style={{ padding: '6px 10px', minHeight: 34 }}
+            type="button"
+            onClick={() => {
+              setTransferToDraft(String(selected?.transfer_to || '').trim());
+              setTransferModalOpen(true);
+            }}
+            disabled={!selectedPhone || ticketUpdating}
+          >
+            Transferir
+          </button>
+          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
+            Recarregar conversa
+          </button>
+          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
+            Configurar IA
+          </button>
+        </div>
+      </div>
+
+      {(() => {
+        const phone = String(selectedPhone || '').trim();
+        const leadId = String(selected?.lead_id || '').trim();
+        const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+        if (!lead && !phone) return null;
+        const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+        const status = String(lead?.status || '').trim();
+        const intention = String(lead?.intention || '').trim();
+        const priority = String(lead?.priority || '').trim();
+        const hotLead = Boolean(lead?.hotLead);
+        return (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+            <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+              Contato / Lead
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
+              {!!phone && (
+                <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                  {phone}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {!!status && (
+                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
+                    {status}
+                  </span>
+                )}
+                {!!intention && (
+                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
+                    {intention}
+                  </span>
+                )}
+                {!!priority && (
+                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
+                    {priority}
+                  </span>
+                )}
+                {hotLead && (
+                  <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
+                    🔥 quente
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {!selected?.lead_id && (
+                  <>
+                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))} disabled={!selectedPhone || linkingLead}>
+                      Converter em lead
+                    </button>
+                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))} disabled={!selectedPhone || linkingLead}>
+                      Associar lead
+                    </button>
+                  </>
+                )}
+                {!!selected?.lead_id && (
+                  <>
+                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => (window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`)} type="button">
+                      Ver lead
+                    </button>
+                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => navigate('/pipeline')} type="button">
+                      Kanban
+                    </button>
+                  </>
+                )}
+                {!!lead?.id && (
+                  <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => (window.location.href = `/lead/${encodeURIComponent(String(lead.id))}`)} type="button">
+                    Perfil completo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {leadPanel === 'convert' && !selected?.lead_id && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+            Converter em lead
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
+                Nome
+              </div>
+              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
+            </div>
+            <div>
+              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
+                Tipo
+              </div>
+              <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
+                <option value="Adulto">Adulto</option>
+                <option value="Criança">Criança</option>
+                <option value="Juniores">Juniores</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
+                Fechar
+              </button>
+              <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={convertToLead} disabled={linkingLead} type="button">
+                {linkingLead ? 'Convertendo…' : 'Converter'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {leadPanel === 'associate' && !selected?.lead_id && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+            Associar lead
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+            <input className="input" value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="Buscar por nome ou telefone" style={{ flex: 1, minWidth: 220 }} />
+            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => fetchLeads()} disabled={leadsLoading || linkingLead} type="button">
+              Atualizar
+            </button>
+          </div>
+          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
+          {!leadsLoading && leadCandidates.length === 0 && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhum lead encontrado.</div>}
+          {!leadsLoading && leadCandidates.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {leadCandidates.map((l) => (
+                <button
+                  key={l.id}
+                  className="btn btn-outline"
+                  style={{ justifyContent: 'space-between', display: 'flex', minHeight: 44 }}
+                  onClick={() => linkLeadToConversation({ leadId: l.id })}
+                  disabled={linkingLead}
+                  type="button"
+                >
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                    <span style={{ fontWeight: 800 }}>{l.name || 'Sem nome'}</span>
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || ''}</span>
+                  </span>
+                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.pipelineStage || l.status || ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selected?.summary?.text && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+            Resumo
+          </div>
+          <div className="text-small" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{selected.summary.text}</div>
+        </div>
+      )}
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
+            Fixadas
+          </div>
+          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+            {pinnedMessages.length}
+          </div>
+        </div>
+        {pinnedMessages.length === 0 ? (
+          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+            Nenhuma mensagem fixada.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pinnedMessages.map((pm) => (
+              <button
+                key={pm.key}
+                type="button"
+                className="btn btn-outline"
+                style={{ justifyContent: 'space-between', display: 'flex', minHeight: 40, textAlign: 'left' }}
+                onClick={() => {
+                  setSelectedMsgKey(pm.key);
+                  scrollToMsgKey(pm.key);
+                  if (isMobile) setDetailsOpen(false);
+                }}
+              >
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || '—'}</span>
+                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                  Ver
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ marginTop: 10 }}>
+          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+            Importantes: {Object.keys(selectedPhoneFlags?.important || {}).length}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const contextPanel = (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
+      <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ fontWeight: 800 }}>Detalhes</div>
+        {!isMobile && (
+          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setContextOpen(false)}>
+            Fechar
+          </button>
+        )}
+      </div>
+      <div style={{ maxHeight: '70vh', overflow: 'auto' }}>{contextPanelContent}</div>
+    </div>
+  );
+
   return (
     <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .inbox-msg { border-radius: 12px; padding: 8px; margin: -6px; transition: var(--transition); }
+        .inbox-msg.selected { background: rgba(0, 188, 142, 0.10); outline: 2px solid rgba(0, 188, 142, 0.35); }
+        .inbox-msg-actions { opacity: 0; pointer-events: none; transition: var(--transition); }
+        .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
+        .inbox-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.10); z-index: 80; }
+        .inbox-menu-panel { position: fixed; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; z-index: 81; }
+        .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
+        .inbox-menu-item:hover { background: var(--surface-hover); }
+        .inbox-menu-item.danger { color: var(--danger); }
+        .inbox-menu-item.danger:hover { background: var(--danger-light); }
+        .inbox-menu-item.muted { color: var(--text-secondary); font-weight: 600; }
+      ` }} />
+
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
           <h2 style={{ margin: 0 }}>Atendimento</h2>
@@ -2066,7 +2752,7 @@ export default function Inbox() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por telefone…"
+              placeholder="Buscar por telefone ou nome…"
               className="form-input"
               style={{ width: 220 }}
             />
@@ -2110,6 +2796,305 @@ export default function Inbox() {
           Agente IA
         </button>
       </div>
+
+      {menu && (
+        <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
+          <div
+            className="inbox-menu-panel"
+            style={{ left: Number(menu.x || 0), top: Number(menu.y || 0) }}
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {menu.kind === 'message' && (() => {
+              const payload = menu.payload && typeof menu.payload === 'object' ? menu.payload : {};
+              const key = String(payload.key || '').trim();
+              const phone = String(payload.phone || '').trim();
+              const m = payload.m && typeof payload.m === 'object' ? payload.m : {};
+              const canCancel = Boolean(payload.canCancel);
+              const contentRaw = String(m?.content || '');
+              const mid = String(m?.message_id || '').trim();
+              return (
+                <>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      const base = contentRaw.replace(/\s+/g, ' ').trim();
+                      const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
+                      if (snippet) {
+                        setDraft((prev) => {
+                          const p = String(prev || '');
+                          const prefix = p.trim() ? `${p}\n\n` : '';
+                          return `${prefix}Respondendo: "${snippet}"\n\n`;
+                        });
+                      }
+                      closeMenu();
+                      try {
+                        textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
+                      } catch {
+                        void 0;
+                      }
+                    }}
+                  >
+                    Responder
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Enter
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      copyToClipboard(contentRaw);
+                      closeMenu();
+                    }}
+                  >
+                    Copiar
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Ctrl+C
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      copyToClipboard(contentRaw);
+                      addToast({ type: 'info', message: 'Copiado para encaminhar' });
+                      closeMenu();
+                    }}
+                  >
+                    Encaminhar
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Copia texto
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      toggleMsgFlag(phone, key, 'pinned');
+                      closeMenu();
+                    }}
+                  >
+                    Fixar
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      {selectedPhoneFlags?.pinned && selectedPhoneFlags.pinned[key] ? 'On' : 'Off'}
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      toggleMsgFlag(phone, key, 'important');
+                      closeMenu();
+                    }}
+                  >
+                    Importante
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      {selectedPhoneFlags?.important && selectedPhoneFlags.important[key] ? 'On' : 'Off'}
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item muted"
+                    type="button"
+                    onClick={() => {
+                      setSelectedMsgKey(key);
+                      scrollToMsgKey(key);
+                      closeMenu();
+                    }}
+                  >
+                    Ver detalhes
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Seleciona
+                    </span>
+                  </button>
+                  <button
+                    className={`inbox-menu-item ${canCancel ? 'danger' : 'muted'}`}
+                    type="button"
+                    disabled={!canCancel || !mid}
+                    onClick={() => {
+                      if (canCancel && mid) cancelScheduledMessage(mid);
+                      closeMenu();
+                    }}
+                  >
+                    Excluir
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      {canCancel ? 'Cancela agendamento' : '—'}
+                    </span>
+                  </button>
+                </>
+              );
+            })()}
+
+            {menu.kind === 'thread' && (() => {
+              const payload = menu.payload && typeof menu.payload === 'object' ? menu.payload : {};
+              const phone = String(payload.phone || '').trim();
+              const hasLead = Boolean(String(selected?.lead_id || '').trim());
+              return (
+                <>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      if (isMobile) setDetailsOpen(true);
+                      else setContextOpen((v) => !v);
+                      closeMenu();
+                    }}
+                  >
+                    {isMobile ? 'Abrir detalhes' : contextOpen ? 'Ocultar detalhes' : 'Mostrar detalhes'}
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Painel
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      updateTicket({ status: 'waiting_customer' });
+                      closeMenu();
+                    }}
+                    disabled={!phone || ticketUpdating}
+                  >
+                    Aguardando cliente
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Ticket
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      setTransferToDraft(String(selected?.transfer_to || '').trim());
+                      setTransferModalOpen(true);
+                      closeMenu();
+                    }}
+                    disabled={!phone || ticketUpdating}
+                  >
+                    Transferir
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Ticket
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      loadThread(phone);
+                      closeMenu();
+                    }}
+                    disabled={!phone}
+                  >
+                    Recarregar conversa
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Atualiza
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      openPromptSettings();
+                      closeMenu();
+                    }}
+                  >
+                    Configurar IA
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Prompt
+                    </span>
+                  </button>
+                  {!hasLead && (
+                    <>
+                      <button
+                        className="inbox-menu-item"
+                        type="button"
+                        onClick={() => {
+                          setLeadPanel('convert');
+                          if (isMobile) setDetailsOpen(true);
+                          else setContextOpen(true);
+                          closeMenu();
+                        }}
+                        disabled={!phone || linkingLead}
+                      >
+                        Converter em lead
+                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                          CRM
+                        </span>
+                      </button>
+                      <button
+                        className="inbox-menu-item"
+                        type="button"
+                        onClick={() => {
+                          setLeadPanel('associate');
+                          if (isMobile) setDetailsOpen(true);
+                          else setContextOpen(true);
+                          closeMenu();
+                        }}
+                        disabled={!phone || linkingLead}
+                      >
+                        Associar lead
+                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                          CRM
+                        </span>
+                      </button>
+                    </>
+                  )}
+                  {hasLead && (
+                    <>
+                      <button
+                        className="inbox-menu-item"
+                        type="button"
+                        onClick={() => {
+                          window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
+                          closeMenu();
+                        }}
+                      >
+                        Ver lead
+                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                          Perfil
+                        </span>
+                      </button>
+                      <button
+                        className="inbox-menu-item"
+                        type="button"
+                        onClick={() => {
+                          navigate('/pipeline');
+                          closeMenu();
+                        }}
+                      >
+                        Kanban
+                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                          Funil
+                        </span>
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {isMobile && detailsOpen && selectedPhone && (
+        <div
+          style={{ position: 'fixed', zIndex: 70, inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
+          onClick={() => setDetailsOpen(false)}
+          role="presentation"
+        >
+          <div
+            style={{ width: 'min(560px, 96vw)', maxHeight: '92vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontWeight: 900 }}>Detalhes</div>
+              <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setDetailsOpen(false)}>
+                Fechar
+              </button>
+            </div>
+            <div style={{ maxHeight: 'calc(92vh - 56px)', overflow: 'auto' }}>{contextPanelContent}</div>
+          </div>
+        </div>
+      )}
 
       {inboxTab === 'dispositivo' && (
         <div style={{ marginBottom: 12 }}>
@@ -2283,7 +3268,14 @@ export default function Inbox() {
         (isMobile ? (
           <div>{selectedPhone ? threadPanel : listPanel}</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: `${listWidth}px 10px minmax(0, 1fr)`, gap: 0, alignItems: 'stretch' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: contextOpen ? `${listWidth}px 10px minmax(0, 1fr) minmax(0, 360px)` : `${listWidth}px 10px minmax(0, 1fr)`,
+              gap: 0,
+              alignItems: 'stretch'
+            }}
+          >
             <div style={{ paddingRight: 14 }}>{listPanel}</div>
             <div
               role="separator"
@@ -2302,7 +3294,8 @@ export default function Inbox() {
             >
               <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
             </div>
-            <div style={{ paddingLeft: 14 }}>{threadPanel}</div>
+            <div style={{ paddingLeft: 14, paddingRight: contextOpen ? 14 : 0 }}>{threadPanel}</div>
+            {contextOpen && <div style={{ paddingLeft: 14 }}>{contextPanel}</div>}
           </div>
         ))}
     </div>
