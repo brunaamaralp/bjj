@@ -183,6 +183,7 @@ export default function Inbox() {
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const [listFilter, setListFilter] = useState('all');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -2451,35 +2452,62 @@ export default function Inbox() {
       </div>
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {selectedPhone && !String(draft || '').trim() && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {quickTemplates.map((tpl) => (
-            <button
-              key={tpl}
-              className="btn btn-outline"
-              style={{ minHeight: 30, padding: '0 8px' }}
-              onClick={() => {
-                setDraft(tpl);
-                try {
-                  textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
-                } catch {
-                  void 0;
-                }
-              }}
-              type="button"
-            >
-              {tpl.length > 38 ? `${tpl.slice(0, 38)}…` : tpl}
-            </button>
-          ))}
-        </div>
-        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {selectedPhone && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  className={templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}
+                  style={{ minHeight: 28, padding: '0 8px', fontSize: 14 }}
+                  onClick={() => { setTemplatesOpen((v) => !v); setEmojiOpen(false); }}
+                  type="button"
+                  title="Mensagens prontas"
+                >
+                  ⚡
+                </button>
+                {templatesOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 36,
+                      left: 0,
+                      width: 280,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 12,
+                      boxShadow: 'var(--shadow)',
+                      padding: 8,
+                      zIndex: 50,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4
+                    }}
+                  >
+                    <div className="text-small" style={{ color: 'var(--text-secondary)', padding: '2px 6px 6px', fontWeight: 600 }}>Mensagens prontas</div>
+                    {quickTemplates.map((tpl) => (
+                      <button
+                        key={tpl}
+                        type="button"
+                        className="btn btn-outline"
+                        style={{ textAlign: 'left', padding: '6px 10px', minHeight: 32, whiteSpace: 'normal', lineHeight: '18px' }}
+                        onClick={() => {
+                          setDraft(tpl);
+                          setTemplatesOpen(false);
+                          try { textareaRef.current?.focus(); } catch { void 0; }
+                        }}
+                      >
+                        {tpl.length > 60 ? `${tpl.slice(0, 60)}…` : tpl}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ position: 'relative' }}>
               <button
                 className="btn btn-outline"
                 style={{ minHeight: 28, padding: '0 8px', fontSize: 16 }}
-                onClick={() => setEmojiOpen((v) => !v)}
+                onClick={() => { setEmojiOpen((v) => !v); setTemplatesOpen(false); }}
                 type="button"
                 aria-expanded={emojiOpen}
                 title="Inserir emoji"
