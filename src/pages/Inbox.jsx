@@ -31,6 +31,13 @@ function formatTimeOnly(iso) {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function parseTimestampMs(value) {
+  const s = String(value || '').trim();
+  if (!s) return 0;
+  const ms = new Date(s).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 const ANA_PROMPT_INTRO = `Você se chama Ana e é atendente da Gracie Barra Lagoa da Prata,
 academia de Jiu-Jitsu da rede Gracie Barra em Lagoa da Prata, MG.
 
@@ -176,6 +183,13 @@ export default function Inbox() {
   const [isMobile, setIsMobile] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [stats, setStats] = useState({
+    firstResponseMs: [],
+    selectedCount: 0,
+    resolvedCount: 0,
+    transferredCount: 0
+  });
   const [listWidth, setListWidth] = useState(() => {
     if (typeof window === 'undefined') return 420;
     const raw = window.localStorage.getItem('inbox_list_width');
@@ -234,6 +248,10 @@ export default function Inbox() {
     }
   });
   const waOpen = inboxTab === 'dispositivo';
+  const quickTemplates = useMemo(
+    () => ['Oi! Como posso te ajudar hoje?', 'Perfeito! Vou te passar as opções agora.', 'Consigo te ajudar a agendar uma aula experimental gratuita.'],
+    []
+  );
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
@@ -247,6 +265,7 @@ export default function Inbox() {
   const loadThreadRef = useRef(null);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
+  const firstResponseTrackedRef = useRef({});
 
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
 
@@ -313,6 +332,60 @@ export default function Inbox() {
       else mq.removeListener(apply);
     };
   }, []);
+
+  useEffect(() => {
+    const unreadBacklog = (Array.isArray(items) ? items : []).reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
+    const resolvedCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'resolved').length;
+    const transferredCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'transferred').length;
+    setStats((prev) => ({ ...prev, unreadBacklog, resolvedCount, transferredCount }));
+  }, [items]);
+
+  useEffect(() => {
+    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+    const firstUser = msgs.find((m) => String(m?.role || '') === 'user');
+    const firstAssistant = msgs.find((m) => String(m?.role || '') === 'assistant');
+    const firstUserMs = parseTimestampMs(firstUser?.timestamp);
+    const firstAssistantMs = parseTimestampMs(firstAssistant?.timestamp);
+    if (!selectedPhone || !firstUserMs || !firstAssistantMs || firstAssistantMs <= firstUserMs) return;
+    const firstResponseMs = firstAssistantMs - firstUserMs;
+    const trackedKey = `${String(selectedPhone || '').trim()}:${String(firstUser?.timestamp || '')}:${String(firstAssistant?.timestamp || '')}`;
+    if (firstResponseTrackedRef.current[trackedKey]) return;
+    firstResponseTrackedRef.current[trackedKey] = true;
+    setStats((prev) => {
+      const next = Array.isArray(prev?.firstResponseMs) ? prev.firstResponseMs.slice() : [];
+      const phoneKey = String(selectedPhone || '').trim();
+      if (!phoneKey) return prev;
+      if (next.length > 100) next.shift();
+      next.push(firstResponseMs);
+      return { ...prev, firstResponseMs: next, selectedCount: Number(prev?.selectedCount || 0) + 1 };
+    });
+  }, [selectedPhone, selected?.messages]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const target = e.target;
+      const tag = String(target?.tagName || '').toLowerCase();
+      const editing = tag === 'input' || tag === 'textarea' || target?.isContentEditable;
+      if (editing) return;
+      if (!selectedPhone) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        loadThread(selectedPhoneRef.current);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        setTransferToDraft(String(selected?.transfer_to || '').trim());
+        setTransferModalOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        openPromptSettings();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedPhone, selected?.ticket_status, selected?.transfer_to]);
 
   function safeParseJson(raw) {
     try {
@@ -1443,8 +1516,32 @@ export default function Inbox() {
     });
   }, [items, leadById, leadByPhone, highlighted]);
 
-  const filteredItems = useMemo(() => {
+  const prioritizedItems = useMemo(() => {
     const arr = Array.isArray(enrichedItems) ? enrichedItems : [];
+    const score = (it) => {
+      let points = 0;
+      const unread = Number(it?._unreadCount || 0);
+      if (unread > 0) points += 40;
+      const ticketStatus = String(it?._ticketStatus || '').trim();
+      if (ticketStatus === 'waiting_customer') points += 20;
+      if (ticketStatus === 'transferred') points += 8;
+      if (ticketStatus === 'resolved') points -= 20;
+      if (Boolean(it?._hotLead)) points += 15;
+      if (Boolean(it?._handoffActive)) points += 10;
+      const updatedMs = parseTimestampMs(it?.updated_at);
+      const ageMinutes = updatedMs ? (Date.now() - updatedMs) / 60000 : 0;
+      if (ageMinutes > 30 && unread > 0) points += 15;
+      return points;
+    };
+    return arr.slice().sort((a, b) => {
+      const diff = score(b) - score(a);
+      if (diff) return diff;
+      return parseTimestampMs(b?.updated_at) - parseTimestampMs(a?.updated_at);
+    });
+  }, [enrichedItems]);
+
+  const filteredItems = useMemo(() => {
+    const arr = Array.isArray(prioritizedItems) ? prioritizedItems : [];
     const f = String(listFilter || 'all');
     if (f === 'unread') return arr.filter((it) => Number(it?._unreadCount || 0) > 0);
     if (f === 'hot') return arr.filter((it) => Boolean(it?._hotLead));
@@ -1453,14 +1550,14 @@ export default function Inbox() {
     if (f === 'resolved') return arr.filter((it) => String(it?._ticketStatus || '') === 'resolved');
     if (f === 'transferred') return arr.filter((it) => String(it?._ticketStatus || '') === 'transferred');
     return arr;
-  }, [enrichedItems, listFilter]);
+  }, [prioritizedItems, listFilter]);
 
   function ticketChip(status, transferTo) {
     const s = String(status || '').trim();
-    if (s === 'resolved') return { label: 'Resolvido', bg: 'rgba(34, 197, 94, 0.10)', fg: '#16a34a' };
-    if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'rgba(245, 158, 11, 0.12)', fg: '#b45309' };
-    if (s === 'transferred') return { label: transferTo ? `Transferido • ${transferTo}` : 'Transferido', bg: 'rgba(59, 130, 246, 0.12)', fg: '#1d4ed8' };
-    return { label: 'Em aberto', bg: 'rgba(0,0,0,0.06)', fg: 'var(--text-secondary)' };
+    if (s === 'resolved') return { label: 'Resolvido', bg: 'var(--success-light)', fg: 'var(--success)', tone: 'success' };
+    if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'var(--warning-light)', fg: '#b45309', tone: 'warning' };
+    if (s === 'transferred') return { label: transferTo ? `Transferido • ${transferTo}` : 'Transferido', bg: 'rgba(59, 130, 246, 0.12)', fg: '#1d4ed8', tone: 'info' };
+    return { label: 'Em andamento', bg: 'rgba(6, 182, 212, 0.12)', fg: 'var(--info)', tone: 'info' };
   }
 
   async function updateTicket({ status, transferTo } = {}) {
@@ -1675,22 +1772,6 @@ export default function Inbox() {
         </button>
         <button
           type="button"
-          className={listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('hot')}
-        >
-          Lead quente
-        </button>
-        <button
-          type="button"
-          className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('need_human')}
-        >
-          Aguardando humano
-        </button>
-        <button
-          type="button"
           className={listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
           style={{ padding: '6px 10px', minHeight: 34 }}
           onClick={() => setListFilter('waiting_customer')}
@@ -1707,12 +1788,40 @@ export default function Inbox() {
         </button>
         <button
           type="button"
-          className={listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={showMoreFilters ? 'btn btn-primary' : 'btn btn-outline'}
           style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('transferred')}
+          onClick={() => setShowMoreFilters((v) => !v)}
         >
-          Transferidos
+          Mais filtros
         </button>
+        {showMoreFilters && (
+          <>
+            <button
+              type="button"
+              className={listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => setListFilter('hot')}
+            >
+              Lead quente
+            </button>
+            <button
+              type="button"
+              className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => setListFilter('need_human')}
+            >
+              Aguardando humano
+            </button>
+            <button
+              type="button"
+              className={listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => setListFilter('transferred')}
+            >
+              Transferidos
+            </button>
+          </>
+        )}
       </div>
       <div
         style={{ maxHeight: isMobile ? '72vh' : '70vh', overflow: 'auto' }}
@@ -1749,10 +1858,11 @@ export default function Inbox() {
               style={{
                 width: '100%',
                 textAlign: 'left',
-                padding: 14,
+                padding: '16px 14px 14px',
                 border: 'none',
                 borderBottom: '1px solid var(--border)',
-                background: active ? 'var(--accent-light)' : isHighlighted ? 'rgba(34, 197, 94, 0.10)' : 'transparent',
+                borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
+                background: active ? 'rgba(0, 188, 142, 0.18)' : isHighlighted ? 'rgba(34, 197, 94, 0.10)' : 'transparent',
                 cursor: 'pointer'
               }}
             >
@@ -1771,7 +1881,7 @@ export default function Inbox() {
                     />
                   )}
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 800, fontSize: 16, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                         <span>{String(it?._displayTitle || '-')}</span>
                         {hotLead && <span title="Lead quente">🔥</span>}
@@ -1785,7 +1895,7 @@ export default function Inbox() {
                       </span>
                     </div>
                     {!!String(it?._displaySubtitle || '').trim() && (
-                      <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                      <div className="text-small" style={{ color: 'var(--text)', marginTop: 4, opacity: 0.86 }}>
                         {String(it?._displaySubtitle || '—')}
                       </div>
                     )}
@@ -1806,19 +1916,20 @@ export default function Inbox() {
                     </span>
                   )}
                 </div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                  {formatWhen(it?.updated_at)}
+                <div className="text-small" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                  {formatTimeOnly(it?.updated_at) || formatWhen(it?.updated_at)}
                 </div>
               </div>
               <div
                 className="text-small"
                 style={{
-                  color: 'var(--text-secondary)',
-                  marginTop: 8,
+                  color: 'var(--text)',
+                  marginTop: 9,
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  opacity: 0.86
                 }}
               >
                 {preview || '—'}
@@ -1960,7 +2071,7 @@ export default function Inbox() {
             disabled={!selectedPhone}
             type="button"
           >
-            Detalhes
+            Painel
           </button>
           <button
             className="btn btn-outline"
@@ -2264,7 +2375,25 @@ export default function Inbox() {
           {!threadLoading && (selected?.messages || []).length === 0 && (
             <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
               <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
-              <div>Nenhuma mensagem ainda</div>
+              <div style={{ fontWeight: 700, color: 'var(--text)' }}>Esta conversa ainda não tem mensagens</div>
+              <div className="text-small" style={{ marginTop: 4 }}>Envie a primeira mensagem para iniciar o atendimento.</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', minHeight: 34 }}
+                  type="button"
+                  onClick={() => {
+                    setDraft((prev) => String(prev || '').trim() ? prev : 'Olá! Como posso te ajudar hoje?');
+                    try {
+                      textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
+                    } catch {
+                      void 0;
+                    }
+                  }}
+                >
+                  Enviar primeira mensagem
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -2285,6 +2414,29 @@ export default function Inbox() {
       </div>
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {quickTemplates.map((tpl) => (
+            <button
+              key={tpl}
+              className="btn btn-outline"
+              style={{ minHeight: 30, padding: '0 8px' }}
+              onClick={() => {
+                setDraft(tpl);
+                try {
+                  textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
+                } catch {
+                  void 0;
+                }
+              }}
+              type="button"
+            >
+              {tpl.length > 38 ? `${tpl.slice(0, 38)}…` : tpl}
+            </button>
+          ))}
+        </div>
+        <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+          Atalhos: Ctrl/Cmd+R recarrega conversa, Ctrl/Cmd+T transfere, Ctrl/Cmd+K resolve/reabre, Ctrl/Cmd+I abre IA.
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" style={{ minHeight: 30, padding: '0 8px' }} onClick={() => applyWrapToDraft('*')} type="button">
@@ -2482,14 +2634,19 @@ export default function Inbox() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           <button
-            className="btn btn-outline"
+            className="btn btn-secondary"
             style={{ padding: '6px 10px', minHeight: 34 }}
             type="button"
-            onClick={() => updateTicket({ status: 'waiting_customer' })}
-            disabled={!selectedPhone || ticketUpdating}
-            title="Marca como aguardando resposta do cliente"
+            onClick={() => {
+              try {
+                textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
+              } catch {
+                void 0;
+              }
+            }}
+            disabled={!selectedPhone}
           >
-            Aguardando cliente
+            Responder
           </button>
           <button
             className="btn btn-outline"
@@ -2502,6 +2659,37 @@ export default function Inbox() {
             disabled={!selectedPhone || ticketUpdating}
           >
             Transferir
+          </button>
+          {String(selected?.ticket_status || '') === 'resolved' ? (
+            <button
+              className="btn btn-outline"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              type="button"
+              onClick={() => updateTicket({ status: 'open' })}
+              disabled={!selectedPhone || ticketUpdating}
+            >
+              Reabrir
+            </button>
+          ) : (
+            <button
+              className="btn btn-outline"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              type="button"
+              onClick={() => updateTicket({ status: 'resolved' })}
+              disabled={!selectedPhone || ticketUpdating}
+            >
+              Resolver
+            </button>
+          )}
+          <button
+            className="btn btn-outline"
+            style={{ padding: '6px 10px', minHeight: 34 }}
+            type="button"
+            onClick={() => updateTicket({ status: 'waiting_customer' })}
+            disabled={!selectedPhone || ticketUpdating}
+            title="Marca como aguardando resposta do cliente"
+          >
+            Aguardando cliente
           </button>
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
             Recarregar conversa
@@ -2722,7 +2910,7 @@ export default function Inbox() {
         <div style={{ fontWeight: 800 }}>Detalhes</div>
         {!isMobile && (
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setContextOpen(false)}>
-            Fechar
+            Ocultar painel
           </button>
         )}
       </div>
@@ -2751,6 +2939,26 @@ export default function Inbox() {
           <h2 style={{ margin: 0 }}>Atendimento</h2>
           <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 4 }}>
             {loading ? 'Carregando…' : `${items.length} conversas${lastUpdatedAt ? ` • atualizado ${formatWhen(lastUpdatedAt)}` : ''}`}
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
+              Não lidas: {Number(stats?.unreadBacklog || 0)}
+            </span>
+            <span className="text-small" style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 999 }} title="Conversas em status resolvido">
+              Resolvidas: {Number(stats?.resolvedCount || 0)}
+            </span>
+            <span className="text-small" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#1d4ed8', padding: '2px 8px', borderRadius: 999 }} title="Conversas transferidas">
+              Transferidas: {Number(stats?.transferredCount || 0)}
+            </span>
+            <span className="text-small" style={{ background: 'var(--warning-light)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="Tempo médio da primeira resposta">
+              TTFR: {(() => {
+                const samples = Array.isArray(stats?.firstResponseMs) ? stats.firstResponseMs : [];
+                if (!samples.length) return '—';
+                const avg = samples.reduce((acc, cur) => acc + Number(cur || 0), 0) / samples.length;
+                const mins = Math.round(avg / 60000);
+                return `${mins} min`;
+              })()}
+            </span>
           </div>
         </div>
         {inboxTab === 'conversas' ? (
