@@ -1012,6 +1012,7 @@ export default function Inbox() {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
+      console.log('[loadThread]', p, 'status:', resp.status, 'academy:', academyIdRef.current, 'body:', raw.slice(0, 300));
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversa'));
       const data = safeParseJson(raw) || {};
       const incoming = Array.isArray(data?.messages) ? data.messages : [];
