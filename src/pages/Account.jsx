@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
-import { databases, DB_ID, ACADEMIES_COL, teams } from '../lib/appwrite';
+import { useUiStore } from '../store/useUiStore';
+import { databases, DB_ID, ACADEMIES_COL, teams, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID } from '../lib/appwrite';
 import { Building2, Phone, Mail, MapPin, Trash2, Download, ChevronRight, LogOut, Info, Plus, X } from 'lucide-react';
 import ExportButton from '../components/ExportButton';
 
 const Account = ({ user, onLogout }) => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
+    const addToast = useUiStore((s) => s.addToast);
 
     const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' }, modules: { sales: false, inventory: false, finance: false }, onboardingChecklist: [], customLeadQuestions: [] });
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [clearConfirmText, setClearConfirmText] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [memberEmail, setMemberEmail] = useState('');
     const [memberRole, setMemberRole] = useState('viewer');
@@ -61,6 +65,45 @@ const Account = ({ user, onLogout }) => {
         }).filter(Boolean);
 
         return { questions, migrated };
+    };
+
+    const parseQuickTimes = (input) => {
+        const asText = String(input || '').trim();
+        if (!asText) return [];
+        const uniq = [];
+        const seen = new Set();
+        for (const part of asText.split(',')) {
+            const item = String(part || '').trim();
+            if (!item) continue;
+            if (!seen.has(item)) {
+                uniq.push(item);
+                seen.add(item);
+            }
+        }
+        return uniq;
+    };
+
+    const validateAcademy = () => {
+        const errors = {};
+        const email = String(academy.email || '').trim();
+        const phoneDigits = String(academy.phone || '').replace(/\D/g, '');
+        const quick = parseQuickTimes(academy.quickTimes);
+
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.email = 'Informe um e-mail válido (ex.: contato@academia.com).';
+        }
+        if (phoneDigits && phoneDigits.length < 10) {
+            errors.phone = 'Telefone incompleto. Use DDD + número.';
+        }
+        if (quick.length > 0) {
+            const bad = quick.find((t) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(t));
+            if (bad) {
+                errors.quickTimes = `Horário inválido: "${bad}". Use HH:MM (24h), separado por vírgula.`;
+            }
+        }
+
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
     };
 
     // Fetch academy data from Appwrite
@@ -136,6 +179,29 @@ const Account = ({ user, onLogout }) => {
 
     const saveAcademy = async () => {
         if (!academyId) return;
+        if (!validateAcademy()) {
+            addToast({ type: 'error', message: 'Corrija os campos destacados antes de salvar.' });
+            return;
+        }
+
+        const moduleErrors = [];
+        if (academy.modules?.inventory) {
+            if (!STOCK_ITEMS_COL) moduleErrors.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
+            if (!INVENTORY_MOVE_FN_ID) moduleErrors.push('VITE_APPWRITE_INVENTORY_MOVE_FN_ID');
+        }
+        if (academy.modules?.sales) {
+            if (!STOCK_ITEMS_COL) moduleErrors.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
+            if (!SALES_CREATE_FN_ID) moduleErrors.push('VITE_APPWRITE_SALES_CREATE_FN_ID');
+            if (!SALES_CANCEL_FN_ID) moduleErrors.push('VITE_APPWRITE_SALES_CANCEL_FN_ID');
+        }
+        if (moduleErrors.length > 0) {
+            addToast({
+                type: 'error',
+                message: `Não é possível salvar módulos ativos sem estas configurações: ${Array.from(new Set(moduleErrors)).join(', ')}.`,
+            });
+            return;
+        }
+
         setSaving(true);
         try {
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
@@ -151,19 +217,27 @@ const Account = ({ user, onLogout }) => {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
                 useLeadStore.getState().setModules(academy.modules || {});
             } catch (e) { void e; }
+            addToast({ type: 'success', message: 'Configurações da academia salvas.' });
             setEditing(false);
         } catch (e) {
             console.error('save academy:', e);
+            addToast({ type: 'error', message: 'Não foi possível salvar as configurações.' });
         } finally {
             setSaving(false);
         }
     };
 
     const clearAllData = async () => {
+        if (clearConfirmText.trim().toUpperCase() !== 'LIMPAR') {
+            addToast({ type: 'error', message: 'Digite LIMPAR para confirmar a exclusão total.' });
+            return;
+        }
         for (const lead of leads) {
             await useLeadStore.getState().deleteLead(lead.id);
         }
         setShowClearConfirm(false);
+        setClearConfirmText('');
+        addToast({ type: 'success', message: 'Todos os dados foram removidos.' });
     };
 
     const inviteMember = async () => {
@@ -176,10 +250,10 @@ const Account = ({ user, onLogout }) => {
                 const res = await teams.listMemberships(academy.teamId);
                 setMemberships(res.memberships || []);
             } catch (e) { void e; }
-            alert('Convite enviado por e-mail.');
+            addToast({ type: 'success', message: 'Convite enviado por e-mail.' });
         } catch (e) {
             console.error('invite member:', e);
-            alert('Não foi possível enviar o convite. Verifique o SMTP no Appwrite.');
+            addToast({ type: 'error', message: 'Não foi possível enviar o convite. Verifique o SMTP no Appwrite.' });
         } finally {
             setInviting(false);
         }
@@ -193,6 +267,7 @@ const Account = ({ user, onLogout }) => {
                 customLeadQuestions: JSON.stringify(qs)
             });
             setAcademy(a => ({ ...a, customLeadQuestions: qs }));
+            addToast({ type: 'success', message: 'Perguntas do lead salvas.' });
         } catch (e) { console.error('save questions:', e); }
     };
 
@@ -440,12 +515,14 @@ const Account = ({ user, onLogout }) => {
                                 <input className="form-input" value={academy.phone}
                                     onChange={e => setAcademy({ ...academy, phone: e.target.value })}
                                     placeholder="(00) 00000-0000" />
+                                {fieldErrors.phone ? <p className="field-error">{fieldErrors.phone}</p> : null}
                             </div>
                             <div className="form-group">
                                 <label>E-mail</label>
                                 <input className="form-input" type="email" value={academy.email}
                                     onChange={e => setAcademy({ ...academy, email: e.target.value })}
                                     placeholder="contato@academia.com" />
+                                {fieldErrors.email ? <p className="field-error">{fieldErrors.email}</p> : null}
                             </div>
                             <div className="form-group">
                                 <label>Endereço</label>
@@ -459,6 +536,7 @@ const Account = ({ user, onLogout }) => {
                                     onChange={e => setAcademy({ ...academy, quickTimes: e.target.value })}
                                     placeholder="Ex: 18:00, 19:00, 20:00" />
                                 <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de “Não Compareceu”.</p>
+                                {fieldErrors.quickTimes ? <p className="field-error">{fieldErrors.quickTimes}</p> : null}
                             </div>
                             <div className="form-group">
                                 <label>Nome do funil (menu e título da página)</label>
@@ -489,11 +567,39 @@ const Account = ({ user, onLogout }) => {
                                 <label>Módulos</label>
                                 <div className="flex gap-4">
                                     <label className="flex items-center gap-2">
-                                        <input type="checkbox" checked={!!academy.modules.sales} onChange={(e) => setAcademy({ ...academy, modules: { ...academy.modules, sales: e.target.checked } })} />
+                                        <input
+                                            type="checkbox"
+                                            checked={!!academy.modules.sales}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                if (checked && (!STOCK_ITEMS_COL || !SALES_CREATE_FN_ID || !SALES_CANCEL_FN_ID)) {
+                                                    addToast({
+                                                        type: 'error',
+                                                        message: 'Para ativar Vendas, configure: VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID, VITE_APPWRITE_SALES_CREATE_FN_ID e VITE_APPWRITE_SALES_CANCEL_FN_ID.',
+                                                    });
+                                                    return;
+                                                }
+                                                setAcademy({ ...academy, modules: { ...academy.modules, sales: checked } });
+                                            }}
+                                        />
                                         <span className="text-small">Vendas</span>
                                     </label>
                                     <label className="flex items-center gap-2">
-                                        <input type="checkbox" checked={!!academy.modules.inventory} onChange={(e) => setAcademy({ ...academy, modules: { ...academy.modules, inventory: e.target.checked } })} />
+                                        <input
+                                            type="checkbox"
+                                            checked={!!academy.modules.inventory}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                if (checked && (!STOCK_ITEMS_COL || !INVENTORY_MOVE_FN_ID)) {
+                                                    addToast({
+                                                        type: 'error',
+                                                        message: 'Para ativar Estoque, configure: VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID e VITE_APPWRITE_INVENTORY_MOVE_FN_ID.',
+                                                    });
+                                                    return;
+                                                }
+                                                setAcademy({ ...academy, modules: { ...academy.modules, inventory: checked } });
+                                            }}
+                                        />
                                         <span className="text-small">Estoque</span>
                                     </label>
                                     <label className="flex items-center gap-2">
@@ -639,10 +745,17 @@ const Account = ({ user, onLogout }) => {
                             <Trash2 size={28} color="var(--danger)" />
                         </div>
                         <h3>Limpar todos os dados?</h3>
-                        <p className="text-small">Esta ação é irreversível. Todos os leads e alunos serão removidos.</p>
+                        <p className="text-small">Esta ação é irreversível. {leads.length} registros (leads e alunos) serão removidos.</p>
+                        <p className="text-small mt-2">Digite <strong>LIMPAR</strong> para confirmar:</p>
+                        <input
+                            className="form-input mt-2"
+                            value={clearConfirmText}
+                            onChange={(e) => setClearConfirmText(e.target.value)}
+                            placeholder="LIMPAR"
+                        />
                         <div className="flex gap-2 mt-4">
-                            <button className="btn-outline" style={{ flex: 1 }} onClick={() => setShowClearConfirm(false)}>Cancelar</button>
-                            <button className="btn-danger" style={{ flex: 1 }} onClick={clearAllData}>
+                            <button className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowClearConfirm(false); setClearConfirmText(''); }}>Cancelar</button>
+                            <button className="btn-danger" style={{ flex: 1 }} onClick={clearAllData} disabled={clearConfirmText.trim().toUpperCase() !== 'LIMPAR'}>
                                 <Trash2 size={16} /> Limpar
                             </button>
                         </div>
@@ -712,6 +825,9 @@ const Account = ({ user, onLogout }) => {
           width: 56px; height: 56px; border-radius: 50%;
           background: var(--danger-light); margin: 0 auto 16px;
           display: flex; align-items: center; justify-content: center;
+        }
+        .field-error {
+          margin-top: 6px; font-size: 0.75rem; color: var(--danger); font-weight: 600;
         }
       `}} />
         </div>
