@@ -188,6 +188,7 @@ export default function Inbox() {
   const [sending, setSending] = useState(false);
   const [cancelingMsgId, setCancelingMsgId] = useState('');
   const [error, setError] = useState('');
+  const [threadError, setThreadError] = useState('');
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -1017,7 +1018,10 @@ export default function Inbox() {
   async function loadThread(phone, { silent = false, cursor = '', append = false } = {}) {
     const p = String(phone || '').trim();
     if (!p) return;
-    if (!silent) setError('');
+    if (!silent) {
+      setError('');
+      setThreadError('');
+    }
     const reqSeq = ++threadRequestSeqRef.current;
     if (!append) {
       try {
@@ -1046,8 +1050,19 @@ export default function Inbox() {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
         ...(signal ? { signal } : {})
       });
+      const contentType = resp.headers.get('content-type') || '';
       const raw = await resp.text();
       console.log('[loadThread]', p, 'status:', resp.status, 'academy:', academyIdRef.current, 'body:', raw.slice(0, 300));
+      if (!contentType.includes('application/json')) {
+        console.error('[loadThread] resposta não é JSON', {
+          phone: p,
+          status: resp.status,
+          contentType,
+          bodyPreview: raw.slice(0, 100)
+        });
+        if (!silent) setThreadError('Erro ao carregar conversa. Tente novamente.');
+        return;
+      }
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversa'));
       const data = safeParseJson(raw) || {};
       const incoming = Array.isArray(data?.messages) ? data.messages : [];
@@ -2192,8 +2207,14 @@ export default function Inbox() {
             </div>
           )}
           {threadLoading && <ThreadSkeleton />}
-          {!threadLoading && error && <ThreadState type="error" errorText={error} onRetry={() => loadThread(selectedPhone)} />}
-          {!threadLoading && !error && (!selected?.messages || selected.messages.length === 0) && <ThreadState type="empty" />}
+          {!threadLoading && (error || threadError) && (
+            <ThreadState
+              type="error"
+              errorText={error || threadError}
+              onRetry={() => loadThread(selectedPhone)}
+            />
+          )}
+          {!threadLoading && !error && !threadError && (!selected?.messages || selected.messages.length === 0) && <ThreadState type="empty" />}
 
           {threadBlocks.map((b) => {
             if (b.type === 'day') {
@@ -2372,7 +2393,7 @@ export default function Inbox() {
             );
           })}
 
-          {!threadLoading && (selected?.messages || []).length === 0 && (
+          {!threadLoading && !error && !threadError && (selected?.messages || []).length === 0 && (
             <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
               <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
               <div style={{ fontWeight: 700, color: 'var(--text)' }}>Nenhuma mensagem carregada</div>
