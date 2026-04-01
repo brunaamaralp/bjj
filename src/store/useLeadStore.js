@@ -114,7 +114,7 @@ export const useLeadStore = create((set, get) => ({
   academyId: null,
   teamId: null,
   userId: null,
-  labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' },
+  labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
   modules: { sales: false, inventory: false, finance: false },
 
   setAcademyId: (id) => set({ academyId: id }),

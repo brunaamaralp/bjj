@@ -72,7 +72,7 @@ const Dashboard = () => {
         if (!editLead) return;
         const pipelineStage =
             editStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : editStatus === LEAD_STATUS.COMPLETED ? 'Negociação'
+                : editStatus === LEAD_STATUS.COMPLETED ? 'Matriculado'
                     : editStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
                         : editStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
                             : editStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
@@ -403,7 +403,7 @@ const Dashboard = () => {
                                 <button
                                     type="button"
                                     className="btn-success flex-1"
-                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.COMPLETED, pipelineStage: 'Negociação' }); }}
+                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.COMPLETED, pipelineStage: 'Matriculado' }); }}
                                 >
                                     <CheckCircle size={16} /> Compareceu
                                 </button>

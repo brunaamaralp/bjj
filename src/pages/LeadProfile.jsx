@@ -9,7 +9,7 @@ function expectedPipelineStageForStatus(status) {
         case LEAD_STATUS.SCHEDULED:
             return 'Aula experimental';
         case LEAD_STATUS.COMPLETED:
-            return 'Negociação';
+            return 'Matriculado';
         case LEAD_STATUS.CONVERTED:
             return 'Matriculado';
         case LEAD_STATUS.MISSED:
@@ -210,7 +210,7 @@ const LeadProfile = () => {
         const newNotes = [...existing, event];
         const pipelineStage =
             newStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : newStatus === LEAD_STATUS.COMPLETED ? 'Negociação'
+                : newStatus === LEAD_STATUS.COMPLETED ? 'Matriculado'
                     : newStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
                         : newStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
                             : newStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST

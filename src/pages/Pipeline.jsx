@@ -49,13 +49,12 @@ const timeStartMinutes = (timePart) => {
     return parseTimeToMinutes(start);
 };
 
+/** Ordem: Novo → Experimental (id técnico Aula experimental) → Não compareceu → Matrícula → Perdidos */
 const DEFAULT_STAGE_LABELS = [
     { id: 'Novo', label: 'Novo' },
-    { id: 'Contato feito', label: 'Contato feito' },
-    { id: 'Aula experimental', label: 'Aula experimental' },
-    { id: 'Negociação', label: 'Negociação' },
-    { id: 'Matriculado', label: 'Matrícula' },
+    { id: 'Aula experimental', label: 'Experimental' },
     { id: LEAD_STATUS.MISSED, label: 'Não compareceu' },
+    { id: 'Matriculado', label: 'Matrícula' },
     { id: LEAD_STATUS.LOST, label: 'Perdidos' },
 ];
 const STAGE_COLORS = [
@@ -64,7 +63,6 @@ const STAGE_COLORS = [
     { color: 'var(--danger)', bg: 'var(--danger-light)' },
     { color: 'var(--success)', bg: 'var(--success-light)' },
     { color: 'var(--purple)', bg: 'var(--purple-light)' },
-    { color: 'var(--cyan)', bg: 'rgba(0, 188, 212, 0.15)' },
 ];
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const COMPACT_ACTIONS_MQ = '(max-width: 719px)';
@@ -391,17 +389,15 @@ const Pipeline = () => {
         try {
             const cleaned = tempStages
                 .filter(s => s && String(s.id).trim())
-                .filter(s => s.id !== LEAD_STATUS.MISSED && s.id !== LEAD_STATUS.LOST)
                 .map((s) => ({
-                id: String(s.id).trim(),
-                label: String(s.label || s.id).trim(),
-                slaDays: Number.isFinite(s.slaDays) ? s.slaDays : DEFAULT_STAGE_SLA_DAYS,
-            }));
+                    id: String(s.id).trim(),
+                    label: String(s.label || s.id).trim(),
+                    slaDays: Number.isFinite(s.slaDays) ? s.slaDays : DEFAULT_STAGE_SLA_DAYS,
+                }));
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 stagesConfig: JSON.stringify(cleaned),
             });
-            const normalized = [...cleaned, { id: LEAD_STATUS.MISSED, label: 'Não compareceu' }, { id: LEAD_STATUS.LOST, label: 'Perdidos' }];
-            setStages(normalized);
+            setStages(cleaned);
             setEditStages(false);
         } catch (e) {
             console.error('saveStages error', e);
@@ -414,14 +410,28 @@ const Pipeline = () => {
     const mapLeadToStageId = (lead) => {
         if (lead?.status === LEAD_STATUS.MISSED) return LEAD_STATUS.MISSED;
         if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
-        if (lead?.pipelineStage) return lead.pipelineStage;
+        if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
+
+        let stage = lead?.pipelineStage ? String(lead.pipelineStage).trim() : '';
+        if (stage === 'Contato feito') stage = 'Novo';
+        if (stage === 'Negociação') stage = 'Matriculado';
+
+        if (stage) {
+            const known = stages.some((col) => col.id === stage);
+            if (known) return stage;
+            const st = (lead.status || '').toLowerCase();
+            if (st.includes('compareceu')) return 'Matriculado';
+            if (st.includes('agendado')) return 'Aula experimental';
+            if (st.includes('matricul')) return 'Matriculado';
+            return 'Novo';
+        }
 
         const hasDirect = stages.find(s => s.id === lead.status);
         if (hasDirect) return lead.status;
         const s = (lead.status || '').toLowerCase();
         if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
         if (s.includes('agendado')) return 'Aula experimental';
-        if (s.includes('compareceu')) return 'Negociação';
+        if (s.includes('compareceu')) return 'Matriculado';
         if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
         if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
         if (s.includes('matricul')) return 'Matriculado';
@@ -498,7 +508,7 @@ const Pipeline = () => {
                 <div className="container header-layout">
                     <div className="header-left">
                         <div className="pipeline-title-block">
-                            <h2>{labels.leads}</h2>
+                            <h2>{labels.pipeline || 'Funil'}</h2>
                             <p className="pipeline-subtitle">Fluxo de matrícula até a conversão</p>
                             <p className="pipeline-drag-hint">Se o arraste horizontal for difícil, use <strong>Mover de etapa</strong> no card.</p>
                         </div>
@@ -590,6 +600,18 @@ const Pipeline = () => {
                         ))}
                         <div className="stage-actions">
                             <button className="btn-secondary" onClick={addStage}><PlusCircle size={14} /> Adicionar etapa</button>
+                            <button
+                                type="button"
+                                className="btn-outline"
+                                title="Substitui a lista de etapas pelo modelo de 5 colunas. Clique em Salvar para gravar."
+                                onClick={() => {
+                                    const ok = window.confirm('Aplicar o modelo de funil com 5 etapas (Novo → Experimental → Não compareceu → Matrícula → Perdidos)? As etapas atuais serão substituídas neste editor até você salvar.');
+                                    if (!ok) return;
+                                    setTempStages(DEFAULT_STAGE_LABELS.map((s) => ({ ...s, slaDays: s.slaDays ?? DEFAULT_STAGE_SLA_DAYS })));
+                                }}
+                            >
+                                Funil 5 etapas
+                            </button>
                             <div className="grow"></div>
                             <button className="btn-outline" onClick={() => setEditStages(false)}>Cancelar</button>
                             <button className="btn-primary" onClick={saveStages}>Salvar</button>

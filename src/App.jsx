@@ -235,6 +235,7 @@ const App = () => {
             leads: uiLabels.leads || 'Leads',
             students: uiLabels.students || 'Alunos',
             classes: uiLabels.classes || 'Aulas',
+            pipeline: uiLabels.pipeline || 'Funil',
           });
         }
         if (mods && typeof mods === 'object') {
@@ -387,6 +388,7 @@ const App = () => {
                         leads: uiLabels.leads || 'Leads',
                         students: uiLabels.students || 'Alunos',
                         classes: uiLabels.classes || 'Aulas',
+                        pipeline: uiLabels.pipeline || 'Funil',
                       });
                     }
                     if (mods && typeof mods === 'object') {
@@ -452,7 +454,7 @@ const App = () => {
             </Link>
             <Link to="/pipeline" className={`side-link ${isActive('/pipeline') ? 'active' : ''}`}>
               <Users size={18} />
-              <span>{labels.leads}</span>
+              <span>{labels.pipeline || 'Funil'}</span>
             </Link>
             <Link to="/inbox" className={`side-link ${isActive('/inbox') ? 'active' : ''}`}>
               <MessageCircle size={18} />
@@ -520,7 +522,7 @@ const App = () => {
         </Link>
         <Link to="/pipeline" className={`nav-item ${isActive('/pipeline') ? 'active' : ''}`}>
           <Users size={22} />
-          <span>{labels.leads}</span>
+          <span>{labels.pipeline || 'Funil'}</span>
         </Link>
         <Link to="/inbox" className={`nav-item ${isActive('/inbox') ? 'active' : ''}`}>
           <MessageCircle size={22} />

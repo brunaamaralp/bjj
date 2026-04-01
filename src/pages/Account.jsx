@@ -8,7 +8,7 @@ const Account = ({ user, onLogout }) => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
 
-    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' }, modules: { sales: false, inventory: false, finance: false }, onboardingChecklist: [], customLeadQuestions: [] });
+    const [academy, setAcademy] = useState({ name: '', phone: '', email: '', address: '', quickTimes: '', uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' }, modules: { sales: false, inventory: false, finance: false }, onboardingChecklist: [], customLeadQuestions: [] });
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -68,7 +68,7 @@ const Account = ({ user, onLogout }) => {
         if (!academyId) return;
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(async (doc) => {
-                let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas' };
+                let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' };
                 let mods = { sales: false, inventory: false, finance: false };
                 let checklist = [
                     { id: 'academy_info', title: 'Atualizar dados da academia', done: false },
@@ -459,6 +459,13 @@ const Account = ({ user, onLogout }) => {
                                     onChange={e => setAcademy({ ...academy, quickTimes: e.target.value })}
                                     placeholder="Ex: 18:00, 19:00, 20:00" />
                                 <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de “Não Compareceu”.</p>
+                            </div>
+                            <div className="form-group">
+                                <label>Nome do funil (menu e título da página)</label>
+                                <input className="form-input" value={academy.uiLabels.pipeline ?? 'Funil'}
+                                    onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, pipeline: e.target.value } })}
+                                    placeholder="Ex: Funil" />
+                                <p className="text-xs text-light">Aparece na navegação e no cabeçalho do board de etapas.</p>
                             </div>
                             <div className="form-group">
                                 <label>Rótulo para Leads (plural)</label>
