@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
+import ConversationList from '../components/inbox/ConversationList';
+import ThreadState from '../components/inbox/ThreadState';
+import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 
 function normalizePhone(v) {
   const raw = String(v || '').trim();
@@ -275,6 +278,8 @@ export default function Inbox() {
   const notifiedOnceRef = useRef(false);
   const loadListRef = useRef(null);
   const loadThreadRef = useRef(null);
+  const threadAbortRef = useRef(null);
+  const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
   const firstResponseTrackedRef = useRef({});
@@ -288,6 +293,16 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (threadAbortRef.current) threadAbortRef.current.abort();
+      } catch {
+        void 0;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     academyIdRef.current = String(academyId || '').trim();
@@ -1003,6 +1018,16 @@ export default function Inbox() {
     const p = String(phone || '').trim();
     if (!p) return;
     if (!silent) setError('');
+    const reqSeq = ++threadRequestSeqRef.current;
+    if (!append) {
+      try {
+        if (threadAbortRef.current) threadAbortRef.current.abort();
+      } catch {
+        void 0;
+      }
+      threadAbortRef.current = new AbortController();
+    }
+    const signal = !append && threadAbortRef.current ? threadAbortRef.current.signal : undefined;
     const prevScroll = (() => {
       if (!append) return null;
       const el = threadScrollRef.current;
@@ -1018,7 +1043,8 @@ export default function Inbox() {
       if (cursor) params.set('cursor', String(cursor));
       const qs = params.toString();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`, {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
+        ...(signal ? { signal } : {})
       });
       const raw = await resp.text();
       console.log('[loadThread]', p, 'status:', resp.status, 'academy:', academyIdRef.current, 'body:', raw.slice(0, 300));
@@ -1030,6 +1056,7 @@ export default function Inbox() {
       const handoffUntil = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
       const ticketStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : 'open';
       const transferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
+      if (reqSeq !== threadRequestSeqRef.current) return;
       setThreadCursor(nextCur || null);
       setThreadHasMore(Boolean(nextCur));
       setSelected((prev) => {
@@ -1079,6 +1106,7 @@ export default function Inbox() {
       try {
         if (!append) {
           setTimeout(() => {
+            if (reqSeq !== threadRequestSeqRef.current) return;
             const el = threadScrollRef.current;
             if (!el) return;
             el.scrollTop = el.scrollHeight;
@@ -1086,6 +1114,7 @@ export default function Inbox() {
           }, 0);
         } else if (prevScroll) {
           setTimeout(() => {
+            if (reqSeq !== threadRequestSeqRef.current) return;
             const el = threadScrollRef.current;
             if (!el) return;
             const nextHeight = el.scrollHeight;
@@ -1097,10 +1126,13 @@ export default function Inbox() {
         void 0;
       }
     } catch (e) {
+      if (e?.name === 'AbortError') return;
       if (!silent) setError(e?.message || 'Erro');
     } finally {
-      setThreadLoading(false);
-      setThreadPaging(false);
+      if (reqSeq === threadRequestSeqRef.current) {
+        setThreadLoading(false);
+        setThreadPaging(false);
+      }
     }
   }
 
@@ -1595,6 +1627,37 @@ export default function Inbox() {
     return arr;
   }, [prioritizedItems, listFilter]);
 
+  const groupedFilteredItems = useMemo(() => {
+    const arr = Array.isArray(filteredItems) ? filteredItems : [];
+    const unread = arr.filter((it) => Number(it?._unreadCount || 0) > 0);
+    const resolved = arr.filter((it) => String(it?._ticketStatus || '') === 'resolved');
+    const open = arr.filter((it) => Number(it?._unreadCount || 0) <= 0 && String(it?._ticketStatus || '') !== 'resolved');
+    return [
+      { key: 'unread', label: 'Não lidas', items: unread },
+      { key: 'open', label: 'Em atendimento', items: open },
+      { key: 'resolved', label: 'Resolvidas', items: resolved }
+    ];
+  }, [filteredItems]);
+
+  const handleSelectConversation = (it) => {
+    const phone = String(it?._phone || it?.phone_number || '').trim();
+    if (!phone) return;
+    setSelectedPhone(phone);
+    setThreadCursor(null);
+    setThreadHasMore(false);
+    setSelected((prev) => ({
+      phone,
+      summary: prev?.phone === phone ? prev.summary : null,
+      lead_id: String(it?.lead_id || '').trim() || null,
+      lead_name: String(it?._displayTitle || it?.lead_name || '').trim(),
+      need_human: Boolean(it?._handoffActive || it?.need_human),
+      human_handoff_until: prev?.phone === phone ? prev.human_handoff_until : null,
+      ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),
+      transfer_to: String(it?._transferTo || it?.transfer_to || '').trim() || null,
+      messages: prev?.phone === phone && Array.isArray(prev?.messages) ? prev.messages : []
+    }));
+  };
+
   function ticketChip(status, transferTo) {
     const s = String(status || '').trim();
     if (s === 'resolved') return { label: 'Resolvido', bg: 'var(--success-light)', fg: 'var(--success)', tone: 'success' };
@@ -1875,98 +1938,24 @@ export default function Inbox() {
           if (remaining < 240) loadList({ reset: false, silent: true });
         }}
       >
-        {filteredItems.map((it) => {
-          const phone = String(it?._phone || it?.phone_number || '');
-          const active = phone === selectedPhone;
-          const hotLead = Boolean(it?._hotLead);
-          const handoffActive = Boolean(it?._handoffActive);
-          const aiSuggestHuman = Boolean(it?._aiSuggestHuman);
-          const unreadCount = Number(it?._unreadCount || 0);
-          const lastRole = String(it?._lastRole || '').trim();
-          const lastSender = String(it?._lastSender || '').trim();
-          const lastAssistantDot =
-            lastRole === 'assistant'
-              ? lastSender === 'human'
-                ? { bg: '#f59e0b', label: 'Humano' }
-                : { bg: '#22c55e', label: 'Agente IA' }
-              : null;
-          const isHighlighted = Boolean(it?._isHighlighted);
-          const ticket = ticketChip(it?._ticketStatus, it?._transferTo);
-          const rawPrev = String(it?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-          const preview = rawPrev.length > 40 ? `${rawPrev.slice(0, 40)}…` : rawPrev;
-          return (
-            <button
-              key={String(it?.id || phone)}
-              onClick={() => setSelectedPhone(phone)}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '10px 14px 10px',
-                border: 'none',
-                borderBottom: '1px solid var(--border)',
-                borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
-                background: active ? 'rgba(0, 188, 142, 0.18)' : isHighlighted ? 'rgba(34, 197, 94, 0.10)' : 'transparent',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
-                  {lastAssistantDot && (
-                    <span
-                      title={lastAssistantDot.label}
-                      style={{ width: 8, height: 8, borderRadius: 999, background: lastAssistantDot.bg, flex: '0 0 auto', marginTop: 2 }}
-                    />
-                  )}
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        {String(it?._displayTitle || '-')}
-                      </span>
-                      {hotLead && <span title="Lead quente" style={{ fontSize: 12 }}>🔥</span>}
-                      {handoffActive && <span title="Atendimento assumido" style={{ fontSize: 12 }}>⏸️</span>}
-                      {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção" style={{ fontSize: 12 }}>⚠️</span>}
-                      {it?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>
-                      <span
-                        className="text-small"
-                        style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
-                      >
-                        {preview || '—'}
-                      </span>
-                      {!!ticket?.label && !ticket?.isDefault && (
-                        <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '1px 6px', borderRadius: 999, flexShrink: 0 }}>
-                          {ticket.label}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                  <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {formatTimeOnly(it?.updated_at) || formatWhen(it?.updated_at)}
-                  </span>
-                  {unreadCount > 0 && (
-                    <span
-                      className="text-small"
-                      style={{ background: 'var(--danger)', color: '#fff', padding: '1px 7px', borderRadius: 999, fontWeight: 800 }}
-                      title="Mensagens não lidas"
-                    >
-                      {unreadCount}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-        {items.length === 0 && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Nenhuma conversa.</div>}
-        {loadingMore && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Carregando mais…</div>}
+        <ConversationList
+          groupedItems={groupedFilteredItems}
+          loading={loading}
+          totalItems={items.length}
+          loadingMore={loadingMore}
+          onSelectConversation={handleSelectConversation}
+          selectedPhone={selectedPhone}
+          ticketChip={ticketChip}
+          formatTimeOnly={formatTimeOnly}
+          formatWhen={formatWhen}
+        />
       </div>
     </div>
   );
 
-  const threadPanel = (
+  const threadPanel = !selectedPhone ? (
+    <ThreadState type="none-selected" />
+  ) : (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
@@ -2202,11 +2191,9 @@ export default function Inbox() {
               </button>
             </div>
           )}
-          {threadLoading && (
-            <div className="text-small" style={{ color: 'var(--text-secondary)', padding: 20, textAlign: 'center' }}>
-              Carregando mensagens…
-            </div>
-          )}
+          {threadLoading && <ThreadSkeleton />}
+          {!threadLoading && error && <ThreadState type="error" errorText={error} onRetry={() => loadThread(selectedPhone)} />}
+          {!threadLoading && !error && (!selected?.messages || selected.messages.length === 0) && <ThreadState type="empty" />}
 
           {threadBlocks.map((b) => {
             if (b.type === 'day') {
@@ -2953,6 +2940,30 @@ export default function Inbox() {
         .inbox-menu-item.danger { color: var(--danger); }
         .inbox-menu-item.danger:hover { background: var(--danger-light); }
         .inbox-menu-item.muted { color: var(--text-secondary); font-weight: 600; }
+        .inbox-conversation-item { transition: background .16s ease, border-color .16s ease; }
+        .inbox-conversation-item:hover { background: rgba(15, 23, 42, 0.04) !important; }
+        .inbox-conversation-item.active { box-shadow: inset 0 0 0 1px rgba(0, 188, 142, 0.25); }
+        .inbox-group-title {
+          position: sticky; top: 0; z-index: 3;
+          background: var(--surface); border-bottom: 1px solid var(--border);
+          padding: 6px 12px; font-size: 0.72rem; font-weight: 800; letter-spacing: .03em;
+          color: var(--text-secondary); text-transform: uppercase;
+        }
+        .inbox-list-skeleton {
+          height: 58px; border-radius: 10px; margin-bottom: 10px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: inboxSk 1.2s ease-in-out infinite;
+        }
+        .inbox-chat-skeleton {
+          height: 34px; border-radius: 12px; margin-bottom: 10px; width: 52%;
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: inboxSk 1.2s ease-in-out infinite;
+        }
+        .inbox-chat-skeleton.right { margin-left: auto; width: 46%; }
+        .inbox-chat-skeleton.left { margin-right: auto; }
+        @keyframes inboxSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
       ` }} />
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
