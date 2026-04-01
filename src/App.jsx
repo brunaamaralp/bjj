@@ -515,6 +515,7 @@ const App = () => {
         </main>
       </div>
 
+      {/* Bottom nav: 5 ícones fixos (Início, Funil, Atendimento, FAB, Alunos) — Funil e Alunos competem por atenção; mudança exige redesign. */}
       <nav className="bottom-nav">
         <Link to="/" className={`nav-item ${isActive('/') ? 'active' : ''}`}>
           <LayoutGrid size={22} />

@@ -28,6 +28,7 @@ const nextQuarterTime = () => {
 const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId } = useLeadStore();
+    const labels = useLeadStore((s) => s.labels);
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
@@ -284,6 +285,54 @@ const Dashboard = () => {
                                 </div>
                             );
                         })}
+                    </div>
+                );
+            })()}
+
+            {(() => {
+                const enrolled = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED).length;
+                const scheduledToday = countFor('today');
+                const pipelineName = labels.pipeline || 'Funil';
+                const studentsName = labels.students || 'Alunos';
+                const hub = [
+                    {
+                        key: 'students',
+                        label: studentsName,
+                        sub: 'matriculados',
+                        count: enrolled,
+                        onClick: () => navigate('/students'),
+                    },
+                    {
+                        key: 'today',
+                        label: 'Aulas hoje',
+                        sub: 'agendadas',
+                        count: scheduledToday,
+                        onClick: () => navigate('/pipeline'),
+                        hint: `No ${pipelineName}, use o filtro Hoje no topo.`,
+                    },
+                    {
+                        key: 'pipeline',
+                        label: pipelineName,
+                        sub: 'ver etapas',
+                        count: null,
+                        onClick: () => navigate('/pipeline'),
+                    },
+                ];
+                return (
+                    <div className="hub-quick-row mt-4 animate-in" style={{ animationDelay: '0.08s' }}>
+                        {hub.map((h) => (
+                            <button
+                                key={h.key}
+                                type="button"
+                                className="hub-quick-card card"
+                                onClick={h.onClick}
+                                title={h.hint || undefined}
+                            >
+                                <span className="hub-quick-label">{h.label}</span>
+                                {h.count != null ? <span className="hub-quick-count">{h.count}</span> : <span className="hub-quick-arrow">Abrir</span>}
+                                <span className="hub-quick-sub">{h.sub}</span>
+                            </button>
+                        ))}
                     </div>
                 );
             })()}
@@ -565,6 +614,20 @@ const Dashboard = () => {
                 __html: `
         .kpi-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
         @media (max-width: 900px) { .kpi-row { grid-template-columns: 1fr; } }
+        .hub-quick-row {
+          display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
+        }
+        @media (max-width: 900px) { .hub-quick-row { grid-template-columns: 1fr; } }
+        .hub-quick-card {
+          text-align: left; padding: 14px 16px; cursor: pointer; border: 1.5px solid var(--border);
+          background: var(--surface); border-radius: var(--radius); transition: var(--transition);
+          display: flex; flex-direction: column; gap: 4px; font-family: inherit;
+        }
+        .hub-quick-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+        .hub-quick-label { font-size: 0.78rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+        .hub-quick-count { font-size: 1.5rem; font-weight: 800; color: var(--text); }
+        .hub-quick-arrow { font-size: 0.95rem; font-weight: 800; color: var(--accent); }
+        .hub-quick-sub { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
         .kpi-mini { padding: 14px; }
         .kpi-mini-head { display: flex; justify-content: space-between; align-items: center; }
         .kpi-mini-head span { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); }
