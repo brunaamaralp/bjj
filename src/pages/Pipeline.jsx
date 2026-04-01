@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
-import { useNavigate } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, RefreshCw, StickyNote, MoreVertical } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Calendar, Phone, Upload, MessageCircle, ChevronDown, ChevronRight, SlidersHorizontal, PlusCircle, RefreshCw, StickyNote, MoreVertical, Search } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -68,14 +68,23 @@ const STAGE_COLORS = [
 ];
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const COMPACT_ACTIONS_MQ = '(max-width: 719px)';
+const KANBAN_SCROLL_EDGE = 36;
+const KANBAN_SCROLL_MAX_STEP = 14;
+
+const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead, fetchLeads } = useLeadStore();
+    const { leads, importLeads, updateLead, fetchLeads, fetchMoreLeads } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const leadsLoading = useLeadStore((s) => s.loading);
+    const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
+    const loadingMore = useLeadStore((s) => s.loadingMore);
     const getLeadById = useLeadStore((s) => s.getLeadById);
+    const kanbanWrapperRef = useRef(null);
+    const dragScrollRafRef = useRef(null);
+    const lastDragClientXRef = useRef(null);
     const [showImport, setShowImport] = useState(false);
     const [quickItems, setQuickItems] = useState([]);
     const [toast, setToast] = useState('');
@@ -96,6 +105,77 @@ const Pipeline = () => {
         typeof window !== 'undefined' ? window.matchMedia(COMPACT_ACTIONS_MQ).matches : false
     );
     const [actionsMenuLeadId, setActionsMenuLeadId] = useState(null);
+    const [kanbanSearch, setKanbanSearch] = useState('');
+
+    const leadsForBoard = useMemo(() => {
+        const q = String(kanbanSearch || '').trim().toLowerCase();
+        const qPhone = normalizeKanbanPhone(kanbanSearch);
+        if (!q && !qPhone) return leads;
+        return leads.filter((l) => {
+            const name = String(l?.name || '').toLowerCase();
+            const phoneNorm = normalizeKanbanPhone(l?.phone);
+            if (qPhone && phoneNorm.includes(qPhone)) return true;
+            if (q && name.includes(q)) return true;
+            return false;
+        });
+    }, [leads, kanbanSearch]);
+
+    const stepKanbanScrollFromClientX = (clientX) => {
+        const el = kanbanWrapperRef.current;
+        if (!el || typeof clientX !== 'number') return;
+        const rect = el.getBoundingClientRect();
+        let dx = 0;
+        if (clientX < rect.left + KANBAN_SCROLL_EDGE) {
+            dx = -Math.min(KANBAN_SCROLL_MAX_STEP, rect.left + KANBAN_SCROLL_EDGE - clientX);
+        } else if (clientX > rect.right - KANBAN_SCROLL_EDGE) {
+            dx = Math.min(KANBAN_SCROLL_MAX_STEP, clientX - (rect.right - KANBAN_SCROLL_EDGE));
+        }
+        if (dx !== 0) el.scrollLeft += dx;
+    };
+
+    const runDragScrollLoop = () => {
+        dragScrollRafRef.current = null;
+        const x = lastDragClientXRef.current;
+        if (x == null) return;
+        const el = kanbanWrapperRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const inHotZone = x < rect.left + KANBAN_SCROLL_EDGE || x > rect.right - KANBAN_SCROLL_EDGE;
+        if (!inHotZone) return;
+        stepKanbanScrollFromClientX(x);
+        dragScrollRafRef.current = requestAnimationFrame(runDragScrollLoop);
+    };
+
+    const onKanbanWrapperDragOverCapture = (e) => {
+        e.preventDefault();
+        lastDragClientXRef.current = e.clientX;
+        stepKanbanScrollFromClientX(e.clientX);
+        if (dragScrollRafRef.current == null) {
+            dragScrollRafRef.current = requestAnimationFrame(runDragScrollLoop);
+        }
+    };
+
+    useEffect(() => {
+        const clearDragScroll = () => {
+            lastDragClientXRef.current = null;
+            if (dragScrollRafRef.current != null) {
+                cancelAnimationFrame(dragScrollRafRef.current);
+                dragScrollRafRef.current = null;
+            }
+        };
+        const onDocDragOver = (e) => {
+            lastDragClientXRef.current = e.clientX;
+        };
+        document.addEventListener('dragend', clearDragScroll);
+        document.addEventListener('drop', clearDragScroll);
+        document.addEventListener('dragover', onDocDragOver);
+        return () => {
+            document.removeEventListener('dragend', clearDragScroll);
+            document.removeEventListener('drop', clearDragScroll);
+            document.removeEventListener('dragover', onDocDragOver);
+            clearDragScroll();
+        };
+    }, []);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -133,17 +213,22 @@ const Pipeline = () => {
 
     useEffect(() => {
         if (!academyId) return;
-        useLeadStore.getState().fetchLeads();
+        useLeadStore.getState().fetchLeads({ reset: true });
     }, [academyId]);
 
     const handleRefreshList = async () => {
         if (listRefreshing || leadsLoading) return;
         setListRefreshing(true);
         try {
-            await fetchLeads();
+            await fetchLeads({ reset: true });
         } finally {
             setListRefreshing(false);
         }
+    };
+
+    const handleLoadMoreLeads = async () => {
+        if (loadingMore || leadsLoading || !leadsHasMore) return;
+        await fetchMoreLeads();
     };
 
     const handleImport = (rows) => {
@@ -415,8 +500,20 @@ const Pipeline = () => {
                         <div className="pipeline-title-block">
                             <h2>{labels.leads}</h2>
                             <p className="pipeline-subtitle">Fluxo de matrícula até a conversão</p>
+                            <p className="pipeline-drag-hint">Se o arraste horizontal for difícil, use <strong>Mover de etapa</strong> no card.</p>
                         </div>
                         <div className="filters">
+                            <div className="pipeline-search-wrap" title="Filtra por nome ou telefone (somente nos leads já carregados)">
+                                <Search size={14} className="pipeline-search-icon" aria-hidden />
+                                <input
+                                    type="search"
+                                    className="pipeline-search-input"
+                                    value={kanbanSearch}
+                                    onChange={(e) => setKanbanSearch(e.target.value)}
+                                    placeholder="Buscar nome ou telefone…"
+                                    aria-label="Buscar no funil"
+                                />
+                            </div>
                             <button className={`filter-chip ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
                             <button className={`filter-chip ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
                             <button className={`filter-chip ${dayFilter === 'tomorrow' ? 'active' : ''}`} onClick={() => setDayFilter('tomorrow')}>Amanhã</button>
@@ -430,6 +527,17 @@ const Pipeline = () => {
                         </div>
                     </div>
                     <div className="header-right">
+                        {leadsHasMore ? (
+                            <button
+                                type="button"
+                                className="import-btn-pipe pipeline-load-more"
+                                onClick={handleLoadMoreLeads}
+                                disabled={loadingMore || leadsLoading}
+                                title="Carregar próximos leads do servidor"
+                            >
+                                {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             className="import-btn-pipe pipeline-refresh"
@@ -490,13 +598,18 @@ const Pipeline = () => {
                 )}
             </div>
 
-            <div className="kanban-wrapper">
+            <div
+                ref={kanbanWrapperRef}
+                className="kanban-wrapper"
+                onDragOverCapture={onKanbanWrapperDragOverCapture}
+            >
                 {stages.map((col, idx) => {
                     const color = STAGE_COLORS[idx % STAGE_COLORS.length];
                     const todayYMD = toYMD(new Date());
                     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
                     const tomorrowYMD = toYMD(tomorrow);
-                    const colLeads = leads
+                    const isTerminalCol = col.id === LEAD_STATUS.MISSED || col.id === LEAD_STATUS.LOST;
+                    const colLeads = leadsForBoard
                       .filter(l => mapLeadToStageId(l) === col.id)
                       .filter(l => {
                           if (col.id === LEAD_STATUS.MISSED || col.id === LEAD_STATUS.LOST) return true;
@@ -531,9 +644,16 @@ const Pipeline = () => {
                             onDrop={(e) => onDrop(e, col.id)}
                         >
                             <div className="col-header">
-                                <div className="flex items-center gap-2">
-                                    <span className="col-dot" style={{ background: color.color }}></span>
-                                    <h3>{col.label}</h3>
+                                <div className="col-header-titles">
+                                    <div className="flex items-center gap-2">
+                                        <span className="col-dot" style={{ background: color.color }}></span>
+                                        <h3>{col.label}</h3>
+                                    </div>
+                                    {isTerminalCol && dayFilter !== 'all' ? (
+                                        <span className="col-terminal-filter-note" title="Hoje/Amanhã filtra por data de aula; estes leads já saíram desse fluxo.">
+                                            Filtro de dia não se aplica aqui
+                                        </span>
+                                    ) : null}
                                 </div>
                                 <span className="col-count" style={{ background: color.bg, color: color.color }}>
                                     {colLeads.length}
@@ -554,8 +674,18 @@ const Pipeline = () => {
                                             <strong style={{ fontSize: '0.92rem' }}>{lead.name}</strong>
                                             <span className="type-pill">{lead.type}</span>
                                         </div>
-                                        <div className="lead-meta mt-2 flex items-center gap-2">
+                                        <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
                                             <Phone size={12} /> {lead.phone}
+                                            {normalizeKanbanPhone(lead.phone) ? (
+                                                <Link
+                                                    to={`/inbox?phone=${encodeURIComponent(normalizeKanbanPhone(lead.phone))}`}
+                                                    className="lead-inbox-link"
+                                                    draggable={false}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    Atendimento
+                                                </Link>
+                                            ) : null}
                                         </div>
                                         <div className="lead-meta mt-1 flex items-center gap-2">
                                             {lead.hotLead ? <span className="type-pill">🔥</span> : null}
@@ -718,6 +848,9 @@ const Pipeline = () => {
                                                 ? 'Troque o filtro para “Todos” para ver agendamentos futuros ou leads sem data.'
                                                 : 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.'}
                                         </p>
+                                        <p className="col-empty-hint col-empty-hint-dnd">
+                                            Se o arraste for difícil (barra de rolagem), use <strong>Mover de etapa</strong> no card.
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -743,6 +876,12 @@ const Pipeline = () => {
         .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .pipeline-title-block h2 { margin: 0; font-size: 1.35rem; }
         .pipeline-subtitle { margin: 2px 0 0; font-size: 0.78rem; color: var(--text-muted); font-weight: 600; max-width: 42ch; }
+        .pipeline-drag-hint { margin: 6px 0 0; font-size: 0.72rem; color: var(--text-muted); font-weight: 500; max-width: 52ch; line-height: 1.35; }
+        .pipeline-search-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 10px; background: var(--surface); min-height: 30px; }
+        .pipeline-search-icon { color: var(--text-muted); flex-shrink: 0; }
+        .pipeline-search-input { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; width: 10rem; max-width: 36vw; }
+        .pipeline-search-input::placeholder { color: var(--text-muted); font-weight: 500; }
+        .pipeline-load-more { background: var(--surface-hover) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important; }
         .pipeline-refresh:disabled { opacity: 0.65; cursor: not-allowed; }
         .pipeline-refresh .spin { animation: pipelineSpin 0.7s linear infinite; }
         @keyframes pipelineSpin { to { transform: rotate(360deg); } }
@@ -779,11 +918,20 @@ const Pipeline = () => {
         }
         .kanban-column { 
           min-width: 280px; display: flex; flex-direction: column; 
-          gap: 10px; scroll-snap-align: start;
+          gap: 10px; scroll-snap-align: start; min-height: 0; flex: 1 0 auto;
         }
         .col-header { 
-          display: flex; justify-content: space-between; align-items: center; 
-          padding-bottom: 10px; margin-bottom: 4px;
+          display: flex; justify-content: space-between; align-items: flex-start; 
+          padding-bottom: 10px; margin-bottom: 4px; gap: 8px;
+        }
+        .col-header-titles { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+        .col-terminal-filter-note {
+          font-size: 0.65rem; font-weight: 700; color: var(--text-muted);
+          line-height: 1.25; max-width: 22ch;
+        }
+        .col-content {
+          flex: 1; min-height: 0; max-height: min(70vh, 720px); overflow-y: auto;
+          display: flex; flex-direction: column; gap: 10px;
         }
         .drop-target .col-header { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-sm); }
         .col-header h3 { font-size: 0.9rem; font-weight: 700; }
@@ -811,6 +959,12 @@ const Pipeline = () => {
         }
         .col-empty p { margin: 0; font-weight: 600; color: var(--text-secondary); }
         .col-empty-hint { margin-top: 8px !important; font-weight: 500 !important; font-size: 0.75rem !important; line-height: 1.35; color: var(--text-muted) !important; }
+        .col-empty-hint-dnd { margin-top: 6px !important; }
+        .lead-inbox-link {
+          font-size: 0.72rem; font-weight: 700; color: var(--accent);
+          text-decoration: none; margin-left: 4px;
+        }
+        .lead-inbox-link:hover { text-decoration: underline; }
         .import-btn-pipe {
           background: var(--accent); color: white; padding: 0 14px; min-height: 38px;
           border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;

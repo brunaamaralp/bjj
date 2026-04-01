@@ -1,8 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+
+function expectedPipelineStageForStatus(status) {
+    switch (status) {
+        case LEAD_STATUS.SCHEDULED:
+            return 'Aula experimental';
+        case LEAD_STATUS.COMPLETED:
+            return 'Negociação';
+        case LEAD_STATUS.CONVERTED:
+            return 'Matriculado';
+        case LEAD_STATUS.MISSED:
+            return LEAD_STATUS.MISSED;
+        case LEAD_STATUS.LOST:
+            return LEAD_STATUS.LOST;
+        default:
+            return null;
+    }
+}
 
 const STATUS_CONFIG = {
     [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
@@ -160,12 +177,28 @@ const LeadProfile = () => {
         setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [id]: value } }));
     };
 
+    const statusPipelineMismatch = useMemo(() => {
+        const exp = expectedPipelineStageForStatus(lead.status);
+        if (exp == null) return null;
+        const cur = String(lead.pipelineStage || '').trim();
+        if (!cur || cur === exp) return null;
+        return { expected: exp, current: cur };
+    }, [lead.status, lead.pipelineStage]);
+
     const handleSave = async () => {
         const payload = { ...form };
         const hasDate = String(payload.scheduledDate || '').trim().length > 0;
         if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
             payload.status = LEAD_STATUS.SCHEDULED;
             payload.pipelineStage = 'Aula experimental';
+        }
+        const afterExp = expectedPipelineStageForStatus(payload.status ?? lead.status);
+        const stageAfter = String(payload.pipelineStage ?? lead.pipelineStage ?? '').trim();
+        if (afterExp && stageAfter && stageAfter !== afterExp) {
+            const ok = window.confirm(
+                `O status (${payload.status ?? lead.status}) costuma ir com a etapa “${afterExp}”, mas a etapa atual é “${stageAfter}”. Isso pode deixar o card na coluna errada no funil. Deseja salvar mesmo assim?`
+            );
+            if (!ok) return;
         }
         await updateLead(id, payload);
         setEditing(false);
@@ -248,6 +281,26 @@ const LeadProfile = () => {
                     </div>
                 )}
             </div>
+
+            {statusPipelineMismatch && !editing ? (
+                <div
+                    className="card mt-4 animate-in"
+                    style={{
+                        padding: '12px 14px',
+                        background: 'var(--warning-light)',
+                        border: '1px solid var(--warning)',
+                        fontSize: '0.85rem',
+                        color: 'var(--text-secondary)',
+                        lineHeight: 1.45,
+                    }}
+                >
+                    <strong style={{ color: 'var(--warning)' }}>Status e etapa do funil</strong>
+                    {' — '}
+                    O sistema espera a etapa <strong>{statusPipelineMismatch.expected}</strong> para o status atual, mas este lead está em{' '}
+                    <strong>{statusPipelineMismatch.current}</strong>. No funil, o card pode aparecer na coluna errada. Ajuste com os botões de status abaixo ou use{' '}
+                    <strong>Mover de etapa</strong> no Pipeline.
+                </div>
+            ) : null}
 
             {/* Header Card */}
             <div className="card mt-4 animate-in profile-header">

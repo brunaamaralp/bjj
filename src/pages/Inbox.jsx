@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
@@ -159,6 +159,7 @@ REGRAS DE VENDAS:
 
 export default function Inbox() {
   const navigate = useNavigate();
+  const location = useLocation();
   const addToast = useUiStore((s) => s.addToast);
   const fetchLeads = useLeadStore((s) => s.fetchLeads);
   const leads = useLeadStore((s) => s.leads);
@@ -169,6 +170,14 @@ export default function Inbox() {
   const [items, setItems] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState('');
   const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = String(params.get('phone') || '').trim();
+    const digits = normalizePhone(raw);
+    if (!digits) return;
+    setSelectedPhone(digits);
+  }, [location.search]);
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
   const [scheduleOn, setScheduleOn] = useState(false);

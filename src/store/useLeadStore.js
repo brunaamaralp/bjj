@@ -13,95 +13,35 @@ export const LEAD_STATUS = {
 
 export const LEAD_ORIGIN = ['Instagram', 'Indicação', 'WhatsApp', 'Passou na porta', 'Evento'];
 
-export const useLeadStore = create((set, get) => ({
-  leads: [],
-  loading: false,
-  academyId: null,
-  teamId: null,
-  userId: null,
-  labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' },
-  modules: { sales: false, inventory: false, finance: false },
+export const LEADS_PAGE_SIZE = 200;
 
-  setAcademyId: (id) => set({ academyId: id }),
-  setTeamId: (id) => set({ teamId: id }),
-  setUserId: (id) => set({ userId: id }),
-  setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
-  setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
+function mapAppwriteDocToLead(doc, operationalStatusSet) {
+  let history = [];
+  let isFirstExperience = 'Sim';
+  let belt = '';
+  let borrowedKimono = '';
+  let borrowedShirt = '';
+  let pipelineStage = '';
+  let pipelineStageChangedAt = '';
 
-  fetchLeads: async () => {
-    const academyId = get().academyId;
-    if (!academyId) return;
-    if (get().loading) return;
-
-    set({ loading: true });
+  if (doc.notes) {
     try {
-      const operationalStatusSet = new Set(Object.values(LEAD_STATUS));
-      const response = await databases.listDocuments(DB_ID, LEADS_COL, [
-        Query.equal('academyId', academyId),
-        Query.limit(500),
-        Query.orderDesc('$createdAt'),
-      ]);
-      const leads = response.documents.map(doc => {
-        let history = [];
-        let isFirstExperience = 'Sim';
-        let belt = '';
-        let borrowedKimono = '';
-        let borrowedShirt = '';
-        let pipelineStage = '';
-        let pipelineStageChangedAt = '';
-
-        if (doc.notes) {
-          try {
-            const parsed = JSON.parse(doc.notes);
-            if (Array.isArray(parsed)) {
-              history = parsed;
-            } else {
-              history = parsed.history || [];
-              isFirstExperience = parsed.isFirstExperience || 'Sim';
-              belt = parsed.belt || '';
-              borrowedKimono = parsed.borrowedKimono || '';
-              borrowedShirt = parsed.borrowedShirt || '';
-              pipelineStage = parsed.pipelineStage || '';
-              pipelineStageChangedAt = parsed.pipelineStageChangedAt || '';
-              const customAnswers = parsed.customAnswers || {};
-              const intention = parsed.whatsappIntention || '';
-              const priority = parsed.whatsappPriority || '';
-              const hotLead = String(parsed.whatsappLeadQuente || parsed.priority || '').toLowerCase() === 'sim';
-              const needHuman = String(parsed.needHuman || '').toLowerCase() === 'sim';
-              const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
-              const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
-              return {
-                id: doc.$id,
-                name: doc.name,
-                phone: doc.phone,
-                type: doc.type || 'Adulto',
-                origin: doc.origin || '',
-                status,
-                pipelineStage: effectivePipelineStage,
-                scheduledDate: doc.scheduledDate || '',
-                scheduledTime: doc.scheduledTime || '',
-                parentName: doc.parentName || '',
-                age: doc.age || '',
-                notes: history,
-                isFirstExperience,
-                belt,
-                borrowedKimono,
-                borrowedShirt,
-                customAnswers,
-                intention,
-                priority,
-                hotLead,
-                needHuman,
-                statusChangedAt: parsed.statusChangedAt || doc.statusChangedAt || '',
-                pipelineStageChangedAt: pipelineStageChangedAt || parsed.statusChangedAt || doc.$createdAt || '',
-                createdAt: doc.$createdAt,
-              };
-            }
-          } catch {
-            console.warn('Notes parse error, treating as empty history');
-          }
-        }
-
+      const parsed = JSON.parse(doc.notes);
+      if (Array.isArray(parsed)) {
+        history = parsed;
+      } else {
+        history = parsed.history || [];
+        isFirstExperience = parsed.isFirstExperience || 'Sim';
+        belt = parsed.belt || '';
+        borrowedKimono = parsed.borrowedKimono || '';
+        borrowedShirt = parsed.borrowedShirt || '';
+        pipelineStage = parsed.pipelineStage || '';
+        pipelineStageChangedAt = parsed.pipelineStageChangedAt || '';
+        const customAnswers = parsed.customAnswers || {};
+        const intention = parsed.whatsappIntention || '';
+        const priority = parsed.whatsappPriority || '';
+        const hotLead = String(parsed.whatsappLeadQuente || parsed.priority || '').toLowerCase() === 'sim';
+        const needHuman = String(parsed.needHuman || '').toLowerCase() === 'sim';
         const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
         const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
         return {
@@ -121,35 +61,136 @@ export const useLeadStore = create((set, get) => ({
           belt,
           borrowedKimono,
           borrowedShirt,
-          intention: '',
-          priority: '',
-          hotLead: false,
-          needHuman: false,
-          statusChangedAt: doc.statusChangedAt || '',
-          pipelineStageChangedAt: doc.$createdAt,
+          customAnswers,
+          intention,
+          priority,
+          hotLead,
+          needHuman,
+          statusChangedAt: parsed.statusChangedAt || doc.statusChangedAt || '',
+          pipelineStageChangedAt: pipelineStageChangedAt || parsed.statusChangedAt || doc.$createdAt || '',
           createdAt: doc.$createdAt,
         };
-      });
+      }
+    } catch {
+      console.warn('Notes parse error, treating as empty history');
+    }
+  }
 
-      set((state) => {
-        const serverIds = new Set(leads.map(l => l.id));
-        const now = new Date();
-        const localsToKeep = state.leads.filter(l => {
-          if (!l._isNew) return false;
-          const created = new Date(l.createdAt);
-          const isRecentlyCreated = (now - created) < 300000; // 5 minutes
-          return !serverIds.has(l.id) && isRecentlyCreated;
+  const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
+  const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
+  return {
+    id: doc.$id,
+    name: doc.name,
+    phone: doc.phone,
+    type: doc.type || 'Adulto',
+    origin: doc.origin || '',
+    status,
+    pipelineStage: effectivePipelineStage,
+    scheduledDate: doc.scheduledDate || '',
+    scheduledTime: doc.scheduledTime || '',
+    parentName: doc.parentName || '',
+    age: doc.age || '',
+    notes: history,
+    isFirstExperience,
+    belt,
+    borrowedKimono,
+    borrowedShirt,
+    intention: '',
+    priority: '',
+    hotLead: false,
+    needHuman: false,
+    statusChangedAt: doc.statusChangedAt || '',
+    pipelineStageChangedAt: doc.$createdAt,
+    createdAt: doc.$createdAt,
+  };
+}
+
+export const useLeadStore = create((set, get) => ({
+  leads: [],
+  loading: false,
+  loadingMore: false,
+  leadsHasMore: false,
+  leadsCursor: null,
+  academyId: null,
+  teamId: null,
+  userId: null,
+  labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas' },
+  modules: { sales: false, inventory: false, finance: false },
+
+  setAcademyId: (id) => set({ academyId: id }),
+  setTeamId: (id) => set({ teamId: id }),
+  setUserId: (id) => set({ userId: id }),
+  setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
+  setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
+
+  fetchLeads: async (opts = {}) => {
+    const reset = opts.reset !== false;
+    const academyId = get().academyId;
+    if (!academyId) return;
+    if (reset) {
+      if (get().loading) return;
+    } else {
+      if (get().loadingMore || !get().leadsHasMore || !get().leadsCursor) return;
+    }
+
+    if (reset) set({ loading: true });
+    else set({ loadingMore: true });
+
+    try {
+      const operationalStatusSet = new Set(Object.values(LEAD_STATUS));
+      const queries = [
+        Query.equal('academyId', academyId),
+        Query.orderDesc('$createdAt'),
+        Query.limit(LEADS_PAGE_SIZE),
+      ];
+      if (!reset && get().leadsCursor) {
+        queries.push(Query.cursorAfter(get().leadsCursor));
+      }
+
+      const response = await databases.listDocuments(DB_ID, LEADS_COL, queries);
+      const docs = response.documents || [];
+      const leads = docs.map((doc) => mapAppwriteDocToLead(doc, operationalStatusSet));
+      const lastId = docs.length ? docs[docs.length - 1].$id : null;
+      const pageFull = docs.length === LEADS_PAGE_SIZE;
+
+      if (reset) {
+        set((state) => {
+          const serverIds = new Set(leads.map((l) => l.id));
+          const now = new Date();
+          const localsToKeep = state.leads.filter((l) => {
+            if (!l._isNew) return false;
+            const created = new Date(l.createdAt);
+            const isRecentlyCreated = now - created < 300000;
+            return !serverIds.has(l.id) && isRecentlyCreated;
+          });
+
+          return {
+            leads: [...localsToKeep, ...leads],
+            loading: false,
+            leadsHasMore: pageFull,
+            leadsCursor: pageFull && lastId ? lastId : null,
+          };
         });
-
-        return {
-          leads: [...localsToKeep, ...leads],
-          loading: false
-        };
-      });
+      } else {
+        set((state) => {
+          const existingIds = new Set(state.leads.map((l) => l.id));
+          const appended = leads.filter((l) => !existingIds.has(l.id));
+          return {
+            leads: [...state.leads, ...appended],
+            loadingMore: false,
+            leadsHasMore: pageFull,
+            leadsCursor: pageFull && lastId ? lastId : null,
+          };
+        });
+      }
     } catch (e) {
       console.error('fetchLeads error:', e);
-      set({ loading: false });
+      set({ loading: false, loadingMore: false });
     }
+  },
+
+  fetchMoreLeads: async () => {
+    await get().fetchLeads({ reset: false });
   },
 
   addLead: async (lead) => {
