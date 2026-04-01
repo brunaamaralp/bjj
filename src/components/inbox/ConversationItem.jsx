@@ -32,6 +32,8 @@ export default function ConversationItem({
       onClick={onSelect}
       className={`inbox-conversation-item${active ? ' active' : ''}`}
       style={{
+        display: 'block',
+        boxSizing: 'border-box',
         width: '100%',
         textAlign: 'left',
         padding: '10px 14px 10px',
@@ -39,10 +41,11 @@ export default function ConversationItem({
         borderBottom: '1px solid var(--border)',
         borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
         background: active ? 'rgba(0, 188, 142, 0.18)' : isHighlighted ? 'rgba(34, 197, 94, 0.10)' : 'transparent',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        overflow: 'hidden'
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
           {lastAssistantDot && (
             <span
@@ -75,7 +78,7 @@ export default function ConversationItem({
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0, marginLeft: 6 }}>
           <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
             {formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
           </span>

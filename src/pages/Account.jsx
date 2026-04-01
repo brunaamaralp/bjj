@@ -14,6 +14,7 @@ const Account = ({ user, onLogout }) => {
     const [editing, setEditing] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [clearConfirmText, setClearConfirmText] = useState('');
+    const [clearingAllData, setClearingAllData] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [memberEmail, setMemberEmail] = useState('');
@@ -232,12 +233,29 @@ const Account = ({ user, onLogout }) => {
             addToast({ type: 'error', message: 'Digite LIMPAR para confirmar a exclusão total.' });
             return;
         }
-        for (const lead of leads) {
-            await useLeadStore.getState().deleteLead(lead.id);
+        if (clearingAllData) return;
+        setClearingAllData(true);
+        const ids = leads.map((lead) => lead.id).filter(Boolean);
+        const BATCH_SIZE = 8;
+        let failedCount = 0;
+        try {
+            for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                const chunk = ids.slice(i, i + BATCH_SIZE);
+                const results = await Promise.allSettled(
+                    chunk.map((leadId) => useLeadStore.getState().deleteLead(leadId))
+                );
+                failedCount += results.filter((r) => r.status === 'rejected').length;
+            }
+            if (failedCount > 0) {
+                addToast({ type: 'error', message: `${failedCount} registros não puderam ser removidos.` });
+            } else {
+                addToast({ type: 'success', message: 'Todos os dados foram removidos.' });
+            }
+        } finally {
+            setClearingAllData(false);
         }
         setShowClearConfirm(false);
         setClearConfirmText('');
-        addToast({ type: 'success', message: 'Todos os dados foram removidos.' });
     };
 
     const inviteMember = async () => {
@@ -754,9 +772,9 @@ const Account = ({ user, onLogout }) => {
                             placeholder="LIMPAR"
                         />
                         <div className="flex gap-2 mt-4">
-                            <button className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowClearConfirm(false); setClearConfirmText(''); }}>Cancelar</button>
-                            <button className="btn-danger" style={{ flex: 1 }} onClick={clearAllData} disabled={clearConfirmText.trim().toUpperCase() !== 'LIMPAR'}>
-                                <Trash2 size={16} /> Limpar
+                            <button className="btn-outline" style={{ flex: 1 }} onClick={() => { if (clearingAllData) return; setShowClearConfirm(false); setClearConfirmText(''); }} disabled={clearingAllData}>Cancelar</button>
+                            <button className="btn-danger" style={{ flex: 1 }} onClick={clearAllData} disabled={clearConfirmText.trim().toUpperCase() !== 'LIMPAR' || clearingAllData}>
+                                <Trash2 size={16} /> {clearingAllData ? 'Limpando...' : 'Limpar'}
                             </button>
                         </div>
                     </div>

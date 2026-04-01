@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
@@ -34,6 +35,7 @@ const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { getLeadById, updateLead, deleteLead } = useLeadStore();
+    const addToast = useUiStore((s) => s.addToast);
     const academyId = useLeadStore((s) => s.academyId);
     const lead = getLeadById(id);
 
@@ -41,6 +43,7 @@ const LeadProfile = () => {
     const [eventTypeFilter, setEventTypeFilter] = useState('all');
     const [editing, setEditing] = useState(false);
     const [customQuestions, setCustomQuestions] = useState([]);
+    const [deletingLead, setDeletingLead] = useState(false);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -233,8 +236,17 @@ const LeadProfile = () => {
     const handleDeleteLead = async () => {
         const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
         if (!ok) return;
-        await deleteLead(id);
-        navigate(-1);
+        if (deletingLead) return;
+        setDeletingLead(true);
+        try {
+            await deleteLead(id);
+            addToast({ type: 'success', message: 'Lead excluído com sucesso.' });
+            navigate(-1);
+        } catch (e) {
+            addToast({ type: 'error', message: e?.message || 'Não foi possível excluir o lead.' });
+        } finally {
+            setDeletingLead(false);
+        }
     };
 
     const handleWhatsApp = (customMsg) => {
@@ -529,8 +541,8 @@ const LeadProfile = () => {
                         <button className="btn-outline danger-btn" onClick={handleMarkLost}>
                             <AlertTriangle size={16} /> Não fechou
                         </button>
-                        <button className="btn-outline danger-btn" onClick={handleDeleteLead}>
-                            <Trash2 size={16} /> Excluir lead
+                        <button className="btn-outline danger-btn" onClick={handleDeleteLead} disabled={deletingLead}>
+                            <Trash2 size={16} /> {deletingLead ? 'Excluindo...' : 'Excluir lead'}
                         </button>
                     </div>
                 </div>

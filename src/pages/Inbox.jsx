@@ -2940,7 +2940,14 @@ export default function Inbox() {
         .inbox-menu-item.danger { color: var(--danger); }
         .inbox-menu-item.danger:hover { background: var(--danger-light); }
         .inbox-menu-item.muted { color: var(--text-secondary); font-weight: 600; }
-        .inbox-conversation-item { transition: background .16s ease, border-color .16s ease; }
+        .inbox-conversation-item {
+          transition: background .16s ease, border-color .16s ease;
+          appearance: none;
+          -webkit-appearance: none;
+          border-radius: 0;
+          font: inherit;
+          line-height: 1.25;
+        }
         .inbox-conversation-item:hover { background: rgba(15, 23, 42, 0.04) !important; }
         .inbox-conversation-item.active { box-shadow: inset 0 0 0 1px rgba(0, 188, 142, 0.25); }
         .inbox-group-title {

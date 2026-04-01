@@ -384,50 +384,68 @@ export default async function handler(req, res) {
       return res.status(200).json({ sucesso: true, ignorado: true, modo_humano: true });
     }
 
+    const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const PROCESSING_TIMEOUT_MS = 4000;
+
     const processAsync = async () => {
       try {
+        console.log('[zapster][processAsync] start', { requestId, phone, messageId, academyId });
         let agentData = null;
+        let lastAttempt = 0;
         for (let attempt = 0; attempt < 4; attempt++) {
+          lastAttempt = attempt + 1;
           const agentResp = await fetch(`${baseUrl}/api/agent/respond`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-academy-id': String(academyId || '') },
             body: JSON.stringify(payload)
           });
           const agentRaw = await agentResp.text();
-          if (!agentResp.ok) return;
+          if (!agentResp.ok) return { sent: false, error: `agent_http_${agentResp.status}` };
           agentData = JSON.parse(agentRaw);
           if (!agentData?.em_processamento) break;
           await new Promise((r) => setTimeout(r, 750));
         }
-        if (agentData?.em_processamento) return;
+        if (agentData?.em_processamento) return { sent: false, processing: true, attempt: lastAttempt };
         const resposta = String(agentData?.resposta || '').trim();
-        if (!resposta) return;
+        if (!resposta) return { sent: false, empty: true, attempt: lastAttempt };
         const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
         const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
         const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: outInstanceId });
-        if (sent?.ok) {
-          const nowIso = new Date().toISOString();
-          const conv =
-            inbound?.docId ? { $id: inbound.docId } : await getOrCreateConversationDoc(phone, academyId, academyDoc).catch(() => null);
-          const convId = String(conv?.$id || '').trim();
-          if (convId) {
-            const mid = String(messageId || '').trim();
-            const assistantMsg = {
-              role: 'assistant',
-              content: resposta,
-              timestamp: nowIso,
-              sender: 'ai',
-              ...(mid ? { in_reply_to: mid } : {})
-            };
-            await updateConversationWithMerge(convId, [assistantMsg]);
-          }
+        if (!sent?.ok) return { sent: false, error: String(sent?.erro || 'zapster_send_failed'), attempt: lastAttempt };
+        const nowIso = new Date().toISOString();
+        const conv =
+          inbound?.docId ? { $id: inbound.docId } : await getOrCreateConversationDoc(phone, academyId, academyDoc).catch(() => null);
+        const convId = String(conv?.$id || '').trim();
+        if (convId) {
+          const mid = String(messageId || '').trim();
+          const assistantMsg = {
+            role: 'assistant',
+            content: resposta,
+            timestamp: nowIso,
+            sender: 'ai',
+            ...(mid ? { in_reply_to: mid } : {})
+          };
+          await updateConversationWithMerge(convId, [assistantMsg]);
         }
-      } catch {}
+        console.log('[zapster][processAsync] sent', {
+          requestId,
+          attempt: lastAttempt,
+          resposta: resposta.slice(0, 50)
+        });
+        return { sent: true, attempt: lastAttempt };
+      } catch (e) {
+        console.error('[zapster][processAsync] error', { requestId, error: e?.message || 'Erro interno' });
+        return { sent: false, error: e?.message || 'Erro interno' };
+      }
     };
 
-    setTimeout(() => {
-      void processAsync();
-    }, 0);
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve({ timedOut: true }), PROCESSING_TIMEOUT_MS)
+    );
+    const result = await Promise.race([processAsync(), timeoutPromise]);
+    if (result?.timedOut) {
+      console.error('[zapster][webhook] processAsync timeout', { requestId, phone, academyId });
+    }
 
     return res.status(200).json({ sucesso: true, enfileirado: true });
   } catch (e) {

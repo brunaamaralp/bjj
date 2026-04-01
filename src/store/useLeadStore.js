@@ -333,13 +333,16 @@ export const useLeadStore = create((set, get) => ({
   },
 
   deleteLead: async (id) => {
+    const previousLeads = get().leads;
+    set((state) => ({
+      leads: state.leads.filter((l) => l.id !== id),
+    }));
     try {
       await databases.deleteDocument(DB_ID, LEADS_COL, id);
-      set((state) => ({
-        leads: state.leads.filter((l) => l.id !== id),
-      }));
     } catch (e) {
+      set({ leads: previousLeads });
       console.error('deleteLead error:', e);
+      throw e;
     }
   },
 
