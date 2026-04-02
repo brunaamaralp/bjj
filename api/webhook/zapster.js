@@ -385,7 +385,7 @@ export default async function handler(req, res) {
     }
 
     const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    const PROCESSING_TIMEOUT_MS = 4000;
+    const PROCESSING_TIMEOUT_MS = 25000;
 
     const processAsync = async () => {
       try {
@@ -402,16 +402,55 @@ export default async function handler(req, res) {
           const agentRaw = await agentResp.text();
           if (!agentResp.ok) return { sent: false, error: `agent_http_${agentResp.status}` };
           agentData = JSON.parse(agentRaw);
+          console.log('[zapster][processAsync] attempt', {
+            attempt,
+            requestId,
+            em_processamento: agentData?.em_processamento ?? null,
+            hasResposta: Boolean(agentData?.resposta),
+            respostaLen: agentData?.resposta?.length ?? 0
+          });
           if (!agentData?.em_processamento) break;
           await new Promise((r) => setTimeout(r, 750));
         }
-        if (agentData?.em_processamento) return { sent: false, processing: true, attempt: lastAttempt };
+        if (agentData?.em_processamento) {
+          console.error('[zapster][processAsync] esgotou tentativas sem resposta', {
+            requestId,
+            phone,
+            academyId
+          });
+          return { sent: false, processing: true, attempt: lastAttempt };
+        }
         const resposta = String(agentData?.resposta || '').trim();
-        if (!resposta) return { sent: false, empty: true, attempt: lastAttempt };
+        if (!resposta) {
+          console.error('[zapster][processAsync] resposta vazia', {
+            requestId,
+            phone,
+            academyId,
+            agentDataKeys: Object.keys(agentData || {})
+          });
+          return { sent: false, empty: true, attempt: lastAttempt };
+        }
         const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
         const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
+        if (!outInstanceId) {
+          console.error('[zapster][processAsync] outInstanceId vazio', {
+            requestId,
+            phone,
+            academyId,
+            fromEvent: instanceId
+          });
+        }
         const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: outInstanceId });
-        if (!sent?.ok) return { sent: false, error: String(sent?.erro || 'zapster_send_failed'), attempt: lastAttempt };
+        if (!sent?.ok) {
+          console.error('[zapster][processAsync] sendZapsterText falhou', {
+            requestId,
+            phone,
+            academyId,
+            outInstanceId,
+            erro: sent?.erro
+          });
+          return { sent: false, error: String(sent?.erro || 'zapster_send_failed'), attempt: lastAttempt };
+        }
         const nowIso = new Date().toISOString();
         const conv =
           inbound?.docId ? { $id: inbound.docId } : await getOrCreateConversationDoc(phone, academyId, academyDoc).catch(() => null);
