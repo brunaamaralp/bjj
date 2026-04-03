@@ -28,7 +28,6 @@ const nextQuarterTime = () => {
 const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId } = useLeadStore();
-    const labels = useLeadStore((s) => s.labels);
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
@@ -285,54 +284,6 @@ const Dashboard = () => {
                                 </div>
                             );
                         })}
-                    </div>
-                );
-            })()}
-
-            {(() => {
-                const enrolled = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED).length;
-                const scheduledToday = countFor('today');
-                const pipelineName = labels.pipeline || 'Funil';
-                const studentsName = labels.students || 'Alunos';
-                const hub = [
-                    {
-                        key: 'students',
-                        label: studentsName,
-                        sub: 'matriculados',
-                        count: enrolled,
-                        onClick: () => navigate('/students'),
-                    },
-                    {
-                        key: 'today',
-                        label: 'Aulas hoje',
-                        sub: 'agendadas',
-                        count: scheduledToday,
-                        onClick: () => navigate('/pipeline'),
-                        hint: `No ${pipelineName}, use o filtro Hoje no topo.`,
-                    },
-                    {
-                        key: 'pipeline',
-                        label: pipelineName,
-                        sub: 'ver etapas',
-                        count: null,
-                        onClick: () => navigate('/pipeline'),
-                    },
-                ];
-                return (
-                    <div className="hub-quick-row mt-4 animate-in" style={{ animationDelay: '0.08s' }}>
-                        {hub.map((h) => (
-                            <button
-                                key={h.key}
-                                type="button"
-                                className="hub-quick-card card"
-                                onClick={h.onClick}
-                                title={h.hint || undefined}
-                            >
-                                <span className="hub-quick-label">{h.label}</span>
-                                {h.count != null ? <span className="hub-quick-count">{h.count}</span> : <span className="hub-quick-arrow">Abrir</span>}
-                                <span className="hub-quick-sub">{h.sub}</span>
-                            </button>
-                        ))}
                     </div>
                 );
             })()}
