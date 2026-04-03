@@ -1,4 +1,4 @@
-import { Client, Databases, ID, Permission, Query, Role } from 'node-appwrite';
+timport { Client, Databases, ID, Permission, Query, Role } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -345,36 +345,20 @@ async function findLeadByPhone(phone, academyId) {
   return null;
 }
 
-function leadProfileFromStatus(statusRaw) {
-  const status = String(statusRaw || '').trim();
-  if (status === 'Matriculado') return 'aluno_ativo';
-  if (status === 'Experimental') return 'experimental';
-  return 'lead';
-}
-
-function profileLineForSystemPrompt(profile) {
-  if (profile === 'aluno_ativo') {
-    return (
-      'PERFIL DO CONTATO: Aluno ativo da academia.\n' +
-      'REGRAS ESPECIAIS PARA ALUNO:\n' +
-      '- Trate como membro da equipe, não como lead\n' +
-      '- NÃO ofereça aula experimental\n' +
-      '- NÃO mencione preços de planos ou matrículas\n' +
-      '- Responda dúvidas sobre horários, faltas e rotina normalmente\n' +
-      '- Para dúvidas sobre pagamento ou graduação, diga que vai passar para o responsável\n' +
-      '- Use um tom mais próximo e familiar'
-    );
-  }
-  if (profile === 'experimental') {
-    return (
-      'PERFIL DO CONTATO: Aula experimental agendada — pessoa\n' +
-      'que já demonstrou interesse e tem aula marcada. Seja\n' +
-      'acolhedor, reforce os benefícios e tire dúvidas finais.'
-    );
-  }
+function profileLineForSystemPrompt() {
   return (
-    'PERFIL DO CONTATO: Lead — pessoa interessada mas ainda\n' +
-    'não matriculada. Foco em converter para aula experimental.'
+    'PERFIL DO CONTATO:\n' +
+    'Use o cadastro de alunos e o contexto da conversa para identificar quem é a pessoa:\n\n' +
+    'Se for LEAD (não matriculado):\n' +
+    '- Foco em converter para aula experimental gratuita\n' +
+    '- Qualifique rapidamente: para si ou para filho/a? Qual faixa etária?\n' +
+    '- Ofereça o CTA de experimental no momento certo (quando já tem info suficiente)\n\n' +
+    'Se for ALUNO ATIVO ou PAI/MÃE DE ALUNO:\n' +
+    '- Trate como alguém que já conhece a academia\n' +
+    '- Não ofereça aula experimental nem explique o que é Jiu-Jitsu\n' +
+    '- Foque em resolver a dúvida diretamente (horário, pagamento, uniforme, etc.)\n' +
+    '- Para assuntos financeiros ou administrativos, diga que vai passar para o responsável\n\n' +
+    'Se não tiver certeza: trate como lead, mas adapte se a pessoa demonstrar familiaridade com a academia (mencionar faixa, professor, treino, mensalidade, etc.)'
   );
 }
 
@@ -668,7 +652,19 @@ REGRAS DE VENDAS:
 - Depois de usar o CTA uma vez, não repita — faça uma pergunta diferente para entender melhor o contexto
 - Se a pessoa hesitar no preço, ofereça o mensal como forma de experimentar sem compromisso e reforce que a experimental é gratuita e sem obrigação
 - Prefira perguntas abertas que revelam contexto:
-  "O que te motivou a procurar o Jiu-Jitsu?"`;
+  "O que te motivou a procurar o Jiu-Jitsu?"
+
+FUNIL RÁPIDO PARA LEADS QUENTES:
+Considere o lead quente quando: já sabe o horário que quer, já conhece o preço ou não perguntou, já tem motivação clara.
+Nesse caso, vá direto para o agendamento — não faça mais perguntas de qualificação.
+Exemplo: se a pessoa disse o horário preferido e não tem objeção, a próxima mensagem deve ser o CTA + pedido de nome completo para agendar.
+
+SEQUÊNCIA IDEAL PARA LEAD DE CRIANÇA:
+1. Confirmar faixa etária → turma correta
+2. Informar horários da turma
+3. Se demonstrar interesse → CTA experimental imediato
+4. Pedir nome completo da criança + horário preferido para agendar
+Não pergunte sobre experiência prévia antes de oferecer a experimental — isso pode ser feito depois do agendamento.`;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -694,16 +690,13 @@ export default async function handler(req, res) {
 
   try {
     let leadDoc = null;
-    let perfilContato = 'lead';
     try {
       leadDoc = await findLeadByPhone(phone, academyId);
       if (!leadDoc) {
         if (!isSuggest) leadDoc = await createMinimalLeadIfMissing({ academyId, phone, name, academyDoc });
       }
-      perfilContato = leadProfileFromStatus(leadDoc?.status);
     } catch {
       leadDoc = null;
-      perfilContato = 'lead';
     }
 
     const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
@@ -738,7 +731,7 @@ export default async function handler(req, res) {
     const claudeMessages = history.map((m) => ({ role: m.role, content: m.content }));
     if (isSuggest || !messageId) claudeMessages.push({ role: 'user', content: message });
 
-    const profileLine = profileLineForSystemPrompt(perfilContato);
+    const profileLine = profileLineForSystemPrompt();
     const settings = await getPromptSettings(academyId);
     const effectiveIntro = String(settings.intro || '') || SYSTEM_PROMPT_INTRO;
     const effectiveBody = String(settings.body || '') || SYSTEM_PROMPT_BODY;
@@ -749,6 +742,8 @@ export default async function handler(req, res) {
       baseSystemPrompt,
       `Nome do contato: ${userName}.`,
       summaryText ? `Resumo do histórico (pode estar desatualizado):\n${summaryText}` : '',
+      'CLASSIFICAÇÃO — lead_quente:\n' +
+        'Quando classificar lead_quente como "sim", sua próxima ação no campo "resposta" deve ser o CTA de agendamento da aula experimental ou pedir/confirmar o nome completo para agendar — nunca mais uma pergunta de qualificação genérica.',
       `Retorne SOMENTE um JSON válido (sem markdown) no seguinte formato:\n` +
         `{"resposta":"string","classificacao":{"intencao":"horarios_adulto|horarios_crianca|horarios_junior|preco_adulto|preco_crianca|preco_uniforme_adulto|preco_uniforme_infantil|aula_experimental|duvida|aluno_atual|outro","tipo_contato":"lead|aluno","prioridade":"alta|media|baixa","lead_quente":"sim|nao","precisa_resposta_humana":"sim|nao","perfil_lead":"adulto_para_si|responsavel_crianca|responsavel_junior|indefinido"}}`
     ]
