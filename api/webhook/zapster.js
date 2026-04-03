@@ -147,13 +147,6 @@ async function getZapsterInstanceIdForAcademy(academyId) {
   }
 }
 
-function getBaseUrl(req) {
-  const xfProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
-  const proto = xfProto || 'https';
-  const host = String(req.headers.host || '').trim();
-  return `${proto}://${host}`;
-}
-
 async function saveInboundMessage({ academyId, academyDoc, phone, text, messageId }) {
   const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
   if (!doc) return { ok: false, erro: 'Conversa indisponível' };
@@ -246,13 +239,14 @@ export default async function handler(req, res) {
     const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
     const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
 
+    const nextPub = String(process.env.NEXT_PUBLIC_BASE_URL || '')
+      .trim()
+      .replace(/\/+$/, '');
+    const vercelHost = process.env.VERCEL_URL
+      ? `https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, '')}`
+      : null;
     const baseUrl =
-      String(process.env.NEXT_PUBLIC_BASE_URL || '')
-        .trim()
-        .replace(/\/+$/, '') ||
-      (process.env.VERCEL_URL
-        ? `https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, '')}`
-        : getBaseUrl(req));
+      nextPub || vercelHost || `https://${String(req.headers.host || '').trim()}`;
 
     const internalSecret = String(process.env.INTERNAL_API_SECRET || '').trim();
 
@@ -263,7 +257,7 @@ export default async function handler(req, res) {
         academyId
       });
     } else {
-      console.log('[zapster][webhook] dispatching', { requestId, phone, messageId });
+      console.log('[zapster][webhook] dispatching', { requestId, phone, messageId, baseUrl });
       fetch(`${baseUrl}/api/agent/process`, {
         method: 'POST',
         headers: {
@@ -280,9 +274,17 @@ export default async function handler(req, res) {
           outInstanceId,
           inboundDocId: null
         })
-      }).catch((e) =>
-        console.error('[zapster][webhook] dispatch error', { error: e?.message, requestId })
-      );
+      })
+        .then((r) =>
+          console.log('[zapster][webhook] dispatch response', { requestId, status: r.status, baseUrl })
+        )
+        .catch((e) =>
+          console.error('[zapster][webhook] dispatch error', {
+            error: e?.message,
+            baseUrl,
+            requestId
+          })
+        );
     }
 
     return res.status(200).json({ ok: true, sucesso: true, enfileirado: true });
