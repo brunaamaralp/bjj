@@ -103,7 +103,12 @@ export default async function handler(req, res) {
     });
 
     if (!resp1.ok) {
-      console.error('[agent/process] agent HTTP error call 1', { status: resp1.status, requestId });
+      const errorBody = await resp1.text();
+      console.error('[agent/process] agent HTTP error call 1', {
+        status: resp1.status,
+        requestId,
+        body: errorBody.slice(0, 300)
+      });
       return res.status(200).json({ sent: false, error: 'agent_http_error' });
     }
 
