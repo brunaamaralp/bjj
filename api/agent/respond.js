@@ -1,4 +1,5 @@
-timport { Client, Databases, ID, Permission, Query, Role } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Query, Role } from 'node-appwrite';
+import { humanHandoffUntilFromMs } from '../../lib/humanHandoffUntil.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -576,19 +577,14 @@ async function updateLeadNotesFromClassification(leadDoc, classificacao) {
   await databases.updateDocument(DB_ID, LEADS_COL, leadDoc.$id, { notes: JSON.stringify(parsed) });
 }
 
-async function updateConversationMeta(docId, { leadId, humanHandoffUntilIso }) {
+async function updateConversationMeta(docId, { leadId, humanHandoffUntil }) {
   const payload = {};
   if (leadId) payload.lead_id = leadId;
-  if (humanHandoffUntilIso) payload.human_handoff_until = humanHandoffUntilIso;
+  if (humanHandoffUntil) payload.human_handoff_until = humanHandoffUntil;
   if (Object.keys(payload).length === 0) return;
   try {
     await databases.updateDocument(DB_ID, CONVERSATIONS_COL, docId, payload);
   } catch {}
-}
-
-function addHoursIso(hours) {
-  const h = Number.isFinite(hours) && hours > 0 ? hours : 6;
-  return new Date(Date.now() + h * 60 * 60 * 1000).toISOString();
 }
 
 function mergeConversationMessages(existing, additions) {
@@ -910,8 +906,9 @@ export default async function handler(req, res) {
     }
 
     if (classificacao.precisa_resposta_humana === 'sim') {
-      const untilIso = addHoursIso(Number.isFinite(HUMAN_HANDOFF_HOURS) ? HUMAN_HANDOFF_HOURS : 6);
-      await updateConversationMeta(doc.$id, { humanHandoffUntilIso: untilIso });
+      const h = Number.isFinite(HUMAN_HANDOFF_HOURS) && HUMAN_HANDOFF_HOURS > 0 ? HUMAN_HANDOFF_HOURS : 6;
+      const until = humanHandoffUntilFromMs(Date.now() + h * 60 * 60 * 1000);
+      if (until) await updateConversationMeta(doc.$id, { humanHandoffUntil: until });
     }
 
     if (leadDoc && shouldPromoteToExperimental({ classificacao, resposta, userName })) {

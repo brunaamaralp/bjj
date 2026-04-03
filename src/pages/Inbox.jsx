@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
+import { humanHandoffUntilToMs } from '../lib/humanHandoffUntil.js';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import ConversationList from '../components/inbox/ConversationList';
@@ -2024,8 +2025,10 @@ export default function Inbox() {
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
                 const aiSuggestHuman = Boolean(lead?.needHuman);
-                const until = String(selected?.human_handoff_until || '').trim();
-                const untilLabel = until ? formatTimeOnly(until) || formatWhen(until) : '';
+                const untilRaw = String(selected?.human_handoff_until || '').trim();
+                const untilMs = humanHandoffUntilToMs(untilRaw);
+                const untilIso = untilMs > 0 ? new Date(untilMs).toISOString() : '';
+                const untilLabel = untilIso ? formatTimeOnly(untilIso) || formatWhen(untilIso) : '';
                 if (selected?.need_human) {
                   return (
                     <span

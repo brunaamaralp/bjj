@@ -1,4 +1,5 @@
 import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
+import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -224,8 +225,8 @@ export default async function handler(req, res) {
       const lastMeta = lastMessageMeta(doc.messages);
       const summary = parseSummaryField(doc.summary);
       const handoff = typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '';
-      const handoffMs = handoff ? new Date(handoff).getTime() : 0;
-      const needHuman = Number.isFinite(handoffMs) && handoffMs > Date.now();
+      const handoffMs = humanHandoffUntilToMs(handoff);
+      const needHuman = handoffMs > Date.now();
       const leadId = typeof doc.lead_id === 'string' ? doc.lead_id : null;
       const unreadCount = Number.isFinite(Number(doc?.unread_count)) ? Number(doc.unread_count) : 0;
       const lastReadAt = typeof doc?.last_read_at === 'string' ? doc.last_read_at : null;

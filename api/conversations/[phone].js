@@ -1,4 +1,5 @@
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
+import { humanHandoffUntilFromMs, humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -236,8 +237,8 @@ export default async function handler(req, res) {
       const messages = existing ? safeParseMessages(existing.messages) : [];
       const summary = existing ? parseSummaryField(existing.summary) : { updated_at: null, text: '' };
       const handoff = existing && typeof existing.human_handoff_until === 'string' ? existing.human_handoff_until : '';
-      const handoffMs = handoff ? new Date(handoff).getTime() : 0;
-      const needHuman = Number.isFinite(handoffMs) && handoffMs > Date.now();
+      const handoffMs = humanHandoffUntilToMs(handoff);
+      const needHuman = handoffMs > Date.now();
       const leadId = existing && typeof existing.lead_id === 'string' ? existing.lead_id : null;
       const leadName = leadId ? await getLeadNameById(leadId) : '';
       const unreadCount = Number.isFinite(Number(existing?.unread_count)) ? Number(existing.unread_count) : 0;
@@ -274,7 +275,7 @@ export default async function handler(req, res) {
       const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
       if (action === 'handoff') {
         const ativo = Boolean(body?.ativo);
-        const until = ativo ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null;
+        const until = ativo ? humanHandoffUntilFromMs(Date.now() + 2 * 60 * 60 * 1000) : null;
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
         return res.status(200).json({ sucesso: true, need_human: ativo, human_handoff_until: until });
       }
@@ -335,7 +336,7 @@ export default async function handler(req, res) {
       try {
         const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
         const ativo = Boolean(payloadBody?.ativo);
-        const until = ativo ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null;
+        const until = ativo ? humanHandoffUntilFromMs(Date.now() + 2 * 60 * 60 * 1000) : null;
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
         return res.status(200).json({ sucesso: true, need_human: ativo, human_handoff_until: until });
       } catch (e) {

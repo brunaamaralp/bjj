@@ -1,4 +1,5 @@
 import { Client, Databases, Query } from 'node-appwrite';
+import { humanHandoffIsActive } from '../../lib/humanHandoffUntil.js';
 import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../../lib/server/conversationsStore.js';
 
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
@@ -182,9 +183,7 @@ async function isHumanHandoffActive(phone, academyId) {
   ]);
   const doc = list.documents && list.documents[0] ? list.documents[0] : null;
   const until = doc && typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '';
-  if (!until) return false;
-  const ms = new Date(until).getTime();
-  return Number.isFinite(ms) && ms > Date.now();
+  return humanHandoffIsActive(until);
 }
 
 export default async function handler(req, res) {
