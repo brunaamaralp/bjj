@@ -3,6 +3,8 @@ import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMe
 
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
 const ZAPSTER_WEBHOOK_TOKEN = process.env.ZAPSTER_WEBHOOK_TOKEN || '';
+/** Aguarda o fetch ao agent/process até este limite para o runtime não cortar antes da conexão (Vercel serverless). */
+const DISPATCH_WAIT_MS = 2500;
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -258,33 +260,51 @@ export default async function handler(req, res) {
       });
     } else {
       console.log('[zapster][webhook] dispatching', { requestId, phone, messageId, baseUrl });
-      fetch(`${baseUrl}/api/agent/process`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-internal-secret': internalSecret
-        },
-        body: JSON.stringify({
-          phone,
-          name,
-          academyId,
-          message: text,
-          messageId,
-          requestId,
-          outInstanceId,
-          inboundDocId: null
-        })
-      })
-        .then((r) =>
-          console.log('[zapster][webhook] dispatch response', { requestId, status: r.status, baseUrl })
-        )
-        .catch((e) =>
+
+      let dispatchFinished = false;
+      const dispatchTask = (async () => {
+        try {
+          const r = await fetch(`${baseUrl}/api/agent/process`, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-internal-secret': internalSecret
+            },
+            body: JSON.stringify({
+              phone,
+              name,
+              academyId,
+              message: text,
+              messageId,
+              requestId,
+              outInstanceId,
+              inboundDocId: null
+            })
+          });
+          dispatchFinished = true;
+          console.log('[zapster][webhook] dispatch response', { requestId, status: r.status, baseUrl });
+        } catch (e) {
+          dispatchFinished = true;
           console.error('[zapster][webhook] dispatch error', {
             error: e?.message,
             baseUrl,
             requestId
-          })
-        );
+          });
+        }
+      })();
+
+      await Promise.race([
+        dispatchTask,
+        new Promise((resolve) => setTimeout(resolve, DISPATCH_WAIT_MS))
+      ]);
+
+      if (!dispatchFinished) {
+        console.warn('[zapster][webhook] dispatch ainda em curso após wait window', {
+          requestId,
+          baseUrl,
+          waitMs: DISPATCH_WAIT_MS
+        });
+      }
     }
 
     return res.status(200).json({ ok: true, sucesso: true, enfileirado: true });
