@@ -231,14 +231,6 @@ export default async function handler(req, res) {
     const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId).catch(() => null);
     if (!academyDoc || !academyDoc.$id) return res.status(200).json({ sucesso: true, ignorado: true });
 
-    let inbound = null;
-    try {
-      inbound = await saveInboundMessage({ academyId, academyDoc, phone, text, messageId });
-      if (inbound?.ok && inbound?.duplicate) {
-        return res.status(200).json({ sucesso: true, ignorado: true, duplicado: true });
-      }
-    } catch {}
-
     let modoHumano = false;
     try {
       modoHumano = await isHumanHandoffActive(phone, academyId);
@@ -264,8 +256,6 @@ export default async function handler(req, res) {
 
     const internalSecret = String(process.env.INTERNAL_API_SECRET || '').trim();
 
-    console.log('[zapster][processAsync] start', { requestId, phone, messageId, academyId });
-
     if (!internalSecret) {
       console.error('[zapster][webhook] INTERNAL_API_SECRET ausente, agent/process não disparado', {
         requestId,
@@ -273,6 +263,7 @@ export default async function handler(req, res) {
         academyId
       });
     } else {
+      console.log('[zapster][webhook] dispatching', { requestId, phone, messageId });
       fetch(`${baseUrl}/api/agent/process`, {
         method: 'POST',
         headers: {
@@ -287,7 +278,7 @@ export default async function handler(req, res) {
           messageId,
           requestId,
           outInstanceId,
-          inboundDocId: inbound?.docId || null
+          inboundDocId: null
         })
       }).catch((e) =>
         console.error('[zapster][webhook] dispatch error', { error: e?.message, requestId })
