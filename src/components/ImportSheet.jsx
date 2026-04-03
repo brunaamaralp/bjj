@@ -5,6 +5,10 @@ import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 const COLUMN_MAP = {
     'nome': 'name',
     'name': 'name',
+    'nome do aluno': 'name',
+    'nome aluno': 'name',
+    'aluno': 'name',
+    'estudante': 'name',
     'telefone': 'phone',
     'phone': 'phone',
     'celular': 'phone',
@@ -19,6 +23,23 @@ const COLUMN_MAP = {
     'data da aula': 'scheduledDate',
     'horario': 'scheduledTime',
     'horário': 'scheduledTime',
+    'nome do responsavel': 'parentName',
+    'nome responsavel': 'parentName',
+    'responsavel': 'parentName',
+    'nome do pai': 'parentName',
+    'nome pai': 'parentName',
+    'nome da mae': 'parentName',
+    'nome mae': 'parentName',
+    'mae': 'parentName',
+    'pai': 'parentName',
+    'genitor': 'parentName',
+    'genitora': 'parentName',
+    'contato': 'parentName',
+    'nome contato': 'parentName',
+    'nome do contato': 'parentName',
+    'filiacao': 'parentName',
+    'parent': 'parentName',
+    'parentname': 'parentName',
 };
 
 const normalizeKey = (key) => {
@@ -78,7 +99,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                 }).filter(r => r.name && r.name.length > 0);
 
                 if (transformed.length === 0) {
-                    setError('Nenhuma linha válida encontrada. Verifique se a coluna "Nome" existe.');
+                    setError('Nenhuma linha válida encontrada. Inclua a coluna com o nome do aluno (ex.: Nome, Nome do aluno).');
                     return;
                 }
 
@@ -146,12 +167,16 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
 
                             <div className="import-tip mt-4">
                                 <p style={{ fontWeight: 600, marginBottom: 6 }}>📋 Formato esperado:</p>
+                                <p className="text-small" style={{ marginBottom: 8 }}>
+                                    <strong>Nome / Nome do aluno</strong> = aluno matriculado. Opcional: <strong>Responsável</strong>, <strong>Nome do pai</strong>, <strong>Contato</strong>, etc. = quem usa o WhatsApp (recomendado para Criança/Juniores).
+                                </p>
                                 <table className="tip-table">
                                     <thead>
-                                        <tr><th>Nome</th><th>Telefone</th><th>Tipo</th><th>Origem</th></tr>
+                                        <tr><th>Nome do aluno</th><th>Responsável</th><th>Telefone</th><th>Tipo</th><th>Origem</th></tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td>João Silva</td><td>(11) 99999-0000</td><td>Adulto</td><td>Instagram</td></tr>
+                                        <tr><td>Maria Souza</td><td>Carlos Souza</td><td>(11) 99999-0000</td><td>Criança</td><td>Planilha</td></tr>
+                                        <tr><td>João Silva</td><td>—</td><td>(11) 98888-0000</td><td>Adulto</td><td>Instagram</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -179,7 +204,8 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                                     <thead>
                                         <tr>
                                             <th>#</th>
-                                            <th>Nome</th>
+                                            <th>Aluno</th>
+                                            <th>Responsável</th>
                                             <th>Telefone</th>
                                             <th>Tipo</th>
                                             <th>Origem</th>
@@ -190,6 +216,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                                             <tr key={i}>
                                                 <td>{i + 1}</td>
                                                 <td>{r.name}</td>
+                                                <td>{r.parentName || '—'}</td>
                                                 <td>{r.phone || '-'}</td>
                                                 <td>{r.type}</td>
                                                 <td>{r.origin}</td>

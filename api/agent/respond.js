@@ -398,6 +398,25 @@ function buildPromptContactContext(leadDoc, whatsappDisplayNameRaw) {
 
   if (turmaIsKidsOrJuniores(turma)) {
     const turmaLabel = turma || 'kids/juniores';
+    const parentName = String(leadDoc.parentName || leadDoc.parent_name || '').trim();
+
+    if (parentName) {
+      return {
+        mode: 'responsavel_aluno',
+        nomeAluno: cadastroNome,
+        turma,
+        profileAppendix:
+          '\n\nCONTEXTO OBRIGATÓRIO — TELEFONE DO RESPONSÁVEL:\n' +
+          `Turma/tipo "${turmaLabel}". O nome "${cadastroNome}" no cadastro é do ALUNO (criança/junior). O responsável cadastrado é "${parentName}".\n` +
+          '- Nunca trate o interlocutor como se se chamasse pelo nome do aluno.\n' +
+          '- Dirija-se ao responsável; use o nome do aluno ao falar do filho/aluno (horário, experimental, etc.).\n' +
+          '- Pode tratar o responsável pelo nome cadastrado quando soar natural; se o nome no WhatsApp divergir muito, adapte à conversa.',
+        nomeContatoLine:
+          `Nome no cadastro (ALUNO — turma ${turmaLabel}): ${cadastroNome}.\n` +
+          `Responsável no cadastro: ${parentName}. Não confundir os dois.`
+      };
+    }
+
     return {
       mode: 'responsavel_aluno',
       nomeAluno: cadastroNome,
@@ -453,9 +472,18 @@ function profileLineForSystemPrompt(contactCtx) {
     '- Para assuntos financeiros ou administrativos, diga que vai passar para o responsável\n\n' +
     'Se não tiver certeza: trate como lead, mas adapte se a pessoa demonstrar familiaridade com a academia (mencionar faixa, professor, treino, mensalidade, etc.)';
 
-  return base + (contactCtx?.profileAppendix || '');
+  const cadastroVsWhatsApp =
+    contactCtx?.mode !== 'lead'
+      ? '\n\nREGRA FIXA — NOME NO CADASTRO:\n' +
+        '- O nome do aluno e o do responsável (quando houver) salvos no cadastro da academia são a fonte de verdade.\n' +
+        '- O nome exibido no perfil do WhatsApp não substitui nem corrige o cadastro; não diga que vai atualizar o cadastro só com base nesse nome.\n' +
+        '- Use o WhatsApp, se fizer sentido, só como referência de tratamento na conversa; dados oficiais seguem o cadastro.\n'
+      : '';
+
+  return base + cadastroVsWhatsApp + (contactCtx?.profileAppendix || '');
 }
 
+/** Cria lead mínimo só se não existir documento para o telefone. Nunca atualiza nome de lead já existente com o nome do WhatsApp. */
 async function createMinimalLeadIfMissing({ academyId, phone, name, academyDoc }) {
   if (!LEADS_COL) return null;
   const a = String(academyId || '').trim();
