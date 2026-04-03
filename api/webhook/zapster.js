@@ -1,5 +1,4 @@
 import { Client, Databases, Query } from 'node-appwrite';
-import { sendZapsterText } from '../../lib/server/zapsterSend.js';
 import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../../lib/server/conversationsStore.js';
 
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
@@ -252,145 +251,50 @@ export default async function handler(req, res) {
     }
 
     const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    const PROCESSING_TIMEOUT_MS = 20000;
-    const baseUrl = getBaseUrl(req);
-    const payload = {
-      phone,
-      name,
-      academy_id: academyId,
-      message: text,
-      ...(messageId ? { message_id: messageId } : {})
-    };
+    const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
+    const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
 
-    const processAsync = async () => {
-      try {
-        console.log('[zapster][processAsync] start', { requestId, phone, messageId, academyId });
+    const baseUrl =
+      String(process.env.NEXT_PUBLIC_BASE_URL || '')
+        .trim()
+        .replace(/\/+$/, '') ||
+      (process.env.VERCEL_URL
+        ? `https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, '')}`
+        : getBaseUrl(req));
 
-        const firstResp = await fetch(`${baseUrl}/api/agent/respond`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'x-academy-id': String(academyId || '') },
-          body: JSON.stringify(payload)
-        });
-        const firstRaw = await firstResp.text();
-        if (!firstResp.ok) {
-          console.error('[zapster][processAsync] agent HTTP error', { status: firstResp.status, requestId });
-          return { sent: false, error: `agent_http_${firstResp.status}` };
-        }
-        let agentData;
-        try {
-          agentData = JSON.parse(firstRaw);
-        } catch {
-          console.error('[zapster][processAsync] first call JSON inválido', { requestId });
-          return { sent: false, error: 'agent_invalid_json' };
-        }
-        console.log('[zapster][processAsync] first call', {
+    const internalSecret = String(process.env.INTERNAL_API_SECRET || '').trim();
+
+    console.log('[zapster][processAsync] start', { requestId, phone, messageId, academyId });
+
+    if (!internalSecret) {
+      console.error('[zapster][webhook] INTERNAL_API_SECRET ausente, agent/process não disparado', {
+        requestId,
+        phone,
+        academyId
+      });
+    } else {
+      fetch(`${baseUrl}/api/agent/process`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-internal-secret': internalSecret
+        },
+        body: JSON.stringify({
+          phone,
+          name,
+          academyId,
+          message: text,
+          messageId,
           requestId,
-          em_processamento: agentData?.em_processamento ?? null,
-          hasResposta: Boolean(agentData?.resposta),
-          respostaLen: agentData?.resposta?.length ?? 0
-        });
-
-        if (agentData?.em_processamento) {
-          await new Promise((r) => setTimeout(r, 8000));
-          const pollResp = await fetch(`${baseUrl}/api/agent/respond`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'x-academy-id': String(academyId || '') },
-            body: JSON.stringify(payload)
-          });
-          const pollRaw = await pollResp.text();
-          if (pollResp.ok) {
-            try {
-              agentData = JSON.parse(pollRaw);
-            } catch {
-              console.error('[zapster][processAsync] poll JSON inválido', { requestId });
-              return { sent: false, error: 'agent_poll_invalid_json' };
-            }
-            console.log('[zapster][processAsync] poll result', {
-              requestId,
-              em_processamento: agentData?.em_processamento ?? null,
-              hasResposta: Boolean(agentData?.resposta),
-              respostaLen: agentData?.resposta?.length ?? 0
-            });
-          } else {
-            console.error('[zapster][processAsync] poll HTTP error', { status: pollResp.status, requestId });
-          }
-        }
-
-        if (agentData?.em_processamento) {
-          console.error('[zapster][processAsync] esgotou tentativas sem resposta', { requestId, phone, academyId });
-          return { sent: false, processing: true };
-        }
-
-        const resposta = String(agentData?.resposta || '').trim();
-        if (!resposta) {
-          console.error('[zapster][processAsync] resposta vazia', {
-            requestId,
-            phone,
-            academyId,
-            agentDataKeys: Object.keys(agentData || {})
-          });
-          return { sent: false, empty: true };
-        }
-
-        const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
-        const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
-        if (!outInstanceId) {
-          console.error('[zapster][processAsync] outInstanceId vazio', {
-            requestId,
-            phone,
-            academyId,
-            fromEvent: instanceId
-          });
-        }
-
-        const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: outInstanceId });
-        if (!sent?.ok) {
-          console.error('[zapster][processAsync] sendZapsterText falhou', {
-            requestId,
-            phone,
-            academyId,
-            outInstanceId,
-            erro: sent?.erro
-          });
-          return { sent: false, error: String(sent?.erro || 'zapster_send_failed') };
-        }
-
-        const nowIso = new Date().toISOString();
-        const conv =
-          inbound?.docId ? { $id: inbound.docId } : await getOrCreateConversationDoc(phone, academyId, academyDoc).catch(() => null);
-        const convId = String(conv?.$id || '').trim();
-        if (convId) {
-          const mid = String(messageId || '').trim();
-          const assistantMsg = {
-            role: 'assistant',
-            content: resposta,
-            timestamp: nowIso,
-            sender: 'ai',
-            ...(mid ? { in_reply_to: mid } : {})
-          };
-          await updateConversationWithMerge(convId, [assistantMsg]);
-        }
-
-        console.log('[zapster][processAsync] sent', {
-          requestId,
-          resposta: resposta.slice(0, 50)
-        });
-        return { sent: true };
-      } catch (e) {
-        console.error('[zapster][processAsync] error', { requestId, error: e?.message || 'Erro interno' });
-        return { sent: false, error: e?.message || 'Erro interno' };
-      }
-    };
-
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve({ timedOut: true }), PROCESSING_TIMEOUT_MS)
-    );
-    const result = await Promise.race([processAsync(), timeoutPromise]);
-    if (result?.timedOut) {
-      console.error('[zapster][webhook] processAsync timeout', { requestId, phone, academyId });
+          outInstanceId,
+          inboundDocId: inbound?.docId || null
+        })
+      }).catch((e) =>
+        console.error('[zapster][webhook] dispatch error', { error: e?.message, requestId })
+      );
     }
 
-    return res.status(200).json({ sucesso: true, enfileirado: true });
+    return res.status(200).json({ ok: true, sucesso: true, enfileirado: true });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
   }
