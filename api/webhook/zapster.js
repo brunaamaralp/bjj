@@ -1,6 +1,6 @@
 import { Client, Databases, Query } from 'node-appwrite';
-import { sendZapsterText } from '../lib/zapsterSend.js';
-import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../lib/conversationsStore.js';
+import { sendZapsterText } from '../../lib/server/zapsterSend.js';
+import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../../lib/server/conversationsStore.js';
 
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
 const ZAPSTER_WEBHOOK_TOKEN = process.env.ZAPSTER_WEBHOOK_TOKEN || '';
