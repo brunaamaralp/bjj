@@ -1,4 +1,4 @@
-import { Client, Databases, ID, Permission, Query, Role } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Query, Role, Account, Teams } from 'node-appwrite';
 import { humanHandoffUntilFromMs } from '../../lib/humanHandoffUntil.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -18,6 +18,7 @@ const HUMAN_HANDOFF_HOURS = Number.parseInt(String(process.env.HUMAN_HANDOFF_HOU
 const SETTINGS_COL = process.env.APPWRITE_SETTINGS_COLLECTION_ID || process.env.VITE_APPWRITE_SETTINGS_COLLECTION_ID || '';
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(client);
+const teams = new Teams(client);
 
 function ensureConfigOk(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !CONVERSATIONS_COL) {
@@ -99,6 +100,64 @@ function resolveAcademyId(req) {
   const fromBody = String(b.academy_id || b.academyId || '').trim();
   if (fromBody) return fromBody;
   return String(DEFAULT_ACADEMY_ID || '').trim();
+}
+
+function resolveAcademyIdForMembership(req) {
+  const h = String(req.headers['x-academy-id'] || '').trim();
+  if (h) return h;
+  return String(DEFAULT_ACADEMY_ID || '').trim();
+}
+
+async function ensureAuth(req, res) {
+  const auth = String(req.headers.authorization || '');
+  if (!auth.toLowerCase().startsWith('bearer ')) {
+    res.status(401).json({ sucesso: false, erro: 'JWT ausente' });
+    return null;
+  }
+  const jwt = auth.slice(7).trim();
+  if (!jwt) {
+    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
+    return null;
+  }
+  try {
+    const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
+    const account = new Account(userClient);
+    return await account.get();
+  } catch {
+    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
+    return null;
+  }
+}
+
+async function ensureAcademyAccess(req, res, me) {
+  const academyId = resolveAcademyIdForMembership(req);
+  if (!academyId) {
+    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
+    return null;
+  }
+  try {
+    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+    const ownerId = String(doc?.ownerId || '').trim();
+    const userId = String(me?.$id || '').trim();
+    if (ownerId && userId && ownerId === userId) return academyId;
+
+    const teamId = String(doc?.teamId || '').trim();
+    if (teamId && userId) {
+      try {
+        const memberships = await teams.listMemberships(teamId, [Query.equal('userId', [userId]), Query.limit(1)]);
+        const list = Array.isArray(memberships?.memberships) ? memberships.memberships : [];
+        if (list.length > 0) return academyId;
+      } catch {
+        void 0;
+      }
+    }
+
+    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
+    return null;
+  } catch (e) {
+    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
+    return null;
+  }
 }
 
 function permissionsForAcademyDoc(academyDoc) {
@@ -791,9 +850,29 @@ export default async function handler(req, res) {
   }
   if (!ensureConfigOk(res)) return;
   if (!ensureJson(req, res)) return;
+
+  const expectedInternal = String(process.env.INTERNAL_API_SECRET || '').trim();
+  const inboundSecret = String(req.headers['x-internal-secret'] || '').trim();
+  const isInternal =
+    expectedInternal.length > 0 &&
+    inboundSecret.length > 0 &&
+    inboundSecret === expectedInternal;
+
+  let jwtAuthorizedAcademyId = null;
+  if (!isInternal) {
+    const me = await ensureAuth(req, res);
+    if (!me) return;
+    jwtAuthorizedAcademyId = await ensureAcademyAccess(req, res, me);
+    if (!jwtAuthorizedAcademyId) return;
+  }
+
   const academyDoc = await ensureAcademyExists(req, res);
   if (!academyDoc) return;
   const academyId = String(academyDoc.$id || '').trim();
+
+  if (!isInternal && academyId !== jwtAuthorizedAcademyId) {
+    return res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
+  }
 
   const mode = String(req.query?.mode || '').trim();
   const isSuggest = mode === 'suggest';

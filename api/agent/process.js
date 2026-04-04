@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { sendZapsterText } from '../../lib/server/zapsterSend.js';
 import {
   getAcademyDocument,
@@ -24,6 +25,17 @@ function buildAgentPayload({ phone, name, academyId, message, messageId }) {
   };
 }
 
+function safeCompare(a, b) {
+  try {
+    const bufA = Buffer.from(String(a));
+    const bufB = Buffer.from(String(b));
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 async function parseAgentJson(resp, requestId, label) {
   const raw = await resp.text();
   try {
@@ -47,7 +59,7 @@ export default async function handler(req, res) {
   }
 
   const secret = String(req.headers['x-internal-secret'] || '').trim();
-  if (!secret || secret !== expected) {
+  if (!secret || !safeCompare(secret, expected)) {
     return res.status(401).json({ error: 'unauthorized' });
   }
 
@@ -89,7 +101,8 @@ export default async function handler(req, res) {
 
   const agentHeaders = {
     'content-type': 'application/json',
-    'x-academy-id': academy
+    'x-academy-id': academy,
+    'x-internal-secret': expected
   };
   const agentBody = JSON.stringify(
     buildAgentPayload({ phone, name, academyId: academy, message, messageId })

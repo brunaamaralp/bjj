@@ -8,7 +8,11 @@ export default async function (req, res) {
       return res.json({ error: "invalid_payload" }, 400);
     }
     for (const it of itens) {
-      if (!it.item_estoque_id || typeof it.quantidade !== "number" || it.quantidade <= 0 || typeof it.preco_unitario !== "number") {
+      const quantidade = Number(it.quantidade);
+      if (!Number.isInteger(quantidade) || quantidade < 1) {
+        return res.json({ error: "quantidade_invalida" }, 400);
+      }
+      if (!it.item_estoque_id || typeof it.preco_unitario !== "number") {
         return res.json({ error: "invalid_item" }, 400);
       }
     }

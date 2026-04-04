@@ -1,9 +1,9 @@
+import { timingSafeEqual } from 'crypto';
 import { Client, Databases, Query } from 'node-appwrite';
 import { humanHandoffIsActive } from '../../lib/humanHandoffUntil.js';
 import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../../lib/server/conversationsStore.js';
 
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
-const ZAPSTER_WEBHOOK_TOKEN = process.env.ZAPSTER_WEBHOOK_TOKEN || '';
 /** Aguarda o fetch ao agent/process até este limite para o runtime não cortar antes da conexão (Vercel serverless). */
 const DISPATCH_WAIT_MS = 2500;
 
@@ -19,6 +19,17 @@ const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DE
 const appwriteClient = PROJECT_ID && API_KEY ? new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY) : null;
 const databases = appwriteClient ? new Databases(appwriteClient) : null;
 
+function safeCompare(a, b) {
+  try {
+    const bufA = Buffer.from(String(a));
+    const bufB = Buffer.from(String(b));
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 function ensureJson(req, res) {
   const ct = String(req.headers['content-type'] || '');
   if (!ct.includes('application/json')) {
@@ -33,13 +44,18 @@ function ensureJson(req, res) {
 }
 
 function checkWebhookToken(req, res) {
-  if (!ZAPSTER_WEBHOOK_TOKEN) return true;
+  const expectedToken = String(process.env.ZAPSTER_WEBHOOK_TOKEN || '').trim();
+  if (!expectedToken) {
+    console.error('[zapster][webhook] ZAPSTER_WEBHOOK_TOKEN não configurado — rejeitando');
+    res.status(401).json({ error: 'webhook_token_not_configured' });
+    return false;
+  }
   const q = String(req.query?.token || '').trim();
   const h = String(req.headers['x-webhook-token'] || '').trim();
   const a = String(req.headers.authorization || '').trim().replace(/^Bearer\s+/i, '');
   const provided = q || h || a;
-  if (provided !== ZAPSTER_WEBHOOK_TOKEN) {
-    res.status(401).json({ sucesso: false, erro: 'Não autorizado' });
+  if (!safeCompare(provided, expectedToken)) {
+    res.status(401).json({ error: 'invalid_token' });
     return false;
   }
   return true;

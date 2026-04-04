@@ -3,13 +3,17 @@ import { ID } from 'appwrite';
 
 export const authService = {
     async login(email, password) {
-        console.log('[Auth] Attempting login for:', email);
-        console.log('[Auth] Current Client Config:', {
-            endpoint: client.config.endpoint,
-            project: client.config.project
-        });
+        if (import.meta.env.DEV) {
+            console.log('[Auth] Attempting login');
+            console.log('[Auth] Current Client Config:', {
+                endpoint: client.config.endpoint,
+                project: client.config.project
+            });
+        }
         const session = await account.createEmailPasswordSession(email, password);
-        console.log('[Auth] Login successful');
+        if (import.meta.env.DEV) {
+            console.log('[Auth] Login successful');
+        }
         return session;
     },
 

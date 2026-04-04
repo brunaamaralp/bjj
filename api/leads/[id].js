@@ -1,14 +1,16 @@
-import { Client, Databases, Query } from 'node-appwrite';
+import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
 
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(client);
+const teams = new Teams(client);
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,17 +23,74 @@ function ensureConfigOk(res) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
     return false;
   }
+  if (!ACADEMIES_COL) {
+    res.status(500).json({ sucesso: false, erro: 'ACADEMIES_COL não configurado' });
+    return false;
+  }
   return true;
+}
+
+async function ensureAuth(req, res) {
+  const auth = String(req.headers.authorization || '');
+  if (!auth.toLowerCase().startsWith('bearer ')) {
+    res.status(401).json({ sucesso: false, erro: 'JWT ausente' });
+    return null;
+  }
+  const jwt = auth.slice(7).trim();
+  if (!jwt) {
+    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
+    return null;
+  }
+  try {
+    const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
+    const account = new Account(userClient);
+    const me = await account.get();
+    return me;
+  } catch {
+    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
+    return null;
+  }
+}
+
+function resolveAcademyId(req) {
+  const h = String(req.headers['x-academy-id'] || '').trim();
+  if (h) return h;
+  return String(DEFAULT_ACADEMY_ID || '').trim();
+}
+
+async function ensureAcademyAccess(req, res, me) {
+  const academyId = resolveAcademyId(req);
+  if (!academyId) {
+    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
+    return null;
+  }
+  try {
+    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+    const ownerId = String(doc?.ownerId || '').trim();
+    const userId = String(me?.$id || '').trim();
+    if (ownerId && userId && ownerId === userId) return academyId;
+
+    const teamId = String(doc?.teamId || '').trim();
+    if (teamId && userId) {
+      try {
+        const memberships = await teams.listMemberships(teamId, [Query.equal('userId', [userId]), Query.limit(1)]);
+        const list = Array.isArray(memberships?.memberships) ? memberships.memberships : [];
+        if (list.length > 0) return academyId;
+      } catch {
+        void 0;
+      }
+    }
+
+    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
+    return null;
+  } catch (e) {
+    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
+    return null;
+  }
 }
 
 function toBoolSim(v) {
   return String(v || '').trim().toLowerCase() === 'sim';
-}
-
-function getAcademyId(req) {
-  const h = String(req.headers['x-academy-id'] || '').trim();
-  if (h) return h;
-  return String(DEFAULT_ACADEMY_ID || '').trim();
 }
 
 function ensureJson(req, res) {
@@ -57,13 +116,17 @@ export default async function handler(req, res) {
   const id = req.query?.id || '';
   if (!id) return res.status(400).json({ sucesso: false, erro: 'ID ausente' });
 
+  const me = await ensureAuth(req, res);
+  if (!me) return;
+
+  const academyId = await ensureAcademyAccess(req, res, me);
+  if (!academyId) return;
+
   if (req.method === 'GET') {
     if (String(id) !== 'pendentes') {
       res.setHeader('Allow', 'GET, PATCH, OPTIONS');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
     }
-    const academyId = getAcademyId(req);
-    if (!academyId) return res.status(500).json({ sucesso: false, erro: 'x-academy-id ausente' });
     try {
       const list = await databases.listDocuments(DB_ID, LEADS_COL, [
         Query.equal('academyId', [academyId]),
@@ -144,6 +207,10 @@ export default async function handler(req, res) {
 
   try {
     const doc = await databases.getDocument(DB_ID, LEADS_COL, id);
+    const leadAcademy = String(doc?.academyId || '').trim();
+    if (!leadAcademy || leadAcademy !== academyId) {
+      return res.status(403).json({ sucesso: false, erro: 'Lead não pertence à academia' });
+    }
     const body = req.body || {};
     const updates = {};
     if (typeof body.status === 'string' && body.status.trim()) {

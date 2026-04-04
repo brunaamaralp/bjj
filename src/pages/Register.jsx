@@ -23,8 +23,11 @@ const Register = ({ onLogin }) => {
       const user = await authService.getCurrentUser();
       onLogin(user);
     } catch (err) {
-      if (err.code === 409) setError('Este e-mail já está cadastrado.');
-      else setError(err.message || 'Erro ao criar conta.');
+      if (err.code === 409) {
+        setError('Não foi possível criar a conta. Verifique os dados e tente novamente.');
+      } else {
+        setError(err.message || 'Erro ao criar conta.');
+      }
     } finally {
       setLoading(false);
     }
