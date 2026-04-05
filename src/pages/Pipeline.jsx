@@ -857,16 +857,15 @@ const Pipeline = () => {
         }
         .lead-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow); }
         .lead-card-title-row {
-          display: flex;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
           align-items: center;
-          gap: 6px;
-          min-width: 0;
+          gap: 8px;
           width: 100%;
+          min-width: 0;
         }
         .lead-card-name {
-          flex: 1 1 0;
           min-width: 0;
-          max-width: min(12ch, calc(100% - 4.75rem));
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -887,8 +886,12 @@ const Pipeline = () => {
           overflow-wrap: normal;
           max-width: 100%;
         }
+        .lead-card-title-row .type-pill {
+          max-width: none;
+          justify-self: end;
+        }
         .type-pill--lead-kind {
-          min-width: max-content;
+          flex-shrink: 0;
         }
         .lead-meta { font-size: 0.72rem; color: var(--text-secondary); }
         .col-empty { 

@@ -1473,14 +1473,14 @@ export default function Inbox() {
     try {
       const jwt = await getJwt();
       const aid = String(academyIdRef.current || '').trim();
-      const resp = await fetch('/api/improve-reply', {
+      const resp = await fetch('/api/settings/ai-prompt', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
           'x-academy-id': aid,
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ draft: current, phone, academyId: aid })
+        body: JSON.stringify({ action: 'improve_reply', draft: current, phone, academyId: aid })
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao melhorar texto'));
