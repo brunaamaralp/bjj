@@ -1,8 +1,8 @@
 /** Backlog: aluno inativo/trancado; filtros (turma/plano); virtualização para listas muito longas. */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, MessageCircle, ChevronRight, GraduationCap, Upload, RefreshCw } from 'lucide-react';
+import { Search, MessageCircle, ChevronRight, Upload, RefreshCw } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 
@@ -18,20 +18,66 @@ const Students = () => {
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filtroTipo, setFiltroTipo] = useState('Todos');
+    const [filtroOrigem, setFiltroOrigem] = useState('Todas');
+    const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
     const [listRefreshing, setListRefreshing] = useState(false);
 
     const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED);
-    const q = String(searchTerm || '').trim().toLowerCase();
-    const qPhone = normalizePhone(searchTerm);
-    const filteredStudents = students.filter((s) => {
-        const name = String(s.name || '').toLowerCase();
-        const phoneNorm = normalizePhone(s.phone);
-        if (qPhone && phoneNorm.includes(qPhone)) return true;
-        if (q && name.includes(q)) return true;
-        if (!q && !qPhone) return true;
-        return false;
-    });
+
+    const tiposUnicos = useMemo(() => {
+        const tipos = students.map((s) => s.type).filter(Boolean);
+        return ['Todos', ...new Set(tipos)].sort();
+    }, [students]);
+
+    const origensUnicas = useMemo(() => {
+        const origens = students.map((s) => s.origin).filter(Boolean);
+        return ['Todas', ...new Set(origens)].sort();
+    }, [students]);
+
+    const filteredStudents = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        const qPhone = normalizePhone(searchTerm);
+
+        return students
+            .filter((s) => {
+                const matchBusca =
+                    (!q && !qPhone) ||
+                    (qPhone && normalizePhone(s.phone || '').includes(qPhone)) ||
+                    (q && String(s.name || '').toLowerCase().includes(q)) ||
+                    (q && String(s.type || '').toLowerCase().includes(q));
+
+                const matchTipo = filtroTipo === 'Todos' || s.type === filtroTipo;
+                const matchOrigem = filtroOrigem === 'Todas' || s.origin === filtroOrigem;
+
+                return matchBusca && matchTipo && matchOrigem;
+            })
+            .sort((a, b) => {
+                const nA = a.name || '';
+                const nB = b.name || '';
+                const dA = a.createdAt || '';
+                const dB = b.createdAt || '';
+                if (ordenacao === 'az') return nA.localeCompare(nB, 'pt');
+                if (ordenacao === 'za') return nB.localeCompare(nA, 'pt');
+                if (ordenacao === 'recentes') return dB.localeCompare(dA);
+                if (ordenacao === 'antigos') return dA.localeCompare(dB);
+                return 0;
+            });
+    }, [students, searchTerm, filtroTipo, filtroOrigem, ordenacao]);
+
+    const limparFiltros = () => {
+        setSearchTerm('');
+        setFiltroTipo('Todos');
+        setFiltroOrigem('Todas');
+        setOrdenacao('az');
+    };
+
+    const filtrosAtivos =
+        Boolean(searchTerm.trim()) ||
+        filtroTipo !== 'Todos' ||
+        filtroOrigem !== 'Todas' ||
+        ordenacao !== 'az';
 
     const handleImport = (rows) => {
         const withStatus = rows.map((r) => ({ ...r, status: LEAD_STATUS.CONVERTED }));
@@ -68,7 +114,11 @@ const Students = () => {
                     <div>
                         <h2 className="navi-page-title">{studentLabel} Ativos</h2>
                         <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-                            Total nesta lista: <span className="navi-ui-count">{students.length}</span>
+                            Total nesta lista:{' '}
+                            <span className="navi-ui-count">{filteredStudents.length}</span>
+                            {filtrosAtivos && students.length !== filteredStudents.length
+                                ? ` (de ${students.length})`
+                                : ''}
                             {leadsHasMore ? ' (parcial — há mais leads no servidor)' : ''}
                         </p>
                     </div>
@@ -104,6 +154,132 @@ const Students = () => {
                     className="search-input"
                 />
             </div>
+
+            <div
+                style={{
+                    display: 'flex',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    marginBottom: 8,
+                    marginTop: 8,
+                }}
+            >
+                {tiposUnicos.length > 2 && (
+                    <select
+                        value={filtroTipo}
+                        onChange={(e) => setFiltroTipo(e.target.value)}
+                        className="students-filter-select"
+                        style={{
+                            padding: '6px 10px',
+                            borderRadius: 8,
+                            border: '1px solid var(--border)',
+                            fontSize: 13,
+                            background: 'var(--bg-card)',
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        {tiposUnicos.map((t) => (
+                            <option key={t} value={t}>
+                                {t}
+                            </option>
+                        ))}
+                    </select>
+                )}
+
+                {origensUnicas.length > 2 && (
+                    <select
+                        value={filtroOrigem}
+                        onChange={(e) => setFiltroOrigem(e.target.value)}
+                        className="students-filter-select"
+                        style={{
+                            padding: '6px 10px',
+                            borderRadius: 8,
+                            border: '1px solid var(--border)',
+                            fontSize: 13,
+                            background: 'var(--bg-card)',
+                            color: 'var(--text)',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        {origensUnicas.map((o) => (
+                            <option key={o} value={o}>
+                                {o}
+                            </option>
+                        ))}
+                    </select>
+                )}
+
+                <select
+                    value={ordenacao}
+                    onChange={(e) => setOrdenacao(e.target.value)}
+                    className="students-filter-select"
+                    style={{
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        fontSize: 13,
+                        background: 'var(--bg-card)',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <option value="az">A → Z</option>
+                    <option value="za">Z → A</option>
+                    <option value="recentes">Mais recentes</option>
+                    <option value="antigos">Mais antigos</option>
+                </select>
+
+                {filtrosAtivos && (
+                    <button
+                        type="button"
+                        onClick={limparFiltros}
+                        style={{
+                            padding: '6px 12px',
+                            borderRadius: 8,
+                            border: '1px solid var(--border)',
+                            fontSize: 13,
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                        }}
+                    >
+                        ✕ Limpar filtros
+                    </button>
+                )}
+            </div>
+
+            {filtroTipo === 'Todos' && tiposUnicos.length > 2 && (
+                <div
+                    style={{
+                        display: 'flex',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        fontSize: 12,
+                        color: 'var(--text-muted)',
+                        marginBottom: 12,
+                    }}
+                >
+                    {tiposUnicos
+                        .filter((t) => t !== 'Todos')
+                        .map((tipo) => (
+                            <span
+                                key={tipo}
+                                onClick={() => setFiltroTipo(tipo)}
+                                style={{
+                                    cursor: 'pointer',
+                                    color: 'var(--purple)',
+                                    textDecoration: 'underline',
+                                }}
+                            >
+                                {tipo} ({students.filter((s) => s.type === tipo).length})
+                            </span>
+                        ))}
+                </div>
+            )}
 
             {leadsHasMore ? (
                 <div className="mt-3 animate-in">
@@ -170,16 +346,37 @@ const Students = () => {
                         </div>
                     );
                 }) : (
-                    <div className="empty-state mt-4 animate-in">
-                        <GraduationCap size={36} color="var(--text-muted)" style={{ marginBottom: 12, opacity: 0.4 }} />
-                        <p>
-                            {searchTerm
-                                ? `Nenhum ${studentSingular.toLowerCase()} encontrado para "${searchTerm}".`
-                                : `Nenhum ${studentSingular.toLowerCase()} matriculado ainda nesta lista.`}
-                        </p>
-                        <p className="text-xs text-light mt-1">
-                            Importe uma planilha, cadastre em Novo {studentSingular.toLowerCase()}, ou mova cards para Matrícula no {pipelineName}.
-                        </p>
+                    <div
+                        style={{
+                            textAlign: 'center',
+                            padding: '48px 16px',
+                            color: 'var(--text-muted)',
+                        }}
+                        className="mt-4 animate-in"
+                    >
+                        {filtrosAtivos ? (
+                            <>
+                                <p style={{ marginBottom: 12 }}>
+                                    Nenhum {studentSingular.toLowerCase()} encontrado com esses filtros.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={limparFiltros}
+                                    style={{
+                                        color: 'var(--purple)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: 14,
+                                        textDecoration: 'underline',
+                                    }}
+                                >
+                                    Limpar filtros
+                                </button>
+                            </>
+                        ) : (
+                            <p>Nenhum {studentSingular.toLowerCase()} cadastrado ainda.</p>
+                        )}
                     </div>
                 )}
             </div>

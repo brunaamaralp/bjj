@@ -104,6 +104,17 @@ function extractIncomingText(msg) {
   return { type, text: t };
 }
 
+/** Webhook `message.received` com `data.type === 'image'`: ver exemplos em Zapster "Eventos disponíveis". */
+function extractIncomingImageMedia(msg) {
+  const topType = String(msg?.type || '').toLowerCase();
+  if (topType !== 'image') return null;
+  const content = msg?.content && typeof msg.content === 'object' ? msg.content : {};
+  const url = String(content?.media?.url || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  const mimeType = String(content?.media?.mimetype || content?.media?.mime_type || 'image/jpeg').trim() || 'image/jpeg';
+  return { url, mimeType };
+}
+
 function extractMessageId(body, msg) {
   const v = msg?.id || msg?.message?.id || body?.id || body?.message?.id || body?.data?.id || body?.payload?.id || '';
   const id = String(v || '').trim();
@@ -166,7 +177,7 @@ async function getZapsterInstanceIdForAcademy(academyId) {
   }
 }
 
-async function saveInboundMessage({ academyId, academyDoc, phone, text, messageId }) {
+async function saveInboundMessage({ academyId, academyDoc, phone, text, messageId, messageType = 'text', mediaUrl = null }) {
   const doc = await getOrCreateConversationDoc(phone, academyId, academyDoc);
   if (!doc) return { ok: false, erro: 'Conversa indisponível' };
 
@@ -178,11 +189,13 @@ async function saveInboundMessage({ academyId, academyDoc, phone, text, messageI
   }
 
   const nowIso = new Date().toISOString();
+  const mt = String(messageType || 'text').trim().toLowerCase();
   const userMsg = {
     role: 'user',
     content: String(text || '').trim(),
     timestamp: nowIso,
-    ...(mid ? { message_id: mid } : {})
+    ...(mid ? { message_id: mid } : {}),
+    ...(mt === 'image' && mediaUrl ? { type: 'image', mediaUrl: String(mediaUrl).trim() } : {})
   };
   const up = await updateConversationWithMerge(doc.$id, [userMsg]);
   if (!up.ok) return { ok: false, erro: up.erro || 'Erro ao salvar inbound', docId: doc.$id };
@@ -229,10 +242,6 @@ export default async function handler(req, res) {
     const phone = normalizePhone(senderId);
     if (!phone) return res.status(200).json({ sucesso: true, ignorado: true });
 
-    const { type, text } = extractIncomingText(msg);
-    if (!text) return res.status(200).json({ sucesso: true, ignorado: true });
-    if (type && type !== 'text') return res.status(200).json({ sucesso: true, ignorado: true });
-
     const name = String(msg?.sender?.name || body?.sender?.name || '').trim();
     const messageId = extractMessageId(body, msg);
     const instanceId = extractInstanceId(body, msg);
@@ -240,6 +249,35 @@ export default async function handler(req, res) {
     if (!academyId) return res.status(200).json({ sucesso: true, ignorado: true });
     const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId).catch(() => null);
     if (!academyDoc || !academyDoc.$id) return res.status(200).json({ sucesso: true, ignorado: true });
+
+    const imageMedia = extractIncomingImageMedia(msg);
+    if (imageMedia) {
+      const { text: cap } = extractIncomingText(msg);
+      const caption = String(cap || '').trim();
+      const displayContent = caption || '[imagem]';
+      const saved = await saveInboundMessage({
+        academyId,
+        academyDoc,
+        phone,
+        text: displayContent,
+        messageId,
+        messageType: 'image',
+        mediaUrl: imageMedia.url
+      });
+      if (!saved.ok) {
+        console.error('[zapster][webhook] falha ao salvar imagem', { phone, academyId, erro: saved.erro });
+      }
+      return res.status(200).json({
+        ok: true,
+        sucesso: true,
+        tipo: 'image_saved',
+        duplicate: Boolean(saved.duplicate)
+      });
+    }
+
+    const { type, text } = extractIncomingText(msg);
+    if (!text) return res.status(200).json({ sucesso: true, ignorado: true });
+    if (type && type !== 'text') return res.status(200).json({ sucesso: true, ignorado: true });
 
     let modoHumano = false;
     try {

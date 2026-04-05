@@ -1,4 +1,38 @@
 import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
+import { sendZapsterText } from '../../lib/server/zapsterSend.js';
+
+/**
+ * Cron externo (ex.: cron-job.org):
+ * URL: GET https://bjj-bice.vercel.app/api/leads/cron-confirmacao
+ * Header: x-cron-secret: <CRON_SECRET>
+ * Horário sugerido: 21:00 UTC (18:00 America/Sao_Paulo), diariamente.
+ */
+
+const CRON_TZ = 'America/Sao_Paulo';
+const LEAD_STATUS_SCHEDULED = 'Agendado';
+
+function addOneCalendarDayYMD(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return ymd;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Amanhã (data civil) no fuso informado, no formato YYYY-MM-DD (igual scheduledDate). */
+function tomorrowYMDInTimeZone(timeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const mo = parts.find((p) => p.type === 'month')?.value;
+  const da = parts.find((p) => p.type === 'day')?.value;
+  const todayYMD = `${y}-${mo}-${da}`;
+  return addOneCalendarDayYMD(todayYMD);
+}
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -15,7 +49,7 @@ const teams = new Teams(client);
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-academy-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-academy-id, x-cron-secret');
 }
 
 function ensureConfigOk(res) {
@@ -115,6 +149,120 @@ export default async function handler(req, res) {
   if (!ensureConfigOk(res)) return;
   const id = req.query?.id || '';
   if (!id) return res.status(400).json({ sucesso: false, erro: 'ID ausente' });
+
+  // ── CRON: confirmação automática de experimental ──────────────────
+  if (req.method === 'GET' && id === 'cron-confirmacao') {
+    const cronSecret = req.headers['x-cron-secret'] || req.query.secret;
+    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+
+    const dataAmanha = tomorrowYMDInTimeZone(CRON_TZ);
+    console.log('[cron-confirmacao] iniciando', { dataAmanha, tz: CRON_TZ });
+
+    try {
+      const result = await databases.listDocuments(DB_ID, LEADS_COL, [
+        Query.equal('scheduledDate', dataAmanha),
+        Query.equal('status', [LEAD_STATUS_SCHEDULED]),
+        Query.limit(100),
+      ]);
+
+      const leads = Array.isArray(result?.documents) ? result.documents : [];
+      const resultados = [];
+
+      for (const lead of leads) {
+        try {
+          const aid = String(lead?.academyId || '').trim();
+          if (!aid) {
+            resultados.push({
+              id: lead.$id,
+              name: lead.name,
+              status: 'sem_academyId',
+            });
+            continue;
+          }
+
+          const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
+
+          if (academyDoc?.ia_ativa !== true) {
+            resultados.push({
+              id: lead.$id,
+              name: lead.name,
+              status: 'ia_inativa',
+            });
+            continue;
+          }
+
+          const instanceId = String(
+            academyDoc?.zapsterInstanceId || academyDoc?.zapster_instance_id || ''
+          ).trim();
+          if (!instanceId) {
+            resultados.push({
+              id: lead.$id,
+              name: lead.name,
+              status: 'sem_instancia',
+            });
+            continue;
+          }
+
+          const nome = lead.name?.split(' ')[0] || 'você';
+          const hora = lead.scheduledTime || '';
+          const horaTexto = hora ? ` às ${hora}` : '';
+
+          const mensagem =
+            `Oi ${nome}! 😊 Passando para confirmar sua aula experimental` +
+            `${horaTexto} amanhã.\n\n` +
+            `Está tudo certo para você? Qualquer dúvida é só falar!`;
+
+          const sent = await sendZapsterText({
+            recipient: lead.phone,
+            text: mensagem,
+            instanceId,
+          });
+
+          resultados.push({
+            id: lead.$id,
+            name: lead.name,
+            phone: lead.phone,
+            status: sent?.ok ? 'enviado' : 'erro_zapster',
+            erro: sent?.ok ? null : sent?.erro,
+          });
+        } catch (e) {
+          resultados.push({
+            id: lead.$id,
+            name: lead.name,
+            status: 'erro',
+            erro: e?.message || String(e),
+          });
+        }
+      }
+
+      const enviados = resultados.filter((r) => r.status === 'enviado').length;
+      const erros = resultados.filter(
+        (r) => r.status === 'erro' || r.status === 'erro_zapster'
+      ).length;
+
+      console.log('[cron-confirmacao] concluído', {
+        dataAmanha,
+        total: leads.length,
+        enviados,
+        erros,
+      });
+
+      return res.status(200).json({
+        sucesso: true,
+        dataAmanha,
+        total: leads.length,
+        enviados,
+        erros,
+        resultados,
+      });
+    } catch (e) {
+      console.error('[cron-confirmacao] erro geral', { erro: e?.message || e });
+      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+    }
+  }
+  // ── fim CRON ─────────────────────────────────────────────────────
 
   const me = await ensureAuth(req, res);
   if (!me) return;

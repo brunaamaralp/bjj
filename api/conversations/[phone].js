@@ -143,18 +143,26 @@ function safeParseMessages(raw) {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((m) => m && typeof m === 'object')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: typeof m.content === 'string' ? m.content : String(m.content || ''),
-        timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
-        sender: typeof m.sender === 'string' ? m.sender : undefined,
-        in_reply_to: typeof m.in_reply_to === 'string' ? m.in_reply_to : undefined,
-        message_id: typeof m.message_id === 'string' ? m.message_id : undefined,
-        status: typeof m.status === 'string' ? m.status : undefined,
-        send_at: typeof m.send_at === 'string' ? m.send_at : undefined,
-        canceled_at: typeof m.canceled_at === 'string' ? m.canceled_at : undefined,
-        classificacao: m.classificacao && typeof m.classificacao === 'object' ? m.classificacao : undefined
-      }));
+      .map((m) => {
+        const typeRaw = typeof m.type === 'string' ? String(m.type).trim().toLowerCase() : '';
+        const type = typeRaw === 'image' || typeRaw === 'text' ? typeRaw : 'text';
+        const mediaUrl =
+          typeof m.mediaUrl === 'string' && /^https?:\/\//i.test(String(m.mediaUrl).trim()) ? String(m.mediaUrl).trim() : null;
+        return {
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: typeof m.content === 'string' ? m.content : String(m.content || ''),
+          timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+          sender: typeof m.sender === 'string' ? m.sender : undefined,
+          in_reply_to: typeof m.in_reply_to === 'string' ? m.in_reply_to : undefined,
+          message_id: typeof m.message_id === 'string' ? m.message_id : undefined,
+          status: typeof m.status === 'string' ? m.status : undefined,
+          send_at: typeof m.send_at === 'string' ? m.send_at : undefined,
+          canceled_at: typeof m.canceled_at === 'string' ? m.canceled_at : undefined,
+          classificacao: m.classificacao && typeof m.classificacao === 'object' ? m.classificacao : undefined,
+          type: type === 'image' && mediaUrl ? 'image' : 'text',
+          mediaUrl: type === 'image' && mediaUrl ? mediaUrl : null
+        };
+      });
   } catch {
     return [];
   }

@@ -2532,9 +2532,49 @@ export default function Inbox() {
                             {senderKind === 'ai' ? 'Agente IA' : 'Você'}
                           </div>
                         )}
-                        <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)' }}>
-                          {content}
-                        </div>
+                        {m?.type === 'image' && m?.mediaUrl ? (
+                          <div className="inbox-msg-image">
+                            <img
+                              src={m.mediaUrl}
+                              alt="Imagem"
+                              style={{
+                                maxWidth: '100%',
+                                maxHeight: 300,
+                                borderRadius: 8,
+                                cursor: 'pointer',
+                                objectFit: 'cover',
+                                display: 'block'
+                              }}
+                              onClick={() => window.open(m.mediaUrl, '_blank')}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                const el = e.target.nextSibling;
+                                if (el && el.style) el.style.display = 'flex';
+                              }}
+                            />
+                            <div
+                              style={{
+                                display: 'none',
+                                alignItems: 'center',
+                                gap: 8,
+                                color: 'var(--text-muted)',
+                                fontSize: 13,
+                                padding: '8px 0'
+                              }}
+                            >
+                              Imagem indisponível (link expirado ou bloqueado)
+                            </div>
+                            {String(content || '').trim() && String(content || '').trim() !== '[imagem]' ? (
+                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)', marginTop: 8 }}>
+                                {content}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)' }}>
+                            {content}
+                          </div>
+                        )}
                         {!expanded && contentRaw.length > 600 && (
                           <button
                             className="btn btn-outline"
