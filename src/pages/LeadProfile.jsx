@@ -4,6 +4,7 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { LostReasonModal } from '../components/LostReasonModal';
 
 function expectedPipelineStageForStatus(status) {
     switch (status) {
@@ -45,6 +46,7 @@ const LeadProfile = () => {
     const [editing, setEditing] = useState(false);
     const [customQuestions, setCustomQuestions] = useState([]);
     const [deletingLead, setDeletingLead] = useState(false);
+    const [lostModalOpen, setLostModalOpen] = useState(false);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -52,6 +54,7 @@ const LeadProfile = () => {
         origin: '',
         parentName: '',
         age: '',
+        birthDate: '',
         isFirstExperience: 'Sim',
         borrowedKimono: '',
         borrowedShirt: '',
@@ -159,6 +162,7 @@ const LeadProfile = () => {
             origin: src.origin || '',
             parentName: src.parentName || '',
             age: src.age || '',
+            birthDate: src.birthDate || '',
             isFirstExperience: src.isFirstExperience || 'Sim',
             borrowedKimono: src.borrowedKimono || '',
             borrowedShirt: src.borrowedShirt || '',
@@ -251,12 +255,21 @@ const LeadProfile = () => {
         }
     };
     const handleMarkLost = () => {
-        const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como Não fechou?`);
-        if (!ok) return;
+        setLostModalOpen(true);
+    };
+
+    const confirmMarkLost = async (lostReason) => {
         const existing = Array.isArray(lead.notes) ? lead.notes : [];
         const event = { type: 'stage_change', from: lead.status || '', to: LEAD_STATUS.LOST, at: new Date().toISOString(), by: 'user' };
         const newNotes = [...existing, event];
-        updateLead(id, { status: LEAD_STATUS.LOST, scheduledDate: '', scheduledTime: '', pipelineStage: LEAD_STATUS.LOST, notes: newNotes });
+        await updateLead(id, {
+            status: LEAD_STATUS.LOST,
+            scheduledDate: '',
+            scheduledTime: '',
+            pipelineStage: LEAD_STATUS.LOST,
+            lostReason,
+            notes: newNotes,
+        });
     };
     const handleDeleteLead = async () => {
         const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
@@ -304,7 +317,8 @@ const LeadProfile = () => {
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-            <div className="flex items-center gap-4">
+            <div className="lead-profile-inner">
+                <div className="flex items-center gap-4">
                 <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
                 <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>Perfil</h2>
                 {!editing ? (
@@ -317,7 +331,7 @@ const LeadProfile = () => {
                         <button className="btn-secondary" onClick={handleSave}><Save size={16} /> Salvar</button>
                     </div>
                 )}
-            </div>
+                </div>
 
             {statusPipelineMismatch && !editing ? (
                 <div
@@ -349,6 +363,7 @@ const LeadProfile = () => {
                                 <p className="navi-subtitle" style={{ marginTop: 4 }}>
                                     {lead.type} • {lead.origin}
                                     {lead.age && ` • ${lead.age} anos`}
+                                    {lead.birthDate && ` • Nasc. ${lead.birthDate}`}
                                 </p>
                             </>
                         ) : (
@@ -398,6 +413,17 @@ const LeadProfile = () => {
                                         </select>
                                     </div>
                                     {/* Campo de faixa removido; pode ser configurado como pergunta personalizada */}
+                                </div>
+                                <div className="form-group mt-2">
+                                    <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Data de nascimento</label>
+                                    <input
+                                        type="date"
+                                        name="birthDate"
+                                        value={form.birthDate || ''}
+                                        onChange={onChange}
+                                        className="form-input"
+                                        style={{ padding: '8px 12px', borderRadius: 8 }}
+                                    />
                                 </div>
                                 <div className="flex gap-2 mt-2">
                                     <div className="form-group" style={{ flex: 1 }}>
@@ -545,6 +571,11 @@ const LeadProfile = () => {
                         {lead.status}
                     </span>
                 </div>
+                {!editing && lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
+                    <p className="text-xs mt-2" style={{ color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                        <strong style={{ color: 'var(--text-secondary)' }}>Motivo da perda:</strong> {lead.lostReason}
+                    </p>
+                ) : null}
 
                 {/* Contact */}
                 <div className="flex gap-2 mt-4">
@@ -655,8 +686,31 @@ const LeadProfile = () => {
                 </div>
             </div>
 
+            {lostModalOpen ? (
+                <LostReasonModal
+                    leadName={lead.name || 'Lead'}
+                    onCancel={() => setLostModalOpen(false)}
+                    onConfirm={async (reason) => {
+                        try {
+                            await confirmMarkLost(reason);
+                            addToast({ type: 'success', message: 'Marcado como não fechou.' });
+                        } catch (e) {
+                            addToast({ type: 'error', message: e?.message || 'Não foi possível atualizar.' });
+                        } finally {
+                            setLostModalOpen(false);
+                        }
+                    }}
+                />
+            ) : null}
+            </div>
+
             <style dangerouslySetInnerHTML={{
                 __html: `
+        .lead-profile-inner {
+          max-width: min(100%, 42rem);
+          margin-left: auto;
+          margin-right: auto;
+        }
         .profile-header { border-top: 4px solid var(--accent); }
         .status-tag { 
           padding: 5px 12px; border-radius: var(--radius-full); 

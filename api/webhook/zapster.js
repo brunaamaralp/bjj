@@ -140,27 +140,55 @@ function extractInstanceId(body, msg) {
 async function resolveAcademyIdFromInstanceId(instanceId) {
   const inst = String(instanceId || '').trim();
   const fallback = String(DEFAULT_ACADEMY_ID || '').trim();
-  if (!inst || !databases || !DB_ID || !ACADEMIES_COL) return fallback;
+
+  if (!inst) {
+    console.warn('[zapster][webhook] instanceId vazio no payload — usando fallback', {
+      fallback: fallback || '(vazio)'
+    });
+    return fallback;
+  }
+
+  if (!databases || !DB_ID || !ACADEMIES_COL) {
+    console.warn('[zapster][webhook] Appwrite não configurado — usando fallback', {
+      instanceId: inst,
+      fallback: fallback || '(vazio)'
+    });
+    return fallback;
+  }
+
   try {
     const list = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
       Query.equal('zapster_instance_id', [inst]),
       Query.limit(1)
     ]);
-    const doc = Array.isArray(list?.documents) && list.documents[0] ? list.documents[0] : null;
-    if (doc && doc.$id) return String(doc.$id);
-  } catch {
-    void 0;
+    const doc = list?.documents?.[0];
+    if (doc?.$id) return String(doc.$id);
+  } catch (e) {
+    console.error('[zapster][webhook] erro ao buscar academia por zapster_instance_id', {
+      instanceId: inst,
+      erro: e?.message || String(e)
+    });
   }
+
   try {
     const list2 = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
       Query.equal('zapsterInstanceId', [inst]),
       Query.limit(1)
     ]);
-    const doc2 = Array.isArray(list2?.documents) && list2.documents[0] ? list2.documents[0] : null;
-    if (doc2 && doc2.$id) return String(doc2.$id);
-  } catch {
-    void 0;
+    const doc2 = list2?.documents?.[0];
+    if (doc2?.$id) return String(doc2.$id);
+  } catch (e) {
+    console.error('[zapster][webhook] erro ao buscar academia por zapsterInstanceId', {
+      instanceId: inst,
+      erro: e?.message || String(e)
+    });
   }
+
+  console.warn('[zapster][webhook] instância não associada a nenhuma academia', {
+    instanceId: inst,
+    fallback: fallback || '(vazio — mensagem será ignorada)'
+  });
+
   return fallback;
 }
 
@@ -245,8 +273,15 @@ export default async function handler(req, res) {
     const name = String(msg?.sender?.name || body?.sender?.name || '').trim();
     const messageId = extractMessageId(body, msg);
     const instanceId = extractInstanceId(body, msg);
+    const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     const academyId = await resolveAcademyIdFromInstanceId(instanceId);
-    if (!academyId) return res.status(200).json({ sucesso: true, ignorado: true });
+    if (!academyId) {
+      console.warn('[zapster][webhook] academyId não resolvido — descartando mensagem', {
+        instanceId,
+        requestId
+      });
+      return res.status(200).json({ ok: true, motivo: 'academia_nao_encontrada' });
+    }
     const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId).catch(() => null);
     if (!academyDoc || !academyDoc.$id) return res.status(200).json({ sucesso: true, ignorado: true });
 
@@ -290,7 +325,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ sucesso: true, ignorado: true, modo_humano: true });
     }
 
-    const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     const iaAtiva = academyDoc?.ia_ativa === true;
     if (!iaAtiva) {
       console.log('[zapster][webhook] IA inativa', { academyId, requestId });

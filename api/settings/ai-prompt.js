@@ -365,14 +365,23 @@ export default async function handler(req, res) {
         prompt_intro: String(doc?.prompt_intro || '').trim(),
         prompt_body: String(doc?.prompt_body || '').trim(),
         prompt_suffix: String(doc?.prompt_suffix || '').trim(),
-        ia_ativa: academyDoc?.ia_ativa === true
+        ia_ativa: academyDoc?.ia_ativa === true,
+        birthdayMessage: String(academyDoc?.birthdayMessage || '').trim()
       };
       return res.status(200).json({ sucesso: true, ...out });
     }
 
     if (req.method === 'PATCH') {
       const body = (await readJsonBodyForPost(req)) || {};
-      if (String(body.action || '').trim().toLowerCase() === 'toggle_ia') {
+      const patchAction = String(body.action || '').trim().toLowerCase();
+      if (patchAction === 'save_birthday_message') {
+        const msg = String(body.birthdayMessage || '').trim().slice(0, 500);
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+          birthdayMessage: msg
+        });
+        return res.status(200).json({ sucesso: true, birthdayMessage: msg });
+      }
+      if (patchAction === 'toggle_ia') {
         const novoStatus = Boolean(body.ia_ativa);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
           ia_ativa: novoStatus
@@ -381,7 +390,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ sucesso: true, ia_ativa: novoStatus });
       }
       res.setHeader('Allow', 'GET, PUT, POST, PATCH');
-      return res.status(405).json({ sucesso: false, erro: 'Use action: toggle_ia no body JSON' });
+      return res.status(405).json({ sucesso: false, erro: 'Use action: toggle_ia ou save_birthday_message no body JSON' });
     }
 
     if (req.method === 'PUT') {

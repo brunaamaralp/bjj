@@ -3,13 +3,16 @@ import { sendZapsterText } from '../../lib/server/zapsterSend.js';
 
 /**
  * Cron externo (ex.: cron-job.org):
- * URL: GET https://bjj-bice.vercel.app/api/leads/cron-confirmacao
- * Header: x-cron-secret: <CRON_SECRET>
- * Horário sugerido: 21:00 UTC (18:00 America/Sao_Paulo), diariamente.
+ * Confirmação experimental:
+ *   GET …/api/leads/cron-confirmacao — header x-cron-secret: <CRON_SECRET>
+ *   Horário sugerido: 21:00 UTC (18:00 America/Sao_Paulo), diariamente.
+ * Aniversário (alunos Matriculado + birthDate):
+ *   GET …/api/leads/cron-aniversario — mesmo header/secret; diário (ex.: manhã SP).
  */
 
 const CRON_TZ = 'America/Sao_Paulo';
 const LEAD_STATUS_SCHEDULED = 'Agendado';
+const LEAD_STATUS_MATRICULADO = 'Matriculado';
 
 function addOneCalendarDayYMD(ymd) {
   const [y, m, d] = ymd.split('-').map(Number);
@@ -32,6 +35,19 @@ function tomorrowYMDInTimeZone(timeZone) {
   const da = parts.find((p) => p.type === 'day')?.value;
   const todayYMD = `${y}-${mo}-${da}`;
   return addOneCalendarDayYMD(todayYMD);
+}
+
+/** MM-DD (zero-padded) no calendário civil de `timeZone`, alinhado a birthDate YYYY-MM-DD (slice 5). */
+function monthDayMMDDInTimeZone(timeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const mo = parts.find((p) => p.type === 'month')?.value;
+  const da = parts.find((p) => p.type === 'day')?.value;
+  return `${mo}-${da}`;
 }
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -259,6 +275,122 @@ export default async function handler(req, res) {
       });
     } catch (e) {
       console.error('[cron-confirmacao] erro geral', { erro: e?.message || e });
+      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+    }
+  }
+
+  if (req.method === 'GET' && id === 'cron-aniversario') {
+    const cronSecret = req.headers['x-cron-secret'] || req.query.secret;
+    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+
+    const mesEDia = monthDayMMDDInTimeZone(CRON_TZ);
+    console.log('[cron-aniversario] iniciando', { mesEDia, tz: CRON_TZ });
+
+    try {
+      const candidatos = [];
+      let cursor = null;
+      const pageSize = 100;
+      for (;;) {
+        const q = [
+          Query.equal('status', [LEAD_STATUS_MATRICULADO]),
+          Query.isNotNull('birthDate'),
+          Query.orderAsc('$id'),
+          Query.limit(pageSize),
+        ];
+        if (cursor) q.push(Query.cursorAfter(cursor));
+        const batch = await databases.listDocuments(DB_ID, LEADS_COL, q);
+        const docs = Array.isArray(batch?.documents) ? batch.documents : [];
+        candidatos.push(...docs);
+        if (docs.length < pageSize) break;
+        cursor = docs[docs.length - 1].$id;
+      }
+
+      const aniversariantes = candidatos.filter((lead) => {
+        const bd = String(lead.birthDate || '').trim();
+        return bd.length === 10 && bd.slice(5) === mesEDia;
+      });
+
+      const resultados = [];
+
+      for (const lead of aniversariantes) {
+        try {
+          const aid = String(lead?.academyId || '').trim();
+          if (!aid) {
+            resultados.push({ id: lead.$id, name: lead.name, status: 'sem_academyId' });
+            continue;
+          }
+
+          const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
+
+          if (academyDoc?.ia_ativa !== true) {
+            resultados.push({ id: lead.$id, name: lead.name, status: 'ia_inativa' });
+            continue;
+          }
+
+          const instanceId = String(
+            academyDoc?.zapsterInstanceId || academyDoc?.zapster_instance_id || ''
+          ).trim();
+          if (!instanceId) {
+            resultados.push({ id: lead.$id, name: lead.name, status: 'sem_instancia' });
+            continue;
+          }
+
+          const mensagemTemplate = String(academyDoc?.birthdayMessage || '').trim();
+          if (!mensagemTemplate) {
+            resultados.push({ id: lead.$id, name: lead.name, status: 'sem_mensagem_configurada' });
+            continue;
+          }
+
+          const phone = String(lead.phone || '').trim();
+          if (!phone) {
+            resultados.push({ id: lead.$id, name: lead.name, status: 'sem_telefone' });
+            continue;
+          }
+
+          const nome = lead.name?.split(' ')[0] || 'você';
+          const mensagem = mensagemTemplate.replace(/\{nome\}/gi, nome);
+
+          const sent = await sendZapsterText({
+            recipient: phone,
+            text: mensagem,
+            instanceId,
+          });
+
+          resultados.push({
+            id: lead.$id,
+            name: lead.name,
+            phone,
+            status: sent?.ok ? 'enviado' : 'erro_zapster',
+            erro: sent?.ok ? null : sent?.erro,
+          });
+        } catch (e) {
+          resultados.push({
+            id: lead.$id,
+            name: lead.name,
+            status: 'erro',
+            erro: e?.message || String(e),
+          });
+        }
+      }
+
+      const enviados = resultados.filter((r) => r.status === 'enviado').length;
+      console.log('[cron-aniversario] concluído', {
+        mesEDia,
+        candidatos: candidatos.length,
+        aniversariantes: aniversariantes.length,
+        enviados,
+      });
+
+      return res.status(200).json({
+        sucesso: true,
+        mesEDia,
+        total: aniversariantes.length,
+        resultados,
+      });
+    } catch (e) {
+      console.error('[cron-aniversario] erro geral', { erro: e?.message || e });
       return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
     }
   }

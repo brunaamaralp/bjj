@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
+import { LostReasonModal } from '../components/LostReasonModal';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
@@ -101,6 +102,7 @@ const Pipeline = () => {
     const [noteText, setNoteText] = useState('');
     const [schedulerOpenId, setSchedulerOpenId] = useState(null);
     const [moverOpenId, setMoverOpenId] = useState(null);
+    const [lostModal, setLostModal] = useState(null);
     const [stages, setStages] = useState(DEFAULT_STAGE_LABELS);
     const [editStages, setEditStages] = useState(false);
     const [tempStages, setTempStages] = useState(DEFAULT_STAGE_LABELS);
@@ -316,6 +318,10 @@ const Pipeline = () => {
         setMoverOpenId(prev => prev === leadId ? null : leadId);
         setSchedulerOpenId(null);
     };
+    const openLostModal = (leadId, onConfirm) => {
+        const lead = getLeadById(leadId);
+        setLostModal({ leadId, leadName: lead?.name || 'Lead', onConfirm });
+    };
     const moveToStatus = async (e, leadId, stageId) => {
         e.stopPropagation();
         const lead = getLeadById(leadId);
@@ -329,12 +335,29 @@ const Pipeline = () => {
             return;
         }
         if (stageId === LEAD_STATUS.LOST) {
-            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Perdidos"? Isso marca o status como Não fechou.`);
-            if (!ok) return;
-            await updateLead(leadId, { status: LEAD_STATUS.LOST, scheduledDate: '', scheduledTime: '', pipelineStage: LEAD_STATUS.LOST });
-            setMoverOpenId(null);
-            setToast('Marcado como perdido');
-            setTimeout(() => setToast(''), 2000);
+            openLostModal(leadId, async (lostReason) => {
+                const cur = getLeadById(leadId) || lead;
+                const existing = Array.isArray(cur?.notes) ? cur.notes : [];
+                const event = {
+                    type: 'stage_change',
+                    from: cur?.status || '',
+                    to: LEAD_STATUS.LOST,
+                    at: new Date().toISOString(),
+                    by: 'user',
+                };
+                const newNotes = [...existing, event];
+                await updateLead(leadId, {
+                    status: LEAD_STATUS.LOST,
+                    scheduledDate: '',
+                    scheduledTime: '',
+                    pipelineStage: LEAD_STATUS.LOST,
+                    lostReason,
+                    notes: newNotes,
+                });
+                setMoverOpenId(null);
+                setToast('Marcado como perdido');
+                setTimeout(() => setToast(''), 2000);
+            });
             return;
         }
         try {
@@ -453,10 +476,30 @@ const Pipeline = () => {
             if (!ok) { setDragOver(null); return; }
             await updateLead(id, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED });
         } else if (status === LEAD_STATUS.LOST) {
-            const lead = getLeadById(id);
-            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Perdidos"? Isso marca o status como Não fechou.`);
-            if (!ok) { setDragOver(null); return; }
-            await updateLead(id, { status: LEAD_STATUS.LOST, scheduledDate: '', scheduledTime: '', pipelineStage: LEAD_STATUS.LOST });
+            openLostModal(id, async (lostReason) => {
+                const cur = getLeadById(id);
+                const existing = Array.isArray(cur?.notes) ? cur.notes : [];
+                const event = {
+                    type: 'stage_change',
+                    from: cur?.status || '',
+                    to: LEAD_STATUS.LOST,
+                    at: new Date().toISOString(),
+                    by: 'user',
+                };
+                const newNotes = [...existing, event];
+                await updateLead(id, {
+                    status: LEAD_STATUS.LOST,
+                    scheduledDate: '',
+                    scheduledTime: '',
+                    pipelineStage: LEAD_STATUS.LOST,
+                    lostReason,
+                    notes: newNotes,
+                });
+                setToast('Marcado como perdido');
+                setTimeout(() => setToast(''), 2000);
+            });
+            setDragOver(null);
+            return;
         } else {
             await updateLead(id, { pipelineStage: status });
         }
@@ -724,6 +767,22 @@ const Pipeline = () => {
                                                 <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
                                             </div>
                                         )}
+                                        {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
+                                            <div className="lead-meta mt-1">
+                                                <span
+                                                    style={{
+                                                        fontSize: 11,
+                                                        color: 'var(--text-muted)',
+                                                        background: 'var(--surface-hover)',
+                                                        borderRadius: 4,
+                                                        padding: '2px 6px',
+                                                        display: 'inline-block',
+                                                    }}
+                                                >
+                                                    {lead.lostReason}
+                                                </span>
+                                            </div>
+                                        ) : null}
                                         <div className="action-bar action-bar--icons mt-2">
                                             <button
                                                 type="button"
@@ -839,6 +898,23 @@ const Pipeline = () => {
                     );
                 })}
             </div>
+
+            {lostModal ? (
+                <LostReasonModal
+                    leadName={lostModal.leadName}
+                    onCancel={() => setLostModal(null)}
+                    onConfirm={async (reason) => {
+                        try {
+                            await lostModal.onConfirm(reason);
+                        } catch (err) {
+                            setToast(err?.message || 'Erro ao salvar');
+                            setTimeout(() => setToast(''), 3500);
+                        } finally {
+                            setLostModal(null);
+                        }
+                    }}
+                />
+            ) : null}
 
             <ImportSheet
                 isOpen={showImport}

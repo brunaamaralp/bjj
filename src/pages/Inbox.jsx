@@ -338,6 +338,8 @@ export default function Inbox() {
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [iaAtiva, setIaAtiva] = useState(false);
+  const [birthdayMessage, setBirthdayMessage] = useState('');
+  const [savingBirthdayMessage, setSavingBirthdayMessage] = useState(false);
   const [promptConfigurado, setPromptConfigurado] = useState(false);
   const [whatsappConectado, setWhatsappConectado] = useState(false);
   const [togglingIa, setTogglingIa] = useState(false);
@@ -1000,6 +1002,7 @@ export default function Inbox() {
         setPromptSuffix(String(data.prompt_suffix || ''));
         setPromptConfigurado(Boolean(String(data.prompt_body || '').trim()));
         setIaAtiva(data.ia_ativa === true);
+        setBirthdayMessage(String(data.birthdayMessage || ''));
       } else {
         throw new Error('Falha ao carregar');
       }
@@ -1059,6 +1062,37 @@ export default function Inbox() {
       addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
     } finally {
       setTogglingIa(false);
+    }
+  }
+
+  async function handleSaveBirthdayMessage() {
+    if (savingBirthdayMessage) return;
+    setSavingBirthdayMessage(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/settings/ai-prompt', {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || '')
+        },
+        body: JSON.stringify({
+          action: 'save_birthday_message',
+          birthdayMessage
+        })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data?.sucesso) {
+        setBirthdayMessage(String(data.birthdayMessage ?? birthdayMessage));
+        addToast({ type: 'success', message: 'Mensagem de aniversário salva' });
+      } else {
+        addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
+      }
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
+    } finally {
+      setSavingBirthdayMessage(false);
     }
   }
 
@@ -3975,6 +4009,63 @@ export default function Inbox() {
                 />
               </button>
             </div>
+          </div>
+          <div
+            style={{
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              padding: 16,
+              marginBottom: 16,
+              background: 'var(--surface)'
+            }}
+          >
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 4px' }}>
+              Mensagem de aniversário
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>
+              Enviada automaticamente no dia do aniversário dos alunos ativos (status Matriculado). Use {'{nome}'} para
+              personalizar.
+            </p>
+            <textarea
+              value={birthdayMessage}
+              onChange={(e) => setBirthdayMessage(e.target.value)}
+              placeholder={
+                'Oi {nome}! A equipe toda deseja um feliz aniversário!\n\n' +
+                'Que este novo ano seja incrível para você. Nos vemos no treino!'
+              }
+              rows={4}
+              disabled={loadingPrompt}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                fontSize: 13,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleSaveBirthdayMessage()}
+              disabled={savingBirthdayMessage || loadingPrompt}
+              style={{
+                marginTop: 8,
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: 'var(--purple)',
+                color: '#fff',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: savingBirthdayMessage || loadingPrompt ? 'not-allowed' : 'pointer',
+                opacity: savingBirthdayMessage || loadingPrompt ? 0.7 : 1
+              }}
+            >
+              {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
+            </button>
           </div>
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
             <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>

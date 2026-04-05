@@ -56,6 +56,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
           scheduledTime: doc.scheduledTime || '',
           parentName: doc.parentName || '',
           age: doc.age || '',
+          birthDate: doc.birthDate || '',
           notes: history,
           isFirstExperience,
           belt,
@@ -69,6 +70,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
           statusChangedAt: parsed.statusChangedAt || doc.statusChangedAt || '',
           pipelineStageChangedAt: pipelineStageChangedAt || parsed.statusChangedAt || doc.$createdAt || '',
           createdAt: doc.$createdAt,
+          lostReason: doc.lostReason || '',
         };
       }
     } catch {
@@ -90,6 +92,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
     scheduledTime: doc.scheduledTime || '',
     parentName: doc.parentName || '',
     age: doc.age || '',
+    birthDate: doc.birthDate || '',
     notes: history,
     isFirstExperience,
     belt,
@@ -102,6 +105,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
     statusChangedAt: doc.statusChangedAt || '',
     pipelineStageChangedAt: doc.$createdAt,
     createdAt: doc.$createdAt,
+    lostReason: doc.lostReason || '',
   };
 }
 
@@ -230,6 +234,7 @@ export const useLeadStore = create((set, get) => ({
         scheduledTime: lead.scheduledTime || '',
         parentName: lead.parentName || '',
         age: lead.age || '',
+        birthDate: lead.birthDate || '',
         notes: JSON.stringify(notesData),
         academyId,
       }, perms);
@@ -372,6 +377,7 @@ export const useLeadStore = create((set, get) => ({
           scheduledTime: lead.scheduledTime || '',
           parentName: lead.parentName || '',
           age: lead.age || '',
+          birthDate: lead.birthDate || '',
           notes: JSON.stringify({ history, pipelineStage: lead.pipelineStage || 'Novo', pipelineStageChangedAt: nowIso, statusChangedAt: nowIso }),
           academyId,
         }, perms);
