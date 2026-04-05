@@ -387,12 +387,6 @@ const Pipeline = () => {
         if (s.includes('matricul')) return 'Matriculado';
         return 'Novo';
     };
-    const renderNow = new Date();
-    const daysInStage = (lead) => {
-        const start = lead.pipelineStageChangedAt ? new Date(lead.pipelineStageChangedAt) : (lead.createdAt ? new Date(lead.createdAt) : renderNow);
-        const diff = Math.floor((renderNow.getTime() - start.getTime()) / 86400000);
-        return diff < 0 ? 0 : diff;
-    };
     const onDragStart = (e, leadId) => {
         const el = e?.target;
         if (el && typeof el.closest === 'function') {
@@ -663,11 +657,6 @@ const Pipeline = () => {
                                                 <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
                                             </div>
                                         )}
-                                        <div className="lead-meta mt-1 flex items-center gap-2">
-                                            <span className={`stage-age ${daysInStage(lead) >= (col.slaDays ?? DEFAULT_STAGE_SLA_DAYS) ? 'over-sla' : ''}`}>
-                                                {daysInStage(lead)}d no estágio
-                                            </span>
-                                        </div>
                                         <div className="action-bar action-bar--icons mt-2">
                                             <button
                                                 type="button"
@@ -874,6 +863,10 @@ const Pipeline = () => {
           font-size: 0.58rem; background: var(--border-light); 
           padding: 2px 6px; border-radius: var(--radius-full); 
           color: var(--text-secondary); font-weight: 700; text-transform: uppercase; 
+          white-space: nowrap;
+          flex-shrink: 0;
+          word-break: normal;
+          overflow-wrap: normal;
         }
         .lead-meta { font-size: 0.72rem; color: var(--text-secondary); }
         .col-empty { 
