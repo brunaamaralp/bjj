@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, LayoutTemplate } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, LayoutTemplate } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
@@ -513,7 +513,7 @@ const App = () => {
                 className={`navi-side-link ${isActive('/students') ? 'active' : ''}`}
                 title={sidebarCollapsed ? labels.students : undefined}
               >
-                <GraduationCap size={18} strokeWidth={1.75} />
+                <Users size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">{labels.students}</span>
               </Link>
               <Link
@@ -647,7 +647,7 @@ const App = () => {
           </div>
         </Link>
         <Link to="/students" className={`navi-nav-item ${isActive('/students') ? 'active' : ''}`}>
-          <GraduationCap size={22} strokeWidth={1.75} />
+          <Users size={22} strokeWidth={1.75} />
           <span>{labels.students}</span>
         </Link>
         {modules.sales === true && (

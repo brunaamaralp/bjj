@@ -1,5 +1,5 @@
 /**
- * Marca Navi — ícone raster (planeta / órbita / lua) em /public/navi-icon.png
+ * Marca Nave — ícone raster (planeta / órbita / lua) em /public/navi-icon.png
  * @param {number} [size=26]
  * @param {'default' | 'white'} [variant='default'] — no escuro: mosaico claro para o PNG com fundo branco
  */

@@ -126,8 +126,14 @@ const Dashboard = () => {
         return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
     };
 
+    /** Agenda da recepção: só quem tem data civil YYYY-MM-DD (evita “Agendado” sem horário no calendário). */
+    const hasExperimentalDate = (l) => {
+        const ymd = String(l?.scheduledDate || '').trim().split('T')[0];
+        return /^\d{4}-\d{2}-\d{2}$/.test(ymd);
+    };
+
     const allScheduled = (leads || [])
-        .filter(l => l.status === LEAD_STATUS.SCHEDULED)
+        .filter((l) => l.status === LEAD_STATUS.SCHEDULED && hasExperimentalDate(l))
         .sort((a, b) => toDateTime(a) - toDateTime(b));
 
     const agendaLeads = allScheduled.filter(lead => {

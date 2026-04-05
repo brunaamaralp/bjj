@@ -148,7 +148,7 @@ const Welcome = () => (
             <span className="navi-land-accent">WhatsApp.</span>
           </h1>
           <p className="hero-sub navi-land-hero-sub">
-            Navi organiza seus contatos, agendamentos e alunos em um só lugar — com atendimento por IA e funil visual.
+            Nave organiza seus contatos, agendamentos e alunos em um só lugar — com atendimento por IA e funil visual.
             Sem planilha, sem mensagem esquecida.
           </p>
           <Link to="/cadastro" className="btn-hero navi-land-hero-btn">
@@ -170,7 +170,7 @@ const Welcome = () => (
             </div>
             <p className="navi-land-proof-text">
               <strong>+120 estúdios</strong>
-              <span> já organizam seus alunos com o Navi</span>
+              <span> já organizam seus alunos com o Nave</span>
             </p>
           </div>
         </div>
@@ -201,7 +201,7 @@ const Welcome = () => (
     </section>
 
     <section className="navi-land-features">
-      <p className="navi-land-feat-eyebrow">O que o Navi resolve</p>
+      <p className="navi-land-feat-eyebrow">O que o Nave resolve</p>
       <h2 className="navi-land-feat-h2">
         Tudo que falta no seu estúdio.
         <br />
@@ -248,7 +248,7 @@ const Welcome = () => (
           <NaviLogo size={20} />
           <NaviWordmark fontSize={16} />
         </div>
-        <p className="footer-copy navi-land-footer-copy">© 2026 Navi · Todos os direitos reservados</p>
+        <p className="footer-copy navi-land-footer-copy">© 2026 Nave · navefit.com · @navefit · Todos os direitos reservados</p>
       </div>
     </footer>
 

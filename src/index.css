@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
 
 :root {
-  /* Navi — violeta */
+  /* Nave — violeta */
   --v900: #12102a;
   --v700: #2e2272;
   --v500: #5b3fbf;
@@ -24,7 +24,7 @@
   --white: #ffffff;
   --bg: #f6f4ff;
 
-  /* Semânticas Navi */
+  /* Semânticas Nave (prefixo CSS legado: navi-) */
   --success-bg: #e8f5ec;
   --success-text: #276534;
   --success-dot: #3bad6e;
@@ -154,7 +154,7 @@ h3 {
   font-size: 1.1rem;
 }
 
-/* Wordmark: componente NaviWordmark (Plus Jakarta, “i” itálico) */
+/* Wordmark: componente NaviWordmark (Plus Jakarta, “e” itálico — marca Nave) */
 
 .navi-eyebrow {
   font-family: var(--ff-mono);
@@ -169,7 +169,7 @@ h3 {
   font-family: var(--ff-mono);
 }
 
-/* Botões Navi */
+/* Botões (DS Nave) */
 button {
   cursor: pointer;
   border: none;
@@ -459,7 +459,7 @@ button:active {
   box-shadow: 0 1px 4px rgba(91, 63, 191, 0.08);
 }
 
-/* Marca só na topbar em mobile: no desktop o sidebar já traz ícone + Navi */
+/* Marca só na topbar em mobile: no desktop o sidebar já traz ícone + wordmark Nave */
 .navi-topbar-brand-slot {
   min-width: 0;
   flex: 0 1 auto;
@@ -944,7 +944,7 @@ button:active {
   padding-bottom: 85px;
 }
 
-/* Toasts Navi */
+/* Toasts */
 .navi-toast-container {
   position: fixed;
   right: 16px;
@@ -1076,7 +1076,7 @@ button:active {
   color: var(--mid);
 }
 
-/* Filter strip (pills) — Navi DS */
+/* Filter strip (pills) — DS */
 .filter-strip {
   display: flex;
   gap: 3px;

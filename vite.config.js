@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
         },
         includeAssets: ['navi-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
-          name: 'Navi',
-          short_name: 'Navi',
+          name: 'Nave',
+          short_name: 'Nave',
           description: 'CRM para estúdios de luta, dança, yoga e atividades físicas',
           theme_color: '#12102A',
           background_color: '#ffffff',

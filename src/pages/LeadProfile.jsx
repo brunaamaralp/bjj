@@ -6,6 +6,11 @@ import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { LostReasonModal } from '../components/LostReasonModal';
 
+function hasLeadDisplayValue(val) {
+    const s = String(val ?? '').trim();
+    return Boolean(s) && s !== '-';
+}
+
 function expectedPipelineStageForStatus(status) {
     switch (status) {
         case LEAD_STATUS.SCHEDULED:
@@ -335,21 +340,22 @@ const LeadProfile = () => {
 
             {statusPipelineMismatch && !editing ? (
                 <div
-                    className="card mt-4 animate-in"
+                    className="mt-4 animate-in"
                     style={{
-                        padding: '12px 14px',
-                        background: 'var(--warning-light)',
-                        border: '1px solid var(--warning)',
-                        fontSize: '0.85rem',
-                        color: 'var(--text-secondary)',
-                        lineHeight: 1.45,
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'var(--surface)',
+                        border: '1px solid #F59E0B33',
+                        marginBottom: 12,
                     }}
                 >
-                    <strong style={{ color: 'var(--warning)' }}>Status e etapa do funil</strong>
-                    {' — '}
-                    O sistema espera a etapa <strong>{statusPipelineMismatch.expected}</strong> para o status atual, mas este lead está em{' '}
-                    <strong>{statusPipelineMismatch.current}</strong>. No funil, o card pode aparecer na coluna errada. Ajuste com os botões de status abaixo ou use{' '}
-                    <strong>Mover de etapa</strong> no Pipeline.
+                    <span style={{ color: '#F59E0B', fontSize: 14 }} aria-hidden>⚠️</span>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                        Status e etapa inconsistentes. Ajuste com os botões abaixo ou use <strong>Mover de etapa</strong> no Pipeline.
+                    </p>
                 </div>
             ) : null}
 
@@ -361,9 +367,14 @@ const LeadProfile = () => {
                             <>
                                 <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.2rem, 2.6vw, 1.5rem)', margin: 0 }}>{lead.name}</h2>
                                 <p className="navi-subtitle" style={{ marginTop: 4 }}>
-                                    {lead.type} • {lead.origin}
-                                    {lead.age && ` • ${lead.age} anos`}
-                                    {lead.birthDate && ` • Nasc. ${lead.birthDate}`}
+                                    {[
+                                        lead.type,
+                                        lead.origin,
+                                        lead.age ? `${lead.age} anos` : null,
+                                        lead.birthDate ? `Nasc. ${lead.birthDate}` : null,
+                                    ]
+                                        .filter((p) => p != null && String(p).trim())
+                                        .join(' • ') || '—'}
                                 </p>
                             </>
                         ) : (
@@ -518,10 +529,11 @@ const LeadProfile = () => {
                             <div className="flex-col gap-2 mt-2">
                                 {customQuestions.map((q) => {
                                     const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
+                                    if (!hasLeadDisplayValue(ans)) return null;
                                     return (
                                         <div key={q?.id || q?.label} className="info-row">
                                             <span className="info-row-label">{q?.label || '-'}</span>
-                                            <span className="info-row-value">{ans || '-'}</span>
+                                            <span className="info-row-value">{String(ans).trim()}</span>
                                         </div>
                                     );
                                 })}
@@ -580,7 +592,7 @@ const LeadProfile = () => {
                 {/* Contact */}
                 <div className="flex gap-2 mt-4">
                     <button type="button" className="contact-btn whatsapp contact-btn-full" onClick={() => handleWhatsApp()}>
-                        <MessageCircle size={18} /> WhatsApp
+                        <MessageCircle size={18} color="currentColor" /> WhatsApp
                     </button>
                 </div>
             </div>
@@ -611,11 +623,51 @@ const LeadProfile = () => {
                 <div className="mt-4 animate-in" style={{ animationDelay: '0.12s' }}>
                     <h3 className="navi-section-heading mb-2">Mais Ações</h3>
                     <div className="more-actions">
-                        <button className="btn-outline danger-btn" onClick={handleMarkLost}>
-                            <AlertTriangle size={16} /> Não fechou
+                        <button
+                            type="button"
+                            onClick={handleMarkLost}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: 8,
+                                border: 'none',
+                                background: '#FEE2E2',
+                                color: '#991B1B',
+                                fontSize: 13,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                flex: 1,
+                                fontFamily: 'inherit',
+                                fontWeight: 600,
+                            }}
+                        >
+                            <AlertTriangle size={16} strokeWidth={2} /> Não fechou
                         </button>
-                        <button className="btn-outline danger-btn" onClick={handleDeleteLead} disabled={deletingLead}>
-                            <Trash2 size={16} /> {deletingLead ? 'Excluindo...' : 'Excluir lead'}
+                        <button
+                            type="button"
+                            onClick={handleDeleteLead}
+                            disabled={deletingLead}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: 8,
+                                border: 'none',
+                                background: '#FEE2E2',
+                                color: '#991B1B',
+                                fontSize: 13,
+                                cursor: deletingLead ? 'not-allowed' : 'pointer',
+                                opacity: deletingLead ? 0.65 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                flex: 1,
+                                fontFamily: 'inherit',
+                                fontWeight: 600,
+                            }}
+                        >
+                            <Trash2 size={16} strokeWidth={2} /> {deletingLead ? 'Excluindo...' : 'Excluir lead'}
                         </button>
                     </div>
                 </div>
@@ -725,8 +777,9 @@ const LeadProfile = () => {
           flex: 1; height: 48px; border-radius: var(--radius-sm); 
           font-weight: 700; font-size: 0.85rem; gap: 6px;
         }
-        .contact-btn.whatsapp { background: #25D366; color: white; }
-        .contact-btn.whatsapp:hover { filter: brightness(1.05); }
+        .contact-btn.whatsapp { background: var(--purple); color: #fff; border-radius: 12px; }
+        .contact-btn.whatsapp:hover { filter: brightness(1.06); }
+        .contact-btn.whatsapp:disabled { opacity: 0.5; cursor: not-allowed; }
         .contact-btn-full { width: 100%; max-width: 100%; flex: 1 1 100%; justify-content: center; }
 
         .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -740,10 +793,8 @@ const LeadProfile = () => {
         .action-highlight { border-color: var(--accent); background: var(--accent-light); }
         .action-highlight span { color: var(--accent); }
 
-        .more-actions { display: flex; gap: 10px; }
-        .more-actions button { flex: 1; }
-        .danger-btn { border-color: var(--danger); color: var(--danger); }
-        .danger-btn:hover { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
+        .more-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .more-actions button { flex: 1; min-width: min(100%, 140px); }
         
         .note-input-group { display: flex; flex-direction: column; gap: 8px; }
         .note-area { 

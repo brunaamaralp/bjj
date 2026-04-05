@@ -105,7 +105,7 @@ const Students = () => {
         : studentLabel;
     const pipelineName = labels.pipeline || 'Funil';
 
-    const exportTitle = 'Exporta somente os alunos já carregados neste aparelho. Se houver mais páginas no servidor, use Carregar mais antes ou exporte após atualizar a lista.';
+    const exportTooltip = 'Exporta somente os alunos já carregados. Atualize a lista antes para exportar todos.';
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
@@ -133,15 +133,12 @@ const Students = () => {
                             <RefreshCw size={16} className={listRefreshing || leadsLoading ? 'spin-students' : ''} />
                             Atualizar
                         </button>
-                        <ExportButton leads={students} fileName="alunos-ativos" label="Exportar" title={exportTitle} />
+                        <ExportButton leads={students} fileName="alunos-ativos" label="Exportar" title={exportTooltip} />
                         <button type="button" className="import-btn" onClick={() => setShowImport(true)}>
                             <Upload size={16} /> Importar
                         </button>
                     </div>
                 </div>
-                <p className="text-xs text-light mt-2" style={{ lineHeight: 1.4 }}>
-                    {exportTitle}
-                </p>
             </header>
 
             <div className="search-wrapper mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
@@ -308,13 +305,12 @@ const Students = () => {
                             onClick={() => navigate(`/lead/${student.id}`)}
                         >
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-4" style={{ flex: 1 }}>
-                                    <div className="student-avatar">
-                                        {(String(student.name || '').trim().charAt(0) || '?').toUpperCase()}
-                                    </div>
-                                    <div>
+                                <div className="flex items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ minWidth: 0 }}>
                                         <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
-                                        <p className="text-small">{student.type} • {student.phone}</p>
+                                        <p className="text-small">
+                                            {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -400,17 +396,11 @@ const Students = () => {
         }
         .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
         .student-card { 
-          cursor: pointer; padding: 14px 16px; 
+          cursor: pointer; padding: 16px 16px; 
           border-left: 4px solid var(--purple); 
           transition: var(--transition);
         }
         .student-card:hover { box-shadow: var(--shadow); }
-        .student-avatar { 
-          width: 40px; height: 40px; border-radius: 50%; 
-          background: var(--purple-light); color: var(--purple); 
-          display: flex; align-items: center; justify-content: center; 
-          font-weight: 800; font-size: 1rem; flex-shrink: 0;
-        }
         .student-inbox-link {
           font-size: 0.72rem; font-weight: 700; color: var(--accent);
           text-decoration: none; margin-right: 2px;

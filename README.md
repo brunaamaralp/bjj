@@ -1,3 +1,11 @@
+# Nave
+
+CRM e atendimento para estúdios (luta, dança, yoga e afins). Produto: **Nave** · [navefit.com](https://navefit.com) · [@navefit](https://instagram.com/navefit).
+
+Stack: React + Vite (abaixo, notas do template original).
+
+---
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

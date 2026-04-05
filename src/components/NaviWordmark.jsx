@@ -1,5 +1,5 @@
 /**
- * Wordmark Nav + i (mesma família: Plus Jakarta, “i” em itálico e peso maior).
+ * Wordmark Nav + e — marca Nave (Plus Jakarta, “e” em itálico e peso maior).
  * @param {number} [fontSize=20]
  * @param {'dark' | 'light'} [variant='dark'] — light = texto branco no topbar violeta
  */
@@ -26,7 +26,7 @@ export default function NaviWordmark({ fontSize = 20, variant = 'dark' }) {
           letterSpacing: '-0.02em',
         }}
       >
-        i
+        e
       </em>
     </span>
   );

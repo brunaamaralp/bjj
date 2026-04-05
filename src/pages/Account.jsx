@@ -748,7 +748,7 @@ const Account = ({ user, onLogout }) => {
                     <div className="flex items-center gap-4">
                         <Info size={16} color="var(--text-muted)" />
                         <div>
-                            <p className="navi-section-heading" style={{ fontSize: '0.95rem' }}>Navi</p>
+                            <p className="navi-section-heading" style={{ fontSize: '0.95rem' }}>Nave</p>
                             <p className="text-xs text-light">Dados armazenados na nuvem via Appwrite</p>
                         </div>
                     </div>
