@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, LayoutTemplate } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, LayoutTemplate, Building2 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
@@ -11,7 +11,8 @@ import Pipeline from './pages/Pipeline';
 import LeadProfile from './pages/LeadProfile';
 import NewLead from './pages/NewLead';
 import Students from './pages/Students';
-import Account from './pages/Account';
+import UserAccount from './pages/UserAccount';
+import AcademySettings from './pages/AcademySettings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
@@ -552,12 +553,20 @@ const App = () => {
             )}
             <div className="navi-side-section">
               <Link
-                to="/profile"
-                className={`navi-side-link ${isActive('/profile') ? 'active' : ''}`}
+                to="/conta"
+                className={`navi-side-link ${isActive('/conta') ? 'active' : ''}`}
                 title={sidebarCollapsed ? 'Conta' : undefined}
               >
                 <User size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Conta</span>
+              </Link>
+              <Link
+                to="/empresa"
+                className={`navi-side-link ${isActive('/empresa') ? 'active' : ''}`}
+                title={sidebarCollapsed ? 'Empresa' : undefined}
+              >
+                <Building2 size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Empresa</span>
               </Link>
               <Link
                 to="/templates"
@@ -621,7 +630,9 @@ const App = () => {
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
-              <Route path="/profile" element={<Account user={user} onLogout={handleLogout} />} />
+              <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
+              <Route path="/empresa" element={<AcademySettings />} />
+              <Route path="/profile" element={<Navigate to="/conta" replace />} />
               <Route path="/templates" element={<Templates />} />
             </Routes>
           </main>
@@ -656,7 +667,7 @@ const App = () => {
             <span>Loja</span>
           </Link>
         )}
-        <Link to="/profile" className={`navi-nav-item ${isActive('/profile') ? 'active' : ''}`}>
+        <Link to="/conta" className={`navi-nav-item ${isActive('/conta') || isActive('/empresa') ? 'active' : ''}`}>
           <User size={22} strokeWidth={1.75} />
           <span>Conta</span>
         </Link>
