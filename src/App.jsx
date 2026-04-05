@@ -573,10 +573,12 @@ const App = () => {
 
         <div className="navi-main-stack">
           <header className="navi-topbar">
-            <button type="button" className="navi-topbar-brand" onClick={() => navigate('/')}>
-              <NaviLogo size={22} variant="white" />
-              <NaviWordmark fontSize={18} variant="light" />
-            </button>
+            <div className="navi-topbar-brand-slot">
+              <button type="button" className="navi-topbar-brand" onClick={() => navigate('/')}>
+                <NaviLogo size={22} variant="white" />
+                <NaviWordmark fontSize={18} variant="light" />
+              </button>
+            </div>
             <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {academySelect}
               <button type="button" className="navi-topbar-logout" onClick={handleLogout}>

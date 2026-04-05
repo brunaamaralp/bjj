@@ -459,6 +459,22 @@ button:active {
   box-shadow: 0 1px 4px rgba(91, 63, 191, 0.08);
 }
 
+/* Marca só na topbar em mobile: no desktop o sidebar já traz ícone + Navi */
+.navi-topbar-brand-slot {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+@media (min-width: 1024px) {
+  .navi-topbar-brand-slot {
+    display: none;
+  }
+
+  .navi-topbar {
+    justify-content: flex-end;
+  }
+}
+
 .navi-topbar-brand {
   display: flex;
   align-items: center;
@@ -1206,9 +1222,9 @@ button:active {
   padding: 12px;
 }
 
-/* Funil (/pipeline): colunas estreitas — flex min-width:auto do conteúdo ignorava width:200px */
+/* Funil (/pipeline): largura das colunas + flex min-width:auto do conteúdo */
 .pipeline-container .kanban-column {
-  --kanban-col-w: min(200px, calc(100vw - 48px));
+  --kanban-col-w: min(236px, calc(100vw - 40px));
   flex: 0 0 var(--kanban-col-w);
   width: var(--kanban-col-w);
   max-width: var(--kanban-col-w);
