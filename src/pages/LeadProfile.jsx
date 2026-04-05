@@ -34,10 +34,11 @@ const STATUS_CONFIG = {
 const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { getLeadById, updateLead, deleteLead } = useLeadStore();
+    const lead = useLeadStore((s) => s.leads.find((l) => l.id === id));
+    const updateLead = useLeadStore((s) => s.updateLead);
+    const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);
     const academyId = useLeadStore((s) => s.academyId);
-    const lead = getLeadById(id);
 
     const [note, setNote] = useState('');
     const [eventTypeFilter, setEventTypeFilter] = useState('all');
@@ -131,6 +132,42 @@ const LeadProfile = () => {
             .catch(() => setCustomQuestions([]));
     }, [academyId]);
 
+    const statusPipelineMismatch = useMemo(() => {
+        if (!lead) return null;
+        const exp = expectedPipelineStageForStatus(lead.status);
+        if (exp == null) return null;
+        const cur = String(lead.pipelineStage || '').trim();
+        if (!cur || cur === exp) return null;
+        return { expected: exp, current: cur };
+    }, [lead]);
+
+    const fillFormFromLead = (src) => {
+        const existing = (src.customAnswers && typeof src.customAnswers === 'object') ? src.customAnswers : {};
+        const preserved = Object.fromEntries(Object.entries(existing).filter(([k]) => isUuidLike(k)));
+        const migratedAnswers = { ...preserved };
+        for (const q of (customQuestions || [])) {
+            const qid = String(q?.id || '').trim();
+            const label = String(q?.label || '').trim();
+            if (!qid || !label) continue;
+            const value = (existing[qid] ?? existing[label] ?? migratedAnswers[qid] ?? '');
+            migratedAnswers[qid] = value;
+        }
+        setForm({
+            name: src.name || '',
+            phone: src.phone || '',
+            type: src.type || 'Adulto',
+            origin: src.origin || '',
+            parentName: src.parentName || '',
+            age: src.age || '',
+            isFirstExperience: src.isFirstExperience || 'Sim',
+            borrowedKimono: src.borrowedKimono || '',
+            borrowedShirt: src.borrowedShirt || '',
+            customAnswers: migratedAnswers,
+            scheduledDate: src.scheduledDate || '',
+            scheduledTime: src.scheduledTime || ''
+        });
+    };
+
     if (!lead) return (
         <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
             <p className="text-light">Lead não encontrado.</p>
@@ -139,30 +176,7 @@ const LeadProfile = () => {
     );
 
     const startEdit = () => {
-        const existing = (lead.customAnswers && typeof lead.customAnswers === 'object') ? lead.customAnswers : {};
-        const preserved = Object.fromEntries(Object.entries(existing).filter(([k]) => isUuidLike(k)));
-        const migratedAnswers = { ...preserved };
-        for (const q of (customQuestions || [])) {
-            const id = String(q?.id || '').trim();
-            const label = String(q?.label || '').trim();
-            if (!id || !label) continue;
-            const value = (existing[id] ?? existing[label] ?? migratedAnswers[id] ?? '');
-            migratedAnswers[id] = value;
-        }
-        setForm({
-            name: lead.name || '',
-            phone: lead.phone || '',
-            type: lead.type || 'Adulto',
-            origin: lead.origin || '',
-            parentName: lead.parentName || '',
-            age: lead.age || '',
-            isFirstExperience: lead.isFirstExperience || 'Sim',
-            borrowedKimono: lead.borrowedKimono || '',
-            borrowedShirt: lead.borrowedShirt || '',
-            customAnswers: migratedAnswers,
-            scheduledDate: lead.scheduledDate || '',
-            scheduledTime: lead.scheduledTime || ''
-        });
+        fillFormFromLead(lead);
         setEditing(true);
     };
 
@@ -179,14 +193,6 @@ const LeadProfile = () => {
         if (!id) return;
         setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [id]: value } }));
     };
-
-    const statusPipelineMismatch = useMemo(() => {
-        const exp = expectedPipelineStageForStatus(lead.status);
-        if (exp == null) return null;
-        const cur = String(lead.pipelineStage || '').trim();
-        if (!cur || cur === exp) return null;
-        return { expected: exp, current: cur };
-    }, [lead.status, lead.pipelineStage]);
 
     const handleSave = async () => {
         const payload = { ...form };
@@ -207,7 +213,7 @@ const LeadProfile = () => {
         setEditing(false);
     };
 
-    const handleUpdateStatus = (newStatus) => {
+    const handleUpdateStatus = async (newStatus) => {
         const existing = Array.isArray(lead.notes) ? lead.notes : [];
         const event = { type: 'stage_change', from: lead.status || '', to: newStatus, at: new Date().toISOString(), by: 'user' };
         const newNotes = [...existing, event];
@@ -219,11 +225,30 @@ const LeadProfile = () => {
                             : newStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
                                 : undefined;
 
-        updateLead(id, {
-            status: newStatus,
-            ...(pipelineStage ? { pipelineStage } : {}),
-            notes: newNotes
-        });
+        try {
+            await updateLead(id, {
+                status: newStatus,
+                ...(pipelineStage ? { pipelineStage } : {}),
+                notes: newNotes
+            });
+            if (newStatus === LEAD_STATUS.SCHEDULED) {
+                const fresh = useLeadStore.getState().leads.find((l) => l.id === id);
+                if (fresh) {
+                    fillFormFromLead(fresh);
+                    setEditing(true);
+                }
+                addToast({
+                    type: 'success',
+                    message: 'Status: Agendado. Defina data e horário nos campos abaixo e toque em Salvar.',
+                });
+            } else if (newStatus === LEAD_STATUS.COMPLETED) {
+                addToast({ type: 'success', message: 'Comparecimento registrado.' });
+            } else if (newStatus === LEAD_STATUS.CONVERTED) {
+                addToast({ type: 'success', message: 'Lead marcado como matriculado.' });
+            }
+        } catch (e) {
+            addToast({ type: 'error', message: e?.message || 'Não foi possível atualizar o status.' });
+        }
     };
     const handleMarkLost = () => {
         const ok = window.confirm(`Marcar "${lead?.name || 'Sem nome'}" como Não fechou?`);
@@ -478,15 +503,29 @@ const LeadProfile = () => {
                         )}
 
                         {!editing ? (
-                            lead.scheduledDate && (
-                                <div className="flex items-center gap-2 mt-3">
-                                    <Clock size={14} color="var(--v500)" />
-                                    <span>
-                                        <span className="navi-mono-time" style={{ fontWeight: 600 }}>{lead.scheduledTime || '--:--'}</span>
-                                        <span className="navi-mono-date" style={{ marginLeft: 6 }}>
-                                            {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                                        </span>
-                                    </span>
+                            (lead.scheduledDate || lead.status === LEAD_STATUS.SCHEDULED) && (
+                                <div className="flex flex-wrap items-center gap-2 mt-3">
+                                    {lead.scheduledDate ? (
+                                        <>
+                                            <Clock size={14} color="var(--v500)" />
+                                            <span>
+                                                <span className="navi-mono-time" style={{ fontWeight: 600 }}>{lead.scheduledTime || '--:--'}</span>
+                                                <span className="navi-mono-date" style={{ marginLeft: 6 }}>
+                                                    {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                                </span>
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Calendar size={14} color="var(--warning)" />
+                                            <span className="text-small" style={{ color: 'var(--text-secondary)', flex: '1 1 200px' }}>
+                                                Experimental marcada no funil — defina <strong>data e horário</strong> (botão Editar ou abaixo).
+                                            </span>
+                                            <button type="button" className="btn-outline" style={{ fontSize: '0.75rem', padding: '6px 12px', minHeight: 34 }} onClick={startEdit}>
+                                                Definir data
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             )
                         ) : (
