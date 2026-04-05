@@ -253,6 +253,12 @@ export default async function handler(req, res) {
     }
 
     const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const iaAtiva = academyDoc?.ia_ativa === true;
+    if (!iaAtiva) {
+      console.log('[zapster][webhook] IA inativa', { academyId, requestId });
+      return res.status(200).json({ ok: true, sucesso: true, motivo: 'ia_inativa' });
+    }
+
     const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
     const outInstanceId = String(instanceId || '').trim() || academyInst || (await getZapsterInstanceIdForAcademy(academyId));
 

@@ -337,6 +337,11 @@ export default function Inbox() {
   const [promptSuffix, setPromptSuffix] = useState('');
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [iaAtiva, setIaAtiva] = useState(false);
+  const [promptConfigurado, setPromptConfigurado] = useState(false);
+  const [whatsappConectado, setWhatsappConectado] = useState(false);
+  const [togglingIa, setTogglingIa] = useState(false);
+  const [generatingPrompt, setGeneratingPrompt] = useState(false);
   const [agenteUiTab, setAgenteUiTab] = useState('wizard');
   const [agenteWizardStep, setAgenteWizardStep] = useState(1);
   const [agenteWizard, setAgenteWizard] = useState(() => ({ ...AGENTE_WIZARD_INITIAL }));
@@ -978,14 +983,23 @@ export default function Inbox() {
     setInboxTab('agente');
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
+      const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') };
+      const [resp, instResp] = await Promise.all([
+        fetch('/api/settings/ai-prompt', { headers }),
+        fetch('/api/zapster/instances', { headers })
+      ]);
+      const instRaw = await instResp.text();
+      const instData = safeParseJson(instRaw) || {};
+      const conectado = instResp.ok && String(instData?.status || '').trim() === 'connected';
+      setWhatsappConectado(conectado);
+
       const data = await resp.json();
       if (resp.ok && data && typeof data === 'object') {
         setPromptIntro(String(data.prompt_intro || ''));
         setPromptBody(String(data.prompt_body || ''));
         setPromptSuffix(String(data.prompt_suffix || ''));
+        setPromptConfigurado(Boolean(String(data.prompt_body || '').trim()));
+        setIaAtiva(data.ia_ativa === true);
       } else {
         throw new Error('Falha ao carregar');
       }
@@ -1016,10 +1030,79 @@ export default function Inbox() {
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
       addToast({ type: 'success', message: 'Prompt atualizado' });
+      setPromptConfigurado(Boolean(bodyPut.trim()));
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
     } finally {
       setSavingPrompt(false);
+    }
+  }
+
+  async function handleToggleIa() {
+    if (!promptConfigurado || !whatsappConectado || togglingIa) return;
+    setTogglingIa(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/settings/ai-prompt', {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || '')
+        },
+        body: JSON.stringify({ action: 'toggle_ia', ia_ativa: !iaAtiva })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data?.sucesso) setIaAtiva(data.ia_ativa === true);
+      else addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
+    } finally {
+      setTogglingIa(false);
+    }
+  }
+
+  async function generatePromptWithAgenteWizard() {
+    const sn = String(agenteWizard.studioName || '').trim();
+    const an = String(agenteWizard.assistantName || '').trim();
+    if (!sn || !an) {
+      addToast({ type: 'error', message: 'No passo 1, preencha o nome do estúdio e o nome do assistente virtual.' });
+      return;
+    }
+    setGeneratingPrompt(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/settings/ai-prompt', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || academyId || '')
+        },
+        body: JSON.stringify({ action: 'generate_prompt', wizardData: agenteWizard })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data?.sucesso && String(data.prompt || '').trim()) {
+        setPromptIntro('');
+        setPromptBody(String(data.prompt).trim());
+        setPromptSuffix('');
+        setPromptConfigurado(true);
+        setAgenteUiTab('advanced');
+        addToast({ type: 'success', message: 'Prompt gerado — revise na edição avançada e salve.' });
+        return;
+      }
+      const msg = data?.erro || data?.error || 'Falha ao gerar prompt';
+      throw new Error(typeof msg === 'string' ? msg : 'Falha ao gerar prompt');
+    } catch (e) {
+      addToast({ type: 'warning', message: e?.message || 'IA indisponível; usando modelo local do assistente.' });
+      const built = buildPromptsFromAgenteWizard(agenteWizard);
+      setPromptIntro(built.intro);
+      setPromptBody(built.body);
+      setPromptSuffix(built.suffix);
+      setPromptConfigurado(Boolean(String(built.body || '').trim()));
+      setAgenteUiTab('advanced');
+    } finally {
+      setGeneratingPrompt(false);
     }
   }
 
@@ -1039,6 +1122,7 @@ export default function Inbox() {
     setPromptIntro(built.intro);
     setPromptBody(built.body);
     setPromptSuffix(built.suffix);
+    setPromptConfigurado(Boolean(String(built.body || '').trim()));
     addToast({ type: 'success', message: 'Prompt aplicado — use Salvar para gravar no servidor (ou abra Edição avançada para ajustar).' });
   }
 
@@ -3733,6 +3817,125 @@ export default function Inbox() {
 
       {inboxTab === 'agente' && (
         <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              background: 'var(--surface)',
+              padding: 16,
+              marginBottom: 12
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
+              <span className="navi-section-heading" style={{ fontSize: '0.95rem', margin: 0 }}>
+                Status da IA
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  background: iaAtiva ? 'var(--success-light)' : 'var(--surface-hover)',
+                  color: iaAtiva ? 'var(--success-text)' : 'var(--text-secondary)'
+                }}
+              >
+                {iaAtiva ? '● IA ativa' : '○ IA inativa'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                <span aria-hidden>{promptConfigurado ? '✅' : '⬜'}</span>
+                <span style={{ color: promptConfigurado ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>Prompt configurado</span>
+                {!promptConfigurado && (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{
+                      padding: '2px 8px',
+                      minHeight: 28,
+                      fontSize: 12,
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--purple)',
+                      boxShadow: 'none',
+                      fontWeight: 700
+                    }}
+                    onClick={() => setAgenteUiTab('wizard')}
+                  >
+                    Configurar →
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                <span aria-hidden>{whatsappConectado ? '✅' : '⬜'}</span>
+                <span style={{ color: whatsappConectado ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>WhatsApp conectado</span>
+                {!whatsappConectado && (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{
+                      padding: '2px 8px',
+                      minHeight: 28,
+                      fontSize: 12,
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--purple)',
+                      boxShadow: 'none',
+                      fontWeight: 700
+                    }}
+                    onClick={() => onTabChange('dispositivo')}
+                  >
+                    Conectar →
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span className="text-small" style={{ color: 'var(--text-secondary)', flex: '1 1 200px' }}>
+                {!promptConfigurado || !whatsappConectado
+                  ? 'Complete a configuração para ativar'
+                  : iaAtiva
+                    ? 'Clique para desativar a IA'
+                    : 'Clique para ativar a IA'}
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleToggleIa()}
+                disabled={!promptConfigurado || !whatsappConectado || togglingIa}
+                title={togglingIa ? 'Atualizando…' : iaAtiva ? 'Desativar IA' : 'Ativar IA'}
+                style={{
+                  position: 'relative',
+                  width: 48,
+                  height: 24,
+                  borderRadius: 999,
+                  border: 'none',
+                  padding: 0,
+                  flexShrink: 0,
+                  cursor: !promptConfigurado || !whatsappConectado || togglingIa ? 'not-allowed' : 'pointer',
+                  opacity: !promptConfigurado || !whatsappConectado ? 0.45 : 1,
+                  background:
+                    iaAtiva && promptConfigurado && whatsappConectado ? 'var(--purple)' : 'var(--border-light)',
+                  transition: 'background 0.2s ease'
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    left: iaAtiva && promptConfigurado && whatsappConectado ? 28 : 4,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: 'var(--white)',
+                    boxShadow: 'var(--shadow-sm)',
+                    transition: 'left 0.2s ease',
+                    pointerEvents: 'none'
+                  }}
+                />
+              </button>
+            </div>
+          </div>
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
             <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Configurar Agente IA</div>
@@ -3747,6 +3950,7 @@ export default function Inbox() {
                     setPromptIntro(ANA_PROMPT_INTRO);
                     setPromptBody(ANA_PROMPT_BODY);
                     setPromptSuffix('');
+                    setPromptConfigurado(Boolean(String(ANA_PROMPT_BODY || '').trim()));
                   }}
                   type="button"
                   disabled={savingPrompt || loadingPrompt}
@@ -3981,6 +4185,22 @@ export default function Inbox() {
                         <li>Blocos factuais preenchidos: {[agenteWizard.schedules, agenteWizard.plans, agenteWizard.trial, agenteWizard.location, agenteWizard.policies].filter((x) => String(x || '').trim()).length} de 5</li>
                       </ul>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => void generatePromptWithAgenteWizard()}
+                          disabled={generatingPrompt || savingPrompt || loadingPrompt}
+                          title="Gera um prompt completo com Claude a partir dos dados do assistente"
+                        >
+                          {generatingPrompt ? (
+                            <>
+                              <Loader2 size={16} className="inbox-improve-spin" style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
+                              Gerando…
+                            </>
+                          ) : (
+                            '✨ Gerar prompt com IA'
+                          )}
+                        </button>
                         <button type="button" className="btn btn-secondary" onClick={() => applyAgenteWizardToPromptFields()}>
                           Aplicar ao prompt
                         </button>

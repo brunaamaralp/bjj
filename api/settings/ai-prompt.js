@@ -126,6 +126,27 @@ Regras:
 - No máximo 1 emoji na mensagem, só se fizer sentido e o rascunho já sugerir algo informal; se não couber, zero emoji.
 - Responda somente com o texto da mensagem melhorada, sem aspas, sem markdown, sem prefixos.`;
 
+const GENERATE_PROMPT_SYSTEM = `Você é especialista em criar prompts para assistentes virtuais de estúdios fitness (yoga, pilates, dança, artes marciais, musculação, etc).
+Com base nas informações fornecidas pelo gestor, gere um prompt completo e profissional para a assistente virtual do estúdio.
+
+Estrutura obrigatória do prompt gerado:
+1. Identidade e personalidade da assistente (nome, tom, estilo)
+2. Regra de grupos (nunca atender grupos do WhatsApp — retornar "" vazio)
+3. Perfil do contato (como identificar lead vs aluno e adaptar atendimento)
+4. Turmas e horários (todas as turmas informadas)
+5. Planos e preços (todos os planos informados)
+6. Uniforme e equipamentos (se aplicável)
+7. Aula/sessão experimental (se oferecida)
+8. Regras de tom de atendimento
+9. Regras de formatação (sem blocos longos, máx 1 emoji por mensagem)
+10. Regras de vendas (funil rápido, 1 pergunta por vez, CTA no momento certo)
+
+Importante:
+- Adapte completamente ao tipo de estúdio e modalidade informada
+- Não mencione outras academias ou marcas
+- Use o nome da assistente informado pelo gestor
+- Retorne APENAS o texto do prompt, sem markdown, sem explicações, sem títulos com #, sem blocos de código`;
+
 async function readJsonBodyForPost(req) {
   if (req?.body && typeof req.body === 'object') return req.body;
   try {
@@ -273,6 +294,49 @@ async function handleImproveReply(res, academyId, body) {
   return res.status(200).json({ sucesso: true, improved: improved.trim() });
 }
 
+async function handleGeneratePrompt(res, academyId, body) {
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(500).json({ sucesso: false, erro: 'ANTHROPIC_API_KEY não configurado' });
+  }
+  if (!body || typeof body !== 'object') {
+    return res.status(400).json({ sucesso: false, erro: 'Body inválido' });
+  }
+
+  const bodyAcademy = String(body.academyId || body.academy_id || '').trim();
+  if (bodyAcademy && bodyAcademy !== academyId) {
+    return res.status(400).json({ sucesso: false, erro: 'academyId do body não confere com o cabeçalho' });
+  }
+
+  const wizardData = body.wizardData;
+  if (!wizardData || typeof wizardData !== 'object' || Array.isArray(wizardData)) {
+    return res.status(400).json({ sucesso: false, erro: 'wizardData ausente ou inválido' });
+  }
+
+  const userContent = `Dados do estúdio fornecidos pelo gestor:
+${JSON.stringify(wizardData, null, 2)}
+
+Gere o prompt completo para a assistente virtual deste estúdio.`;
+
+  let prompt = '';
+  try {
+    prompt = await callClaudeImprove({
+      system: GENERATE_PROMPT_SYSTEM,
+      messages: [{ role: 'user', content: userContent }],
+      maxTokens: 2000,
+      temperature: 0.45
+    });
+  } catch (e) {
+    return res.status(502).json({ sucesso: false, erro: e?.message || 'Falha ao gerar prompt' });
+  }
+
+  if (!prompt.trim()) {
+    return res.status(500).json({ sucesso: false, erro: 'Prompt gerado vazio' });
+  }
+
+  console.log('[ai-prompt] generate_prompt concluído', { academyId });
+  return res.status(200).json({ sucesso: true, prompt: prompt.trim() });
+}
+
 export default async function handler(req, res) {
   if (!ensureConfigOk(res)) return;
   const me = await ensureAuth(req, res);
@@ -285,11 +349,14 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const body = (await readJsonBodyForPost(req)) || {};
       const action = String(body.action || '').trim().toLowerCase();
+      if (action === 'generate_prompt') {
+        return handleGeneratePrompt(res, academyId, body);
+      }
       if (action === 'improve_reply') {
         return handleImproveReply(res, academyId, body);
       }
-      res.setHeader('Allow', 'GET, PUT, POST');
-      return res.status(405).json({ sucesso: false, erro: 'Use action: improve_reply no body JSON' });
+      res.setHeader('Allow', 'GET, PUT, POST, PATCH');
+      return res.status(405).json({ sucesso: false, erro: 'Use action: improve_reply ou generate_prompt no body JSON' });
     }
 
     if (req.method === 'GET') {
@@ -297,9 +364,24 @@ export default async function handler(req, res) {
       const out = {
         prompt_intro: String(doc?.prompt_intro || '').trim(),
         prompt_body: String(doc?.prompt_body || '').trim(),
-        prompt_suffix: String(doc?.prompt_suffix || '').trim()
+        prompt_suffix: String(doc?.prompt_suffix || '').trim(),
+        ia_ativa: academyDoc?.ia_ativa === true
       };
       return res.status(200).json({ sucesso: true, ...out });
+    }
+
+    if (req.method === 'PATCH') {
+      const body = (await readJsonBodyForPost(req)) || {};
+      if (String(body.action || '').trim().toLowerCase() === 'toggle_ia') {
+        const novoStatus = Boolean(body.ia_ativa);
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+          ia_ativa: novoStatus
+        });
+        console.log('[ai-prompt] ia_ativa atualizado', { academyId, novoStatus });
+        return res.status(200).json({ sucesso: true, ia_ativa: novoStatus });
+      }
+      res.setHeader('Allow', 'GET, PUT, POST, PATCH');
+      return res.status(405).json({ sucesso: false, erro: 'Use action: toggle_ia no body JSON' });
     }
 
     if (req.method === 'PUT') {
@@ -329,7 +411,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ sucesso: true });
     }
 
-    res.setHeader('Allow', 'GET, PUT, POST');
+    res.setHeader('Allow', 'GET, PUT, POST, PATCH');
     return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });

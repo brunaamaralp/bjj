@@ -115,6 +115,14 @@ export default async function handler(req, res) {
       body: agentBody
     });
 
+    if (resp1.status === 429) {
+      console.warn('[agent/process] rate limit em respond', {
+        requestId,
+        academyId: academy
+      });
+      return res.status(200).json({ sent: false, motivo: 'rate_limit' });
+    }
+
     if (!resp1.ok) {
       const errorBody = await resp1.text();
       console.error('[agent/process] agent HTTP error call 1', {
@@ -128,6 +136,11 @@ export default async function handler(req, res) {
     let agentData = await parseAgentJson(resp1, requestId, 'call 1');
     if (!agentData) {
       return res.status(200).json({ sent: false, error: 'agent_invalid_json' });
+    }
+
+    if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
+      console.log('[agent/process] prompt não configurado — sem poll nem envio', { requestId, academyId: academy });
+      return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
     }
 
     console.log('[agent/process] call 1', {
@@ -158,6 +171,11 @@ export default async function handler(req, res) {
       } else {
         console.error('[agent/process] agent HTTP error call 2', { status: resp2.status, requestId });
       }
+    }
+
+    if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
+      console.log('[agent/process] prompt não configurado após poll — sem envio', { requestId, academyId: academy });
+      return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
     }
 
     if (agentData?.em_processamento) {
