@@ -71,6 +71,10 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
           pipelineStageChangedAt: pipelineStageChangedAt || parsed.statusChangedAt || doc.$createdAt || '',
           createdAt: doc.$createdAt,
           lostReason: doc.lostReason || '',
+          plan: doc.plan || '',
+          enrollmentDate: doc.enrollmentDate || '',
+          emergencyContact: doc.emergencyContact || '',
+          emergencyPhone: doc.emergencyPhone || '',
         };
       }
     } catch {
@@ -106,6 +110,10 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
     pipelineStageChangedAt: doc.$createdAt,
     createdAt: doc.$createdAt,
     lostReason: doc.lostReason || '',
+    plan: doc.plan || '',
+    enrollmentDate: doc.enrollmentDate || '',
+    emergencyContact: doc.emergencyContact || '',
+    emergencyPhone: doc.emergencyPhone || '',
   };
 }
 

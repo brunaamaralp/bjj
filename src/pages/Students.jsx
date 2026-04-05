@@ -1,18 +1,19 @@
 /** Backlog: aluno inativo/trancado; filtros (turma/plano); virtualização para listas muito longas. */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
-import { useNavigate, Link } from 'react-router-dom';
-import { Search, MessageCircle, ChevronRight, Upload, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
+import { StudentPanel } from '../components/StudentPanel';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
 }
 
 const Students = () => {
-    const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
+    const updateLead = useLeadStore((s) => s.updateLead);
     const { leads, importLeads, fetchLeads, fetchMoreLeads } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
@@ -23,6 +24,23 @@ const Students = () => {
     const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
     const [listRefreshing, setListRefreshing] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+    const [isNarrow, setIsNarrow] = useState(
+        () => typeof window !== 'undefined' && window.innerWidth < 768
+    );
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)');
+        const onChange = () => setIsNarrow(mq.matches);
+        mq.addEventListener('change', onChange);
+        setIsNarrow(mq.matches);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+
+    const handlePanelSave = async (studentId, form) => {
+        await updateLead(studentId, form);
+        setSelectedStudent((prev) => (prev && prev.id === studentId ? { ...prev, ...form } : prev));
+    };
 
     const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED);
 
@@ -141,142 +159,127 @@ const Students = () => {
                 </div>
             </header>
 
-            <div className="search-wrapper mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-                <Search size={18} className="search-icon" />
-                <input
-                    type="text"
-                    placeholder="Buscar por nome ou celular..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="search-input"
-                />
-            </div>
-
             <div
+                className="students-split-wrap"
                 style={{
                     display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    marginBottom: 8,
-                    marginTop: 8,
+                    gap: 0,
+                    minHeight: 'min(70vh, calc(100vh - 220px))',
+                    alignItems: 'stretch',
                 }}
             >
-                {tiposUnicos.length > 2 && (
-                    <select
-                        value={filtroTipo}
-                        onChange={(e) => setFiltroTipo(e.target.value)}
-                        className="students-filter-select"
-                        style={{
-                            padding: '6px 10px',
-                            borderRadius: 8,
-                            border: '1px solid var(--border)',
-                            fontSize: 13,
-                            background: 'var(--bg-card)',
-                            color: 'var(--text)',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {tiposUnicos.map((t) => (
-                            <option key={t} value={t}>
-                                {t}
-                            </option>
-                        ))}
-                    </select>
-                )}
+            <div
+                style={{
+                    flex: selectedStudent && !isNarrow ? '0 0 55%' : '1',
+                    transition: 'flex 0.2s ease',
+                    overflowY: 'auto',
+                    borderRight: selectedStudent && !isNarrow ? '1px solid var(--border)' : 'none',
+                    minWidth: 0,
+                }}
+            >
 
-                {origensUnicas.length > 2 && (
-                    <select
-                        value={filtroOrigem}
-                        onChange={(e) => setFiltroOrigem(e.target.value)}
-                        className="students-filter-select"
-                        style={{
-                            padding: '6px 10px',
-                            borderRadius: 8,
-                            border: '1px solid var(--border)',
-                            fontSize: 13,
-                            background: 'var(--bg-card)',
-                            color: 'var(--text)',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {origensUnicas.map((o) => (
-                            <option key={o} value={o}>
-                                {o}
-                            </option>
-                        ))}
-                    </select>
-                )}
+            <div className="students-filters-card mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+                <div className="students-filters-card-head">
+                    <div className="students-filters-card-title">
+                        <SlidersHorizontal size={17} strokeWidth={2} className="students-filters-card-icon" aria-hidden />
+                        <span>Busca e filtros</span>
+                    </div>
+                    {filtrosAtivos ? (
+                        <button type="button" className="students-filters-clear" onClick={limparFiltros}>
+                            <X size={15} strokeWidth={2.25} aria-hidden />
+                            Limpar tudo
+                        </button>
+                    ) : null}
+                </div>
 
-                <select
-                    value={ordenacao}
-                    onChange={(e) => setOrdenacao(e.target.value)}
-                    className="students-filter-select"
-                    style={{
-                        padding: '6px 10px',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        fontSize: 13,
-                        background: 'var(--bg-card)',
-                        color: 'var(--text)',
-                        cursor: 'pointer',
-                    }}
-                >
-                    <option value="az">A → Z</option>
-                    <option value="za">Z → A</option>
-                    <option value="recentes">Mais recentes</option>
-                    <option value="antigos">Mais antigos</option>
-                </select>
+                <div className="search-wrapper students-filters-search">
+                    <Search size={18} className="search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por nome ou celular..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="search-input"
+                    />
+                </div>
 
-                {filtrosAtivos && (
-                    <button
-                        type="button"
-                        onClick={limparFiltros}
-                        style={{
-                            padding: '6px 12px',
-                            borderRadius: 8,
-                            border: '1px solid var(--border)',
-                            fontSize: 13,
-                            background: 'transparent',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                        }}
-                    >
-                        ✕ Limpar filtros
-                    </button>
+                <div className="students-filters-grid">
+                    {tiposUnicos.length > 2 && (
+                        <label className="students-filter-field">
+                            <span className="students-filter-label">Perfil</span>
+                            <select
+                                value={filtroTipo}
+                                onChange={(e) => setFiltroTipo(e.target.value)}
+                                className="students-filter-select"
+                            >
+                                {tiposUnicos.map((t) => (
+                                    <option key={t} value={t}>
+                                        {t}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+
+                    {origensUnicas.length > 2 && (
+                        <label className="students-filter-field">
+                            <span className="students-filter-label">Origem</span>
+                            <select
+                                value={filtroOrigem}
+                                onChange={(e) => setFiltroOrigem(e.target.value)}
+                                className="students-filter-select"
+                            >
+                                {origensUnicas.map((o) => (
+                                    <option key={o} value={o}>
+                                        {o}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+
+                    <label className="students-filter-field">
+                        <span className="students-filter-label">
+                            <ArrowUpDown size={12} strokeWidth={2.5} className="students-filter-label-icon" aria-hidden />
+                            Ordenar
+                        </span>
+                        <select
+                            value={ordenacao}
+                            onChange={(e) => setOrdenacao(e.target.value)}
+                            className="students-filter-select"
+                        >
+                            <option value="az">Nome A → Z</option>
+                            <option value="za">Nome Z → A</option>
+                            <option value="recentes">Mais recentes</option>
+                            <option value="antigos">Mais antigos</option>
+                        </select>
+                    </label>
+                </div>
+
+                {filtroTipo === 'Todos' && tiposUnicos.length > 2 && (
+                    <div className="students-tipo-chips-wrap">
+                        <span className="students-tipo-chips-hint">Atalho por perfil</span>
+                        <div className="students-tipo-chips" role="group" aria-label="Filtrar por perfil">
+                            {tiposUnicos
+                                .filter((t) => t !== 'Todos')
+                                .map((tipo) => {
+                                    const count = students.filter((s) => s.type === tipo).length;
+                                    return (
+                                        <button
+                                            key={tipo}
+                                            type="button"
+                                            className="students-tipo-chip"
+                                            onClick={() => setFiltroTipo(tipo)}
+                                        >
+                                            <span>{tipo}</span>
+                                            <span className="students-tipo-chip-count">{count}</span>
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    </div>
                 )}
             </div>
-
-            {filtroTipo === 'Todos' && tiposUnicos.length > 2 && (
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        fontSize: 12,
-                        color: 'var(--text-muted)',
-                        marginBottom: 12,
-                    }}
-                >
-                    {tiposUnicos
-                        .filter((t) => t !== 'Todos')
-                        .map((tipo) => (
-                            <span
-                                key={tipo}
-                                onClick={() => setFiltroTipo(tipo)}
-                                style={{
-                                    cursor: 'pointer',
-                                    color: 'var(--purple)',
-                                    textDecoration: 'underline',
-                                }}
-                            >
-                                {tipo} ({students.filter((s) => s.type === tipo).length})
-                            </span>
-                        ))}
-                </div>
-            )}
 
             {leadsHasMore ? (
                 <div className="mt-3 animate-in">
@@ -294,6 +297,67 @@ const Students = () => {
                 </div>
             ) : null}
 
+            {(() => {
+                const hoje = new Date();
+                const mesHoje = String(hoje.getMonth() + 1).padStart(2, '0');
+                const diaHoje = String(hoje.getDate()).padStart(2, '0');
+                const mesEDia = `${mesHoje}-${diaHoje}`;
+
+                const aniversariantes = students.filter(
+                    (s) => s.birthDate?.length === 10 && s.birthDate.slice(5) === mesEDia
+                );
+
+                if (aniversariantes.length === 0) return null;
+
+                return (
+                    <div
+                        style={{
+                            margin: '16px 0',
+                            padding: '12px 16px',
+                            borderRadius: 12,
+                            background: '#FFF7ED',
+                            border: '1px solid #FED7AA',
+                        }}
+                    >
+                        <p
+                            style={{
+                                margin: '0 0 8px',
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: '#9A3412',
+                            }}
+                        >
+                            🎂 Aniversariantes hoje ({aniversariantes.length})
+                        </p>
+                        {aniversariantes.map((s) => (
+                            <div
+                                key={s.id}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setSelectedStudent(s);
+                                    }
+                                }}
+                                onClick={() => setSelectedStudent(s)}
+                                style={{
+                                    fontSize: 13,
+                                    color: '#7C2D12',
+                                    padding: '3px 0',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                <span>{s.name}</span>
+                                <span style={{ color: '#9A3412', opacity: 0.7 }}>{s.type}</span>
+                            </div>
+                        ))}
+                    </div>
+                );
+            })()}
+
             <div className="flex-col gap-2 mt-4">
                 {filteredStudents.length > 0 ? filteredStudents.map((student, i) => {
                     const digits = normalizePhone(student.phone);
@@ -302,16 +366,35 @@ const Students = () => {
                             key={student.id}
                             className="card student-card animate-in"
                             style={{ animationDelay: `${0.03 * i}s` }}
-                            onClick={() => navigate(`/lead/${student.id}`)}
                         >
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ minWidth: 0 }}>
-                                        <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
-                                        <p className="text-small">
-                                            {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
-                                        </p>
-                                    </div>
+                                <div
+                                    className="student-card-main"
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setSelectedStudent(student);
+                                        }
+                                    }}
+                                    onClick={() => setSelectedStudent(student)}
+                                    style={{
+                                        flex: 1,
+                                        minWidth: 0,
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        font: 'inherit',
+                                        color: 'inherit',
+                                    }}
+                                >
+                                    <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
+                                    <p className="text-small" style={{ margin: 0 }}>
+                                        {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
+                                    </p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {digits ? (
@@ -336,7 +419,15 @@ const Students = () => {
                                     >
                                         <MessageCircle size={16} color="#25D366" />
                                     </button>
-                                    <ChevronRight size={16} color="var(--text-muted)" />
+                                    <Link
+                                        to={`/lead/${student.id}`}
+                                        className="student-profile-chevron"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title="Perfil completo"
+                                        aria-label="Abrir perfil completo"
+                                    >
+                                        <ChevronRight size={16} color="var(--text-muted)" />
+                                    </Link>
                                 </div>
                             </div>
                         </div>
@@ -377,6 +468,47 @@ const Students = () => {
                 )}
             </div>
 
+            </div>
+
+            {selectedStudent && !isNarrow ? (
+                <div
+                    style={{
+                        flex: '0 0 45%',
+                        overflowY: 'auto',
+                        background: 'var(--surface)',
+                        padding: 24,
+                        minWidth: 0,
+                    }}
+                >
+                    <StudentPanel
+                        student={selectedStudent}
+                        onClose={() => setSelectedStudent(null)}
+                        onSave={handlePanelSave}
+                    />
+                </div>
+            ) : null}
+            </div>
+
+            {selectedStudent && isNarrow ? (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 50,
+                        background: 'var(--surface)',
+                        overflowY: 'auto',
+                        padding: 24,
+                        paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+                    }}
+                >
+                    <StudentPanel
+                        student={selectedStudent}
+                        onClose={() => setSelectedStudent(null)}
+                        onSave={handlePanelSave}
+                    />
+                </div>
+            ) : null}
+
             <ImportSheet
                 isOpen={showImport}
                 onClose={() => setShowImport(false)}
@@ -390,17 +522,173 @@ const Students = () => {
         .search-wrapper { position: relative; }
         .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
         .search-input { 
-          width: 100%; padding: 14px 16px 14px 44px; border-radius: var(--radius); 
+          width: 100%; padding: 14px 16px 14px 44px; border-radius: var(--radius-sm); 
           border: 1.5px solid var(--border); font-size: 0.95rem; background: var(--surface);
           outline: none; transition: var(--transition); color: var(--text);
         }
         .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+
+        .students-filters-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          box-shadow: var(--shadow-sm);
+          padding: 16px 18px 18px;
+        }
+        .students-filters-card-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+          flex-wrap: wrap;
+        }
+        .students-filters-card-title {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.8rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+        }
+        .students-filters-card-icon { color: var(--accent); flex-shrink: 0; }
+        .students-filters-clear {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: var(--radius-full);
+          border: none;
+          background: var(--accent-light);
+          color: var(--accent);
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: var(--transition);
+        }
+        .students-filters-clear:hover { filter: brightness(0.97); box-shadow: 0 1px 0 var(--border); }
+        .students-filters-search { margin-bottom: 14px; }
+        .students-filters-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 12px 14px;
+          align-items: end;
+        }
+        .students-filter-field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin: 0;
+          min-width: 0;
+        }
+        .students-filter-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: var(--text-muted);
+        }
+        .students-filter-label-icon { color: var(--accent); flex-shrink: 0; }
+        .students-filter-select {
+          width: 100%;
+          min-height: 42px;
+          padding: 0 36px 0 12px;
+          border-radius: var(--radius-sm);
+          border: 1.5px solid var(--border);
+          background-color: var(--surface);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b6b88' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          color: var(--text);
+          font-size: 0.875rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          appearance: none;
+          -webkit-appearance: none;
+          transition: var(--transition);
+        }
+        .students-filter-select:hover { border-color: var(--border-mid); }
+        .students-filter-select:focus {
+          outline: none;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--accent-light);
+        }
+        .students-tipo-chips-wrap {
+          margin-top: 16px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border-light);
+        }
+        .students-tipo-chips-hint {
+          display: block;
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: var(--text-muted);
+          margin-bottom: 10px;
+        }
+        .students-tipo-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .students-tipo-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px 8px 14px;
+          border-radius: var(--radius-full);
+          border: 1.5px solid var(--border);
+          background: var(--surface-hover);
+          color: var(--text-secondary);
+          font-size: 0.8125rem;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          transition: var(--transition);
+        }
+        .students-tipo-chip:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-light);
+        }
+        .students-tipo-chip-count {
+          min-width: 1.5rem;
+          padding: 2px 7px;
+          border-radius: var(--radius-full);
+          background: var(--surface);
+          border: 1px solid var(--border);
+          font-size: 0.7rem;
+          font-weight: 800;
+          color: var(--text-muted);
+        }
+        .students-tipo-chip:hover .students-tipo-chip-count {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-light);
+        }
         .student-card { 
-          cursor: pointer; padding: 16px 16px; 
+          padding: 16px 16px; 
           border-left: 4px solid var(--purple); 
           transition: var(--transition);
         }
         .student-card:hover { box-shadow: var(--shadow); }
+        .student-profile-chevron {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          color: var(--text-muted);
+        }
+        .student-profile-chevron:hover { background: var(--border-light); color: var(--accent); }
         .student-inbox-link {
           font-size: 0.72rem; font-weight: 700; color: var(--accent);
           text-decoration: none; margin-right: 2px;
