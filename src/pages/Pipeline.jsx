@@ -106,7 +106,6 @@ const Pipeline = () => {
     const [stages, setStages] = useState(DEFAULT_STAGE_LABELS);
     const [editStages, setEditStages] = useState(false);
     const [tempStages, setTempStages] = useState(DEFAULT_STAGE_LABELS);
-    const [dayFilter, setDayFilter] = useState('all'); // all | today | tomorrow
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
     const [kanbanSearch, setKanbanSearch] = useState('');
     const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
@@ -565,11 +564,6 @@ const Pipeline = () => {
                                     </select>
                                 </div>
                             </div>
-                            <div className="filter-strip">
-                                <button type="button" className={`filter-pill ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
-                                <button type="button" className={`filter-pill ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
-                                <button type="button" className={`filter-pill ${dayFilter === 'tomorrow' ? 'active' : ''}`} onClick={() => setDayFilter('tomorrow')}>Amanhã</button>
-                            </div>
                             <div className="origin-group" title="Filtra por perfil do lead em todas as colunas">
                                 <select
                                     className="origin-select"
@@ -673,18 +667,8 @@ const Pipeline = () => {
             >
                 {stages.map((col, idx) => {
                     const color = STAGE_COLORS[idx % STAGE_COLORS.length];
-                    const todayYMD = toYMD(new Date());
-                    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-                    const tomorrowYMD = toYMD(tomorrow);
-                    const isTerminalCol = col.id === LEAD_STATUS.MISSED || col.id === LEAD_STATUS.LOST;
                     const colLeads = leadsForBoard
                       .filter(l => mapLeadToStageId(l) === col.id)
-                      .filter(l => {
-                          if (col.id === LEAD_STATUS.MISSED || col.id === LEAD_STATUS.LOST) return true;
-                          if (dayFilter === 'today') return (l.scheduledDate || '') === todayYMD;
-                          if (dayFilter === 'tomorrow') return (l.scheduledDate || '') === tomorrowYMD;
-                          return true;
-                      })
                       .filter(l => originFilter === 'all' ? true : (l.origin || '') === originFilter)
                       .sort((a, b) => {
                         const toDateTime = (lead) => {
@@ -717,11 +701,6 @@ const Pipeline = () => {
                                         <span className="col-dot" style={{ background: color.color }}></span>
                                         <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
                                     </div>
-                                    {isTerminalCol && dayFilter !== 'all' ? (
-                                        <span className="col-terminal-filter-note" title="Hoje/Amanhã filtra por data de aula; estes leads já saíram desse fluxo.">
-                                            Filtro de dia não se aplica aqui
-                                        </span>
-                                    ) : null}
                                 </div>
                                 <span className="col-count" style={{ background: color.bg, color: color.color }}>
                                     {colLeads.length}
@@ -881,8 +860,6 @@ const Pipeline = () => {
                                     let hint = 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.';
                                     if (searchStageScope !== 'all' && col.id !== searchStageScope) {
                                         hint = `“Buscar em” está em “${scopeLabel}”. Troque para “Todas as etapas” para ver todas as colunas.`;
-                                    } else if (dayFilter !== 'all' && !isTerminalCol) {
-                                        hint = 'Troque o filtro para “Todos” para ver agendamentos futuros ou leads sem data.';
                                     } else if (hasSearchQuery && inStageScope) {
                                         hint = 'Nenhum resultado para nome ou telefone. Ajuste a busca ou a etapa em “Buscar em”.';
                                     }
@@ -943,7 +920,6 @@ const Pipeline = () => {
         .pipeline-load-more { background: var(--surface-hover) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important; }
         .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
-        .filters .filter-strip { flex: 0 0 auto; }
         @media (max-width: 1024px) {
           .header-layout { align-items: flex-start; }
           .header-left { width: 100%; }
@@ -987,10 +963,6 @@ const Pipeline = () => {
           padding-bottom: 10px; margin-bottom: 4px; gap: 8px;
         }
         .col-header-titles { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-        .col-terminal-filter-note {
-          font-size: 0.65rem; font-weight: 700; color: var(--text-muted);
-          line-height: 1.25; max-width: 22ch;
-        }
         .col-content {
           flex: 0 0 auto; min-width: 0;
           display: flex; flex-direction: column; gap: 8px;

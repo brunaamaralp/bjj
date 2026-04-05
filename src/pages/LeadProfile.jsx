@@ -45,6 +45,7 @@ const LeadProfile = () => {
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);
     const academyId = useLeadStore((s) => s.academyId);
+    const uiLabels = useLeadStore((s) => s.labels);
 
     const [note, setNote] = useState('');
     const [eventTypeFilter, setEventTypeFilter] = useState('all');
@@ -65,7 +66,11 @@ const LeadProfile = () => {
         borrowedShirt: '',
         customAnswers: {},
         scheduledDate: '',
-        scheduledTime: ''
+        scheduledTime: '',
+        plan: '',
+        enrollmentDate: '',
+        emergencyContact: '',
+        emergencyPhone: '',
     });
 
     const createId = () => {
@@ -173,7 +178,11 @@ const LeadProfile = () => {
             borrowedShirt: src.borrowedShirt || '',
             customAnswers: migratedAnswers,
             scheduledDate: src.scheduledDate || '',
-            scheduledTime: src.scheduledTime || ''
+            scheduledTime: src.scheduledTime || '',
+            plan: src.plan || '',
+            enrollmentDate: src.enrollmentDate || '',
+            emergencyContact: src.emergencyContact || '',
+            emergencyPhone: src.emergencyPhone || '',
         });
     };
 
@@ -320,12 +329,28 @@ const LeadProfile = () => {
 
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
 
+    const studentsPlural = uiLabels.students || 'Alunos';
+    const studentSingularLabel =
+        studentsPlural.toLowerCase().endsWith('s') && studentsPlural.length > 1
+            ? studentsPlural.slice(0, -1)
+            : studentsPlural;
+    const profilePageTitle = lead.status === LEAD_STATUS.CONVERTED ? studentSingularLabel : 'Perfil';
+
+    const formatYmdLocal = (ymd) => {
+        if (!ymd || String(ymd).length < 10) return null;
+        try {
+            return new Date(`${String(ymd).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR');
+        } catch {
+            return null;
+        }
+    };
+
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="lead-profile-inner">
                 <div className="flex items-center gap-4">
                 <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>Perfil</h2>
+                <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>{profilePageTitle}</h2>
                 {!editing ? (
                     <button className="btn-outline" style={{ marginLeft: 'auto' }} onClick={startEdit}>
                         <Pencil size={16} color="var(--text-secondary)" /> Editar
@@ -442,6 +467,27 @@ const LeadProfile = () => {
                                         <input name="borrowedShirt" value={form.borrowedShirt} onChange={onChange} className="form-input" />
                                     </div>
                                 </div>
+                                {lead.status === LEAD_STATUS.CONVERTED && (
+                                    <div className="lead-student-fields mt-3">
+                                        <p className="lead-student-fields-title">Dados do aluno</p>
+                                        <div className="form-group">
+                                            <label>Plano contratado</label>
+                                            <input name="plan" value={form.plan} onChange={onChange} className="form-input" placeholder="Ex.: Mensal, Anual" />
+                                        </div>
+                                        <div className="form-group mt-2">
+                                            <label>Data de ingresso</label>
+                                            <input name="enrollmentDate" value={form.enrollmentDate} onChange={onChange} type="date" className="form-input" />
+                                        </div>
+                                        <div className="form-group mt-2">
+                                            <label>Contato de emergência</label>
+                                            <input name="emergencyContact" value={form.emergencyContact} onChange={onChange} className="form-input" placeholder="Nome do contato" />
+                                        </div>
+                                        <div className="form-group mt-2">
+                                            <label>Telefone de emergência</label>
+                                            <input name="emergencyPhone" value={form.emergencyPhone} onChange={onChange} type="tel" className="form-input" placeholder="Celular" />
+                                        </div>
+                                    </div>
+                                )}
                                 {customQuestions.length > 0 && (
                                     <div className="flex-col gap-2 mt-2">
                                         {customQuestions.map((q) => {
@@ -537,6 +583,46 @@ const LeadProfile = () => {
                                         </div>
                                     );
                                 })}
+                            </div>
+                        )}
+
+                        {!editing && lead.status === LEAD_STATUS.CONVERTED && (
+                            <div className="lead-student-view mt-3">
+                                <p className="lead-student-fields-title">Dados do aluno</p>
+                                <div className="flex-col gap-2">
+                                    {hasLeadDisplayValue(lead.plan) ? (
+                                        <div className="info-row">
+                                            <span className="info-row-label">Plano</span>
+                                            <span className="info-row-value">{lead.plan}</span>
+                                        </div>
+                                    ) : null}
+                                    {formatYmdLocal(lead.enrollmentDate) ? (
+                                        <div className="info-row">
+                                            <span className="info-row-label">Ingresso</span>
+                                            <span className="info-row-value">{formatYmdLocal(lead.enrollmentDate)}</span>
+                                        </div>
+                                    ) : null}
+                                    {hasLeadDisplayValue(lead.emergencyContact) ? (
+                                        <div className="info-row">
+                                            <span className="info-row-label">Emergência</span>
+                                            <span className="info-row-value">{lead.emergencyContact}</span>
+                                        </div>
+                                    ) : null}
+                                    {hasLeadDisplayValue(lead.emergencyPhone) ? (
+                                        <div className="info-row">
+                                            <span className="info-row-label">Tel. emergência</span>
+                                            <span className="info-row-value">{lead.emergencyPhone}</span>
+                                        </div>
+                                    ) : null}
+                                    {!hasLeadDisplayValue(lead.plan) &&
+                                    !formatYmdLocal(lead.enrollmentDate) &&
+                                    !hasLeadDisplayValue(lead.emergencyContact) &&
+                                    !hasLeadDisplayValue(lead.emergencyPhone) ? (
+                                        <p className="text-small" style={{ color: 'var(--text-muted)', margin: 0 }}>
+                                            Nenhum dado extra cadastrado. Toque em <strong>Editar</strong> para incluir plano, ingresso e contato de emergência.
+                                        </p>
+                                    ) : null}
+                                </div>
                             </div>
                         )}
 
@@ -772,6 +858,35 @@ const LeadProfile = () => {
         .info-badge {
           font-size: 0.7rem; font-weight: 700; background: var(--border-light);
           padding: 3px 10px; border-radius: var(--radius-full); color: var(--text-secondary);
+        }
+        .lead-student-fields-title {
+          font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+          letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 10px;
+        }
+        .lead-student-fields {
+          padding: 14px 16px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border);
+          background: var(--purple-light);
+          border-left: 3px solid var(--purple);
+        }
+        .lead-student-view {
+          padding: 14px 16px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border);
+          background: var(--surface-hover);
+        }
+        .profile-header .info-row {
+          display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+          padding: 6px 0; border-bottom: 1px solid var(--border-light);
+        }
+        .profile-header .info-row:last-child { border-bottom: none; }
+        .profile-header .info-row-label {
+          font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;
+          letter-spacing: 0.04em; flex-shrink: 0;
+        }
+        .profile-header .info-row-value {
+          font-size: 0.9rem; color: var(--text); font-weight: 500; text-align: right;
         }
         .contact-btn { 
           flex: 1; height: 48px; border-radius: var(--radius-sm); 
