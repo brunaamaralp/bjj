@@ -2651,7 +2651,7 @@ export default function Inbox() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
             <span className="ctx-label" style={{ marginBottom: 0 }}>Telefone</span>
-            <span className="navi-mono-num" style={{ fontWeight: 700, textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
+            <span className="navi-ui-count" style={{ textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
               {selectedPhone || '—'}
             </span>
           </div>
@@ -2669,7 +2669,7 @@ export default function Inbox() {
           {!!String(selected?.transfer_to || '').trim() && (
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
               <span className="ctx-label" style={{ marginBottom: 0 }}>Transferido para</span>
-              <span className="navi-mono-num" style={{ fontWeight: 700, textAlign: 'right', color: 'var(--ink)' }}>
+              <span className="navi-ui-count" style={{ textAlign: 'right', color: 'var(--ink)' }}>
                 {String(selected?.transfer_to || '').trim()}
               </span>
             </div>
@@ -2872,7 +2872,7 @@ export default function Inbox() {
           <div className="navi-section-heading" style={{ fontSize: '0.9rem' }}>
             Fixadas
           </div>
-          <span className="navi-mono-num">{pinnedMessages.length}</span>
+          <span className="navi-ui-count">{pinnedMessages.length}</span>
         </div>
         {pinnedMessages.length === 0 ? (
           <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
@@ -2997,11 +2997,11 @@ export default function Inbox() {
               'Carregando…'
             ) : (
               <>
-                <span className="navi-mono-num">{items.length}</span> conversas
+                <span className="navi-ui-count">{items.length}</span> conversas
                 {lastUpdatedAt ? (
                   <>
                     {' '}
-                    • atualizado <span className="navi-mono-date">{formatWhen(lastUpdatedAt)}</span>
+                    • atualizado <span className="navi-ui-date">{formatWhen(lastUpdatedAt)}</span>
                   </>
                 ) : null}
               </>
@@ -3582,6 +3582,9 @@ export default function Inbox() {
           <div
             style={{
               display: 'grid',
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
               gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
               gap: 0,
               alignItems: 'stretch'

@@ -364,7 +364,7 @@ const Dashboard = () => {
                                 <div className="text-right">
                                     <div className="flex items-center gap-2" style={{ justifyContent: 'flex-end' }}>
                                         <Clock size={14} color="var(--v500)" />
-                                        <strong className="navi-mono-time">{lead.scheduledTime || '--:--'}</strong>
+                                        <strong className="navi-ui-time">{lead.scheduledTime || '--:--'}</strong>
                                         <button
                                             className="edit-time-btn"
                                             onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
@@ -374,7 +374,7 @@ const Dashboard = () => {
                                             <Edit3 size={18} strokeWidth={2.6} />
                                         </button>
                                     </div>
-                                    <span className="navi-mono-date">{noScheduleDate ? 'Definir data' : formatDate(lead.scheduledDate)}</span>
+                                    <span className="navi-ui-date">{noScheduleDate ? 'Definir data' : formatDate(lead.scheduledDate)}</span>
                                 </div>
                             </div>
 

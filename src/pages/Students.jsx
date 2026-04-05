@@ -68,7 +68,7 @@ const Students = () => {
                     <div>
                         <h2 className="navi-page-title">{studentLabel} Ativos</h2>
                         <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-                            Total nesta lista: <span className="navi-mono-num">{students.length}</span>
+                            Total nesta lista: <span className="navi-ui-count">{students.length}</span>
                             {leadsHasMore ? ' (parcial — há mais leads no servidor)' : ''}
                         </p>
                     </div>

@@ -145,7 +145,7 @@ const Welcome = () => (
             <br />
             perdido no
             <br />
-            <em>WhatsApp.</em>
+            <span className="navi-land-accent">WhatsApp.</span>
           </h1>
           <p className="hero-sub navi-land-hero-sub">
             Navi organiza seus contatos, agendamentos e alunos em um só lugar — com atendimento por IA e funil visual.
@@ -185,7 +185,7 @@ const Welcome = () => (
       <h2 className="navi-land-pain-h2">
         Seu estúdio cresce.
         <br />
-        <em>O caos também.</em>
+        <span className="navi-land-accent">O caos também.</span>
       </h2>
       <div className="pain-cards navi-land-pain-grid">
         {PAIN.map(({ Icon, title, desc }) => (
@@ -205,7 +205,7 @@ const Welcome = () => (
       <h2 className="navi-land-feat-h2">
         Tudo que falta no seu estúdio.
         <br />
-        <em>Em um lugar só.</em>
+        <span className="navi-land-accent">Em um lugar só.</span>
       </h2>
       <div className="feat-pills navi-land-feat-pills">
         {FEAT_PILLS.map(({ Icon, label }) => (
@@ -231,7 +231,7 @@ const Welcome = () => (
         <h2 className="cta-headline navi-land-cta-h2">
           Organize seu estúdio
           <br />
-          em menos de <em>10 minutos.</em>
+          em menos de <span className="navi-land-accent navi-land-accent--on-violet">10 minutos.</span>
         </h2>
         <p className="navi-land-cta-sub">Sem cartão de crédito. Sem complicação. Sem planilha.</p>
         <Link to="/cadastro" className="navi-land-cta-btn">
@@ -382,6 +382,16 @@ const Welcome = () => (
         color: var(--ink);
         margin: 0 0 18px;
         animation: navi-land-fade-up 0.45s 0.07s ease both;
+      }
+      .navi-land-accent {
+        font-family: var(--ff-ui);
+        font-style: italic;
+        font-weight: 800;
+        color: var(--v500);
+        letter-spacing: -0.02em;
+      }
+      .navi-land-accent--on-violet {
+        color: rgba(255, 255, 255, 0.92);
       }
       .navi-land-hero-sub {
         font-size: 16px;

@@ -1,5 +1,5 @@
 /**
- * Wordmark Nav (sans) + i em Fraunces italic — único uso sistemático da serif.
+ * Wordmark Nav + i (mesma família: Plus Jakarta, “i” em itálico e peso maior).
  * @param {number} [fontSize=20]
  * @param {'dark' | 'light'} [variant='dark'] — light = texto branco no topbar violeta
  */
@@ -19,11 +19,11 @@ export default function NaviWordmark({ fontSize = 20, variant = 'dark' }) {
       Nav
       <em
         style={{
-          fontFamily: "'Fraunces', Georgia, serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           fontStyle: 'italic',
-          fontWeight: 300,
-          color: light ? 'rgba(255,255,255,0.92)' : 'var(--v500)',
-          letterSpacing: '-0.03em',
+          fontWeight: 800,
+          color: light ? 'rgba(255,255,255,0.95)' : 'var(--v500)',
+          letterSpacing: '-0.02em',
         }}
       >
         i

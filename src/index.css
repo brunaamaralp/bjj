@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&family=DM+Mono:wght@400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
 
 :root {
   /* Navi — violeta */
@@ -34,8 +34,7 @@
   --border-mid: rgba(91, 63, 191, 0.18);
   --border-strong: rgba(91, 63, 191, 0.3);
 
-  /* Tipografia — UI moderna em sans; serif só em .navi-land (headlines) + letra "i" do NaviWordmark */
-  --ff-serif-accent: 'Fraunces', Georgia, serif;
+  /* Tipografia — só Plus Jakarta + DM Mono (sem serif) */
   --ff-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
   --ff-mono: 'DM Mono', monospace;
 
@@ -85,21 +84,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Fraunces: apenas na landing pública (.navi-land), em <em> de headlines / CTA */
-.navi-land h1 em,
-.navi-land h2 em,
-.navi-land h3 em,
-.navi-land .cta-headline em {
-  font-family: var(--ff-serif-accent);
-  font-style: italic;
-  font-weight: 300;
-  color: var(--v500);
-  letter-spacing: -0.03em;
-}
-
-.navi-land .cta-inner h2 em,
-.navi-land .cta-inner .cta-headline em {
-  color: rgba(255, 255, 255, 0.72);
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 * {
@@ -113,8 +101,11 @@
 
 body {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
+  margin: 0;
 }
 
 #root {
@@ -122,6 +113,9 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 ::-webkit-scrollbar {
@@ -160,7 +154,7 @@ h3 {
   font-size: 1.1rem;
 }
 
-/* .navi-wordmark: estilos de marca vêm do componente NaviWordmark (só o "i" em serif) */
+/* Wordmark: componente NaviWordmark (Plus Jakarta, “i” itálico) */
 
 .navi-eyebrow {
   font-family: var(--ff-mono);
@@ -298,33 +292,59 @@ button:active {
   box-shadow: var(--shadow-sm);
   border: 0.5px solid var(--border-violet);
   transition: var(--transition);
+  font-family: var(--ff-ui);
 }
 
 .card:hover {
   box-shadow: var(--shadow);
 }
 
-/* Layout app shell — um único sidebar expansível/recolhível */
-.navi-shell {
+/* App shell: coluna principal precisa flex-grow:1 senão sobra faixa vazia à direita */
+.app-container {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  flex-direction: column;
   flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Shell: Grid no desktop (auto + 1fr) evita coluna principal com largura “só do conteúdo” */
+.navi-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 0%;
+  align-self: stretch;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   background: var(--paper);
+}
+
+@media (min-width: 1024px) {
+  .navi-shell {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
 }
 
 .navi-sidebar {
   display: none;
   flex-direction: column;
-  flex: 0 0 280px;
   width: 280px;
   max-width: 280px;
   background: var(--white);
   border-right: 0.5px solid var(--border-violet);
   padding: 16px 14px 20px;
   animation: navi-fade-up 0.35s 0.05s ease both;
-  transition: flex-basis 0.22s ease, width 0.22s ease, max-width 0.22s ease, padding 0.22s ease;
+  transition: width 0.22s ease, max-width 0.22s ease, padding 0.22s ease;
   min-height: 0;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .navi-sidebar--collapsed {
@@ -395,15 +415,30 @@ button:active {
 }
 
 .navi-main-stack {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  justify-self: stretch;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  min-width: 0;
   overflow: hidden;
   animation: navi-fade-up 0.35s 0.1s ease both;
 }
 
+@media (min-width: 1024px) {
+  .navi-main-stack {
+    grid-column: 2;
+  }
+}
+
 .navi-topbar {
   flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--v900);
   color: var(--white);
   padding: 12px 20px;
@@ -433,10 +468,27 @@ button:active {
 }
 
 .main-content {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   overflow: auto;
+  overflow-x: hidden;
   padding: 16px;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Cada página (filho direto) ocupa toda a largura útil do main */
+.main-content > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
 }
 
 @media (min-width: 1024px) {
@@ -861,6 +913,9 @@ button:active {
 }
 
 .app-container.navi-authed {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding-bottom: 85px;
 }
 
@@ -967,6 +1022,31 @@ button:active {
 }
 
 .navi-mono-num {
+  font-size: 12px;
+  color: var(--mid);
+}
+
+/* Datas/números em cards e listas — sans + tabular (evita “cara” de mono/serif nos cartões) */
+.navi-ui-time {
+  font-family: var(--ff-ui);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--v700);
+}
+
+.navi-ui-date {
+  font-family: var(--ff-ui);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.navi-ui-count {
+  font-family: var(--ff-ui);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
   font-size: 12px;
   color: var(--mid);
 }
