@@ -234,6 +234,7 @@ const Dashboard = () => {
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
+            <div className="reception-agenda-inner">
             <div className="animate-in">
                 <h1 className="navi-page-title">Agenda da Recepção</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
@@ -507,6 +508,7 @@ const Dashboard = () => {
                     </p>
                 )}
             </section>
+            </div>
 
             {editOpen && (
                 <div className="navi-modal-overlay" onClick={closeEdit}>
@@ -559,8 +561,15 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
+
             <style dangerouslySetInnerHTML={{
                 __html: `
+        .reception-agenda-inner {
+          width: 100%;
+          max-width: 720px;
+          margin-left: auto;
+          margin-right: auto;
+        }
         .hub-quick-row {
           display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
         }

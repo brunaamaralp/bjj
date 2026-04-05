@@ -13,24 +13,26 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['vite.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['navi-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           name: 'Navi',
           short_name: 'Navi',
           description: 'CRM para estúdios de luta, dança, yoga e atividades físicas',
           theme_color: '#12102A',
-          background_color: '#F8F7F4',
+          background_color: '#ffffff',
           display: 'standalone',
           icons: [
             {
-              src: 'pwa-192-192.svg',
+              src: 'pwa-192x192.png',
               sizes: '192x192',
-              type: 'image/svg+xml'
+              type: 'image/png',
+              purpose: 'any maskable'
             },
             {
-              src: 'pwa-512-512.svg',
+              src: 'pwa-512x512.png',
               sizes: '512x512',
-              type: 'image/svg+xml'
+              type: 'image/png',
+              purpose: 'any maskable'
             }
           ]
         }

@@ -385,8 +385,12 @@ button:active {
 
 .navi-sidebar-toggle {
   flex-shrink: 0;
+  box-sizing: border-box;
   width: 36px;
   height: 36px;
+  min-height: 36px;
+  padding: 0;
+  gap: 0;
   border-radius: 10px;
   border: 0.5px solid var(--border-violet);
   background: var(--v50);
@@ -396,6 +400,11 @@ button:active {
   justify-content: center;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.navi-sidebar-toggle svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .navi-sidebar-toggle:hover {
@@ -1195,4 +1204,26 @@ button:active {
   align-items: center;
   justify-content: center;
   padding: 12px;
+}
+
+/* Funil (/pipeline): colunas estreitas — flex min-width:auto do conteúdo ignorava width:200px */
+.pipeline-container .kanban-column {
+  --kanban-col-w: min(200px, calc(100vw - 48px));
+  flex: 0 0 var(--kanban-col-w);
+  width: var(--kanban-col-w);
+  max-width: var(--kanban-col-w);
+  min-width: 0;
+  box-sizing: border-box;
+}
+.pipeline-container .kanban-wrapper {
+  gap: 10px;
+}
+.pipeline-container .col-content {
+  min-width: 0;
+}
+.pipeline-container .card.lead-card {
+  padding: 10px 11px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

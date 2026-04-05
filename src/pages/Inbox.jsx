@@ -1658,6 +1658,15 @@ export default function Inbox() {
   const handleSelectConversation = (it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
+    const nowIso = new Date().toISOString();
+    setItems((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      return arr.map((row) => {
+        const ph = String(row?.phone_number || '').trim();
+        if (ph !== phone) return row;
+        return { ...row, unread_count: 0, last_read_at: nowIso };
+      });
+    });
     setSelectedPhone(phone);
     setThreadCursor(null);
     setThreadHasMore(false);
@@ -1761,10 +1770,8 @@ export default function Inbox() {
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
     if (!phone) return;
-    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-    const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-    if (last) markSeen(phone);
-  }, [selectedPhone, selected?.messages?.length]);
+    void markSeen(phone);
+  }, [selectedPhone]);
 
   const startResize = (ev) => {
     if (!ev) return;

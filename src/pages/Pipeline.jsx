@@ -694,8 +694,8 @@ const Pipeline = () => {
                                         draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id || actionsMenuLeadId === lead.id)}
                                         onDragStart={(e) => onDragStart(e, lead.id)}
                                     >
-                                        <div className="flex justify-between items-center">
-                                            <strong style={{ fontSize: '0.92rem' }}>{lead.name}</strong>
+                                        <div className="flex justify-between items-center gap-1 min-w-0">
+                                            <strong style={{ fontSize: '0.84rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{lead.name}</strong>
                                             <span className="type-pill">{lead.type}</span>
                                         </div>
                                         <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
@@ -918,7 +918,7 @@ const Pipeline = () => {
           .header-right { width: 100%; justify-content: flex-start; }
         }
         .kanban-wrapper { 
-          display: flex; gap: 16px; overflow-x: auto; padding: 12px 16px 16px; flex: 1;
+          display: flex; gap: 10px; overflow-x: auto; padding: 10px 12px 14px; flex: 1;
           scroll-snap-type: x mandatory;
           scrollbar-width: thin;
           scrollbar-gutter: stable both-edges;
@@ -939,8 +939,14 @@ const Pipeline = () => {
           background: linear-gradient(180deg, var(--accent) 0%, var(--accent) 100%);
         }
         .kanban-column { 
-          min-width: 280px; display: flex; flex-direction: column; 
-          gap: 10px; scroll-snap-align: start; min-height: 0; flex: 1 0 auto;
+          --kanban-col-w: min(200px, calc(100vw - 48px));
+          flex: 0 0 var(--kanban-col-w);
+          width: var(--kanban-col-w);
+          max-width: var(--kanban-col-w);
+          min-width: 0;
+          box-sizing: border-box;
+          display: flex; flex-direction: column;
+          gap: 8px; scroll-snap-align: start; min-height: 0;
         }
         .col-header { 
           display: flex; justify-content: space-between; align-items: flex-start; 
@@ -952,28 +958,31 @@ const Pipeline = () => {
           line-height: 1.25; max-width: 22ch;
         }
         .col-content {
-          flex: 1; min-height: 0; max-height: min(70vh, 720px); overflow-y: auto;
-          display: flex; flex-direction: column; gap: 10px;
+          flex: 1; min-height: 0; min-width: 0; max-height: min(70vh, 720px); overflow-y: auto;
+          display: flex; flex-direction: column; gap: 8px;
         }
         .drop-target .col-header { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-sm); }
-        .col-header .pipeline-col-heading { font-size: 0.9rem; font-weight: 600; line-height: 1.2; }
+        .col-header .pipeline-col-heading { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
         .col-dot { width: 8px; height: 8px; border-radius: 50%; }
         .col-count { 
           padding: 2px 10px; border-radius: var(--radius-full); 
           font-size: 0.75rem; font-weight: 800; 
         }
         .lead-card { 
-          cursor: pointer; padding: 14px; 
+          cursor: pointer; padding: 10px 11px; 
           border-left: 3px solid var(--border); 
           transition: var(--transition);
+          min-width: 0;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
         .lead-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow); }
         .type-pill { 
-          font-size: 0.6rem; background: var(--border-light); 
-          padding: 2px 8px; border-radius: var(--radius-full); 
+          font-size: 0.58rem; background: var(--border-light); 
+          padding: 2px 6px; border-radius: var(--radius-full); 
           color: var(--text-secondary); font-weight: 700; text-transform: uppercase; 
         }
-        .lead-meta { font-size: 0.78rem; color: var(--text-secondary); }
+        .lead-meta { font-size: 0.72rem; color: var(--text-secondary); }
         .col-empty { 
           padding: 16px 12px; text-align: center; color: var(--text-muted); 
           font-size: 0.82rem; border: 1.5px dashed var(--border); 
