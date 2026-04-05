@@ -66,9 +66,9 @@ const Students = () => {
             <header className="animate-in">
                 <div className="flex justify-between items-center flex-wrap gap-2">
                     <div>
-                        <h2>{studentLabel} Ativos</h2>
-                        <p className="text-small">
-                            Total nesta lista: {students.length}
+                        <h2 className="navi-page-title">{studentLabel} Ativos</h2>
+                        <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+                            Total nesta lista: <span className="navi-mono-num">{students.length}</span>
                             {leadsHasMore ? ' (parcial — há mais leads no servidor)' : ''}
                         </p>
                     </div>

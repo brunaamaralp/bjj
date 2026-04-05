@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User, Shield, ShoppingBag, Boxes, BarChart3, MessageCircle } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, GraduationCap, User, ShoppingBag, Boxes, BarChart3, MessageCircle } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
@@ -20,7 +20,7 @@ import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
-import { FEATURES } from './config/features';
+import NaviLogo from './components/NaviLogo.jsx';
 
 const App = () => {
   const navigate = useNavigate();
@@ -57,10 +57,18 @@ const App = () => {
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
           navigate('/', { replace: true });
         } else {
-          navigate('/login', { replace: true });
+          const p = window.location.pathname;
+          const authPaths = ['/login', '/register', '/cadastro'];
+          if (!authPaths.includes(p)) {
+            navigate('/', { replace: true });
+          }
         }
       } catch {
-        navigate('/login', { replace: true });
+        const p = window.location.pathname;
+        const authPaths = ['/login', '/register', '/cadastro'];
+        if (!authPaths.includes(p)) {
+          navigate('/', { replace: true });
+        }
       } finally {
         setLoading(false);
       }
@@ -287,7 +295,7 @@ const App = () => {
           await authService.logout();
           setUser(null);
           useLeadStore.getState().setAcademyId(null);
-          navigate('/welcome', { replace: true });
+          navigate('/', { replace: true });
         }
       } catch { /* noop */ }
     }
@@ -315,28 +323,29 @@ const App = () => {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--primary-gradient)',
-      }}>
-        <div style={{ textAlign: 'center', color: 'white' }}>
-          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
-            <Shield size={48} color="white" />
-          </div>
-          <div className="spinner-white" />
-        </div>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 20,
+          background: 'var(--v900)',
+        }}
+      >
+        <NaviLogo size={48} variant="white" />
+        <div className="navi-loading-spinner" aria-hidden />
         <style dangerouslySetInnerHTML={{
           __html: `
-          .spinner-white {
-            width: 32px; height: 32px; margin: 0 auto;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top-color: white; border-radius: 50%;
-            animation: spin 0.6s linear infinite;
+          .navi-loading-spinner {
+            width: 32px; height: 32px;
+            border: 3px solid rgba(123, 99, 212, 0.35);
+            border-top-color: var(--v200);
+            border-radius: 50%;
+            animation: navi-spin 0.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
           }
-          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes navi-spin { to { transform: rotate(360deg); } }
         `}} />
       </div>
     );
@@ -346,214 +355,235 @@ const App = () => {
     return (
       <div className="app-container">
         <Routes>
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/" element={<Welcome />} />
+          <Route path="/welcome" element={<Navigate to="/" replace />} />
+          <Route path="/cadastro" element={<Register onLogin={handleLogin} />} />
           <Route path="/register" element={<Register onLogin={handleLogin} />} />
-          <Route path="*" element={<Navigate to="/welcome" replace />} />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     );
   }
 
+  const academySelect = academyList && academyList.length > 1 && (
+    <select
+      className="navi-topbar-select"
+      value={useLeadStore.getState().academyId || ''}
+      onChange={async (e) => {
+        const id = e.target.value;
+        setAcademyId(id);
+        localStorage.setItem('activeAcademyId', id);
+        try {
+          const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
+          let uiLabels = null;
+          let mods = null;
+          try {
+            if (doc.uiLabels) {
+              uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
+            }
+            if (doc.modules) {
+              mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
+            }
+          } catch { uiLabels = null; mods = null; }
+          if (uiLabels && typeof uiLabels === 'object') {
+            setLabels({
+              leads: uiLabels.leads || 'Leads',
+              students: uiLabels.students || 'Alunos',
+              classes: uiLabels.classes || 'Aulas',
+              pipeline: uiLabels.pipeline || 'Funil',
+            });
+          }
+          if (mods && typeof mods === 'object') {
+            setModules({
+              sales: Boolean(mods.sales),
+              inventory: Boolean(mods.inventory),
+              finance: Boolean(mods.finance),
+            });
+          }
+        } catch (e) { void e; }
+        await useLeadStore.getState().fetchLeads();
+      }}
+    >
+      {academyList.map((a) => (
+        <option key={a.id} value={a.id}>{a.name}</option>
+      ))}
+    </select>
+  );
+
   return (
-    <div className="app-container">
-      <header className="main-header">
-        <div className="container flex justify-between items-center gap-4">
-          <h1 className="header-logo" onClick={() => navigate('/')}>
-            <img src="/pwa-192x192.svg" alt="FitGrow" width="24" height="24" style={{ marginRight: 8, verticalAlign: 'middle' }} /> FitGrow
-          </h1>
-          <div className="flex items-center gap-4">
-            {academyList && academyList.length > 1 && (
-              <select
-                className="form-input"
-                value={useLeadStore.getState().academyId || ''}
-                onChange={async (e) => {
-                  const id = e.target.value;
-                  setAcademyId(id);
-                  localStorage.setItem('activeAcademyId', id);
-                  try {
-                    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
-                    let uiLabels = null;
-                    let mods = null;
-                    try {
-                      if (doc.uiLabels) {
-                        uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
-                      }
-                      if (doc.modules) {
-                        mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
-                      }
-                    } catch { uiLabels = null; mods = null; }
-                    if (uiLabels && typeof uiLabels === 'object') {
-                      setLabels({
-                        leads: uiLabels.leads || 'Leads',
-                        students: uiLabels.students || 'Alunos',
-                        classes: uiLabels.classes || 'Aulas',
-                        pipeline: uiLabels.pipeline || 'Funil',
-                      });
-                    }
-                    if (mods && typeof mods === 'object') {
-                      setModules({
-                        sales: Boolean(mods.sales),
-                        inventory: Boolean(mods.inventory),
-                        finance: Boolean(mods.finance),
-                      });
-                    }
-                  } catch (e) { void e; }
-                  await useLeadStore.getState().fetchLeads();
-                }}
-                style={{ maxWidth: 280 }}
-              >
-                {academyList.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            )}
-            <button
-              className="btn-outline"
-              onClick={handleLogout}
-              style={{ background: 'transparent', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
-            >
-              Sair
-            </button>
+    <div className="app-container navi-authed">
+      <div className="navi-shell">
+        <aside className="navi-rail" aria-label="Atalhos">
+          <div className="navi-rail-logo">
+            <NaviLogo size={28} variant="white" />
           </div>
-        </div>
-      </header>
+          <Link to="/" className={`navi-rail-item ${isActive('/') ? 'active' : ''}`} title="Início"><LayoutGrid size={18} strokeWidth={1.75} /></Link>
+          <Link to="/new-lead" className={`navi-rail-item ${isActive('/new-lead') ? 'active' : ''}`} title={`Novo ${leadSingular(labels.leads)}`}><PlusCircle size={18} strokeWidth={1.75} /></Link>
+          <Link to="/pipeline" className={`navi-rail-item ${isActive('/pipeline') ? 'active' : ''}`} title={labels.pipeline || 'Funil'}><Users size={18} strokeWidth={1.75} /></Link>
+          <Link to="/inbox" className={`navi-rail-item ${isActive('/inbox') ? 'active' : ''}`} title="Atendimento"><MessageCircle size={18} strokeWidth={1.75} /></Link>
+          <Link to="/students" className={`navi-rail-item ${isActive('/students') ? 'active' : ''}`} title={labels.students}><GraduationCap size={18} strokeWidth={1.75} /></Link>
+          <Link to="/reports" className={`navi-rail-item ${isActive('/reports') ? 'active' : ''}`} title="Relatórios"><BarChart3 size={18} strokeWidth={1.75} /></Link>
+          {modules.inventory === true && (
+            <Link to="/estoque" className={`navi-rail-item ${isActive('/estoque') ? 'active' : ''}`} title="Estoque"><Boxes size={18} strokeWidth={1.75} /></Link>
+          )}
+          {modules.sales === true && (
+            <Link to="/vendas" className={`navi-rail-item ${isActive('/vendas') ? 'active' : ''}`} title="Vendas"><ShoppingBag size={18} strokeWidth={1.75} /></Link>
+          )}
+          <Link to="/profile" className={`navi-rail-item ${isActive('/profile') ? 'active' : ''}`} title="Conta"><User size={18} strokeWidth={1.75} /></Link>
+          <Link to="/templates" className={`navi-rail-item ${isActive('/templates') ? 'active' : ''}`} title="Templates"><MessageCircle size={18} strokeWidth={1.75} /></Link>
+        </aside>
 
-      {(() => {
-        const missing = [];
-        if (!DB_ID) missing.push('VITE_APPWRITE_DATABASE_ID');
-        if (!LEADS_COL) missing.push('VITE_APPWRITE_LEADS_COLLECTION_ID');
-        if (!ACADEMIES_COL) missing.push('VITE_APPWRITE_ACADEMIES_COLLECTION_ID');
-        if (modules.inventory === true) {
-          if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
-          if (!INVENTORY_MOVE_FN_ID) missing.push('VITE_APPWRITE_INVENTORY_MOVE_FN_ID');
-        }
-        if (modules.sales === true) {
-          if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
-          if (!SALES_CREATE_FN_ID) missing.push('VITE_APPWRITE_SALES_CREATE_FN_ID');
-          if (!SALES_CANCEL_FN_ID) missing.push('VITE_APPWRITE_SALES_CANCEL_FN_ID');
-        }
-        return missing.length > 0 && (
-          <div style={{ background: 'var(--warning-bg)', color: 'var(--warning-text)', padding: '8px 0' }}>
-            <div className="container text-small">
-              Algumas configurações do Appwrite estão ausentes: {missing.join(', ')}.
-            </div>
-          </div>
-        );
-      })()}
-
-      <div className="layout">
-        <aside className="side-nav">
-          <div className="side-section">
-            <span className="side-section-title">CRM</span>
-            <Link to="/" className={`side-link ${isActive('/') ? 'active' : ''}`}>
-              <LayoutGrid size={18} />
+        <aside className="navi-sidebar" aria-label="Menu">
+          <div className="navi-side-section">
+            <span className="navi-side-section-title">CRM</span>
+            <Link to="/" className={`navi-side-link ${isActive('/') ? 'active' : ''}`}>
+              <LayoutGrid size={18} strokeWidth={1.75} />
               <span>Início</span>
             </Link>
-            <Link to="/new-lead" className="side-link primary">
-              <PlusCircle size={18} />
+            <Link to="/new-lead" className="navi-side-link primary">
+              <PlusCircle size={18} strokeWidth={1.75} />
               <span>Novo {leadSingular(labels.leads)}</span>
             </Link>
-            <Link to="/pipeline" className={`side-link ${isActive('/pipeline') ? 'active' : ''}`}>
-              <Users size={18} />
+            <Link to="/pipeline" className={`navi-side-link ${isActive('/pipeline') ? 'active' : ''}`}>
+              <Users size={18} strokeWidth={1.75} />
               <span>{labels.pipeline || 'Funil'}</span>
             </Link>
-            <Link to="/inbox" className={`side-link ${isActive('/inbox') ? 'active' : ''}`}>
-              <MessageCircle size={18} />
+            <Link to="/inbox" className={`navi-side-link ${isActive('/inbox') ? 'active' : ''}`}>
+              <MessageCircle size={18} strokeWidth={1.75} />
               <span>Atendimento</span>
             </Link>
-            <Link to="/students" className={`side-link ${isActive('/students') ? 'active' : ''}`}>
-              <GraduationCap size={18} />
+            <Link to="/students" className={`navi-side-link ${isActive('/students') ? 'active' : ''}`}>
+              <GraduationCap size={18} strokeWidth={1.75} />
               <span>{labels.students}</span>
             </Link>
-            <Link to="/reports" className={`side-link ${isActive('/reports') ? 'active' : ''}`}>
-              <BarChart3 size={18} />
+            <Link to="/reports" className={`navi-side-link ${isActive('/reports') ? 'active' : ''}`}>
+              <BarChart3 size={18} strokeWidth={1.75} />
               <span>Relatórios</span>
             </Link>
           </div>
           {((modules.inventory === true) || (modules.sales === true)) && (
-            <div className="side-section">
-              <span className="side-section-title">Operações</span>
+            <div className="navi-side-section">
+              <span className="navi-side-section-title">Operações</span>
               {modules.inventory === true && (
-                <Link to="/estoque" className={`side-link ${isActive('/estoque') ? 'active' : ''}`}>
-                  <Boxes size={18} />
+                <Link to="/estoque" className={`navi-side-link ${isActive('/estoque') ? 'active' : ''}`}>
+                  <Boxes size={18} strokeWidth={1.75} />
                   <span>Estoque</span>
                 </Link>
               )}
               {modules.sales === true && (
-                <Link to="/vendas" className={`side-link ${isActive('/vendas') ? 'active' : ''}`}>
-                  <ShoppingBag size={18} />
+                <Link to="/vendas" className={`navi-side-link ${isActive('/vendas') ? 'active' : ''}`}>
+                  <ShoppingBag size={18} strokeWidth={1.75} />
                   <span>Vendas</span>
                 </Link>
               )}
             </div>
           )}
-          <div className="side-section">
-            <Link to="/profile" className={`side-link ${isActive('/profile') ? 'active' : ''}`}>
-              <User size={18} />
+          <div className="navi-side-section">
+            <Link to="/profile" className={`navi-side-link ${isActive('/profile') ? 'active' : ''}`}>
+              <User size={18} strokeWidth={1.75} />
               <span>Conta</span>
             </Link>
-            <Link to="/templates" className={`side-link ${isActive('/templates') ? 'active' : ''}`}>
-              <MessageCircle size={18} />
+            <Link to="/templates" className={`navi-side-link ${isActive('/templates') ? 'active' : ''}`}>
+              <MessageCircle size={18} strokeWidth={1.75} />
               <span>Templates</span>
             </Link>
           </div>
         </aside>
 
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/inbox" element={<Inbox />} />
-            <Route path="/lead/:id" element={<LeadProfile />} />
-            <Route path="/new-lead" element={<NewLead />} />
-            <Route path="/reports" element={<Reports />} />
-            {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
-            {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
-            <Route path="/students" element={<Students />} />
-            <Route path="/profile" element={<Account user={user} onLogout={handleLogout} />} />
-            <Route path="/templates" element={<Templates />} />
-          </Routes>
-        </main>
+        <div className="navi-main-stack">
+          <header className="navi-topbar">
+            <button type="button" className="navi-topbar-brand" onClick={() => navigate('/')}>
+              <NaviLogo size={22} variant="white" />
+              <span className="navi-wordmark">Navi</span>
+            </button>
+            <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {academySelect}
+              <button type="button" className="navi-topbar-logout" onClick={handleLogout}>
+                Sair
+              </button>
+            </div>
+          </header>
+
+          {(() => {
+            const missing = [];
+            if (!DB_ID) missing.push('VITE_APPWRITE_DATABASE_ID');
+            if (!LEADS_COL) missing.push('VITE_APPWRITE_LEADS_COLLECTION_ID');
+            if (!ACADEMIES_COL) missing.push('VITE_APPWRITE_ACADEMIES_COLLECTION_ID');
+            if (modules.inventory === true) {
+              if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
+              if (!INVENTORY_MOVE_FN_ID) missing.push('VITE_APPWRITE_INVENTORY_MOVE_FN_ID');
+            }
+            if (modules.sales === true) {
+              if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
+              if (!SALES_CREATE_FN_ID) missing.push('VITE_APPWRITE_SALES_CREATE_FN_ID');
+              if (!SALES_CANCEL_FN_ID) missing.push('VITE_APPWRITE_SALES_CANCEL_FN_ID');
+            }
+            return missing.length > 0 && (
+              <div style={{ background: 'var(--warn-bg)', color: 'var(--warn-text)', padding: '10px 20px', fontSize: 13 }}>
+                <span className="text-small" style={{ color: 'inherit' }}>
+                  Algumas configurações do Appwrite estão ausentes: {missing.join(', ')}.
+                </span>
+              </div>
+            );
+          })()}
+
+          <main className="main-content">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/inbox" element={<Inbox />} />
+              <Route path="/lead/:id" element={<LeadProfile />} />
+              <Route path="/new-lead" element={<NewLead />} />
+              <Route path="/reports" element={<Reports />} />
+              {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
+              {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
+              <Route path="/students" element={<Students />} />
+              <Route path="/profile" element={<Account user={user} onLogout={handleLogout} />} />
+              <Route path="/templates" element={<Templates />} />
+            </Routes>
+          </main>
+        </div>
       </div>
 
-      {/* Bottom nav: 5 ícones fixos (Início, Funil, Atendimento, FAB, Alunos) — Funil e Alunos competem por atenção; mudança exige redesign. */}
-      <nav className="bottom-nav">
-        <Link to="/" className={`nav-item ${isActive('/') ? 'active' : ''}`}>
-          <LayoutGrid size={22} />
+      <nav className="navi-bottom-nav" aria-label="Navegação">
+        <Link to="/" className={`navi-nav-item ${isActive('/') ? 'active' : ''}`}>
+          <LayoutGrid size={22} strokeWidth={1.75} />
           <span>Início</span>
         </Link>
-        <Link to="/pipeline" className={`nav-item ${isActive('/pipeline') ? 'active' : ''}`}>
-          <Users size={22} />
+        <Link to="/pipeline" className={`navi-nav-item ${isActive('/pipeline') ? 'active' : ''}`}>
+          <Users size={22} strokeWidth={1.75} />
           <span>{labels.pipeline || 'Funil'}</span>
         </Link>
-        <Link to="/inbox" className={`nav-item ${isActive('/inbox') ? 'active' : ''}`}>
-          <MessageCircle size={22} />
+        <Link to="/inbox" className={`navi-nav-item ${isActive('/inbox') ? 'active' : ''}`}>
+          <MessageCircle size={22} strokeWidth={1.75} />
           <span>Atendimento</span>
         </Link>
-        <Link to="/new-lead" className="nav-item nav-fab">
-          <div className="fab-btn">
-            <PlusCircle size={28} />
+        <Link to="/new-lead" className="navi-nav-item navi-nav-fab">
+          <div className="navi-fab-btn">
+            <PlusCircle size={28} strokeWidth={1.75} />
           </div>
         </Link>
-        <Link to="/students" className={`nav-item ${isActive('/students') ? 'active' : ''}`}>
-          <GraduationCap size={22} />
+        <Link to="/students" className={`navi-nav-item ${isActive('/students') ? 'active' : ''}`}>
+          <GraduationCap size={22} strokeWidth={1.75} />
           <span>{labels.students}</span>
         </Link>
         {modules.sales === true && (
-          <Link to="/vendas" className={`nav-item ${isActive('/vendas') ? 'active' : ''}`}>
-            <ShoppingBag size={22} />
+          <Link to="/vendas" className={`navi-nav-item ${isActive('/vendas') ? 'active' : ''}`}>
+            <ShoppingBag size={22} strokeWidth={1.75} />
             <span>Loja</span>
           </Link>
         )}
-        <Link to="/profile" className={`nav-item ${isActive('/profile') ? 'active' : ''}`}>
-          <User size={22} />
+        <Link to="/profile" className={`navi-nav-item ${isActive('/profile') ? 'active' : ''}`}>
+          <User size={22} strokeWidth={1.75} />
           <span>Conta</span>
         </Link>
       </nav>
 
       {toasts && toasts.length > 0 && (
-        <div className="toast-container">
+        <div className="navi-toast-container">
           {toasts.map((t) => (
-            <div key={t.id} className={`toast ${t.type}`} onClick={() => removeToast(t.id)}>
+            <div key={t.id} className={`navi-toast ${t.type || ''}`} onClick={() => removeToast(t.id)} role="status">
               <span>{t.message}</span>
             </div>
           ))}
@@ -562,173 +592,33 @@ const App = () => {
 
       <style dangerouslySetInnerHTML={{
         __html: `
-          .app-container {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            padding-bottom: 85px;
-          }
-          .toast-container {
-            position: fixed;
-            right: 16px;
-            bottom: 90px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 9999;
-          }
-          .toast {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-            padding: 10px 12px;
-            border-radius: var(--radius);
-            cursor: pointer;
-          }
-          .toast.success { border-color: #2ecc71; }
-          .toast.error { border-color: var(--danger); }
-          :root {
-            --warning-bg: #fff7e6;
-            --warning-text: #8a6d3b;
-          }
-          .main-header {
-            background: var(--primary-gradient);
+          .navi-topbar-select {
+            max-width: 220px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 0.5px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
             color: white;
-            padding: 16px 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 20px rgba(10, 22, 40, 0.15);
+            font-family: var(--ff-ui);
+            font-size: 13px;
           }
-          .header-logo {
-            color: white !important;
-            font-size: 1.4rem;
+          .navi-topbar-select option { color: var(--ink); background: var(--white); }
+          .navi-topbar-logout {
+            background: transparent;
+            color: rgba(255,255,255,0.85);
+            border: 0.5px solid rgba(255,255,255,0.35);
+            border-radius: 9px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
-            letter-spacing: -0.02em;
+            min-height: auto;
+            transition: background 0.15s ease, border-color 0.15s ease;
           }
-          .layout {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0;
+          .navi-topbar-logout:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.5);
           }
-          .side-nav {
-            display: none;
-          }
-          @media (min-width: 1024px) {
-            .layout {
-              grid-template-columns: 260px 1fr;
-              gap: 16px;
-              padding: 16px;
-            }
-            .side-nav {
-              display: flex;
-              flex-direction: column;
-              background: var(--surface);
-              border-right: 1px solid var(--border-light);
-              border-radius: var(--radius);
-              padding: 16px;
-              height: calc(100vh - 120px);
-              position: sticky;
-              top: 88px;
-            }
-            .main-content {
-              padding-right: 8px;
-            }
-          }
-          .side-section {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 14px;
-          }
-          .side-section-title {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            font-weight: 800;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            padding: 4px 8px;
-          }
-          .side-link {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            text-decoration: none;
-            color: var(--text-secondary);
-            border-radius: var(--radius-sm);
-            font-weight: 700;
-            transition: var(--transition);
-          }
-          .side-link:hover { background: var(--surface-hover); }
-          .side-link.active { background: var(--accent-light); color: var(--accent); }
-          .side-link.primary { background: var(--accent); color: white; }
-          .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255,255,255,0.85);
-            backdrop-filter: saturate(180%) blur(12px);
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            height: 72px;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
-            border-top: 1px solid var(--border-light);
-            padding: 0 8px;
-            padding-bottom: env(safe-area-inset-bottom, 0);
-            z-index: 100;
-          }
-          @media (min-width: 1024px) {
-            .bottom-nav { display: none; }
-            .app-container { padding-bottom: 0; }
-          }
-          .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-decoration: none;
-            color: var(--text-muted);
-            font-size: 0.68rem;
-            font-weight: 600;
-            gap: 3px;
-            padding: 6px 12px;
-            border-radius: var(--radius-sm);
-            transition: var(--transition);
-            position: relative;
-          }
-          .nav-item.active {
-            color: var(--accent);
-          }
-          .nav-item.active::after {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 20px;
-            height: 3px;
-            background: var(--accent);
-            border-radius: 0 0 3px 3px;
-          }
-          .nav-fab {
-            margin-top: -20px;
-          }
-          .fab-btn {
-            width: 52px;
-            height: 52px;
-            background: var(--accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            box-shadow: var(--shadow-accent);
-            transition: var(--transition);
-          }
-          .nav-fab:active .fab-btn { transform: scale(0.92); }
         `}} />
     </div>
   );

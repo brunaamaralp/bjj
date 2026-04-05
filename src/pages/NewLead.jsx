@@ -89,7 +89,7 @@ const NewLead = () => {
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="flex items-center gap-4">
                 <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <h2>{`Novo ${leadLabelSingular}`}</h2>
+                <h2 className="navi-page-title">{`Novo ${leadLabelSingular}`}</h2>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex-col gap-4 mt-4">

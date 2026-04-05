@@ -30,14 +30,14 @@ const inRange = (ts, a, b) => { if (!ts) return false; const t = new Date(ts).ge
 const Card = ({ title, value, variation, icon, color }) => {
   const isUp = (typeof variation === 'number') ? variation >= 0 : true;
   return (
-    <div className="card kpi-card">
+    <div className="ctx-item reports-ctx-item">
       <div className="kpi-head">
-        <span className="kpi-title">{title}</span>
+        <span className="ctx-label">{title}</span>
         <span className="kpi-icon" style={{ background: `var(--${color}-light)` }}>{icon}</span>
       </div>
-      <div className="kpi-value">{value}</div>
+      <div className="ctx-value accent">{value}</div>
       {typeof variation === 'number' && (
-        <div className={`kpi-var ${isUp ? 'up' : 'down'}`}>
+        <div className={`ctx-meta ${isUp ? 'up' : 'down'}`}>
           {isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />} {variation}%
         </div>
       )}
@@ -194,8 +194,8 @@ const Reports = () => {
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <div className="flex justify-between items-center">
         <div>
-          <h1 style={{ fontSize: '1.5rem', marginBottom: 2 }}>Relatórios</h1>
-          <p className="text-small">Indicadores de desempenho com filtros por período</p>
+          <h1 className="navi-page-title">Relatórios</h1>
+          <p className="navi-eyebrow" style={{ marginTop: 6 }}>Indicadores de desempenho com filtros por período</p>
         </div>
         <button className="btn-secondary" onClick={exportCSV}>
           <Download size={16} /> Exportar CSV
@@ -205,11 +205,13 @@ const Reports = () => {
       <div className="card mt-4 filters-card" style={{ padding: 14 }}>
         <div className="filters-row">
           <Calendar size={16} />
-          {presets.map(p => (
-            <button key={p.key} className={`filter-chip ${preset === p.key ? 'active' : ''}`} onClick={() => setPreset(p.key)}>
-              {p.label}
-            </button>
-          ))}
+          <div className="filter-strip">
+            {presets.map(p => (
+              <button key={p.key} type="button" className={`filter-pill ${preset === p.key ? 'active' : ''}`} onClick={() => setPreset(p.key)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
           {preset === 'custom' && (
             <div className="custom-range">
               <input type="date" className="form-input" value={from} onChange={e => setFrom(e.target.value)} />
@@ -220,7 +222,7 @@ const Reports = () => {
         </div>
       </div>
 
-      <div className="kpi-grid mt-4">
+      <div className="ctx-strip mt-4 reports-kpi-strip">
         <Card title="Novos leads" value={metrics.newLeads.cur} variation={metrics.newLeads.var} icon={<UserPlus size={16} color="var(--accent)" />} color="accent" />
         <Card title="Aulas agendadas" value={metrics.scheduled.cur} variation={metrics.scheduled.var} icon={<Calendar size={16} color="var(--warning)" />} color="warning" />
         <Card title="Compareceram" value={metrics.showed.cur} variation={metrics.showed.var} icon={<CheckCircle2 size={16} color="var(--success)" />} color="success" />
@@ -231,21 +233,21 @@ const Reports = () => {
 
       <div className="card mt-4">
         <div className="evo-header">
-          <h3 className="evo-title">Evolução</h3>
+          <h3 className="navi-section-heading evo-title">Evolução</h3>
           <div className="evo-controls">
             <div className="evo-group">
-              <span className="text-small">Métrica:</span>
-              <div className="chip-row">
-                <button className={`filter-chip ${chartMetric === 'new' ? 'active' : ''}`} onClick={() => setChartMetric('new')}>Novos leads</button>
-                <button className={`filter-chip ${chartMetric === 'scheduled' ? 'active' : ''}`} onClick={() => setChartMetric('scheduled')}>Agendados</button>
-                <button className={`filter-chip ${chartMetric === 'converted' ? 'active' : ''}`} onClick={() => setChartMetric('converted')}>Matrículas</button>
+              <span className="navi-eyebrow" style={{ alignSelf: 'center' }}>Métrica</span>
+              <div className="filter-strip">
+                <button type="button" className={`filter-pill ${chartMetric === 'new' ? 'active' : ''}`} onClick={() => setChartMetric('new')}>Novos leads</button>
+                <button type="button" className={`filter-pill ${chartMetric === 'scheduled' ? 'active' : ''}`} onClick={() => setChartMetric('scheduled')}>Agendados</button>
+                <button type="button" className={`filter-pill ${chartMetric === 'converted' ? 'active' : ''}`} onClick={() => setChartMetric('converted')}>Matrículas</button>
               </div>
             </div>
             <div className="evo-group">
-              <span className="text-small">Período:</span>
-              <div className="chip-row">
-                <button className={`filter-chip ${chartMode === 'weekly' ? 'active' : ''}`} onClick={() => setChartMode('weekly')}>Semanal</button>
-                <button className={`filter-chip ${chartMode === 'monthly' ? 'active' : ''}`} onClick={() => setChartMode('monthly')}>Mensal</button>
+              <span className="navi-eyebrow" style={{ alignSelf: 'center' }}>Período</span>
+              <div className="filter-strip">
+                <button type="button" className={`filter-pill ${chartMode === 'weekly' ? 'active' : ''}`} onClick={() => setChartMode('weekly')}>Semanal</button>
+                <button type="button" className={`filter-pill ${chartMode === 'monthly' ? 'active' : ''}`} onClick={() => setChartMode('monthly')}>Mensal</button>
               </div>
             </div>
           </div>
@@ -300,33 +302,17 @@ const Reports = () => {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; }
-        @media (min-width: 1400px) { .kpi-grid { grid-template-columns: repeat(6, minmax(0,1fr)); } }
-        @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-        @media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-        .kpi-card { padding: 14px; }
-        .kpi-head { display: flex; align-items: center; justify-content: space-between; }
-        .kpi-title { font-size: 0.82rem; color: var(--text-secondary); font-weight: 700; }
-        .kpi-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .kpi-value { font-size: 1.6rem; font-weight: 800; margin-top: 6px; }
-        .kpi-var { margin-top: 6px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
-        .kpi-var.up { color: var(--success); }
-        .kpi-var.down { color: var(--danger); }
+        .reports-kpi-strip { flex-wrap: wrap; width: 100%; }
+        .reports-ctx-item { min-width: min(100%, 140px); flex: 1 1 140px; }
+        .kpi-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+        .kpi-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .filters-card { margin-top: 12px; }
         .filters-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .filters-row .filter-chip { margin-right: 0; }
         .custom-range { display: inline-flex; align-items: center; gap: 8px; }
-        .evo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .evo-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
         .evo-title { margin: 0; margin-right: 12px; }
-        .evo-controls { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-        .evo-group { display: inline-flex; align-items: center; gap: 8px; }
-        .chip-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .filter-chip {
-          min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full); 
-          border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
-          font-size: 0.78rem; font-weight: 700;
-        }
-        .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .evo-controls { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+        .evo-group { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       `}} />
     </div>
   );

@@ -281,7 +281,7 @@ const LeadProfile = () => {
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="flex items-center gap-4">
                 <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <h2>Perfil</h2>
+                <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>Perfil</h2>
                 {!editing ? (
                     <button className="btn-outline" style={{ marginLeft: 'auto' }} onClick={startEdit}>
                         <Pencil size={16} color="var(--text-secondary)" /> Editar
@@ -320,8 +320,8 @@ const LeadProfile = () => {
                     <div>
                         {!editing ? (
                             <>
-                                <h2 style={{ fontSize: '1.3rem', color: 'var(--text)' }}>{lead.name}</h2>
-                                <p className="text-small mt-1">
+                                <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.2rem, 2.6vw, 1.5rem)', margin: 0 }}>{lead.name}</h2>
+                                <p className="navi-subtitle" style={{ marginTop: 4 }}>
                                     {lead.type} • {lead.origin}
                                     {lead.age && ` • ${lead.age} anos`}
                                 </p>
@@ -480,9 +480,12 @@ const LeadProfile = () => {
                         {!editing ? (
                             lead.scheduledDate && (
                                 <div className="flex items-center gap-2 mt-3">
-                                    <Clock size={14} color="var(--accent)" />
-                                    <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                                        {lead.scheduledTime || '--:--'} — {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                    <Clock size={14} color="var(--v500)" />
+                                    <span>
+                                        <span className="navi-mono-time" style={{ fontWeight: 600 }}>{lead.scheduledTime || '--:--'}</span>
+                                        <span className="navi-mono-date" style={{ marginLeft: 6 }}>
+                                            {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                        </span>
                                     </span>
                                 </div>
                             )
@@ -514,7 +517,7 @@ const LeadProfile = () => {
 
             {/* Action Buttons */}
             <div className="mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
-                <h3 className="mb-2">Próximos Passos</h3>
+                <h3 className="navi-section-heading mb-2">Próximos Passos</h3>
                 <div className="action-grid">
                     <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.SCHEDULED)}>
                         <Calendar size={22} color="var(--warning)" />
@@ -536,7 +539,7 @@ const LeadProfile = () => {
 
             {!editing && (
                 <div className="mt-4 animate-in" style={{ animationDelay: '0.12s' }}>
-                    <h3 className="mb-2">Mais Ações</h3>
+                    <h3 className="navi-section-heading mb-2">Mais Ações</h3>
                     <div className="more-actions">
                         <button className="btn-outline danger-btn" onClick={handleMarkLost}>
                             <AlertTriangle size={16} /> Não fechou
@@ -550,7 +553,7 @@ const LeadProfile = () => {
 
             {/* Timeline */}
             <div className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
-                <h3 className="mb-2">Linha do tempo</h3>
+                <h3 className="navi-section-heading mb-2">Linha do tempo</h3>
                 <div className="note-input-group">
                     <textarea
                         value={note}
@@ -567,15 +570,15 @@ const LeadProfile = () => {
                     <button className="tpl-chip" onClick={() => addNoteQuick('WhatsApp enviado')}>WhatsApp enviado</button>
                     <button className="tpl-chip" onClick={() => addNoteQuick('Proposta enviada')}>Proposta enviada</button>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-3">
-                    <button className={`filter-chip${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
-                    <button className={`filter-chip${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
-                    <button className={`filter-chip${eventTypeFilter === 'call' ? ' active' : ''}`} onClick={() => setEventTypeFilter('call')}>Ligações</button>
-                    <button className={`filter-chip${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
-                    <button className={`filter-chip${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
-                    <button className={`filter-chip${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
-                    <button className={`filter-chip${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
-                    <button className={`filter-chip${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
+                <div className="filter-strip mt-3" style={{ maxWidth: '100%' }}>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'call' ? ' active' : ''}`} onClick={() => setEventTypeFilter('call')}>Ligações</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
                 </div>
 
                 <div className="flex-col gap-2 mt-3">
@@ -603,7 +606,7 @@ const LeadProfile = () => {
                                 <div className="event-content">
                                     <div className="event-head">
                                         <span className="event-tag">{tag}</span>
-                                        <span className="event-time">{when}</span>
+                                        <span className="event-time navi-mono-date">{when}</span>
                                     </div>
                                     <p className="event-text">{label}</p>
                                 </div>
@@ -665,18 +668,12 @@ const LeadProfile = () => {
           font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
         }
         .tpl-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .filter-chip {
-          min-height: 28px; padding: 6px 12px; border-radius: var(--radius-full);
-          background: var(--surface); border: 1px solid var(--border);
-          font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
-        }
-        .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
         .event-row { display: flex; gap: 10px; align-items: flex-start; }
         .event-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
         .event-content { flex: 1; }
         .event-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
         .event-tag { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
-        .event-time { font-size: 0.72rem; color: var(--text-muted); }
+        .event-time { font-size: 11px; color: var(--faint); }
         .event-text { font-size: 0.9rem; color: var(--text); margin-top: 2px; }
       `}} />
         </div>

@@ -192,8 +192,8 @@ const Templates = () => {
     <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: 0 }}>Templates de Mensagens</h2>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 4 }}>
+          <h2 className="navi-page-title" style={{ margin: 0 }}>Templates de Mensagens</h2>
+          <div className="navi-eyebrow" style={{ marginTop: 6 }}>
             {changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
           </div>
         </div>
@@ -221,7 +221,7 @@ const Templates = () => {
       <div className="card mt-3 animate-in">
         <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <User size={18} />
-          <span className="text-small">Lead de exemplo para preview</span>
+          <span className="navi-subtitle" style={{ margin: 0 }}>Lead de exemplo para preview</span>
           <select
             className="form-input"
             value={sampleLeadId}
@@ -290,7 +290,7 @@ const Templates = () => {
                 <MessageCircle size={18} color="#25D366" />
                 <strong>{labelFor[id]}</strong>
                 {isChanged && <span className="tpl-badge">Não salvo</span>}
-                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{raw.length} chars</span>
+                <span className="navi-mono-num">{raw.length} chars</span>
               </div>
               <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button className="btn-outline" onClick={() => copyText(raw, copyKeyRaw)} title="Copiar template (com variáveis)">
@@ -307,7 +307,7 @@ const Templates = () => {
             {isExpanded && (
               <>
                 <div className="tpl-vars">
-                  <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Variáveis</div>
+                  <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Variáveis</div>
                   <div className="tpl-vars-scroll">
                     {PLACEHOLDERS.map((ph) => (
                       <button key={ph.key} className="tpl-chip" onClick={() => handleInsertPlaceholder(ph.key, id)} title={ph.label}>
@@ -326,7 +326,7 @@ const Templates = () => {
               </>
             )}
             <div className="tpl-preview">
-              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Preview</div>
+              <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Preview</div>
               <div className="tpl-preview-box text-small">{preview || '—'}</div>
               <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn-outline" onClick={() => openWhatsAppTest(preview)} disabled={!canTest} title="Abrir no WhatsApp com o lead de exemplo">
@@ -371,7 +371,7 @@ const Templates = () => {
         .tpl-preview { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
         .tpl-preview-box {
           border: 1px solid var(--border);
-          background: rgba(0,0,0,0.02);
+          background: rgba(91, 63, 191, 0.04);
           border-radius: var(--radius-sm);
           padding: 10px 12px;
           white-space: pre-wrap;

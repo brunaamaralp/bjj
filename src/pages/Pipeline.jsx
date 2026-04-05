@@ -508,8 +508,8 @@ const Pipeline = () => {
                 <div className="container header-layout">
                     <div className="header-left">
                         <div className="pipeline-title-block">
-                            <h2>{labels.pipeline || 'Funil'}</h2>
-                            <p className="pipeline-subtitle">Fluxo de matrícula até a conversão</p>
+                            <h2 className="navi-page-title">{labels.pipeline || 'Funil'}</h2>
+                            <p className="navi-eyebrow" style={{ marginTop: 6, maxWidth: '42ch' }}>Fluxo de matrícula até a conversão</p>
                             <p className="pipeline-drag-hint">Se o arraste horizontal for difícil, use <strong>Mover de etapa</strong> no card.</p>
                         </div>
                         <div className="filters">
@@ -524,9 +524,11 @@ const Pipeline = () => {
                                     aria-label="Buscar no funil"
                                 />
                             </div>
-                            <button className={`filter-chip ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
-                            <button className={`filter-chip ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
-                            <button className={`filter-chip ${dayFilter === 'tomorrow' ? 'active' : ''}`} onClick={() => setDayFilter('tomorrow')}>Amanhã</button>
+                            <div className="filter-strip">
+                                <button type="button" className={`filter-pill ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
+                                <button type="button" className={`filter-pill ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
+                                <button type="button" className={`filter-pill ${dayFilter === 'tomorrow' ? 'active' : ''}`} onClick={() => setDayFilter('tomorrow')}>Amanhã</button>
+                            </div>
                             <div className="origin-group">
                                 <SlidersHorizontal size={14} />
                                 <select className="origin-select" value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
@@ -669,7 +671,7 @@ const Pipeline = () => {
                                 <div className="col-header-titles">
                                     <div className="flex items-center gap-2">
                                         <span className="col-dot" style={{ background: color.color }}></span>
-                                        <h3>{col.label}</h3>
+                                        <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
                                     </div>
                                     {isTerminalCol && dayFilter !== 'all' ? (
                                         <span className="col-terminal-filter-note" title="Hoje/Amanhã filtra por data de aula; estes leads já saíram desse fluxo.">
@@ -896,8 +898,7 @@ const Pipeline = () => {
         .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
         .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .pipeline-title-block h2 { margin: 0; font-size: 1.35rem; }
-        .pipeline-subtitle { margin: 2px 0 0; font-size: 0.78rem; color: var(--text-muted); font-weight: 600; max-width: 42ch; }
+        .pipeline-title-block .navi-page-title { margin: 0; }
         .pipeline-drag-hint { margin: 6px 0 0; font-size: 0.72rem; color: var(--text-muted); font-weight: 500; max-width: 52ch; line-height: 1.35; }
         .pipeline-search-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 10px; background: var(--surface); min-height: 30px; }
         .pipeline-search-icon { color: var(--text-muted); flex-shrink: 0; }
@@ -909,8 +910,7 @@ const Pipeline = () => {
         @keyframes pipelineSpin { to { transform: rotate(360deg); } }
         .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
-        .filters .filter-chip { flex: 0 0 auto; }
-        .origin-group { flex: 0 0 auto; }
+        .filters .filter-strip { flex: 0 0 auto; }
         @media (max-width: 1024px) {
           .header-layout { align-items: flex-start; }
           .header-left { width: 100%; }
@@ -956,7 +956,7 @@ const Pipeline = () => {
           display: flex; flex-direction: column; gap: 10px;
         }
         .drop-target .col-header { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-sm); }
-        .col-header h3 { font-size: 0.9rem; font-weight: 700; }
+        .col-header .pipeline-col-heading { font-size: 0.9rem; font-weight: 600; line-height: 1.2; }
         .col-dot { width: 8px; height: 8px; border-radius: 50%; }
         .col-count { 
           padding: 2px 10px; border-radius: var(--radius-full); 
@@ -993,14 +993,7 @@ const Pipeline = () => {
           gap: 6px; white-space: nowrap;
         }
         .import-btn-pipe:hover { filter: brightness(1.1); }
-        .filters { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
-        .filter-chip {
-          min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
-          border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
-          font-size: 0.78rem; font-weight: 700;
-        }
-        .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .origin-group { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 8px; background: var(--surface); }
+        .origin-group { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 8px; background: var(--surface); }
         .origin-select { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 700; }
         .stage-editor { margin-top: 10px; padding-bottom: 10px; }
         .stage-editor-head {
@@ -1090,7 +1083,7 @@ const Pipeline = () => {
           .toast { bottom: 24px; }
         }
         .note-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+          position: fixed; inset: 0; background: rgba(18, 16, 42, 0.5);
           display: flex; align-items: center; justify-content: center;
           z-index: 300; animation: fadeIn 0.2s ease;
         }
@@ -1110,7 +1103,7 @@ const Pipeline = () => {
             {noteOpen && (
                 <div className="note-overlay" onClick={() => setNoteOpen(false)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: 8 }}>Adicionar observação</h3>
+                        <h3 className="navi-section-heading" style={{ marginBottom: 8 }}>Adicionar observação</h3>
                         <textarea
                             className="note-textarea"
                             value={noteText}

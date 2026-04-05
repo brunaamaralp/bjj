@@ -40,7 +40,7 @@ export default function ConversationItem({
         border: 'none',
         borderBottom: '1px solid var(--border)',
         borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
-        background: active ? 'rgba(0, 188, 142, 0.18)' : isHighlighted ? 'rgba(34, 197, 94, 0.10)' : 'transparent',
+        background: active ? 'var(--v50)' : isHighlighted ? 'rgba(91, 63, 191, 0.08)' : 'transparent',
         cursor: 'pointer',
         overflow: 'hidden'
       }}

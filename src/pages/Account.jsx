@@ -262,7 +262,7 @@ const Account = ({ user, onLogout }) => {
         if (!academy.teamId || !memberEmail) return;
         setInviting(true);
         try {
-            await teams.createMembership(academy.teamId, memberEmail, [memberRole], window.location.origin + '/welcome');
+            await teams.createMembership(academy.teamId, memberEmail, [memberRole], `${window.location.origin}/`);
             setMemberEmail('');
             try {
                 const res = await teams.listMemberships(academy.teamId);
@@ -292,8 +292,8 @@ const Account = ({ user, onLogout }) => {
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="animate-in">
-                <h2>Minha Conta</h2>
-                <p className="text-small">Configurações da academia e do sistema</p>
+                <h2 className="navi-page-title">Minha Conta</h2>
+                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Configurações da academia e do sistema</p>
             </div>
 
             {/* Academy Avatar */}
@@ -303,8 +303,8 @@ const Account = ({ user, onLogout }) => {
                         <Building2 size={28} />
                     </div>
                     <div style={{ flex: 1 }}>
-                        <h3 style={{ fontSize: '1.15rem' }}>{academy.name || 'Minha Academia'}</h3>
-                        <p className="text-small">{user?.email || 'Configure seus dados abaixo'}</p>
+                        <h3 className="navi-section-heading" style={{ fontSize: '1.15rem' }}>{academy.name || 'Minha Academia'}</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 4 }}>{user?.email || 'Configure seus dados abaixo'}</p>
                     </div>
                 </div>
             </div>
@@ -328,8 +328,8 @@ const Account = ({ user, onLogout }) => {
             {/* Academy Info */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.12s' }}>
                 <div className="flex justify-between items-center mb-2">
-                    <h3>Checklist Inicial</h3>
-                    <span className="text-small" style={{ color: 'var(--text-muted)' }}>
+                    <h3 className="navi-section-heading">Checklist Inicial</h3>
+                    <span className="navi-eyebrow" style={{ color: 'var(--mid)' }}>
                         {`${(academy.onboardingChecklist || []).filter(i => i.done).length}/${(academy.onboardingChecklist || []).length || 0} concluídos`}
                     </span>
                 </div>
@@ -359,7 +359,7 @@ const Account = ({ user, onLogout }) => {
             {/* Custom Lead Questions */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.18s' }}>
                 <div className="flex justify-between items-center mb-2">
-                    <h3>Perguntas do Lead</h3>
+                    <h3 className="navi-section-heading">Perguntas do Lead</h3>
                 </div>
                 <div className="card">
                     <div className="flex-col gap-3">
@@ -493,7 +493,7 @@ const Account = ({ user, onLogout }) => {
                                 </div>
                             ))}
                             {(academy.customLeadQuestions || []).length === 0 && (
-                                <div className="text-small" style={{ color: 'var(--text-muted)' }}>
+                                <div className="navi-subtitle" style={{ marginTop: 0 }}>
                                     Nenhuma pergunta configurada. Adicione perguntas personalizadas para acompanhar no perfil do lead.
                                 </div>
                             )}
@@ -513,7 +513,7 @@ const Account = ({ user, onLogout }) => {
 
             <section className="mt-6 animate-in" style={{ animationDelay: '0.15s' }}>
                 <div className="flex justify-between items-center mb-2">
-                    <h3>Dados da Academia</h3>
+                    <h3 className="navi-section-heading">Dados da Academia</h3>
                     {!editing && (
                         <button className="edit-link" onClick={() => setEditing(true)}>Editar</button>
                     )}
@@ -652,7 +652,7 @@ const Account = ({ user, onLogout }) => {
 
             {/* Actions */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
-                <h3 className="mb-2">Ações</h3>
+                <h3 className="navi-section-heading mb-2">Ações</h3>
                 <div className="card flex-col" style={{ padding: 0, overflow: 'hidden' }}>
                     <div className="action-row">
                         <div className="flex items-center gap-4">
@@ -661,7 +661,7 @@ const Account = ({ user, onLogout }) => {
                             </div>
                             <div>
                                 <strong>Exportar Todos os Dados</strong>
-                                <p className="text-small">Baixe uma planilha com todos os leads</p>
+                                <p className="navi-subtitle" style={{ marginTop: 2 }}>Baixe uma planilha com todos os leads</p>
                             </div>
                         </div>
                         <ExportButton leads={leads} fileName="bjj-crm-completo" label="Baixar" />
@@ -674,7 +674,7 @@ const Account = ({ user, onLogout }) => {
                             </div>
                             <div>
                                 <strong style={{ color: 'var(--danger)' }}>Limpar Todos os Dados</strong>
-                                <p className="text-small">Remove todos os leads e alunos</p>
+                                <p className="navi-subtitle" style={{ marginTop: 2 }}>Remove todos os leads e alunos</p>
                             </div>
                         </div>
                         <ChevronRight size={18} color="var(--text-muted)" />
@@ -687,7 +687,7 @@ const Account = ({ user, onLogout }) => {
                             </div>
                             <div>
                                 <strong>Sair da Conta</strong>
-                                <p className="text-small">{user?.email}</p>
+                                <p className="navi-subtitle" style={{ marginTop: 2 }}>{user?.email}</p>
                             </div>
                         </div>
                         <ChevronRight size={18} color="var(--text-muted)" />
@@ -697,7 +697,7 @@ const Account = ({ user, onLogout }) => {
 
             {/* Team Management */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.22s' }}>
-                <h3 className="mb-2">Equipe</h3>
+                <h3 className="navi-section-heading mb-2">Equipe</h3>
                 <div className="card">
                     {academy.teamId ? (
                         <div className="flex-col gap-3">
@@ -719,7 +719,7 @@ const Account = ({ user, onLogout }) => {
                                 <p className="text-xs text-light">É necessário SMTP configurado no Appwrite para envio do convite.</p>
                             </div>
                             <div>
-                                <label style={{ fontWeight: 600, fontSize: '0.95rem' }}>Membros</label>
+                                <span className="navi-section-heading" style={{ fontSize: '0.95rem', display: 'block', marginBottom: 4 }}>Membros</span>
                                 <div className="flex-col gap-1 mt-2">
                                     {(memberships || []).map(m => (
                                         <div key={m.$id} className="info-row">
@@ -728,13 +728,13 @@ const Account = ({ user, onLogout }) => {
                                         </div>
                                     ))}
                                     {(memberships || []).length === 0 && (
-                                        <div className="text-small" style={{ color: 'var(--text-muted)' }}>Nenhum membro listado.</div>
+                                        <div className="navi-subtitle" style={{ marginTop: 0 }}>Nenhum membro listado.</div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="text-small" style={{ color: 'var(--text-muted)' }}>
+                        <div className="navi-subtitle" style={{ marginTop: 0 }}>
                             Nenhum time associado. Faça logout e login novamente para criar/associar automaticamente.
                         </div>
                     )}
@@ -743,12 +743,12 @@ const Account = ({ user, onLogout }) => {
 
             {/* System Info */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.25s' }}>
-                <h3 className="mb-2">Sistema</h3>
+                <h3 className="navi-section-heading mb-2">Sistema</h3>
                 <div className="card">
                     <div className="flex items-center gap-4">
                         <Info size={16} color="var(--text-muted)" />
                         <div>
-                            <p className="text-small" style={{ color: 'var(--text)' }}>FitGrow v2.0</p>
+                            <p className="navi-section-heading" style={{ fontSize: '0.95rem' }}>Navi</p>
                             <p className="text-xs text-light">Dados armazenados na nuvem via Appwrite</p>
                         </div>
                     </div>
@@ -762,9 +762,9 @@ const Account = ({ user, onLogout }) => {
                         <div className="confirm-icon-wrap">
                             <Trash2 size={28} color="var(--danger)" />
                         </div>
-                        <h3>Limpar todos os dados?</h3>
-                        <p className="text-small">Esta ação é irreversível. {leads.length} registros (leads e alunos) serão removidos.</p>
-                        <p className="text-small mt-2">Digite <strong>LIMPAR</strong> para confirmar:</p>
+                        <h3 className="navi-section-heading">Limpar todos os dados?</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 10 }}>Esta ação é irreversível. {leads.length} registros (leads e alunos) serão removidos.</p>
+                        <p className="navi-subtitle mt-2" style={{ marginTop: 12 }}>Digite <strong>LIMPAR</strong> para confirmar:</p>
                         <input
                             className="form-input mt-2"
                             value={clearConfirmText}
@@ -829,7 +829,7 @@ const Account = ({ user, onLogout }) => {
           border-radius: var(--radius-sm); font-weight: 700;
         }
         .confirm-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+          position: fixed; inset: 0; background: rgba(18, 16, 42, 0.5);
           backdrop-filter: blur(4px); z-index: 200;
           display: flex; align-items: center; justify-content: center;
           padding: 20px; animation: fadeIn 0.2s ease;

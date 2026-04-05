@@ -389,8 +389,8 @@ const Sales = () => {
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <div className="animate-in">
-        <h1 style={{ fontSize: '1.5rem', marginBottom: 2 }}>Vendas</h1>
-        <p className="text-small">Registrar venda e cancelar</p>
+        <h1 className="navi-page-title">Vendas</h1>
+        <p className="navi-eyebrow" style={{ marginTop: 6 }}>Registrar venda e cancelar</p>
       </div>
 
       <form className="card mt-4 animate-in" onSubmit={submit}>

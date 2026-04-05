@@ -2048,7 +2048,7 @@ export default function Inbox() {
                   );
                 }
                 return (
-                  <span className="text-small" style={{ background: 'rgba(34, 197, 94, 0.10)', color: '#16a34a', padding: '2px 8px', borderRadius: 999 }}>
+                  <span className="text-small" style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '2px 8px', borderRadius: 999 }}>
                     Agente IA ativo
                   </span>
                 );
@@ -2103,10 +2103,10 @@ export default function Inbox() {
       </div>
 
       {promptModal && (
-        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 'min(960px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontWeight: 800 }}>Configurar Prompt da IA</div>
+              <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Configurar Prompt da IA</div>
               <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPromptModal(false)} type="button">
                 Fechar
               </button>
@@ -2114,15 +2114,15 @@ export default function Inbox() {
             <div style={{ padding: 12, display: 'grid', gap: 12 }}>
               {loadingPrompt && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Introdução</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Introdução</div>
                 <textarea className="input" value={promptIntro} onChange={(e) => setPromptIntro(e.target.value)} rows={5} placeholder="Texto de introdução" disabled={loadingPrompt} />
               </div>
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Corpo</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Corpo</div>
                 <textarea className="input" value={promptBody} onChange={(e) => setPromptBody(e.target.value)} rows={10} placeholder="Regras, horários, preços, etc." disabled={loadingPrompt} />
               </div>
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Complemento</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Complemento</div>
                 <textarea className="input" value={promptSuffix} onChange={(e) => setPromptSuffix(e.target.value)} rows={5} placeholder="Instruções adicionais" disabled={loadingPrompt} />
               </div>
             </div>
@@ -2152,10 +2152,10 @@ export default function Inbox() {
       )}
 
       {transferModalOpen && (
-        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 'min(560px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontWeight: 800 }}>Transferir conversa</div>
+              <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Transferir conversa</div>
               <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setTransferModalOpen(false)} type="button">
                 Fechar
               </button>
@@ -2165,7 +2165,7 @@ export default function Inbox() {
                 Use para marcar para qual área essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
               </div>
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Destino (opcional)</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Destino (opcional)</div>
                 <input className="input" value={transferToDraft} onChange={(e) => setTransferToDraft(e.target.value)} placeholder="Ex.: Financeiro" />
               </div>
             </div>
@@ -2194,7 +2194,7 @@ export default function Inbox() {
         <div
           ref={threadScrollRef}
           onScroll={onThreadScroll}
-          style={{ padding: 14, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto', background: 'rgba(0,0,0,0.02)' }}
+          style={{ padding: 14, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto', background: 'rgba(91,63,191,0.04)' }}
         >
           {threadHasMore && !threadLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
@@ -2240,7 +2240,7 @@ export default function Inbox() {
                     padding: '10px 12px',
                     borderRadius: 14,
                     background: g.mine ? 'var(--accent-light)' : 'var(--surface)',
-                    border: `1px solid ${g.mine ? 'rgba(0, 188, 142, 0.25)' : 'var(--border)'}`,
+                    border: `1px solid ${g.mine ? 'rgba(91, 63, 191, 0.22)' : 'var(--border)'}`,
                     boxShadow: 'var(--shadow-sm)'
                   }}
                 >
@@ -2480,7 +2480,7 @@ export default function Inbox() {
                       gap: 4
                     }}
                   >
-                    <div className="text-small" style={{ color: 'var(--text-secondary)', padding: '2px 6px 6px', fontWeight: 600 }}>Mensagens prontas</div>
+                    <div className="navi-section-heading" style={{ fontSize: '0.82rem', padding: '2px 6px 6px' }}>Mensagens prontas</div>
                     {quickTemplates.map((tpl) => (
                       <button
                         key={tpl}
@@ -2645,22 +2645,18 @@ export default function Inbox() {
   const contextPanelContent = (
     <div style={{ padding: 12, display: 'grid', gap: 12 }}>
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-        <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+        <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
           Conversa
         </div>
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-              Telefone
-            </span>
-            <span className="text-small" style={{ color: 'var(--text)', fontWeight: 700, textAlign: 'right', wordBreak: 'break-all' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+            <span className="ctx-label" style={{ marginBottom: 0 }}>Telefone</span>
+            <span className="navi-mono-num" style={{ fontWeight: 700, textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
               {selectedPhone || '—'}
             </span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-              Status
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+            <span className="ctx-label" style={{ marginBottom: 0 }}>Status</span>
             {(() => {
               const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
               return (
@@ -2671,11 +2667,9 @@ export default function Inbox() {
             })()}
           </div>
           {!!String(selected?.transfer_to || '').trim() && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                Transferido para
-              </span>
-              <span className="text-small" style={{ color: 'var(--text)', fontWeight: 700, textAlign: 'right' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+              <span className="ctx-label" style={{ marginBottom: 0 }}>Transferido para</span>
+              <span className="navi-mono-num" style={{ fontWeight: 700, textAlign: 'right', color: 'var(--ink)' }}>
                 {String(selected?.transfer_to || '').trim()}
               </span>
             </div>
@@ -2725,13 +2719,13 @@ export default function Inbox() {
         const hotLead = Boolean(lead?.hotLead);
         return (
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-            <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+            <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
               Contato / Lead
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
               {!!phone && (
-                <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                <div className="navi-subtitle" style={{ marginTop: 0 }}>
                   {phone}
                 </div>
               )}
@@ -2791,18 +2785,18 @@ export default function Inbox() {
 
       {leadPanel === 'convert' && !selected?.lead_id && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
             Converter em lead
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
             <div>
-              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
+              <div className="ctx-label" style={{ marginBottom: 6 }}>
                 Nome
               </div>
               <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
             </div>
             <div>
-              <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>
+              <div className="ctx-label" style={{ marginBottom: 6 }}>
                 Tipo
               </div>
               <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
@@ -2825,7 +2819,7 @@ export default function Inbox() {
 
       {leadPanel === 'associate' && !selected?.lead_id && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
             Associar lead
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
@@ -2866,21 +2860,19 @@ export default function Inbox() {
 
       {selected?.summary?.text && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginBottom: 8 }}>
+          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
             Resumo
           </div>
-          <div className="text-small" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{selected.summary.text}</div>
+          <div className="navi-subtitle" style={{ whiteSpace: 'pre-wrap', color: 'var(--ink)', marginTop: 0 }}>{selected.summary.text}</div>
         </div>
       )}
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
+          <div className="navi-section-heading" style={{ fontSize: '0.9rem' }}>
             Fixadas
           </div>
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-            {pinnedMessages.length}
-          </div>
+          <span className="navi-mono-num">{pinnedMessages.length}</span>
         </div>
         {pinnedMessages.length === 0 ? (
           <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
@@ -2920,7 +2912,7 @@ export default function Inbox() {
   const contextPanel = (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontWeight: 800 }}>Detalhes</div>
+        <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Detalhes</div>
         {!isMobile && (
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setContextOpen(false)}>
             Ocultar painel
@@ -2954,10 +2946,10 @@ export default function Inbox() {
     <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
       <style dangerouslySetInnerHTML={{ __html: `
         .inbox-msg { border-radius: 12px; padding: 8px; margin: -6px; transition: var(--transition); }
-        .inbox-msg.selected { background: rgba(0, 188, 142, 0.10); outline: 2px solid rgba(0, 188, 142, 0.35); }
+        .inbox-msg.selected { background: var(--v50); outline: 2px solid rgba(91, 63, 191, 0.35); }
         .inbox-msg-actions { opacity: 0; pointer-events: none; transition: var(--transition); }
         .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
-        .inbox-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.10); z-index: 80; }
+        .inbox-menu-overlay { position: fixed; inset: 0; background: rgba(18,16,42,0.12); z-index: 80; }
         .inbox-menu-panel { position: fixed; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; z-index: 81; }
         .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
         .inbox-menu-item:hover { background: var(--surface-hover); }
@@ -2973,7 +2965,7 @@ export default function Inbox() {
           line-height: 1.25;
         }
         .inbox-conversation-item:hover { background: rgba(15, 23, 42, 0.04) !important; }
-        .inbox-conversation-item.active { box-shadow: inset 0 0 0 1px rgba(0, 188, 142, 0.25); }
+        .inbox-conversation-item.active { box-shadow: inset 3px 0 0 var(--v500); }
         .inbox-group-title {
           position: sticky; top: 0; z-index: 3;
           background: var(--surface); border-bottom: 1px solid var(--border);
@@ -2999,9 +2991,21 @@ export default function Inbox() {
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0 }}>Atendimento</h2>
-          <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 4 }}>
-            {loading ? 'Carregando…' : `${items.length} conversas${lastUpdatedAt ? ` • atualizado ${formatWhen(lastUpdatedAt)}` : ''}`}
+          <h2 className="navi-page-title" style={{ margin: 0 }}>Atendimento</h2>
+          <div className="navi-eyebrow" style={{ marginTop: 6 }}>
+            {loading ? (
+              'Carregando…'
+            ) : (
+              <>
+                <span className="navi-mono-num">{items.length}</span> conversas
+                {lastUpdatedAt ? (
+                  <>
+                    {' '}
+                    • atualizado <span className="navi-mono-date">{formatWhen(lastUpdatedAt)}</span>
+                  </>
+                ) : null}
+              </>
+            )}
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Number(stats?.unreadBacklog || 0) > 0 && (
@@ -3384,7 +3388,7 @@ export default function Inbox() {
 
       {isMobile && detailsOpen && selectedPhone && (
         <div
-          style={{ position: 'fixed', zIndex: 70, inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
+          style={{ position: 'fixed', zIndex: 70, inset: 0, background: 'rgba(18,16,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
           onClick={() => setDetailsOpen(false)}
           role="presentation"
         >
@@ -3417,7 +3421,7 @@ export default function Inbox() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontWeight: 800 }}>Dispositivo WhatsApp</div>
+                <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Dispositivo WhatsApp</div>
                 <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                   {waInfo?.status === 'connected' ? 'Conectado' : waInfo?.status || '—'}
                 </span>
@@ -3487,11 +3491,11 @@ export default function Inbox() {
               {!!waInfo?.instance_id && (
                 <>
                   <div style={{ minWidth: 260 }}>
-                    <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Instância</div>
+                    <div className="ctx-label" style={{ marginBottom: 6 }}>Instância</div>
                     <div className="text-small" style={{ wordBreak: 'break-all' }}>{waInfo.instance_id}</div>
                   </div>
                   <div style={{ minWidth: 260 }}>
-                    <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>QR Code</div>
+                    <div className="ctx-label" style={{ marginBottom: 6 }}>QR Code</div>
                     {waInfo?.status !== 'connected' && !!waInfo?.instance_id && !waTokenMissing && !waQrError && (
                       <img
                         src={`/api/zapster/instances?action=qrcode&id=${encodeURIComponent(String(waInfo.instance_id))}&ts=${waQrTick}`}
@@ -3523,7 +3527,7 @@ export default function Inbox() {
         <div style={{ marginBottom: 12 }}>
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
             <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ fontWeight: 800 }}>Configurar Agente IA</div>
+              <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Configurar Agente IA</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button" disabled={loadingPrompt || savingPrompt}>
                   Recarregar
@@ -3549,15 +3553,15 @@ export default function Inbox() {
             <div style={{ padding: 12, display: 'grid', gap: 12 }}>
               {loadingPrompt && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Introdução</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Introdução</div>
                 <textarea className="input" value={promptIntro} onChange={(e) => setPromptIntro(e.target.value)} rows={5} placeholder="Texto de introdução" disabled={loadingPrompt} />
               </div>
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Corpo</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Corpo</div>
                 <textarea className="input" value={promptBody} onChange={(e) => setPromptBody(e.target.value)} rows={10} placeholder="Regras, horários, preços, etc." disabled={loadingPrompt} />
               </div>
               <div>
-                <div className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 6 }}>Complemento</div>
+                <div className="ctx-label" style={{ marginBottom: 6 }}>Complemento</div>
                 <textarea className="input" value={promptSuffix} onChange={(e) => setPromptSuffix(e.target.value)} rows={5} placeholder="Instruções adicionais" disabled={loadingPrompt} />
               </div>
             </div>

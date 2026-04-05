@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { authService } from '../lib/auth';
-import { Eye, EyeOff, UserPlus, Shield, X, LogIn } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, X, LogIn } from 'lucide-react';
+import NaviLogo from '../components/NaviLogo.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 
 const Register = ({ onLogin }) => {
@@ -42,13 +43,13 @@ const Register = ({ onLogin }) => {
             aria-label="Sair"
             title="Sair"
             className="btn-exit"
-            onClick={async () => { try { await authService.logout(); } catch (e) { void e; } navigate('/welcome'); }}
+            onClick={async () => { try { await authService.logout(); } catch (e) { void e; } navigate('/'); }}
           >
             <X size={18} />
           </button>
-          <Shield size={48} color="var(--accent)" />
+          <NaviLogo size={52} />
         </div>
-        <h1 className="login-title">FitGrow</h1>
+        <h1 className="login-title navi-wordmark">Navi</h1>
         <p className="login-subtitle">Crie sua conta</p>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -107,18 +108,19 @@ const Register = ({ onLogin }) => {
         <div className="link-row">
           <Link className="toggle-mode" to="/login"><LogIn size={16} /> Já tem conta? Entrar</Link>
           <span className="sep">•</span>
-          <Link className="toggle-mode" to="/welcome">Voltar ao início</Link>
+          <Link className="toggle-mode" to="/">Voltar ao início</Link>
         </div>
       </div>
       <style dangerouslySetInnerHTML={{ __html: `
         .login-page {
           min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 100%); padding: 20px;
+          background: linear-gradient(180deg, var(--v50) 0%, var(--paper) 55%, var(--white) 100%); padding: 20px;
         }
         .login-card {
           width: 100%; max-width: 400px; background: var(--surface);
-          border-radius: var(--radius); padding: 40px 30px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
+          border-radius: 16px; padding: 40px 30px;
+          border: 0.5px solid var(--border-violet);
+          box-shadow: 0 8px 32px rgba(91, 63, 191, 0.16); text-align: center;
           animation: fadeInUp 0.5s ease;
         }
         .btn-exit {
@@ -127,7 +129,7 @@ const Register = ({ onLogin }) => {
           border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
           box-shadow: var(--shadow-sm);
         }
-        .login-title { font-size: 1.8rem; font-weight: 900; color: var(--text); margin-bottom: 4px }
+        .login-title { font-size: 1.85rem; font-weight: 300; color: var(--ink); margin-bottom: 4px; letter-spacing: -0.03em; }
         .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
         .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }
         .password-wrapper { position: relative; }

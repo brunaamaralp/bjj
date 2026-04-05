@@ -235,8 +235,8 @@ const Dashboard = () => {
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
             <div className="animate-in">
-                <h1 style={{ fontSize: '1.5rem', marginBottom: 2 }}>Agenda da Recepção</h1>
-                <p className="text-small">Controle de aulas experimentais e retornos</p>
+                <h1 className="navi-page-title">Agenda da Recepção</h1>
+                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
             </div>
             {(() => {
                 const startOfWeek = (d) => { const dd = new Date(d); const day = dd.getDay(); const diff = (day + 6) % 7; dd.setDate(dd.getDate()-diff); dd.setHours(0,0,0,0); return dd; };
@@ -271,15 +271,15 @@ const Dashboard = () => {
                     { title: 'Matrículas no mês', cur: convCur, var: pctVar(convCur, convPrev) },
                 ];
                 return (
-                    <div className="kpi-row mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+                    <div className="ctx-strip mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
                         {cards.map((c, i) => {
                             const up = c.var >= 0;
                             return (
-                                <div key={i} className="card kpi-mini">
-                                    <div className="kpi-mini-head"><span>{c.title}</span></div>
-                                    <div className="kpi-mini-val">{c.cur}</div>
-                                    <div className={`kpi-mini-var ${up ? 'up':'down'}`}>
-                                        {up ? <TrendingUp size={14}/> : <TrendingDown size={14}/> } {c.var}%
+                                <div key={i} className="ctx-item">
+                                    <div className="ctx-label">{c.title}</div>
+                                    <div className="ctx-value accent">{c.cur}</div>
+                                    <div className={`ctx-meta ${up ? 'up' : 'down'}`}>
+                                        {up ? <TrendingUp size={14} /> : <TrendingDown size={14} />} {c.var}%
                                     </div>
                                 </div>
                             );
@@ -302,8 +302,8 @@ const Dashboard = () => {
             {/* Date Filter Tabs */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.1s' }}>
                 <div className="flex justify-between items-center mb-2">
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Calendar size={18} color="var(--accent)" /> Aulas Experimentais
+                    <h3 className="navi-section-heading">
+                        <Calendar size={18} color="var(--v500)" /> Aulas Experimentais
                     </h3>
                     <button
                         className="refresh-btn"
@@ -314,12 +314,12 @@ const Dashboard = () => {
                     </button>
                 </div>
 
-                <div className="filter-tabs mb-3">
+                <div className="filter-strip mb-3">
                     {DAY_FILTERS.map(f => (
                         <button
                             key={f.key}
                             type="button"
-                            className={`filter-tab ${dateFilter === f.key ? 'active' : ''}`}
+                            className={`filter-pill ${dateFilter === f.key ? 'active' : ''}`}
                             onClick={() => setDateFilter(f.key)}
                             title={f.title || undefined}
                         >
@@ -363,8 +363,8 @@ const Dashboard = () => {
                                 </div>
                                 <div className="text-right">
                                     <div className="flex items-center gap-2" style={{ justifyContent: 'flex-end' }}>
-                                        <Clock size={14} color="var(--accent)" />
-                                        <strong style={{ color: 'var(--accent)', fontSize: '1.05rem' }}>{lead.scheduledTime || '--:--'}</strong>
+                                        <Clock size={14} color="var(--v500)" />
+                                        <strong className="navi-mono-time">{lead.scheduledTime || '--:--'}</strong>
                                         <button
                                             className="edit-time-btn"
                                             onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
@@ -374,7 +374,7 @@ const Dashboard = () => {
                                             <Edit3 size={18} strokeWidth={2.6} />
                                         </button>
                                     </div>
-                                    <span className="text-xs text-light">{noScheduleDate ? 'Definir data' : formatDate(lead.scheduledDate)}</span>
+                                    <span className="navi-mono-date">{noScheduleDate ? 'Definir data' : formatDate(lead.scheduledDate)}</span>
                                 </div>
                             </div>
 
@@ -444,9 +444,7 @@ const Dashboard = () => {
             {/* Follow-ups with urgency ruler */}
             <section className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
                 <div className="flex justify-between items-center mb-2">
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        Follow-ups Pendentes
-                    </h3>
+                    <h3 className="navi-section-heading">Follow-ups Pendentes</h3>
                     <span className="badge badge-secondary">{followUps.length}</span>
                 </div>
                 <p className="text-xs text-light" style={{ marginBottom: 10, lineHeight: 1.4 }}>
@@ -511,9 +509,9 @@ const Dashboard = () => {
             </section>
 
             {editOpen && (
-                <div className="edit-modal-overlay" onClick={closeEdit}>
+                <div className="navi-modal-overlay" onClick={closeEdit}>
                     <div className="edit-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: 8 }}>Editar Agendamento</h3>
+                        <h3 className="navi-section-heading" style={{ marginBottom: 8 }}>Editar Agendamento</h3>
                         <div className="flex gap-2">
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label>Data</label>
@@ -563,8 +561,6 @@ const Dashboard = () => {
             )}
             <style dangerouslySetInnerHTML={{
                 __html: `
-        .kpi-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
-        @media (max-width: 900px) { .kpi-row { grid-template-columns: 1fr; } }
         .hub-quick-row {
           display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
         }
@@ -579,13 +575,6 @@ const Dashboard = () => {
         .hub-quick-count { font-size: 1.5rem; font-weight: 800; color: var(--text); }
         .hub-quick-arrow { font-size: 0.95rem; font-weight: 800; color: var(--accent); }
         .hub-quick-sub { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
-        .kpi-mini { padding: 14px; }
-        .kpi-mini-head { display: flex; justify-content: space-between; align-items: center; }
-        .kpi-mini-head span { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); }
-        .kpi-mini-val { font-size: 1.6rem; font-weight: 800; margin-top: 6px; }
-        .kpi-mini-var { margin-top: 6px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
-        .kpi-mini-var.up { color: var(--success); }
-        .kpi-mini-var.down { color: var(--danger); }
         .agenda-card { border-left: 4px solid var(--accent); }
         .agenda-card--no-date {
           border-left-color: var(--warning);
@@ -596,22 +585,6 @@ const Dashboard = () => {
           background: var(--warning-light); color: #b45309; text-transform: uppercase; letter-spacing: 0.02em;
         }
         .follow-card { border-left: 4px solid var(--warning); }
-        .filter-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-        .filter-tabs::-webkit-scrollbar { display: none; }
-        .filter-tab {
-          padding: 8px 16px; border-radius: var(--radius-full); font-size: 0.82rem;
-          font-weight: 600; white-space: nowrap; background: var(--surface);
-          border: 1.5px solid var(--border); color: var(--text-secondary);
-          min-height: 36px; display: flex; align-items: center; gap: 6px;
-          transition: var(--transition); cursor: pointer;
-        }
-        .filter-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
-        .tab-count {
-          font-size: 0.7rem; font-weight: 800; min-width: 18px; height: 18px;
-          border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-          background: rgba(255,255,255,0.25);
-        }
-        .filter-tab:not(.active) .tab-count { background: var(--accent-light); color: var(--accent); }
         .status-pill { 
           font-size: 0.7rem; padding: 4px 10px; border-radius: var(--radius-full); 
           font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
@@ -642,17 +615,17 @@ const Dashboard = () => {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .edit-time-btn { 
           width: 32px; height: 32px; border-radius: 50%;
-          background: var(--accent); color: #fff;
+          background: var(--v500); color: #fff;
           display: inline-flex; align-items: center; justify-content: center;
           border: none; cursor: pointer;
           padding: 0; min-height: auto; flex: 0 0 32px;
-          box-shadow: 0 4px 16px rgba(35, 99, 255, 0.22);
+          box-shadow: 0 4px 14px rgba(91, 63, 191, 0.28);
           transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
-        .edit-time-btn svg { display: block; color: #fff; stroke: currentColor; fill: none; filter: drop-shadow(0 0 1px rgba(0,0,0,0.18)); }
+        .edit-time-btn svg { display: block; color: #fff; stroke: currentColor; fill: none; }
         .edit-time-btn:hover { filter: brightness(0.96); }
         .edit-time-btn:active { transform: translateY(1px); }
-        .edit-time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(35,99,255,0.16); }
+        .edit-time-btn:focus-visible { outline: 2px solid var(--v500); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(91, 63, 191, 0.2); }
         .agenda-mini-btn {
           width: 32px; height: 32px; border-radius: 50%;
           display: inline-flex; align-items: center; justify-content: center;
@@ -668,13 +641,9 @@ const Dashboard = () => {
         .agenda-mini-btn.danger:hover { background: var(--danger-light); }
         .agenda-mini-btn.lost { border-color: var(--warning); color: var(--warning); }
         .agenda-mini-btn.lost:hover { background: var(--warning-light); }
-        .edit-modal-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 300;
-          display: flex; align-items: center; justify-content: center;
-        }
         .edit-modal {
           background: var(--surface); border-radius: var(--radius); width: 92%; max-width: 420px;
-          padding: 16px; box-shadow: var(--shadow);
+          padding: 16px; box-shadow: var(--shadow-lg); border: 0.5px solid var(--border-violet);
         }
         .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
         @media (max-width: 460px) {

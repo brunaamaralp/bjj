@@ -143,21 +143,21 @@ const Finance = () => {
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
       <div className="animate-in">
-        <h1 style={{ fontSize: '1.5rem', marginBottom: 2 }}>Financeiro</h1>
-        <p className="text-small">Academia {academyName ? `• ${academyName}` : ''}</p>
+        <h1 className="navi-page-title">Financeiro</h1>
+        <p className="navi-eyebrow" style={{ marginTop: 6 }}>Academia {academyName ? `• ${academyName}` : ''}</p>
       </div>
 
-      <div className="mt-3" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button className={tab === 'config' ? 'btn-secondary' : 'btn-outline'} onClick={() => setTab('config')}>Configurações</button>
-        <button className={tab === 'transacoes' ? 'btn-secondary' : 'btn-outline'} onClick={() => setTab('transacoes')}>Transações</button>
-        <button className={tab === 'plano' ? 'btn-secondary' : 'btn-outline'} onClick={() => setTab('plano')}>Plano de Contas</button>
-        <button className={tab === 'lancamentos' ? 'btn-secondary' : 'btn-outline'} onClick={() => setTab('lancamentos')}>Lançamentos Contábeis</button>
-        <button className={tab === 'relatorios' ? 'btn-secondary' : 'btn-outline'} onClick={() => setTab('relatorios')}>Relatórios (DRE/DFC)</button>
+      <div className="filter-strip fill mt-3">
+        <button type="button" className={`filter-pill ${tab === 'config' ? 'active' : ''}`} onClick={() => setTab('config')}>Configurações</button>
+        <button type="button" className={`filter-pill ${tab === 'transacoes' ? 'active' : ''}`} onClick={() => setTab('transacoes')}>Transações</button>
+        <button type="button" className={`filter-pill ${tab === 'plano' ? 'active' : ''}`} onClick={() => setTab('plano')}>Plano de Contas</button>
+        <button type="button" className={`filter-pill ${tab === 'lancamentos' ? 'active' : ''}`} onClick={() => setTab('lancamentos')}>Lançamentos Contábeis</button>
+        <button type="button" className={`filter-pill ${tab === 'relatorios' ? 'active' : ''}`} onClick={() => setTab('relatorios')}>Relatórios (DRE/DFC)</button>
       </div>
 
       {tab === 'config' && (
       <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-        <h3 className="mb-2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Banknote size={18} /> Contas bancárias</h3>
+        <h3 className="navi-section-heading mb-2"><Banknote size={18} color="var(--v500)" /> Contas bancárias</h3>
         <div className="card">
           <div className="flex-col" style={{ gap: 10 }}>
             {(financeConfig.bankAccounts || []).map((acc, idx) => (
@@ -225,7 +225,7 @@ const Finance = () => {
 
       {tab === 'config' && (
       <section className="mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
-        <h3 className="mb-2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><CreditCard size={18} /> Taxas de cartão</h3>
+        <h3 className="navi-section-heading mb-2"><CreditCard size={18} color="var(--v500)" /> Taxas de cartão</h3>
         <div className="card">
           <div className="flex-col gap-4">
             <div className="flex gap-2">
@@ -249,7 +249,7 @@ const Finance = () => {
               </div>
             </div>
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Crédito parcelado (%)</label>
+              <span className="ctx-label" style={{ display: 'block', marginBottom: 8 }}>Crédito parcelado (%)</span>
               <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                 {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
                   <div key={n} className="form-group" style={{ width: 96 }}>
@@ -272,7 +272,7 @@ const Finance = () => {
 
       {tab === 'config' && (
       <section className="mt-4 animate-in" style={{ animationDelay: '0.15s' }}>
-        <h3 className="mb-2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet2 size={18} /> Planos</h3>
+        <h3 className="navi-section-heading mb-2"><Wallet2 size={18} color="var(--v500)" /> Planos</h3>
         <div className="card">
           <div className="flex-col" style={{ gap: 10 }}>
             {(financeConfig.plans || []).map((pl, idx) => (
@@ -343,7 +343,7 @@ const Finance = () => {
 
       {tab === 'transacoes' && (
       <section className="mt-4 animate-in" style={{ animationDelay: '0.2s' }}>
-        <h3 className="mb-2">Lançamentos</h3>
+        <h3 className="navi-section-heading mb-2">Lançamentos</h3>
         <div className="card">
           <div className="flex gap-2">
             <div className="form-group" style={{ width: 180 }}>
@@ -491,7 +491,7 @@ const AccountsTab = () => {
   };
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="mb-2">Plano de Contas</h3>
+      <h3 className="navi-section-heading mb-2">Plano de Contas</h3>
       <div className="card">
         <div className="flex gap-2">
           <div className="form-group" style={{ width: 120 }}>
@@ -708,7 +708,7 @@ const JournalTab = () => {
   };
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="mb-2">Lançamentos Contábeis</h3>
+      <h3 className="navi-section-heading mb-2">Lançamentos Contábeis</h3>
       <div className="card">
         <div className="flex gap-2">
           <div className="form-group" style={{ width: 180 }}>
@@ -833,7 +833,7 @@ const ReportsTab = () => {
   const dfcData = useMemo(() => (method === 'indireto' ? dfcIndireto(from, to) : dfcDireto(from, to)), [method, from, to, dfcIndireto, dfcDireto]);
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="mb-2">Relatórios</h3>
+      <h3 className="navi-section-heading mb-2">Relatórios</h3>
       <div className="card">
         <div className="flex gap-2">
           <div className="form-group" style={{ width: 180 }}>
@@ -854,7 +854,7 @@ const ReportsTab = () => {
         </div>
       </div>
       <section className="card mt-3">
-        <h3 className="mb-2">Demonstração do Resultado (DRE)</h3>
+        <h3 className="navi-section-heading mb-2">Demonstração do Resultado (DRE)</h3>
         <div className="table">
           {[
             ['Receita Bruta', dreData['Receita Bruta'] || 0],
@@ -876,7 +876,7 @@ const ReportsTab = () => {
         </div>
       </section>
       <section className="card mt-3">
-        <h3 className="mb-2">Demonstração do Fluxo de Caixa (DFC)</h3>
+        <h3 className="navi-section-heading mb-2">Demonstração do Fluxo de Caixa (DFC)</h3>
         <div className="table">
           <div className="row">
             <div style={{ flex: 1 }}>Operacional</div>

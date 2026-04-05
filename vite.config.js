@@ -15,11 +15,11 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['vite.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
-          name: 'FitGrow',
-          short_name: 'FitGrow',
-          description: 'CRM simples para academias de esportes',
-          theme_color: '#0b0b0b',
-          background_color: '#ffffff',
+          name: 'Navi',
+          short_name: 'Navi',
+          description: 'CRM para estúdios de luta, dança, yoga e atividades físicas',
+          theme_color: '#12102A',
+          background_color: '#F8F7F4',
           display: 'standalone',
           icons: [
             {

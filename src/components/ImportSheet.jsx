@@ -134,7 +134,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                 <div className="import-header">
                     <div className="flex items-center gap-2">
                         <FileSpreadsheet size={20} color="var(--accent)" />
-                        <h3>{title || 'Importar Planilha'}</h3>
+                        <h3 className="navi-section-heading" style={{ fontSize: '1.05rem' }}>{title || 'Importar Planilha'}</h3>
                     </div>
                     <button className="icon-btn" onClick={handleCancel}><X size={20} /></button>
                 </div>
@@ -149,7 +149,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                             >
                                 <Upload size={36} color="var(--accent)" style={{ marginBottom: 12 }} />
                                 <p style={{ fontWeight: 600 }}>Clique para escolher arquivo</p>
-                                <p className="text-small">Aceita .xlsx, .xls ou .csv</p>
+                                <p className="navi-subtitle" style={{ marginTop: 8 }}>Aceita .xlsx, .xls ou .csv</p>
                                 <input
                                     ref={fileRef}
                                     type="file"
@@ -166,8 +166,8 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                             )}
 
                             <div className="import-tip mt-4">
-                                <p style={{ fontWeight: 600, marginBottom: 6 }}>📋 Formato esperado:</p>
-                                <p className="text-small" style={{ marginBottom: 8 }}>
+                                <p className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 6 }}>📋 Formato esperado</p>
+                                <p className="navi-subtitle" style={{ marginBottom: 8, marginTop: 0 }}>
                                     <strong>Nome / Nome do aluno</strong> = aluno matriculado. Opcional: <strong>Responsável</strong>, <strong>Nome do pai</strong>, <strong>Contato</strong>, etc. = quem usa o WhatsApp (recomendado para Criança/Juniores).
                                 </p>
                                 <table className="tip-table">
@@ -225,7 +225,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                                     </tbody>
                                 </table>
                                 {rows.length > 10 && (
-                                    <p className="text-small text-center mt-2">... e mais {rows.length - 10} registros</p>
+                                    <p className="navi-subtitle text-center mt-2">... e mais {rows.length - 10} registros</p>
                                 )}
                             </div>
                         </>
@@ -246,7 +246,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
             <style dangerouslySetInnerHTML={{
                 __html: `
         .import-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+          position: fixed; inset: 0; background: rgba(18,16,42,0.5); backdrop-filter: blur(4px);
           z-index: 200; display: flex; align-items: flex-end; justify-content: center;
           animation: fadeIn 0.2s ease;
         }

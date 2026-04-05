@@ -105,8 +105,8 @@ const Inventory = () => {
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <div className="animate-in">
-        <h1 style={{ fontSize: '1.5rem', marginBottom: 2 }}>Estoque</h1>
-        <p className="text-small">Movimentações rápidas</p>
+        <h1 className="navi-page-title">Estoque</h1>
+        <p className="navi-eyebrow" style={{ marginTop: 6 }}>Movimentações rápidas</p>
       </div>
 
       <form className="card mt-4 animate-in" onSubmit={submit}>
