@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search } from 'lucide-react';
@@ -70,6 +70,15 @@ const KANBAN_SCROLL_MAX_STEP = 14;
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 
+const leadMatchesProfileFilter = (lead, profileFilter) => {
+    if (profileFilter === 'all') return true;
+    const t = String(lead?.type || 'Adulto').trim();
+    if (profileFilter === 'Adulto') return t === 'Adulto';
+    if (profileFilter === 'Criança') return t === 'Criança';
+    if (profileFilter === 'Juniores') return t === 'Juniores';
+    return true;
+};
+
 const Pipeline = () => {
     const navigate = useNavigate();
     const { leads, importLeads, updateLead, fetchMoreLeads } = useLeadStore();
@@ -98,19 +107,24 @@ const Pipeline = () => {
     const [dayFilter, setDayFilter] = useState('all'); // all | today | tomorrow
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
     const [kanbanSearch, setKanbanSearch] = useState('');
+    const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
+    const [searchStageScope, setSearchStageScope] = useState('all');
 
-    const leadsForBoard = useMemo(() => {
-        const q = String(kanbanSearch || '').trim().toLowerCase();
-        const qPhone = normalizeKanbanPhone(kanbanSearch);
-        if (!q && !qPhone) return leads;
-        return leads.filter((l) => {
-            const name = String(l?.name || '').toLowerCase();
-            const phoneNorm = normalizeKanbanPhone(l?.phone);
-            if (qPhone && phoneNorm.includes(qPhone)) return true;
-            if (q && name.includes(q)) return true;
-            return false;
+    const searchStageScopeOptions = useMemo(() => [
+        { value: 'all', label: 'Todas as etapas' },
+        ...stages.map((s) => ({
+            value: s.id,
+            label: String(s.label || s.id).trim() || s.id,
+        })),
+    ], [stages]);
+
+    useEffect(() => {
+        setSearchStageScope((prev) => {
+            if (prev === 'all') return prev;
+            const ids = new Set(stages.map((s) => s.id));
+            return ids.has(prev) ? prev : 'all';
         });
-    }, [leads, kanbanSearch]);
+    }, [stages]);
 
     const stepKanbanScrollFromClientX = (clientX) => {
         const el = kanbanWrapperRef.current;
@@ -357,7 +371,7 @@ const Pipeline = () => {
         const id = `custom-${Date.now()}`;
         setTempStages(prev => [...prev, { id, label: 'Nova etapa', slaDays: DEFAULT_STAGE_SLA_DAYS }]);
     };
-    const mapLeadToStageId = (lead) => {
+    const mapLeadToStageId = useCallback((lead) => {
         if (lead?.status === LEAD_STATUS.MISSED) return LEAD_STATUS.MISSED;
         if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
         if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
@@ -386,7 +400,30 @@ const Pipeline = () => {
         if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
         if (s.includes('matricul')) return 'Matriculado';
         return 'Novo';
-    };
+    }, [stages]);
+
+    const leadsForBoard = useMemo(() => {
+        let list = leads.filter((l) => leadMatchesProfileFilter(l, profileFilter));
+
+        const q = String(kanbanSearch || '').trim().toLowerCase();
+        const qPhone = normalizeKanbanPhone(kanbanSearch);
+        if (q || qPhone) {
+            list = list.filter((l) => {
+                const name = String(l?.name || '').toLowerCase();
+                const phoneNorm = normalizeKanbanPhone(l?.phone);
+                if (qPhone && phoneNorm.includes(qPhone)) return true;
+                if (q && name.includes(q)) return true;
+                return false;
+            });
+        }
+
+        if (searchStageScope !== 'all') {
+            list = list.filter((l) => mapLeadToStageId(l) === searchStageScope);
+        }
+
+        return list;
+    }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId]);
+
     const onDragStart = (e, leadId) => {
         const el = e?.target;
         if (el && typeof el.closest === 'function') {
@@ -456,21 +493,52 @@ const Pipeline = () => {
                             <p className="navi-eyebrow" style={{ marginTop: 6, maxWidth: '42ch' }}>Fluxo de matrícula até a conversão</p>
                         </div>
                         <div className="filters">
-                            <div className="pipeline-search-wrap" title="Filtra por nome ou telefone (somente nos leads já carregados)">
-                                <Search size={14} className="pipeline-search-icon" aria-hidden />
-                                <input
-                                    type="search"
-                                    className="pipeline-search-input"
-                                    value={kanbanSearch}
-                                    onChange={(e) => setKanbanSearch(e.target.value)}
-                                    placeholder="Buscar nome ou telefone…"
-                                    aria-label="Buscar no funil"
-                                />
+                            <div className="pipeline-search-row">
+                                <div className="pipeline-search-wrap" title="Filtra por nome ou telefone (somente nos leads já carregados)">
+                                    <Search size={14} className="pipeline-search-icon" aria-hidden />
+                                    <input
+                                        type="search"
+                                        className="pipeline-search-input"
+                                        value={kanbanSearch}
+                                        onChange={(e) => setKanbanSearch(e.target.value)}
+                                        placeholder="Buscar nome ou telefone…"
+                                        aria-label="Buscar no funil"
+                                    />
+                                </div>
+                                <div
+                                    className="origin-group pipeline-search-scope-group"
+                                    title="Restringe resultados da busca a uma coluna do funil. Com “Todas as etapas”, a busca vale em todas as colunas."
+                                >
+                                    <span className="pipeline-search-scope-label">Buscar em:</span>
+                                    <select
+                                        className="origin-select pipeline-search-scope-select"
+                                        value={searchStageScope}
+                                        onChange={(e) => setSearchStageScope(e.target.value)}
+                                        aria-label="Etapa para busca"
+                                    >
+                                        {searchStageScopeOptions.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div className="filter-strip">
                                 <button type="button" className={`filter-pill ${dayFilter === 'all' ? 'active' : ''}`} onClick={() => setDayFilter('all')}>Todos</button>
                                 <button type="button" className={`filter-pill ${dayFilter === 'today' ? 'active' : ''}`} onClick={() => setDayFilter('today')}>Hoje</button>
                                 <button type="button" className={`filter-pill ${dayFilter === 'tomorrow' ? 'active' : ''}`} onClick={() => setDayFilter('tomorrow')}>Amanhã</button>
+                            </div>
+                            <div className="origin-group" title="Filtra por perfil do lead em todas as colunas">
+                                <select
+                                    className="origin-select"
+                                    value={profileFilter}
+                                    onChange={(e) => setProfileFilter(e.target.value)}
+                                    aria-label="Filtrar por perfil"
+                                >
+                                    <option value="all">Todos os perfis</option>
+                                    <option value="Adulto">Adulto</option>
+                                    <option value="Criança">Criança</option>
+                                    <option value="Juniores">Júnior</option>
+                                </select>
                             </div>
                             <div className="origin-group">
                                 <SlidersHorizontal size={14} />
@@ -627,11 +695,10 @@ const Pipeline = () => {
                                         draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id)}
                                         onDragStart={(e) => onDragStart(e, lead.id)}
                                     >
-                                        <div className="lead-card-title-row">
+                                        <div className="lead-card-title-row lead-card-title-row--name-only">
                                             <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
                                                 {lead.name}
                                             </span>
-                                            {lead.type ? <span className="type-pill type-pill--lead-kind">{lead.type}</span> : null}
                                         </div>
                                         <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
                                             <Phone size={12} /> {lead.phone}
@@ -651,7 +718,6 @@ const Pipeline = () => {
                                             {lead.needHuman ? <span className="type-pill">Precisa resposta</span> : null}
                                             {lead.intention ? <span className="type-pill">{lead.intention}</span> : null}
                                             {lead.priority ? <span className="type-pill">{lead.priority}</span> : null}
-                                            {(lead.origin || '') === 'WhatsApp' ? <span className="type-pill">WhatsApp</span> : null}
                                         </div>
                                         {lead.scheduledDate && (
                                             <div className="lead-meta mt-1 flex items-center gap-2">
@@ -749,16 +815,25 @@ const Pipeline = () => {
                                         )}
                                     </div>
                                 ))}
-                                {colLeads.length === 0 && (
-                                    <div className="col-empty">
-                                        <p>{`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}</p>
-                                        <p className="col-empty-hint">
-                                            {dayFilter !== 'all'
-                                                ? 'Troque o filtro para “Todos” para ver agendamentos futuros ou leads sem data.'
-                                                : 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.'}
-                                        </p>
-                                    </div>
-                                )}
+                                {colLeads.length === 0 && (() => {
+                                    const scopeLabel = searchStageScopeOptions.find((o) => o.value === searchStageScope)?.label || '';
+                                    const hasSearchQuery = Boolean(String(kanbanSearch || '').trim() || normalizeKanbanPhone(kanbanSearch));
+                                    const inStageScope = searchStageScope === 'all' || col.id === searchStageScope;
+                                    let hint = 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.';
+                                    if (searchStageScope !== 'all' && col.id !== searchStageScope) {
+                                        hint = `“Buscar em” está em “${scopeLabel}”. Troque para “Todas as etapas” para ver todas as colunas.`;
+                                    } else if (dayFilter !== 'all' && !isTerminalCol) {
+                                        hint = 'Troque o filtro para “Todos” para ver agendamentos futuros ou leads sem data.';
+                                    } else if (hasSearchQuery && inStageScope) {
+                                        hint = 'Nenhum resultado para nome ou telefone. Ajuste a busca ou a etapa em “Buscar em”.';
+                                    }
+                                    return (
+                                        <div className="col-empty">
+                                            <p>{`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}</p>
+                                            <p className="col-empty-hint">{hint}</p>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     );
@@ -781,9 +856,13 @@ const Pipeline = () => {
         .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .pipeline-title-block .navi-page-title { margin: 0; }
-        .pipeline-search-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 10px; background: var(--surface); min-height: 30px; }
+        .pipeline-search-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1 1 220px; min-width: 0; }
+        .pipeline-search-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 10px; background: var(--surface); min-height: 30px; flex: 1 1 140px; min-width: 0; max-width: 22rem; }
         .pipeline-search-icon { color: var(--text-muted); flex-shrink: 0; }
-        .pipeline-search-input { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; width: 10rem; max-width: 36vw; }
+        .pipeline-search-input { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; width: 100%; min-width: 8rem; max-width: 100%; }
+        .pipeline-search-scope-group { flex: 0 1 auto; max-width: 100%; }
+        .pipeline-search-scope-label { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
+        .pipeline-search-scope-select { max-width: min(11rem, 42vw); }
         .pipeline-search-input::placeholder { color: var(--text-muted); font-weight: 500; }
         .pipeline-load-more { background: var(--surface-hover) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important; }
         .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -844,6 +923,7 @@ const Pipeline = () => {
         .col-header .pipeline-col-heading { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
         .col-dot { width: 8px; height: 8px; border-radius: 50%; }
         .col-count { 
+          flex-shrink: 0;
           padding: 2px 10px; border-radius: var(--radius-full); 
           font-size: 0.75rem; font-weight: 800; 
         }
@@ -863,6 +943,9 @@ const Pipeline = () => {
           gap: 8px;
           width: 100%;
           min-width: 0;
+        }
+        .lead-card-title-row--name-only {
+          display: block;
         }
         .lead-card-name {
           min-width: 0;
