@@ -272,15 +272,20 @@ const Dashboard = () => {
                     { title: 'Matrículas no mês', cur: convCur, var: pctVar(convCur, convPrev) },
                 ];
                 return (
-                    <div className="ctx-strip mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+                    <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
                         {cards.map((c, i) => {
                             const up = c.var >= 0;
                             return (
-                                <div key={i} className="ctx-item">
-                                    <div className="ctx-label">{c.title}</div>
-                                    <div className="ctx-value accent">{c.cur}</div>
-                                    <div className={`ctx-meta ${up ? 'up' : 'down'}`}>
-                                        {up ? <TrendingUp size={14} /> : <TrendingDown size={14} />} {c.var}%
+                                <div key={i} className="agenda-kpi-card">
+                                    <div className="agenda-kpi-label">{c.title}</div>
+                                    <div className="agenda-kpi-value">{c.cur}</div>
+                                    <div className={`agenda-kpi-trend ${up ? 'is-up' : 'is-down'}`}>
+                                        {up ? <TrendingUp size={16} strokeWidth={2.25} aria-hidden /> : <TrendingDown size={16} strokeWidth={2.25} aria-hidden />}
+                                        <span>
+                                            {up && c.var > 0 ? '+' : ''}
+                                            {c.var}%
+                                        </span>
+                                        <span className="agenda-kpi-trend-hint">vs. período anterior</span>
                                     </div>
                                 </div>
                             );
@@ -315,7 +320,7 @@ const Dashboard = () => {
                     </button>
                 </div>
 
-                <div className="filter-strip mb-3">
+                <div className="filter-strip agenda-experimental-filter-strip">
                     {DAY_FILTERS.map(f => (
                         <button
                             key={f.key}
@@ -330,12 +335,12 @@ const Dashboard = () => {
                     ))}
                 </div>
                 {dateFilter === 'week' && (
-                    <p className="text-xs text-light mb-2" style={{ marginTop: -6, lineHeight: 1.35 }}>
+                    <p className="text-xs text-light agenda-week-hint">
                         Filtro &quot;Semana&quot;: próximos 7 dias corridos a partir de hoje (não é segunda a domingo).
                     </p>
                 )}
 
-                <div className="flex-col gap-2">
+                <div className="flex-col gap-3 agenda-experimental-cards">
                     {loading ? (
                         <div className="flex justify-center p-8">
                             <div className="spinner" />
@@ -570,6 +575,85 @@ const Dashboard = () => {
           margin-left: auto;
           margin-right: auto;
         }
+        .agenda-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+        }
+        @media (max-width: 700px) {
+          .agenda-kpi-grid { grid-template-columns: 1fr; }
+        }
+        .agenda-kpi-card {
+          position: relative;
+          padding: 18px 18px 16px;
+          border-radius: 16px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
+          transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
+          overflow: hidden;
+        }
+        .agenda-kpi-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.95));
+          border-radius: 16px 16px 0 0;
+          opacity: 0.9;
+        }
+        .agenda-kpi-card:hover {
+          transform: translateY(-3px);
+          border-color: rgba(91, 63, 191, 0.22);
+          box-shadow: 0 4px 12px rgba(18, 16, 42, 0.06), 0 16px 40px rgba(91, 63, 191, 0.12);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .agenda-kpi-card { transition: none; }
+          .agenda-kpi-card:hover { transform: none; }
+        }
+        .agenda-kpi-label {
+          font-size: 0.68rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+          margin-bottom: 10px;
+          line-height: 1.35;
+          padding-right: 4px;
+        }
+        .agenda-kpi-value {
+          font-size: clamp(1.75rem, 4vw, 2.125rem);
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          line-height: 1.05;
+          color: var(--v500);
+          letter-spacing: -0.03em;
+        }
+        .agenda-kpi-trend {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px 8px;
+          margin-top: 12px;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
+        .agenda-kpi-trend.is-up { color: var(--success-text); }
+        .agenda-kpi-trend.is-down { color: var(--danger); }
+        .agenda-kpi-trend-hint {
+          width: 100%;
+          flex-basis: 100%;
+          font-size: 0.65rem;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+          opacity: 0.75;
+          margin-top: 2px;
+        }
         .hub-quick-row {
           display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
         }
@@ -584,10 +668,58 @@ const Dashboard = () => {
         .hub-quick-count { font-size: 1.5rem; font-weight: 800; color: var(--text); }
         .hub-quick-arrow { font-size: 0.95rem; font-weight: 800; color: var(--accent); }
         .hub-quick-sub { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
-        .agenda-card { border-left: 4px solid var(--accent); }
+        .agenda-experimental-filter-strip {
+          margin-bottom: 20px;
+        }
+        .agenda-week-hint {
+          margin: 0 0 14px;
+          line-height: 1.35;
+          color: var(--text-secondary);
+        }
+        .agenda-experimental-cards {
+          margin-top: 2px;
+        }
+        .reception-agenda-inner .agenda-card.card {
+          position: relative;
+          border-radius: 16px;
+          padding: 18px 18px 16px;
+          border: 1px solid var(--border);
+          border-left: 4px solid var(--accent);
+          box-shadow:
+            0 1px 2px rgba(18, 16, 42, 0.05),
+            0 10px 32px rgba(91, 63, 191, 0.08);
+          overflow: hidden;
+          transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
+        }
+        .reception-agenda-inner .agenda-card.card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.75));
+          opacity: 0.7;
+          pointer-events: none;
+          border-radius: 16px 16px 0 0;
+        }
+        .reception-agenda-inner .agenda-card.card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(91, 63, 191, 0.22);
+          box-shadow:
+            0 4px 14px rgba(18, 16, 42, 0.07),
+            0 16px 40px rgba(91, 63, 191, 0.12);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .reception-agenda-inner .agenda-card.card { transition: none; }
+          .reception-agenda-inner .agenda-card.card:hover { transform: none; }
+        }
         .agenda-card--no-date {
           border-left-color: var(--warning);
-          box-shadow: inset 4px 0 0 0 rgba(245, 158, 11, 0.35);
+        }
+        .reception-agenda-inner .agenda-card--no-date.card::before {
+          background: linear-gradient(90deg, #d97706, #fbbf24);
+          opacity: 0.55;
         }
         .agenda-no-date-badge {
           font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: var(--radius-full);
@@ -612,6 +744,14 @@ const Dashboard = () => {
         .followup-action-btn:hover { border-color: var(--accent); color: var(--accent); }
         .followup-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         .followup-action-btn:disabled:hover { border-color: var(--border-light); color: var(--text-secondary); }
+        .reception-agenda-inner .agenda-card.card .border-t {
+          border-top: 1px solid rgba(91, 63, 191, 0.09);
+        }
+        .reception-agenda-inner .followup-action-btn {
+          border-radius: 10px;
+          min-height: 38px;
+          font-weight: 700;
+        }
         .refresh-btn {
           background: none; border: none; color: var(--text-muted);
           width: 32px; height: 32px; padding: 0; min-height: auto;

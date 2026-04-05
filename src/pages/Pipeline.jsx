@@ -454,7 +454,6 @@ const Pipeline = () => {
                         <div className="pipeline-title-block">
                             <h2 className="navi-page-title">{labels.pipeline || 'Funil'}</h2>
                             <p className="navi-eyebrow" style={{ marginTop: 6, maxWidth: '42ch' }}>Fluxo de matrícula até a conversão</p>
-                            <p className="pipeline-drag-hint">Se o arraste horizontal for difícil, use <strong>Mover de etapa</strong> no card.</p>
                         </div>
                         <div className="filters">
                             <div className="pipeline-search-wrap" title="Filtra por nome ou telefone (somente nos leads já carregados)">
@@ -628,9 +627,11 @@ const Pipeline = () => {
                                         draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id)}
                                         onDragStart={(e) => onDragStart(e, lead.id)}
                                     >
-                                        <div className="flex justify-between items-center gap-1 min-w-0">
-                                            <strong style={{ fontSize: '0.84rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{lead.name}</strong>
-                                            <span className="type-pill">{lead.type}</span>
+                                        <div className="lead-card-title-row">
+                                            <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
+                                                {lead.name}
+                                            </span>
+                                            {lead.type ? <span className="type-pill type-pill--lead-kind">{lead.type}</span> : null}
                                         </div>
                                         <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
                                             <Phone size={12} /> {lead.phone}
@@ -756,9 +757,6 @@ const Pipeline = () => {
                                                 ? 'Troque o filtro para “Todos” para ver agendamentos futuros ou leads sem data.'
                                                 : 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.'}
                                         </p>
-                                        <p className="col-empty-hint col-empty-hint-dnd">
-                                            Se o arraste horizontal entre colunas for difícil, use <strong>Mover de etapa</strong> no card.
-                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -783,7 +781,6 @@ const Pipeline = () => {
         .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .pipeline-title-block .navi-page-title { margin: 0; }
-        .pipeline-drag-hint { margin: 6px 0 0; font-size: 0.72rem; color: var(--text-muted); font-weight: 500; max-width: 52ch; line-height: 1.35; }
         .pipeline-search-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 10px; background: var(--surface); min-height: 30px; }
         .pipeline-search-icon { color: var(--text-muted); flex-shrink: 0; }
         .pipeline-search-input { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; width: 10rem; max-width: 36vw; }
@@ -859,14 +856,39 @@ const Pipeline = () => {
           word-break: break-word;
         }
         .lead-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow); }
+        .lead-card-title-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+          width: 100%;
+        }
+        .lead-card-name {
+          flex: 1 1 0;
+          min-width: 0;
+          max-width: min(12ch, calc(100% - 4.75rem));
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 0.84rem;
+          font-weight: 700;
+          color: var(--text);
+          word-break: normal;
+          overflow-wrap: normal;
+        }
         .type-pill { 
           font-size: 0.58rem; background: var(--border-light); 
           padding: 2px 6px; border-radius: var(--radius-full); 
           color: var(--text-secondary); font-weight: 700; text-transform: uppercase; 
           white-space: nowrap;
+          flex: 0 0 auto;
           flex-shrink: 0;
           word-break: normal;
           overflow-wrap: normal;
+          max-width: 100%;
+        }
+        .type-pill--lead-kind {
+          min-width: max-content;
         }
         .lead-meta { font-size: 0.72rem; color: var(--text-secondary); }
         .col-empty { 
@@ -876,7 +898,6 @@ const Pipeline = () => {
         }
         .col-empty p { margin: 0; font-weight: 600; color: var(--text-secondary); }
         .col-empty-hint { margin-top: 8px !important; font-weight: 500 !important; font-size: 0.75rem !important; line-height: 1.35; color: var(--text-muted) !important; }
-        .col-empty-hint-dnd { margin-top: 6px !important; }
         .lead-inbox-link {
           font-size: 0.72rem; font-weight: 700; color: var(--accent);
           text-decoration: none; margin-left: 4px;
