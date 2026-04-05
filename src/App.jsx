@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, GraduationCap, User, ShoppingBag, Boxes, BarChart3, MessageCircle } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, GraduationCap, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, LayoutTemplate } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
@@ -21,6 +21,7 @@ import Reports from './pages/Reports';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
 import NaviLogo from './components/NaviLogo.jsx';
+import NaviWordmark from './components/NaviWordmark.jsx';
 
 const App = () => {
   const navigate = useNavigate();
@@ -33,6 +34,13 @@ const App = () => {
   const modules = useLeadStore((s) => s.modules);
   const setModules = useLeadStore((s) => s.setModules);
   const [academyList, setAcademyList] = useState([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem('naviSidebarCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
   const toasts = useUiStore((s) => s.toasts);
   const removeToast = useUiStore((s) => s.removeToast);
   const leadSingular = (plural) => {
@@ -43,6 +51,16 @@ const App = () => {
   };
 
   const isActive = (path) => location.pathname === path;
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem('naviSidebarCollapsed', next ? '1' : '0');
+      } catch (e) { void e; }
+      return next;
+    });
+  };
 
   // Check session on mount
   useEffect(() => {
@@ -414,88 +432,150 @@ const App = () => {
   return (
     <div className="app-container navi-authed">
       <div className="navi-shell">
-        <aside className="navi-rail" aria-label="Atalhos">
-          <div className="navi-rail-logo">
-            <NaviLogo size={28} variant="white" />
+        <aside
+          className={`navi-sidebar${sidebarCollapsed ? ' navi-sidebar--collapsed' : ''}`}
+          aria-label="Menu principal"
+        >
+          <div className="navi-sidebar-header">
+            {!sidebarCollapsed ? (
+              <>
+                <div className="navi-sidebar-brand">
+                  <NaviLogo size={24} />
+                  <NaviWordmark fontSize={17} />
+                </div>
+                <button
+                  type="button"
+                  className="navi-sidebar-toggle"
+                  onClick={toggleSidebar}
+                  aria-expanded
+                  aria-controls="navi-sidebar-nav"
+                  title="Recolher menu"
+                >
+                  <ChevronLeft size={18} strokeWidth={2} aria-hidden />
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="navi-sidebar-brand navi-sidebar-brand--collapsed">
+                  <NaviLogo size={26} />
+                </div>
+                <button
+                  type="button"
+                  className="navi-sidebar-toggle"
+                  onClick={toggleSidebar}
+                  aria-expanded={false}
+                  aria-controls="navi-sidebar-nav"
+                  title="Expandir menu"
+                >
+                  <ChevronRight size={18} strokeWidth={2} aria-hidden />
+                </button>
+              </>
+            )}
           </div>
-          <Link to="/" className={`navi-rail-item ${isActive('/') ? 'active' : ''}`} title="Início"><LayoutGrid size={18} strokeWidth={1.75} /></Link>
-          <Link to="/new-lead" className={`navi-rail-item ${isActive('/new-lead') ? 'active' : ''}`} title={`Novo ${leadSingular(labels.leads)}`}><PlusCircle size={18} strokeWidth={1.75} /></Link>
-          <Link to="/pipeline" className={`navi-rail-item ${isActive('/pipeline') ? 'active' : ''}`} title={labels.pipeline || 'Funil'}><Users size={18} strokeWidth={1.75} /></Link>
-          <Link to="/inbox" className={`navi-rail-item ${isActive('/inbox') ? 'active' : ''}`} title="Atendimento"><MessageCircle size={18} strokeWidth={1.75} /></Link>
-          <Link to="/students" className={`navi-rail-item ${isActive('/students') ? 'active' : ''}`} title={labels.students}><GraduationCap size={18} strokeWidth={1.75} /></Link>
-          <Link to="/reports" className={`navi-rail-item ${isActive('/reports') ? 'active' : ''}`} title="Relatórios"><BarChart3 size={18} strokeWidth={1.75} /></Link>
-          {modules.inventory === true && (
-            <Link to="/estoque" className={`navi-rail-item ${isActive('/estoque') ? 'active' : ''}`} title="Estoque"><Boxes size={18} strokeWidth={1.75} /></Link>
-          )}
-          {modules.sales === true && (
-            <Link to="/vendas" className={`navi-rail-item ${isActive('/vendas') ? 'active' : ''}`} title="Vendas"><ShoppingBag size={18} strokeWidth={1.75} /></Link>
-          )}
-          <Link to="/profile" className={`navi-rail-item ${isActive('/profile') ? 'active' : ''}`} title="Conta"><User size={18} strokeWidth={1.75} /></Link>
-          <Link to="/templates" className={`navi-rail-item ${isActive('/templates') ? 'active' : ''}`} title="Templates"><MessageCircle size={18} strokeWidth={1.75} /></Link>
-        </aside>
 
-        <aside className="navi-sidebar" aria-label="Menu">
-          <div className="navi-side-section">
-            <span className="navi-side-section-title">CRM</span>
-            <Link to="/" className={`navi-side-link ${isActive('/') ? 'active' : ''}`}>
-              <LayoutGrid size={18} strokeWidth={1.75} />
-              <span>Início</span>
-            </Link>
-            <Link to="/new-lead" className="navi-side-link primary">
-              <PlusCircle size={18} strokeWidth={1.75} />
-              <span>Novo {leadSingular(labels.leads)}</span>
-            </Link>
-            <Link to="/pipeline" className={`navi-side-link ${isActive('/pipeline') ? 'active' : ''}`}>
-              <Users size={18} strokeWidth={1.75} />
-              <span>{labels.pipeline || 'Funil'}</span>
-            </Link>
-            <Link to="/inbox" className={`navi-side-link ${isActive('/inbox') ? 'active' : ''}`}>
-              <MessageCircle size={18} strokeWidth={1.75} />
-              <span>Atendimento</span>
-            </Link>
-            <Link to="/students" className={`navi-side-link ${isActive('/students') ? 'active' : ''}`}>
-              <GraduationCap size={18} strokeWidth={1.75} />
-              <span>{labels.students}</span>
-            </Link>
-            <Link to="/reports" className={`navi-side-link ${isActive('/reports') ? 'active' : ''}`}>
-              <BarChart3 size={18} strokeWidth={1.75} />
-              <span>Relatórios</span>
-            </Link>
-          </div>
-          {((modules.inventory === true) || (modules.sales === true)) && (
+          <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
             <div className="navi-side-section">
-              <span className="navi-side-section-title">Operações</span>
-              {modules.inventory === true && (
-                <Link to="/estoque" className={`navi-side-link ${isActive('/estoque') ? 'active' : ''}`}>
-                  <Boxes size={18} strokeWidth={1.75} />
-                  <span>Estoque</span>
-                </Link>
-              )}
-              {modules.sales === true && (
-                <Link to="/vendas" className={`navi-side-link ${isActive('/vendas') ? 'active' : ''}`}>
-                  <ShoppingBag size={18} strokeWidth={1.75} />
-                  <span>Vendas</span>
-                </Link>
-              )}
+              <span className="navi-side-section-title">CRM</span>
+              <Link
+                to="/"
+                className={`navi-side-link ${isActive('/') ? 'active' : ''}`}
+                title={sidebarCollapsed ? 'Início' : undefined}
+              >
+                <LayoutGrid size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Início</span>
+              </Link>
+              <Link
+                to="/new-lead"
+                className="navi-side-link primary"
+                title={sidebarCollapsed ? `Novo ${leadSingular(labels.leads)}` : undefined}
+              >
+                <PlusCircle size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Novo {leadSingular(labels.leads)}</span>
+              </Link>
+              <Link
+                to="/pipeline"
+                className={`navi-side-link ${isActive('/pipeline') ? 'active' : ''}`}
+                title={sidebarCollapsed ? (labels.pipeline || 'Funil') : undefined}
+              >
+                <Users size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">{labels.pipeline || 'Funil'}</span>
+              </Link>
+              <Link
+                to="/inbox"
+                className={`navi-side-link ${isActive('/inbox') ? 'active' : ''}`}
+                title={sidebarCollapsed ? 'Atendimento' : undefined}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Atendimento</span>
+              </Link>
+              <Link
+                to="/students"
+                className={`navi-side-link ${isActive('/students') ? 'active' : ''}`}
+                title={sidebarCollapsed ? labels.students : undefined}
+              >
+                <GraduationCap size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">{labels.students}</span>
+              </Link>
+              <Link
+                to="/reports"
+                className={`navi-side-link ${isActive('/reports') ? 'active' : ''}`}
+                title={sidebarCollapsed ? 'Relatórios' : undefined}
+              >
+                <BarChart3 size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Relatórios</span>
+              </Link>
             </div>
-          )}
-          <div className="navi-side-section">
-            <Link to="/profile" className={`navi-side-link ${isActive('/profile') ? 'active' : ''}`}>
-              <User size={18} strokeWidth={1.75} />
-              <span>Conta</span>
-            </Link>
-            <Link to="/templates" className={`navi-side-link ${isActive('/templates') ? 'active' : ''}`}>
-              <MessageCircle size={18} strokeWidth={1.75} />
-              <span>Templates</span>
-            </Link>
-          </div>
+            {((modules.inventory === true) || (modules.sales === true)) && (
+              <div className="navi-side-section">
+                <span className="navi-side-section-title">Operações</span>
+                {modules.inventory === true && (
+                  <Link
+                    to="/estoque"
+                    className={`navi-side-link ${isActive('/estoque') ? 'active' : ''}`}
+                    title={sidebarCollapsed ? 'Estoque' : undefined}
+                  >
+                    <Boxes size={18} strokeWidth={1.75} />
+                    <span className="navi-side-link-label">Estoque</span>
+                  </Link>
+                )}
+                {modules.sales === true && (
+                  <Link
+                    to="/vendas"
+                    className={`navi-side-link ${isActive('/vendas') ? 'active' : ''}`}
+                    title={sidebarCollapsed ? 'Vendas' : undefined}
+                  >
+                    <ShoppingBag size={18} strokeWidth={1.75} />
+                    <span className="navi-side-link-label">Vendas</span>
+                  </Link>
+                )}
+              </div>
+            )}
+            <div className="navi-side-section">
+              <Link
+                to="/profile"
+                className={`navi-side-link ${isActive('/profile') ? 'active' : ''}`}
+                title={sidebarCollapsed ? 'Conta' : undefined}
+              >
+                <User size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Conta</span>
+              </Link>
+              <Link
+                to="/templates"
+                className={`navi-side-link ${isActive('/templates') ? 'active' : ''}`}
+                title={sidebarCollapsed ? 'Templates' : undefined}
+              >
+                <LayoutTemplate size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Templates</span>
+              </Link>
+            </div>
+          </nav>
         </aside>
 
         <div className="navi-main-stack">
           <header className="navi-topbar">
             <button type="button" className="navi-topbar-brand" onClick={() => navigate('/')}>
               <NaviLogo size={22} variant="white" />
-              <span className="navi-wordmark">Navi</span>
+              <NaviWordmark fontSize={18} variant="light" />
             </button>
             <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {academySelect}

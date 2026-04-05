@@ -34,8 +34,8 @@
   --border-mid: rgba(91, 63, 191, 0.18);
   --border-strong: rgba(91, 63, 191, 0.3);
 
-  /* Tipografia */
-  --ff-display: 'Fraunces', Georgia, serif;
+  /* Tipografia — UI moderna em sans; serif só em .navi-land (headlines) + letra "i" do NaviWordmark */
+  --ff-serif-accent: 'Fraunces', Georgia, serif;
   --ff-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
   --ff-mono: 'DM Mono', monospace;
 
@@ -85,29 +85,21 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Fraunces italic 300 — palavras-chave em headlines (e descrições .feat-desc) */
-h1 em,
-h2 em,
-h3 em,
-.cta-headline em {
-  font-family: var(--ff-display);
+/* Fraunces: apenas na landing pública (.navi-land), em <em> de headlines / CTA */
+.navi-land h1 em,
+.navi-land h2 em,
+.navi-land h3 em,
+.navi-land .cta-headline em {
+  font-family: var(--ff-serif-accent);
   font-style: italic;
   font-weight: 300;
   color: var(--v500);
   letter-spacing: -0.03em;
 }
 
-.cta-inner h2 em,
-.cta-inner .cta-headline em {
+.navi-land .cta-inner h2 em,
+.navi-land .cta-inner .cta-headline em {
   color: rgba(255, 255, 255, 0.72);
-}
-
-.feat-desc em {
-  font-family: var(--ff-display);
-  font-style: italic;
-  font-weight: 300;
-  color: var(--v400);
-  letter-spacing: -0.02em;
 }
 
 * {
@@ -168,18 +160,7 @@ h3 {
   font-size: 1.1rem;
 }
 
-.navi-display {
-  font-family: var(--ff-display);
-  font-weight: 300;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.navi-wordmark {
-  font-family: var(--ff-display);
-  font-weight: 300;
-  letter-spacing: -0.02em;
-}
+/* .navi-wordmark: estilos de marca vêm do componente NaviWordmark (só o "i" em serif) */
 
 .navi-eyebrow {
   font-family: var(--ff-mono);
@@ -323,68 +304,94 @@ button:active {
   box-shadow: var(--shadow);
 }
 
-/* Layout app shell */
+/* Layout app shell — um único sidebar expansível/recolhível */
 .navi-shell {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 316px) 1fr;
+  display: flex;
   height: 100vh;
   overflow: hidden;
   flex: 1;
   background: var(--paper);
 }
 
-.navi-rail {
-  width: 52px;
-  background: var(--v900);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 18px 0;
-  gap: 4px;
-  border-right: 0.5px solid rgba(255, 255, 255, 0.05);
-  animation: navi-fade-up 0.35s ease both;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.navi-rail-logo {
-  margin-bottom: 12px;
-  opacity: 0.95;
-}
-
-.navi-rail-item {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.45);
-  text-decoration: none;
-  transition: background 0.15s ease, opacity 0.15s ease, color 0.15s ease;
-}
-
-.navi-rail-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.85);
-  opacity: 1;
-}
-
-.navi-rail-item.active {
-  background: rgba(91, 63, 191, 0.35);
-  color: var(--white);
-  opacity: 1;
-}
-
 .navi-sidebar {
   display: none;
   flex-direction: column;
+  flex: 0 0 280px;
+  width: 280px;
+  max-width: 280px;
   background: var(--white);
   border-right: 0.5px solid var(--border-violet);
-  overflow-y: auto;
-  padding: 20px 16px;
-  gap: 8px;
+  padding: 16px 14px 20px;
   animation: navi-fade-up 0.35s 0.05s ease both;
+  transition: flex-basis 0.22s ease, width 0.22s ease, max-width 0.22s ease, padding 0.22s ease;
+  min-height: 0;
+}
+
+.navi-sidebar--collapsed {
+  flex-basis: 76px;
+  width: 76px;
+  max-width: 76px;
+  padding: 14px 10px 18px;
+}
+
+.navi-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-bottom: 18px;
+  min-height: 40px;
+}
+
+.navi-sidebar--collapsed .navi-sidebar-header {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.navi-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.navi-sidebar-brand--collapsed {
+  justify-content: center;
+  width: 100%;
+}
+
+.navi-sidebar-toggle {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border-violet);
+  background: var(--v50);
+  color: var(--v700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.navi-sidebar-toggle:hover {
+  background: var(--v100);
+  border-color: rgba(91, 63, 191, 0.25);
+  color: var(--v500);
+}
+
+.navi-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .navi-main-stack {
@@ -439,11 +446,6 @@ button:active {
 }
 
 @media (max-width: 1023px) {
-  .navi-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .navi-rail,
   .navi-sidebar {
     display: none !important;
   }
@@ -755,6 +757,31 @@ button:active {
   color: var(--white);
 }
 
+/* Sidebar recolhido: só ícones + tooltips */
+.navi-sidebar--collapsed .navi-side-section-title {
+  display: none;
+}
+
+.navi-sidebar--collapsed .navi-side-link {
+  justify-content: center;
+  padding: 10px;
+  gap: 0;
+}
+
+.navi-sidebar--collapsed .navi-side-link-label {
+  display: none;
+}
+
+.navi-sidebar--collapsed .navi-side-link.active {
+  box-shadow: none;
+  border-radius: 11px;
+  background: var(--v50);
+}
+
+.navi-sidebar--collapsed .navi-side-link.primary {
+  box-shadow: 0 3px 12px rgba(91, 63, 191, 0.22);
+}
+
 /* Bottom nav mobile */
 .navi-bottom-nav {
   position: fixed;
@@ -892,11 +919,11 @@ button:active {
   }
 }
 
-/* —— Páginas: títulos Fraunces, datas DM Mono, strips —— */
+/* —— Páginas: títulos sans (app), datas DM Mono —— */
 .navi-page-title {
-  font-family: var(--ff-display);
-  font-weight: 300;
-  letter-spacing: -0.03em;
+  font-family: var(--ff-ui);
+  font-weight: 800;
+  letter-spacing: -0.025em;
   line-height: 1.15;
   color: var(--ink);
   font-size: clamp(1.45rem, 2.8vw, 1.85rem);

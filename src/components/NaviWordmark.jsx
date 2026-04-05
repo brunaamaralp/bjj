@@ -1,5 +1,5 @@
 /**
- * Wordmark Nav + i (Fraunces italic violeta ou claro no mock).
+ * Wordmark Nav (sans) + i em Fraunces italic — único uso sistemático da serif.
  * @param {number} [fontSize=20]
  * @param {'dark' | 'light'} [variant='dark'] — light = texto branco no topbar violeta
  */

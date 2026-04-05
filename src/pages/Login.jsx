@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { authService } from '../lib/auth';
 import { Eye, EyeOff, LogIn, X } from 'lucide-react';
 import NaviLogo from '../components/NaviLogo.jsx';
+import NaviWordmark from '../components/NaviWordmark.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 
 const Login = ({ onLogin }) => {
@@ -45,7 +46,9 @@ const Login = ({ onLogin }) => {
                     </button>
                     <NaviLogo size={52} />
                 </div>
-                <h1 className="login-title navi-wordmark">Navi</h1>
+                <h1 className="login-title">
+                    <NaviWordmark fontSize={28} />
+                </h1>
                 <p className="login-subtitle">Acesse sua conta</p>
 
                 <form onSubmit={handleSubmit} className="login-form">
@@ -118,8 +121,10 @@ const Login = ({ onLogin }) => {
         }
         .login-logo { font-size: 3rem; margin-bottom: 8px; }
         .login-title {
-          font-size: 1.85rem; font-weight: 300; color: var(--ink);
-          margin-bottom: 4px; letter-spacing: -0.03em;
+          margin: 0 0 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
         .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }

@@ -106,11 +106,11 @@ const FEAT_PILLS = [
 ];
 
 const FEAT_ROWS = [
-  ['01', 'Pipeline de leads visual', <>Do primeiro contato à <em>matrícula</em> em colunas</>],
-  ['02', 'Atendimento via IA no WhatsApp', <>Responde <em>automaticamente.</em> Você assume quando quiser</>],
-  ['03', 'Gestão de alunos ativos', <>Ativo, pausado, em débito — em <em>segundos</em></>],
-  ['04', 'Agendamento de experimentais', <>Marca a aula direto na <em>conversa</em></>],
-  ['05', 'Multi-academia', <>Várias unidades, <em>um painel</em></>],
+  ['01', 'Pipeline de leads visual', <>Do primeiro contato à <span className="navi-land-feat-kw">matrícula</span> em colunas</>],
+  ['02', 'Atendimento via IA no WhatsApp', <>Responde <span className="navi-land-feat-kw">automaticamente.</span> Você assume quando quiser</>],
+  ['03', 'Gestão de alunos ativos', <>Ativo, pausado, em débito — em <span className="navi-land-feat-kw">segundos</span></>],
+  ['04', 'Agendamento de experimentais', <>Marca a aula direto na <span className="navi-land-feat-kw">conversa</span></>],
+  ['05', 'Multi-academia', <>Várias unidades, <span className="navi-land-feat-kw">um painel</span></>],
 ];
 
 const Welcome = () => (
@@ -220,7 +220,7 @@ const Welcome = () => (
           <div key={num} className={`feat-row navi-land-feat-row${i === FEAT_ROWS.length - 1 ? ' navi-land-feat-row--last' : ''}`}>
             <span className="feat-num navi-land-feat-num">{num}</span>
             <span className="feat-title navi-land-feat-title">{title}</span>
-            <span className="feat-desc navi-land-feat-desc">{desc}</span>
+            <span className="navi-land-feat-desc">{desc}</span>
           </div>
         ))}
       </div>
@@ -541,14 +541,22 @@ const Welcome = () => (
         margin-bottom: 6px;
       }
       .navi-land-kanban-tag {
-        font-family: var(--ff-display);
-        font-style: italic;
-        font-weight: 300;
-        font-size: 9px;
-        padding: 1px 6px;
+        font-family: var(--ff-ui);
+        font-style: normal;
+        font-weight: 600;
+        font-size: 8px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 2px 6px;
         border-radius: 4px;
         background: var(--v100);
         color: var(--v700);
+      }
+      .navi-land-feat-kw {
+        font-family: var(--ff-ui);
+        font-weight: 700;
+        font-style: normal;
+        color: var(--v500);
       }
 
       .navi-land-pain {
