@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, LayoutTemplate, Building2 } from 'lucide-react';
+import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
@@ -562,19 +562,11 @@ const App = () => {
               </Link>
               <Link
                 to="/empresa"
-                className={`navi-side-link ${isActive('/empresa') ? 'active' : ''}`}
+                className={`navi-side-link ${isActive('/empresa') || isActive('/templates') ? 'active' : ''}`}
                 title={sidebarCollapsed ? 'Empresa' : undefined}
               >
                 <Building2 size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Empresa</span>
-              </Link>
-              <Link
-                to="/templates"
-                className={`navi-side-link ${isActive('/templates') ? 'active' : ''}`}
-                title={sidebarCollapsed ? 'Templates' : undefined}
-              >
-                <LayoutTemplate size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Templates</span>
               </Link>
             </div>
           </nav>
@@ -667,7 +659,7 @@ const App = () => {
             <span>Loja</span>
           </Link>
         )}
-        <Link to="/conta" className={`navi-nav-item ${isActive('/conta') || isActive('/empresa') ? 'active' : ''}`}>
+        <Link to="/conta" className={`navi-nav-item ${isActive('/conta') || isActive('/empresa') || isActive('/templates') ? 'active' : ''}`}>
           <User size={22} strokeWidth={1.75} />
           <span>Conta</span>
         </Link>

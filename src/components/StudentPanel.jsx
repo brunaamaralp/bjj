@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Pencil } from 'lucide-react';
 
 function waDigits(phone) {
     const d = String(phone || '').replace(/\D/g, '');
@@ -6,8 +7,24 @@ function waDigits(phone) {
     return d.startsWith('55') ? d : `55${d}`;
 }
 
+function formatDateBR(ymd) {
+    if (!ymd || String(ymd).length < 10) return '';
+    try {
+        return new Date(`${String(ymd).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR');
+    } catch {
+        return '';
+    }
+}
+
+const EDITABLE_FIELDS = [
+    { key: 'plan', label: 'Plano contratado', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
+    { key: 'enrollmentDate', label: 'Data de ingresso', type: 'date', placeholder: '' },
+    { key: 'birthDate', label: 'Data de nascimento', type: 'date', placeholder: '' },
+    { key: 'emergencyContact', label: 'Contato de emergência', type: 'text', placeholder: 'Nome do contato' },
+    { key: 'emergencyPhone', label: 'Telefone de emergência', type: 'tel', placeholder: 'Celular' },
+];
+
 export function StudentPanel({ student, onClose, onSave }) {
-    const [tab, setTab] = useState('info');
     const [form, setForm] = useState({
         plan: student.plan || '',
         enrollmentDate: student.enrollmentDate || '',
@@ -15,11 +32,9 @@ export function StudentPanel({ student, onClose, onSave }) {
         emergencyPhone: student.emergencyPhone || '',
         birthDate: student.birthDate || '',
     });
-    const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        setTab('info');
-    }, [student.id]);
+    const [editingKey, setEditingKey] = useState(null);
+    const [draft, setDraft] = useState('');
+    const [savingKey, setSavingKey] = useState(null);
 
     useEffect(() => {
         setForm({
@@ -29,6 +44,8 @@ export function StudentPanel({ student, onClose, onSave }) {
             emergencyPhone: student.emergencyPhone || '',
             birthDate: student.birthDate || '',
         });
+        setEditingKey(null);
+        setDraft('');
     }, [
         student.id,
         student.plan,
@@ -38,17 +55,61 @@ export function StudentPanel({ student, onClose, onSave }) {
         student.birthDate,
     ]);
 
-    const handleSave = async () => {
-        setSaving(true);
+    const startEdit = (key) => {
+        if (savingKey) return;
+        setEditingKey(key);
+        setDraft(String(form[key] ?? ''));
+    };
+
+    const cancelEdit = useCallback(() => {
+        setEditingKey(null);
+        setDraft('');
+    }, []);
+
+    const commitRow = async (key) => {
+        if (savingKey) return;
+        const next = { ...form, [key]: draft };
+        setSavingKey(key);
         try {
-            await onSave(student.id, form);
-            setTab('info');
+            await onSave(student.id, next);
+            setForm(next);
+            setEditingKey(null);
+            setDraft('');
         } finally {
-            setSaving(false);
+            setSavingKey(null);
         }
     };
 
+    const displayForRow = (key) => {
+        const raw = form[key];
+        if (key === 'enrollmentDate' || key === 'birthDate') {
+            const br = formatDateBR(raw);
+            return br || '';
+        }
+        return raw != null && String(raw).trim() ? String(raw).trim() : '';
+    };
+
     const waUrl = waDigits(student.phone) ? `https://wa.me/${waDigits(student.phone)}` : null;
+
+    const inputStyle = {
+        padding: '9px 12px',
+        borderRadius: 8,
+        border: '1px solid var(--border)',
+        background: 'var(--surface)',
+        color: 'var(--text)',
+        fontSize: 14,
+        width: '100%',
+        boxSizing: 'border-box',
+        fontFamily: 'inherit',
+    };
+
+    const rowBase = {
+        borderRadius: 10,
+        border: '1px solid var(--border)',
+        background: 'var(--surface)',
+        padding: '12px 14px',
+        marginBottom: 8,
+    };
 
     return (
         <div>
@@ -57,7 +118,7 @@ export function StudentPanel({ student, onClose, onSave }) {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start',
-                    marginBottom: 20,
+                    marginBottom: 16,
                 }}
             >
                 <div>
@@ -92,184 +153,44 @@ export function StudentPanel({ student, onClose, onSave }) {
                 </button>
             </div>
 
-            <div
-                style={{
-                    display: 'flex',
-                    gap: 4,
-                    marginBottom: 20,
-                    borderBottom: '1px solid var(--border)',
-                    paddingBottom: 0,
-                }}
-            >
-                {['info', 'edit'].map((t) => (
-                    <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTab(t)}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+                {waUrl ? (
+                    <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noreferrer"
                         style={{
-                            padding: '8px 16px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: 'none',
-                            fontWeight: tab === t ? 700 : 400,
-                            color: tab === t ? 'var(--purple)' : 'var(--text-muted)',
-                            borderBottom: tab === t ? '2px solid var(--purple)' : '2px solid transparent',
-                            fontSize: 14,
-                            transition: 'all 0.15s',
-                        }}
-                    >
-                        {t === 'info' ? 'Informações' : 'Editar'}
-                    </button>
-                ))}
-            </div>
-
-            {tab === 'info' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        {waUrl ? (
-                            <a
-                                href={waUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 0',
-                                    borderRadius: 10,
-                                    background: 'var(--purple)',
-                                    color: '#fff',
-                                    textAlign: 'center',
-                                    textDecoration: 'none',
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                }}
-                            >
-                                WhatsApp
-                            </a>
-                        ) : (
-                            <span
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 0',
-                                    borderRadius: 10,
-                                    background: 'var(--border-light)',
-                                    color: 'var(--text-muted)',
-                                    textAlign: 'center',
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                }}
-                            >
-                                Sem telefone
-                            </span>
-                        )}
-                    </div>
-
-                    <InfoCard title="Plano">
-                        <InfoRow label="Plano" value={student.plan} />
-                        <InfoRow
-                            label="Ingresso"
-                            value={
-                                student.enrollmentDate
-                                    ? new Date(`${student.enrollmentDate}T12:00:00`).toLocaleDateString('pt-BR')
-                                    : null
-                            }
-                        />
-                        <InfoRow
-                            label="Aniversário"
-                            value={
-                                student.birthDate
-                                    ? new Date(`${student.birthDate}T12:00:00`).toLocaleDateString('pt-BR')
-                                    : null
-                            }
-                        />
-                    </InfoCard>
-
-                    <InfoCard title="Emergência">
-                        <InfoRow label="Contato" value={student.emergencyContact} />
-                        <InfoRow label="Telefone" value={student.emergencyPhone} />
-                    </InfoCard>
-                </div>
-            )}
-
-            {tab === 'edit' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <Field label="Plano contratado">
-                        <input
-                            type="text"
-                            value={form.plan}
-                            onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value }))}
-                            placeholder="Ex: Mensal, Anual, Semestral"
-                        />
-                    </Field>
-
-                    <Field label="Data de ingresso">
-                        <input
-                            type="date"
-                            value={form.enrollmentDate}
-                            onChange={(e) => setForm((f) => ({ ...f, enrollmentDate: e.target.value }))}
-                        />
-                    </Field>
-
-                    <Field label="Data de nascimento">
-                        <input
-                            type="date"
-                            value={form.birthDate}
-                            onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
-                        />
-                    </Field>
-
-                    <Field label="Contato de emergência (nome)">
-                        <input
-                            type="text"
-                            value={form.emergencyContact}
-                            onChange={(e) => setForm((f) => ({ ...f, emergencyContact: e.target.value }))}
-                            placeholder="Ex: Maria (mãe)"
-                        />
-                    </Field>
-
-                    <Field label="Telefone de emergência">
-                        <input
-                            type="tel"
-                            value={form.emergencyPhone}
-                            onChange={(e) => setForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
-                            placeholder="(37) 99999-9999"
-                        />
-                    </Field>
-
-                    <button
-                        type="button"
-                        onClick={handleSave}
-                        disabled={saving}
-                        style={{
-                            padding: '12px 0',
+                            flex: 1,
+                            padding: '10px 0',
                             borderRadius: 10,
-                            border: 'none',
                             background: 'var(--purple)',
                             color: '#fff',
-                            fontWeight: 700,
+                            textAlign: 'center',
+                            textDecoration: 'none',
                             fontSize: 14,
-                            cursor: saving ? 'not-allowed' : 'pointer',
-                            opacity: saving ? 0.7 : 1,
-                            marginTop: 4,
+                            fontWeight: 600,
                         }}
                     >
-                        {saving ? 'Salvando...' : 'Salvar alterações'}
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-}
+                        WhatsApp
+                    </a>
+                ) : (
+                    <span
+                        style={{
+                            flex: 1,
+                            padding: '10px 0',
+                            borderRadius: 10,
+                            background: 'var(--border-light)',
+                            color: 'var(--text-muted)',
+                            textAlign: 'center',
+                            fontSize: 14,
+                            fontWeight: 600,
+                        }}
+                    >
+                        Sem telefone
+                    </span>
+                )}
+            </div>
 
-function InfoCard({ title, children }) {
-    return (
-        <div
-            style={{
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                padding: 14,
-                background: 'var(--surface)',
-            }}
-        >
             <p
                 style={{
                     margin: '0 0 10px',
@@ -280,49 +201,127 @@ function InfoCard({ title, children }) {
                     letterSpacing: '0.08em',
                 }}
             >
-                {title}
+                Dados do aluno
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
-        </div>
-    );
-}
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Toque em uma linha para editar. Salve ou cancele antes de editar outro campo.
+            </p>
 
-function InfoRow({ label, value }) {
-    if (value == null || String(value).trim() === '') return null;
-    return (
-        <div
-            style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: 14,
-                gap: 12,
-            }}
-        >
-            <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-            <span style={{ color: 'var(--text)', fontWeight: 500, textAlign: 'right' }}>{value}</span>
-        </div>
-    );
-}
+            {EDITABLE_FIELDS.map((field) => {
+                const isEditing = editingKey === field.key;
+                const isSaving = savingKey === field.key;
+                const shown = displayForRow(field.key);
 
-function Field({ label, children }) {
-    return (
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{label}</span>
-            {React.cloneElement(children, {
-                style: {
-                    padding: '9px 12px',
-                    borderRadius: 8,
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                    fontSize: 14,
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    fontFamily: 'inherit',
-                    ...(children.props.style || {}),
-                },
+                return (
+                    <div
+                        key={field.key}
+                        style={{
+                            ...rowBase,
+                            borderColor: isEditing ? 'var(--accent)' : 'var(--border)',
+                            boxShadow: isEditing ? '0 0 0 2px var(--accent-light)' : 'none',
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.06em',
+                                marginBottom: isEditing ? 8 : 6,
+                            }}
+                        >
+                            {field.label}
+                        </div>
+
+                        {isEditing ? (
+                            <>
+                                <input
+                                    type={field.type}
+                                    value={draft}
+                                    onChange={(e) => setDraft(e.target.value)}
+                                    placeholder={field.placeholder}
+                                    disabled={Boolean(savingKey)}
+                                    style={inputStyle}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Escape') cancelEdit();
+                                    }}
+                                />
+                                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                    <button
+                                        type="button"
+                                        disabled={Boolean(savingKey)}
+                                        onClick={() => commitRow(field.key)}
+                                        style={{
+                                            flex: 1,
+                                            padding: '8px 12px',
+                                            borderRadius: 8,
+                                            border: 'none',
+                                            background: 'var(--purple)',
+                                            color: '#fff',
+                                            fontWeight: 700,
+                                            fontSize: 13,
+                                            cursor: savingKey ? 'not-allowed' : 'pointer',
+                                            opacity: savingKey ? 0.7 : 1,
+                                        }}
+                                    >
+                                        {isSaving ? 'Salvando…' : 'Salvar'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={Boolean(savingKey)}
+                                        onClick={cancelEdit}
+                                        style={{
+                                            padding: '8px 14px',
+                                            borderRadius: 8,
+                                            border: '1px solid var(--border)',
+                                            background: 'transparent',
+                                            color: 'var(--text-secondary)',
+                                            fontWeight: 600,
+                                            fontSize: 13,
+                                            cursor: savingKey ? 'not-allowed' : 'pointer',
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => startEdit(field.key)}
+                                disabled={Boolean(editingKey) || Boolean(savingKey)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 10,
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    cursor: editingKey || savingKey ? 'default' : 'pointer',
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                        color: shown ? 'var(--text)' : 'var(--text-muted)',
+                                        fontStyle: shown ? 'normal' : 'italic',
+                                    }}
+                                >
+                                    {shown || 'Toque para preencher'}
+                                </span>
+                                <Pencil size={16} color="var(--text-muted)" aria-hidden />
+                            </button>
+                        )}
+                    </div>
+                );
             })}
-        </label>
+        </div>
     );
 }

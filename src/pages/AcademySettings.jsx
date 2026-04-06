@@ -1,12 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, teams, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID } from '../lib/appwrite';
 import { Building2, Phone, Mail, MapPin, Trash2, Download, ChevronLeft, ChevronRight, Info, Plus, X, LayoutTemplate } from 'lucide-react';
 import ExportButton from '../components/ExportButton';
 
+/** Sub-abas da página Empresa (âncoras + rótulos curtos) */
+const EMPRESA_TABS = [
+    { id: 'visao', label: 'Visão' },
+    { id: 'checklist', label: 'Checklist' },
+    { id: 'dados', label: 'Academia' },
+    { id: 'lead', label: 'Lead' },
+    { id: 'templates', label: 'Templates' },
+    { id: 'equipe', label: 'Equipe' },
+    { id: 'export', label: 'Dados' },
+    { id: 'sistema', label: 'Sistema' },
+];
+
+const EMPRESA_TAB_IDS = new Set(EMPRESA_TABS.map((t) => t.id));
+
+/** Aceita `#lead`, `#export` ou `#empresa-sec-lead` (com URL decode). */
+function resolveEmpresaTabFromHash(raw) {
+    if (!raw) return null;
+    let s = String(raw).trim();
+    try {
+        s = decodeURIComponent(s);
+    } catch {
+        void 0;
+    }
+    const m = s.match(/^empresa-sec-(.+)$/i);
+    if (m && EMPRESA_TAB_IDS.has(m[1])) return m[1];
+    if (EMPRESA_TAB_IDS.has(s)) return s;
+    return null;
+}
+
 const AcademySettings = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const addToast = useUiStore((s) => s.addToast);
@@ -22,6 +53,50 @@ const AcademySettings = () => {
     const [memberRole, setMemberRole] = useState('viewer');
     const [inviting, setInviting] = useState(false);
     const [memberships, setMemberships] = useState([]);
+    const [activeEmpresaTab, setActiveEmpresaTab] = useState('visao');
+
+    const scrollToEmpresaSection = useCallback(
+        (tabId) => {
+            if (!EMPRESA_TAB_IDS.has(tabId)) return;
+            setActiveEmpresaTab(tabId);
+            navigate({ pathname: location.pathname, hash: tabId }, { replace: true });
+        },
+        [navigate, location.pathname]
+    );
+
+    useEffect(() => {
+        const raw = (location.hash || '').replace(/^#/, '');
+        const tabId = resolveEmpresaTabFromHash(raw);
+        if (!tabId) return undefined;
+        const run = () => {
+            const el = document.getElementById(`empresa-sec-${tabId}`);
+            if (!el) return;
+            setActiveEmpresaTab(tabId);
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        const t = window.setTimeout(run, 60);
+        return () => clearTimeout(t);
+    }, [location.hash, academyId]);
+
+    useEffect(() => {
+        const elements = EMPRESA_TABS.map((t) => document.getElementById(`empresa-sec-${t.id}`)).filter(Boolean);
+        if (elements.length === 0) return undefined;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const visible = entries
+                    .filter((e) => e.isIntersecting && e.intersectionRatio > 0)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+                const top = visible[0];
+                if (!top?.target?.id) return;
+                const m = top.target.id.match(/^empresa-sec-(.+)$/);
+                if (m) setActiveEmpresaTab((prev) => (prev === m[1] ? prev : m[1]));
+            },
+            { threshold: [0, 0.06, 0.15, 0.3, 0.5], rootMargin: '-10% 0px -52% 0px' }
+        );
+        elements.forEach((el) => observer.observe(el));
+        return () => observer.disconnect();
+    }, [academyId]);
 
     const createId = () => {
         try {
@@ -305,8 +380,24 @@ const AcademySettings = () => {
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Checklist, identidade, funil, equipe e dados da academia</p>
             </div>
 
+            <nav className="empresa-subnav" aria-label="Seções da empresa">
+                <div className="empresa-subnav-scroll">
+                    {EMPRESA_TABS.map((tab) => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            className={`empresa-subnav-tab ${activeEmpresaTab === tab.id ? 'empresa-subnav-tab--active' : ''}`}
+                            onClick={() => scrollToEmpresaSection(tab.id)}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </nav>
+
+            <section id="empresa-sec-visao" className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
             {/* Academy Avatar */}
-            <div className="account-hero card mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+            <div className="account-hero card">
                 <div className="flex items-center gap-4">
                     <div className="account-avatar">
                         <Building2 size={28} />
@@ -318,8 +409,7 @@ const AcademySettings = () => {
                 </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="stats-grid mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
+            <div className="stats-grid mt-4">
                 <div className="stat-card">
                     <span className="stat-number">{totalLeads}</span>
                     <span className="stat-label">{academy.uiLabels?.leads || 'Leads'}</span>
@@ -333,9 +423,9 @@ const AcademySettings = () => {
                     <span className="stat-label">{academy.uiLabels?.students || 'Alunos'}</span>
                 </div>
             </div>
+            </section>
 
-            {/* Academy Info */}
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.12s' }}>
+            <section id="empresa-sec-checklist" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.12s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">Checklist Inicial</h3>
                     <span className="navi-eyebrow" style={{ color: 'var(--mid)' }}>
@@ -365,7 +455,7 @@ const AcademySettings = () => {
                 </div>
             </section>
 
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.15s' }}>
+            <section id="empresa-sec-dados" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.15s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">Dados da Academia</h3>
                     {!editing && (
@@ -504,7 +594,7 @@ const AcademySettings = () => {
                 </div>
             </section>
 
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.18s' }}>
+            <section id="empresa-sec-lead" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.18s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">Perguntas do Lead</h3>
                 </div>
@@ -658,7 +748,7 @@ const AcademySettings = () => {
                 </div>
             </section>
 
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.19s' }}>
+            <section id="empresa-sec-templates" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.19s' }}>
                 <h3 className="navi-section-heading mb-2">Templates</h3>
                 <Link to="/templates" className="card action-row" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div className="flex items-center gap-4">
@@ -674,7 +764,7 @@ const AcademySettings = () => {
                 </Link>
             </section>
 
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.22s' }}>
+            <section id="empresa-sec-equipe" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.22s' }}>
                 <h3 className="navi-section-heading mb-2">Equipe</h3>
                 <div className="card">
                     {academy.teamId ? (
@@ -719,7 +809,7 @@ const AcademySettings = () => {
                 </div>
             </section>
 
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.24s' }}>
+            <section id="empresa-sec-export" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.24s' }}>
                 <h3 className="navi-section-heading mb-2">Dados</h3>
                 <p className="navi-subtitle mb-2" style={{ fontSize: '0.85rem' }}>Exportação e exclusão em massa afetam apenas leads e alunos desta base.</p>
                 <div className="card flex-col" style={{ padding: 0, overflow: 'hidden' }}>
@@ -751,8 +841,7 @@ const AcademySettings = () => {
                 </div>
             </section>
 
-            {/* System Info */}
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.25s' }}>
+            <section id="empresa-sec-sistema" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.25s' }}>
                 <h3 className="navi-section-heading mb-2">Sistema</h3>
                 <div className="card">
                     <div className="flex items-center gap-4">
@@ -793,6 +882,56 @@ const AcademySettings = () => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
+        .empresa-section { scroll-margin-top: 52px; }
+        .empresa-subnav {
+          position: sticky;
+          top: 0;
+          z-index: 8;
+          margin: 4px -6px 14px;
+          padding: 6px 6px 10px;
+          background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 72%, rgba(246, 244, 255, 0) 100%);
+          border-bottom: 1px solid var(--border-light);
+        }
+        .empresa-subnav-scroll {
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 6px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          scrollbar-color: var(--v100) transparent;
+          padding-bottom: 2px;
+        }
+        .empresa-subnav-scroll::-webkit-scrollbar { height: 4px; }
+        .empresa-subnav-scroll::-webkit-scrollbar-thumb {
+          background: var(--v100);
+          border-radius: 4px;
+        }
+        .empresa-subnav-tab {
+          flex: 0 0 auto;
+          padding: 6px 12px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          border-radius: 999px;
+          border: 1px solid var(--border-light);
+          background: var(--surface);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: var(--transition);
+          font-family: var(--ff-ui, inherit);
+        }
+        .empresa-subnav-tab:hover {
+          border-color: var(--v200);
+          color: var(--text);
+          background: var(--surface-hover);
+        }
+        .empresa-subnav-tab--active {
+          background: var(--accent-light);
+          color: var(--accent);
+          border-color: rgba(91, 63, 191, 0.22);
+        }
         .account-hero { border-top: 4px solid var(--accent); }
         .account-avatar {
           width: 56px; height: 56px; border-radius: 16px;

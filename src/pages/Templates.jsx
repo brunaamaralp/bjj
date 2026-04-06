@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MessageCircle, Save, RotateCcw, Send, User, Search, Copy, Check, RotateCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { MessageCircle, Save, RotateCcw, Send, User, Search, Copy, Check, RotateCw, ChevronLeft } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -190,6 +191,22 @@ const Templates = () => {
 
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
+      <Link
+        to="/empresa#templates"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: 10,
+          color: 'var(--accent)',
+          fontWeight: 600,
+          fontSize: '0.85rem',
+          textDecoration: 'none',
+        }}
+      >
+        <ChevronLeft size={18} strokeWidth={2} aria-hidden />
+        Voltar à empresa
+      </Link>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h2 className="navi-page-title" style={{ margin: 0 }}>Templates de Mensagens</h2>
