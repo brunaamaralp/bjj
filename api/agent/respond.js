@@ -367,6 +367,33 @@ function normalizeClassification(obj) {
   };
 }
 
+/** Intenções que indicam interesse em aula experimental, horários ou valores para entrar — viram lead no CRM. */
+const INTENT_QUALIFIES_AS_LEAD = new Set([
+  'aula_experimental',
+  'horarios_adulto',
+  'horarios_crianca',
+  'horarios_junior',
+  'preco_adulto',
+  'preco_crianca',
+  'preco_uniforme_adulto',
+  'preco_uniforme_infantil'
+]);
+
+/**
+ * Só cria documento na coleção Leads após a classificação (evita inflar métricas com "oi", suporte ou aluno atual).
+ * Inclui casos ambíguos quando o modelo marca lead_quente.
+ */
+function shouldAutoCreateLeadFromClassification(classificacao) {
+  if (!classificacao || typeof classificacao !== 'object') return false;
+  if (String(classificacao.tipo_contato || '').trim() === 'aluno') return false;
+  const intent = String(classificacao.intencao || '').trim();
+  if (intent === 'aluno_atual') return false;
+  if (INTENT_QUALIFIES_AS_LEAD.has(intent)) return true;
+  const quente = String(classificacao.lead_quente || '').trim() === 'sim';
+  if (quente && (intent === 'duvida' || intent === 'outro')) return true;
+  return false;
+}
+
 function findAssistantReply(history, messageId) {
   const mid = String(messageId || '').trim();
   if (!mid) return null;
@@ -775,9 +802,6 @@ export default async function handler(req, res) {
     let leadDoc = null;
     try {
       leadDoc = await findLeadByPhone(phone, academyId);
-      if (!leadDoc) {
-        if (!isSuggest) leadDoc = await createMinimalLeadIfMissing({ academyId, phone, name, academyDoc });
-      }
     } catch {
       leadDoc = null;
     }
@@ -833,7 +857,9 @@ export default async function handler(req, res) {
       baseSystemPrompt,
       contactCtx.nomeContatoLine,
       summaryText ? `Resumo do histórico (pode estar desatualizado):\n${summaryText}` : '',
-      'CLASSIFICAÇÃO — lead_quente:\n' +
+      'CLASSIFICAÇÃO — tipo_contato:\n' +
+        'Use tipo_contato "aluno" apenas para quem já treina na academia (matrícula ativa). Quem está conhecendo ou quer experimentar é "lead". intencao "aluno_atual" é para dúvidas de quem já é aluno (não conta como lead novo no funil).\n\n' +
+        'CLASSIFICAÇÃO — lead_quente:\n' +
         'Quando classificar lead_quente como "sim", sua próxima ação no campo "resposta" deve ser o CTA de agendamento da aula experimental ou pedir/confirmar o nome completo para agendar — nunca mais uma pergunta de qualificação genérica.',
       `Retorne SOMENTE um JSON válido (sem markdown) no seguinte formato:\n` +
         `{"resposta":"string","classificacao":{"intencao":"horarios_adulto|horarios_crianca|horarios_junior|preco_adulto|preco_crianca|preco_uniforme_adulto|preco_uniforme_infantil|aula_experimental|duvida|aluno_atual|outro","tipo_contato":"lead|aluno","prioridade":"alta|media|baixa","lead_quente":"sim|nao","precisa_resposta_humana":"sim|nao","perfil_lead":"adulto_para_si|responsavel_crianca|responsavel_junior|indefinido"}}`
@@ -878,6 +904,14 @@ export default async function handler(req, res) {
 
     const up2 = await updateConversationWithMerge(doc.$id, additions);
     if (!up2.ok) throw new Error(up2.erro || 'Erro ao salvar conversa');
+
+    if (!leadDoc && shouldAutoCreateLeadFromClassification(classificacao)) {
+      try {
+        leadDoc = await createMinimalLeadIfMissing({ academyId, phone, name, academyDoc });
+      } catch {
+        leadDoc = null;
+      }
+    }
 
     if (leadDoc) {
       try {
