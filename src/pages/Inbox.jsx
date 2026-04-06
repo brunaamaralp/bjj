@@ -975,8 +975,12 @@ export default function Inbox() {
         delete n[p];
         return n;
       });
-    } catch {
-      void 0;
+    } catch (e) {
+      try {
+        addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como lida. Tente de novo.' });
+      } catch {
+        void 0;
+      }
     }
   }
 
@@ -1223,7 +1227,15 @@ export default function Inbox() {
           seen.add(k);
           deduped.push(it);
         }
-        return deduped;
+        const openPhone = String(selectedPhoneRef.current || '').trim();
+        const nowIso = new Date().toISOString();
+        if (!openPhone) return deduped;
+        return deduped.map((row) => {
+          const ph = String(row?.phone_number || '').trim();
+          if (ph !== openPhone) return row;
+          const lr = String(row?.last_read_at || '').trim();
+          return { ...row, unread_count: 0, last_read_at: lr || nowIso };
+        });
       });
       if (reset && notifiedOnceRef.current) {
         for (const it of next) {

@@ -228,15 +228,22 @@ export default async function handler(req, res) {
       const handoffMs = humanHandoffUntilToMs(handoff);
       const needHuman = handoffMs > Date.now();
       const leadId = typeof doc.lead_id === 'string' ? doc.lead_id : null;
-      const unreadCount = Number.isFinite(Number(doc?.unread_count)) ? Number(doc.unread_count) : 0;
+      const storedUnread = Number.isFinite(Number(doc?.unread_count)) ? Math.max(0, Number(doc.unread_count)) : 0;
       const lastReadAt = typeof doc?.last_read_at === 'string' ? doc.last_read_at : null;
       const lastUserMsgAt = typeof doc?.last_user_msg_at === 'string' ? doc.last_user_msg_at : null;
       const ticketStatus = typeof doc?.ticket_status === 'string' ? String(doc.ticket_status).trim() : 'open';
       const transferTo = typeof doc?.transfer_to === 'string' ? String(doc.transfer_to).trim() : '';
-      const computedHasUnread =
-        lastMeta.role === 'user' &&
-        typeof lastMeta.timestamp === 'string' &&
-        (!lastReadAt || new Date(lastMeta.timestamp).getTime() > new Date(lastReadAt).getTime());
+      const tLastUserLine =
+        lastMeta.role === 'user' && typeof lastMeta.timestamp === 'string' ? new Date(lastMeta.timestamp).getTime() : NaN;
+      const tRead = lastReadAt ? new Date(lastReadAt).getTime() : NaN;
+      let unread_count = storedUnread;
+      if (lastMeta.role === 'user' && Number.isFinite(tLastUserLine)) {
+        if (Number.isFinite(tRead) && tRead >= tLastUserLine) {
+          unread_count = 0;
+        } else if (!Number.isFinite(tRead) || tLastUserLine > tRead) {
+          unread_count = Math.max(storedUnread, 1);
+        }
+      }
       return {
         id: doc.$id,
         phone_number: String(doc.phone_number || '').trim(),
@@ -252,7 +259,7 @@ export default async function handler(req, res) {
         last_message_role: lastMeta.role || null,
         last_message_sender: lastMeta.sender || null,
         last_message_timestamp: lastMeta.timestamp || null,
-        unread_count: unreadCount || (computedHasUnread ? 1 : 0),
+        unread_count,
         last_read_at: lastReadAt || null,
         last_user_msg_at: lastUserMsgAt || null
       };
