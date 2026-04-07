@@ -239,19 +239,21 @@ export const useLeadStore = create((set, get) => ({
         birthDate: lead.birthDate || '',
       };
 
-      const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
-        name: lead.name,
-        phone: lead.phone,
+      // Só atributos da collection no Appwrite — nunca espalhar `lead` (ex.: birthDate fica em notes JSON).
+      const docPayload = {
+        name: String(lead.name || '').trim(),
+        phone: String(lead.phone || '').trim(),
         type: lead.type || 'Adulto',
-        origin: lead.origin || '',
+        origin: String(lead.origin || ''),
         status: lead.status || LEAD_STATUS.NEW,
-        scheduledDate: lead.scheduledDate || '',
-        scheduledTime: lead.scheduledTime || '',
-        parentName: lead.parentName || '',
-        age: lead.age || '',
+        scheduledDate: String(lead.scheduledDate || ''),
+        scheduledTime: String(lead.scheduledTime || ''),
+        parentName: String(lead.parentName || ''),
+        age: lead.age != null && lead.age !== '' ? String(lead.age) : '',
         notes: JSON.stringify(notesData),
         academyId,
-      }, perms);
+      };
+      const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
       const newLead = {
         id: doc.$id,

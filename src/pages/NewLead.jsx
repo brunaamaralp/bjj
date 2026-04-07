@@ -65,11 +65,22 @@ const NewLead = () => {
 
         setSubmitting(true);
         try {
-            const payload = {
-                ...data,
-                status: LEAD_STATUS.SCHEDULED
-            };
-            const created = await addLead(payload);
+            // Payload explícito: evita campos extras do formulário irem ao Appwrite (atributos desconhecidos).
+            const created = await addLead({
+                name: data.name,
+                phone: data.phone,
+                type: data.type,
+                origin: data.origin,
+                status: LEAD_STATUS.SCHEDULED,
+                isFirstExperience: data.isFirstExperience,
+                parentName: data.parentName,
+                age: data.age,
+                borrowedShirt: data.borrowedShirt,
+                borrowedKimono: data.borrowedKimono,
+                scheduledDate: data.scheduledDate,
+                scheduledTime: data.scheduledTime,
+                notes: [],
+            });
             if (created?.id) {
                 navigate(`/lead/${encodeURIComponent(created.id)}`);
             } else {
