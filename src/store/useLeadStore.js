@@ -15,6 +15,12 @@ export const LEAD_ORIGIN = ['Instagram', 'Indicação', 'WhatsApp', 'Passou na p
 
 export const LEADS_PAGE_SIZE = 200;
 
+function normalizePhone(v) {
+  const raw = String(v || '').trim();
+  if (!raw) return '';
+  return raw.replace(/\D/g, '');
+}
+
 function mapAppwriteDocToLead(doc, operationalStatusSet) {
   let history = [];
   let isFirstExperience = 'Sim';
@@ -213,6 +219,9 @@ export const useLeadStore = create((set, get) => ({
 
     try {
       const wasEmpty = get().leads.length === 0;
+      const userId = get().userId;
+      const teamId = get().teamId;
+      const perms = [];
       if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
       if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
       if (perms.length === 0) perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
@@ -374,6 +383,17 @@ export const useLeadStore = create((set, get) => ({
       try {
         const nowIso = new Date().toISOString();
         const history = [{ type: 'import', source: 'Planilha', at: nowIso, by: 'system' }];
+        
+        const phone = lead.phone || '';
+        const name = lead.name || '';
+        
+        // Local check first
+        const existsLocally = get().leads.find(l => normalizePhone(l.phone) === normalizePhone(phone) && String(l.name).toLowerCase() === String(name).toLowerCase());
+        if (existsLocally) {
+           console.log('Skipping duplicate lead in import:', name);
+           continue;
+        }
+
         const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
           name: lead.name,
           phone: lead.phone || '',

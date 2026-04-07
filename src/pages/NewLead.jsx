@@ -40,14 +40,18 @@ const NewLead = () => {
     const leadType = watch('type');
     const phoneValue = watch('phone');
 
-    // Duplicate detection
+    // Duplicate detection (ignore leads sem telefone: vazio faz .endsWith('') ser true para qualquer número)
     const findDuplicate = (phone) => {
         if (!phone || phone.length < 8) return null;
         const cleanInput = phone.replace(/\D/g, '');
         if (cleanInput.length < 8) return null;
-        return leads.find(l => {
-            const cleanExisting = l.phone?.replace(/\D/g, '') || '';
-            return cleanExisting === cleanInput || cleanExisting.endsWith(cleanInput.slice(-8)) || cleanInput.endsWith(cleanExisting.slice(-8));
+        return leads.find((l) => {
+            const cleanExisting = String(l.phone || '').replace(/\D/g, '');
+            if (cleanExisting.length < 8) return false;
+            if (cleanExisting === cleanInput) return true;
+            const tailIn = cleanInput.slice(-8);
+            const tailEx = cleanExisting.slice(-8);
+            return cleanExisting.endsWith(tailIn) || cleanInput.endsWith(tailEx);
         });
     };
 
