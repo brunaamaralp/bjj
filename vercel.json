@@ -1,12 +1,11 @@
 {
   "rewrites": [
-    {
-      "source": "/v1/webhooks/asaas",
-      "destination": "/api/v1/webhooks/asaas"
-    },
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/billing/:action(.*)", "destination": "/api/billing.js?action=$1" },
+    { "source": "/api/agent/:action(.*)", "destination": "/api/agent.js?action=$1" },
+    { "source": "/api/conversations", "destination": "/api/conversations.js" },
+    { "source": "/api/conversations/:phone(.*)", "destination": "/api/conversations.js?phone=$1" },
+    { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },
+    { "source": "/v1/webhooks/asaas", "destination": "/api/v1/webhooks/asaas" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
