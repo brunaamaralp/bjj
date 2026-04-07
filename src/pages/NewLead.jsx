@@ -11,6 +11,15 @@ const TYPE_ICONS = {
 };
 
 const COMMON_TIMES = ['07:00', '08:00', '12:00', '18:00', '19:00', '20:00'];
+
+/** Só dígitos; remove 55 inicial para comparar mesmo número salvo com/sem país. */
+function normalizePhoneDedup(raw) {
+    let d = String(raw ?? '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.startsWith('55') && d.length >= 12) d = d.slice(2);
+    return d;
+}
+
 const nextQuarterTime = () => {
     const d = new Date();
     let m = d.getMinutes();
@@ -40,18 +49,15 @@ const NewLead = () => {
     const leadType = watch('type');
     const phoneValue = watch('phone');
 
-    // Duplicate detection (ignore leads sem telefone: vazio faz .endsWith('') ser true para qualquer número)
+    // Aviso de duplicata só com telefone completo e igualdade exata (após normalizar).
+    // Não usar “últimos 8 dígitos”: gera falso positivo entre DDDs diferentes e com alunos importados com lixo/CPF no campo.
     const findDuplicate = (phone) => {
-        if (!phone || phone.length < 8) return null;
-        const cleanInput = phone.replace(/\D/g, '');
-        if (cleanInput.length < 8) return null;
+        const inputNorm = normalizePhoneDedup(phone);
+        if (inputNorm.length < 8) return null;
         return leads.find((l) => {
-            const cleanExisting = String(l.phone || '').replace(/\D/g, '');
-            if (cleanExisting.length < 8) return false;
-            if (cleanExisting === cleanInput) return true;
-            const tailIn = cleanInput.slice(-8);
-            const tailEx = cleanExisting.slice(-8);
-            return cleanExisting.endsWith(tailIn) || cleanInput.endsWith(tailEx);
+            const exNorm = normalizePhoneDedup(l.phone);
+            if (exNorm.length < 8) return false;
+            return exNorm === inputNorm;
         });
     };
 
