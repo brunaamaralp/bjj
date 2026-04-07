@@ -292,6 +292,7 @@ export default function Inbox() {
     if (!digits) return;
     setSelectedPhone(digits);
   }, [location.search]);
+
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
   const [scheduleOn, setScheduleOn] = useState(false);
@@ -304,7 +305,7 @@ export default function Inbox() {
   const [threadError, setThreadError] = useState('');
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
@@ -384,6 +385,15 @@ export default function Inbox() {
       return {};
     }
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = String(params.get('tab') || '').trim();
+    if (tab === 'agente' || tab === 'dispositivo' || tab === 'conversas') {
+      setInboxTab(tab);
+    }
+  }, [location.search]);
+
   const waOpen = inboxTab === 'dispositivo';
   const quickTemplates = useMemo(
     () => ['Oi! Como posso te ajudar hoje?', 'Perfeito! Vou te passar as opções agora.', 'Consigo te ajudar a agendar uma aula experimental gratuita.'],
@@ -404,6 +414,7 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
+  const prevAcademyIdForInboxRef = useRef('');
 
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
 
@@ -943,6 +954,7 @@ export default function Inbox() {
   async function markSeen(phone) {
     const p = String(phone || '').trim();
     if (!p) return;
+    if (!academyIdRef.current) return;
     try {
       const jwt = await getJwt();
       const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
@@ -1178,6 +1190,7 @@ export default function Inbox() {
   }
 
   async function loadList({ reset = false, silent = false } = {}) {
+    if (!academyIdRef.current) return;
     if (reset) {
       setNextCursor(null);
       setHasMore(true);
@@ -1834,6 +1847,21 @@ export default function Inbox() {
   }, [searchQuery]);
 
   useEffect(() => {
+    const cur = String(academyId || '').trim();
+    if (!cur) return;
+    const prev = prevAcademyIdForInboxRef.current;
+    if (prev === cur) return;
+    if (prev) {
+      setSelectedPhone('');
+      setSelected(null);
+      setItems([]);
+      notifiedOnceRef.current = false;
+      loadList({ reset: true });
+    }
+    prevAcademyIdForInboxRef.current = cur;
+  }, [academyId]);
+
+  useEffect(() => {
     if (selectedPhone) loadThread(selectedPhone);
   }, [selectedPhone]);
 
@@ -2090,14 +2118,14 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    if (realtimeOn) return;
+    const periodMs = realtimeOn ? 30000 : 10000;
     const id = setInterval(() => {
       loadList({ reset: true, silent: true });
       const phone = selectedPhoneRef.current;
       if (phone && !String(draftRef.current || '').trim()) {
         loadThread(phone, { silent: true });
       }
-    }, 10000);
+    }, periodMs);
     return () => clearInterval(id);
   }, [autoRefresh, searchQuery, realtimeOn]);
 

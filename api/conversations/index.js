@@ -86,7 +86,14 @@ function safeParseMessages(raw) {
 function lastMessageMeta(raw) {
   if (!raw) return { role: '', timestamp: '', sender: '' };
   try {
-    const parsed = JSON.parse(raw);
+    let parsed;
+    if (typeof raw === 'string') {
+      parsed = JSON.parse(raw);
+    } else if (Array.isArray(raw)) {
+      parsed = raw;
+    } else {
+      return { role: '', timestamp: '', sender: '' };
+    }
     if (!Array.isArray(parsed) || parsed.length === 0) return { role: '', timestamp: '', sender: '' };
     const last = parsed[parsed.length - 1];
     if (!last || typeof last !== 'object') return { role: '', timestamp: '', sender: '' };
@@ -235,12 +242,19 @@ export default async function handler(req, res) {
       const transferTo = typeof doc?.transfer_to === 'string' ? String(doc.transfer_to).trim() : '';
       const tLastUserLine =
         lastMeta.role === 'user' && typeof lastMeta.timestamp === 'string' ? new Date(lastMeta.timestamp).getTime() : NaN;
+      const tLastUserDoc = lastUserMsgAt ? new Date(lastUserMsgAt).getTime() : NaN;
+      const tLastUser = (() => {
+        const a = Number.isFinite(tLastUserLine) ? tLastUserLine : NaN;
+        const b = Number.isFinite(tLastUserDoc) ? tLastUserDoc : NaN;
+        if (Number.isFinite(a) && Number.isFinite(b)) return Math.max(a, b);
+        return Number.isFinite(a) ? a : b;
+      })();
       const tRead = lastReadAt ? new Date(lastReadAt).getTime() : NaN;
       let unread_count = storedUnread;
-      if (lastMeta.role === 'user' && Number.isFinite(tLastUserLine)) {
-        if (Number.isFinite(tRead) && tRead >= tLastUserLine) {
+      if (Number.isFinite(tLastUser)) {
+        if (Number.isFinite(tRead) && tRead >= tLastUser) {
           unread_count = 0;
-        } else if (!Number.isFinite(tRead) || tLastUserLine > tRead) {
+        } else if (!Number.isFinite(tRead) || tLastUser > tRead) {
           unread_count = Math.max(storedUnread, 1);
         }
       }

@@ -56,7 +56,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
           scheduledTime: doc.scheduledTime || '',
           parentName: doc.parentName || '',
           age: doc.age || '',
-          birthDate: doc.birthDate || '',
+          birthDate: parsed.birthDate || doc.birthDate || '',
           notes: history,
           isFirstExperience,
           belt,
@@ -213,7 +213,10 @@ export const useLeadStore = create((set, get) => ({
 
     try {
       const wasEmpty = get().leads.length === 0;
-      // Pack metadata into notes
+      if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
+      if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
+      if (perms.length === 0) perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
+
       const notesData = {
         history: lead.notes || [],
         isFirstExperience: lead.isFirstExperience || 'Sim',
@@ -223,14 +226,9 @@ export const useLeadStore = create((set, get) => ({
         customAnswers: lead.customAnswers || {},
         pipelineStage: lead.pipelineStage || 'Novo',
         pipelineStageChangedAt: new Date().toISOString(),
-        statusChangedAt: new Date().toISOString()
+        statusChangedAt: new Date().toISOString(),
+        birthDate: lead.birthDate || '',
       };
-      const userId = get().userId;
-      const teamId = get().teamId;
-      const perms = [];
-      if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
-      if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
-      if (perms.length === 0) perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
 
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
         name: lead.name,
@@ -242,7 +240,6 @@ export const useLeadStore = create((set, get) => ({
         scheduledTime: lead.scheduledTime || '',
         parentName: lead.parentName || '',
         age: lead.age || '',
-        birthDate: lead.birthDate || '',
         notes: JSON.stringify(notesData),
         academyId,
       }, perms);
@@ -306,7 +303,8 @@ export const useLeadStore = create((set, get) => ({
         customAnswers: mergedLead.customAnswers || {},
         pipelineStage: mergedLead.pipelineStage || 'Novo',
         pipelineStageChangedAt: currentLead.pipelineStageChangedAt || '',
-        statusChangedAt: currentLead.statusChangedAt || ''
+        statusChangedAt: currentLead.statusChangedAt || '',
+        birthDate: mergedLead.birthDate ?? currentLead.birthDate ?? '',
       };
 
       if (typeof updates.status !== 'undefined' && updates.status !== currentLead.status) {
@@ -331,6 +329,7 @@ export const useLeadStore = create((set, get) => ({
       delete payload.customAnswers;
       delete payload.pipelineStage;
       delete payload.statusChangedAt;
+      delete payload.birthDate;
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 
@@ -385,8 +384,13 @@ export const useLeadStore = create((set, get) => ({
           scheduledTime: lead.scheduledTime || '',
           parentName: lead.parentName || '',
           age: lead.age || '',
-          birthDate: lead.birthDate || '',
-          notes: JSON.stringify({ history, pipelineStage: lead.pipelineStage || 'Novo', pipelineStageChangedAt: nowIso, statusChangedAt: nowIso }),
+          notes: JSON.stringify({ 
+            history, 
+            pipelineStage: lead.pipelineStage || 'Novo', 
+            pipelineStageChangedAt: nowIso, 
+            statusChangedAt: nowIso,
+            birthDate: lead.birthDate || '',
+          }),
           academyId,
         }, perms);
         newLeads.push({

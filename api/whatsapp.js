@@ -525,7 +525,24 @@ export default async function handler(req, res) {
           const merged = mergeMessages(history, msgs);
           const newest = merged.length > 0 ? merged[merged.length - 1] : null;
           const updatedAt = newest?.timestamp ? String(newest.timestamp) : new Date().toISOString();
-          await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { messages: JSON.stringify(merged), updated_at: updatedAt });
+          let lastUserMsgAt = '';
+          for (let i = merged.length - 1; i >= 0; i--) {
+            const m = merged[i];
+            if (m && m.role === 'user' && typeof m.timestamp === 'string' && String(m.timestamp).trim()) {
+              lastUserMsgAt = String(m.timestamp).trim();
+              break;
+            }
+          }
+          const docPayload = { messages: JSON.stringify(merged), updated_at: updatedAt };
+          if (lastUserMsgAt) docPayload.last_user_msg_at = lastUserMsgAt;
+          try {
+            await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, docPayload);
+          } catch {
+            await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+              messages: JSON.stringify(merged),
+              updated_at: updatedAt
+            });
+          }
           conversationsUpdated += 1;
           messagesMerged += Math.max(0, merged.length - history.length);
         } catch (e) {

@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/v1/webhooks/asaas",
+      "destination": "/api/v1/webhooks/asaas"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

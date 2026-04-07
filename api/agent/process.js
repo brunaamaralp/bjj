@@ -3,8 +3,12 @@ import { sendZapsterText } from '../../lib/server/zapsterSend.js';
 import {
   getAcademyDocument,
   getOrCreateConversationDoc,
-  updateConversationWithMerge
+  getConversationDocById,
+  findConversationDoc,
+  updateConversationWithMerge,
+  updateConversationAiThreadCycle
 } from '../../lib/server/conversationsStore.js';
+import { getCurrentBillingCycleId, checkAiQuota, incrementAiThreads } from '../../src/services/planService.js';
 
 function resolveBaseUrl(req) {
   const envBase = String(process.env.NEXT_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
@@ -34,6 +38,23 @@ function safeCompare(a, b) {
   } catch {
     return false;
   }
+}
+
+function quotaBlockMessage(academyDoc) {
+  const name = String(academyDoc?.ai_name || '').trim();
+  const base =
+    'O atendimento automático está temporariamente indisponível. Em breve alguém da equipe entrará em contato.';
+  return name ? `Olá! Sou ${name}. ${base}` : `Olá! ${base}`;
+}
+
+async function resolveConversationForThreadCheck(inboundId, phone, academy) {
+  const a = String(academy || '').trim();
+  const i = inboundId != null && inboundId !== '' ? String(inboundId).trim() : '';
+  if (i) {
+    const d = await getConversationDocById(i);
+    if (d && String(d.academy_id || '') === a) return d;
+  }
+  return findConversationDoc(phone, a);
 }
 
 async function parseAgentJson(resp, requestId, label) {
@@ -92,6 +113,34 @@ export default async function handler(req, res) {
   }
 
   console.log('[agent/process] start', { requestId, phone, messageId, academyId: academy });
+
+  const academyDoc = await getAcademyDocument(academy);
+  if (!academyDoc) {
+    console.error('[agent/process] academia não encontrada', { requestId, academy });
+    return res.status(200).json({ sent: false, error: 'academy_not_found' });
+  }
+
+  const cycleId = getCurrentBillingCycleId(new Date(), academyDoc.billing_cycle_day);
+  const convForQuota = await resolveConversationForThreadCheck(inboundId, phone, academy);
+  const isNewThread =
+    !convForQuota || String(convForQuota.ai_thread_cycle_id || '').trim() !== String(cycleId).trim();
+
+  let quotaCheck = { allowed: true, overage: false };
+  if (isNewThread) {
+    quotaCheck = checkAiQuota(academyDoc);
+    if (!quotaCheck.allowed) {
+      const fallbackMsg = quotaBlockMessage(academyDoc);
+      if (instOut) {
+        const qSent = await sendZapsterText({ recipient: phone, text: fallbackMsg, instanceId: instOut });
+        if (!qSent?.ok) {
+          console.error('[agent/process] quota block send falhou', { requestId, erro: qSent?.erro });
+        }
+      } else {
+        console.warn('[agent/process] quota bloqueada sem outInstanceId', { requestId, phone });
+      }
+      return res.status(200).json({ sent: Boolean(instOut), quota_blocked: true });
+    }
+  }
 
   const baseUrl = resolveBaseUrl(req);
   if (!baseUrl) {
@@ -209,10 +258,13 @@ export default async function handler(req, res) {
     }
 
     const nowIso = new Date().toISOString();
-    const academyDoc = await getAcademyDocument(academy);
-    const conv = inboundId
-      ? { $id: inboundId }
-      : await getOrCreateConversationDoc(phone, academy, academyDoc).catch(() => null);
+    let conv = null;
+    const inbound = inboundId != null && inboundId !== '' ? String(inboundId).trim() : '';
+    if (inbound) {
+      conv = await getConversationDocById(inbound);
+      if (!conv || String(conv.academy_id || '') !== String(academy)) conv = null;
+    }
+    if (!conv) conv = await getOrCreateConversationDoc(phone, academy, academyDoc).catch(() => null);
     const convId = String(conv?.$id || '').trim();
     if (convId) {
       const mid = String(messageId || '').trim();
@@ -224,6 +276,16 @@ export default async function handler(req, res) {
         ...(mid ? { in_reply_to: mid } : {})
       };
       await updateConversationWithMerge(convId, [assistantMsg]);
+    }
+
+    if (isNewThread && convId) {
+      try {
+        await incrementAiThreads(academy, Boolean(quotaCheck.overage), academyDoc.plan);
+      } catch (e) {
+        console.error('[agent/process] incrementAiThreads', { requestId, error: e?.message });
+      }
+      const cyc = await updateConversationAiThreadCycle(convId, cycleId);
+      if (!cyc.ok) console.warn('[agent/process] updateConversationAiThreadCycle', { requestId, erro: cyc.erro });
     }
 
     console.log('[agent/process] sent ✓', { requestId, phone, respostaLen: resposta.length });

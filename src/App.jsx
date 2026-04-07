@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import { authService } from './lib/auth';
-import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL } from './lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt } from './lib/appwrite';
+import { isBillingLive } from './lib/billingEnabled';
 import { ID, Query, Permission, Role } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
 import { useUiStore } from './store/useUiStore';
@@ -21,8 +22,15 @@ import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
+import Plans from './pages/Plans';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
+
+function defaultAiNameFromUser(user) {
+  const raw = String(user?.name || '').trim();
+  const first = raw.split(/\s+/).filter(Boolean)[0] || '';
+  return (first || 'Nave').slice(0, 80);
+}
 
 const App = () => {
   const navigate = useNavigate();
@@ -52,6 +60,32 @@ const App = () => {
   };
 
   const isActive = (path) => location.pathname === path;
+
+  const syncBilling = async (academyId) => {
+    if (!isBillingLive()) return;
+    try {
+      const jwt = await createSessionJwt();
+      if (!jwt || !academyId) return;
+      const en = await fetch('/api/billing/ensure-trial', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({ storeId: academyId }),
+      });
+      if (!en.ok) return;
+      const st = await fetch(`/api/billing/status?storeId=${encodeURIComponent(academyId)}`, {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      const data = await st.json().catch(() => ({}));
+      if (data.sucesso && data.needsPlan && location.pathname !== '/planos') {
+        navigate('/planos');
+      }
+    } catch (e) {
+      void e;
+    }
+  };
 
   const toggleSidebar = () => {
     setSidebarCollapsed((c) => {
@@ -132,14 +166,14 @@ const App = () => {
           { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
         ];
         try {
-          const jwt = localStorage.getItem('appwrite_jwt') || '';
+          const jwt = await createSessionJwt();
           const resp = await fetch('/api/academies/create', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${jwt}`
             },
-            body: JSON.stringify({})
+            body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) })
           });
           const data = await resp.json().catch(() => ({}));
           if (resp.ok && data && data.id) {
@@ -149,6 +183,7 @@ const App = () => {
           }
         } catch {
           const perms = [Permission.read(Role.user(u.$id)), Permission.update(Role.user(u.$id)), Permission.delete(Role.user(u.$id))];
+          const nowIsoFallback = new Date().toISOString();
           const doc = await databases.createDocument(
             DB_ID,
             ACADEMIES_COL,
@@ -164,7 +199,14 @@ const App = () => {
               quickTimes: [],
               financeConfig: JSON.stringify(defaultFinance),
               onboardingChecklist: JSON.stringify(checklist),
-              customLeadQuestions: JSON.stringify(['Faixa'])
+              customLeadQuestions: JSON.stringify(['Faixa']),
+              ai_name: defaultAiNameFromUser(u),
+              plan: 'starter',
+              plan_started_at: nowIsoFallback,
+              ai_threads_limit: 300,
+              ai_threads_used: 0,
+              ai_overage_enabled: true,
+              billing_cycle_day: 1
             },
             perms
           );
@@ -178,11 +220,11 @@ const App = () => {
         let ensuredTeamId = String(doc?.teamId || '').trim();
         if (!ensuredTeamId) {
           try {
-            const jwt = localStorage.getItem('appwrite_jwt') || '';
+            const jwt = await createSessionJwt();
             const resp = await fetch('/api/academies/create', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-              body: JSON.stringify({})
+              body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) })
             });
             const data = await resp.json().catch(() => ({}));
             if (resp.ok && data && data.teamId) {
@@ -278,6 +320,7 @@ const App = () => {
       // Fetch leads after academy is set
       useLeadStore.getState().setAcademyId(academyId);
       await useLeadStore.getState().fetchLeads();
+      await syncBilling(academyId);
     } catch (e) {
       console.error('setupAcademy error:', e);
       const code = String(e?.code || '');
@@ -286,7 +329,7 @@ const App = () => {
         if (code === '401' || /authorized|scopes|unauthorized/i.test(msg)) {
           try {
             // Tentar criar academia via endpoint admin usando JWT do usuário
-            const jwt = localStorage.getItem('appwrite_jwt') || '';
+            const jwt = await createSessionJwt();
             if (jwt) {
               const resp = await fetch('/api/academies/create', {
                 method: 'POST',
@@ -294,7 +337,7 @@ const App = () => {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${jwt}`,
                 },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) }),
               });
               const data = await resp.json().catch(() => ({}));
               if (resp.ok && data && data.id) {
@@ -563,10 +606,10 @@ const App = () => {
               <Link
                 to="/empresa"
                 className={`navi-side-link ${isActive('/empresa') || isActive('/templates') ? 'active' : ''}`}
-                title={sidebarCollapsed ? 'Empresa' : undefined}
+                title={sidebarCollapsed ? 'Minha academia' : undefined}
               >
                 <Building2 size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Empresa</span>
+                <span className="navi-side-link-label">Minha academia</span>
               </Link>
             </div>
           </nav>
@@ -623,6 +666,7 @@ const App = () => {
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
               <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
+              <Route path="/planos" element={<Plans user={user} />} />
               <Route path="/empresa" element={<AcademySettings />} />
               <Route path="/profile" element={<Navigate to="/conta" replace />} />
               <Route path="/templates" element={<Templates />} />

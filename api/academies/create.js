@@ -1,10 +1,36 @@
 import { Client, Databases, Permission, Role, Account, Teams, ID, Query } from 'node-appwrite';
+import { ensureTrialSubscription } from '../../lib/billing/ensureTrial.js';
+import { isBillingApiLive } from '../../lib/server/billingApiEnabled.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
+
+async function maybeEnsureTrial(academyId) {
+  if (!isBillingApiLive()) return;
+  try {
+    await ensureTrialSubscription(academyId);
+  } catch (e) {
+    console.warn('[academies/create] ensureTrial', e?.message || e);
+  }
+}
+
+async function readJsonBody(req) {
+  if (req?.body && typeof req.body === 'object') return req.body;
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    if (chunks.length === 0) return {};
+    const raw = Buffer.concat(chunks).toString('utf8').trim();
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 
 function ensureConfigOk(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !ACADEMIES_COL) {
@@ -31,6 +57,7 @@ export default async function handler(req, res) {
     const me = await account.get();
     const ownerId = me.$id;
     const userTeams = new Teams(userClient);
+    const body = await readJsonBody(req);
 
     const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
     const databases = new Databases(adminClient);
@@ -61,7 +88,10 @@ export default async function handler(req, res) {
     if (existing && existing.$id) {
       const academyId = String(existing.$id || '').trim();
       const teamIdExisting = String(existing.teamId || '').trim();
-      if (teamIdExisting) return res.status(200).json({ sucesso: true, id: academyId, teamId: teamIdExisting });
+      if (teamIdExisting) {
+        await maybeEnsureTrial(academyId);
+        return res.status(200).json({ sucesso: true, id: academyId, teamId: teamIdExisting });
+      }
 
       const teamId = await createTeamForOwner();
       if (teamId) {
@@ -72,6 +102,7 @@ export default async function handler(req, res) {
           await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { teamId });
         }
       }
+      await maybeEnsureTrial(academyId);
       return res.status(200).json({ sucesso: true, id: academyId, teamId: teamId || '' });
     }
 
@@ -92,6 +123,11 @@ export default async function handler(req, res) {
       { id: 'first_lead', title: 'Criar primeiro lead', done: false },
       { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
     ];
+    const aiName = String(body.ai_name || '').trim().slice(0, 80);
+    if (!aiName) {
+      return res.status(400).json({ sucesso: false, erro: 'ai_name é obrigatório' });
+    }
+    const nowIso = new Date().toISOString();
     const payload = {
       name: me.name || '',
       phone: '',
@@ -104,12 +140,20 @@ export default async function handler(req, res) {
       quickTimes: [],
       financeConfig: JSON.stringify(defaultFinance),
       onboardingChecklist: JSON.stringify(checklist),
-      customLeadQuestions: JSON.stringify(['Faixa'])
+      customLeadQuestions: JSON.stringify(['Faixa']),
+      ai_name: aiName,
+      plan: 'starter',
+      plan_started_at: nowIso,
+      ai_threads_limit: 300,
+      ai_threads_used: 0,
+      ai_overage_enabled: true,
+      billing_cycle_day: 1
     };
     const teamId = await createTeamForOwner().catch(() => '');
     payload.teamId = teamId || '';
     const perms = permsFor(teamId);
     const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), payload, perms);
+    await maybeEnsureTrial(doc.$id);
     return res.status(200).json({ sucesso: true, id: doc.$id, teamId: teamId || '' });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });

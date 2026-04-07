@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { isBillingLive } from '../lib/billingEnabled';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, teams, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID } from '../lib/appwrite';
-import { Building2, Phone, Mail, MapPin, Trash2, Download, ChevronLeft, ChevronRight, Info, Plus, X, LayoutTemplate } from 'lucide-react';
+import { Building2, Phone, Mail, MapPin, Trash2, Download, ChevronLeft, ChevronRight, Info, Plus, X, LayoutTemplate, MessageCircle, Sparkles, Plug } from 'lucide-react';
 import ExportButton from '../components/ExportButton';
 
-/** Sub-abas da página Empresa (âncoras + rótulos curtos) */
+/** Sub-abas da página Minha academia (âncoras + rótulos curtos) */
 const EMPRESA_TABS = [
     { id: 'visao', label: 'Visão' },
+    { id: 'integracoes', label: 'Integrações' },
+    { id: 'agente', label: 'Agente IA' },
+    { id: 'templates', label: 'Templates' },
     { id: 'checklist', label: 'Checklist' },
     { id: 'dados', label: 'Academia' },
     { id: 'lead', label: 'Lead' },
-    { id: 'templates', label: 'Templates' },
     { id: 'equipe', label: 'Equipe' },
     { id: 'export', label: 'Dados' },
     { id: 'sistema', label: 'Sistema' },
@@ -376,11 +379,11 @@ const AcademySettings = () => {
                     <ChevronLeft size={18} strokeWidth={2} aria-hidden />
                     Voltar à conta
                 </Link>
-                <h2 className="navi-page-title">Empresa</h2>
-                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Checklist, identidade, funil, equipe e dados da academia</p>
+                <h2 className="navi-page-title">Minha academia</h2>
+                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Integrações, agente de IA, checklist, funil e dados do seu estúdio</p>
             </div>
 
-            <nav className="empresa-subnav" aria-label="Seções da empresa">
+            <nav className="empresa-subnav" aria-label="Seções da academia">
                 <div className="empresa-subnav-scroll">
                     {EMPRESA_TABS.map((tab) => (
                         <button
@@ -423,6 +426,92 @@ const AcademySettings = () => {
                     <span className="stat-label">{academy.uiLabels?.students || 'Alunos'}</span>
                 </div>
             </div>
+
+            <Link
+                to="/inbox?tab=dispositivo"
+                className="card action-row mt-4"
+                style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+                <div className="flex items-center gap-4">
+                    <div className="action-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                        <MessageCircle size={18} />
+                    </div>
+                    <div>
+                        <strong>WhatsApp</strong>
+                        <p className="navi-subtitle" style={{ marginTop: 2 }}>Conectar aparelho com QR Code em Atendimento → Dispositivo</p>
+                    </div>
+                </div>
+                <ChevronRight size={18} color="var(--text-muted)" />
+            </Link>
+            </section>
+
+            <section id="empresa-sec-integracoes" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.08s' }}>
+                <h3 className="navi-section-heading mb-2">Integrações</h3>
+                <div className="flex-col gap-3">
+                    <Link
+                        to="/inbox?tab=dispositivo"
+                        className="card action-row"
+                        style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="action-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                                <MessageCircle size={18} />
+                            </div>
+                            <div>
+                                <strong>WhatsApp</strong>
+                                <p className="navi-subtitle" style={{ marginTop: 2 }}>Conectar aparelho, QR Code e status em Atendimento</p>
+                            </div>
+                        </div>
+                        <ChevronRight size={18} color="var(--text-muted)" />
+                    </Link>
+                    <Link
+                        to="/planos"
+                        className="card action-row"
+                        style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div
+                                className="action-icon"
+                                style={{
+                                    background: 'rgba(100, 116, 139, 0.12)',
+                                    color: 'var(--text-muted)',
+                                }}
+                            >
+                                <Plug size={18} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <strong>Asaas</strong>
+                                <p className="navi-subtitle" style={{ marginTop: 6 }}>
+                                    {isBillingLive()
+                                        ? 'Assinatura do app: planos, checkout e webhooks. Abra para ver valores e iniciar o pagamento.'
+                                        : 'Prévia: fluxo de planos e formulário (cobrança ainda desativada). Abra para ver a tela.'}
+                                </p>
+                            </div>
+                        </div>
+                        <ChevronRight size={18} color="var(--text-muted)" />
+                    </Link>
+                </div>
+            </section>
+
+            <section id="empresa-sec-agente" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.09s' }}>
+                <h3 className="navi-section-heading mb-2">Agente de IA</h3>
+                <Link
+                    to="/inbox?tab=agente"
+                    className="card action-row"
+                    style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="action-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                            <Sparkles size={18} />
+                        </div>
+                        <div>
+                            <strong>Configurar assistente</strong>
+                            <p className="navi-subtitle" style={{ marginTop: 2 }}>Personalidade, horários, planos e regras do atendimento automático</p>
+                        </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                </Link>
+                <p className="text-xs text-light mt-2">A edição completa fica na aba Agente em Atendimento; use o atalho acima.</p>
             </section>
 
             <section id="empresa-sec-checklist" className="empresa-section mt-6 animate-in" style={{ animationDelay: '0.12s' }}>

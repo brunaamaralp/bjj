@@ -38,6 +38,10 @@ export const authService = {
         }
     },
 
+    async updatePassword(newPassword, oldPassword) {
+        return await account.updatePassword(newPassword, oldPassword);
+    },
+
     // Mantido apenas para não quebrar referências no App.jsx
     async refreshJwt() {
         return null;

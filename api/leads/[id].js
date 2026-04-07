@@ -295,7 +295,6 @@ export default async function handler(req, res) {
       for (;;) {
         const q = [
           Query.equal('status', [LEAD_STATUS_MATRICULADO]),
-          Query.isNotNull('birthDate'),
           Query.orderAsc('$id'),
           Query.limit(pageSize),
         ];
@@ -308,7 +307,13 @@ export default async function handler(req, res) {
       }
 
       const aniversariantes = candidatos.filter((lead) => {
-        const bd = String(lead.birthDate || '').trim();
+        let bd = String(lead.birthDate || '').trim();
+        if (!bd && lead.notes) {
+          try {
+            const parsed = JSON.parse(lead.notes);
+            bd = String(parsed.birthDate || '').trim();
+          } catch { bd = ''; }
+        }
         return bd.length === 10 && bd.slice(5) === mesEDia;
       });
 

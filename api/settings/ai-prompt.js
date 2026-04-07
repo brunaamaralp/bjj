@@ -1,4 +1,5 @@
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
+import { setPlan } from '../../src/services/planService.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -361,12 +362,23 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const { doc } = await getSettingsDoc(academyId);
+      const plan = String(academyDoc?.plan || 'starter').trim().toLowerCase();
+      const safePlan = ['starter', 'studio', 'pro'].includes(plan) ? plan : 'starter';
       const out = {
         prompt_intro: String(doc?.prompt_intro || '').trim(),
         prompt_body: String(doc?.prompt_body || '').trim(),
         prompt_suffix: String(doc?.prompt_suffix || '').trim(),
         ia_ativa: academyDoc?.ia_ativa === true,
-        birthdayMessage: String(academyDoc?.birthdayMessage || '').trim()
+        birthdayMessage: String(academyDoc?.birthdayMessage || '').trim(),
+        ai_name: String(academyDoc?.ai_name || '').trim(),
+        plan: safePlan,
+        ai_threads_used: Number(academyDoc?.ai_threads_used) || 0,
+        ai_threads_limit: Number(academyDoc?.ai_threads_limit) || 300,
+        ai_overage_enabled: academyDoc?.ai_overage_enabled !== false && academyDoc?.ai_overage_enabled !== 'false',
+        billing_cycle_day: Math.min(
+          Math.max(parseInt(String(academyDoc?.billing_cycle_day ?? 1), 10) || 1, 1),
+          28
+        )
       };
       return res.status(200).json({ sucesso: true, ...out });
     }
@@ -389,8 +401,46 @@ export default async function handler(req, res) {
         console.log('[ai-prompt] ia_ativa atualizado', { academyId, novoStatus });
         return res.status(200).json({ sucesso: true, ia_ativa: novoStatus });
       }
+      if (patchAction === 'set_plan') {
+        const p = String(body.plan || '')
+          .trim()
+          .toLowerCase();
+        if (!['starter', 'studio', 'pro'].includes(p)) {
+          return res.status(400).json({ sucesso: false, erro: 'plan inválido (starter, studio ou pro)' });
+        }
+        await setPlan(academyId, p, academyDoc);
+        return res.status(200).json({ sucesso: true, plan: p });
+      }
+      if (patchAction === 'update_ai_settings') {
+        const patch = {};
+        if (body.ai_name !== undefined) {
+          const n = String(body.ai_name || '').trim().slice(0, 80);
+          if (!n) {
+            return res.status(400).json({ sucesso: false, erro: 'ai_name não pode ser vazio' });
+          }
+          patch.ai_name = n;
+        }
+        if (body.ai_overage_enabled !== undefined) {
+          patch.ai_overage_enabled = Boolean(body.ai_overage_enabled);
+        }
+        if (body.billing_cycle_day !== undefined) {
+          const d = parseInt(String(body.billing_cycle_day), 10);
+          if (!Number.isFinite(d) || d < 1 || d > 28) {
+            return res.status(400).json({ sucesso: false, erro: 'billing_cycle_day deve ser entre 1 e 28' });
+          }
+          patch.billing_cycle_day = d;
+        }
+        if (Object.keys(patch).length === 0) {
+          return res.status(400).json({ sucesso: false, erro: 'Nenhum campo para atualizar' });
+        }
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, patch);
+        return res.status(200).json({ sucesso: true, ...patch });
+      }
       res.setHeader('Allow', 'GET, PUT, POST, PATCH');
-      return res.status(405).json({ sucesso: false, erro: 'Use action: toggle_ia ou save_birthday_message no body JSON' });
+      return res.status(405).json({
+        sucesso: false,
+        erro: 'Use action: toggle_ia, save_birthday_message, set_plan ou update_ai_settings no body JSON'
+      });
     }
 
     if (req.method === 'PUT') {

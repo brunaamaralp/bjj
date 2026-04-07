@@ -11,13 +11,15 @@
     "provision:stock": "node scripts/provision_stock_schema.js",
     "provision:core": "node scripts/setup-appwrite.mjs",
     "migrate:perms": "node scripts/migrate-permissions.mjs",
+    "migrate:ai-plans": "node scripts/migrate-ai-plans-appwrite.mjs",
     "start:server": "node server/index.js"
   },
   "dependencies": {
+    "@vercel/functions": "^2.2.13",
     "appwrite": "^22.4.1",
     "date-fns": "^4.1.0",
-    "lucide-react": "^0.575.0",
     "express": "^4.19.2",
+    "lucide-react": "^0.575.0",
     "node-appwrite": "^22.1.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

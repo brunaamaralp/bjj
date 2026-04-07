@@ -54,5 +54,16 @@ console.log('   - Fn Inventory Seed Kimonos:', INVENTORY_SEED_KIMONOS_FN_ID || '
 export const ENDPOINT = endpoint;
 export const ENDPOINT_FALLBACK = endpointFallback;
 export function setClientEndpoint(ep) { client.setEndpoint(ep); }
+
+/** JWT de curta duração para rotas /api (ex.: billing, academies/create). */
+export async function createSessionJwt() {
+  try {
+    const jwt = await account.createJWT();
+    return String(jwt?.jwt || '').trim();
+  } catch {
+    return '';
+  }
+}
+
 export { client, account, databases, functions, teams, realtime };
 export default client;
