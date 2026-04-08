@@ -335,9 +335,20 @@ export default async function handler(req, res) {
       return res.status(200).json({ sucesso: true, ignorado: true, modo_humano: true });
     }
 
+    const savedInbound = await saveInboundMessage({
+      academyId,
+      academyDoc,
+      phone,
+      text,
+      messageId
+    });
+    if (!savedInbound.ok) {
+      console.error('[zapster][webhook] falha ao persistir inbound', { phone, academyId, erro: savedInbound.erro, requestId });
+    }
+
     const iaAtiva = academyDoc?.ia_ativa === true;
     if (!iaAtiva) {
-      console.log('[zapster][webhook] IA inativa', { academyId, requestId });
+      console.log('[zapster][webhook] IA inativa (mensagem já persistida no painel)', { academyId, requestId });
       return res.status(200).json({ ok: true, sucesso: true, motivo: 'ia_inativa' });
     }
 
