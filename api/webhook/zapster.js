@@ -322,6 +322,16 @@ export default async function handler(req, res) {
     }
 
     if (modoHumano) {
+      const saved = await saveInboundMessage({
+        academyId,
+        academyDoc,
+        phone,
+        text,
+        messageId
+      });
+      if (!saved.ok) {
+        console.error('[zapster][webhook] falha ao salvar inbound (modo humano)', { phone, academyId, erro: saved.erro });
+      }
       return res.status(200).json({ sucesso: true, ignorado: true, modo_humano: true });
     }
 

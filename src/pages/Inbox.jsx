@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
+import { getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
@@ -425,6 +426,11 @@ export default function Inbox() {
   const prevAcademyIdForInboxRef = useRef('');
 
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
+  const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
+  const handoffDurationPhrase = useMemo(
+    () => (handoffHours === 1 ? '1 hora' : `${handoffHours} horas`),
+    [handoffHours]
+  );
 
   useEffect(() => {
     draftRef.current = String(draft || '');
@@ -1277,10 +1283,16 @@ export default function Inbox() {
         const phone = String(it?.phone_number || '').trim();
         if (!phone) continue;
         const ts = String(it?.last_message_timestamp || it?.updated_at || '').trim();
+        const curUnread = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
+        const curUpdated = String(it?.updated_at || '').trim();
+        const curLu = String(it?.last_user_msg_at || '').trim();
         nextMeta.set(phone, {
           ts,
           role: String(it?.last_message_role || '').trim(),
-          sender: String(it?.last_message_sender || '').trim()
+          sender: String(it?.last_message_sender || '').trim(),
+          unread_count: curUnread,
+          updated_at: curUpdated,
+          last_user_msg_at: curLu
         });
       }
       setNextCursor(nextCur);
@@ -1297,29 +1309,25 @@ export default function Inbox() {
           seen.add(k);
           deduped.push(it);
         }
-        const openPhone = String(selectedPhoneRef.current || '').trim();
-        const nowIso = new Date().toISOString();
-        if (!openPhone) return deduped;
-        return deduped.map((row) => {
-          const ph = String(row?.phone_number || '').trim();
-          if (ph !== openPhone) return row;
-          const lr = String(row?.last_read_at || '').trim();
-          return { ...row, unread_count: 0, last_read_at: lr || nowIso };
-        });
+        return deduped;
       });
       if (reset && notifiedOnceRef.current) {
+        const selected = String(selectedPhoneRef.current || '').trim();
         for (const it of next) {
           const phone = String(it?.phone_number || '').trim();
-          if (!phone) continue;
-          const prevMeta = previousMeta.get(phone);
-          const curMeta = nextMeta.get(phone);
-          if (!prevMeta || !curMeta) continue;
-          const prevTs = new Date(String(prevMeta.ts || '')).getTime();
-          const curTs = new Date(String(curMeta.ts || '')).getTime();
-          if (!Number.isFinite(prevTs) || !Number.isFinite(curTs) || curTs <= prevTs) continue;
-          const role = String(curMeta.role || '').trim();
-          if (role !== 'user') continue;
-          if (String(selectedPhoneRef.current || '').trim() === phone) continue;
+          if (!phone || phone === selected) continue;
+          const curUnread = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
+          if (curUnread <= 0) continue;
+          const prev = previousMeta.get(phone);
+          const prevUnread = prev && Number.isFinite(Number(prev.unread_count)) ? Number(prev.unread_count) : 0;
+          const prevLu = prev && typeof prev.last_user_msg_at === 'string' ? prev.last_user_msg_at : '';
+          const curLu = String(it?.last_user_msg_at || '').trim();
+          const prevUpdated = prev && typeof prev.updated_at === 'string' ? prev.updated_at : '';
+          const curUpdated = String(it?.updated_at || '').trim();
+          const unreadIncreased = curUnread > prevUnread;
+          const userMsgRenewed = Boolean(curLu && curLu !== prevLu);
+          const updatedAdvanced = Boolean(curUpdated && curUpdated !== prevUpdated);
+          if (!unreadIncreased && !(userMsgRenewed && updatedAdvanced)) continue;
           const preview = String(it?.last_preview || '').trim();
           const name = String(it?.lead_name || '').trim() || phone;
           playNotificationSound();
@@ -1501,39 +1509,6 @@ export default function Inbox() {
         if (academy && expected && academy !== expected) return;
         const phone = payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
         const selectedNow = String(selectedPhoneRef.current || '').trim();
-
-        try {
-          if (
-            phone &&
-            selectedNow !== phone &&
-            desktopNotifyRef.current &&
-            typeof Notification !== 'undefined' &&
-            Notification.permission === 'granted'
-          ) {
-            let msgs = [];
-            try {
-              const raw = payload?.messages;
-              msgs = typeof raw === 'string' ? JSON.parse(raw || '[]') : Array.isArray(raw) ? raw : [];
-            } catch {
-              msgs = [];
-            }
-            const last = Array.isArray(msgs) && msgs.length > 0 ? msgs[msgs.length - 1] : null;
-            const unread = Number(payload?.unread_count || 0);
-            if (last && last.role === 'user' && unread > 0) {
-              const preview = String(last.content || '')
-                .replace(/_{2,}/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-              tryDesktopNotify({
-                phone,
-                name: String(payload?.lead_name || '').trim() || phone,
-                preview
-              });
-            }
-          }
-        } catch {
-          void 0;
-        }
 
         if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
         realtimeTimersRef.current.list = setTimeout(() => {
@@ -2074,15 +2049,6 @@ export default function Inbox() {
   const handleSelectConversation = (it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
-    const nowIso = new Date().toISOString();
-    setItems((prev) => {
-      const arr = Array.isArray(prev) ? prev : [];
-      return arr.map((row) => {
-        const ph = String(row?.phone_number || '').trim();
-        if (ph !== phone) return row;
-        return { ...row, unread_count: 0, last_read_at: nowIso };
-      });
-    });
     setSelectedPhone(phone);
     setThreadCursor(null);
     setThreadHasMore(false);
@@ -2457,7 +2423,11 @@ export default function Inbox() {
                     <span
                       className="text-small"
                       style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
-                      title={untilLabel ? `Atendimento humano até ${untilLabel}` : 'Atendimento humano ativo'}
+                      title={
+                        untilLabel
+                          ? `Atendimento humano por ${handoffDurationPhrase} (até ${untilLabel})`
+                          : `Atendimento humano ativo (${handoffDurationPhrase})`
+                      }
                     >
                       {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
                     </span>
@@ -2491,7 +2461,14 @@ export default function Inbox() {
             </button>
           )}
           {!selected?.need_human ? (
-            <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => setHandoffActive(true)} disabled={!selectedPhone} type="button" title="Pausa o agente por 2 horas">
+            <button
+              className="btn btn-primary"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => setHandoffActive(true)}
+              disabled={!selectedPhone}
+              type="button"
+              title={`Pausa o agente por ${handoffDurationPhrase}`}
+            >
               Assumir
             </button>
           ) : (

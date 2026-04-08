@@ -1,5 +1,6 @@
 import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
 import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../lib/humanHandoffUntil.js';
+import { getHumanHandoffHoursForServer } from '../lib/constants.js';
 import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -150,6 +151,7 @@ function docToListItem(doc) {
     lead_name: String(doc.lead_name || '').trim(),
     contact_name: String(doc.contact_name || '').trim(),
     last_read_at: String(doc.last_read_at || '').trim(),
+    last_user_msg_at: String(doc.last_user_msg_at || '').trim(),
     ...meta,
     last_message_timestamp: meta.last_message_timestamp || updatedAt
   };
@@ -344,8 +346,7 @@ export default async function handler(req, res) {
       const ativo = Boolean(body.ativo);
       let until = '';
       if (ativo) {
-        const hrs = Number.parseInt(String(process.env.HUMAN_HANDOFF_HOURS || '6'), 10);
-        const h = Number.isFinite(hrs) && hrs > 0 ? hrs : 6;
+        const h = getHumanHandoffHoursForServer();
         until = humanHandoffUntilFromMs(Date.now() + h * 3600000) || '';
       }
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
