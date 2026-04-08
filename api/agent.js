@@ -1,5 +1,5 @@
-import processHandler from './lib/agentProcess.js';
-import respondHandler from './lib/agentRespond.js';
+import processHandler from './_lib/agentProcess.js';
+import respondHandler from '../lib/server/agentRespond.js';
 
 export default async function handler(req, res) {
   const action = req.query.action || (Array.isArray(req.query.slug) ? req.query.slug?.[0] : req.query.slug);

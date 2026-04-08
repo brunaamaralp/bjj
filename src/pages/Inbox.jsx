@@ -4,7 +4,7 @@ import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
@@ -332,6 +332,13 @@ export default function Inbox() {
   const [linkingLead, setLinkingLead] = useState(false);
   const [highlighted, setHighlighted] = useState({});
   const [realtimeOn, setRealtimeOn] = useState(false);
+  const [desktopNotify, setDesktopNotify] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('inbox_desktop_notify') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [promptModal, setPromptModal] = useState(false);
   const [promptIntro, setPromptIntro] = useState('');
   const [promptBody, setPromptBody] = useState('');
@@ -408,6 +415,7 @@ export default function Inbox() {
   const threadMsgCountRef = useRef(0);
   const listMetaRef = useRef(new Map());
   const notifiedOnceRef = useRef(false);
+  const desktopNotifyRef = useRef(false);
   const loadListRef = useRef(null);
   const loadThreadRef = useRef(null);
   const threadAbortRef = useRef(null);
@@ -425,6 +433,10 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  useEffect(() => {
+    desktopNotifyRef.current = Boolean(desktopNotify);
+  }, [desktopNotify]);
 
   useEffect(() => {
     return () => {
@@ -928,6 +940,51 @@ export default function Inbox() {
     }
   }
 
+  function tryDesktopNotify({ phone, name, preview }) {
+    if (typeof window === 'undefined' || !desktopNotifyRef.current) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const label = String(name || phone || '').trim() || 'Contato';
+    const pv = String(preview || '').trim();
+    const body = (pv ? `${label}: ${pv}` : `${label} enviou uma mensagem`).slice(0, 180);
+    try {
+      new Notification('Nova mensagem no WhatsApp', { body, tag: `wa-inbox-${phone}` });
+    } catch {
+      void 0;
+    }
+  }
+
+  async function toggleDesktopNotifyPreference() {
+    if (desktopNotify) {
+      try {
+        window.localStorage.removeItem('inbox_desktop_notify');
+      } catch {
+        void 0;
+      }
+      setDesktopNotify(false);
+      addToast({ type: 'info', message: 'Alertas do sistema desativados.' });
+      return;
+    }
+    if (typeof Notification === 'undefined') {
+      addToast({ type: 'warning', message: 'Este navegador não suporta notificações.' });
+      return;
+    }
+    let perm = Notification.permission;
+    if (perm === 'default') {
+      perm = await Notification.requestPermission();
+    }
+    if (perm !== 'granted') {
+      addToast({ type: 'warning', message: 'Permissão necessária para alertas do sistema.' });
+      return;
+    }
+    try {
+      window.localStorage.setItem('inbox_desktop_notify', '1');
+    } catch {
+      void 0;
+    }
+    setDesktopNotify(true);
+    addToast({ type: 'success', message: 'Você receberá alertas quando chegar mensagem.' });
+  }
+
   function setHighlightedPhone(phone) {
     const p = String(phone || '').trim();
     if (!p) return;
@@ -1271,6 +1328,7 @@ export default function Inbox() {
             type: 'info',
             message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`
           });
+          tryDesktopNotify({ phone, name, preview });
         }
       } else if (reset) {
         notifiedOnceRef.current = true;
@@ -1442,6 +1500,40 @@ export default function Inbox() {
         const expected = String(academyIdRef.current || '').trim();
         if (academy && expected && academy !== expected) return;
         const phone = payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
+        const selectedNow = String(selectedPhoneRef.current || '').trim();
+
+        try {
+          if (
+            phone &&
+            selectedNow !== phone &&
+            desktopNotifyRef.current &&
+            typeof Notification !== 'undefined' &&
+            Notification.permission === 'granted'
+          ) {
+            let msgs = [];
+            try {
+              const raw = payload?.messages;
+              msgs = typeof raw === 'string' ? JSON.parse(raw || '[]') : Array.isArray(raw) ? raw : [];
+            } catch {
+              msgs = [];
+            }
+            const last = Array.isArray(msgs) && msgs.length > 0 ? msgs[msgs.length - 1] : null;
+            const unread = Number(payload?.unread_count || 0);
+            if (last && last.role === 'user' && unread > 0) {
+              const preview = String(last.content || '')
+                .replace(/_{2,}/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+              tryDesktopNotify({
+                phone,
+                name: String(payload?.lead_name || '').trim() || phone,
+                preview
+              });
+            }
+          }
+        } catch {
+          void 0;
+        }
 
         if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
         realtimeTimersRef.current.list = setTimeout(() => {
@@ -1449,7 +1541,6 @@ export default function Inbox() {
           if (typeof fn === 'function') fn({ reset: true, silent: true });
         }, 250);
 
-        const selectedNow = String(selectedPhoneRef.current || '').trim();
         if (phone && selectedNow && phone === selectedNow) {
           if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
           realtimeTimersRef.current.thread = setTimeout(() => {
@@ -3459,9 +3550,24 @@ export default function Inbox() {
               onClick={() => setAutoRefresh((v) => !v)}
               title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
               style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+              type="button"
             >
               <span style={{ fontSize: 14 }}>↻</span>
               {autoRefresh ? 'Ao vivo' : 'Pausado'}
+            </button>
+            <button
+              className={desktopNotify ? 'btn btn-secondary' : 'btn btn-outline'}
+              onClick={() => void toggleDesktopNotifyPreference()}
+              title={
+                desktopNotify
+                  ? 'Alertas do sistema ativos (notificação do Windows/macOS)'
+                  : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
+              }
+              style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+              type="button"
+            >
+              {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+              Alertas
             </button>
           </div>
         ) : (
