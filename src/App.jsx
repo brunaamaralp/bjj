@@ -199,7 +199,7 @@ const App = () => {
               quickTimes: [],
               financeConfig: JSON.stringify(defaultFinance),
               onboardingChecklist: JSON.stringify(checklist),
-              customLeadQuestions: JSON.stringify(['Faixa']),
+              customLeadQuestions: JSON.stringify([]),
               ai_name: defaultAiNameFromUser(u),
               plan: 'starter',
               plan_started_at: nowIsoFallback,
@@ -235,7 +235,6 @@ const App = () => {
         }
         try { useLeadStore.getState().setTeamId(ensuredTeamId || null); } catch (e) { void e; }
         try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
-        // Ensure default custom question 'Faixa' exists once
         try {
           const createId = () => {
             try {
@@ -273,11 +272,6 @@ const App = () => {
               if (type === 'select') return { ...base, options: options || [] };
               return base;
             }).filter(Boolean);
-          }
-
-          if (!list.some((q) => String(q?.label || '').trim() === 'Faixa')) {
-            migrated = true;
-            list.push({ id: createId(), label: 'Faixa', type: 'text' });
           }
 
           if (migrated) {

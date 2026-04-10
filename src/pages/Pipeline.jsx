@@ -87,7 +87,7 @@ const leadMatchesContactType = (lead) => {
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead, fetchMoreLeads } = useLeadStore();
+    const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const leadsLoading = useLeadStore((s) => s.loading);
@@ -115,6 +115,9 @@ const Pipeline = () => {
     const [kanbanSearch, setKanbanSearch] = useState('');
     const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
     const [searchStageScope, setSearchStageScope] = useState('all');
+    const [openMenuId, setOpenMenuId] = useState(null);
+    const [copiedId, setCopiedId] = useState(null);
+    const [lostModalLead, setLostModalLead] = useState(null);
 
     const searchStageScopeOptions = useMemo(() => [
         { value: 'all', label: 'Todas as etapas' },
@@ -131,6 +134,34 @@ const Pipeline = () => {
             return ids.has(prev) ? prev : 'all';
         });
     }, [stages]);
+
+    useEffect(() => {
+        const handleClickOutside = () => setOpenMenuId(null);
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const handleCopyPhone = (e, lead) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(lead.phone || '');
+        setCopiedId(lead.id);
+        setOpenMenuId(null);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const handleMarkAsLost = (e, lead) => {
+        e.stopPropagation();
+        setOpenMenuId(null);
+        setLostModalLead(lead);
+    };
+
+    const handleDeleteLead = (e, leadId) => {
+        e.stopPropagation();
+        setOpenMenuId(null);
+        if (window.confirm('Tem certeza que deseja excluir este lead?')) {
+            deleteLead(leadId);
+        }
+    };
 
     const stepKanbanScrollFromClientX = (clientX) => {
         const el = kanbanWrapperRef.current;
@@ -810,6 +841,84 @@ const Pipeline = () => {
                                             >
                                                 <StickyNote size={17} strokeWidth={2} aria-hidden />
                                             </button>
+                                            <div style={{ position: 'relative' }}>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuId(openMenuId === lead.id ? null : lead.id);
+                                                    }}
+                                                    title="Mais ações"
+                                                    className="action-btn action-btn--icon"
+                                                    draggable={false}
+                                                >
+                                                    ⋯
+                                                </button>
+                                                {openMenuId === lead.id && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        right: 0,
+                                                        zIndex: 100,
+                                                        background: 'white',
+                                                        border: '1px solid #eee',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                        minWidth: '180px',
+                                                        overflow: 'hidden',
+                                                    }} onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={(e) => handleCopyPhone(e, lead)}
+                                                            style={{
+                                                                display: 'block',
+                                                                width: '100%',
+                                                                padding: '10px 16px',
+                                                                textAlign: 'left',
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                borderBottom: '1px solid #f5f5f5',
+                                                                cursor: 'pointer',
+                                                                color: '#333',
+                                                                fontSize: '14px',
+                                                            }}
+                                                        >
+                                                            {copiedId === lead.id ? '✓ Copiado!' : 'Copiar telefone'}
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleMarkAsLost(e, lead)}
+                                                            style={{
+                                                                display: 'block',
+                                                                width: '100%',
+                                                                padding: '10px 16px',
+                                                                textAlign: 'left',
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                borderBottom: '1px solid #f5f5f5',
+                                                                cursor: 'pointer',
+                                                                color: '#E65100',
+                                                                fontSize: '14px',
+                                                            }}
+                                                        >
+                                                            Marcar como perdido
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleDeleteLead(e, lead.id)}
+                                                            style={{
+                                                                display: 'block',
+                                                                width: '100%',
+                                                                padding: '10px 16px',
+                                                                textAlign: 'left',
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                color: '#E53935',
+                                                                fontSize: '14px',
+                                                            }}
+                                                        >
+                                                            Excluir lead
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                         {schedulerOpenId === lead.id && (
                                             <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
@@ -907,6 +1016,41 @@ const Pipeline = () => {
                 defaultStatus={LEAD_STATUS.NEW}
                 title={`Importar ${labels.leads}`}
             />
+
+            {lostModalLead && (
+                <LostReasonModal
+                    isOpen={!!lostModalLead}
+                    leadName={lostModalLead?.name || 'Lead'}
+                    onClose={() => setLostModalLead(null)}
+                    onConfirm={async (reason) => {
+                        const cur = lostModalLead;
+                        const existing = Array.isArray(cur?.notes) ? cur.notes : [];
+                        const event = {
+                            type: 'stage_change',
+                            from: cur?.status || '',
+                            to: LEAD_STATUS.LOST,
+                            at: new Date().toISOString(),
+                            by: 'user',
+                        };
+                        const newNotes = [...existing, event];
+                        try {
+                            await updateLead(cur.id, {
+                                status: LEAD_STATUS.LOST,
+                                scheduledDate: '',
+                                scheduledTime: '',
+                                pipelineStage: LEAD_STATUS.LOST,
+                                lostReason: reason,
+                                notes: newNotes,
+                            });
+                            setToast('Marcado como perdido');
+                            setTimeout(() => setToast(''), 2000);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                        setLostModalLead(null);
+                    }}
+                />
+            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `

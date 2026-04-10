@@ -268,8 +268,9 @@ const Dashboard = () => {
                 const pwFrom = new Date(wFrom); pwFrom.setDate(pwFrom.getDate()-7);
                 const pwTo = new Date(wTo); pwTo.setDate(pwTo.getDate()-7);
                 const pctVar = (cur, prev) => { if (prev === 0) return cur > 0 ? 100 : 0; return Math.round(((cur - prev) / prev) * 100); };
-                const newLeadsCur = leads.filter(l => inRange(l.createdAt, mFrom, mTo)).length;
-                const newLeadsPrev = leads.filter(l => inRange(l.createdAt, pmFrom, pmTo)).length;
+                const isRealLead = (l) => l.origin !== 'Planilha';
+                const newLeadsCur = leads.filter(l => isRealLead(l) && inRange(l.createdAt, mFrom, mTo)).length;
+                const newLeadsPrev = leads.filter(l => isRealLead(l) && inRange(l.createdAt, pmFrom, pmTo)).length;
                 const schedCur = leads.filter(l => { const d = parseYMD(l.scheduledDate); return d && inRange(d, wFrom, wTo); }).length;
                 const schedPrev = leads.filter(l => { const d = parseYMD(l.scheduledDate); return d && inRange(d, pwFrom, pwTo); }).length;
                 const convCur = leads.filter(l => stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, mFrom, mTo))).length;
