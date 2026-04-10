@@ -254,10 +254,12 @@ const Dashboard = () => {
                 const inRange = (ts,a,b) => { if (!ts) return false; const t = new Date(ts).getTime(); return t>=a.getTime() && t<=b.getTime(); };
                 const stageEventWithin = (lead, toStatus, cmp) => {
                     const evs = Array.isArray(lead.notes) ? lead.notes : [];
-                    const hit = evs.find(e => e && e.type === 'stage_change' && e.to === toStatus && cmp(e.at || e.date));
-                    if (hit) return true;
-                    if (lead.status === toStatus && lead.statusChangedAt && cmp(lead.statusChangedAt)) return true;
-                    return false;
+                    return evs.some(e =>
+                        e &&
+                        e.type === 'stage_change' &&
+                        e.to === toStatus &&
+                        cmp(e.at || e.date)
+                    );
                 };
                 const now = new Date();
                 const mFrom = startOfMonth(now), mTo = endOfMonth(now);

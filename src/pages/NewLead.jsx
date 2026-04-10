@@ -83,7 +83,6 @@ const NewLead = () => {
                 isFirstExperience: data.isFirstExperience,
                 parentName: data.parentName,
                 age: data.age,
-                borrowedShirt: data.borrowedShirt,
                 borrowedKimono: data.borrowedKimono,
                 scheduledDate: data.scheduledDate,
                 scheduledTime: data.scheduledTime,
@@ -200,17 +199,6 @@ const NewLead = () => {
                     </div>
 
                     {/* Campo de faixa removido; pode ser configurado em Perguntas do Lead */}
-                </div>
-
-                {/* Equipamento */}
-                <div className="card animate-in" style={{ animationDelay: '0.14s' }}>
-                    <label className="type-label">Equipamento Emprestado</label>
-                    <div className="flex gap-4 mt-2">
-                        <div className="form-group" style={{ flex: 1 }}>
-                            <label>Tamanho Camiseta</label>
-                            <input {...register('borrowedShirt')} className="form-input" placeholder="Ex: G, 12" />
-                        </div>
-                    </div>
                 </div>
 
                 {/* Agendamento */}
