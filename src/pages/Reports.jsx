@@ -325,6 +325,7 @@ const Reports = () => {
 
         const within = (ts) => inRange(ts, fromDay, toDEndLocal);
         const withinPrev = (ts) => inRange(ts, prevFromDLocal, prevToDLocal);
+
         const stageEventWithin = (lead, toStatus, cmp) => {
             const evs = Array.isArray(lead.notes) ? lead.notes : [];
             const hit = evs.find((e) => e && e.type === 'stage_change' && e.to === toStatus && cmp(e.at || e.date));
@@ -333,10 +334,11 @@ const Reports = () => {
             return false;
         };
 
+        const isRealLead = (l) => l.origin !== 'Planilha';
         const base = leads.filter(matchesSecondary);
 
-        const newLeads = base.filter((l) => within(l.createdAt));
-        const newLeadsPrev = base.filter((l) => withinPrev(l.createdAt));
+        const newLeads = base.filter((l) => isRealLead(l) && within(l.createdAt));
+        const newLeadsPrev = base.filter((l) => isRealLead(l) && withinPrev(l.createdAt));
         const scheduled = base.filter((l) => {
             const d = parseYMD(l.scheduledDate);
             return d && inRange(d, fromDay, toDEndLocal);
@@ -384,6 +386,8 @@ const Reports = () => {
     const chartSeries = useMemo(() => {
         const buckets = chartMode === 'weekly' ? buildWeekBuckets(fromD, toDEnd) : buildMonthBuckets(fromD, toDEnd);
         const base = leads.filter(matchesSecondary);
+        const isRealLead = (l) => l.origin !== 'Planilha';
+        
         const parseYMDLocal = (s) => {
             if (!s) return null;
             const [Y, M, D] = s.split('-').map(Number);
@@ -401,7 +405,7 @@ const Reports = () => {
         return buckets.map(({ start, end, label }) => {
             let value = 0;
             if (chartMetric === 'new') {
-                value = base.filter((l) => inRange(l.createdAt, start, end)).length;
+                value = base.filter((l) => isRealLead(l) && inRange(l.createdAt, start, end)).length;
             } else if (chartMetric === 'scheduled') {
                 value = base.filter((l) => {
                     const d = parseYMDLocal(l.scheduledDate);
