@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Trash2, ChevronRight, Info } from 'lucide-react';
+import { Download, Trash2, ChevronRight, Info, Plus } from 'lucide-react';
 import { teams } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
+import { authService } from '../../lib/auth';
+import { useUserRole } from '../../lib/useUserRole';
 import ExportButton from '../ExportButton';
 
 const GerenciamentoSection = ({ academy, leads }) => {
     const addToast = useUiStore((s) => s.addToast);
+    const role = useUserRole(academy);
     
     // Team states
-    const [memberships, setMemberships] = useState([]);
-    const [memberEmail, setMemberEmail] = useState('');
-    const [memberRole, setMemberRole] = useState('viewer');
-    const [inviting, setInviting] = useState(false);
+    const [members, setMembers] = useState([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    
+    const [newMember, setNewMember] = useState({ name: '', email: '', password: '' });
+    const [savingMember, setSavingMember] = useState(false);
+    const [memberError, setMemberError] = useState('');
 
     // Clear data states
     const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -20,31 +25,81 @@ const GerenciamentoSection = ({ academy, leads }) => {
     const [clearingAllData, setClearingAllData] = useState(false);
 
     useEffect(() => {
-        if (!academy.teamId) {
-            setMemberships([]);
+        if (!academy?.teamId) {
+            setMembers([]);
             return;
         }
-        teams.listMemberships(academy.teamId)
-            .then(res => setMemberships(res.memberships || []))
-            .catch(() => setMemberships([]));
-    }, [academy.teamId]);
-
-    const inviteMember = async () => {
-        if (!academy.teamId || !memberEmail) return;
-        setInviting(true);
-        try {
-            await teams.createMembership(academy.teamId, memberEmail, [memberRole], `${window.location.origin}/`);
-            setMemberEmail('');
+        const loadMembers = async () => {
+            setLoadingMembers(true);
             try {
-                const res = await teams.listMemberships(academy.teamId);
-                setMemberships(res.memberships || []);
-            } catch (e) { void e; }
-            addToast({ type: 'success', message: 'Convite enviado por e-mail.' });
-        } catch (e) {
-            console.error('invite member:', e);
-            addToast({ type: 'error', message: 'Não foi possível enviar o convite. Verifique o SMTP no Appwrite.' });
+                const result = await teams.listMemberships(academy.teamId);
+                setMembers(result.memberships || []);
+            } catch (e) {
+                console.error('loadMembers error:', e);
+                setMembers([]);
+            } finally {
+                setLoadingMembers(false);
+            }
+        };
+        loadMembers();
+    }, [academy?.teamId]);
+
+    const handleCreateMember = async (e) => {
+        e.preventDefault();
+        setMemberError('');
+
+        if (!newMember.name || !newMember.email || !newMember.password) {
+            setMemberError('Preencha todos os campos.');
+            return;
+        }
+        if (newMember.password.length < 8) {
+            setMemberError('A senha deve ter no mínimo 8 caracteres.');
+            return;
+        }
+
+        setSavingMember(true);
+        try {
+            const jwt = await authService.createSessionJwt();
+            const res = await fetch('/api/team/members', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwt}`
+                },
+                body: JSON.stringify({
+                    name: newMember.name,
+                    email: newMember.email,
+                    password: newMember.password,
+                    teamId: academy.teamId
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.erro || 'Erro ao criar usuário');
+
+            // Recarregar membros
+            const result = await teams.listMemberships(academy.teamId);
+            setMembers(result.memberships || []);
+            
+            // Limpar formulário
+            setNewMember({ name: '', email: '', password: '' });
+            addToast({ type: 'success', message: 'Recepcionista criado com sucesso!' });
+        } catch (error) {
+            setMemberError(error.message);
         } finally {
-            setInviting(false);
+            setSavingMember(false);
+        }
+    };
+
+    const handleRemoveMember = async (membershipId) => {
+        if (!window.confirm('Remover este membro da equipe?')) return;
+        try {
+            await teams.deleteMembership(academy.teamId, membershipId);
+            setMembers(prev => prev.filter(m => m.$id !== membershipId));
+            addToast({ type: 'success', message: 'Membro removido.' });
+        } catch (e) {
+            console.error('Erro ao remover:', e);
+            addToast({ type: 'error', message: 'Não foi possível remover o membro.' });
         }
     };
 
@@ -83,38 +138,91 @@ const GerenciamentoSection = ({ academy, leads }) => {
             <h3 className="navi-section-heading mb-2">Equipe</h3>
             <div className="card mb-6">
                 {academy.teamId ? (
-                    <div className="flex-col gap-3">
-                        <div className="info-row">
-                            <span className="info-row-label">Team ID</span>
-                            <span className="info-row-value">{academy.teamId}</span>
-                        </div>
-                        <div className="form-group">
-                            <label>Convidar por e-mail</label>
-                            <div className="flex gap-2">
-                                <input className="form-input" type="email" placeholder="email@exemplo.com" value={memberEmail} onChange={e => setMemberEmail(e.target.value)} />
-                                <select className="form-input" value={memberRole} onChange={e => setMemberRole(e.target.value)}>
-                                    <option value="viewer">viewer</option>
-                                    <option value="editor">editor</option>
-                                    <option value="owner">owner</option>
-                                </select>
-                                <button className="btn-secondary" onClick={inviteMember} disabled={inviting || !memberEmail}>Convidar</button>
-                            </div>
-                            <p className="text-xs text-light">É necessário SMTP configurado no Appwrite para envio do convite.</p>
-                        </div>
+                    <div className="flex-col gap-4">
                         <div>
-                            <span className="navi-section-heading" style={{ fontSize: '0.95rem', display: 'block', marginBottom: 4 }}>Membros</span>
-                            <div className="flex-col gap-1 mt-2">
-                                {(memberships || []).map(m => (
-                                    <div key={m.$id} className="info-row">
-                                        <span className="info-row-label">{m.userName || m.userId}</span>
-                                        <span className="info-row-value">{(m.roles || []).join(', ')}</span>
-                                    </div>
-                                ))}
-                                {(memberships || []).length === 0 && (
-                                    <div className="navi-subtitle" style={{ marginTop: 0 }}>Nenhum membro listado.</div>
-                                )}
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="navi-section-heading" style={{ fontSize: '0.95rem' }}>Membros</span>
                             </div>
+                            {loadingMembers ? (
+                                <p className="text-small" style={{ color: 'var(--text-muted)' }}>Carregando equipe...</p>
+                            ) : (
+                                <div className="flex-col gap-1">
+                                    {members.map(m => {
+                                        const isOwner = (m.roles || []).includes('owner');
+                                        return (
+                                            <div key={m.$id} className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <span className="info-row-label" style={{ display: 'block', textTransform: 'none', color: 'var(--text)' }}>
+                                                        {m.userName || 'Usuário'}
+                                                    </span>
+                                                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{m.userEmail}</span>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="type-pill" style={{ background: isOwner ? 'var(--accent-light)' : 'var(--surface-hover)', color: isOwner ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                                                        {isOwner ? 'Dono' : 'Recepcionista'}
+                                                    </span>
+                                                    {role === 'owner' && !isOwner && (
+                                                        <button 
+                                                            className="icon-btn" 
+                                                            title="Remover membro"
+                                                            onClick={() => handleRemoveMember(m.$id)}
+                                                        >
+                                                            <Trash2 size={16} color="var(--danger)" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {members.length === 0 && (
+                                        <div className="navi-subtitle" style={{ marginTop: 0 }}>Nenhum membro listado.</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
+
+                        {role === 'owner' && (
+                            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
+                                <span className="navi-section-heading" style={{ fontSize: '0.95rem', display: 'block', marginBottom: 8 }}>Adicionar Recepcionista</span>
+                                <form onSubmit={handleCreateMember} className="flex-col gap-3">
+                                    <div className="form-group">
+                                        <label>Nome completo</label>
+                                        <input 
+                                            className="form-input" 
+                                            type="text" 
+                                            placeholder="Ex: João Silva" 
+                                            value={newMember.name} 
+                                            onChange={e => setNewMember({...newMember, name: e.target.value})} 
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>E-mail</label>
+                                        <input 
+                                            className="form-input" 
+                                            type="email" 
+                                            placeholder="recepcao@academia.com" 
+                                            value={newMember.email} 
+                                            onChange={e => setNewMember({...newMember, email: e.target.value})} 
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Senha Provisória</label>
+                                        <input 
+                                            className="form-input" 
+                                            type="password" 
+                                            placeholder="Mínimo 8 caracteres" 
+                                            value={newMember.password} 
+                                            onChange={e => setNewMember({...newMember, password: e.target.value})} 
+                                        />
+                                    </div>
+                                    {memberError && <p className="field-error">{memberError}</p>}
+                                    
+                                    <button type="submit" className="btn-secondary mt-1" disabled={savingMember}>
+                                        <Plus size={16} /> {savingMember ? 'Criando...' : 'Adicionar Conta'}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="navi-subtitle" style={{ marginTop: 0 }}>
@@ -126,31 +234,39 @@ const GerenciamentoSection = ({ academy, leads }) => {
             <h3 className="navi-section-heading mb-2">Dados</h3>
             <p className="navi-subtitle mb-2" style={{ fontSize: '0.85rem' }}>Exportação e exclusão em massa afetam apenas leads e alunos desta base.</p>
             <div className="card flex-col mb-6" style={{ padding: 0, overflow: 'hidden' }}>
-                <div className="action-row">
-                    <div className="flex items-center gap-4">
-                        <div className="action-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                            <Download size={18} />
+                {role === 'owner' ? (
+                    <>
+                        <div className="action-row">
+                            <div className="flex items-center gap-4">
+                                <div className="action-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                                    <Download size={18} />
+                                </div>
+                                <div>
+                                    <strong>Exportar todos os dados</strong>
+                                    <p className="navi-subtitle" style={{ marginTop: 2 }}>Baixe uma planilha com todos os leads</p>
+                                </div>
+                            </div>
+                            <ExportButton leads={leads} fileName="bjj-crm-completo" label="Baixar" />
                         </div>
-                        <div>
-                            <strong>Exportar todos os dados</strong>
-                            <p className="navi-subtitle" style={{ marginTop: 2 }}>Baixe uma planilha com todos os leads</p>
-                        </div>
-                    </div>
-                    <ExportButton leads={leads} fileName="bjj-crm-completo" label="Baixar" />
-                </div>
 
-                <div className="action-row" onClick={() => setShowClearConfirm(true)} style={{ cursor: 'pointer' }}>
-                    <div className="flex items-center gap-4">
-                        <div className="action-icon" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>
-                            <Trash2 size={18} />
+                        <div className="action-row" onClick={() => setShowClearConfirm(true)} style={{ cursor: 'pointer' }}>
+                            <div className="flex items-center gap-4">
+                                <div className="action-icon" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>
+                                    <Trash2 size={18} />
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--danger)' }}>Limpar todos os dados</strong>
+                                    <p className="navi-subtitle" style={{ marginTop: 2 }}>Remove todos os leads e alunos</p>
+                                </div>
+                            </div>
+                            <ChevronRight size={18} color="var(--text-muted)" />
                         </div>
-                        <div>
-                            <strong style={{ color: 'var(--danger)' }}>Limpar todos os dados</strong>
-                            <p className="navi-subtitle" style={{ marginTop: 2 }}>Remove todos os leads e alunos</p>
-                        </div>
+                    </>
+                ) : (
+                    <div style={{ padding: 16 }}>
+                        <p className="text-small" style={{ color: 'var(--text-muted)' }}>Apenas o dono da academia pode exportar ou excluir os dados em massa.</p>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
-                </div>
+                )}
             </div>
 
             <h3 className="navi-section-heading mb-2">Sistema</h3>

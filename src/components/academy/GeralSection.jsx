@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Building2, Phone, Mail, MapPin } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
+import { useUserRole } from '../../lib/useUserRole';
 
 const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
 
@@ -18,6 +19,7 @@ const InfoRow = ({ icon, label, value }) => (
 
 const GeralSection = ({ academy, setAcademy, onSave }) => {
     const addToast = useUiStore((s) => s.addToast);
+    const role = useUserRole(academy);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
@@ -94,7 +96,7 @@ const GeralSection = ({ academy, setAcademy, onSave }) => {
 
             <div className="flex justify-between items-center mb-2">
                 <h3 className="navi-section-heading">Dados da Academia</h3>
-                {!editing && (
+                {role === 'owner' && !editing && (
                     <button className="edit-link" onClick={() => setEditing(true)}>Editar</button>
                 )}
             </div>

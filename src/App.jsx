@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import { authService } from './lib/auth';
-import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt } from './lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
 import { isBillingLive } from './lib/billingEnabled';
 import { ID, Query, Permission, Role } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
@@ -135,12 +135,34 @@ const App = () => {
       if (!u || !u.$id) {
         throw new Error('invalid_user');
       }
-      const res = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
-        Query.equal('ownerId', [u.$id]),
-        Query.limit(50),
-      ]);
+      let list = [];
+      try {
+        const res = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
+          Query.equal('ownerId', [u.$id]),
+          Query.limit(50),
+        ]);
+        list = res.documents || [];
+      } catch (e) {
+        console.error('Erro ao buscar academias como dono:', e);
+      }
+
+      if (list.length === 0) {
+        try {
+          const memberships = await teams.list();
+          const teamIds = (memberships.teams || []).map(m => m.$id);
+          if (teamIds.length > 0) {
+            const memberOf = await databases.listDocuments(DB_ID, ACADEMIES_COL, [
+              Query.equal('teamId', teamIds),
+              Query.limit(50)
+            ]);
+            list = memberOf.documents || [];
+          }
+        } catch (e) {
+          console.error('Erro ao buscar academias como membro:', e);
+        }
+      }
+
       let academyId = null;
-      const list = res.documents || [];
       setAcademyList(list.map(d => ({ id: d.$id, name: d.name || d.$id })));
       const saved = localStorage.getItem('activeAcademyId');
       if (saved && list.find(d => d.$id === saved)) {
@@ -148,6 +170,11 @@ const App = () => {
       } else if (list.length > 0) {
         academyId = list[0].$id;
       } else {
+        const isNewUser = new Date(u.registration).getTime() > Date.now() - 60000; // 1 min
+        if (!isNewUser) {
+           throw new Error('Usuário não possui nenhuma academia associada e não é um novo cadastro.');
+        }
+
         const defaultFinance = {
           cardFees: {
             pix: { percent: 0, fixed: 0 },
@@ -316,44 +343,20 @@ const App = () => {
       await useLeadStore.getState().fetchLeads();
       await syncBilling(academyId);
     } catch (e) {
-      console.error('setupAcademy error:', e);
-      const code = String(e?.code || '');
-      const msg = String(e?.message || '');
+      console.error('Erro ao carregar academia:', e);
+      // Exibir mensagem clara para o usuário
+      // setError('Não foi possível carregar sua academia. Tente novamente ou entre em contato com o administrador.');
+      // Como estamos no App.jsx e não temos 'setError' local, usaremos o toast
       try {
-        if (code === '401' || /authorized|scopes|unauthorized/i.test(msg)) {
-          try {
-            // Tentar criar academia via endpoint admin usando JWT do usuário
-            const jwt = await createSessionJwt();
-            if (jwt) {
-              const resp = await fetch('/api/academies/create', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${jwt}`,
-                },
-                body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) }),
-              });
-              const data = await resp.json().catch(() => ({}));
-              if (resp.ok && data && data.id) {
-                const newId = data.id;
-                setAcademyId(newId);
-                localStorage.setItem('activeAcademyId', newId);
-                try { useLeadStore.getState().setAcademyId(newId); } catch (e2) { void e2; }
-                try { await useLeadStore.getState().fetchLeads(); } catch (e3) { void e3; }
-                navigate('/', { replace: true });
-                return;
-              }
-            }
-          } catch (inner) {
-            void inner;
-          }
-          // Se falhar, efetuar logout e ir para welcome
-          await authService.logout();
-          setUser(null);
-          useLeadStore.getState().setAcademyId(null);
-          navigate('/', { replace: true });
-        }
-      } catch { /* noop */ }
+        useUiStore.getState().addToast({
+          type: 'error',
+          message: 'Não foi possível carregar sua academia. Tente novamente ou entre em contato com o administrador.',
+          duration: 6000
+        });
+      } catch (toastErr) {
+        console.error(toastErr);
+      }
+      // NÃO fazer logout automático
     }
   };
 

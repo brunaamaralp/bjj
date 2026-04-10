@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       const p = [Permission.read(Role.user(ownerId)), Permission.update(Role.user(ownerId)), Permission.delete(Role.user(ownerId))];
       const tid = String(teamId || '').trim();
       if (tid) {
-        p.push(Permission.read(Role.team(tid)), Permission.update(Role.team(tid)), Permission.delete(Role.team(tid)));
+        p.push(Permission.read(Role.team(tid)), Permission.update(Role.team(tid)));
       }
       return p;
     };

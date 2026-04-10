@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
+import { useUserRole } from '../../lib/useUserRole';
 
 const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
     const addToast = useUiStore((s) => s.addToast);
+    const role = useUserRole(academy);
     const [newQuestion, setNewQuestion] = useState('');
 
     const createId = () => {
@@ -33,26 +35,28 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
             </div>
             <div className="card">
                 <div className="flex-col gap-3">
-                    <div className="flex gap-2">
-                        <input
-                            className="form-input"
-                            placeholder="Ex: Qual é seu objetivo principal?"
-                            value={newQuestion}
-                            onChange={(e) => setNewQuestion(e.target.value)}
-                        />
-                        <button
-                            className="btn-secondary"
-                            onClick={() => {
-                                const q = (newQuestion || '').trim();
-                                if (!q) return;
-                                const qs = [...(academy.customLeadQuestions || []), { id: createId(), label: q, type: 'text' }];
-                                setNewQuestion('');
-                                saveQuestions(qs);
-                            }}
-                        >
-                            <Plus size={16} /> Adicionar
-                        </button>
-                    </div>
+                    {role === 'owner' && (
+                        <div className="flex gap-2">
+                            <input
+                                className="form-input"
+                                placeholder="Ex: Qual é seu objetivo principal?"
+                                value={newQuestion}
+                                onChange={(e) => setNewQuestion(e.target.value)}
+                            />
+                            <button
+                                className="btn-secondary"
+                                onClick={() => {
+                                    const q = (newQuestion || '').trim();
+                                    if (!q) return;
+                                    const qs = [...(academy.customLeadQuestions || []), { id: createId(), label: q, type: 'text' }];
+                                    setNewQuestion('');
+                                    saveQuestions(qs);
+                                }}
+                            >
+                                <Plus size={16} /> Adicionar
+                            </button>
+                        </div>
+                    )}
                     <div className="flex-col gap-2">
                         {(academy.customLeadQuestions || []).map((q, idx) => (
                             <div key={`${q?.id || q?.label || idx}`} className="info-row">
@@ -61,7 +65,9 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                         className="form-input"
                                         value={q?.label || ''}
                                         placeholder="Pergunta"
+                                        readOnly={role !== 'owner'}
                                         onChange={(e) => {
+                                            if (role !== 'owner') return;
                                             const value = e.target.value;
                                             const id = q?.id;
                                             setAcademy((a) => ({
@@ -78,7 +84,9 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                     <select
                                         className="form-input"
                                         value={q?.type || 'text'}
+                                        disabled={role !== 'owner'}
                                         onChange={(e) => {
+                                            if (role !== 'owner') return;
                                             const value = e.target.value;
                                             const id = q?.id;
                                             setAcademy((a) => ({
@@ -102,7 +110,9 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                             className="form-input"
                                             value={Array.isArray(q?.options) ? q.options.join(', ') : (q?.options || '')}
                                             placeholder="Opções (separadas por vírgula)"
+                                            readOnly={role !== 'owner'}
                                             onChange={(e) => {
+                                                if (role !== 'owner') return;
                                                 const raw = e.target.value;
                                                 const arr = raw.split(',').map(s => s.trim()).filter(Boolean);
                                                 const id = q?.id;
@@ -119,63 +129,69 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                         />
                                     )}
                                 </div>
-                                <button
-                                    className="icon-btn"
-                                    title="Remover"
-                                    onClick={() => {
-                                        const id = q?.id;
-                                        const qs = id
-                                            ? (academy.customLeadQuestions || []).filter((it) => it?.id !== id)
-                                            : (academy.customLeadQuestions || []).filter((_, i) => i !== idx);
-                                        saveQuestions(qs);
-                                    }}
-                                >
-                                    <X size={14} />
-                                </button>
-                                <div className="flex gap-2">
-                                    <button
-                                        className="icon-btn"
-                                        title="Mover para cima"
-                                        onClick={() => {
-                                            if (idx <= 0) return;
-                                            const list = [...(academy.customLeadQuestions || [])];
-                                            const [item] = list.splice(idx, 1);
-                                            list.splice(idx - 1, 0, item);
-                                            setAcademy((a) => ({ ...a, customLeadQuestions: list }));
-                                        }}
-                                    >
-                                        <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />
-                                    </button>
-                                    <button
-                                        className="icon-btn"
-                                        title="Mover para baixo"
-                                        onClick={() => {
-                                            const list = [...(academy.customLeadQuestions || [])];
-                                            if (idx >= list.length - 1) return;
-                                            const [item] = list.splice(idx, 1);
-                                            list.splice(idx + 1, 0, item);
-                                            setAcademy((a) => ({ ...a, customLeadQuestions: list }));
-                                        }}
-                                    >
-                                        <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
-                                    </button>
-                                </div>
+                                {role === 'owner' && (
+                                    <>
+                                        <button
+                                            className="icon-btn"
+                                            title="Remover"
+                                            onClick={() => {
+                                                const id = q?.id;
+                                                const qs = id
+                                                    ? (academy.customLeadQuestions || []).filter((it) => it?.id !== id)
+                                                    : (academy.customLeadQuestions || []).filter((_, i) => i !== idx);
+                                                saveQuestions(qs);
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                className="icon-btn"
+                                                title="Mover para cima"
+                                                onClick={() => {
+                                                    if (idx <= 0) return;
+                                                    const list = [...(academy.customLeadQuestions || [])];
+                                                    const [item] = list.splice(idx, 1);
+                                                    list.splice(idx - 1, 0, item);
+                                                    setAcademy((a) => ({ ...a, customLeadQuestions: list }));
+                                                }}
+                                            >
+                                                <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />
+                                            </button>
+                                            <button
+                                                className="icon-btn"
+                                                title="Mover para baixo"
+                                                onClick={() => {
+                                                    const list = [...(academy.customLeadQuestions || [])];
+                                                    if (idx >= list.length - 1) return;
+                                                    const [item] = list.splice(idx, 1);
+                                                    list.splice(idx + 1, 0, item);
+                                                    setAcademy((a) => ({ ...a, customLeadQuestions: list }));
+                                                }}
+                                            >
+                                                <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                         {(academy.customLeadQuestions || []).length === 0 && (
                             <div className="navi-subtitle" style={{ marginTop: 0 }}>
-                                Nenhuma pergunta configurada. Adicione perguntas personalizadas para acompanhar no perfil do lead.
+                                Nenhuma pergunta configurada. {role === 'owner' && 'Adicione perguntas personalizadas para acompanhar no perfil do lead.'}
                             </div>
                         )}
                     </div>
-                    <div className="flex gap-2 mt-2">
-                        <button
-                            className="btn-secondary"
-                            onClick={() => saveQuestions(academy.customLeadQuestions || [])}
-                        >
-                            Salvar alterações
-                        </button>
-                    </div>
+                    {role === 'owner' && (
+                        <div className="flex gap-2 mt-2">
+                            <button
+                                className="btn-secondary"
+                                onClick={() => saveQuestions(academy.customLeadQuestions || [])}
+                            >
+                                Salvar alterações
+                            </button>
+                        </div>
+                    )}
                     <p className="text-xs text-light">As respostas são preenchidas no card do lead.</p>
                 </div>
             </div>
