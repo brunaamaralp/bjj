@@ -79,6 +79,7 @@ const NewLead = () => {
                 type: data.type,
                 origin: data.origin,
                 status: LEAD_STATUS.SCHEDULED,
+                pipelineStage: 'Aula experimental',
                 isFirstExperience: data.isFirstExperience,
                 parentName: data.parentName,
                 age: data.age,

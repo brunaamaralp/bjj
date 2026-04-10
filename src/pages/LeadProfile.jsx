@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { LostReasonModal } from '../components/LostReasonModal';
+import MatriculaModal from '../components/MatriculaModal';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -53,6 +54,7 @@ const LeadProfile = () => {
     const [customQuestions, setCustomQuestions] = useState([]);
     const [deletingLead, setDeletingLead] = useState(false);
     const [lostModalOpen, setLostModalOpen] = useState(false);
+    const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -63,7 +65,6 @@ const LeadProfile = () => {
         birthDate: '',
         isFirstExperience: 'Sim',
         borrowedKimono: '',
-        borrowedShirt: '',
         customAnswers: {},
         scheduledDate: '',
         scheduledTime: '',
@@ -175,7 +176,6 @@ const LeadProfile = () => {
             birthDate: src.birthDate || '',
             isFirstExperience: src.isFirstExperience || 'Sim',
             borrowedKimono: src.borrowedKimono || '',
-            borrowedShirt: src.borrowedShirt || '',
             customAnswers: migratedAnswers,
             scheduledDate: src.scheduledDate || '',
             scheduledTime: src.scheduledTime || '',
@@ -274,6 +274,26 @@ const LeadProfile = () => {
     };
     const handleMarkLost = () => {
         setLostModalOpen(true);
+    };
+
+    const handleMatricularClick = () => {
+        setMatriculaModalOpen(true);
+    };
+
+    const handleConfirmSimple = () => {
+        setMatriculaModalOpen(false);
+        handleUpdateStatus(LEAD_STATUS.CONVERTED);
+    };
+
+    const handleConfirmFull = () => {
+        setMatriculaModalOpen(false);
+        fillFormFromLead({
+            ...lead,
+            status: LEAD_STATUS.CONVERTED,
+            contact_type: 'student',
+        });
+        setEditing(true);
+        handleUpdateStatus(LEAD_STATUS.CONVERTED);
     };
 
     const confirmMarkLost = async (lostReason) => {
@@ -466,12 +486,6 @@ const LeadProfile = () => {
                                         style={{ padding: '8px 12px', borderRadius: 8 }}
                                     />
                                 </div>
-                                <div className="flex gap-2 mt-2">
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>Tam. Camiseta</label>
-                                        <input name="borrowedShirt" value={form.borrowedShirt} onChange={onChange} className="form-input" />
-                                    </div>
-                                </div>
                                 {lead.status === LEAD_STATUS.CONVERTED && (
                                     <div className="lead-student-fields mt-3">
                                         <p className="lead-student-fields-title">Dados do aluno</p>
@@ -569,11 +583,6 @@ const LeadProfile = () => {
                                 <span className="info-badge">
                                     {lead.isFirstExperience === 'Sim' ? 'Iniciante' : 'Já treina'}
                                 </span>
-                                {lead.borrowedShirt && (
-                                    <span className="info-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                                        Camiseta: {lead.borrowedShirt}
-                                    </span>
-                                )}
                             </div>
                         ) : null}
                         {!editing && customQuestions.length > 0 && (
@@ -705,7 +714,7 @@ const LeadProfile = () => {
                         <UserCheck size={22} color="var(--success)" />
                         <span>Presença</span>
                     </button>
-                    <button className="action-btn action-highlight" onClick={() => handleUpdateStatus(LEAD_STATUS.CONVERTED)}>
+                    <button className="action-btn action-highlight" onClick={handleMatricularClick}>
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                             <polyline points="22 4 12 14.01 9 11.01"></polyline>
@@ -834,6 +843,12 @@ const LeadProfile = () => {
                 </div>
             </div>
 
+            <MatriculaModal
+                isOpen={matriculaModalOpen}
+                onClose={() => setMatriculaModalOpen(false)}
+                onConfirmSimple={handleConfirmSimple}
+                onConfirmFull={handleConfirmFull}
+            />
             {lostModalOpen ? (
                 <LostReasonModal
                     leadName={lead.name || 'Lead'}
