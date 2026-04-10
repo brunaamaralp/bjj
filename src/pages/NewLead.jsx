@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle, PlusCircle } from 'lucide-react';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -20,6 +21,19 @@ function normalizePhoneDedup(raw) {
     return d;
 }
 
+function maskPhone(value) {
+    if (!value) return '';
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 10) {
+        return digits
+            .replace(/(\d{2})(\d)/, '($1) $2')
+            .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    return digits
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2');
+}
+
 const nextQuarterTime = () => {
     const d = new Date();
     let m = d.getMinutes();
@@ -35,6 +49,7 @@ const NewLead = () => {
     const addLead = useLeadStore((state) => state.addLead);
     const leads = useLeadStore((state) => state.leads);
     const academyId = useLeadStore((state) => state.academyId);
+    const addToast = useUiStore((state) => state.addToast);
     const [submitting, setSubmitting] = useState(false);
 
     const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
@@ -71,22 +86,28 @@ const NewLead = () => {
 
         setSubmitting(true);
         try {
-            // Payload explícito: evita campos extras do formulário irem ao Appwrite (atributos desconhecidos).
+            const hasSchedule = !!data.scheduledDate && !!data.scheduledTime;
+            const initialNote = data.notes?.trim();
+            const history = initialNote
+                ? [{ type: 'note', text: initialNote, at: new Date().toISOString(), by: 'user' }]
+                : [];
+
+            const cleanPhone = data.phone.replace(/\D/g, '');
+
             const created = await addLead({
                 name: data.name,
-                phone: data.phone,
+                phone: cleanPhone,
                 contact_type: 'lead',
                 type: data.type,
                 origin: data.origin,
-                status: LEAD_STATUS.SCHEDULED,
-                pipelineStage: 'Aula experimental',
+                status: hasSchedule ? LEAD_STATUS.SCHEDULED : LEAD_STATUS.NEW,
+                pipelineStage: hasSchedule ? 'Aula experimental' : 'Novo',
                 isFirstExperience: data.isFirstExperience,
-                parentName: data.parentName,
-                age: data.age,
-                borrowedKimono: data.borrowedKimono,
-                scheduledDate: data.scheduledDate,
-                scheduledTime: data.scheduledTime,
-                notes: [],
+                parentName: data.parentName || '',
+                age: data.age || '',
+                scheduledDate: data.scheduledDate || '',
+                scheduledTime: data.scheduledTime || '',
+                notes: history,
             });
             if (created?.id) {
                 navigate(`/lead/${encodeURIComponent(created.id)}`);
@@ -94,7 +115,10 @@ const NewLead = () => {
                 navigate('/pipeline');
             }
         } catch (e) {
-            alert('Erro ao salvar interessado: ' + e.message);
+            addToast({
+                type: 'error',
+                message: e?.message || 'Não foi possível cadastrar o lead. Tente novamente.'
+            });
         } finally {
             setSubmitting(false);
         }
@@ -132,9 +156,15 @@ const NewLead = () => {
                     <label>Telefone / WhatsApp</label>
                     <input
                         {...register('phone', { required: true })}
+                        onChange={(e) => {
+                            const masked = maskPhone(e.target.value);
+                            e.target.value = masked;
+                            setValue('phone', masked);
+                        }}
                         placeholder="(00) 00000-0000"
                         className={`form-input ${duplicate ? 'input-warning' : ''}`}
                         type="tel"
+                        inputMode="numeric"
                     />
                     {errors.phone && <span className="error">Campo obrigatório</span>}
 
@@ -203,26 +233,24 @@ const NewLead = () => {
 
                 {/* Agendamento */}
                 <div className="card animate-in" style={{ animationDelay: '0.15s' }}>
-                    <label className="type-label" style={{ marginBottom: 12 }}>Agendar Aula Experimental</label>
+                    <h3 className="type-label" style={{ marginBottom: 12 }}>Agendamento <span className="optional-label" style={{textTransform: 'none', fontWeight: 500}}>(opcional)</span></h3>
                     <div className="flex gap-2">
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Data</label>
                             <input
-                                {...register('scheduledDate', { required: true })}
+                                {...register('scheduledDate', { required: false })}
                                 type="date"
                                 className="form-input"
                             />
-                            {errors.scheduledDate && <span className="error">Obrigatório</span>}
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Horário</label>
                             <input
-                                {...register('scheduledTime', { required: true })}
+                                {...register('scheduledTime', { required: false })}
                                 type="time"
                                 step="300"
                                 className="form-input"
                             />
-                            {errors.scheduledTime && <span className="error">Obrigatório</span>}
                             <div className="time-chips mt-2">
                                 <button type="button" className="time-chip" onClick={() => setValue('scheduledTime', nextQuarterTime())}>
                                     Próximo
@@ -248,6 +276,19 @@ const NewLead = () => {
                     <select {...register('origin')} className="form-input">
                         {LEAD_ORIGIN.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
+                </div>
+
+                {/* Observações */}
+                <div className="form-group card animate-in" style={{ animationDelay: '0.22s' }}>
+                    <label>Observações <span className="optional-label" style={{textTransform: 'none', fontWeight: 500}}>(opcional)</span></label>
+                    <textarea
+                        {...register('notes')}
+                        placeholder="Ex: Veio pelo Instagram, perguntou sobre horários de manhã..."
+                        rows={3}
+                        maxLength={500}
+                        className="form-input"
+                        style={{ resize: 'vertical' }}
+                    />
                 </div>
 
                 {/* Submit */}

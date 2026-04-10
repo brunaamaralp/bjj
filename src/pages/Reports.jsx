@@ -1,6 +1,8 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { account } from '../lib/appwrite';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
     Calendar,
     Download,
@@ -52,50 +54,7 @@ const parseYMD = (s) => {
     const [Y, M, D] = s.split('-').map(Number);
     return new Date(Y, (M || 1) - 1, D || 1);
 };
-const inRange = (ts, a, b) => {
-    if (!ts) return false;
-    const t = new Date(ts).getTime();
-    return t >= a.getTime() && t <= b.getTime();
-};
 
-/** Buckets semanais cobrindo [fromD, toDEnd] inclusive. */
-function buildWeekBuckets(fromD, toDEnd) {
-    const out = [];
-    let s = startOfWeek(new Date(fromD));
-    let guard = 0;
-    while (s <= toDEnd && guard++ < 60) {
-        const e = endOfWeek(s);
-        const clipEnd = e.getTime() > toDEnd.getTime() ? toDEnd : e;
-        out.push({
-            start: new Date(s),
-            end: clipEnd,
-            label: `${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}`,
-        });
-        const next = new Date(e);
-        next.setDate(next.getDate() + 1);
-        next.setHours(0, 0, 0, 0);
-        s = startOfWeek(next);
-    }
-    return out;
-}
-
-/** Buckets mensais cobrindo [fromD, toDEnd] inclusive. */
-function buildMonthBuckets(fromD, toDEnd) {
-    const out = [];
-    let s = startOfMonth(new Date(fromD));
-    let guard = 0;
-    while (s <= toDEnd && guard++ < 36) {
-        const e = endOfMonth(s);
-        const clipEnd = e.getTime() > toDEnd.getTime() ? toDEnd : e;
-        out.push({
-            start: new Date(s),
-            end: clipEnd,
-            label: `${String(s.getMonth() + 1).padStart(2, '0')}/${String(s.getFullYear()).slice(-2)}`,
-        });
-        s = startOfMonth(new Date(s.getFullYear(), s.getMonth() + 1, 1));
-    }
-    return out;
-}
 
 function downloadCsv(rows, filename) {
     const header = Object.keys(rows[0] || {});
@@ -168,43 +127,7 @@ const Card = ({ title, value, variation, icon, color, onClick, disabled }) => {
     );
 };
 
-const BarChart = ({ series, height = 180 }) => {
-    const gradId = React.useId().replace(/:/g, '');
-    const padding = 24;
-    const w = Math.max(320, series.length * 48 + padding * 2);
-    const max = Math.max(1, Math.max(...series.map((s) => s.value || 0)));
-    const barW = 32;
-    const gap = 16;
-    return (
-        <div className="reports-chart-scroll">
-            <svg viewBox={`0 0 ${w} ${height}`} width="100%" height={height} style={{ display: 'block', minWidth: w }} aria-hidden>
-                <defs>
-                    <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="var(--v400)" />
-                        <stop offset="100%" stopColor="var(--v500)" />
-                    </linearGradient>
-                </defs>
-                <line x1={padding} y1={height - padding} x2={w - padding} y2={height - padding} stroke="var(--border-light)" strokeOpacity="0.9" />
-                {series.map((s, i) => {
-                    const x = padding + i * (barW + gap);
-                    const h = Math.round(((s.value || 0) / max) * (height - padding * 2));
-                    const y = height - padding - h;
-                    return (
-                        <g key={i}>
-                            <rect x={x} y={y} width={barW} height={h} rx="8" fill={`url(#${gradId})`} opacity="0.95" />
-                            <text x={x + barW / 2} y={height - padding + 14} textAnchor="middle" fontSize="10" fill="var(--text-muted)">
-                                {s.label}
-                            </text>
-                            <text x={x + barW / 2} y={y - 6} textAnchor="middle" fontSize="11" fill="var(--text-secondary)">
-                                {s.value}
-                            </text>
-                        </g>
-                    );
-                })}
-            </svg>
-        </div>
-    );
-};
+
 
 const DRILL_LABELS = {
     newLeads: 'Novos leads no período',
@@ -221,6 +144,11 @@ const DRILL_PANEL_ACCENT = {
     showed: 'success',
     missed: 'danger',
     converted: 'purple',
+};
+
+const pctVar = (cur, prev) => {
+    if (prev === 0) return cur > 0 ? 100 : 0;
+    return Math.round(((cur - prev) / prev) * 100);
 };
 
 const Reports = () => {
@@ -241,8 +169,13 @@ const Reports = () => {
     const [listRefreshing, setListRefreshing] = useState(false);
     const exportWrapRef = useRef(null);
 
-    const showInitialLoad = leadsLoading && leads.length === 0;
-    const showRefreshing = leadsLoading && leads.length > 0;
+    const [reportData, setReportData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const academyId = useLeadStore((s) => s.academyId);
+
+    const showInitialLoad = loading && !reportData;
+    const showRefreshing = loading && reportData;
 
     useEffect(() => {
         if (!exportOpen) return;
@@ -267,16 +200,11 @@ const Reports = () => {
         return { from, to };
     }, [preset, from, to]);
 
-    const matchesSecondary = useCallback(
-        (l) => {
-            if (originFilter !== 'all' && String(l.origin || '') !== originFilter) return false;
-            if (profileFilter !== 'all' && String(l.type || 'Adulto') !== profileFilter) return false;
-            return true;
-        },
-        [originFilter, profileFilter]
-    );
+    const fetchReport = async () => {
+        if (!academyId) return;
+        setLoading(true);
+        setError(null);
 
-    const { metrics, lists, fromD, toDEnd } = useMemo(() => {
         const fromDay = parseYMD(range.from);
         const toDay = parseYMD(range.to);
         const toDEndLocal = new Date(toDay);
@@ -323,104 +251,44 @@ const Reports = () => {
             return d;
         })();
 
-        const within = (ts) => inRange(ts, fromDay, toDEndLocal);
-        const withinPrev = (ts) => inRange(ts, prevFromDLocal, prevToDLocal);
-
-        const stageEventWithin = (lead, toStatus, cmp) => {
-            const evs = Array.isArray(lead.notes) ? lead.notes : [];
-            const hit = evs.find((e) => e && e.type === 'stage_change' && e.to === toStatus && cmp(e.at || e.date));
-            if (hit) return true;
-            if (lead.status === toStatus && lead.statusChangedAt && cmp(lead.statusChangedAt)) return true;
-            return false;
-        };
-
-        const isRealLead = (l) => l.origin !== 'Planilha';
-        const base = leads.filter(matchesSecondary);
-
-        const newLeads = base.filter((l) => isRealLead(l) && within(l.createdAt));
-        const newLeadsPrev = base.filter((l) => isRealLead(l) && withinPrev(l.createdAt));
-        const scheduled = base.filter((l) => {
-            const d = parseYMD(l.scheduledDate);
-            return d && inRange(d, fromDay, toDEndLocal);
-        });
-        const scheduledPrev = base.filter((l) => {
-            const d = parseYMD(l.scheduledDate);
-            return d && inRange(d, prevFromDLocal, prevToDLocal);
-        });
-        const converted = base.filter((l) => stageEventWithin(l, LEAD_STATUS.CONVERTED, within));
-        const convertedPrev = base.filter((l) => stageEventWithin(l, LEAD_STATUS.CONVERTED, withinPrev));
-        const showed = base.filter((l) => stageEventWithin(l, LEAD_STATUS.COMPLETED, within));
-        const showedPrev = base.filter((l) => stageEventWithin(l, LEAD_STATUS.COMPLETED, withinPrev));
-        const missed = base.filter((l) => stageEventWithin(l, LEAD_STATUS.MISSED, within));
-        const missedPrev = base.filter((l) => stageEventWithin(l, LEAD_STATUS.MISSED, withinPrev));
-
-        const pctVar = (cur, prev) => {
-            if (prev === 0) return cur > 0 ? 100 : 0;
-            return Math.round(((cur - prev) / prev) * 100);
-        };
-
-        return {
-            fromD: fromDay,
-            toDEnd: toDEndLocal,
-            prevFromD: prevFromDLocal,
-            prevToD: prevToDLocal,
-            lists: { newLeads, scheduled, converted, showed, missed },
-            metrics: {
-                newLeads: { cur: newLeads.length, prev: newLeadsPrev.length, var: pctVar(newLeads.length, newLeadsPrev.length) },
-                scheduled: { cur: scheduled.length, prev: scheduledPrev.length, var: pctVar(scheduled.length, scheduledPrev.length) },
-                converted: { cur: converted.length, prev: convertedPrev.length, var: pctVar(converted.length, convertedPrev.length) },
-                showed: { cur: showed.length, prev: showedPrev.length, var: pctVar(showed.length, showedPrev.length) },
-                missed: { cur: missed.length, prev: missedPrev.length, var: pctVar(missed.length, missedPrev.length) },
-                conversionRate: {
-                    cur: newLeads.length ? Math.round((converted.length / newLeads.length) * 100) : 0,
-                    prev: newLeadsPrev.length ? Math.round((convertedPrev.length / newLeadsPrev.length) * 100) : 0,
-                    var: pctVar(
-                        newLeads.length ? Math.round((converted.length / newLeads.length) * 100) : 0,
-                        newLeadsPrev.length ? Math.round((convertedPrev.length / newLeadsPrev.length) * 100) : 0
-                    ),
+        try {
+            const jwt = await account.createJWT();
+            const res = await fetch('/api/reports', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwt.jwt}`
                 },
-            },
-        };
-    }, [leads, range.from, range.to, preset, matchesSecondary]);
+                body: JSON.stringify({
+                    academyId,
+                    from: fromDay.toISOString(),
+                    to: toDEndLocal.toISOString(),
+                    prevFrom: prevFromDLocal.toISOString(),
+                    prevTo: prevToDLocal.toISOString(),
+                    filters: { origin: originFilter, type: profileFilter },
+                    chartMode
+                })
+            });
+            if (!res.ok) throw new Error('Falha na resposta do servidor');
+            const data = await res.json();
+            setReportData(data);
+        } catch (e) {
+            setError('Não foi possível carregar o relatório. Tente novamente.');
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const chartSeries = useMemo(() => {
-        const buckets = chartMode === 'weekly' ? buildWeekBuckets(fromD, toDEnd) : buildMonthBuckets(fromD, toDEnd);
-        const base = leads.filter(matchesSecondary);
-        const isRealLead = (l) => l.origin !== 'Planilha';
-        
-        const parseYMDLocal = (s) => {
-            if (!s) return null;
-            const [Y, M, D] = s.split('-').map(Number);
-            return new Date(Y, (M || 1) - 1, D || 1);
-        };
-        const stageEventInBucket = (lead, toStatus, bStart, bEnd) => {
-            const evs = Array.isArray(lead.notes) ? lead.notes : [];
-            const hit = evs.find(
-                (e) => e && e.type === 'stage_change' && e.to === toStatus && inRange(e.at || e.date, bStart, bEnd)
-            );
-            if (hit) return true;
-            if (lead.status === toStatus && lead.statusChangedAt && inRange(lead.statusChangedAt, bStart, bEnd)) return true;
-            return false;
-        };
-        return buckets.map(({ start, end, label }) => {
-            let value = 0;
-            if (chartMetric === 'new') {
-                value = base.filter((l) => isRealLead(l) && inRange(l.createdAt, start, end)).length;
-            } else if (chartMetric === 'scheduled') {
-                value = base.filter((l) => {
-                    const d = parseYMDLocal(l.scheduledDate);
-                    return d && inRange(d, start, end);
-                }).length;
-            } else {
-                value = base.filter((l) => stageEventInBucket(l, LEAD_STATUS.CONVERTED, start, end)).length;
-            }
-            return { label, value };
-        });
-    }, [leads, fromD, toDEnd, chartMetric, chartMode, matchesSecondary]);
+    useEffect(() => {
+        fetchReport();
+    }, [range, originFilter, profileFilter, chartMode, academyId]);
 
     const rangeSlug = `${range.from}_${range.to}`;
 
-    const exportList = (list, slug) => {
+    const exportList = (listKey, slug) => {
+        if (!reportData || !reportData.metrics[listKey]) return;
+        const list = reportData.metrics[listKey].list || [];
         const rows = list.map(leadToCsvRow);
         if (rows.length === 0) {
             downloadCsv([{ mensagem: 'Nenhum registro no período com os filtros atuais' }], `relatorio-${slug}-vazio.csv`);
@@ -445,15 +313,9 @@ const Reports = () => {
         await fetchMoreLeads();
     };
 
-    const hasAnyActivity =
-        metrics.newLeads.cur +
-            metrics.scheduled.cur +
-            metrics.converted.cur +
-            metrics.showed.cur +
-            metrics.missed.cur >
-        0;
+    const hasAnyActivity = reportData ? Object.values(reportData.metrics).some(m => m.cur > 0) : false;
 
-    const drillList = drillKey ? lists[drillKey] || [] : [];
+    const drillList = reportData && drillKey ? reportData.metrics[drillKey]?.list || [] : [];
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
@@ -470,29 +332,33 @@ const Reports = () => {
                         className="btn-secondary reports-export-btn"
                         onClick={() => !showInitialLoad && setExportOpen((o) => !o)}
                         aria-expanded={exportOpen}
-                        disabled={showInitialLoad}
-                        title={showInitialLoad ? 'Aguarde o carregamento dos leads' : undefined}
+                        disabled={!reportData || loading}
+                        title={!reportData ? 'Aguarde o carregamento dos dados' : undefined}
                     >
-                        <Download size={16} aria-hidden />
-                        Exportar CSV
-                        <ChevronDown size={16} className={exportOpen ? 'reports-chevron-open' : ''} aria-hidden />
+                        {loading ? 'Carregando...' : (
+                            <>
+                                <Download size={16} aria-hidden />
+                                Exportar CSV
+                                <ChevronDown size={16} className={exportOpen ? 'reports-chevron-open' : ''} aria-hidden />
+                            </>
+                        )}
                     </button>
                     {exportOpen ? (
                         <div className="reports-export-menu" role="menu">
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList(lists.newLeads, 'novos-leads')}>
-                                Novos no período ({lists.newLeads.length})
+                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('newLeads', 'novos-leads')}>
+                                Novos no período
                             </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList(lists.scheduled, 'agendados')}>
-                                Agendados ({lists.scheduled.length})
+                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('scheduled', 'agendados')}>
+                                Agendados
                             </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList(lists.showed, 'compareceram')}>
-                                Compareceram ({lists.showed.length})
+                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('completed', 'compareceram')}>
+                                Compareceram
                             </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList(lists.missed, 'nao-compareceram')}>
-                                Não compareceram ({lists.missed.length})
+                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('missed', 'nao-compareceram')}>
+                                Não compareceram
                             </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList(lists.converted, 'matriculas')}>
-                                Matrículas ({lists.converted.length})
+                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('converted', 'matriculas')}>
+                                Matrículas
                             </button>
                         </div>
                     ) : null}
@@ -637,45 +503,45 @@ const Reports = () => {
             <div className="reports-kpi-grid mt-4 animate-in">
                 <Card
                     title="Novos leads"
-                    value={metrics.newLeads.cur}
-                    variation={metrics.newLeads.var}
+                    value={reportData.metrics.newLeads.cur || reportData.metrics.newLeads.current}
+                    variation={reportData.metrics.newLeads.var || reportData.metrics.newLeads.variation || pctVar(reportData.metrics.newLeads.current, reportData.metrics.newLeads.previous)}
                     icon={<UserPlus size={18} color="var(--v500)" strokeWidth={2} />}
                     color="accent"
                     onClick={() => setDrillKey('newLeads')}
                 />
                 <Card
                     title="Aulas agendadas"
-                    value={metrics.scheduled.cur}
-                    variation={metrics.scheduled.var}
+                    value={reportData.metrics.scheduled.cur || reportData.metrics.scheduled.current}
+                    variation={reportData.metrics.scheduled.var || reportData.metrics.scheduled.variation || pctVar(reportData.metrics.scheduled.current, reportData.metrics.scheduled.previous)}
                     icon={<Calendar size={18} color="var(--warn-text)" strokeWidth={2} />}
                     color="warning"
                     onClick={() => setDrillKey('scheduled')}
                 />
                 <Card
                     title="Compareceram"
-                    value={metrics.showed.cur}
-                    variation={metrics.showed.var}
+                    value={reportData.metrics.completed?.current || reportData.metrics.showed?.cur || reportData.metrics.showed?.current}
+                    variation={reportData.metrics.completed ? pctVar(reportData.metrics.completed.current, reportData.metrics.completed.previous) : (reportData.metrics.showed?.var || reportData.metrics.showed?.variation)}
                     icon={<CheckCircle2 size={18} color="var(--success-dot)" strokeWidth={2} />}
                     color="success"
-                    onClick={() => setDrillKey('showed')}
+                    onClick={() => setDrillKey('completed')}
                 />
                 <Card
                     title="Não compareceram"
-                    value={metrics.missed.cur}
-                    variation={metrics.missed.var}
+                    value={reportData.metrics.missed.cur || reportData.metrics.missed.current}
+                    variation={reportData.metrics.missed.var || reportData.metrics.missed.variation || pctVar(reportData.metrics.missed.current, reportData.metrics.missed.previous)}
                     icon={<XCircle size={18} color="var(--danger)" strokeWidth={2} />}
                     color="danger"
                     onClick={() => setDrillKey('missed')}
                 />
                 <Card
                     title="Matrículas"
-                    value={metrics.converted.cur}
-                    variation={metrics.converted.var}
+                    value={reportData.metrics.converted.cur || reportData.metrics.converted.current}
+                    variation={reportData.metrics.converted.var || reportData.metrics.converted.variation || pctVar(reportData.metrics.converted.current, reportData.metrics.converted.previous)}
                     icon={<Users size={18} color="var(--v700)" strokeWidth={2} />}
                     color="purple"
                     onClick={() => setDrillKey('converted')}
                 />
-                <Card title="Taxa de conversão" value={`${metrics.conversionRate.cur}%`} variation={metrics.conversionRate.var} icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />} color="accent" />
+                <Card title="Taxa de conversão" value={`${reportData.metrics.conversionRate.cur || reportData.metrics.conversionRate.current}%`} variation={reportData.metrics.conversionRate.var || reportData.metrics.conversionRate.variation || pctVar(reportData.metrics.conversionRate.current, reportData.metrics.conversionRate.previous)} icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />} color="accent" />
             </div>
             ) : null}
 
@@ -721,12 +587,21 @@ const Reports = () => {
                     </strong>
                     , respeitando filtros de origem e perfil.
                 </p>
-                {chartSeries.length === 0 ? (
+                {(!reportData || !reportData.chart || reportData.chart.length === 0) ? (
                     <p className="text-small" style={{ color: 'var(--text-muted)' }}>
                         Período muito curto ou inválido para agrupar.
                     </p>
                 ) : (
-                    <BarChart series={chartSeries} />
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={reportData.chart}>
+                            <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis fontSize={11} tickLine={false} axisLine={false} />
+                            <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                            {chartMetric === 'new' && <Bar dataKey="newLeads" name="Novos leads" fill="#5B3FBF" radius={[4, 4, 0, 0]} />}
+                            {chartMetric === 'scheduled' && <Bar dataKey="scheduled" name="Agendados" fill="#F59E0B" radius={[4, 4, 0, 0]} />}
+                            {chartMetric === 'converted' && <Bar dataKey="converted" name="Matrículas" fill="#10B981" radius={[4, 4, 0, 0]} />}
+                        </BarChart>
+                    </ResponsiveContainer>
                 )}
             </div>
             ) : null}

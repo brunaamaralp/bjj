@@ -5,6 +5,7 @@ import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
+import { MatriculaModal } from '../components/MatriculaModal';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
@@ -118,6 +119,12 @@ const Pipeline = () => {
     const [openMenuId, setOpenMenuId] = useState(null);
     const [copiedId, setCopiedId] = useState(null);
     const [lostModalLead, setLostModalLead] = useState(null);
+    const [dragTargetLead, setDragTargetLead] = useState(null);
+    const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
+    const [searchingServer, setSearchingServer] = useState(false);
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
+    const [quickFilter, setQuickFilter] = useState(null);
 
     const searchStageScopeOptions = useMemo(() => [
         { value: 'all', label: 'Todas as etapas' },
@@ -140,6 +147,29 @@ const Pipeline = () => {
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
+
+    const handleSearch = async (term) => {
+        setKanbanSearch(term);
+
+        if (!term || term.trim().length < 2) return;
+
+        const localResults = leads.filter(l =>
+            l.name?.toLowerCase().includes(term.toLowerCase()) ||
+            normalizeKanbanPhone(l.phone).includes(normalizeKanbanPhone(term))
+        );
+
+        if (localResults.length === 0) {
+            setSearchingServer(true);
+            try {
+                await useLeadStore.getState().fetchLeads({
+                    reset: true,
+                    search: term,
+                });
+            } finally {
+                setSearchingServer(false);
+            }
+        }
+    };
 
     const handleCopyPhone = (e, lead) => {
         e.stopPropagation();
@@ -360,6 +390,14 @@ const Pipeline = () => {
     const moveToStatus = async (e, leadId, stageId) => {
         e.stopPropagation();
         const lead = getLeadById(leadId);
+
+        if (stageId === 'Matriculado') {
+            setDragTargetLead(lead);
+            setMatriculaModalOpen(true);
+            setMoverOpenId(null);
+            return;
+        }
+
         if (stageId === LEAD_STATUS.MISSED) {
             const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
             if (!ok) return;
@@ -460,10 +498,41 @@ const Pipeline = () => {
         return 'Novo';
     }, [stages]);
 
+    const filterByDate = useCallback((lead) => {
+        let from = filterDateFrom;
+        let to = filterDateTo;
+
+        if (quickFilter === 'today') {
+            const today = new Date().toISOString().split('T')[0];
+            from = today; to = today;
+        } else if (quickFilter === 'week') {
+            const now = new Date();
+            from = new Date(now.setDate(now.getDate() - now.getDay()))
+                .toISOString().split('T')[0];
+            to = new Date(now.setDate(now.getDate() + 6))
+                .toISOString().split('T')[0];
+        } else if (quickFilter === 'month') {
+            const now = new Date();
+            from = new Date(now.getFullYear(), now.getMonth(), 1)
+                .toISOString().split('T')[0];
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                .toISOString().split('T')[0];
+        }
+
+        if (!from && !to) return true;
+
+        const dateRef = lead.scheduledDate || lead.createdAt?.split('T')[0];
+        if (!dateRef) return false;
+        if (from && dateRef < from) return false;
+        if (to && dateRef > to) return false;
+        return true;
+    }, [filterDateFrom, filterDateTo, quickFilter]);
+
     const leadsForBoard = useMemo(() => {
         let list = leads
             .filter((l) => leadMatchesContactType(l))
-            .filter((l) => leadMatchesProfileFilter(l, profileFilter));
+            .filter((l) => leadMatchesProfileFilter(l, profileFilter))
+            .filter(filterByDate);
 
         const q = String(kanbanSearch || '').trim().toLowerCase();
         const qPhone = normalizeKanbanPhone(kanbanSearch);
@@ -482,7 +551,7 @@ const Pipeline = () => {
         }
 
         return list;
-    }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId]);
+    }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate]);
 
     const onDragStart = (e, leadId) => {
         const el = e?.target;
@@ -507,6 +576,15 @@ const Pipeline = () => {
         e.preventDefault();
         const id = e.dataTransfer.getData('text/plain');
         if (!id) return;
+
+        if (status === 'Matriculado') {
+            const lead = getLeadById(id);
+            setDragTargetLead(lead);
+            setMatriculaModalOpen(true);
+            setDragOver(null);
+            return;
+        }
+
         if (status === LEAD_STATUS.MISSED) {
             const lead = getLeadById(id);
             const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
@@ -574,16 +652,21 @@ const Pipeline = () => {
                         </div>
                         <div className="filters">
                             <div className="pipeline-search-row">
-                                <div className="pipeline-search-wrap" title="Filtra por nome ou telefone (somente nos leads já carregados)">
+                                <div className="pipeline-search-wrap" title="Filtra por nome ou telefone">
                                     <Search size={14} className="pipeline-search-icon" aria-hidden />
                                     <input
                                         type="search"
                                         className="pipeline-search-input"
                                         value={kanbanSearch}
-                                        onChange={(e) => setKanbanSearch(e.target.value)}
+                                        onChange={(e) => handleSearch(e.target.value)}
                                         placeholder="Buscar nome ou telefone…"
                                         aria-label="Buscar no funil"
                                     />
+                                    {searchingServer && (
+                                        <div style={{ fontSize: '0.65rem', color: 'var(--accent)', marginLeft: '4px', whiteSpace: 'nowrap' }}>
+                                            Buscando...
+                                        </div>
+                                    )}
                                 </div>
                                 <div
                                     className="origin-group pipeline-search-scope-group"
@@ -621,6 +704,28 @@ const Pipeline = () => {
                                     <option value="all">Todas origens</option>
                                     {LEAD_ORIGIN.map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>
+                            </div>
+                            <div className="origin-group" style={{ gap: '4px' }}>
+                                <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '4px' }}>Data:</label>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button className={`time-chip-mini ${quickFilter === 'today' ? 'active' : ''}`} style={quickFilter === 'today' ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
+                                    <button className={`time-chip-mini ${quickFilter === 'week' ? 'active' : ''}`} style={quickFilter === 'week' ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
+                                    <button className={`time-chip-mini ${quickFilter === 'month' ? 'active' : ''}`} style={quickFilter === 'month' ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
+                                    <button className={`time-chip-mini ${quickFilter === null && !filterDateFrom && !filterDateTo ? 'active' : ''}`} style={quickFilter === null && !filterDateFrom && !filterDateTo ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
+                                </div>
+                                <input
+                                    type="date"
+                                    value={filterDateFrom}
+                                    onChange={e => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
+                                    style={{ border: 'none', background: 'transparent', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, padding: '0 4px', maxWidth: '100px' }}
+                                />
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>a</span>
+                                <input
+                                    type="date"
+                                    value={filterDateTo}
+                                    onChange={e => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
+                                    style={{ border: 'none', background: 'transparent', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, padding: '0 4px', maxWidth: '100px' }}
+                                />
                             </div>
                         </div>
                     </div>
@@ -1018,6 +1123,34 @@ const Pipeline = () => {
                 onImport={handleImport}
                 defaultStatus={LEAD_STATUS.NEW}
                 title={`Importar ${labels.leads}`}
+            />
+
+            <MatriculaModal
+                isOpen={matriculaModalOpen}
+                onClose={() => {
+                    setMatriculaModalOpen(false);
+                    setDragTargetLead(null);
+                }}
+                onConfirmSimple={async () => {
+                    setMatriculaModalOpen(false);
+                    if (dragTargetLead) {
+                        await updateLead(dragTargetLead.id, {
+                            status: LEAD_STATUS.CONVERTED,
+                            contact_type: 'student',
+                            pipelineStage: 'Matriculado',
+                        });
+                        setToast('Lead matriculado com sucesso!');
+                        setTimeout(() => setToast(''), 2000);
+                        setDragTargetLead(null);
+                    }
+                }}
+                onConfirmFull={() => {
+                    setMatriculaModalOpen(false);
+                    if (dragTargetLead) {
+                        navigate(`/lead/${dragTargetLead.id}`);
+                    }
+                    setDragTargetLead(null);
+                }}
             />
 
             {lostModalLead && (

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 
@@ -47,10 +47,11 @@ const normalizeKey = (key) => {
     return COLUMN_MAP[normalized] || COLUMN_MAP[key.toString().trim().toLowerCase()] || null;
 };
 
-const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
+const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importing }) => {
     const [rows, setRows] = useState([]);
     const [fileName, setFileName] = useState('');
     const [error, setError] = useState('');
+    const [skippedCount, setSkippedCount] = useState(0);
     const [mappedKeys, setMappedKeys] = useState([]);
     const fileRef = useRef(null);
 
@@ -84,7 +85,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                 setMappedKeys(mapped);
 
                 // Transform rows
-                const transformed = jsonData.map(row => {
+                const transformedAll = jsonData.map(row => {
                     const obj = {};
                     mapped.forEach(m => {
                         if (m.mapped) {
@@ -96,7 +97,11 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                     if (!obj.origin) obj.origin = 'Planilha';
                     if (defaultStatus) obj.status = defaultStatus;
                     return obj;
-                }).filter(r => r.name && r.name.length > 0);
+                });
+
+                const transformed = transformedAll.filter(r => r.name && r.name.length > 0);
+                const skipped = transformedAll.length - transformed.length;
+                setSkippedCount(skipped);
 
                 if (transformed.length === 0) {
                     setError('Nenhuma linha válida encontrada. Inclua a coluna com o nome do aluno (ex.: Nome, Nome do aluno).');
@@ -112,20 +117,29 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
     };
 
     const handleConfirm = () => {
-        onImport(rows);
+        onImport(rows, skippedCount);
+    };
+
+    const handleCancel = () => {
+        if (importing) return;
         setRows([]);
         setFileName('');
+        setError('');
+        setSkippedCount(0);
         setMappedKeys([]);
         onClose();
     };
 
-    const handleCancel = () => {
-        setRows([]);
-        setFileName('');
-        setError('');
-        setMappedKeys([]);
-        onClose();
-    };
+    // Auto-clear state when closed from outside
+    useEffect(() => {
+        if (!isOpen) {
+            setRows([]);
+            setFileName('');
+            setError('');
+            setSkippedCount(0);
+            setMappedKeys([]);
+        }
+    }, [isOpen]);
 
     return (
         <div className="import-overlay">
@@ -235,9 +249,13 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title }) => {
                 {/* Footer */}
                 {rows.length > 0 && (
                     <div className="import-footer">
-                        <button className="btn-outline" onClick={handleCancel} style={{ flex: 1 }}>Cancelar</button>
-                        <button className="btn-secondary" onClick={handleConfirm} style={{ flex: 2 }}>
-                            <Check size={18} /> Importar {rows.length} registro{rows.length > 1 ? 's' : ''}
+                        <button className="btn-outline" onClick={handleCancel} style={{ flex: 1 }} disabled={importing}>Cancelar</button>
+                        <button className="btn-secondary" onClick={handleConfirm} style={{ flex: 2 }} disabled={importing}>
+                            {importing ? (
+                                'Importando...'
+                            ) : (
+                                <><Check size={18} /> Importar {rows.length} registro{rows.length > 1 ? 's' : ''}</>
+                            )}
                         </button>
                     </div>
                 )}

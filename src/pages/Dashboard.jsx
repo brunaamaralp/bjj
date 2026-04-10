@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
+import { account } from '../lib/appwrite';
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
@@ -28,6 +30,7 @@ const nextQuarterTime = () => {
 const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId } = useLeadStore();
+    const addToast = useUiStore((s) => s.addToast);
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
@@ -36,11 +39,83 @@ const Dashboard = () => {
     const [editTime, setEditTime] = useState('');
     const [editStatus, setEditStatus] = useState(LEAD_STATUS.SCHEDULED);
 
-    // Fetch leads on mount if not already loaded or if returning to dashboard
-    React.useEffect(() => {
+    const [metrics, setMetrics] = useState({ newLeads: { current: 0, previous: 0 }, scheduled: { current: 0, previous: 0 }, converted: { current: 0, previous: 0 } });
+    const [loadingMetrics, setLoadingMetrics] = useState(false);
+
+    useEffect(() => {
         if (academyId) {
             fetchLeads();
         }
+    }, [academyId]);
+
+    useEffect(() => {
+        const fetchMetrics = async () => {
+            if (!academyId) return;
+            setLoadingMetrics(true);
+            try {
+                const jwt = await account.createJWT();
+                const res = await fetch('/api/reports', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwt.jwt}`
+                    },
+                    body: JSON.stringify({
+                        academyId,
+                        from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+                        to: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999).toISOString(),
+                        prevFrom: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString(),
+                        prevTo: new Date(new Date().getFullYear(), new Date().getMonth(), 0, 23, 59, 59, 999).toISOString(),
+                        filters: { origin: 'all', type: 'all' },
+                        chartMode: 'weekly'
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    const now = new Date();
+                    const dayOfWeek = now.getDay();
+                    const weekFrom = new Date(now);
+                    weekFrom.setDate(now.getDate() - dayOfWeek);
+                    weekFrom.setHours(0, 0, 0, 0);
+                    const weekTo = new Date(weekFrom);
+                    weekTo.setDate(weekFrom.getDate() + 6);
+                    weekTo.setHours(23, 59, 59, 999);
+                    
+                    const pwFrom = new Date(weekFrom);
+                    pwFrom.setDate(pwFrom.getDate() - 7);
+                    const pwTo = new Date(weekTo);
+                    pwTo.setDate(pwTo.getDate() - 7);
+
+                    const resWeek = await fetch('/api/reports', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${jwt.jwt}`
+                        },
+                        body: JSON.stringify({
+                            academyId,
+                            from: weekFrom.toISOString(),
+                            to: weekTo.toISOString(),
+                            prevFrom: pwFrom.toISOString(),
+                            prevTo: pwTo.toISOString(),
+                            filters: { origin: 'all', type: 'all' }
+                        })
+                    });
+                    const dataWeek = await resWeek.json();
+
+                    setMetrics({
+                        newLeads: data.metrics.newLeads,
+                        scheduled: resWeek.ok ? dataWeek.metrics.scheduled : data.metrics.scheduled,
+                        converted: data.metrics.converted
+                    });
+                }
+            } catch (e) {
+                console.error('Erro ao carregar métricas do dashboard:', e);
+            } finally {
+                setLoadingMetrics(false);
+            }
+        };
+        fetchMetrics();
     }, [academyId]);
 
     const handleRefresh = async () => {
@@ -72,27 +147,38 @@ const Dashboard = () => {
         if (!editLead) return;
         const pipelineStage =
             editStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : editStatus === LEAD_STATUS.COMPLETED ? 'Matriculado'
+                : editStatus === LEAD_STATUS.COMPLETED ? 'Aula experimental'
                     : editStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
-                        : editStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
+                        : editStatus === LEAD_STATUS.MISSED ? 'Não compareceu'
                             : editStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
                                 : undefined;
-        await useLeadStore.getState().updateLead(editLead.id, {
-            scheduledDate: editDate,
-            scheduledTime: editTime,
-            status: editStatus,
-            ...(pipelineStage ? { pipelineStage } : {})
-        });
+        try {
+            await useLeadStore.getState().updateLead(editLead.id, {
+                scheduledDate: editDate,
+                scheduledTime: editTime,
+                status: editStatus,
+                ...(pipelineStage ? { pipelineStage } : {})
+            });
+            addToast({ type: 'success', message: 'Agendamento atualizado com sucesso.' });
+        } catch (e) {
+            addToast({ type: 'error', message: 'Erro ao atualizar agendamento.' });
+        }
         closeEdit();
     };
 
     const removeSchedule = async () => {
         if (!editLead) return;
-        await useLeadStore.getState().updateLead(editLead.id, {
-            scheduledDate: '',
-            scheduledTime: '',
-            status: LEAD_STATUS.NEW
-        });
+        try {
+            await useLeadStore.getState().updateLead(editLead.id, {
+                scheduledDate: '',
+                scheduledTime: '',
+                status: LEAD_STATUS.NEW,
+                pipelineStage: 'Novo'
+            });
+            addToast({ type: 'success', message: 'Agendamento excluído.' });
+        } catch (e) {
+            addToast({ type: 'error', message: 'Erro ao excluir agendamento.' });
+        }
         closeEdit();
     };
 
@@ -100,7 +186,12 @@ const Dashboard = () => {
         if (!editLead) return;
         const ok = window.confirm(`Excluir o lead "${editLead.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
         if (!ok) return;
-        await useLeadStore.getState().deleteLead(editLead.id);
+        try {
+            await useLeadStore.getState().deleteLead(editLead.id);
+            addToast({ type: 'success', message: 'Lead excluído.' });
+        } catch (e) {
+            addToast({ type: 'error', message: 'Erro ao excluir lead.' });
+        }
         closeEdit();
     };
 
@@ -418,14 +509,36 @@ const Dashboard = () => {
                                 <button
                                     type="button"
                                     className="btn-success flex-1"
-                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.COMPLETED, pipelineStage: 'Matriculado' }); }}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                            await useLeadStore.getState().updateLead(lead.id, {
+                                                status: LEAD_STATUS.COMPLETED,
+                                                pipelineStage: 'Aula experimental'
+                                            });
+                                            addToast({ type: 'success', message: 'Comparecimento registrado.' });
+                                        } catch (err) {
+                                            addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
+                                        }
+                                    }}
                                 >
                                     <CheckCircle size={16} /> Compareceu
                                 </button>
                                 <button
                                     type="button"
                                     className="btn-outline flex-1"
-                                    onClick={(e) => { e.stopPropagation(); useLeadStore.getState().updateLead(lead.id, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED }); }}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                            await useLeadStore.getState().updateLead(lead.id, {
+                                                status: LEAD_STATUS.MISSED,
+                                                pipelineStage: 'Não compareceu'
+                                            });
+                                            addToast({ type: 'success', message: 'Falta registrada.' });
+                                        } catch (err) {
+                                            addToast({ type: 'error', message: 'Erro ao registrar falta.' });
+                                        }
+                                    }}
                                 >
                                     <XCircle size={16} /> Faltou
                                 </button>

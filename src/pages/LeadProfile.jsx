@@ -17,7 +17,7 @@ function expectedPipelineStageForStatus(status) {
         case LEAD_STATUS.SCHEDULED:
             return 'Aula experimental';
         case LEAD_STATUS.COMPLETED:
-            return 'Matriculado';
+            return 'Aula experimental';
         case LEAD_STATUS.CONVERTED:
             return 'Matriculado';
         case LEAD_STATUS.MISSED:
@@ -166,6 +166,17 @@ const LeadProfile = () => {
             const value = (existing[qid] ?? existing[label] ?? migratedAnswers[qid] ?? '');
             migratedAnswers[qid] = value;
         }
+        
+        function normalizeDateToISO(dateStr) {
+            if (!dateStr) return '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+                const [day, month, year] = dateStr.split('/');
+                return `${year}-${month}-${day}`;
+            }
+            return '';
+        }
+
         setForm({
             name: src.name || '',
             phone: src.phone || '',
@@ -173,14 +184,14 @@ const LeadProfile = () => {
             origin: src.origin || '',
             parentName: src.parentName || '',
             age: src.age || '',
-            birthDate: src.birthDate || '',
+            birthDate: normalizeDateToISO(src.birthDate),
             isFirstExperience: src.isFirstExperience || 'Sim',
             borrowedKimono: src.borrowedKimono || '',
             customAnswers: migratedAnswers,
             scheduledDate: src.scheduledDate || '',
             scheduledTime: src.scheduledTime || '',
             plan: src.plan || '',
-            enrollmentDate: src.enrollmentDate || '',
+            enrollmentDate: normalizeDateToISO(src.enrollmentDate),
             emergencyContact: src.emergencyContact || '',
             emergencyPhone: src.emergencyPhone || '',
         });
@@ -230,8 +241,13 @@ const LeadProfile = () => {
             );
             if (!ok) return;
         }
-        await updateLead(id, payload);
-        setEditing(false);
+        try {
+            await updateLead(id, payload);
+            setEditing(false);
+            addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
+        } catch (e) {
+            addToast({ type: 'error', message: e?.message || 'Erro ao salvar os dados.' });
+        }
     };
 
     const handleUpdateStatus = async (newStatus) => {
@@ -240,7 +256,7 @@ const LeadProfile = () => {
         const newNotes = [...existing, event];
         const pipelineStage =
             newStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : newStatus === LEAD_STATUS.COMPLETED ? 'Matriculado'
+                : newStatus === LEAD_STATUS.COMPLETED ? 'Aula experimental'
                     : newStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
                         : newStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
                             : newStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
@@ -268,8 +284,10 @@ const LeadProfile = () => {
             } else if (newStatus === LEAD_STATUS.CONVERTED) {
                 addToast({ type: 'success', message: 'Lead marcado como matriculado.' });
             }
+            return true;
         } catch (e) {
             addToast({ type: 'error', message: e?.message || 'Não foi possível atualizar o status.' });
+            throw e;
         }
     };
     const handleMarkLost = () => {
@@ -285,15 +303,24 @@ const LeadProfile = () => {
         handleUpdateStatus(LEAD_STATUS.CONVERTED);
     };
 
-    const handleConfirmFull = () => {
+    const handleConfirmFull = async () => {
         setMatriculaModalOpen(false);
-        fillFormFromLead({
-            ...lead,
-            status: LEAD_STATUS.CONVERTED,
-            contact_type: 'student',
-        });
-        setEditing(true);
-        handleUpdateStatus(LEAD_STATUS.CONVERTED);
+        try {
+            await handleUpdateStatus(LEAD_STATUS.CONVERTED);
+            const fresh = useLeadStore.getState().leads.find((l) => l.id === id);
+            if (fresh) {
+                fillFormFromLead(fresh);
+            } else {
+                fillFormFromLead({
+                    ...lead,
+                    status: LEAD_STATUS.CONVERTED,
+                    contact_type: 'student',
+                });
+            }
+            setEditing(true);
+        } catch (e) {
+            // erro já tratado com toast no handleUpdateStatus
+        }
     };
 
     const confirmMarkLost = async (lostReason) => {
@@ -325,11 +352,18 @@ const LeadProfile = () => {
         }
     };
 
+    function formatWhatsAppNumber(phone) {
+        const digits = String(phone || '').replace(/\D/g, '');
+        if (digits.startsWith('55') && digits.length >= 12) return digits;
+        if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
+        return digits;
+    }
+
     const handleWhatsApp = (customMsg) => {
-        const cleanPhone = lead.phone.replace(/\D/g, '');
+        const cleanPhone = formatWhatsAppNumber(lead.phone);
         const url = customMsg
-            ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(customMsg)}`
-            : `https://wa.me/55${cleanPhone}`;
+            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(customMsg)}`
+            : `https://wa.me/${cleanPhone}`;
         window.open(url, '_blank');
         try {
             const existing = Array.isArray(lead.notes) ? lead.notes : [];
@@ -706,21 +740,25 @@ const LeadProfile = () => {
             <div className="mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
                 <h3 className="navi-section-heading mb-2">Próximos Passos</h3>
                 <div className="action-grid">
-                    <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.SCHEDULED)}>
-                        <Calendar size={22} color="var(--warning)" />
-                        <span>Agendar</span>
-                    </button>
-                    <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.COMPLETED)}>
-                        <UserCheck size={22} color="var(--success)" />
-                        <span>Presença</span>
-                    </button>
-                    <button className="action-btn action-highlight" onClick={handleMatricularClick}>
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                        </svg>
-                        <span>Matricular</span>
-                    </button>
+                    {lead.status !== LEAD_STATUS.CONVERTED && (
+                        <>
+                            <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.SCHEDULED)}>
+                                <Calendar size={22} color="var(--warning)" />
+                                <span>Agendar</span>
+                            </button>
+                            <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.COMPLETED)}>
+                                <UserCheck size={22} color="var(--success)" />
+                                <span>Presença</span>
+                            </button>
+                            <button className="action-btn action-highlight" onClick={handleMatricularClick}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                                <span>Matricular</span>
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 

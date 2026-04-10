@@ -1,20 +1,46 @@
 /** Backlog: aluno inativo/trancado; filtros (turma/plano); virtualização para listas muito longas. */
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 import { Link } from 'react-router-dom';
-import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react';
+import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
+import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
-import ExportButton from '../components/ExportButton';
 import { StudentPanel } from '../components/StudentPanel';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
 }
 
+function getBirthMonthDay(birthDate) {
+    if (!birthDate) return null;
+    const str = String(birthDate).trim();
+
+    // Formato YYYY-MM-DD ou ISO timestamp
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) return `${isoMatch[2]}-${isoMatch[3]}`; // MM-DD
+
+    // Formato DD/MM/YYYY
+    const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (brMatch) return `${brMatch[2]}-${brMatch[1]}`; // MM-DD
+
+    return null;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('pt-BR');
+}
+
 const Students = () => {
     const labels = useLeadStore((s) => s.labels);
     const updateLead = useLeadStore((s) => s.updateLead);
-    const { leads, importLeads, fetchLeads, fetchMoreLeads } = useLeadStore();
+    const addToast = useUiStore((s) => s.addToast);
+    const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
@@ -24,6 +50,8 @@ const Students = () => {
     const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
     const [listRefreshing, setListRefreshing] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [isNarrow, setIsNarrow] = useState(
         () => typeof window !== 'undefined' && window.innerWidth < 768
@@ -42,7 +70,7 @@ const Students = () => {
         setSelectedStudent((prev) => (prev && prev.id === studentId ? { ...prev, ...form } : prev));
     };
 
-    const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED);
+    const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student');
 
     const tiposUnicos = useMemo(() => {
         const tipos = students.map((s) => s.type).filter(Boolean);
@@ -97,13 +125,25 @@ const Students = () => {
         filtroOrigem !== 'Todas' ||
         ordenacao !== 'az';
 
-    const handleImport = (rows) => {
+    const handleImport = async (rows, skippedCount = 0) => {
+        setImporting(true);
         const withStatus = rows.map((r) => ({
             ...r,
             status: LEAD_STATUS.CONVERTED,
             contact_type: 'student',
         }));
-        importLeads(withStatus);
+        try {
+            await importLeads(withStatus);
+            addToast({ type: 'success', message: `${rows.length} aluno(s) importado(s) com sucesso.` });
+            if (skippedCount > 0) {
+                addToast({ type: 'warning', message: `${skippedCount} linha(s) ignorada(s) por não ter nome preenchido.` });
+            }
+        } catch (e) {
+            addToast({ type: 'error', message: 'Erro ao importar alunos.' });
+        } finally {
+            setImporting(false);
+            setShowImport(false);
+        }
     };
 
     const handleRefreshList = async () => {
@@ -113,6 +153,58 @@ const Students = () => {
             await fetchLeads({ reset: true });
         } finally {
             setListRefreshing(false);
+        }
+    };
+
+    const fetchAllStudents = async (academyId) => {
+        // According to user instruction, we only query status CONVERTED
+        // but we might want to include contact_type student if Appwrite supports it.
+        // We will just use the query user asked for.
+        const response = await databases.listDocuments(DB_ID, LEADS_COL, [
+            Query.equal('academyId', academyId),
+            Query.equal('status', LEAD_STATUS.CONVERTED),
+            Query.limit(5000)
+        ]);
+        return response.documents || [];
+    };
+
+    const handleExportAll = async () => {
+        if (!academyId) return;
+        setExporting(true);
+        try {
+            const allStudents = await fetchAllStudents(academyId);
+
+            if (allStudents.length === 0) {
+                addToast({ type: 'warning', message: 'Nenhum aluno encontrado para exportar.' });
+                return;
+            }
+
+            const data = allStudents.map(l => ({
+                'Nome': l.name || '',
+                'Telefone': l.phone || '',
+                'Tipo': l.type || '',
+                'Origem': l.origin || '',
+                'Status': l.status || '',
+                'Plano': l.plan || '',
+                'Data Ingresso': l.enrollmentDate ? formatDate(l.enrollmentDate) : '',
+                'Criado em': l.$createdAt ? new Date(l.$createdAt).toLocaleDateString('pt-BR') : '',
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+
+            const colWidths = Object.keys(data[0]).map(key => ({
+                wch: Math.max(key.length, ...data.map(row => (row[key] || '').toString().length)) + 2
+            }));
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+            XLSX.writeFile(wb, `alunos-ativos.xlsx`);
+        } catch (e) {
+            console.error(e);
+            addToast({ type: 'error', message: 'Erro ao exportar alunos.' });
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -155,7 +247,14 @@ const Students = () => {
                             <RefreshCw size={16} className={listRefreshing || leadsLoading ? 'spin-students' : ''} />
                             Atualizar
                         </button>
-                        <ExportButton leads={students} fileName="alunos-ativos" label="Exportar" title={exportTooltip} />
+                        <button
+                            type="button"
+                            className="export-btn"
+                            onClick={handleExportAll}
+                            disabled={exporting}
+                        >
+                            <Download size={16} /> {exporting ? 'Exportando...' : 'Exportar'}
+                        </button>
                         <button type="button" className="import-btn" onClick={() => setShowImport(true)}>
                             <Upload size={16} /> Importar
                         </button>
@@ -308,7 +407,7 @@ const Students = () => {
                 const mesEDia = `${mesHoje}-${diaHoje}`;
 
                 const aniversariantes = students.filter(
-                    (s) => s.birthDate?.length === 10 && s.birthDate.slice(5) === mesEDia
+                    (s) => getBirthMonthDay(s.birthDate) === mesEDia
                 );
 
                 if (aniversariantes.length === 0) return null;
@@ -399,6 +498,20 @@ const Students = () => {
                                     <p className="text-small" style={{ margin: 0 }}>
                                         {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
                                     </p>
+                                    {(student.plan || student.enrollmentDate) && (
+                                        <div className="student-card-meta" style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                            {student.plan && (
+                                                <span className="student-meta-item">
+                                                    📋 {student.plan}
+                                                </span>
+                                            )}
+                                            {student.enrollmentDate && (
+                                                <span className="student-meta-item">
+                                                    📅 Desde {formatDate(student.enrollmentDate)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {digits ? (
@@ -519,6 +632,7 @@ const Students = () => {
                 onImport={handleImport}
                 defaultStatus={LEAD_STATUS.CONVERTED}
                 title="Importar Alunos"
+                importing={importing}
             />
 
             <style dangerouslySetInnerHTML={{
@@ -721,6 +835,15 @@ const Students = () => {
         .students-refresh-btn:disabled { opacity: 0.65; cursor: not-allowed; }
         .spin-students { animation: studentsSpin 0.7s linear infinite; }
         @keyframes studentsSpin { to { transform: rotate(360deg); } }
+        .export-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: var(--surface); border: 1.5px solid var(--border);
+          color: var(--text-secondary); padding: 0 14px; min-height: 38px;
+          border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
+          transition: var(--transition);
+        }
+        .export-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+        .export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .students-load-more {
           background: var(--surface-hover); border: 1px solid var(--border);
           color: var(--text-secondary); padding: 8px 14px; border-radius: var(--radius-sm);

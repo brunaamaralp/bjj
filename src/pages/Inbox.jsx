@@ -5,6 +5,7 @@ import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
+import { useUserRole } from '../lib/useUserRole';
 import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ThreadState from '../components/inbox/ThreadState';
@@ -280,6 +281,12 @@ export default function Inbox() {
   const leads = useLeadStore((s) => s.leads);
   const leadsLoading = useLeadStore((s) => s.loading);
   const academyId = useLeadStore((s) => s.academyId);
+  
+  // Obter academyDoc completo da lista de academias (presumindo que está no useLeadStore ou app context)
+  const academyList = useLeadStore((s) => s.academyList || []);
+  const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
+  const role = useUserRole(academyDoc);
+
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
@@ -2506,7 +2513,7 @@ export default function Inbox() {
         </div>
       </div>
 
-      {promptModal && (
+      {role === 'owner' && promptModal && (
         <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 'min(960px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -3568,11 +3575,13 @@ export default function Inbox() {
             >
               <option value="conversas">Conversas</option>
               <option value="dispositivo">Dispositivo</option>
-              <option value="agente">Agente IA</option>
+              {role === 'owner' && <option value="agente">Agente IA</option>}
             </select>
-            <button className="btn btn-outline" type="button" onClick={() => onTabChange('agente')} style={{ minHeight: 40, padding: '0 12px' }}>
-              IA
-            </button>
+            {role === 'owner' && (
+              <button className="btn btn-outline" type="button" onClick={() => onTabChange('agente')} style={{ minHeight: 40, padding: '0 12px' }}>
+                IA
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -3590,13 +3599,15 @@ export default function Inbox() {
             >
               Dispositivo
             </button>
-            <button
-              className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
-              type="button"
-              onClick={() => onTabChange('agente')}
-            >
-              Agente IA
-            </button>
+            {role === 'owner' && (
+              <button
+                className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
+                type="button"
+                onClick={() => onTabChange('agente')}
+              >
+                Agente IA
+              </button>
+            )}
           </>
         )}
       </div>
@@ -3793,19 +3804,21 @@ export default function Inbox() {
                       Atualiza
                     </span>
                   </button>
-                  <button
-                    className="inbox-menu-item"
-                    type="button"
-                    onClick={() => {
-                      openPromptSettings();
-                      closeMenu();
-                    }}
-                  >
-                    Configurar IA
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Prompt
-                    </span>
-                  </button>
+                  {role === 'owner' && (
+                    <button
+                      className="inbox-menu-item"
+                      type="button"
+                      onClick={() => {
+                        openPromptSettings();
+                        closeMenu();
+                      }}
+                    >
+                      Configurar IA
+                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                        Prompt
+                      </span>
+                    </button>
+                  )}
                   {!hasLead && (
                     <>
                       <button
@@ -3923,32 +3936,34 @@ export default function Inbox() {
                 <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => fetchWaInfo()} disabled={waLoading} type="button">
                   Verificar status
                 </button>
-                <button
-                  className="btn btn-outline"
-                  style={{ padding: '6px 10px' }}
-                  onClick={reconcileLast24h}
-                  disabled={waLoading || waSyncing || waTokenMissing}
-                  type="button"
-                  title="Sincroniza mensagens das últimas 24 horas"
-                >
-                  {waSyncing ? 'Atualizando…' : 'Atualizar'}
-                </button>
-                {!waInfo?.instance_id && (
+                {role === 'owner' && (
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '6px 10px' }}
+                    onClick={reconcileLast24h}
+                    disabled={waLoading || waSyncing || waTokenMissing}
+                    type="button"
+                    title="Sincroniza mensagens das últimas 24 horas"
+                  >
+                    {waSyncing ? 'Atualizando…' : 'Atualizar'}
+                  </button>
+                )}
+                {role === 'owner' && !waInfo?.instance_id && (
                   <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={createWaInstance} disabled={waLoading || waTokenMissing} type="button">
                     Conectar dispositivo
                   </button>
                 )}
-                {!!waInfo?.instance_id && (
+                {role === 'owner' && !!waInfo?.instance_id && (
                   <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={disconnectWaInstance} disabled={waLoading || waTokenMissing} type="button">
                     Desconectar
                   </button>
                 )}
-                {!!waInfo?.instance_id && waInfo?.status === 'offline' && (
+                {role === 'owner' && !!waInfo?.instance_id && waInfo?.status === 'offline' && (
                   <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={powerOnInstance} disabled={waLoading || waTokenMissing} type="button" title="Liga a instância se estiver offline">
                     Ligar instância
                   </button>
                 )}
-                {!!waInfo?.instance_id && (
+                {role === 'owner' && !!waInfo?.instance_id && (
                   <button
                     className="btn btn-outline"
                     style={{ padding: '6px 10px' }}
@@ -3960,7 +3975,7 @@ export default function Inbox() {
                     Desligar instância
                   </button>
                 )}
-                {!!waInfo?.instance_id && (
+                {role === 'owner' && !!waInfo?.instance_id && (
                   <button
                     className="btn btn-outline"
                     style={{ padding: '6px 10px' }}
@@ -4018,6 +4033,12 @@ export default function Inbox() {
 
       {inboxTab === 'agente' && (
         <div style={{ marginBottom: 12 }}>
+          {role !== 'owner' ? (
+            <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
+              Apenas o dono da academia pode configurar o Agente IA.
+            </div>
+          ) : (
+            <>
           <div
             style={{
               border: '1px solid var(--border)',
@@ -4573,6 +4594,8 @@ export default function Inbox() {
             {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
           </div>
         ))}
+        </>
+      )}
     </div>
   );
 }

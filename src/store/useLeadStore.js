@@ -161,6 +161,9 @@ export const useLeadStore = create((set, get) => ({
         Query.orderDesc('$createdAt'),
         Query.limit(LEADS_PAGE_SIZE),
       ];
+      if (opts.search) {
+        queries.push(Query.contains('name', opts.search));
+      }
       if (!reset && get().leadsCursor) {
         queries.push(Query.cursorAfter(get().leadsCursor));
       }
@@ -220,11 +223,19 @@ export const useLeadStore = create((set, get) => ({
     try {
       const wasEmpty = get().leads.length === 0;
       const userId = get().userId;
-      const teamId = get().teamId;
+      
+      const academyList = get().academyList || [];
+      const acadDoc = academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' };
+      const ownerId = acadDoc.ownerId || get().ownerId;
+      const teamId = acadDoc.teamId || get().teamId;
+      
       const perms = [];
-      if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
+      if (ownerId) perms.push(Permission.read(Role.user(ownerId)), Permission.update(Role.user(ownerId)), Permission.delete(Role.user(ownerId)));
       if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
-      if (perms.length === 0) perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
+      if (perms.length === 0) {
+        if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
+        else perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
+      }
 
       const notesData = {
         history: lead.notes || [],
