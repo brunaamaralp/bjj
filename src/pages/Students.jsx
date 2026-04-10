@@ -98,7 +98,11 @@ const Students = () => {
         ordenacao !== 'az';
 
     const handleImport = (rows) => {
-        const withStatus = rows.map((r) => ({ ...r, status: LEAD_STATUS.CONVERTED }));
+        const withStatus = rows.map((r) => ({
+            ...r,
+            status: LEAD_STATUS.CONVERTED,
+            contact_type: 'student',
+        }));
         importLeads(withStatus);
     };
 

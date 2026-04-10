@@ -28,6 +28,7 @@ const ensureJsonBody = (req, res, next) => {
 };
 
 const toBoolSim = (v) => String(v || '').trim().toLowerCase() === 'sim';
+const toContactType = (v) => (String(v || '').trim().toLowerCase() === 'aluno' ? 'student' : 'lead');
 
 app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
   try {
@@ -68,6 +69,7 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
       precisaHumano: String(atendimento.precisa_resposta_humana || ''),
       sugerirFollowup: String(atendimento.sugerir_followup || '')
     };
+    const contactType = toContactType(classificacao.tipo_contato);
 
     const appendHistory = (notesJson) => {
       let parsed = {};
@@ -86,7 +88,8 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
     if (existing) {
       const updatedNotes = appendHistory(existing.notes || '');
       const payload = {
-        notes: updatedNotes
+        notes: updatedNotes,
+        contact_type: contactType
       };
       const up = await databases.updateDocument(DB_ID, LEADS_COL, existing.$id, payload);
       if (toBoolSim(atendimento.precisa_resposta_humana)) {
@@ -112,6 +115,7 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
     const created = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
       name: String(contato.nome || '').trim() || telefone,
       phone: telefone,
+      contact_type: contactType,
       type: 'Adulto',
       origin: 'WhatsApp',
       status: 'Novo',

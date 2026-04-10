@@ -219,6 +219,9 @@ const LeadProfile = () => {
             payload.status = LEAD_STATUS.SCHEDULED;
             payload.pipelineStage = 'Aula experimental';
         }
+        if (payload.status === LEAD_STATUS.CONVERTED) {
+            payload.contact_type = 'student';
+        }
         const afterExp = expectedPipelineStageForStatus(payload.status ?? lead.status);
         const stageAfter = String(payload.pipelineStage ?? lead.pipelineStage ?? '').trim();
         if (afterExp && stageAfter && stageAfter !== afterExp) {
@@ -246,6 +249,7 @@ const LeadProfile = () => {
         try {
             await updateLead(id, {
                 status: newStatus,
+                ...(newStatus === LEAD_STATUS.CONVERTED ? { contact_type: 'student' } : {}),
                 ...(pipelineStage ? { pipelineStage } : {}),
                 notes: newNotes
             });
@@ -328,6 +332,7 @@ const LeadProfile = () => {
     };
 
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
+    const contactType = String(lead.contact_type || '').trim() || (lead.status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
 
     const studentsPlural = uiLabels.students || 'Alunos';
     const studentSingularLabel =
@@ -665,9 +670,14 @@ const LeadProfile = () => {
                             </div>
                         )}
                     </div>
-                    <span className="status-tag" style={{ background: statusStyle.bg, color: statusStyle.color }}>
-                        {lead.status}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}>
+                            {contactType === 'student' ? 'Aluno' : 'Lead'}
+                        </span>
+                        <span className="status-tag" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                            {lead.status}
+                        </span>
+                    </div>
                 </div>
                 {!editing && lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
                     <p className="text-xs mt-2" style={{ color: 'var(--text-muted)', lineHeight: 1.45 }}>
@@ -854,6 +864,18 @@ const LeadProfile = () => {
           padding: 5px 12px; border-radius: var(--radius-full); 
           font-size: 0.72rem; font-weight: 700; text-transform: uppercase; 
           letter-spacing: 0.03em; white-space: nowrap;
+        }
+        .contact-type-badge {
+          padding: 5px 12px; border-radius: var(--radius-full);
+          font-size: 0.72rem; font-weight: 800; white-space: nowrap;
+        }
+        .contact-type-badge.lead {
+          background: rgba(245, 158, 11, 0.16);
+          color: #b45309;
+        }
+        .contact-type-badge.student {
+          background: rgba(34, 197, 94, 0.14);
+          color: #15803d;
         }
         .info-badge {
           font-size: 0.7rem; font-weight: 700; background: var(--border-light);

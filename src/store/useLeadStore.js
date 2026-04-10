@@ -302,7 +302,15 @@ export const useLeadStore = create((set, get) => ({
       const currentLead = get().leads.find(l => l.id === id);
       if (!currentLead) return;
 
-      const mergedLead = { ...currentLead, ...updates };
+      const normalizedUpdates = { ...updates };
+      if (
+        normalizedUpdates.status === LEAD_STATUS.CONVERTED &&
+        String(normalizedUpdates.contact_type || '').trim() !== 'student'
+      ) {
+        normalizedUpdates.contact_type = 'student';
+      }
+
+      const mergedLead = { ...currentLead, ...normalizedUpdates };
 
       // Pack metadata into notes for storage
       const notesData = {
@@ -318,15 +326,15 @@ export const useLeadStore = create((set, get) => ({
         birthDate: mergedLead.birthDate ?? currentLead.birthDate ?? '',
       };
 
-      if (typeof updates.status !== 'undefined' && updates.status !== currentLead.status) {
+      if (typeof normalizedUpdates.status !== 'undefined' && normalizedUpdates.status !== currentLead.status) {
         notesData.statusChangedAt = new Date().toISOString();
       }
-      if (typeof updates.pipelineStage !== 'undefined' && updates.pipelineStage !== currentLead.pipelineStage) {
+      if (typeof normalizedUpdates.pipelineStage !== 'undefined' && normalizedUpdates.pipelineStage !== currentLead.pipelineStage) {
         notesData.pipelineStageChangedAt = new Date().toISOString();
       }
 
       const payload = {
-        ...updates,
+        ...normalizedUpdates,
         notes: JSON.stringify(notesData)
       };
 
@@ -346,7 +354,7 @@ export const useLeadStore = create((set, get) => ({
 
       set((state) => ({
         leads: state.leads.map((l) =>
-          l.id === id ? { ...l, ...updates, statusChangedAt: notesData.statusChangedAt, pipelineStageChangedAt: notesData.pipelineStageChangedAt } : l
+          l.id === id ? { ...l, ...normalizedUpdates, statusChangedAt: notesData.statusChangedAt, pipelineStageChangedAt: notesData.pipelineStageChangedAt } : l
         ),
       }));
     } catch (e) {
@@ -385,6 +393,8 @@ export const useLeadStore = create((set, get) => ({
       try {
         const nowIso = new Date().toISOString();
         const history = [{ type: 'import', source: 'Planilha', at: nowIso, by: 'system' }];
+        // `contact_type` define a identidade do cadastro; `status` continua sendo etapa do funil.
+        const contactType = String(lead.contact_type || '').trim() || 'lead';
         
         const phone = lead.phone || '';
         const name = lead.name || '';
@@ -400,6 +410,7 @@ export const useLeadStore = create((set, get) => ({
           name: lead.name,
           phone: lead.phone || '',
           type: lead.type || 'Adulto',
+          contact_type: contactType,
           origin: lead.origin || 'Planilha',
           status: lead.status || LEAD_STATUS.NEW,
           scheduledDate: lead.scheduledDate || '',
@@ -418,6 +429,7 @@ export const useLeadStore = create((set, get) => ({
         newLeads.push({
           id: doc.$id,
           ...lead,
+          contact_type: contactType,
           pipelineStage: lead.pipelineStage || 'Novo',
           notes: history,
           createdAt: doc.$createdAt,

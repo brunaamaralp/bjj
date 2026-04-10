@@ -1973,6 +1973,9 @@ export default function Inbox() {
       const priority = String(lead?.priority || '').trim();
       const intention = String(lead?.intention || '').trim();
       const status = String(lead?.status || '').trim();
+      const contactType =
+        String(lead?.contact_type || '').trim() ||
+        (status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
       const ticketStatus = String(it?.ticket_status || '').trim() || 'open';
       const transferTo = String(it?.transfer_to || '').trim();
       return {
@@ -1988,6 +1991,7 @@ export default function Inbox() {
         _priority: priority,
         _intention: intention,
         _status: status,
+        _contactType: contactType,
         _lastRole: lastRole,
         _lastSender: lastSender,
         _unreadCount: unreadCount,
@@ -2008,8 +2012,8 @@ export default function Inbox() {
       if (ticketStatus === 'waiting_customer') points += 20;
       if (ticketStatus === 'transferred') points += 8;
       if (ticketStatus === 'resolved') points -= 20;
-      if (Boolean(it?._hotLead)) points += 15;
-      if (Boolean(it?._handoffActive)) points += 10;
+      if (it?._hotLead) points += 15;
+      if (it?._handoffActive) points += 10;
       const updatedMs = parseTimestampMs(it?.updated_at);
       const ageMinutes = updatedMs ? (Date.now() - updatedMs) / 60000 : 0;
       if (ageMinutes > 30 && unread > 0) points += 15;

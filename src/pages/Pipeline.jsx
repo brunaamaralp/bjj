@@ -80,6 +80,11 @@ const leadMatchesProfileFilter = (lead, profileFilter) => {
     return true;
 };
 
+const leadMatchesContactType = (lead) => {
+    const contactType = String(lead?.contact_type || '').trim();
+    return !contactType || contactType === 'lead';
+};
+
 const Pipeline = () => {
     const navigate = useNavigate();
     const { leads, importLeads, updateLead, fetchMoreLeads } = useLeadStore();
@@ -425,7 +430,9 @@ const Pipeline = () => {
     }, [stages]);
 
     const leadsForBoard = useMemo(() => {
-        let list = leads.filter((l) => leadMatchesProfileFilter(l, profileFilter));
+        let list = leads
+            .filter((l) => leadMatchesContactType(l))
+            .filter((l) => leadMatchesProfileFilter(l, profileFilter));
 
         const q = String(kanbanSearch || '').trim().toLowerCase();
         const qPhone = normalizeKanbanPhone(kanbanSearch);

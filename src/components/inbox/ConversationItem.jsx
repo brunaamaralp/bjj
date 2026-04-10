@@ -13,6 +13,7 @@ export default function ConversationItem({
   const handoffActive = Boolean(item?._handoffActive);
   const aiSuggestHuman = Boolean(item?._aiSuggestHuman);
   const unreadCount = Number(item?._unreadCount || 0);
+  const contactType = String(item?._contactType || '').trim() === 'student' ? 'student' : 'lead';
   const lastRole = String(item?._lastRole || '').trim();
   const lastSender = String(item?._lastSender || '').trim();
   const lastAssistantDot =
@@ -57,6 +58,19 @@ export default function ConversationItem({
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                 {String(item?._displayTitle || '-')}
+              </span>
+              <span
+                className="text-small"
+                style={{
+                  background: contactType === 'student' ? 'rgba(34, 197, 94, 0.14)' : 'rgba(245, 158, 11, 0.16)',
+                  color: contactType === 'student' ? '#15803d' : '#b45309',
+                  padding: '1px 8px',
+                  borderRadius: 999,
+                  fontWeight: 800,
+                  flexShrink: 0
+                }}
+              >
+                {contactType === 'student' ? 'Aluno' : 'Lead'}
               </span>
               {hotLead && <span title="Lead quente" style={{ fontSize: 12 }}>🔥</span>}
               {handoffActive && <span title="Atendimento assumido" style={{ fontSize: 12 }}>⏸️</span>}

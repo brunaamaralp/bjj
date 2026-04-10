@@ -66,6 +66,7 @@ export default async function handler(req, res) {
       const payload = {
         name,
         phone,
+        contact_type: 'lead',
         type: req.body?.type || 'Adulto',
         status: 'Novo',
         origin: 'WhatsApp',

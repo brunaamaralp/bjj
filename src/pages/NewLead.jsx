@@ -75,6 +75,7 @@ const NewLead = () => {
             const created = await addLead({
                 name: data.name,
                 phone: data.phone,
+                contact_type: 'lead',
                 type: data.type,
                 origin: data.origin,
                 status: LEAD_STATUS.SCHEDULED,
