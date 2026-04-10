@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, X, ChevronRight } from 'lucide-react';
-import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID } from '../../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 
-const PersonalizacaoSection = ({ academy, setAcademy, onSave, academyId }) => {
+const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
     const addToast = useUiStore((s) => s.addToast);
-    const [editing, setEditing] = useState(false);
-    const [saving, setSaving] = useState(false);
     const [newQuestion, setNewQuestion] = useState('');
 
     const createId = () => {
@@ -28,134 +26,8 @@ const PersonalizacaoSection = ({ academy, setAcademy, onSave, academyId }) => {
         } catch (e) { console.error('save questions:', e); }
     };
 
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            await onSave();
-            setEditing(false);
-        } catch (e) {
-            // error handled in onSave
-        } finally {
-            setSaving(false);
-        }
-    };
-
     return (
         <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="navi-section-heading">Sistema e Rótulos</h3>
-                {!editing && (
-                    <button className="edit-link" onClick={() => setEditing(true)}>Editar</button>
-                )}
-            </div>
-
-            <div className="card mb-6">
-                {editing ? (
-                    <div className="flex-col gap-4">
-                        <div className="form-group">
-                            <label>Nome do funil (menu e título da página)</label>
-                            <input className="form-input" value={academy.uiLabels?.pipeline ?? 'Funil'}
-                                onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, pipeline: e.target.value } })}
-                                placeholder="Ex: Funil" />
-                            <p className="text-xs text-light">Aparece na navegação e no cabeçalho do board de etapas.</p>
-                        </div>
-                        <div className="form-group">
-                            <label>Rótulo para Leads (plural)</label>
-                            <input className="form-input" value={academy.uiLabels?.leads || ''}
-                                onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, leads: e.target.value } })}
-                                placeholder="Ex: Leads" />
-                        </div>
-                        <div className="form-group">
-                            <label>Rótulo para Alunos (plural)</label>
-                            <input className="form-input" value={academy.uiLabels?.students || ''}
-                                onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, students: e.target.value } })}
-                                placeholder="Ex: Alunos" />
-                        </div>
-                        <div className="form-group">
-                            <label>Rótulo para Aulas (plural)</label>
-                            <input className="form-input" value={academy.uiLabels?.classes || ''}
-                                onChange={e => setAcademy({ ...academy, uiLabels: { ...academy.uiLabels, classes: e.target.value } })}
-                                placeholder="Ex: Aulas" />
-                        </div>
-                        <div className="form-group">
-                            <label>Módulos</label>
-                            <div className="flex gap-4">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={!!academy.modules?.sales}
-                                        onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            if (checked && (!STOCK_ITEMS_COL || !SALES_CREATE_FN_ID || !SALES_CANCEL_FN_ID)) {
-                                                addToast({
-                                                    type: 'error',
-                                                    message: 'Para ativar Vendas, configure: VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID, VITE_APPWRITE_SALES_CREATE_FN_ID e VITE_APPWRITE_SALES_CANCEL_FN_ID.',
-                                                });
-                                                return;
-                                            }
-                                            setAcademy({ ...academy, modules: { ...academy.modules, sales: checked } });
-                                        }}
-                                    />
-                                    <span className="text-small">Vendas</span>
-                                </label>
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={!!academy.modules?.inventory}
-                                        onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            if (checked && (!STOCK_ITEMS_COL || !INVENTORY_MOVE_FN_ID)) {
-                                                addToast({
-                                                    type: 'error',
-                                                    message: 'Para ativar Estoque, configure: VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID e VITE_APPWRITE_INVENTORY_MOVE_FN_ID.',
-                                                });
-                                                return;
-                                            }
-                                            setAcademy({ ...academy, modules: { ...academy.modules, inventory: checked } });
-                                        }}
-                                    />
-                                    <span className="text-small">Estoque</span>
-                                </label>
-                                <label className="flex items-center gap-2">
-                                    <input type="checkbox" checked={!!academy.modules?.finance} onChange={(e) => setAcademy({ ...academy, modules: { ...academy.modules, finance: e.target.checked } })} />
-                                    <span className="text-small">Financeiro</span>
-                                </label>
-                            </div>
-                            <p className="text-xs text-light">Define módulos ativos apenas para esta academia.</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <button className="btn-outline" style={{ flex: 1 }} onClick={() => setEditing(false)}>Cancelar</button>
-                            <button className="btn-secondary" style={{ flex: 2 }} onClick={handleSave} disabled={saving}>
-                                {saving ? 'Salvando...' : 'Salvar'}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex-col gap-2">
-                        <div className="info-row">
-                            <span className="info-row-label" style={{ minWidth: 120 }}>Rótulo Leads</span>
-                            <span className="info-row-value">{academy.uiLabels?.leads || 'Não informado'}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-row-label" style={{ minWidth: 120 }}>Rótulo Alunos</span>
-                            <span className="info-row-value">{academy.uiLabels?.students || 'Não informado'}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-row-label" style={{ minWidth: 120 }}>Rótulo Aulas</span>
-                            <span className="info-row-value">{academy.uiLabels?.classes || 'Não informado'}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-row-label" style={{ minWidth: 120 }}>Nome do Funil</span>
-                            <span className="info-row-value">{academy.uiLabels?.pipeline || 'Não informado'}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-row-label" style={{ minWidth: 120 }}>Módulos Ativos</span>
-                            <span className="info-row-value">{Object.entries(academy.modules || {}).filter(([, v]) => v).map(([k]) => k).join(', ') || 'Nenhum habilitado'}</span>
-                        </div>
-                    </div>
-                )}
-            </div>
-
             <div className="flex justify-between items-center mb-2">
                 <h3 className="navi-section-heading">Perguntas do Lead</h3>
             </div>
