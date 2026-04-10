@@ -750,7 +750,10 @@ const Pipeline = () => {
                                     <div
                                         key={lead.id}
                                         className="card lead-card animate-in"
-                                        style={{ animationDelay: `${0.03 * i}s` }}
+                                        style={{ 
+                                            animationDelay: `${0.03 * i}s`,
+                                            zIndex: (openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id) ? 20 : 1
+                                        }}
                                         onClick={() => navigate(`/lead/${lead.id}`)}
                                         draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id)}
                                         onDragStart={(e) => onDragStart(e, lead.id)}
