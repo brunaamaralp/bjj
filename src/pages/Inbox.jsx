@@ -11,6 +11,8 @@ import ConversationList from '../components/inbox/ConversationList';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 
+const EMPTY_ACADEMY_LIST = [];
+
 function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
@@ -281,9 +283,8 @@ export default function Inbox() {
   const leads = useLeadStore((s) => s.leads);
   const leadsLoading = useLeadStore((s) => s.loading);
   const academyId = useLeadStore((s) => s.academyId);
-  
-  // Obter academyDoc completo da lista de academias (presumindo que está no useLeadStore ou app context)
-  const academyList = useLeadStore((s) => s.academyList || []);
+  const academyListRaw = useLeadStore((s) => s.academyList);
+  const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
   const role = useUserRole(academyDoc);
 
