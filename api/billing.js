@@ -13,21 +13,31 @@ const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJE
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 
-function json(res, status, obj) { res.status(status).json(obj); }
+export const config = {
+  runtime: 'edge',
+};
 
-export default async function handler(req, res) {
-  const action = req.query.action || (Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug);
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+export default async function handler(req) {
+  const url = new URL(req.url);
+  const action = url.searchParams.get('action') || url.searchParams.get('slug');
 
   if (action === 'plans') {
-    if (req.method !== 'GET') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
-    try { return json(res, 200, { sucesso: true, plans: listPlansForDisplay() }); } catch (e) { return json(res, 500, { sucesso: false, erro: e.message }); }
+    if (req.method !== 'GET') return jsonResponse({ sucesso: false, erro: 'Method Not Allowed' }, 405);
+    try { return jsonResponse({ sucesso: true, plans: listPlansForDisplay() }, 200); } catch (e) { return jsonResponse({ sucesso: false, erro: e.message }, 500); }
   }
 
-  if (!PROJECT_ID || !API_KEY || !DB_ID) return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite incompleta.' });
-  const auth = String(req.headers.authorization || '');
-  if (!auth.toLowerCase().startsWith('bearer ')) return json(res, 401, { sucesso: false, erro: 'JWT ausente' });
+  if (!PROJECT_ID || !API_KEY || !DB_ID) return jsonResponse({ sucesso: false, erro: 'Configuração Appwrite incompleta.' }, 500);
+  const auth = String(req.headers.get('authorization') || '');
+  if (!auth.toLowerCase().startsWith('bearer ')) return jsonResponse({ sucesso: false, erro: 'JWT ausente' }, 401);
   const jwt = auth.slice(7).trim();
-  if (!jwt) return json(res, 401, { sucesso: false, erro: 'JWT inválido' });
+  if (!jwt) return jsonResponse({ sucesso: false, erro: 'JWT inválido' }, 401);
 
   try {
     const me = await getAppwriteUserFromJwt(jwt);
@@ -35,32 +45,34 @@ export default async function handler(req, res) {
     const databases = new Databases(adminClient);
 
     if (action === 'status') {
-      const storeId = String(req.query?.storeId || '').trim();
-      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      const storeId = String(url.searchParams.get('storeId') || '').trim();
+      if (!storeId) return jsonResponse({ sucesso: false, erro: 'storeId obrigatório' }, 400);
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
-      if (!isBillingApiLive()) return json(res, 200, { sucesso: true, accessLevel: 'full', status: 'preview', needsPlan: false });
-      return json(res, 200, { sucesso: true, ...(await evaluateBillingAccess(storeId)) });
+      if (!isBillingApiLive()) return jsonResponse({ sucesso: true, accessLevel: 'full', status: 'preview', needsPlan: false }, 200);
+      return jsonResponse({ sucesso: true, ...(await evaluateBillingAccess(storeId)) }, 200);
     }
 
     if (action === 'checkout') {
-      if (req.method !== 'POST') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
-      if (!isBillingApiLive()) return json(res, 503, { sucesso: false, erro: 'Cobrança desativada.' });
-      const storeId = String(req.body.storeId || '').trim();
+      if (req.method !== 'POST') return jsonResponse({ sucesso: false, erro: 'Method Not Allowed' }, 405);
+      if (!isBillingApiLive()) return jsonResponse({ sucesso: false, erro: 'Cobrança desativada.' }, 503);
+      const body = await req.json().catch(() => ({}));
+      const storeId = String(body.storeId || '').trim();
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
-      const v = validateBillingCustomer(req.body.customer || {});
-      if (!v.ok) return json(res, 400, { sucesso: false, erro: v.error });
-      return json(res, 200, { sucesso: true, ...(await runCheckout({ storeId, planSlug: req.body.planSlug, billingType: req.body.billingType, customer: v.customer })) });
+      const v = validateBillingCustomer(body.customer || {});
+      if (!v.ok) return jsonResponse({ sucesso: false, erro: v.error }, 400);
+      return jsonResponse({ sucesso: true, ...(await runCheckout({ storeId, planSlug: body.planSlug, billingType: body.billingType, customer: v.customer })) }, 200);
     }
 
     if (action === 'ensure-trial') {
-      if (req.method !== 'POST') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
-      const storeId = String(req.body.storeId || '').trim();
-      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      if (req.method !== 'POST') return jsonResponse({ sucesso: false, erro: 'Method Not Allowed' }, 405);
+      const body = await req.json().catch(() => ({}));
+      const storeId = String(body.storeId || '').trim();
+      if (!storeId) return jsonResponse({ sucesso: false, erro: 'storeId obrigatório' }, 400);
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
       const row = await ensureTrialSubscription(storeId);
-      return json(res, 200, { sucesso: true, storeId, status: row?.status || null });
+      return jsonResponse({ sucesso: true, storeId, status: row?.status || null }, 200);
     }
   } catch (e) {
-    return json(res, 500, { sucesso: false, erro: e.message });
+    return jsonResponse({ sucesso: false, erro: e.message }, 500);
   }
 }

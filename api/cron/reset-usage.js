@@ -14,21 +14,24 @@ function billingDayFromDoc(doc) {
   return Math.min(Math.max(parseInt(String(doc?.billing_cycle_day ?? 1), 10) || 1, 1), 28);
 }
 
-export default async function handler(req, res) {
+export const config = {
+  runtime: 'edge',
+};
+
+export default async function handler(req) {
   if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
-    return res.status(405).end();
+    return new Response('', { status: 405, headers: { Allow: 'GET' } });
   }
 
   const expected = String(process.env.CRON_SECRET || '').trim();
-  const auth = String(req.headers.authorization || '');
+  const auth = String(req.headers.get('authorization') || '');
   const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
   if (!expected || token !== expected) {
-    return res.status(401).json({ error: 'unauthorized' });
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'content-type': 'application/json' } });
   }
 
   if (!PROJECT_ID || !API_KEY || !DB_ID || !ACADEMIES_COL) {
-    return res.status(503).json({ error: 'misconfigured' });
+    return new Response(JSON.stringify({ error: 'misconfigured' }), { status: 503, headers: { 'content-type': 'application/json' } });
   }
 
   const dom = new Date().getUTCDate();
@@ -63,8 +66,8 @@ export default async function handler(req, res) {
     }
   } catch (e) {
     console.error('[cron/reset-usage]', e?.message || e);
-    return res.status(500).json({ error: 'list_failed' });
+    return new Response(JSON.stringify({ error: 'list_failed' }), { status: 500, headers: { 'content-type': 'application/json' } });
   }
 
-  return res.status(200).json({ reset });
+  return new Response(JSON.stringify({ reset }), { status: 200, headers: { 'content-type': 'application/json' } });
 }

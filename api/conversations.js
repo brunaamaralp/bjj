@@ -190,6 +190,10 @@ function ensureJsonBody(req, res) {
   return true;
 }
 
+export const config = {
+  runtime: 'edge',
+};
+
 export default async function handler(req, res) {
   if (!ensureConfig(res)) return;
 

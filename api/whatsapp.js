@@ -379,6 +379,10 @@ async function zapsterCancelMessage(id) {
   return { ok: resp.ok, status: resp.status, raw, data };
 }
 
+export const config = {
+  runtime: 'edge',
+};
+
 export default async function handler(req, res) {
   if (!ensureConfigOk(res)) return;
 
