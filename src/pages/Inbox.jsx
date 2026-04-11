@@ -2158,13 +2158,7 @@ export default function Inbox() {
       return;
     }
     setNewMsgCount((v) => v + (nextCount - prevCount));
-  }, [selected?.messages?.length, selectedPhone, threadAtBottom]);
-
-  useEffect(() => {
-    const phone = String(selectedPhone || '').trim();
-    if (!phone) return;
-    void markSeen(phone);
-  }, [selectedPhone]);
+  }, [selected?.messages?.length]); // Removed selectedPhone and threadAtBottom to prevent infinite re-renders
 
   const startResize = (ev) => {
     if (!ev) return;
