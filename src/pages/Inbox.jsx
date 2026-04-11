@@ -1942,9 +1942,10 @@ export default function Inbox() {
       setSelected(null);
       setItems([]);
       notifiedOnceRef.current = false;
-      loadList({ reset: true });
     }
     prevAcademyIdForInboxRef.current = cur;
+    const fn = loadListRef.current;
+    if (typeof fn === 'function') void fn({ reset: true });
   }, [academyId]);
 
   useEffect(() => {
