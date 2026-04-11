@@ -685,7 +685,7 @@ export default function Inbox() {
     return s;
   }
 
-  async function fetchWaInfo({ silent = false } = {}) {
+  const fetchWaInfo = useCallback(async ({ silent = false } = {}) => {
     if (!academyIdRef.current) return;
     if (!silent) setError('');
     setWaLoading(true);
@@ -700,10 +700,13 @@ export default function Inbox() {
       const instance_id = data?.instance_id || null;
       const status = String(data?.status || '').trim() || 'unknown';
       const qrcode = data?.qrcode ?? null;
-      setWaInfo({ instance_id, status, qrcode });
+      setWaInfo((prev) => {
+        if (prev.instance_id === instance_id && prev.status === status && prev.qrcode === qrcode) return prev;
+        return { instance_id, status, qrcode };
+      });
       setWaTokenMissing(false);
       setWaQrError(false);
-      setWaQrTick((v) => v + 1);
+      if (status !== 'connected') setWaQrTick((v) => v + 1);
     } catch (e) {
       const msg = String(e?.message || '');
       if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
@@ -713,7 +716,7 @@ export default function Inbox() {
     } finally {
       setWaLoading(false);
     }
-  }
+  }, [getJwt]);
 
   async function createWaInstance() {
     if (!academyIdRef.current) return;
@@ -905,7 +908,7 @@ export default function Inbox() {
   useEffect(() => {
     if (!academyId) return;
     fetchWaInfo({ silent: true });
-  }, [academyId]);
+  }, [academyId]); // removed fetchWaInfo from dependencies
 
   useEffect(() => {
     if (!waOpen) return;
@@ -914,7 +917,7 @@ export default function Inbox() {
       fetchWaInfo({ silent: true });
     }, 3000);
     return () => clearInterval(id);
-  }, [waOpen, waInfo?.status]);
+  }, [waOpen, waInfo?.status]); // removed fetchWaInfo from dependencies
 
   useEffect(() => {
     if (!waOpen) return;
@@ -2443,6 +2446,7 @@ export default function Inbox() {
                 };
 
                 if (selected?.need_human) {
+                  const rem = untilRaw ? getHandoffRemaining(untilRaw) : null;
                   return (
                     <>
                       <span
@@ -2456,9 +2460,9 @@ export default function Inbox() {
                       >
                         {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
                       </span>
-                      {untilRaw && getHandoffRemaining(untilRaw) && (
+                      {rem && (
                         <span className="text-small handoff-timer" style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '2px 8px', borderRadius: 999 }}>
-                          IA retoma em {getHandoffRemaining(untilRaw)}
+                          IA retoma em {rem}
                         </span>
                       )}
                     </>
