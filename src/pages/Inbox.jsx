@@ -550,7 +550,7 @@ export default function Inbox() {
       const tag = String(target?.tagName || '').toLowerCase();
       const editing = tag === 'input' || tag === 'textarea' || target?.isContentEditable;
       if (editing) return;
-      if (!selectedPhone) return;
+      if (!selectedPhoneRef.current) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
         e.preventDefault();
         loadThread(selectedPhoneRef.current);
@@ -568,7 +568,7 @@ export default function Inbox() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedPhone, selected?.ticket_status, selected?.transfer_to]);
+  }, [selected?.ticket_status, selected?.transfer_to]);
 
   function safeParseJson(raw) {
     try {
@@ -1128,7 +1128,7 @@ export default function Inbox() {
   }
 
   async function handleToggleIa() {
-    if (!promptConfigurado || !whatsappConectado || togglingIa) return;
+    if (!promptConfigurado || togglingIa) return;
     setTogglingIa(true);
     try {
       const jwt = await getJwt();
@@ -2647,7 +2647,7 @@ export default function Inbox() {
           )}
           {!threadLoading && !error && !threadError && (!selected?.messages || selected.messages.length === 0) && <ThreadState type="empty" />}
 
-          {threadBlocks.map((b) => {
+          {Array.isArray(threadBlocks) && threadBlocks.map((b) => {
             if (b.type === 'day') {
               return (
                 <div key={b.key} style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>

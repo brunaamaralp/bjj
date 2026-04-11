@@ -499,7 +499,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {!showInitialLoad ? (
+            {!showInitialLoad && reportData?.metrics ? (
             <div className="reports-kpi-grid mt-4 animate-in">
                 <Card
                     title="Novos leads"
@@ -545,7 +545,7 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {!showInitialLoad ? (
+            {!showInitialLoad && reportData?.chart ? (
             <div className="card reports-evo-card mt-4">
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução no período</h3>
