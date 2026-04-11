@@ -2429,19 +2429,36 @@ export default function Inbox() {
                 const untilMs = humanHandoffUntilToMs(untilRaw);
                 const untilIso = untilMs > 0 ? new Date(untilMs).toISOString() : '';
                 const untilLabel = untilIso ? formatTimeOnly(untilIso) || formatWhen(untilIso) : '';
+                const getHandoffRemaining = (handoffUntil) => {
+                  if (!handoffUntil) return null;
+                  const remaining = new Date(handoffUntil).getTime() - Date.now();
+                  if (remaining <= 0) return null;
+                  const hours = Math.floor(remaining / 3600000);
+                  const minutes = Math.floor((remaining % 3600000) / 60000);
+                  if (hours > 0) return `${hours}h ${minutes}min`;
+                  return `${minutes}min`;
+                };
+
                 if (selected?.need_human) {
                   return (
-                    <span
-                      className="text-small"
-                      style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
-                      title={
-                        untilLabel
-                          ? `Atendimento humano por ${handoffDurationPhrase} (até ${untilLabel})`
-                          : `Atendimento humano ativo (${handoffDurationPhrase})`
-                      }
-                    >
-                      {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
-                    </span>
+                    <>
+                      <span
+                        className="text-small"
+                        style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
+                        title={
+                          untilLabel
+                            ? `Atendimento humano por ${handoffDurationPhrase} (até ${untilLabel})`
+                            : `Atendimento humano ativo (${handoffDurationPhrase})`
+                        }
+                      >
+                        {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
+                      </span>
+                      {untilRaw && getHandoffRemaining(untilRaw) && (
+                        <span className="text-small handoff-timer" style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '2px 8px', borderRadius: 999 }}>
+                          IA retoma em {getHandoffRemaining(untilRaw)}
+                        </span>
+                      )}
+                    </>
                   );
                 }
                 if (aiSuggestHuman) {
@@ -4124,7 +4141,7 @@ export default function Inbox() {
               <button
                 type="button"
                 onClick={() => void handleToggleIa()}
-                disabled={!promptConfigurado || !whatsappConectado || togglingIa}
+                disabled={!promptConfigurado || togglingIa}
                 title={togglingIa ? 'Atualizando…' : iaAtiva ? 'Desativar IA' : 'Ativar IA'}
                 style={{
                   position: 'relative',
@@ -4134,10 +4151,10 @@ export default function Inbox() {
                   border: 'none',
                   padding: 0,
                   flexShrink: 0,
-                  cursor: !promptConfigurado || !whatsappConectado || togglingIa ? 'not-allowed' : 'pointer',
-                  opacity: !promptConfigurado || !whatsappConectado ? 0.45 : 1,
+                  cursor: !promptConfigurado || togglingIa ? 'not-allowed' : 'pointer',
+                  opacity: !promptConfigurado ? 0.45 : 1,
                   background:
-                    iaAtiva && promptConfigurado && whatsappConectado ? 'var(--purple)' : 'var(--border-light)',
+                    iaAtiva && promptConfigurado ? 'var(--purple)' : 'var(--border-light)',
                   transition: 'background 0.2s ease'
                 }}
               >
@@ -4145,7 +4162,7 @@ export default function Inbox() {
                   style={{
                     position: 'absolute',
                     top: 4,
-                    left: iaAtiva && promptConfigurado && whatsappConectado ? 28 : 4,
+                    left: iaAtiva && promptConfigurado ? 28 : 4,
                     width: 16,
                     height: 16,
                     borderRadius: '50%',

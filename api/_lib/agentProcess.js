@@ -10,6 +10,8 @@ import {
 } from '../../lib/server/conversationsStore.js';
 import { getCurrentBillingCycleId, checkAiQuota, incrementAiThreads } from '../../src/services/planService.js';
 
+const processingLocks = new Map();
+
 function resolveBaseUrl(req) {
   const envBase = String(process.env.NEXT_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
   if (envBase) return envBase;
@@ -112,7 +114,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_payload' });
   }
 
-  console.log('[agent/process] start', { requestId, phone, messageId, academyId: academy });
+  const lockKey = `${academy}:${phone}`;
+  if (processingLocks.get(lockKey)) {
+    console.log(`[AgentProcess] Lock ativo para ${lockKey} — ignorando mensagem duplicada`, { requestId });
+    return res.status(200).json({ sent: false, ignored: true, reason: 'lock_active' });
+  }
+  processingLocks.set(lockKey, true);
+
+  try {
+    console.log('[agent/process] start', { requestId, phone, messageId, academyId: academy });
 
   const academyDoc = await getAcademyDocument(academy);
   if (!academyDoc) {
@@ -293,5 +303,7 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error('[agent/process] error', { error: e?.message, requestId, phone });
     return res.status(200).json({ sent: false, error: e?.message || 'internal' });
+  } finally {
+    processingLocks.delete(lockKey);
   }
 }

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'crypto';
+import { waitUntil } from '@vercel/functions';
 import { Client, Databases, Query } from 'node-appwrite';
 import { humanHandoffIsActive } from '../../lib/humanHandoffUntil.js';
 import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../../lib/server/conversationsStore.js';
@@ -375,7 +376,6 @@ export default async function handler(req, res) {
     } else {
       console.log('[zapster][webhook] dispatching', { requestId, phone, messageId, baseUrl });
 
-      let dispatchFinished = false;
       const dispatchTask = (async () => {
         try {
           const r = await fetch(`${baseUrl}/api/agent/process`, {
@@ -395,10 +395,8 @@ export default async function handler(req, res) {
               inboundDocId: null
             })
           });
-          dispatchFinished = true;
           console.log('[zapster][webhook] dispatch response', { requestId, status: r.status, baseUrl });
         } catch (e) {
-          dispatchFinished = true;
           console.error('[zapster][webhook] dispatch error', {
             error: e?.message,
             baseUrl,
@@ -407,20 +405,10 @@ export default async function handler(req, res) {
         }
       })();
 
-      await Promise.race([
-        dispatchTask,
-        new Promise((resolve) => setTimeout(resolve, DISPATCH_WAIT_MS))
-      ]);
-
-      if (!dispatchFinished) {
-        console.warn('[zapster][webhook] dispatch ainda em curso após wait window', {
-          requestId,
-          baseUrl,
-          waitMs: DISPATCH_WAIT_MS
-        });
-      }
+      waitUntil(dispatchTask);
     }
 
+    res.setHeader('x-vercel-background', '1');
     return res.status(200).json({ ok: true, sucesso: true, enfileirado: true });
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
