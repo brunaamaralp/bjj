@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { getHumanHandoffHoursForClient } from '../../lib/constants.js';
+import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
@@ -279,11 +280,15 @@ export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
   const addToast = useUiStore((s) => s.addToast);
-  const fetchLeads = useLeadStore((s) => s.fetchLeads);
-  const leads = useLeadStore((s) => s.leads);
-  const leadsLoading = useLeadStore((s) => s.loading);
-  const academyId = useLeadStore((s) => s.academyId);
-  const academyListRaw = useLeadStore((s) => s.academyList);
+  const { fetchLeads, leads, loading: leadsLoading, academyId, academyList: academyListRaw } = useLeadStore(
+    useShallow((state) => ({
+      fetchLeads: state.fetchLeads,
+      leads: state.leads,
+      loading: state.loading,
+      academyId: state.academyId,
+      academyList: state.academyList,
+    }))
+  );
   const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
   const role = useUserRole(academyDoc);
