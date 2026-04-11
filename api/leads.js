@@ -29,10 +29,6 @@ async function getMe(jwt) {
   } catch { return null; }
 }
 
-export const config = {
-  runtime: 'edge',
-};
-
 export default async function handler(req, res) {
   const idRaw = req.query.id || (Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug) || '';
   const id = String(idRaw).trim();

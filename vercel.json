@@ -2,6 +2,11 @@
   "rewrites": [
     { "source": "/api/billing/:action(.*)", "destination": "/api/billing.js?action=$1" },
     { "source": "/api/agent/:action(.*)", "destination": "/api/agent.js?action=$1" },
+    { "source": "/api/settings/ai-prompt", "destination": "/api/agent.js?route=ai-prompt" },
+    { "source": "/api/academies/create", "destination": "/api/academy.js?route=create" },
+    { "source": "/api/team/members", "destination": "/api/academy.js?route=members" },
+    { "source": "/api/webhook/zapster", "destination": "/api/zapster.js?route=webhook" },
+    { "source": "/api/zapster/instances", "destination": "/api/zapster.js?route=instances" },
     { "source": "/api/conversations", "destination": "/api/conversations.js" },
     { "source": "/api/conversations/:phone(.*)", "destination": "/api/conversations.js?phone=$1" },
     { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },

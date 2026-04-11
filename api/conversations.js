@@ -26,20 +26,23 @@ function normalizePhone(v) {
   return raw.replace(/[^\d]/g, '');
 }
 
-function ensureConfig() {
+function ensureConfig(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !CONVERSATIONS_COL || !ACADEMIES_COL) {
+    res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
     return false;
   }
   return true;
 }
 
-async function ensureAuth(req) {
-  const auth = String(req.headers.get('authorization') || '');
+async function ensureAuth(req, res) {
+  const auth = String(req.headers.authorization || '');
   if (!auth.toLowerCase().startsWith('bearer ')) {
+    res.status(401).json({ sucesso: false, erro: 'JWT ausente' });
     return null;
   }
   const jwt = auth.slice(7).trim();
   if (!jwt) {
+    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
     return null;
   }
   try {
@@ -47,17 +50,19 @@ async function ensureAuth(req) {
     const account = new Account(userClient);
     return await account.get();
   } catch {
+    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
     return null;
   }
 }
 
 function resolveAcademyHeader(req) {
-  return String(req.headers.get('x-academy-id') || '').trim();
+  return String(req.headers['x-academy-id'] || '').trim();
 }
 
-async function ensureAcademyAccess(req, me) {
+async function ensureAcademyAccess(req, res, me) {
   const academyId = resolveAcademyHeader(req);
   if (!academyId) {
+    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
     return null;
   }
   try {
@@ -76,8 +81,10 @@ async function ensureAcademyAccess(req, me) {
         void 0;
       }
     }
+    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
     return null;
   } catch (e) {
+    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
     return null;
   }
 }
@@ -183,41 +190,30 @@ function ensureJsonBody(req, res) {
   return true;
 }
 
-export const config = {
-  runtime: 'edge',
-};
+export default async function handler(req, res) {
+  if (!ensureConfig(res)) return;
 
-function jsonResponse(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
+  const me = await ensureAuth(req, res);
+  if (!me) return;
 
-export default async function handler(req) {
-  if (!ensureConfig()) return jsonResponse({ sucesso: false, erro: 'Configuração Appwrite ausente' }, 500);
-
-  const me = await ensureAuth(req);
-  if (!me) return jsonResponse({ sucesso: false, erro: 'Não autorizado' }, 401);
-
-  const access = await ensureAcademyAccess(req, me);
-  if (!access) return jsonResponse({ sucesso: false, erro: 'Acesso negado à academia' }, 403);
+  const access = await ensureAcademyAccess(req, res, me);
+  if (!access) return;
   const { academyId, doc: academyDoc } = access;
 
-  const url = new URL(req.url);
-  const phoneParam = url.searchParams.get('phone') || url.searchParams.get('slug');
+  const phoneParam = req.query.phone || (Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug);
   const phoneRaw = phoneParam != null ? String(phoneParam).trim() : '';
   const phoneDigits = normalizePhone(phoneRaw);
 
   /** Lista: GET /api/conversations */
   if (!phoneDigits) {
     if (req.method !== 'GET') {
-      return new Response(JSON.stringify({ sucesso: false, erro: 'Método não permitido' }), { status: 405, headers: { Allow: 'GET', 'content-type': 'application/json' } });
+      res.setHeader('Allow', 'GET');
+      return json(res, 405, { sucesso: false, erro: 'Método não permitido' });
     }
 
-    const limit = Math.min(100, Math.max(1, parseInt(String(url.searchParams.get('limit') || '50'), 10) || 50));
-    const cursor = String(url.searchParams.get('cursor') || '').trim();
-    const search = String(url.searchParams.get('search') || '').trim();
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+    const cursor = String(req.query.cursor || '').trim();
+    const search = String(req.query.search || '').trim();
     const searchDigits = normalizePhone(search);
 
     const queries = [Query.equal('academy_id', [academyId]), Query.orderDesc('updated_at'), Query.limit(limit + 1)];
@@ -249,21 +245,21 @@ export default async function handler(req) {
       const hasMore = docs.length > limit;
       const page = hasMore ? docs.slice(0, limit) : docs;
       const next_cursor = hasMore && page.length > 0 ? String(page[page.length - 1].$id) : null;
-      return jsonResponse({ items: page.map(docToListItem), next_cursor }, 200);
+      return json(res, 200, { items: page.map(docToListItem), next_cursor });
     } catch (e) {
-      return jsonResponse({ sucesso: false, erro: e?.message || 'Erro ao listar conversas' }, 500);
+      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao listar conversas' });
     }
   }
 
   /** Thread + ações: /api/conversations/:phone */
   if (req.method === 'GET') {
-    const limit = Math.min(100, Math.max(1, parseInt(String(url.searchParams.get('limit') || '50'), 10) || 50));
-    const cursor = String(url.searchParams.get('cursor') || '').trim();
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+    const cursor = String(req.query.cursor || '').trim();
 
     try {
       const doc = await findConversationDoc(academyId, phoneDigits);
       if (!doc) {
-        return jsonResponse({
+        return json(res, 200, {
           phone: phoneDigits,
           messages: [],
           next_cursor: '',
@@ -274,7 +270,7 @@ export default async function handler(req) {
           human_handoff_until: '',
           ticket_status: 'open',
           transfer_to: ''
-        }, 200);
+        });
       }
 
       const sorted = sortMessagesChrono(safeParseMessages(doc.messages));
@@ -299,7 +295,7 @@ export default async function handler(req) {
         }
       }
 
-      return jsonResponse({
+      return json(res, 200, {
         phone: phoneDigits,
         messages: slice,
         next_cursor,
@@ -311,38 +307,41 @@ export default async function handler(req) {
         ticket_status: String(doc.ticket_status || 'open').trim() || 'open',
         transfer_to: String(doc.transfer_to || '').trim(),
         unread_count: Number.isFinite(Number(doc.unread_count)) ? Number(doc.unread_count) : 0
-      }, 200);
+      });
     } catch (e) {
-      return jsonResponse({ sucesso: false, erro: e?.message || 'Erro ao carregar conversa' }, 500);
+      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar conversa' });
     }
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ sucesso: false, erro: 'Método não permitido' }), { status: 405, headers: { Allow: 'GET, POST', 'content-type': 'application/json' } });
+    res.setHeader('Allow', 'GET, POST');
+    return json(res, 405, { sucesso: false, erro: 'Método não permitido' });
   }
 
-  const body = await req.json().catch(() => ({}));
+  if (!ensureJsonBody(req, res)) return;
+
+  const body = req.body || {};
   const action = String(body.action || '').trim();
 
   try {
     let doc = await findConversationDoc(academyId, phoneDigits);
 
     if (action === 'read') {
-      if (!doc) return jsonResponse({ ok: true, unread_count: 0 }, 200);
+      if (!doc) return json(res, 200, { ok: true, unread_count: 0 });
       const nowIso = new Date().toISOString();
       try {
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 0, last_read_at: nowIso });
       } catch {
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 0 });
       }
-      return jsonResponse({ ok: true, unread_count: 0, last_read_at: nowIso }, 200);
+      return json(res, 200, { ok: true, unread_count: 0, last_read_at: nowIso });
     }
 
     if (action === 'handoff') {
       if (!doc) {
         doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
       }
-      if (!doc) return jsonResponse({ sucesso: false, erro: 'Não foi possível abrir conversa' }, 500);
+      if (!doc) return json(res, 500, { sucesso: false, erro: 'Não foi possível abrir conversa' });
 
       const ativo = Boolean(body.ativo);
       let until = '';
@@ -352,40 +351,40 @@ export default async function handler(req) {
       }
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { human_handoff_until: until });
       const updated = await databases.getDocument(DB_ID, CONVERSATIONS_COL, doc.$id);
-      return jsonResponse({
+      return json(res, 200, {
         need_human: humanHandoffIsActive(updated.human_handoff_until),
         human_handoff_until: String(updated.human_handoff_until || '')
-      }, 200);
+      });
     }
 
     if (action === 'link_lead') {
       const leadId = String(body.lead_id || '').trim();
-      if (!leadId) return jsonResponse({ sucesso: false, erro: 'lead_id ausente' }, 400);
-      if (!LEADS_COL) return jsonResponse({ sucesso: false, erro: 'LEADS_COL não configurado' }, 500);
+      if (!leadId) return json(res, 400, { sucesso: false, erro: 'lead_id ausente' });
+      if (!LEADS_COL) return json(res, 500, { sucesso: false, erro: 'LEADS_COL não configurado' });
       if (!doc) {
         doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
       }
-      if (!doc) return jsonResponse({ sucesso: false, erro: 'Não foi possível abrir conversa' }, 500);
+      if (!doc) return json(res, 500, { sucesso: false, erro: 'Não foi possível abrir conversa' });
 
       const lead = await databases.getDocument(DB_ID, LEADS_COL, leadId);
       const leadAcademy = String(lead?.academyId || lead?.academy_id || '').trim();
       if (leadAcademy && leadAcademy !== academyId) {
-        return jsonResponse({ sucesso: false, erro: 'Lead de outra academia' }, 403);
+        return json(res, 403, { sucesso: false, erro: 'Lead de outra academia' });
       }
       const leadName = String(lead?.name || '').trim();
       const payload = { lead_id: leadId };
       if (leadName) payload.lead_name = leadName;
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
-      return jsonResponse({ lead_id: leadId, lead_name: leadName }, 200);
+      return json(res, 200, { lead_id: leadId, lead_name: leadName });
     }
 
     if (action === 'ticket') {
       const status = String(body.status || '').trim();
-      if (!status) return jsonResponse({ sucesso: false, erro: 'status ausente' }, 400);
+      if (!status) return json(res, 400, { sucesso: false, erro: 'status ausente' });
       if (!doc) {
         doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
       }
-      if (!doc) return jsonResponse({ sucesso: false, erro: 'Não foi possível abrir conversa' }, 500);
+      if (!doc) return json(res, 500, { sucesso: false, erro: 'Não foi possível abrir conversa' });
 
       const transferTo = body.transfer_to != null ? String(body.transfer_to).trim() : '';
       const payload = { ticket_status: status };
@@ -393,17 +392,17 @@ export default async function handler(req) {
       try {
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
       } catch (e) {
-        return jsonResponse({ sucesso: false, erro: e?.message || 'Erro ao atualizar ticket' }, 500);
+        return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao atualizar ticket' });
       }
       const updated = await databases.getDocument(DB_ID, CONVERSATIONS_COL, doc.$id);
-      return jsonResponse({
+      return json(res, 200, {
         ticket_status: String(updated.ticket_status || status),
         transfer_to: String(updated.transfer_to || '')
-      }, 200);
+      });
     }
 
-    return jsonResponse({ sucesso: false, erro: 'action inválida' }, 400);
+    return json(res, 400, { sucesso: false, erro: 'action inválida' });
   } catch (e) {
-    return jsonResponse({ sucesso: false, erro: e?.message || 'Erro interno' }, 500);
+    return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
   }
 }

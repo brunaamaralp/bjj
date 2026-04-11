@@ -9,6 +9,8 @@ const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.A
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
 
+function json(res, status, obj) { res.status(status).json(obj); }
+
 async function getMe(jwt) {
   try {
     const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
@@ -79,31 +81,19 @@ function buildMonthBuckets(fromD, toDEnd) {
     return out;
 }
 
-export const config = {
-  runtime: 'edge',
-};
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
 
-function jsonResponse(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
-
-export default async function handler(req) {
-  if (req.method !== 'POST') return jsonResponse({ error: 'Method Not Allowed' }, 405);
-
-  const auth = String(req.headers.get('authorization') || '');
+  const auth = String(req.headers.authorization || '');
   const jwt = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
 
   const me = await getMe(jwt);
-  if (!me) return jsonResponse({ error: 'Não autorizado' }, 401);
+  if (!me) return json(res, 401, { error: 'Não autorizado' });
 
-  const body = await req.json().catch(() => ({}));
-  const { academyId, from, to, prevFrom, prevTo, filters, chartMode = 'weekly' } = body;
+  const { academyId, from, to, prevFrom, prevTo, filters, chartMode = 'weekly' } = req.body;
 
   if (!academyId || !from || !to) {
-      return jsonResponse({ error: 'Parâmetros obrigatórios faltando' }, 400);
+      return json(res, 400, { error: 'Parâmetros obrigatórios faltando' });
   }
 
   try {
@@ -203,7 +193,7 @@ export default async function handler(req) {
         bucket.converted = allLeads.filter(l => (l.contact_type === 'student' && inRange(l.$updatedAt, bucket.start, bucket.end)) || stageEventWithin(l, 'Matriculado', bucket.start, bucket.end) || stageEventWithin(l, 'CONVERTED', bucket.start, bucket.end)).length;
     });
 
-    return jsonResponse({
+    return json(res, 200, {
       period: { from, to },
       metrics: {
         newLeads: { current: newLeads.length, previous: newLeadsPrev.length, list: toList(newLeads) },
@@ -214,9 +204,9 @@ export default async function handler(req) {
         conversionRate: { current: conversionRate, previous: conversionRatePrev, list: [] }
       },
       chart: chartData
-    }, 200);
+    });
   } catch (e) {
       console.error(e);
-      return jsonResponse({ error: 'Falha ao gerar relatório' }, 500);
+      return json(res, 500, { error: 'Falha ao gerar relatório' });
   }
 }
