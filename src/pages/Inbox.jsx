@@ -2286,8 +2286,26 @@ export default function Inbox() {
     }
   };
 
+  const onConversationListScroll = (e) => {
+    if (searchQuery) return;
+    const el = e.currentTarget;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (remaining < 240) loadList({ reset: false, silent: true });
+  };
+
   const listPanel = (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        background: 'var(--surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: isMobile ? undefined : 1,
+        minHeight: isMobile ? undefined : 0,
+        maxHeight: isMobile ? undefined : '100%'
+      }}
+    >
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div>Conversas</div>
         {!searchQuery && (
@@ -2367,13 +2385,13 @@ export default function Inbox() {
         )}
       </div>
       <div
-        style={{ maxHeight: isMobile ? '72vh' : '70vh', overflow: 'auto' }}
-        onScroll={(e) => {
-          if (searchQuery) return;
-          const el = e.currentTarget;
-          const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-          if (remaining < 240) loadList({ reset: false, silent: true });
+        style={{
+          flex: isMobile ? 'none' : 1,
+          minHeight: isMobile ? undefined : 0,
+          maxHeight: isMobile ? '72vh' : '100%',
+          overflow: 'auto'
         }}
+        onScroll={onConversationListScroll}
       >
         <ConversationList
           groupedItems={groupedFilteredItems}
@@ -4608,10 +4626,26 @@ export default function Inbox() {
                       boxSizing: 'border-box',
                       gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
                       gap: 0,
-                      alignItems: 'stretch'
+                      alignItems: 'start'
                     }}
                   >
-                    <div style={{ paddingRight: 10, minWidth: 0 }}>{listPanel}</div>
+                    <div
+                      style={{
+                        paddingRight: 10,
+                        minWidth: 0,
+                        position: 'sticky',
+                        top: 0,
+                        alignSelf: 'start',
+                        maxHeight: 'calc(100dvh - 108px)',
+                        minHeight: 0,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        zIndex: 2
+                      }}
+                    >
+                      {listPanel}
+                    </div>
                     <div
                       role="separator"
                       aria-orientation="vertical"
@@ -4623,13 +4657,15 @@ export default function Inbox() {
                         borderRadius: 999,
                         background: 'transparent',
                         display: 'flex',
-                        justifyContent: 'center'
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        alignSelf: 'stretch'
                       }}
                       title="Arraste para ajustar a largura"
                     >
-                      <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
+                      <div style={{ width: 2, flex: 1, minHeight: 200, background: 'var(--border)', borderRadius: 999 }} />
                     </div>
-                    <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0 }}>{threadPanel}</div>
+                    <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0, minWidth: 0 }}>{threadPanel}</div>
                     {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
                   </div>
                 )
