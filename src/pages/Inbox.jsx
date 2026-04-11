@@ -441,6 +441,7 @@ export default function Inbox() {
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
   const prevAcademyIdForInboxRef = useRef('');
+  const isMobileRef = useRef(false);
 
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
   const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
@@ -518,7 +519,11 @@ export default function Inbox() {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(max-width: 1023px)');
-    const apply = () => setIsMobile(Boolean(mq.matches));
+    const apply = () => {
+      const m = Boolean(mq.matches);
+      isMobileRef.current = m;
+      setIsMobile(m);
+    };
     apply();
     if (mq.addEventListener) mq.addEventListener('change', apply);
     else mq.addListener(apply);
@@ -1273,11 +1278,7 @@ export default function Inbox() {
   }
 
   async function loadList({ reset = false, silent = false } = {}) {
-    console.log('[loadList] chamado', { reset, silent, academyId: academyIdRef.current });
-    if (!academyIdRef.current) {
-      console.log('[loadList] early exit', { reason: 'sem academyIdRef' });
-      return;
-    }
+    if (!academyIdRef.current) return;
     if (reset) {
       setNextCursor(null);
       setHasMore(true);
@@ -1300,11 +1301,6 @@ export default function Inbox() {
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversas'));
       const data = safeParseJson(raw) || {};
       const next = Array.isArray(data?.items) ? data.items : [];
-      console.log('[loadList] resposta', {
-        status: resp.status,
-        total: next.length,
-        items: next.slice(0, 3)
-      });
       const nextCur = data?.next_cursor ? String(data.next_cursor) : null;
       const previousMeta = listMetaRef.current instanceof Map ? listMetaRef.current : new Map();
       const nextMeta = reset ? new Map() : new Map(previousMeta);
@@ -1328,8 +1324,7 @@ export default function Inbox() {
       setHasMore(Boolean(nextCur) && next.length > 0 && !searchQuery);
       setLastUpdatedAt(new Date().toISOString());
       setItems((prev) => {
-        const prevArr = Array.isArray(prev) ? prev : [];
-        const incoming = reset ? next : [...prevArr, ...next];
+        const incoming = reset ? next : [...(Array.isArray(prev) ? prev : []), ...next];
         const seen = new Set();
         const deduped = [];
         for (const it of incoming) {
@@ -1339,12 +1334,6 @@ export default function Inbox() {
           seen.add(k);
           deduped.push(it);
         }
-        console.log('[loadList] setItems', {
-          prevLen: prevArr.length,
-          nextLen: deduped.length,
-          incomingLen: incoming.length,
-          reset
-        });
         return deduped;
       });
       if (reset && notifiedOnceRef.current) {
@@ -1379,7 +1368,10 @@ export default function Inbox() {
       }
       listMetaRef.current = nextMeta;
       if (reset) {
-        if (!selectedPhoneRef.current && next.length > 0) setSelectedPhone(String(next[0].phone_number || ''));
+        // No mobile, o layout só mostra lista OU thread; auto-selecionar a 1ª conversa escondia a lista inteira.
+        if (!selectedPhoneRef.current && next.length > 0 && !isMobileRef.current) {
+          setSelectedPhone(String(next[0].phone_number || ''));
+        }
       }
     } catch (e) {
       if (!silent) setError(e?.message || 'Erro');
@@ -1949,11 +1941,6 @@ export default function Inbox() {
   }, [searchQuery]);
 
   useEffect(() => {
-    console.log('[effect] academyId efeito', {
-      academyId,
-      prevAcademyRef: prevAcademyIdForInboxRef.current,
-      academyIdRef: academyIdRef.current
-    });
     const cur = String(academyId || '').trim();
     if (!cur) return;
     const prev = prevAcademyIdForInboxRef.current;
@@ -2388,14 +2375,6 @@ export default function Inbox() {
           if (remaining < 240) loadList({ reset: false, silent: true });
         }}
       >
-        {console.log('[render] groupedFilteredItems', {
-          itemsLen: items.length,
-          filteredLen: filteredItems?.length,
-          groupedKeys: Array.isArray(groupedFilteredItems) ? groupedFilteredItems.map((g) => g.key) : [],
-          groupCounts: Array.isArray(groupedFilteredItems)
-            ? groupedFilteredItems.map((g) => ({ key: g.key, n: g.items?.length ?? 0 }))
-            : []
-        })}
         <ConversationList
           groupedItems={groupedFilteredItems}
           loading={loading}
@@ -4632,7 +4611,7 @@ export default function Inbox() {
                       alignItems: 'stretch'
                     }}
                   >
-                    <div style={{ paddingRight: 10 }}>{listPanel}</div>
+                    <div style={{ paddingRight: 10, minWidth: 0 }}>{listPanel}</div>
                     <div
                       role="separator"
                       aria-orientation="vertical"
