@@ -5,7 +5,7 @@ import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
-import { MatriculaModal } from '../components/MatriculaModal';
+import MatriculaModal from '../components/MatriculaModal';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];

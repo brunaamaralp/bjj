@@ -4565,7 +4565,7 @@ export default function Inbox() {
               )}
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {error && (
@@ -4574,44 +4574,45 @@ export default function Inbox() {
         </div>
       )}
 
-      {inboxTab === 'conversas' &&
-        (isMobile ? (
-          <div>{selectedPhone ? threadPanel : listPanel}</div>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              width: '100%',
-              maxWidth: '100%',
-              boxSizing: 'border-box',
-              gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
-              gap: 0,
-              alignItems: 'stretch'
-            }}
-          >
-            <div style={{ paddingRight: 10 }}>{listPanel}</div>
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              onMouseDown={startResize}
-              onDoubleClick={() => setListWidth(420)}
-              style={{
-                cursor: 'col-resize',
-                width: 10,
-                borderRadius: 999,
-                background: 'transparent',
-                display: 'flex',
-                justifyContent: 'center'
-              }}
-              title="Arraste para ajustar a largura"
-            >
-              <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
-            </div>
-            <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0 }}>{threadPanel}</div>
-            {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
-          </div>
-        ))}
-        </>
+              {inboxTab === 'conversas' && (
+                isMobile ? (
+                  <div>{selectedPhone ? threadPanel : listPanel}</div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
+                      gap: 0,
+                      alignItems: 'stretch'
+                    }}
+                  >
+                    <div style={{ paddingRight: 10 }}>{listPanel}</div>
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      onMouseDown={startResize}
+                      onDoubleClick={() => setListWidth(420)}
+                      style={{
+                        cursor: 'col-resize',
+                        width: 10,
+                        borderRadius: 999,
+                        background: 'transparent',
+                        display: 'flex',
+                        justifyContent: 'center'
+                      }}
+                      title="Arraste para ajustar a largura"
+                    >
+                      <div style={{ width: 2, background: 'var(--border)', borderRadius: 999, height: '100%' }} />
+                    </div>
+                    <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0 }}>{threadPanel}</div>
+                    {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
+                  </div>
+                )
+              )}
+        </div>
       )}
     </div>
   );
