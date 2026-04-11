@@ -1273,7 +1273,11 @@ export default function Inbox() {
   }
 
   async function loadList({ reset = false, silent = false } = {}) {
-    if (!academyIdRef.current) return;
+    console.log('[loadList] chamado', { reset, silent, academyId: academyIdRef.current });
+    if (!academyIdRef.current) {
+      console.log('[loadList] early exit', { reason: 'sem academyIdRef' });
+      return;
+    }
     if (reset) {
       setNextCursor(null);
       setHasMore(true);
@@ -1296,6 +1300,11 @@ export default function Inbox() {
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversas'));
       const data = safeParseJson(raw) || {};
       const next = Array.isArray(data?.items) ? data.items : [];
+      console.log('[loadList] resposta', {
+        status: resp.status,
+        total: next.length,
+        items: next.slice(0, 3)
+      });
       const nextCur = data?.next_cursor ? String(data.next_cursor) : null;
       const previousMeta = listMetaRef.current instanceof Map ? listMetaRef.current : new Map();
       const nextMeta = reset ? new Map() : new Map(previousMeta);
@@ -1319,7 +1328,8 @@ export default function Inbox() {
       setHasMore(Boolean(nextCur) && next.length > 0 && !searchQuery);
       setLastUpdatedAt(new Date().toISOString());
       setItems((prev) => {
-        const incoming = reset ? next : [...(Array.isArray(prev) ? prev : []), ...next];
+        const prevArr = Array.isArray(prev) ? prev : [];
+        const incoming = reset ? next : [...prevArr, ...next];
         const seen = new Set();
         const deduped = [];
         for (const it of incoming) {
@@ -1329,6 +1339,12 @@ export default function Inbox() {
           seen.add(k);
           deduped.push(it);
         }
+        console.log('[loadList] setItems', {
+          prevLen: prevArr.length,
+          nextLen: deduped.length,
+          incomingLen: incoming.length,
+          reset
+        });
         return deduped;
       });
       if (reset && notifiedOnceRef.current) {
@@ -1933,6 +1949,11 @@ export default function Inbox() {
   }, [searchQuery]);
 
   useEffect(() => {
+    console.log('[effect] academyId efeito', {
+      academyId,
+      prevAcademyRef: prevAcademyIdForInboxRef.current,
+      academyIdRef: academyIdRef.current
+    });
     const cur = String(academyId || '').trim();
     if (!cur) return;
     const prev = prevAcademyIdForInboxRef.current;
@@ -2367,6 +2388,14 @@ export default function Inbox() {
           if (remaining < 240) loadList({ reset: false, silent: true });
         }}
       >
+        {console.log('[render] groupedFilteredItems', {
+          itemsLen: items.length,
+          filteredLen: filteredItems?.length,
+          groupedKeys: Array.isArray(groupedFilteredItems) ? groupedFilteredItems.map((g) => g.key) : [],
+          groupCounts: Array.isArray(groupedFilteredItems)
+            ? groupedFilteredItems.map((g) => ({ key: g.key, n: g.items?.length ?? 0 }))
+            : []
+        })}
         <ConversationList
           groupedItems={groupedFilteredItems}
           loading={loading}
