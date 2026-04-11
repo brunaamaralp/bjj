@@ -298,6 +298,10 @@ export default function Inbox() {
     const raw = String(params.get('phone') || '').trim();
     const digits = normalizePhone(raw);
     if (!digits) return;
+    
+    // Evita um setState redundante se o phone já é o mesmo que está no state atual
+    if (selectedPhoneRef.current === digits) return;
+    
     setSelectedPhone(digits);
   }, [location.search]);
 
@@ -2060,20 +2064,25 @@ export default function Inbox() {
   const handleSelectConversation = (it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
-    setSelectedPhone(phone);
+    
     setThreadCursor(null);
     setThreadHasMore(false);
-    setSelected((prev) => ({
-      phone,
-      summary: prev?.phone === phone ? prev.summary : null,
-      lead_id: String(it?.lead_id || '').trim() || null,
-      lead_name: String(it?._displayTitle || it?.lead_name || '').trim(),
-      need_human: Boolean(it?._handoffActive || it?.need_human),
-      human_handoff_until: prev?.phone === phone ? prev.human_handoff_until : null,
-      ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),
-      transfer_to: String(it?._transferTo || it?.transfer_to || '').trim() || null,
-      messages: prev?.phone === phone && Array.isArray(prev?.messages) ? prev.messages : []
-    }));
+    setSelected((prev) => {
+      const prevPhone = String(prev?.phone || '').trim();
+      const isSamePhone = prevPhone === phone;
+      return {
+        phone,
+        summary: isSamePhone ? prev.summary : null,
+        lead_id: String(it?.lead_id || '').trim() || null,
+        lead_name: String(it?._displayTitle || it?.lead_name || '').trim(),
+        need_human: Boolean(it?._handoffActive || it?.need_human),
+        human_handoff_until: isSamePhone ? prev.human_handoff_until : null,
+        ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),
+        transfer_to: String(it?._transferTo || it?.transfer_to || '').trim() || null,
+        messages: isSamePhone && Array.isArray(prev?.messages) ? prev.messages : []
+      };
+    });
+    setSelectedPhone(phone); // Atualizar o phone por último, ou isoladamente, após as mudanças de ref/state
   };
 
   function ticketChip(status, transferTo) {

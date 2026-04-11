@@ -1,8 +1,8 @@
 import { Client, Account, Databases, Functions, Teams, Realtime } from "appwrite";
 
-const endpoint = "https://sfo.cloud.appwrite.io/v1"; // Forçado para ignorar a Vercel temporariamente
+const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1";
 const endpointFallback = "";
-const project = "699f020c00171ce26206"; // Forçado
+const project = import.meta.env.VITE_APPWRITE_PROJECT_ID || import.meta.env.VITE_APPWRITE_PROJECT || "699f020c00171ce26206";
 const buildMarker = "FORCE_SFO_ENDPOINT_1";
 const selectedEndpoint = endpointFallback || endpoint;
 const client = new Client()
@@ -36,7 +36,7 @@ export const KIMONO_SIZES = {
 console.log('🔌 Appwrite Config Loaded:');
 console.log('   - Build Marker:', buildMarker);
 console.log('   - Endpoint:', endpoint);
-console.log('   - Project (env):', import.meta.env.VITE_APPWRITE_PROJECT || '(unset)');
+console.log('   - Project (env):', import.meta.env.VITE_APPWRITE_PROJECT_ID || import.meta.env.VITE_APPWRITE_PROJECT || '(unset)');
 console.log('   - Project:', project);
 if (endpointFallback) {
     console.log('   - Endpoint Fallback:', endpointFallback);
