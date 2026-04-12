@@ -70,7 +70,6 @@ const App = () => {
     }
   });
   const isActive = (path) => location.pathname === path;
-  const isAccountZone = ['/conta', '/empresa', '/templates'].includes(location.pathname);
   const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
   const academyIdStore = useLeadStore((s) => s.academyId);
   const billingAccessTop = useLeadStore((s) => s.billingAccess);
@@ -738,7 +737,7 @@ const App = () => {
             <div className="navi-side-section">
               <NavLink
                 to="/empresa"
-                className={({ isActive }) => `navi-side-link${isActive || isAccountZone ? ' active' : ''}`}
+                className={({ isActive }) => `navi-side-link${isActive ? ' active' : ''}`}
                 title={sidebarCollapsed ? 'Minha academia' : undefined}
               >
                 <Building2 size={18} strokeWidth={1.75} />
@@ -746,7 +745,7 @@ const App = () => {
               </NavLink>
               <NavLink
                 to="/conta"
-                className={({ isActive }) => `navi-side-link${isActive || isAccountZone ? ' active' : ''}`}
+                className={({ isActive }) => `navi-side-link${isActive ? ' active' : ''}`}
                 title={sidebarCollapsed ? 'Conta' : undefined}
               >
                 <User size={18} strokeWidth={1.75} />
@@ -853,7 +852,7 @@ const App = () => {
             <span>Loja</span>
           </Link>
         )}
-        <Link to="/conta" className={`navi-nav-item ${isAccountZone ? 'active' : ''}`}>
+        <Link to="/conta" className={`navi-nav-item ${location.pathname === '/conta' ? 'active' : ''}`}>
           <User size={22} strokeWidth={1.75} />
           <span>Conta</span>
         </Link>

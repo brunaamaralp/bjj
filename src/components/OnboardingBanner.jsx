@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { X, ChevronRight, Sparkles, ChevronDown } from 'lucide-react';
+import { X, ChevronRight, ChevronDown } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { isBillingLive } from '../lib/billingEnabled';
@@ -13,6 +13,8 @@ import {
   buildEffectiveCoreSteps,
   ONBOARDING_STEP_TITLES,
 } from '../lib/onboardingChecklist.js';
+
+const ONBOARDING_BANNER_HEADLINE = 'Vamos deixar seu CRM pronto?';
 
 export default function OnboardingBanner() {
   const navigate = useNavigate();
@@ -28,6 +30,7 @@ export default function OnboardingBanner() {
   const completeOnboardingStepIds = useLeadStore((s) => s.completeOnboardingStepIds);
   const addToast = useUiStore((s) => s.addToast);
   const [dismissed, setDismissed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [stepsOpen, setStepsOpen] = useState(false);
 
   const academyDoc = useMemo(() => {
@@ -138,48 +141,76 @@ export default function OnboardingBanner() {
       aria-label="Primeiros passos no Nave"
       style={{
         margin: '0 20px 10px',
-        padding: '12px 14px',
+        padding: expanded ? '12px 14px' : '10px 14px',
         borderRadius: 'var(--radius, 12px)',
         border: '1px solid var(--border-light, #e2e8f0)',
         background: 'var(--surface, #fff)',
         boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.06))',
       }}
     >
-      <div className="flex items-start gap-3" style={{ flexWrap: 'wrap' }}>
+      <div
+        className="flex items-center gap-2"
+        style={{ flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, columnGap: 12 }}
+      >
         <div
-          style={{
-            flexShrink: 0,
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: 'var(--accent)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-          }}
-          aria-hidden
+          className="flex items-center gap-2"
+          style={{ flex: '1 1 auto', minWidth: 0, flexWrap: 'wrap', rowGap: 6, columnGap: 8 }}
         >
-          <Sparkles size={20} strokeWidth={2} />
+          <p className="navi-section-heading" style={{ margin: 0, fontSize: '0.9rem', lineHeight: 1.35 }}>
+            {ONBOARDING_BANNER_HEADLINE}
+          </p>
+          <span
+            className="text-small"
+            style={{
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              background: 'var(--accent-light)',
+              padding: '2px 8px',
+              borderRadius: 999,
+              flexShrink: 0,
+            }}
+          >
+            {doneCoreCount}/{totalCore}
+          </span>
+          <button
+            type="button"
+            className="text-small"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              background: 'none',
+              border: 'none',
+              padding: '2px 0',
+              cursor: 'pointer',
+              color: 'var(--accent)',
+              fontWeight: 600,
+            }}
+          >
+            {expanded ? 'Menos detalhes' : 'Detalhes'}
+            <ChevronDown
+              size={16}
+              style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+              aria-hidden
+            />
+          </button>
         </div>
-        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-          <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
-            <p className="navi-section-heading" style={{ margin: 0, fontSize: '0.9rem' }}>
-              Vamos deixar seu CRM pronto
-            </p>
-            <span
-              className="text-small"
-              style={{
-                fontWeight: 700,
-                color: 'var(--text-muted)',
-                background: 'var(--accent-light)',
-                padding: '2px 8px',
-                borderRadius: 999,
-              }}
-            >
-              {doneCoreCount}/{totalCore}
-            </span>
-          </div>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={handleDismiss}
+          aria-label="Dispensar checklist"
+          title="Dispensar"
+          style={{ flexShrink: 0, padding: 8, minHeight: 36, minWidth: 36 }}
+        >
+          <X size={18} aria-hidden />
+        </button>
+      </div>
+
+      {expanded ? (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light, #e2e8f0)' }}>
           <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
             Em poucos passos você vê a recepção, a IA e o WhatsApp funcionando.
           </p>
@@ -253,26 +284,26 @@ export default function OnboardingBanner() {
             </button>
             {stepsOpen ? (
               <div className="flex flex-wrap" style={{ marginTop: 8, gap: 6 }}>
-                  {pendingCore.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => handleStepNav(s.id)}
-                      disabled={stepBlocked(s.id)}
-                      className="text-small"
-                      style={{
-                        border: '1px solid var(--border-light)',
-                        background: stepBlocked(s.id) ? 'var(--surface-hover)' : 'var(--surface)',
-                        color: stepBlocked(s.id) ? 'var(--text-muted)' : 'var(--accent)',
-                        fontWeight: 600,
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        cursor: stepBlocked(s.id) ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {ONBOARDING_STEP_TITLES[s.id] || s.title}
-                    </button>
-                  ))}
+                {pendingCore.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleStepNav(s.id)}
+                    disabled={stepBlocked(s.id)}
+                    className="text-small"
+                    style={{
+                      border: '1px solid var(--border-light)',
+                      background: stepBlocked(s.id) ? 'var(--surface-hover)' : 'var(--surface)',
+                      color: stepBlocked(s.id) ? 'var(--text-muted)' : 'var(--accent)',
+                      fontWeight: 600,
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      cursor: stepBlocked(s.id) ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {ONBOARDING_STEP_TITLES[s.id] || s.title}
+                  </button>
+                ))}
               </div>
             ) : null}
           </div>
@@ -299,17 +330,7 @@ export default function OnboardingBanner() {
             ) : null}
           </details>
         </div>
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={handleDismiss}
-          aria-label="Dispensar checklist"
-          title="Dispensar"
-          style={{ flexShrink: 0, padding: 8, minHeight: 36, minWidth: 36 }}
-        >
-          <X size={18} aria-hidden />
-        </button>
-      </div>
+      ) : null}
     </div>
   );
 }
