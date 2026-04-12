@@ -127,193 +127,194 @@ export default async function handler(req, res) {
   try {
     console.log('[agent/process] start', { requestId, phone, messageId, academyId: academy });
 
-  const academyDoc = await getAcademyDocument(academy);
-  if (!academyDoc) {
-    console.error('[agent/process] academia não encontrada', { requestId, academy });
-    return res.status(200).json({ sent: false, error: 'academy_not_found' });
-  }
+    const academyDoc = await getAcademyDocument(academy);
+    if (!academyDoc) {
+      console.error('[agent/process] academia não encontrada', { requestId, academy });
+      return res.status(200).json({ sent: false, error: 'academy_not_found' });
+    }
 
-  const cycleId = getCurrentBillingCycleId(new Date(), academyDoc.billing_cycle_day);
-  const convForQuota = await resolveConversationForThreadCheck(inboundId, phone, academy);
-  const isNewThread =
-    !convForQuota || String(convForQuota.ai_thread_cycle_id || '').trim() !== String(cycleId).trim();
+    const cycleId = getCurrentBillingCycleId(new Date(), academyDoc.billing_cycle_day);
+    const convForQuota = await resolveConversationForThreadCheck(inboundId, phone, academy);
+    const isNewThread =
+      !convForQuota || String(convForQuota.ai_thread_cycle_id || '').trim() !== String(cycleId).trim();
 
-  let quotaCheck = { allowed: true, overage: false };
-  if (isNewThread) {
-    quotaCheck = checkAiQuota(academyDoc);
-    if (!quotaCheck.allowed) {
-      const fallbackMsg = quotaBlockMessage(academyDoc);
-      if (instOut) {
-        const qSent = await sendZapsterText({ recipient: phone, text: fallbackMsg, instanceId: instOut });
-        if (!qSent?.ok) {
-          console.error('[agent/process] quota block send falhou', { requestId, erro: qSent?.erro });
+    let quotaCheck = { allowed: true, overage: false };
+    if (isNewThread) {
+      quotaCheck = checkAiQuota(academyDoc);
+      if (!quotaCheck.allowed) {
+        const fallbackMsg = quotaBlockMessage(academyDoc);
+        if (instOut) {
+          const qSent = await sendZapsterText({ recipient: phone, text: fallbackMsg, instanceId: instOut });
+          if (!qSent?.ok) {
+            console.error('[agent/process] quota block send falhou', { requestId, erro: qSent?.erro });
+          }
+        } else {
+          console.warn('[agent/process] quota bloqueada sem outInstanceId', { requestId, phone });
         }
-      } else {
-        console.warn('[agent/process] quota bloqueada sem outInstanceId', { requestId, phone });
+        return res.status(200).json({ sent: Boolean(instOut), quota_blocked: true });
       }
-      return res.status(200).json({ sent: Boolean(instOut), quota_blocked: true });
-    }
-  }
-
-  const baseUrl = resolveBaseUrl(req);
-  if (!baseUrl) {
-    console.error('[agent/process] baseUrl vazio', { requestId });
-    return res.status(500).json({ sent: false, error: 'no_base_url' });
-  }
-
-  const agentHeaders = {
-    'content-type': 'application/json',
-    'x-academy-id': academy,
-    'x-internal-secret': expected
-  };
-  const agentBody = JSON.stringify(
-    buildAgentPayload({ phone, name, academyId: academy, message, messageId, outInstanceId: instOut })
-  );
-
-  try {
-    const resp1 = await fetch(`${baseUrl}/api/agent/respond`, {
-      method: 'POST',
-      headers: agentHeaders,
-      body: agentBody
-    });
-
-    if (resp1.status === 429) {
-      console.warn('[agent/process] rate limit em respond', {
-        requestId,
-        academyId: academy
-      });
-      return res.status(200).json({ sent: false, motivo: 'rate_limit' });
     }
 
-    if (!resp1.ok) {
-      const errorBody = await resp1.text();
-      console.error('[agent/process] agent HTTP error call 1', {
-        status: resp1.status,
-        requestId,
-        body: errorBody.slice(0, 300)
-      });
-      return res.status(200).json({ sent: false, error: 'agent_http_error' });
+    const baseUrl = resolveBaseUrl(req);
+    if (!baseUrl) {
+      console.error('[agent/process] baseUrl vazio', { requestId });
+      return res.status(500).json({ sent: false, error: 'no_base_url' });
     }
 
-    let agentData = await parseAgentJson(resp1, requestId, 'call 1');
-    if (!agentData) {
-      return res.status(200).json({ sent: false, error: 'agent_invalid_json' });
-    }
+    const agentHeaders = {
+      'content-type': 'application/json',
+      'x-academy-id': academy,
+      'x-internal-secret': expected
+    };
+    const agentBody = JSON.stringify(
+      buildAgentPayload({ phone, name, academyId: academy, message, messageId, outInstanceId: instOut })
+    );
 
-    if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
-      if (agentData.aviso_enviado) {
-        console.log('[agent/process] prompt não configurado — aviso já enviado pelo respond', { requestId, academyId: academy });
-        return res.status(200).json({ sent: true, motivo: 'prompt_nao_configurado' });
-      }
-      console.log('[agent/process] prompt não configurado — sem envio (sem instância ou falha Zapster)', { requestId, academyId: academy });
-      return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
-    }
-
-    console.log('[agent/process] call 1', {
-      requestId,
-      em_processamento: agentData?.em_processamento ?? null,
-      hasResposta: Boolean(agentData?.resposta)
-    });
-
-    if (agentData?.em_processamento) {
-      await new Promise((r) => setTimeout(r, 4000));
-
-      const resp2 = await fetch(`${baseUrl}/api/agent/respond`, {
+    try {
+      const resp1 = await fetch(`${baseUrl}/api/agent/respond`, {
         method: 'POST',
         headers: agentHeaders,
         body: agentBody
       });
 
-      if (resp2.ok) {
-        const parsed = await parseAgentJson(resp2, requestId, 'call 2');
-        if (parsed) {
-          agentData = parsed;
-          console.log('[agent/process] call 2 (poll)', {
-            requestId,
-            em_processamento: agentData?.em_processamento ?? null,
-            hasResposta: Boolean(agentData?.resposta)
-          });
+      if (resp1.status === 429) {
+        console.warn('[agent/process] rate limit em respond', {
+          requestId,
+          academyId: academy
+        });
+        return res.status(200).json({ sent: false, motivo: 'rate_limit' });
+      }
+
+      if (!resp1.ok) {
+        const errorBody = await resp1.text();
+        console.error('[agent/process] agent HTTP error call 1', {
+          status: resp1.status,
+          requestId,
+          body: errorBody.slice(0, 300)
+        });
+        return res.status(200).json({ sent: false, error: 'agent_http_error' });
+      }
+
+      let agentData = await parseAgentJson(resp1, requestId, 'call 1');
+      if (!agentData) {
+        return res.status(200).json({ sent: false, error: 'agent_invalid_json' });
+      }
+
+      if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
+        if (agentData.aviso_enviado) {
+          console.log('[agent/process] prompt não configurado — aviso já enviado pelo respond', { requestId, academyId: academy });
+          return res.status(200).json({ sent: true, motivo: 'prompt_nao_configurado' });
         }
-      } else {
-        console.error('[agent/process] agent HTTP error call 2', { status: resp2.status, requestId });
+        console.log('[agent/process] prompt não configurado — sem envio (sem instância ou falha Zapster)', { requestId, academyId: academy });
+        return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
       }
-    }
 
-    if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
-      if (agentData.aviso_enviado) {
-        console.log('[agent/process] prompt não configurado após poll — aviso já enviado', { requestId, academyId: academy });
-        return res.status(200).json({ sent: true, motivo: 'prompt_nao_configurado' });
-      }
-      console.log('[agent/process] prompt não configurado após poll — sem envio', { requestId, academyId: academy });
-      return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
-    }
-
-    if (agentData?.em_processamento) {
-      console.error('[agent/process] ainda em processamento após poll', { requestId, phone });
-      return res.status(200).json({ sent: false, processing: true });
-    }
-
-    const resposta = String(agentData?.resposta || '').trim();
-    if (!resposta) {
-      console.error('[agent/process] resposta vazia', {
+      console.log('[agent/process] call 1', {
         requestId,
-        phone,
-        keys: Object.keys(agentData || {})
+        em_processamento: agentData?.em_processamento ?? null,
+        hasResposta: Boolean(agentData?.resposta)
       });
-      return res.status(200).json({ sent: false, empty: true });
-    }
 
-    if (!instOut) {
-      console.error('[agent/process] outInstanceId vazio', { requestId, phone, academyId: academy });
-    }
+      if (agentData?.em_processamento) {
+        await new Promise((r) => setTimeout(r, 4000));
 
-    const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: instOut });
-    if (!sent?.ok) {
-      console.error('[agent/process] sendZapsterText falhou', {
-        requestId,
-        phone,
-        outInstanceId: instOut,
-        erro: sent?.erro
-      });
-      return res.status(200).json({ sent: false, error: sent?.erro });
-    }
+        const resp2 = await fetch(`${baseUrl}/api/agent/respond`, {
+          method: 'POST',
+          headers: agentHeaders,
+          body: agentBody
+        });
 
-    const nowIso = new Date().toISOString();
-    let conv = null;
-    const inbound = inboundId != null && inboundId !== '' ? String(inboundId).trim() : '';
-    if (inbound) {
-      conv = await getConversationDocById(inbound);
-      if (!conv || String(conv.academy_id || '') !== String(academy)) conv = null;
-    }
-    if (!conv) conv = await getOrCreateConversationDoc(phone, academy, academyDoc).catch(() => null);
-    const convId = String(conv?.$id || '').trim();
-    if (convId) {
-      const mid = String(messageId || '').trim();
-      const assistantMsg = {
-        role: 'assistant',
-        content: resposta,
-        timestamp: nowIso,
-        sender: 'ai',
-        ...(mid ? { in_reply_to: mid } : {})
-      };
-      await updateConversationWithMerge(convId, [assistantMsg]);
-    }
-
-    if (isNewThread && convId) {
-      try {
-        await incrementAiThreads(academy, Boolean(quotaCheck.overage), academyDoc.plan);
-      } catch (e) {
-        console.error('[agent/process] incrementAiThreads', { requestId, error: e?.message });
+        if (resp2.ok) {
+          const parsed = await parseAgentJson(resp2, requestId, 'call 2');
+          if (parsed) {
+            agentData = parsed;
+            console.log('[agent/process] call 2 (poll)', {
+              requestId,
+              em_processamento: agentData?.em_processamento ?? null,
+              hasResposta: Boolean(agentData?.resposta)
+            });
+          }
+        } else {
+          console.error('[agent/process] agent HTTP error call 2', { status: resp2.status, requestId });
+        }
       }
-      const cyc = await updateConversationAiThreadCycle(convId, cycleId);
-      if (!cyc.ok) console.warn('[agent/process] updateConversationAiThreadCycle', { requestId, erro: cyc.erro });
-    }
 
-    console.log('[agent/process] sent ✓', { requestId, phone, respostaLen: resposta.length });
-    return res.status(200).json({ sent: true });
-  } catch (e) {
-    console.error('[agent/process] error', { error: e?.message, requestId, phone });
-    return res.status(200).json({ sent: false, error: e?.message || 'internal' });
+      if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
+        if (agentData.aviso_enviado) {
+          console.log('[agent/process] prompt não configurado após poll — aviso já enviado', { requestId, academyId: academy });
+          return res.status(200).json({ sent: true, motivo: 'prompt_nao_configurado' });
+        }
+        console.log('[agent/process] prompt não configurado após poll — sem envio', { requestId, academyId: academy });
+        return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
+      }
+
+      if (agentData?.em_processamento) {
+        console.error('[agent/process] ainda em processamento após poll', { requestId, phone });
+        return res.status(200).json({ sent: false, processing: true });
+      }
+
+      const resposta = String(agentData?.resposta || '').trim();
+      if (!resposta) {
+        console.error('[agent/process] resposta vazia', {
+          requestId,
+          phone,
+          keys: Object.keys(agentData || {})
+        });
+        return res.status(200).json({ sent: false, empty: true });
+      }
+
+      if (!instOut) {
+        console.error('[agent/process] outInstanceId vazio', { requestId, phone, academyId: academy });
+      }
+
+      const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: instOut });
+      if (!sent?.ok) {
+        console.error('[agent/process] sendZapsterText falhou', {
+          requestId,
+          phone,
+          outInstanceId: instOut,
+          erro: sent?.erro
+        });
+        return res.status(200).json({ sent: false, error: sent?.erro });
+      }
+
+      const nowIso = new Date().toISOString();
+      let conv = null;
+      const inbound = inboundId != null && inboundId !== '' ? String(inboundId).trim() : '';
+      if (inbound) {
+        conv = await getConversationDocById(inbound);
+        if (!conv || String(conv.academy_id || '') !== String(academy)) conv = null;
+      }
+      if (!conv) conv = await getOrCreateConversationDoc(phone, academy, academyDoc).catch(() => null);
+      const convId = String(conv?.$id || '').trim();
+      if (convId) {
+        const mid = String(messageId || '').trim();
+        const assistantMsg = {
+          role: 'assistant',
+          content: resposta,
+          timestamp: nowIso,
+          sender: 'ai',
+          ...(mid ? { in_reply_to: mid } : {})
+        };
+        await updateConversationWithMerge(convId, [assistantMsg]);
+      }
+
+      if (isNewThread && convId) {
+        try {
+          await incrementAiThreads(academy, Boolean(quotaCheck.overage), academyDoc.plan);
+        } catch (e) {
+          console.error('[agent/process] incrementAiThreads', { requestId, error: e?.message });
+        }
+        const cyc = await updateConversationAiThreadCycle(convId, cycleId);
+        if (!cyc.ok) console.warn('[agent/process] updateConversationAiThreadCycle', { requestId, erro: cyc.erro });
+      }
+
+      console.log('[agent/process] sent ✓', { requestId, phone, respostaLen: resposta.length });
+      return res.status(200).json({ sent: true });
+    } catch (e) {
+      console.error('[agent/process] error', { error: e?.message, requestId, phone });
+      return res.status(200).json({ sent: false, error: e?.message || 'internal' });
+    }
   } finally {
     processingLocks.delete(lockKey);
   }
