@@ -44,6 +44,38 @@ function ensureConfigOk(res) {
   return true;
 }
 
+/** Appwrite devolve "Unknown attribute: \"campo\"" se o schema da coleção for mais antigo que o código. */
+function parseUnknownAttributeFromMessage(msg) {
+  const s = String(msg || '');
+  let m = s.match(/Unknown attribute:\s*"([^"]+)"/i);
+  if (m) return m[1];
+  m = s.match(/Unknown attribute:\s*'([^']+)'/i);
+  if (m) return m[1];
+  m = s.match(/Unknown attribute:\s*([\w.]+)/i);
+  return m ? m[1] : null;
+}
+
+/**
+ * Cria documento omitindo chaves que o projeto Appwrite ainda não tem como atributos.
+ */
+async function createAcademyDocumentResilient(databases, payload, perms) {
+  const docId = ID.unique();
+  let data = { ...payload };
+  for (let i = 0; i < 48; i++) {
+    try {
+      return await databases.createDocument(DB_ID, ACADEMIES_COL, docId, data, perms);
+    } catch (err) {
+      const bad = parseUnknownAttributeFromMessage(err?.message);
+      if (!bad || !Object.prototype.hasOwnProperty.call(data, bad)) throw err;
+      console.warn('[academies/create] schema sem atributo; removendo da criação:', bad);
+      const next = { ...data };
+      delete next[bad];
+      data = next;
+    }
+  }
+  throw new Error('Não foi possível criar academia: schema incompatível (muitos atributos rejeitados)');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Method Not Allowed' });
@@ -159,7 +191,7 @@ export default async function handler(req, res) {
     const teamId = await createTeamForOwner().catch(() => '');
     payload.teamId = teamId || '';
     const perms = permsFor(teamId);
-    const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), payload, perms);
+    const doc = await createAcademyDocumentResilient(databases, payload, perms);
     await maybeEnsureTrial(doc.$id);
     return res.status(200).json({ sucesso: true, id: doc.$id, teamId: teamId || '' });
   } catch (err) {

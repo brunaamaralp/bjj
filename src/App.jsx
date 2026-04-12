@@ -210,28 +210,6 @@ const App = () => {
       } else if (list.length > 0) {
         academyId = list[0].$id;
       } else {
-        const isNewUser = new Date(u.registration).getTime() > Date.now() - 60000; // 1 min
-        if (!isNewUser) {
-           throw new Error('Usuário não possui nenhuma academia associada e não é um novo cadastro.');
-        }
-
-        const defaultFinance = {
-          cardFees: {
-            pix: { percent: 0, fixed: 0 },
-            debito: { percent: 0, fixed: 0 },
-            credito_avista: { percent: 0, fixed: 0 },
-            credito_parcelado: { '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '11': 0, '12': 0 }
-          },
-          bankAccounts: [],
-          plans: []
-        };
-        const checklist = [
-          { id: 'academy_info', title: 'Atualizar dados da academia', done: false },
-          { id: 'ui_labels', title: 'Definir rótulos (Aulas/Alunos/Leads)', done: false },
-          { id: 'quick_times', title: 'Adicionar horários rápidos', done: false },
-          { id: 'first_lead', title: 'Criar primeiro lead', done: false },
-          { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
-        ];
         const jwt = await createSessionJwt();
         const resp = await fetch('/api/academies/create', {
           method: 'POST',
@@ -688,6 +666,9 @@ const App = () => {
           <main className="main-content">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/register" element={<Navigate to="/" replace />} />
+              <Route path="/cadastro" element={<Navigate to="/" replace />} />
               <Route path="/pipeline" element={<Pipeline />} />
               <Route path="/inbox" element={<Inbox />} />
               <Route path="/lead/:id" element={<LeadProfile />} />
@@ -701,6 +682,7 @@ const App = () => {
               <Route path="/empresa" element={<AcademySettings />} />
               <Route path="/profile" element={<Navigate to="/conta" replace />} />
               <Route path="/templates" element={<Templates />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </div>
