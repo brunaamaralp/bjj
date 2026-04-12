@@ -1,77 +1,77 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowRight,
-  LogIn,
-  MessageCircle,
-  Calendar,
-  FileText,
-  LayoutGrid,
-  Bot,
-  Users,
-  Building2,
-} from 'lucide-react';
+import { ArrowRight, LogIn, MessageCircle } from 'lucide-react';
 import NaviLogo from '../components/NaviLogo.jsx';
 import NaviWordmark from '../components/NaviWordmark.jsx';
 
 function KanbanTag({ children }) {
-  return (
-    <span className="navi-land-kanban-tag">{children}</span>
-  );
+  return <span className="navi-lp-kanban-tag">{children}</span>;
 }
 
+/** Colunas alinhadas ao funil do produto (Pipeline). */
 function ProductMock() {
   return (
-    <div className="navi-land-mock">
-      <div className="navi-land-mock-top">
-        <div className="navi-land-mock-top-left">
-          <NaviLogo size={20} variant="white" />
-          <NaviWordmark fontSize={15} variant="light" />
+    <div className="navi-lp-mock" aria-hidden>
+      <div className="navi-lp-mock-top">
+        <div className="navi-lp-mock-top-left">
+          <MessageCircle size={18} color="white" strokeWidth={2.2} />
+          <span className="navi-lp-mock-wa-label">WhatsApp + Nave</span>
         </div>
-        <div className="navi-land-mock-pills">
-          <span className="navi-land-mock-pill navi-land-mock-pill--on">Funil</span>
-          <span className="navi-land-mock-pill">Atendimento</span>
-          <span className="navi-land-mock-pill">Alunos</span>
-        </div>
-      </div>
-      <div className="navi-land-mock-stats">
-        <div className="navi-land-stat navi-land-stat--vio">
-          <span className="navi-land-stat-num navi-land-stat-num--vio">7</span>
-          <span className="navi-land-stat-lbl">Leads ativos</span>
-        </div>
-        <div className="navi-land-stat navi-land-stat--cor">
-          <span className="navi-land-stat-num navi-land-stat-num--cor">3</span>
-          <span className="navi-land-stat-lbl">Não lidos</span>
-        </div>
-        <div className="navi-land-stat navi-land-stat--ok">
-          <span className="navi-land-stat-num navi-land-stat-num--ok">12</span>
-          <span className="navi-land-stat-lbl">Matriculados</span>
+        <div className="navi-lp-mock-pills">
+          <span className="navi-lp-mock-pill navi-lp-mock-pill--on">Funil</span>
+          <span className="navi-lp-mock-pill">Atendimento</span>
         </div>
       </div>
-      <div className="navi-land-mock-kanban">
-        <div className="navi-land-kcol">
-          <div className="navi-land-kcol-title">Leads</div>
-          <div className="navi-land-kcard navi-land-kcard--v">
-            <div className="navi-land-kname">Rafael M.</div>
-            <KanbanTag>Jiu-Jitsu</KanbanTag>
-          </div>
-          <div className="navi-land-kcard navi-land-kcard--v">
-            <div className="navi-land-kname">Julia S.</div>
-            <KanbanTag>No-Gi</KanbanTag>
-          </div>
+      <div className="navi-lp-mock-stats">
+        <div className="navi-lp-stat navi-lp-stat--vio">
+          <span className="navi-lp-stat-num navi-lp-stat-num--vio">7</span>
+          <span className="navi-lp-stat-lbl">Leads ativos</span>
         </div>
-        <div className="navi-land-kcol">
-          <div className="navi-land-kcol-title">Em contato</div>
-          <div className="navi-land-kcard navi-land-kcard--c">
-            <div className="navi-land-kname">Marina Costa</div>
-            <KanbanTag>Kids</KanbanTag>
-          </div>
+        <div className="navi-lp-stat navi-lp-stat--cor">
+          <span className="navi-lp-stat-num navi-lp-stat-num--cor">3</span>
+          <span className="navi-lp-stat-lbl">Em follow-up</span>
         </div>
-        <div className="navi-land-kcol">
-          <div className="navi-land-kcol-title">Matriculados</div>
-          <div className="navi-land-kcard navi-land-kcard--g">
-            <div className="navi-land-kname">Pedro Lima</div>
-            <KanbanTag>Adulto</KanbanTag>
+        <div className="navi-lp-stat navi-lp-stat--ok">
+          <span className="navi-lp-stat-num navi-lp-stat-num--ok">12</span>
+          <span className="navi-lp-stat-lbl">Matriculados</span>
+        </div>
+      </div>
+      <div className="navi-lp-mock-kanban-scroll">
+        <div className="navi-lp-mock-kanban">
+          <div className="navi-lp-kcol">
+            <div className="navi-lp-kcol-title">Novo</div>
+            <div className="navi-lp-kcard navi-lp-kcard--v">
+              <div className="navi-lp-kname">Rafael M.</div>
+              <KanbanTag>Jiu-Jitsu</KanbanTag>
+            </div>
+          </div>
+          <div className="navi-lp-kcol">
+            <div className="navi-lp-kcol-title">Experimental</div>
+            <div className="navi-lp-kcard navi-lp-kcard--c">
+              <div className="navi-lp-kname">Marina Costa</div>
+              <KanbanTag>Sáb 10h</KanbanTag>
+            </div>
+          </div>
+          <div className="navi-lp-kcol">
+            <div className="navi-lp-kcol-title">Não compareceu</div>
+            <div className="navi-lp-kcard navi-lp-kcard--miss">
+              <div className="navi-lp-kname">Julia S.</div>
+              <KanbanTag>Reagendar</KanbanTag>
+            </div>
+          </div>
+          <div className="navi-lp-kcol">
+            <div className="navi-lp-kcol-title">Aguardando decisão</div>
+            <div className="navi-lp-kcard navi-lp-kcard--wait">
+              <div className="navi-lp-kname">Pedro Lima</div>
+              <KanbanTag>Pós-aula</KanbanTag>
+            </div>
+          </div>
+          <div className="navi-lp-kcol">
+            <div className="navi-lp-kcol-title">Matrícula</div>
+            <div className="navi-lp-kcard navi-lp-kcard--g">
+              <div className="navi-lp-kname">Ana R.</div>
+              <KanbanTag>Plano mensal</KanbanTag>
+            </div>
           </div>
         </div>
       </div>
@@ -79,235 +79,334 @@ function ProductMock() {
   );
 }
 
-const PAIN = [
-  {
-    Icon: MessageCircle,
-    title: 'Lead sumiu no WhatsApp',
-    desc: 'Perguntou o preço, você respondeu, nunca mais apareceu…',
-  },
-  {
-    Icon: Calendar,
-    title: 'Aula marcada e esquecida',
-    desc: 'Confirmado no grupo, anotado num papel, alguém não apareceu…',
-  },
-  {
-    Icon: FileText,
-    title: 'A planilha que você odeia',
-    desc: 'Você sabe que tem uma. Sabe que está desatualizada…',
-  },
-];
+const FUNIL_STEPS = ['Novo', 'Experimental', 'Não compareceu', 'Aguardando decisão', 'Matrícula'];
 
-const FEAT_PILLS = [
-  { Icon: LayoutGrid, label: 'Pipeline de leads' },
-  { Icon: Bot, label: 'WhatsApp + IA' },
-  { Icon: Users, label: 'Gestão de alunos' },
-  { Icon: Calendar, label: 'Aulas experimentais' },
-  { Icon: Building2, label: 'Multi-academia' },
-];
-
-const FEAT_ROWS = [
-  ['01', 'Pipeline de leads visual', <>Do primeiro contato à <span className="navi-land-feat-kw">matrícula</span> em colunas</>],
-  ['02', 'Atendimento via IA no WhatsApp', <>Responde <span className="navi-land-feat-kw">automaticamente.</span> Você assume quando quiser</>],
-  ['03', 'Gestão de alunos ativos', <>Ativo, pausado, em débito — em <span className="navi-land-feat-kw">segundos</span></>],
-  ['04', 'Agendamento de experimentais', <>Marca a aula direto na <span className="navi-land-feat-kw">conversa</span></>],
-  ['05', 'Multi-academia', <>Várias unidades, <span className="navi-land-feat-kw">um painel</span></>],
+const POSICIONAMENTO_ITENS = [
+  '✔ Todo lead seja bem atendido',
+  '✔ Toda conversa tenha continuidade',
+  '✔ Todo interessado seja acompanhado',
+  '✔ Toda oportunidade seja aproveitada',
 ];
 
 const Welcome = () => (
-  <div className="navi-land">
-    <nav className="navi-land-nav">
-      <div className="navi-land-nav-inner">
-        <Link to="/" className="navi-land-nav-brand">
+  <div className="navi-lp">
+    <a href="#conteudo-principal" className="navi-lp-skip">
+      Ir para o conteúdo
+    </a>
+    <nav className="navi-lp-nav" aria-label="Principal">
+      <div className="navi-lp-nav-inner">
+        <Link to="/" className="navi-lp-nav-brand">
           <NaviLogo size={26} />
           <NaviWordmark fontSize={20} />
         </Link>
-        <div className="navi-land-nav-cta">
-          <Link to="/login" className="navi-land-btn-nav-ghost">
+        <div className="navi-lp-nav-cta">
+          <Link to="/login" className="navi-lp-btn-nav-ghost">
             <LogIn size={15} strokeWidth={2.4} aria-hidden />
             Entrar
           </Link>
-          <Link to="/cadastro" className="navi-land-btn-nav-primary">
-            Criar conta grátis
+          <Link to="/cadastro" className="navi-lp-btn-nav-primary">
+            Quero testar grátis
           </Link>
         </div>
       </div>
     </nav>
 
-    <section className="navi-land-hero">
-      <div className="navi-land-hero-grid">
-        <div className="navi-land-hero-left">
-          <div className="hero-badge navi-land-hero-badge">
-            <span className="navi-land-badge-dot" aria-hidden />
-            Para academias e estúdios
+    <main id="conteudo-principal">
+      <section className="navi-lp-hero" aria-labelledby="navi-lp-hero-title">
+        <div className="navi-lp-hero-grid">
+          <div className="navi-lp-hero-left">
+            <h1 id="navi-lp-hero-title" className="navi-lp-hero-h1">
+              Pare de perder alunos por causa de atendimento ruim no WhatsApp
+            </h1>
+            <p className="navi-lp-lead">O Nave é a plataforma de relacionamento para academias</p>
+            <p className="navi-lp-hero-p">Da primeira mensagem até a matrícula, e além.</p>
+            <p className="navi-lp-hero-p">
+              Atende 24h, conduz com técnica de vendas e acompanha cada lead até se tornar aluno.
+            </p>
+            <ul className="navi-lp-hero-bullets">
+              <li>👉 Sem depender de recepcionista</li>
+              <li>👉 Sem deixar lead esfriar</li>
+              <li>👉 Mais resultado com os leads que você já recebe</li>
+            </ul>
+            <Link to="/cadastro" className="navi-lp-btn-hero">
+              Quero testar grátis
+              <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
+            </Link>
           </div>
-          <h1 className="hero-headline navi-land-hero-h1">
-            Chega de lead
-            <br />
-            perdido no
-            <br />
-            <span className="navi-land-accent">WhatsApp.</span>
-          </h1>
-          <p className="hero-sub navi-land-hero-sub">
-            Nave organiza seus contatos, agendamentos e alunos em um só lugar — com atendimento por IA e funil visual.
-            Sem planilha, sem mensagem esquecida.
-          </p>
-          <Link to="/cadastro" className="btn-hero navi-land-hero-btn">
-            Começar grátis
-            <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
-          </Link>
-          <div className="hero-no-card navi-land-hero-hint">
-            <span className="navi-land-hint-check" aria-hidden>
-              ✓
-            </span>
-            <span>Sem cartão de crédito · Leva menos de 2 minutos</span>
+          <div className="navi-lp-hero-right">
+            <ProductMock />
           </div>
-          <div className="hero-proof navi-land-hero-proof">
-            <div className="navi-land-avatars" aria-hidden>
-              <span className="navi-land-av" style={{ background: 'linear-gradient(135deg,#7B63D4,#5B3FBF)' }} />
-              <span className="navi-land-av" style={{ background: 'linear-gradient(135deg,#BDB0EE,#7B63D4)' }} />
-              <span className="navi-land-av" style={{ background: 'linear-gradient(135deg,#F04040,#c53030)' }} />
-              <span className="navi-land-av" style={{ background: 'linear-gradient(135deg,#276534,#3bad6e)' }} />
+        </div>
+      </section>
+
+      <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-s1">
+        <div className="navi-lp-inner">
+          <div className="navi-lp-card">
+            <h2 id="navi-lp-s1" className="navi-lp-h2">
+              1. Atendimento que inicia o relacionamento (24h)
+            </h2>
+            <ul className="navi-lp-list">
+              <li>Responde em segundos, a qualquer hora</li>
+              <li>Comunicação profissional, amigável e consistente</li>
+              <li>Conduz a conversa com técnica de vendas de verdade</li>
+              <li>Entende o momento do lead e faz as perguntas certas</li>
+              <li>Cria valor antes de falar de preço</li>
+              <li>Leva naturalmente até a aula experimental</li>
+            </ul>
+            <p className="navi-lp-accent-line">👉 O primeiro contato já gera conexão — não só resposta</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="navi-lp-band" aria-labelledby="navi-lp-s2">
+        <div className="navi-lp-inner">
+          <div className="navi-lp-card">
+            <h2 id="navi-lp-s2" className="navi-lp-h2">
+              2. Acompanhamento que transforma interesse em matrícula
+            </h2>
+            <p className="navi-lp-p">Cada lead evolui dentro de um funil claro:</p>
+            <div className="navi-lp-funnel" role="list">
+              {FUNIL_STEPS.map((step, i) => (
+                <React.Fragment key={step}>
+                  {i > 0 && <span className="navi-lp-funnel-arrow" aria-hidden>→</span>}
+                  <span className="navi-lp-funnel-chip" role="listitem">
+                    {step}
+                  </span>
+                </React.Fragment>
+              ))}
             </div>
-            <p className="navi-land-proof-text">
-              <strong>+120 estúdios</strong>
-              <span> já organizam seus alunos com o Nave</span>
+            <p className="navi-lp-p">O Nave não “responde e esquece” — ele acompanha</p>
+            <p className="navi-lp-p">Alertas inteligentes como:</p>
+            <div className="navi-lp-alert">
+              <p className="navi-lp-alert-text">👉 “Esse lead fez aula há 3 dias e ainda não fechou”</p>
+            </div>
+            <p className="navi-lp-p">Follow-up no momento certo, com mensagem certa</p>
+            <p className="navi-lp-accent-line">👉 Você continua presente até o aluno tomar decisão</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-s3">
+        <div className="navi-lp-inner">
+          <div className="navi-lp-card">
+            <h2 id="navi-lp-s3" className="navi-lp-h2">
+              3. Relacionamento com inteligência (antes e depois da matrícula)
+            </h2>
+            <ul className="navi-lp-list">
+              <li>Histórico completo de cada conversa</li>
+              <li>Entendimento das principais objeções</li>
+              <li>Visão clara do comportamento dos leads</li>
+              <li>Base para melhorar comunicação e retenção</li>
+            </ul>
+            <p className="navi-lp-accent-line">
+              👉 Você deixa de ter conversas soltas e passa a construir relacionamento
             </p>
           </div>
         </div>
-        <div className="hero-right navi-land-hero-right">
-          <ProductMock />
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section className="navi-land-pain">
-      <p className="navi-land-pain-eyebrow">Você conhece essa situação</p>
-      <h2 className="navi-land-pain-h2">
-        Seu estúdio cresce.
-        <br />
-        <span className="navi-land-accent">O caos também.</span>
-      </h2>
-      <div className="pain-cards navi-land-pain-grid">
-        {PAIN.map(({ Icon, title, desc }) => (
-          <div key={title} className="navi-land-pain-card">
-            <div className="navi-land-pain-ico">
-              <Icon size={20} color="var(--v500)" strokeWidth={2} aria-hidden />
+      <section className="navi-lp-band" aria-labelledby="navi-lp-s4">
+        <div className="navi-lp-inner">
+          <div className="navi-lp-card navi-lp-card--split">
+            <div>
+              <h2 id="navi-lp-s4" className="navi-lp-h2">
+                Personalização inteligente em minutos
+              </h2>
+              <p className="navi-lp-p">Em cerca de 15 minutos, o Nave aprende:</p>
             </div>
-            <h3 className="navi-land-pain-card-title">{title}</h3>
-            <p className="navi-land-pain-card-desc">{desc}</p>
+            <ul className="navi-lp-list">
+              <li>Seu tom de voz</li>
+              <li>Seus planos e preços</li>
+              <li>Seus horários</li>
+              <li>Sua forma de trabalhar</li>
+            </ul>
+            <p className="navi-lp-accent-line navi-lp-accent-line--full">
+              👉 Cada conversa soa como alguém da sua equipe atendendo
+            </p>
           </div>
-        ))}
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section className="navi-land-features">
-      <p className="navi-land-feat-eyebrow">O que o Nave resolve</p>
-      <h2 className="navi-land-feat-h2">
-        Tudo que falta no seu estúdio.
-        <br />
-        <span className="navi-land-accent">Em um lugar só.</span>
-      </h2>
-      <div className="feat-pills navi-land-feat-pills">
-        {FEAT_PILLS.map(({ Icon, label }) => (
-          <button key={label} type="button" className="navi-land-feat-pill">
-            <Icon size={28} strokeWidth={1.75} color="var(--v500)" aria-hidden />
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="feat-list navi-land-feat-list">
-        {FEAT_ROWS.map(([num, title, desc], i) => (
-          <div key={num} className={`feat-row navi-land-feat-row${i === FEAT_ROWS.length - 1 ? ' navi-land-feat-row--last' : ''}`}>
-            <span className="feat-num navi-land-feat-num">{num}</span>
-            <span className="feat-title navi-land-feat-title">{title}</span>
-            <span className="navi-land-feat-desc">{desc}</span>
-          </div>
-        ))}
-      </div>
-    </section>
+      <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-social">
+        <div className="navi-lp-inner navi-lp-inner--narrow">
+          <h2 id="navi-lp-social" className="navi-lp-h2">
+            Prova social
+          </h2>
+          <figure className="navi-lp-social-card">
+            <blockquote className="navi-lp-quote">
+              <p>
+                “O Nave elevou completamente o nível do nosso atendimento. Hoje a gente converte mais,
+                acompanha melhor e não perde mais contato por falta de resposta.”
+              </p>
+            </blockquote>
+            <figcaption className="navi-lp-quote-by">— Gracie Barra Lagoa da Prata</figcaption>
+          </figure>
+        </div>
+      </section>
 
-    <section className="navi-land-cta-outer">
-      <div className="cta-inner navi-land-cta-inner">
-        <h2 className="cta-headline navi-land-cta-h2">
-          Organize seu estúdio
-          <br />
-          em menos de <span className="navi-land-accent navi-land-accent--on-violet">10 minutos.</span>
-        </h2>
-        <p className="navi-land-cta-sub">Sem cartão de crédito. Sem complicação. Sem planilha.</p>
-        <Link to="/cadastro" className="navi-land-cta-btn">
-          Criar conta grátis
-          <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
-        </Link>
-        <p className="navi-land-cta-hint">Mais de 120 estúdios já começaram</p>
-      </div>
-    </section>
+      <section className="navi-lp-band navi-lp-band--dark" aria-labelledby="navi-lp-problema">
+        <div className="navi-lp-inner navi-lp-inner--narrow">
+          <h2 id="navi-lp-problema" className="navi-lp-h2 navi-lp-h2--on-dark">
+            O problema não é só atendimento.
+          </h2>
+          <p className="navi-lp-sub-dark">É o que acontece depois da primeira mensagem.</p>
+          <ul className="navi-lp-list navi-lp-list--dark">
+            <li>O lead pergunta… e some</li>
+            <li>Faz aula… e ninguém chama</li>
+            <li>Demonstra interesse… e esfria</li>
+          </ul>
+        </div>
+      </section>
 
-    <footer className="navi-land-footer">
-      <div className="navi-land-footer-inner">
-        <div className="navi-land-footer-brand">
+      <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-pos">
+        <div className="navi-lp-inner">
+          <h2 id="navi-lp-pos" className="navi-lp-h2">
+            POSICIONAMENTO
+          </h2>
+          <p className="navi-lp-p">O Nave não deixa o relacionamento parar.</p>
+          <p className="navi-lp-p">Ele garante que:</p>
+          <ul className="navi-lp-checklist">
+            {POSICIONAMENTO_ITENS.map((text) => (
+              <li key={text}>{text}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="navi-lp-band" aria-labelledby="navi-lp-fechamento">
+        <div className="navi-lp-inner navi-lp-inner--narrow">
+          <h2 id="navi-lp-fechamento" className="navi-lp-h2">
+            FECHAMENTO
+          </h2>
+          <p className="navi-lp-p">Chega de tratar lead como conversa solta.</p>
+          <p className="navi-lp-p">
+            Com o Nave, cada contato vira um relacionamento estruturado, que aumenta suas chances de
+            matrícula.
+          </p>
+          <p className="navi-lp-p">
+            Teste agora e veja a diferença nas suas conversas e no acompanhamento dos seus leads
+          </p>
+          <p className="navi-lp-p">
+            Configure em poucos minutos e comece a evoluir seu atendimento hoje.
+          </p>
+        </div>
+      </section>
+
+      <section className="navi-lp-final-cta" aria-labelledby="navi-lp-cta-final-title">
+        <div className="navi-lp-final-inner">
+          <h2 id="navi-lp-cta-final-title" className="navi-lp-sr-only">
+            CTA final
+          </h2>
+          <Link to="/cadastro" className="navi-lp-btn-final">
+            Quero começar meu teste grátis de 14 dias
+            <ArrowRight size={20} strokeWidth={2.4} aria-hidden />
+          </Link>
+          <p className="navi-lp-final-hint">Sem compromisso • Cancelamento a qualquer momento</p>
+        </div>
+      </section>
+    </main>
+
+    <footer className="navi-lp-footer">
+      <div className="navi-lp-footer-inner">
+        <div className="navi-lp-footer-brand">
           <NaviLogo size={20} />
           <NaviWordmark fontSize={16} />
         </div>
-        <p className="footer-copy navi-land-footer-copy">© 2026 Nave · navefit.com · @navefit · Todos os direitos reservados</p>
+        <p className="navi-lp-footer-copy">
+          © 2026 Nave · navefit.com · @navefit · Todos os direitos reservados
+        </p>
       </div>
     </footer>
 
-    <style dangerouslySetInnerHTML={{ __html: `
-      @keyframes navi-land-fade-up {
+    <style dangerouslySetInnerHTML={{
+      __html: `
+      @keyframes navi-lp-fade-up {
         from { opacity: 0; transform: translateY(12px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      @keyframes navi-land-pulse-dot {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.35; }
-      }
 
-      .navi-land {
-        --nl-pad: 48px;
+      .navi-lp {
+        --nl-pad: clamp(20px, 4vw, 48px);
         min-height: 100vh;
         background: #FFFFFF;
         color: var(--ink);
         font-family: var(--ff-ui);
       }
-      @media (max-width: 768px) {
-        .navi-land { --nl-pad: 20px; }
+
+      .navi-lp-skip {
+        position: absolute;
+        left: -9999px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      }
+      .navi-lp-skip:focus {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        z-index: 200;
+        width: auto;
+        height: auto;
+        padding: 10px 16px;
+        background: var(--v500);
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        border-radius: 8px;
+        text-decoration: none;
       }
 
-      .navi-land-nav {
+      .navi-lp-sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .navi-lp-nav {
         position: sticky;
         top: 0;
         z-index: 100;
-        height: 58px;
+        min-height: 58px;
         display: flex;
         align-items: center;
-        padding: 0 var(--nl-pad);
+        padding: 10px var(--nl-pad);
         background: rgba(255, 255, 255, 0.92);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
         border-bottom: 1.5px solid #F0EEF8;
       }
-      .navi-land-nav-inner {
+      .navi-lp-nav-inner {
         max-width: 1100px;
         width: 100%;
         margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 12px;
       }
-      .navi-land-nav-brand {
+      .navi-lp-nav-brand {
         display: flex;
         align-items: center;
         gap: 10px;
         text-decoration: none;
         color: inherit;
+        flex-shrink: 0;
       }
-      .navi-land-nav-cta { display: flex; align-items: center; gap: 10px; }
-      .navi-land-btn-nav-ghost {
+      .navi-lp-nav-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+      .navi-lp-btn-nav-ghost {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 7px 16px;
-        border-radius: 8px;
+        padding: 10px 16px;
+        min-height: 44px;
+        border-radius: 10px;
         font-size: 13px;
         font-weight: 600;
         text-decoration: none;
@@ -316,13 +415,14 @@ const Welcome = () => (
         border: none;
         transition: background 0.15s ease;
       }
-      .navi-land-btn-nav-ghost:hover { background: var(--v100); }
-      .navi-land-btn-nav-primary {
+      .navi-lp-btn-nav-ghost:hover { background: var(--v100); }
+      .navi-lp-btn-nav-primary {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 7px 18px;
-        border-radius: 8px;
+        padding: 10px 18px;
+        min-height: 44px;
+        border-radius: 10px;
         font-size: 13px;
         font-weight: 700;
         text-decoration: none;
@@ -332,446 +432,453 @@ const Welcome = () => (
         box-shadow: 0 2px 10px rgba(91, 63, 191, 0.28);
         transition: background 0.15s ease, transform 0.15s ease;
       }
-      .navi-land-btn-nav-primary:hover {
+      .navi-lp-btn-nav-primary:hover {
         background: var(--v700);
         transform: translateY(-1px);
       }
-      @media (max-width: 768px) {
-        .navi-land-btn-nav-ghost { display: none !important; }
+      @media (max-width: 520px) {
+        .navi-lp-btn-nav-ghost { display: none !important; }
+        .navi-lp-btn-nav-primary { font-size: 12px; padding: 10px 14px; }
       }
 
-      .navi-land-hero-grid {
+      .navi-lp-hero-grid {
         max-width: 1100px;
         margin: 0 auto;
-        padding: 0 var(--nl-pad);
-        min-height: calc(100vh - 58px);
+        padding: clamp(32px, 6vw, 56px) var(--nl-pad) clamp(40px, 6vw, 64px);
         display: grid;
         grid-template-columns: 1fr 1fr;
         align-items: center;
-        gap: 40px;
+        gap: clamp(24px, 4vw, 48px);
       }
-      .navi-land-hero-left { padding-right: 52px; }
-      .navi-land-hero-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        background: var(--v500);
-        color: white;
-        border-radius: 99px;
-        padding: 5px 14px 5px 10px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        margin-bottom: 22px;
-        animation: navi-land-fade-up 0.45s 0s ease both;
-      }
-      .navi-land-badge-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--c500);
-        animation: navi-land-pulse-dot 1.6s ease-in-out infinite;
-      }
-      .navi-land-hero-h1 {
-        font-family: var(--ff-ui);
+      .navi-lp-hero-h1 {
         font-weight: 800;
-        font-size: clamp(34px, 4vw, 52px);
-        letter-spacing: -0.025em;
-        line-height: 1.1;
+        font-size: clamp(28px, 4.2vw, 46px);
+        letter-spacing: -0.03em;
+        line-height: 1.12;
         color: var(--ink);
-        margin: 0 0 18px;
-        animation: navi-land-fade-up 0.45s 0.07s ease both;
+        margin: 0 0 20px;
+        animation: navi-lp-fade-up 0.45s ease both;
       }
-      .navi-land-accent {
-        font-family: var(--ff-ui);
-        font-style: italic;
-        font-weight: 800;
-        color: var(--v500);
-        letter-spacing: -0.02em;
+      .navi-lp-lead {
+        font-size: clamp(17px, 2vw, 20px);
+        font-weight: 600;
+        color: var(--v700);
+        line-height: 1.45;
+        margin: 0 0 14px;
+        animation: navi-lp-fade-up 0.45s 0.05s ease both;
       }
-      .navi-land-accent--on-violet {
-        color: rgba(255, 255, 255, 0.92);
-      }
-      .navi-land-hero-sub {
+      .navi-lp-hero-p {
         font-size: 16px;
-        font-weight: 400;
         color: var(--mid);
-        line-height: 1.7;
-        max-width: 400px;
-        margin: 0 0 32px;
-        animation: navi-land-fade-up 0.45s 0.13s ease both;
+        line-height: 1.65;
+        margin: 0 0 12px;
+        max-width: 34rem;
+        animation: navi-lp-fade-up 0.45s 0.1s ease both;
       }
-      .navi-land-hero-btn {
+      .navi-lp-hero-bullets {
+        list-style: none;
+        margin: 20px 0 28px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--ink2);
+        line-height: 1.5;
+        animation: navi-lp-fade-up 0.45s 0.14s ease both;
+      }
+      .navi-lp-btn-hero {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 10px;
+        width: 100%;
+        max-width: 320px;
+        min-height: 52px;
         padding: 14px 28px;
-        border-radius: 11px;
-        font-size: 15px;
+        border-radius: 12px;
+        font-size: 16px;
         font-weight: 700;
         text-decoration: none;
         color: white;
         background: var(--v500);
         border: none;
-        box-shadow: 0 6px 20px rgba(91, 63, 191, 0.28);
-        margin-bottom: 12px;
+        box-shadow: 0 6px 22px rgba(91, 63, 191, 0.3);
         transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-        animation: navi-land-fade-up 0.45s 0.18s ease both;
+        animation: navi-lp-fade-up 0.45s 0.18s ease both;
       }
-      .navi-land-hero-btn:hover {
+      .navi-lp-btn-hero:hover {
         background: var(--v700);
         transform: translateY(-2px);
-        box-shadow: 0 8px 26px rgba(91, 63, 191, 0.35);
+        box-shadow: 0 10px 28px rgba(91, 63, 191, 0.35);
       }
-      .navi-land-hero-btn:active { transform: scale(0.98); }
-      .navi-land-hero-hint {
-        font-family: var(--ff-mono);
-        font-size: 10px;
-        color: var(--faint);
-        letter-spacing: 0.06em;
-        margin: 0 0 32px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        animation: navi-land-fade-up 0.45s 0.21s ease both;
-      }
-      .navi-land-hint-check { color: var(--success-text); font-size: 12px; }
-      .navi-land-hero-proof {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        animation: navi-land-fade-up 0.45s 0.25s ease both;
-      }
-      .navi-land-avatars { display: flex; align-items: center; }
-      .navi-land-av {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: 2.5px solid white;
-        margin-left: -8px;
-        box-shadow: 0 2px 8px rgba(91, 63, 191, 0.12);
-      }
-      .navi-land-av:first-child { margin-left: 0; }
-      .navi-land-proof-text { margin: 0; font-size: 14px; line-height: 1.45; max-width: 260px; }
-      .navi-land-proof-text strong { font-weight: 700; color: var(--ink); }
-      .navi-land-proof-text span { color: var(--mid); font-weight: 400; }
+      .navi-lp-btn-hero:active { transform: scale(0.98); }
 
-      .navi-land-hero-right { animation: navi-land-fade-up 0.45s 0.09s ease both; }
-      .navi-land-mock {
+      .navi-lp-hero-right { animation: navi-lp-fade-up 0.45s 0.08s ease both; }
+
+      .navi-lp-mock {
         border: 1.5px solid #E8E4FF;
         border-radius: 18px;
         overflow: hidden;
         background: white;
         box-shadow: 0 16px 48px rgba(91, 63, 191, 0.12), 0 3px 10px rgba(91, 63, 191, 0.06);
       }
-      .navi-land-mock-top {
+      .navi-lp-mock-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        padding: 10px 14px;
+        padding: 12px 14px;
         background: var(--v500);
       }
-      .navi-land-mock-top-left { display: flex; align-items: center; gap: 8px; }
-      .navi-land-mock-pills { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-      .navi-land-mock-pill {
+      .navi-lp-mock-top-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .navi-lp-mock-wa-label {
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: -0.02em;
+      }
+      .navi-lp-mock-pills { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+      .navi-lp-mock-pill {
         font-size: 9px;
         font-weight: 600;
         padding: 4px 9px;
         border-radius: 8px;
         color: rgba(255, 255, 255, 0.55);
-        font-family: var(--ff-ui);
       }
-      .navi-land-mock-pill--on {
+      .navi-lp-mock-pill--on {
         background: rgba(255, 255, 255, 0.18);
         color: white;
       }
-      .navi-land-mock-stats {
+      .navi-lp-mock-stats {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         gap: 10px;
         padding: 12px;
         border-bottom: 1px solid #F0EEF8;
-        background: white;
       }
-      .navi-land-stat {
+      .navi-lp-stat {
         border-radius: 12px;
-        padding: 12px 10px;
+        padding: 12px 8px;
         text-align: center;
       }
-      .navi-land-stat--vio { background: var(--v50); }
-      .navi-land-stat--cor { background: var(--c50); }
-      .navi-land-stat--ok { background: #E8F5EC; }
-      .navi-land-stat-num {
+      .navi-lp-stat--vio { background: var(--v50); }
+      .navi-lp-stat--cor { background: var(--c50); }
+      .navi-lp-stat--ok { background: #E8F5EC; }
+      .navi-lp-stat-num {
         display: block;
-        font-family: var(--ff-ui);
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 800;
         line-height: 1.1;
         margin-bottom: 4px;
       }
-      .navi-land-stat-num--vio { color: var(--v500); }
-      .navi-land-stat-num--cor { color: var(--c500); }
-      .navi-land-stat-num--ok { color: #276534; }
-      .navi-land-stat-lbl {
-        font-size: 10px;
+      .navi-lp-stat-num--vio { color: var(--v500); }
+      .navi-lp-stat-num--cor { color: var(--c500); }
+      .navi-lp-stat-num--ok { color: #276534; }
+      .navi-lp-stat-lbl {
+        font-size: 9px;
         font-weight: 600;
         color: var(--mid);
       }
-      .navi-land-mock-kanban {
+      .navi-lp-mock-kanban-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #FAFAFE;
+      }
+      .navi-lp-mock-kanban {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(5, minmax(88px, 1fr));
         gap: 8px;
         padding: 12px;
-        background: #FAFAFE;
-        min-height: 160px;
+        min-width: 0;
       }
-      .navi-land-kcol-title {
+      .navi-lp-kcol-title {
         font-family: var(--ff-mono);
-        font-size: 8px;
-        letter-spacing: 0.1em;
+        font-size: 7px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--faint);
         margin-bottom: 8px;
+        line-height: 1.25;
+        min-height: 2.5em;
+        display: flex;
+        align-items: flex-end;
       }
-      .navi-land-kcard {
+      .navi-lp-kcard {
         border-radius: 8px;
-        padding: 8px;
-        margin-bottom: 6px;
+        padding: 8px 6px;
       }
-      .navi-land-kcard--v { background: var(--v50); }
-      .navi-land-kcard--c { background: var(--c50); }
-      .navi-land-kcard--g { background: var(--success-bg); }
-      .navi-land-kname {
-        font-family: var(--ff-ui);
-        font-size: 10px;
+      .navi-lp-kcard--v { background: var(--v50); }
+      .navi-lp-kcard--c { background: var(--c50); }
+      .navi-lp-kcard--miss { background: #fff5f5; border: 1px solid rgba(240, 64, 64, 0.15); }
+      .navi-lp-kcard--wait { background: var(--warn-bg); border: 1px solid rgba(212, 160, 23, 0.2); }
+      .navi-lp-kcard--g { background: var(--success-bg); }
+      .navi-lp-kname {
+        font-size: 9px;
         font-weight: 700;
         color: var(--ink);
         margin-bottom: 6px;
+        line-height: 1.2;
       }
-      .navi-land-kanban-tag {
-        font-family: var(--ff-ui);
-        font-style: normal;
+      .navi-lp-kanban-tag {
         font-weight: 600;
-        font-size: 8px;
+        font-size: 7px;
         letter-spacing: 0.04em;
         text-transform: uppercase;
-        padding: 2px 6px;
+        padding: 2px 5px;
         border-radius: 4px;
         background: var(--v100);
         color: var(--v700);
       }
-      .navi-land-feat-kw {
-        font-family: var(--ff-ui);
+      .navi-lp-kcard--c .navi-lp-kanban-tag { background: rgba(240, 64, 64, 0.12); color: var(--c500); }
+      .navi-lp-kcard--g .navi-lp-kanban-tag { background: rgba(39, 101, 52, 0.12); color: #276534; }
+
+      .navi-lp-band { padding: clamp(56px, 8vw, 80px) var(--nl-pad); }
+      .navi-lp-band--soft { background: var(--bg); }
+
+      .navi-lp-social-card {
+        margin: 0;
+        padding: clamp(28px, 4vw, 40px);
+        background: white;
+        border: 1px solid #EAE6FF;
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(91, 63, 191, 0.08);
+      }
+      .navi-lp-quote {
+        margin: 0;
+        padding: 0;
+        border: none;
+      }
+      .navi-lp-quote p {
+        margin: 0;
+        font-size: clamp(17px, 2.2vw, 20px);
+        font-weight: 500;
+        line-height: 1.65;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+      .navi-lp-quote p::before {
+        content: "";
+        display: block;
+        width: 40px;
+        height: 3px;
+        border-radius: 99px;
+        background: linear-gradient(90deg, var(--v500), var(--v200));
+        margin-bottom: 20px;
+      }
+      .navi-lp-quote-by {
+        margin: 20px 0 0;
+        font-size: 15px;
         font-weight: 700;
+        color: var(--v700);
         font-style: normal;
-        color: var(--v500);
+      }
+      .navi-lp-band--dark {
+        background: var(--v900);
+        color: rgba(255, 255, 255, 0.92);
+      }
+      .navi-lp-inner {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .navi-lp-inner--narrow { max-width: 640px; }
+
+      .navi-lp-card {
+        background: white;
+        border: 1px solid #EAE6FF;
+        border-radius: 20px;
+        padding: clamp(24px, 4vw, 40px);
+        box-shadow: 0 4px 24px rgba(91, 63, 191, 0.06);
+      }
+      .navi-lp-band--soft .navi-lp-card {
+        box-shadow: 0 4px 20px rgba(91, 63, 191, 0.05);
+      }
+      .navi-lp-card--split {
+        display: grid;
+        gap: 16px 32px;
+      }
+      @media (min-width: 768px) {
+        .navi-lp-card--split {
+          grid-template-columns: 1fr 1fr;
+          align-items: start;
+        }
+        .navi-lp-card--split .navi-lp-accent-line--full {
+          grid-column: 1 / -1;
+        }
       }
 
-      .navi-land-pain {
-        background: var(--bg);
-        padding: 72px var(--nl-pad);
+      .navi-lp-h2 {
+        font-weight: 800;
+        font-size: clamp(22px, 2.8vw, 30px);
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+        color: var(--ink);
+        margin: 0 0 20px;
       }
-      .navi-land-pain > * { max-width: 1100px; margin-left: auto; margin-right: auto; }
-      .navi-land-pain-eyebrow {
-        font-family: var(--ff-mono);
-        font-size: 10px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--faint);
+      .navi-lp-h2--on-dark {
+        color: white;
+        margin-bottom: 12px;
+      }
+      .navi-lp-sub-dark {
+        font-size: 17px;
+        color: rgba(255, 255, 255, 0.72);
+        margin: 0 0 24px;
+        line-height: 1.5;
+      }
+      .navi-lp-p {
+        font-size: 16px;
+        color: var(--mid);
+        line-height: 1.65;
         margin: 0 0 14px;
       }
-      .navi-land-pain-h2 {
-        font-family: var(--ff-ui);
-        font-weight: 800;
-        font-size: 32px;
-        letter-spacing: -0.025em;
-        line-height: 1.15;
-        color: var(--ink);
-        margin: 0 0 36px;
+      .navi-lp-list {
+        list-style: disc;
+        padding-left: 1.25rem;
+        margin: 0 0 20px;
+        font-size: 16px;
+        color: var(--ink2);
+        line-height: 1.65;
       }
-      .navi-land-pain-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 16px;
-      }
-      .navi-land-pain-card {
-        background: white;
-        border-radius: 16px;
-        padding: 22px;
-        border: 1px solid #EAE6FF;
-      }
-      .navi-land-pain-ico {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        background: white;
-        border: 1px solid #EAE6FF;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 14px;
-      }
-      .navi-land-pain-card-title {
-        font-size: 14px;
-        font-weight: 700;
-        margin: 0 0 8px;
-        color: var(--ink);
-      }
-      .navi-land-pain-card-desc {
-        font-size: 12.5px;
-        color: var(--mid);
-        line-height: 1.6;
+      .navi-lp-list li { margin-bottom: 8px; }
+      .navi-lp-list--tight { margin-bottom: 8px; }
+      .navi-lp-list--dark {
+        list-style: none;
+        padding-left: 0;
         margin: 0;
+        font-size: 17px;
+        color: rgba(255, 255, 255, 0.88);
+      }
+      .navi-lp-list--dark li {
+        margin-bottom: 14px;
+        padding-left: 1.2em;
+        position: relative;
+      }
+      .navi-lp-list--dark li::before {
+        content: "—";
+        position: absolute;
+        left: 0;
+        color: var(--v200);
+      }
+      .navi-lp-accent-line {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--v700);
+        margin: 8px 0 0;
+        line-height: 1.5;
       }
 
-      .navi-land-features {
-        background: white;
-        padding: 72px var(--nl-pad) 72px;
-        max-width: 1100px;
-        margin: 0 auto;
-      }
-      .navi-land-feat-eyebrow {
-        font-family: var(--ff-mono);
-        font-size: 10px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--faint);
-        margin: 0 0 12px;
-      }
-      .navi-land-feat-h2 {
-        font-family: var(--ff-ui);
-        font-weight: 800;
-        font-size: clamp(28px, 3.5vw, 36px);
-        letter-spacing: -0.03em;
-        line-height: 1.15;
-        margin: 0 0 28px;
-        color: var(--ink);
-      }
-      .navi-land-feat-pills {
+      .navi-lp-funnel {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 28px;
+        align-items: center;
+        gap: 8px 6px;
+        margin: 8px 0 20px;
       }
-      .navi-land-feat-pill {
+      .navi-lp-funnel-chip {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        padding: 11px 16px;
-        border-radius: 12px;
-        background: white;
-        border: 1.5px solid #EAE6FF;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--ink);
-        font-family: var(--ff-ui);
-        cursor: default;
-        transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-      }
-      .navi-land-feat-pill:hover {
-        border-color: var(--v400);
+        padding: 8px 12px;
+        border-radius: 10px;
         background: var(--v50);
-        color: var(--v700);
-      }
-      .navi-land-feat-list {
-        border: 0.5px solid rgba(91, 63, 191, 0.1);
-        border-radius: 14px;
-        overflow: hidden;
-        background: white;
-      }
-      .navi-land-feat-row {
-        display: grid;
-        grid-template-columns: 44px 1fr 1fr;
-        padding: 18px 24px;
-        border-bottom: 0.5px solid rgba(91, 63, 191, 0.08);
-        align-items: start;
-        gap: 12px;
-        transition: background 0.15s ease;
-      }
-      .navi-land-feat-row--last { border-bottom: none; }
-      .navi-land-feat-row:hover { background: var(--v50); }
-      .navi-land-feat-num {
-        font-family: var(--ff-mono);
-        font-size: 11px;
-        color: var(--faint);
-      }
-      .navi-land-feat-title {
-        font-size: 14px;
+        border: 1px solid #E8E4FF;
+        font-size: 12px;
         font-weight: 700;
-        color: var(--ink);
+        color: var(--v700);
+        white-space: nowrap;
       }
-      .navi-land-feat-desc {
-        font-size: 12.5px;
-        color: var(--mid);
-        text-align: right;
-        line-height: 1.55;
+      .navi-lp-funnel-arrow {
+        color: var(--faint);
+        font-size: 14px;
+        font-weight: 600;
       }
 
-      .navi-land-cta-outer {
+      .navi-lp-alert {
+        margin: 8px 0 20px;
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: var(--c50);
+        border: 1px solid rgba(240, 64, 64, 0.2);
+      }
+      .navi-lp-alert-text {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--ink);
+        line-height: 1.5;
+      }
+
+      .navi-lp-checklist {
+        list-style: none;
+        padding: 0;
+        margin: 16px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .navi-lp-checklist li {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--ink);
+        line-height: 1.45;
+        padding-left: 0;
+      }
+
+      .navi-lp-final-cta {
+        padding: 0 var(--nl-pad) clamp(56px, 8vw, 80px);
+      }
+      .navi-lp-final-inner {
         max-width: 1100px;
         margin: 0 auto;
-        padding: 0 var(--nl-pad) 72px;
-      }
-      .navi-land-cta-inner {
         background: var(--v500);
         border-radius: 20px;
-        padding: 56px 48px;
+        padding: clamp(40px, 6vw, 56px) clamp(24px, 4vw, 48px);
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        gap: 20px;
+        gap: 18px;
       }
-      .navi-land-cta-h2 {
-        font-family: var(--ff-ui);
-        font-weight: 800;
-        font-size: 36px;
-        line-height: 1.15;
-        color: white;
-        margin: 0;
-        letter-spacing: -0.02em;
-      }
-      .navi-land-cta-sub {
-        font-size: 15px;
-        color: rgba(255, 255, 255, 0.6);
-        margin: 0;
-        max-width: 420px;
-        line-height: 1.55;
-      }
-      .navi-land-cta-btn {
+      .navi-lp-btn-final {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 10px;
-        padding: 15px 32px;
-        border-radius: 12px;
-        font-size: 15px;
+        width: 100%;
+        max-width: 420px;
+        min-height: 56px;
+        padding: 16px 28px;
+        border-radius: 14px;
+        font-size: 16px;
         font-weight: 700;
         text-decoration: none;
         color: var(--v500);
         background: white;
         border: none;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      .navi-land-cta-btn:hover {
+      .navi-lp-btn-final:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
       }
-      .navi-land-cta-hint {
-        font-family: var(--ff-mono);
-        font-size: 10px;
-        color: rgba(255, 255, 255, 0.35);
-        letter-spacing: 0.06em;
+      .navi-lp-final-hint {
         margin: 0;
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        color: rgba(255, 255, 255, 0.55);
       }
 
-      .navi-land-footer {
+      .navi-lp-footer {
         border-top: 1.5px solid #F0EEF8;
         padding: 22px var(--nl-pad);
       }
-      .navi-land-footer-inner {
+      .navi-lp-footer-inner {
         max-width: 1100px;
         margin: 0 auto;
         display: flex;
@@ -780,38 +887,34 @@ const Welcome = () => (
         flex-wrap: wrap;
         gap: 16px;
       }
-      .navi-land-footer-brand { display: flex; align-items: center; gap: 8px; }
-      .navi-land-footer-copy {
+      .navi-lp-footer-brand { display: flex; align-items: center; gap: 8px; }
+      .navi-lp-footer-copy {
         font-family: var(--ff-mono);
         font-size: 10px;
         color: var(--faint);
         margin: 0;
       }
 
-      @media (max-width: 768px) {
-        .navi-land-hero-grid {
+      @media (max-width: 900px) {
+        .navi-lp-hero-grid {
           grid-template-columns: 1fr;
-          padding: 40px var(--nl-pad) 48px;
-          min-height: auto;
         }
-        .navi-land-hero-left { padding-right: 0; }
-        .navi-land-hero-right { display: none !important; }
-        .navi-land-hero-h1 { font-size: 34px; }
-        .navi-land-pain-grid { grid-template-columns: 1fr; }
-        .navi-land-feat-pills { gap: 8px; }
-        .navi-land-feat-row {
-          grid-template-columns: 36px 1fr;
+        .navi-lp-hero-right {
+          order: -1;
+          max-width: 420px;
+          margin: 0 auto;
+          width: 100%;
         }
-        .navi-land-feat-desc { display: none; }
-        .navi-land-cta-inner {
-          padding: 40px 24px;
-          border-radius: 16px;
-        }
-        .navi-land-cta-h2 { font-size: 28px; }
-        .navi-land-footer { padding: 20px var(--nl-pad); }
-        .navi-land-footer-copy { display: none; }
       }
-    `}} />
+      @media (max-width: 768px) {
+        .navi-lp-footer-copy { width: 100%; }
+        .navi-lp-mock-kanban {
+          grid-template-columns: repeat(5, minmax(76px, 1fr));
+        }
+      }
+    `,
+    }}
+    />
   </div>
 );
 
