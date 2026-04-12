@@ -299,11 +299,11 @@ const Welcome = () => {
         </div>
       </section>
 
-      <section className="navi-lp-band navi-lp-band--soft navi-lp-reveal" aria-labelledby="navi-lp-social">
+      <section
+        className="navi-lp-band navi-lp-band--soft navi-lp-reveal"
+        aria-label="Depoimento de academia parceira"
+      >
         <div className="navi-lp-inner">
-          <h2 id="navi-lp-social" className="navi-lp-h2">
-            Prova social
-          </h2>
           <div className="navi-lp-social-grid">
             <div className="navi-lp-social-quote">
               <blockquote className="navi-lp-quote">
@@ -312,19 +312,14 @@ const Welcome = () => {
                   acompanha melhor e não perde mais contato por falta de resposta.”
                 </p>
               </blockquote>
-              <div className="navi-lp-quote-attribution">
-                <span className="navi-lp-quote-avatar" aria-hidden="true">
-                  GB
-                </span>
-                <p className="navi-lp-quote-by">— Gracie Barra Lagoa da Prata</p>
-              </div>
+              <p className="navi-lp-quote-by">— Gracie Barra Lagoa da Prata</p>
             </div>
             <figure className="navi-lp-social-photo">
               <img
-                src="/landing/instructor-wellness.png"
-                alt="Profissional em estúdio de bem-estar com tapete de exercício"
-                width={640}
-                height={800}
+                src="/landing/martial-arts-class.png"
+                alt="Aula em academia de artes marciais, instrutor e alunos no tatame"
+                width={960}
+                height={600}
                 loading="lazy"
                 decoding="async"
               />
@@ -355,8 +350,7 @@ const Welcome = () => {
       </section>
 
       <section className="navi-lp-band navi-lp-band--soft navi-lp-reveal" aria-labelledby="navi-lp-pos-head">
-        <div className="navi-lp-inner">
-          <p className="navi-lp-eyebrow">Posicionamento</p>
+        <div className="navi-lp-inner navi-lp-inner--prose">
           <h2 id="navi-lp-pos-head" className="navi-lp-h2">
             O Nave não deixa o relacionamento parar.
           </h2>
@@ -371,7 +365,6 @@ const Welcome = () => {
 
       <section className="navi-lp-band navi-lp-reveal" aria-labelledby="navi-lp-fechamento-head">
         <div className="navi-lp-inner navi-lp-inner--narrow">
-          <p className="navi-lp-eyebrow">Fechamento</p>
           <h2 id="navi-lp-fechamento-head" className="navi-lp-h2">
             Chega de tratar lead como conversa solta.
           </h2>
@@ -455,9 +448,10 @@ const Welcome = () => {
 
       .navi-lp {
         --nl-pad: clamp(20px, 4vw, 48px);
+        --lp-max: 1100px;
+        --lp-prose: 42rem;
         --lp-cream: #faf7f2;
         --lp-cream-mesh: #f4edfc;
-        --lp-display: 'Fraunces', Georgia, 'Times New Roman', serif;
         min-height: 100vh;
         background: var(--lp-cream);
         color: var(--ink);
@@ -610,7 +604,7 @@ const Welcome = () => {
         border-bottom: 1px solid rgba(91, 63, 191, 0.08);
       }
       .navi-lp-nav-inner {
-        max-width: 1100px;
+        max-width: var(--lp-max);
         width: 100%;
         margin: 0 auto;
         display: flex;
@@ -671,7 +665,7 @@ const Welcome = () => {
       .navi-lp-hero-grid {
         position: relative;
         z-index: 1;
-        max-width: 1100px;
+        max-width: var(--lp-max);
         margin: 0 auto;
         padding: clamp(32px, 6vw, 56px) var(--nl-pad) clamp(40px, 6vw, 64px);
         display: grid;
@@ -680,37 +674,38 @@ const Welcome = () => {
         gap: clamp(24px, 4vw, 48px);
       }
       .navi-lp-hero-h1 {
-        font-family: var(--lp-display);
-        font-weight: 700;
-        font-size: clamp(30px, 4.5vw, 48px);
-        letter-spacing: -0.02em;
-        line-height: 1.14;
+        font-family: var(--ff-ui);
+        font-weight: 800;
+        font-size: clamp(28px, 4.2vw, 46px);
+        letter-spacing: -0.03em;
+        line-height: 1.12;
         color: var(--ink);
         margin: 0 0 20px;
         animation: navi-lp-fade-up 0.45s ease both;
       }
       .navi-lp-hero-h1-accent {
-        font-family: var(--lp-display);
+        font-family: var(--ff-ui);
         font-style: italic;
-        font-weight: 600;
+        font-weight: 800;
         color: var(--v500);
       }
       .navi-lp-lead {
-        font-family: var(--lp-display);
-        font-style: italic;
+        font-family: var(--ff-ui);
+        font-style: normal;
         font-weight: 600;
-        font-size: clamp(16px, 1.95vw, 19px);
+        font-size: clamp(17px, 2vw, 20px);
         color: var(--v700);
         line-height: 1.45;
-        margin: 0 0 14px;
+        margin: 0 0 16px;
+        max-width: min(var(--lp-prose), 100%);
         animation: navi-lp-fade-up 0.45s 0.05s ease both;
       }
       .navi-lp-hero-p {
         font-size: 16px;
         color: var(--mid);
         line-height: 1.65;
-        margin: 0 0 12px;
-        max-width: 34rem;
+        margin: 0 0 16px;
+        max-width: min(var(--lp-prose), 100%);
         animation: navi-lp-fade-up 0.45s 0.1s ease both;
       }
       .navi-lp-hero-bullets {
@@ -784,18 +779,8 @@ const Welcome = () => {
         letter-spacing: 0.05em;
         color: var(--faint);
         line-height: 1.5;
-        max-width: 34rem;
+        max-width: min(var(--lp-prose), 100%);
       }
-      .navi-lp-eyebrow {
-        font-family: var(--ff-mono);
-        font-size: 11px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--faint);
-        margin: 0 0 10px;
-        font-weight: 500;
-      }
-      .navi-lp-eyebrow + .navi-lp-h2 { margin-top: 0; }
 
       .navi-lp-band--gallery {
         position: relative;
@@ -839,29 +824,36 @@ const Welcome = () => {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: clamp(20px, 3vw, 32px);
-        align-items: center;
+        align-items: stretch;
       }
       .navi-lp-social-quote {
         margin: 0;
         padding: clamp(28px, 4vw, 40px);
-        background: rgba(255, 255, 255, 0.92);
+        background: #ffffff;
         border: 1px solid rgba(91, 63, 191, 0.1);
         border-radius: 24px;
-        box-shadow: 0 8px 32px rgba(91, 63, 191, 0.08);
+        box-shadow: 0 4px 24px rgba(18, 16, 42, 0.06);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 0;
       }
       .navi-lp-social-photo {
         margin: 0;
         border-radius: 24px;
         overflow: hidden;
-        border: 1px solid #EAE6FF;
-        box-shadow: 0 12px 40px rgba(91, 63, 191, 0.1);
+        border: 1px solid rgba(91, 63, 191, 0.1);
+        box-shadow: 0 4px 24px rgba(18, 16, 42, 0.06);
+        display: flex;
+        min-height: 260px;
       }
       .navi-lp-social-photo img {
         display: block;
         width: 100%;
-        height: auto;
-        aspect-ratio: 4 / 5;
+        height: 100%;
+        min-height: 260px;
         object-fit: cover;
+        object-position: center;
       }
       .navi-lp-mid-cta {
         margin-top: 32px;
@@ -1068,34 +1060,13 @@ const Welcome = () => {
         background: linear-gradient(90deg, var(--v500), var(--v200));
         margin-bottom: 20px;
       }
-      .navi-lp-quote-attribution {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        margin-top: 20px;
-      }
-      .navi-lp-quote-avatar {
-        flex-shrink: 0;
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        background: linear-gradient(145deg, var(--v500), var(--v700));
-        color: white;
-        font-size: 13px;
-        font-weight: 800;
-        letter-spacing: 0.02em;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 14px rgba(91, 63, 191, 0.35);
-      }
       .navi-lp-quote-by {
-        margin: 0;
+        margin: 24px 0 0;
         font-size: 15px;
         font-weight: 700;
         color: var(--v700);
         font-style: normal;
-        line-height: 1.4;
+        line-height: 1.45;
       }
       .navi-lp-band--dark {
         background: linear-gradient(168deg, #14122e 0%, var(--v900) 38%, #1f1a48 72%, var(--v700) 100%);
@@ -1115,38 +1086,50 @@ const Welcome = () => {
         z-index: 1;
       }
       .navi-lp-inner {
-        max-width: 1100px;
+        max-width: var(--lp-max);
         margin: 0 auto;
       }
-      .navi-lp-inner--narrow { max-width: 640px; }
-      .navi-lp-inner--narrow .navi-lp-p,
-      .navi-lp-inner--narrow .navi-lp-h2 {
-        max-width: 40rem;
+      .navi-lp-inner--prose {
+        max-width: min(var(--lp-prose), 100%);
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .navi-lp-inner--narrow {
+        max-width: min(var(--lp-prose), 100%);
+        margin-left: auto;
+        margin-right: auto;
       }
 
       .navi-lp-card {
-        background: rgba(255, 255, 255, 0.94);
+        background: #ffffff;
         border: 1px solid rgba(91, 63, 191, 0.1);
         border-radius: 24px;
-        padding: clamp(24px, 4vw, 40px);
-        box-shadow: 0 4px 24px rgba(91, 63, 191, 0.06);
+        padding: clamp(28px, 4vw, 44px);
+        box-shadow: 0 4px 24px rgba(18, 16, 42, 0.05);
       }
       .navi-lp-band--soft .navi-lp-card {
         box-shadow: 0 4px 20px rgba(91, 63, 191, 0.05);
       }
+      .navi-lp-card .navi-lp-h2 {
+        max-width: min(var(--lp-prose), 100%);
+        margin: 0 0 16px;
+      }
       .navi-lp-card .navi-lp-p,
       .navi-lp-card .navi-lp-list,
       .navi-lp-card .navi-lp-accent-line {
-        max-width: 40rem;
+        max-width: min(var(--lp-prose), 100%);
+      }
+      .navi-lp-card--split .navi-lp-accent-line--full {
+        max-width: none;
       }
 
       .navi-lp-card--split {
         display: grid;
-        gap: 16px 32px;
+        gap: 20px 32px;
       }
       @media (min-width: 768px) {
         .navi-lp-card--split {
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           align-items: start;
         }
         .navi-lp-card--split .navi-lp-accent-line--full {
@@ -1155,13 +1138,13 @@ const Welcome = () => {
       }
 
       .navi-lp-h2 {
-        font-family: var(--lp-display);
-        font-weight: 700;
-        font-size: clamp(22px, 2.9vw, 31px);
-        letter-spacing: -0.02em;
-        line-height: 1.22;
+        font-family: var(--ff-ui);
+        font-weight: 800;
+        font-size: clamp(22px, 2.8vw, 30px);
+        letter-spacing: -0.025em;
+        line-height: 1.2;
         color: var(--ink);
-        margin: 0 0 20px;
+        margin: 0 0 16px;
       }
       .navi-lp-h2--on-dark {
         color: white;
@@ -1177,12 +1160,12 @@ const Welcome = () => {
         font-size: 16px;
         color: var(--mid);
         line-height: 1.65;
-        margin: 0 0 14px;
+        margin: 0 0 16px;
       }
       .navi-lp-list {
         list-style: disc;
         padding-left: 1.25rem;
-        margin: 0 0 20px;
+        margin: 0 0 24px;
         font-size: 16px;
         color: var(--ink2);
         line-height: 1.65;
@@ -1219,8 +1202,9 @@ const Welcome = () => {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 8px 6px;
-        margin: 8px 0 20px;
+        justify-content: flex-start;
+        gap: 10px 8px;
+        margin: 12px 0 24px;
       }
       .navi-lp-funnel-chip {
         display: inline-flex;
@@ -1275,7 +1259,7 @@ const Welcome = () => {
         padding: 0 var(--nl-pad) clamp(56px, 8vw, 80px);
       }
       .navi-lp-final-inner {
-        max-width: 1100px;
+        max-width: var(--lp-max);
         margin: 0 auto;
         background: linear-gradient(135deg, var(--v500) 0%, #4a32a8 48%, var(--v700) 100%);
         border-radius: 28px;
@@ -1323,7 +1307,7 @@ const Welcome = () => {
         background: var(--lp-cream);
       }
       .navi-lp-footer-inner {
-        max-width: 1100px;
+        max-width: var(--lp-max);
         margin: 0 auto;
         display: flex;
         justify-content: space-between;
@@ -1373,8 +1357,11 @@ const Welcome = () => {
         .navi-lp-social-grid {
           grid-template-columns: 1fr;
         }
+        .navi-lp-social-photo {
+          min-height: 220px;
+        }
         .navi-lp-social-photo img {
-          aspect-ratio: 16 / 10;
+          min-height: 220px;
         }
       }
       @media (max-width: 768px) {
