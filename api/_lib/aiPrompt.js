@@ -396,6 +396,7 @@ export default async function handler(req, res) {
           birthdayMessage: msg
         });
         return res.status(200).json({ sucesso: true, birthdayMessage: msg });
+      }
       if (patchAction === 'toggle_ia') {
         const novoStatus = Boolean(body.ia_ativa);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
