@@ -1460,6 +1460,7 @@ button:active {
   font-size: 14px;
   line-height: 1.5;
   color: var(--ink);
+  white-space: pre-line;
 }
 
 .agent-chat-bubble.user .agent-chat-text {

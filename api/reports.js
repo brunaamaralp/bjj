@@ -1,4 +1,5 @@
-import { Client, Databases, Query, Account } from 'node-appwrite';
+import { Client, Databases, Query } from 'node-appwrite';
+import { ensureAuth, ensureAcademyAccess } from './_lib/academyAccess.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -10,14 +11,6 @@ const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).se
 const databases = new Databases(adminClient);
 
 function json(res, status, obj) { res.status(status).json(obj); }
-
-async function getMe(jwt) {
-  try {
-    const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
-    const account = new Account(userClient);
-    return await account.get();
-  } catch { return null; }
-}
 
 const startOfWeek = (d) => {
     const dd = new Date(d);
@@ -84,17 +77,25 @@ function buildMonthBuckets(fromD, toDEnd) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
 
-  const auth = String(req.headers.authorization || '');
-  const jwt = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+  const me = await ensureAuth(req, res);
+  if (!me) return;
 
-  const me = await getMe(jwt);
-  if (!me) return json(res, 401, { error: 'Não autorizado' });
+  const access = await ensureAcademyAccess(req, res, me);
+  if (!access) return;
 
-  const { academyId, from, to, prevFrom, prevTo, filters, chartMode = 'weekly' } = req.body;
+  const authorizedAcademyId = access.academyId;
+  const { academyId: bodyAcademyId, from, to, prevFrom, prevTo, filters, chartMode = 'weekly' } = req.body || {};
 
-  if (!academyId || !from || !to) {
-      return json(res, 400, { error: 'Parâmetros obrigatórios faltando' });
+  if (!from || !to) {
+    return json(res, 400, { error: 'Parâmetros obrigatórios faltando' });
   }
+
+  const bodyAid = String(bodyAcademyId || '').trim();
+  if (bodyAid && bodyAid !== authorizedAcademyId) {
+    return json(res, 403, { error: 'Acesso negado à academia' });
+  }
+
+  const academyId = authorizedAcademyId;
 
   try {
     const fetchAll = async (queries) => {

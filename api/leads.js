@@ -1,9 +1,10 @@
-import { Client, Databases, Query, ID, Permission, Role, Account } from 'node-appwrite';
+import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
 import { sendZapsterText } from '../lib/server/zapsterSend.js';
 import {
   BIRTHDAY_CRON_DEFAULT_TEXT,
   applyWhatsappTemplatePlaceholders
 } from '../lib/whatsappTemplateDefaults.js';
+import { ensureAuth, ensureAcademyAccess } from './_lib/academyAccess.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -11,8 +12,6 @@ const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
-const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
-
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
 
@@ -26,16 +25,6 @@ function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
   return raw.replace(/[^\d]/g, '');
-}
-
-async function getMe(jwt) {
-  try {
-    const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
-    const account = new Account(userClient);
-    return await account.get();
-  } catch {
-    return null;
-  }
 }
 
 function todayYmdSaoPaulo() {
@@ -209,15 +198,13 @@ export default async function handler(req, res) {
   const idRaw = req.query.id || (Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug) || '';
   const id = String(idRaw).trim();
 
-  const auth = String(req.headers.authorization || '');
-  const jwt = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
-
   if (id === 'convert') {
     if (req.method !== 'POST') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
-    const me = await getMe(jwt);
-    if (!me) return json(res, 401, { sucesso: false, erro: 'Não autorizado' });
-
-    const academyId = req.headers['x-academy-id'] || DEFAULT_ACADEMY_ID;
+    const me = await ensureAuth(req, res);
+    if (!me) return;
+    const access = await ensureAcademyAccess(req, res, me);
+    if (!access) return;
+    const academyId = access.academyId;
     const phone = normalizePhone(req.body?.phone || '');
     const name = String(req.body?.name || '').trim() || phone;
 
@@ -280,8 +267,16 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    if (!jwt) return json(res, 401, { sucesso: false, erro: 'Não autorizado' });
+    const me = await ensureAuth(req, res);
+    if (!me) return;
+    const access = await ensureAcademyAccess(req, res, me);
+    if (!access) return;
     try {
+      const lead = await databases.getDocument(DB_ID, LEADS_COL, id);
+      const leadAcademy = String(lead?.academyId || lead?.academy_id || '').trim();
+      if (!leadAcademy || leadAcademy !== access.academyId) {
+        return json(res, 403, { sucesso: false, erro: 'Acesso negado a este lead' });
+      }
       const up = await databases.updateDocument(DB_ID, LEADS_COL, id, req.body);
       return json(res, 200, { sucesso: true, id: up.$id });
     } catch (e) {

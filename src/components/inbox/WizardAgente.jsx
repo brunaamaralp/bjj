@@ -288,7 +288,7 @@ export default function WizardAgente({ isOpen, onClose, onComplete, initialData,
                 className="form-input"
                 value={form.academyName}
                 onChange={(e) => update({ academyName: e.target.value })}
-                placeholder="Ex.: Gracie Barra Centro"
+                placeholder="Ex.: Estúdio Centro"
               />
             </div>
             <div className="agent-field">
@@ -371,7 +371,7 @@ export default function WizardAgente({ isOpen, onClose, onComplete, initialData,
                 className="form-input"
                 value={form.assistantName}
                 onChange={(e) => update({ assistantName: e.target.value })}
-                placeholder="Ex.: Ana"
+                placeholder="Ex.: assistente virtual"
               />
             </div>
             <div className="agent-field">

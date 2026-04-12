@@ -99,7 +99,7 @@ function permissionsForAcademyDoc(academyDoc) {
   return [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())];
 }
 
-const IMPROVE_REPLY_SYSTEM = `Você é um assistente que melhora rascunhos de mensagens de atendimento humano no WhatsApp para uma academia de Jiu-Jitsu (Gracie Barra / atendimento em português do Brasil).
+const IMPROVE_REPLY_SYSTEM = `Você é um assistente que melhora rascunhos de mensagens de atendimento humano no WhatsApp para estúdios fitness e academias de artes marciais (atendimento em português do Brasil).
 
 Sua tarefa: receber o contexto recente da conversa e o rascunho digitado pelo atendente; devolver APENAS o texto final melhorado, pronto para enviar.
 

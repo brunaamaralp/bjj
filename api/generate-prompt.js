@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ensureAuth } from './_lib/auth.js';
+import { ensureAuth, ensureAcademyAccess } from './_lib/academyAccess.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,11 +7,10 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
-  try {
-    await ensureAuth(req);
-  } catch {
-    return res.status(401).json({ erro: 'Não autorizado' });
-  }
+  const me = await ensureAuth(req, res);
+  if (!me) return;
+  const access = await ensureAcademyAccess(req, res, me);
+  if (!access) return;
 
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const system = String(body.system || '').trim();

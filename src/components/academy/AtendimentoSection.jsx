@@ -18,7 +18,7 @@ const AtendimentoSection = ({ academy }) => {
                         </div>
                         <div>
                             <strong>WhatsApp</strong>
-                            <p className="navi-subtitle" style={{ marginTop: 2 }}>Conectar aparelho, QR Code e status em Atendimento</p>
+                            <p className="navi-subtitle" style={{ marginTop: 2 }}>Conectar aparelho, QR Code e status (tela dedicada a partir daqui)</p>
                         </div>
                     </div>
                     <ChevronRight size={18} color="var(--text-muted)" />
@@ -42,7 +42,7 @@ const AtendimentoSection = ({ academy }) => {
                 </div>
                 <ChevronRight size={18} color="var(--text-muted)" />
             </Link>
-            <p className="text-xs text-light mt-2">A edição completa fica na aba Agente em Atendimento; use o atalho acima.</p>
+            <p className="text-xs text-light mt-2">O assistente também pode ser aberto pelo menu lateral (Agente IA) ou por este atalho.</p>
 
             <h3 className="navi-section-heading mt-6 mb-2">Templates</h3>
             <Link to="/templates" className="card action-row" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -96,7 +96,8 @@ const Dashboard = () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwt.jwt}`
+                        'Authorization': `Bearer ${jwt.jwt}`,
+                        'x-academy-id': String(academyId || '')
                     },
                     body: JSON.stringify({
                         academyId,
@@ -128,7 +129,8 @@ const Dashboard = () => {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${jwt.jwt}`
+                            'Authorization': `Bearer ${jwt.jwt}`,
+                            'x-academy-id': String(academyId || '')
                         },
                         body: JSON.stringify({
                             academyId,

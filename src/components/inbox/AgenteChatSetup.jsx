@@ -17,8 +17,7 @@ const STEPS = [
   { id: 'assistantName', block: 1, type: 'text-optional' },
   { id: 'tone', block: 1, type: 'chips-single' },
   { id: 'address', block: 1, type: 'textarea' },
-  { id: 'classes', block: 2, type: 'chips-multi' },
-  { id: 'classSchedules', block: 2, type: 'textarea-per-item' },
+  { id: 'gradeHorarios', block: 2, type: 'textarea-grade' },
   { id: 'plans', block: 3, type: 'chips-multi' },
   { id: 'planPrices', block: 3, type: 'currency-per-item' },
   { id: 'enrollment', block: 3, type: 'yes-no-value' },
@@ -39,8 +38,18 @@ export const AGENTE_CHAT_STEP_COUNT = STEPS.length;
 
 const SEGMENT_OPTS = ['Jiu-Jitsu', 'Muay Thai', 'Yoga', 'Pilates', 'Dança', 'CrossFit', 'Musculação', 'Outro'];
 const TONE_OPTS = ['Amigável', 'Profissional', 'Neutro', 'Descontraído'];
-const CLASS_OPTS = ['Adulto', 'Kids / Júnior', 'Feminino', 'Iniciantes', 'Competição', 'Fundamental'];
 const PLAN_OPTS = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Experimental'];
+
+const GRADE_HORARIOS_PLACEHOLDER = `Cole ou escreva sua grade de horários aqui. Exemplo:
+Adulto
+Segunda e Quarta: 19h10 | Sexta: 20h00
+Sábado: 10h00
+Kids (5 a 9 anos)
+Terça e Quinta: 17h30
+Juniores (10 a 15 anos)
+Terça e Quinta: 18h20 | Sábado: 09h00
+Feminina
+Segunda e Quarta: 20h00`;
 const UNIFORM_OPTS = ['Kimono obrigatório', 'Roupa esportiva livre', 'Kimono ou rashguard', 'Não se aplica'];
 const UNIFORM_LOAN_OPTS = ['Sim', 'Não', 'Sob consulta'];
 const AMENITY_OPTS = ['Estacionamento', 'Vestiário', 'Loja', 'Ar condicionado', 'Bebedouro', 'Wi‑Fi'];
@@ -49,6 +58,57 @@ const TRIAL_DETAIL_OPTS = ['Agendamento com humano', 'Walk-in permitido', 'Só h
 const PRICE_FLOW_OPTS = ['Informar direto', 'Experimental primeiro', 'Pedir nome antes'];
 const SCHEDULING_OPTS = ['A IA pode agendar', 'Coleta dados e passa para humano'];
 
+function legacyScheduleToGradeHorarios(a) {
+  const cls = Array.isArray(a?.classes) ? a.classes : [];
+  const cs = a?.classSchedules && typeof a.classSchedules === 'object' ? a.classSchedules : {};
+  const lines = [];
+  const seen = new Set();
+  for (const c of cls) {
+    const key = String(c || '').trim();
+    if (!key) continue;
+    seen.add(key);
+    const h = String(cs[key] || '').trim();
+    lines.push(h ? `${key}\n${h}` : key);
+  }
+  for (const k of Object.keys(cs)) {
+    if (seen.has(k)) continue;
+    const h = String(cs[k] || '').trim();
+    if (h) lines.push(`${k}\n${h}`);
+  }
+  return lines.join('\n\n').trim();
+}
+
+/** Respostas salvas antes do passo único de grade: classes + classSchedules. */
+function answersLookLegacy(savedAnswers) {
+  if (!savedAnswers || typeof savedAnswers !== 'object') return false;
+  return (
+    Object.prototype.hasOwnProperty.call(savedAnswers, 'classes') ||
+    Object.prototype.hasOwnProperty.call(savedAnswers, 'classSchedules')
+  );
+}
+
+/** Após remover um passo do fluxo, remapeia índice salvo no formato antigo. */
+function remapLegacyWizardStep(oldStep) {
+  if (typeof oldStep !== 'number' || Number.isNaN(oldStep)) return oldStep;
+  if (oldStep <= 4) return oldStep;
+  if (oldStep <= 6) return oldStep;
+  return oldStep - 1;
+}
+
+function normalizeWizardAnswersShape(merged) {
+  if (!merged || typeof merged !== 'object') return merged;
+  const out = { ...merged };
+  const grade = String(out.gradeHorarios || '').trim();
+  if (!grade && answersLookLegacy(out)) {
+    const migrated = legacyScheduleToGradeHorarios(out);
+    if (migrated) out.gradeHorarios = migrated;
+    else out.gradeHorarios = '';
+  }
+  delete out.classes;
+  delete out.classSchedules;
+  return out;
+}
+
 function emptyAnswers() {
   return {
     academyName: '',
@@ -56,8 +116,7 @@ function emptyAnswers() {
     assistantName: '',
     tone: '',
     address: '',
-    classes: [],
-    classSchedules: {},
+    gradeHorarios: '',
     plans: [],
     planPrices: {},
     enrollment: { has: false, value: '' },
@@ -79,22 +138,18 @@ function mergeResumeAnswers(savedAnswers) {
   const e = emptyAnswers();
   const a = savedAnswers && typeof savedAnswers === 'object' ? savedAnswers : null;
   if (!a) return e;
-  return {
+  const base = {
     ...e,
     ...a,
     segment: Array.isArray(a.segment) ? a.segment : e.segment,
-    classes: Array.isArray(a.classes) ? a.classes : e.classes,
     plans: Array.isArray(a.plans) ? a.plans : e.plans,
     amenities: Array.isArray(a.amenities) ? a.amenities : e.amenities,
     trialDetails: Array.isArray(a.trialDetails) ? a.trialDetails : e.trialDetails,
-    classSchedules: {
-      ...e.classSchedules,
-      ...(a.classSchedules && typeof a.classSchedules === 'object' ? a.classSchedules : {})
-    },
     planPrices: { ...e.planPrices, ...(a.planPrices && typeof a.planPrices === 'object' ? a.planPrices : {}) },
     enrollment: { ...e.enrollment, ...(a.enrollment && typeof a.enrollment === 'object' ? a.enrollment : {}) },
     discount: { ...e.discount, ...(a.discount && typeof a.discount === 'object' ? a.discount : {}) }
   };
+  return normalizeWizardAnswersShape(base);
 }
 
 function shouldSkipStepId(id, a) {
@@ -120,8 +175,12 @@ function advanceFrom(currentIndex, merged) {
 function parseWizardSaved(raw) {
   if (!raw || typeof raw !== 'object') return null;
   if (typeof raw.step !== 'number' || !raw.answers || typeof raw.answers !== 'object') return null;
-  if (raw.step < 0 || raw.step > STEPS.length) return null;
-  return { step: raw.step, answers: raw.answers, savedAt: raw.savedAt };
+  let step = raw.step;
+  if (answersLookLegacy(raw.answers)) {
+    step = remapLegacyWizardStep(step);
+  }
+  if (step < 0 || step > STEPS.length) return null;
+  return { step, answers: raw.answers, savedAt: raw.savedAt };
 }
 
 function mergeAnswers(base, patch) {
@@ -135,12 +194,17 @@ function summarizePatch(patch) {
   if (v && typeof v === 'object') {
     if (k === 'enrollment') return v.has ? `Sim — ${v.value || 'valor'}` : 'Não';
     if (k === 'discount') return v.has ? String(v.text || '') : 'Não';
-    if (k === 'classSchedules' || k === 'planPrices') {
+    if (k === 'planPrices') {
       return Object.entries(v)
         .map(([a, b]) => `${a}: ${b}`)
         .join('; ');
     }
     return JSON.stringify(v);
+  }
+  if (k === 'gradeHorarios') {
+    const t = String(v || '').trim();
+    if (!t) return '(grade vazia)';
+    return t.length > 100 ? `${t.slice(0, 97)}…` : t;
   }
   return String(v);
 }
@@ -165,10 +229,8 @@ Nome do assistente: ${a.assistantName || 'não definido'}
 Tom: ${a.tone}
 Endereço: ${a.address}
 
-HORÁRIOS:
-${Object.entries(a.classSchedules || {})
-  .map(([turma, horario]) => `${turma}: ${horario}`)
-  .join('\n')}
+TURMAS E HORÁRIOS:
+${String(a.gradeHorarios || '').trim() || '(não informado)'}
 
 PLANOS E PREÇOS:
 ${Object.entries(a.planPrices || {})
@@ -200,8 +262,9 @@ function stepPrompt(stepId) {
     assistantName: 'Quer dar um nome ao assistente virtual? (opcional)',
     tone: 'Qual tom de voz o assistente deve usar?',
     address: 'Endereço e como chegar (referências, estacionamento, etc.)',
-    classes: 'Quais turmas ou modalidades você oferece?',
-    classSchedules: 'Para cada turma, descreva os horários (dias e horários).',
+    gradeHorarios: `Turmas e horários
+
+Cole ou descreva sua grade completa em um único bloco. Você pode organizar por turma, dia ou como costuma divulgar.`,
     plans: 'Quais planos ou pacotes o cliente pode contratar?',
     planPrices: 'Informe o valor de cada plano (texto livre, ex.: R$ 199/mês).',
     enrollment: 'Há taxa de matrícula? Se sim, qual o valor?',
@@ -232,6 +295,7 @@ function stepPrompt(stepId) {
  * }} props
  */
 export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, loading = false, onComplete, onWizardReset }) {
+  const messagesScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const resumeDataRef = useRef(null);
   const lastInitKeyRef = useRef('');
@@ -247,7 +311,6 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
   const [textDraft, setTextDraft] = useState('');
   const [multiSel, setMultiSel] = useState([]);
-  const [scheduleDraft, setScheduleDraft] = useState({});
   const [priceDraft, setPriceDraft] = useState({});
   const [enrollYes, setEnrollYes] = useState(null);
   const [enrollVal, setEnrollVal] = useState('');
@@ -256,7 +319,12 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
   const scrollBottom = useCallback(() => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const box = messagesScrollRef.current;
+      if (box) {
+        box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+        return;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     });
   }, []);
 
@@ -311,13 +379,6 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       const s = STEPS[idx];
       if (!s) return;
       setTextDraft('');
-      if (s.id === 'classSchedules') {
-        const next = {};
-        for (const c of ans.classes || []) {
-          next[c] = String(ans.classSchedules?.[c] || '');
-        }
-        setScheduleDraft(next);
-      }
       if (s.id === 'planPrices') {
         const next = {};
         for (const p of ans.plans || []) {
@@ -342,6 +403,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       if (
         s.type === 'text' ||
         s.type === 'textarea' ||
+        s.type === 'textarea-grade' ||
         s.type === 'text-optional' ||
         s.type === 'textarea-optional' ||
         s.type === 'textarea-conditional'
@@ -377,15 +439,17 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
   const resume = useCallback(
     (saved) => {
-      const merged = mergeResumeAnswers(saved?.answers);
+      const merged = mergeResumeAnswers(saved?.answers || {});
+      let step = typeof saved?.step === 'number' ? saved.step : 0;
+      step = Math.max(0, Math.min(step, STEPS.length - 1));
       setAnswers(merged);
-      setStepIndex(saved.step);
+      setStepIndex(step);
       setStarted(true);
       setDone(false);
       setResuming(false);
       setMessages([{ role: 'nave', content: 'Vamos continuar de onde você parou.' }]);
-      if (saved.step < STEPS.length) {
-        askStep(saved.step, merged);
+      if (step < STEPS.length) {
+        askStep(step, merged);
       }
     },
     [askStep]
@@ -409,7 +473,8 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt}`
+            Authorization: `Bearer ${jwt}`,
+            'x-academy-id': String(academyId || '').trim()
           },
           body: JSON.stringify({
             system: GEN_SYSTEM,
@@ -499,6 +564,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
     if (currentStep.type !== 'text-optional' && currentStep.type !== 'textarea-optional' && !v) return;
     if (currentStep.id === 'academyName' && !v) return;
     if (currentStep.id === 'address' && !v) return;
+    if (currentStep.id === 'gradeHorarios' && !v) return;
     await commitAndAdvance({ [currentStep.id]: v });
     setTextDraft('');
   }, [commitAndAdvance, currentStep, textDraft]);
@@ -513,14 +579,10 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
   const handleMultiConfirm = useCallback(async () => {
     if (!currentStep) return;
-    const need = currentStep.id === 'segment' || currentStep.id === 'classes' || currentStep.id === 'plans';
+    const need = currentStep.id === 'segment' || currentStep.id === 'plans';
     if (need && multiSel.length === 0) return;
     await commitAndAdvance({ [currentStep.id]: [...multiSel] });
   }, [commitAndAdvance, currentStep, multiSel]);
-
-  const handleSchedulesSend = useCallback(async () => {
-    await commitAndAdvance({ classSchedules: { ...scheduleDraft } });
-  }, [commitAndAdvance, scheduleDraft]);
 
   const handlePricesSend = useCallback(async () => {
     await commitAndAdvance({ planPrices: { ...priceDraft } });
@@ -609,6 +671,35 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
     const s = currentStep;
 
+    if (s.type === 'textarea-grade') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+          <label className="agent-field-label-block" htmlFor="agent-grade-horarios" style={{ margin: 0 }}>
+            Grade de horários
+          </label>
+          <textarea
+            id="agent-grade-horarios"
+            className="agent-chat-input"
+            rows={12}
+            style={{
+              resize: 'vertical',
+              minHeight: '12rem',
+              width: '100%',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
+              lineHeight: 1.45
+            }}
+            value={textDraft}
+            onChange={(e) => setTextDraft(e.target.value)}
+            placeholder={GRADE_HORARIOS_PLACEHOLDER}
+          />
+          <button type="button" className="agent-chat-send" style={{ alignSelf: 'flex-start' }} onClick={() => void handleTextSend()}>
+            Enviar
+          </button>
+        </div>
+      );
+    }
+
     if (s.type === 'text' || s.type === 'text-optional' || s.type === 'textarea' || s.type === 'textarea-optional' || s.type === 'textarea-conditional') {
       const rows = s.type === 'text' || s.type === 'text-optional' ? 1 : 4;
       const optional = s.type.includes('optional') || s.type === 'textarea-conditional';
@@ -671,7 +762,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
     if (s.type === 'chips-multi' || s.type === 'chips-multi-conditional') {
       const opts =
-        s.id === 'segment' ? SEGMENT_OPTS : s.id === 'classes' ? CLASS_OPTS : s.id === 'plans' ? PLAN_OPTS : s.id === 'amenities' ? AMENITY_OPTS : s.id === 'trialDetails' ? TRIAL_DETAIL_OPTS : [];
+        s.id === 'segment' ? SEGMENT_OPTS : s.id === 'plans' ? PLAN_OPTS : s.id === 'amenities' ? AMENITY_OPTS : s.id === 'trialDetails' ? TRIAL_DETAIL_OPTS : [];
       return (
         <>
           <div className="agent-chat-chips">
@@ -690,32 +781,6 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
             Confirmar seleção
           </button>
         </>
-      );
-    }
-
-    if (s.id === 'classSchedules') {
-      const keys = answers.classes || [];
-      if (keys.length === 0) {
-        return <p className="text-small" style={{ color: 'var(--text-muted)' }}>Nenhuma turma selecionada — voltando seria um bug.</p>;
-      }
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {keys.map((k) => (
-            <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
-              <span>{k}</span>
-              <textarea
-                className="agent-chat-input"
-                rows={2}
-                value={scheduleDraft[k] || ''}
-                onChange={(e) => setScheduleDraft((d) => ({ ...d, [k]: e.target.value }))}
-                placeholder="Ex.: Seg e Qua 19h30"
-              />
-            </label>
-          ))}
-          <button type="button" className="agent-chat-send" style={{ alignSelf: 'flex-start' }} onClick={() => void handleSchedulesSend()}>
-            Enviar horários
-          </button>
-        </div>
       );
     }
 
@@ -817,7 +882,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         </div>
       </div>
 
-      <div className="agent-chat-messages">
+      <div ref={messagesScrollRef} className="agent-chat-messages" style={{ overscrollBehavior: 'contain' }}>
         {loading ? (
           <div className="agent-chat-bubble nave">
             <img src="/navi-icon.png" className="agent-chat-avatar" alt="" />

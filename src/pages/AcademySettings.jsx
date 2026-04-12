@@ -190,7 +190,7 @@ const AcademySettings = () => {
             )}
             
             {activeTab === 'gerenciamento' && (
-                <GerenciamentoSection academy={academy} leads={leads} />
+                <GerenciamentoSection academy={academy} academyId={academyId} leads={leads} />
             )}
 
             <style dangerouslySetInnerHTML={{

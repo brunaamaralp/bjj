@@ -60,6 +60,10 @@ function parseTimestampMs(value) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function isZapsterTokenMissingPayload(data) {
+  return Boolean(data && typeof data === 'object' && data.codigo === 'ZAPSTER_TOKEN_MISSING');
+}
+
 export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -183,6 +187,7 @@ export default function Inbox() {
   const [waQrError, setWaQrError] = useState(false);
   const [waQrTick, setWaQrTick] = useState(0);
   const [waSyncing, setWaSyncing] = useState(false);
+  const [waPersistFailed, setWaPersistFailed] = useState(false);
   const [contextOpen, setContextOpen] = useState(() => {
     if (typeof window === 'undefined') return true;
     const raw = window.localStorage.getItem('inbox_context_open');
@@ -212,6 +217,8 @@ export default function Inbox() {
     const tab = String(params.get('tab') || '').trim();
     if (tab === 'agente' || tab === 'dispositivo' || tab === 'conversas') {
       setInboxTab(tab);
+    } else {
+      setInboxTab('conversas');
     }
   }, [location.search]);
 
@@ -282,6 +289,7 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
+  const waPersistFailedRef = useRef(false);
   const prevAcademyIdForInboxRef = useRef('');
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
   const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
@@ -314,6 +322,14 @@ export default function Inbox() {
 
   useEffect(() => {
     academyIdRef.current = String(academyId || '').trim();
+  }, [academyId]);
+
+  useEffect(() => {
+    waPersistFailedRef.current = waPersistFailed;
+  }, [waPersistFailed]);
+
+  useEffect(() => {
+    setWaPersistFailed(false);
   }, [academyId]);
 
   useEffect(() => {
@@ -546,21 +562,39 @@ export default function Inbox() {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao consultar WhatsApp'));
       const data = safeParseJson(raw) || {};
-      const instance_id = data?.instance_id || null;
+      if (!resp.ok) {
+        if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
+        throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao consultar WhatsApp'));
+      }
+      const incomingId = data?.instance_id ?? null;
       const status = String(data?.status || '').trim() || 'unknown';
       const qrcode = data?.qrcode ?? null;
       setWaInfo((prev) => {
-        if (prev.instance_id === instance_id && prev.status === status && prev.qrcode === qrcode) return prev;
-        return { instance_id, status, qrcode };
+        if (incomingId) {
+          if (prev.instance_id === incomingId && prev.status === status && prev.qrcode === qrcode) return prev;
+          return { instance_id: incomingId, status, qrcode };
+        }
+        if (waPersistFailedRef.current && prev.instance_id) {
+          if (prev.status === status && prev.qrcode === qrcode) return prev;
+          return { ...prev, status, qrcode };
+        }
+        if (prev.instance_id === null && prev.status === status && prev.qrcode === qrcode) return prev;
+        return { instance_id: null, status: 'disconnected', qrcode: null };
       });
+      if (incomingId) {
+        setWaPersistFailed(false);
+      }
       setWaTokenMissing(false);
       setWaQrError(false);
       if (status !== 'connected') setWaQrTick((v) => v + 1);
     } catch (e) {
       const msg = String(e?.message || '');
-      if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
+      if (
+        msg.toLowerCase().includes('zapster_api_token') ||
+        msg.toLowerCase().includes('zapster_token_missing') ||
+        (msg.toLowerCase().includes('serviço de whatsapp') && msg.toLowerCase().includes('não configurado'))
+      ) {
         setWaTokenMissing(true);
       }
       if (!silent) setError(msg || 'Erro');
@@ -585,22 +619,81 @@ export default function Inbox() {
         body: JSON.stringify({})
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao criar instância'));
       const data = safeParseJson(raw) || {};
+      if (!resp.ok || data.sucesso === false) {
+        if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
+        const message = String(data.erro || '').trim() || normalizeApiError(raw, 'Erro ao conectar dispositivo');
+        addToast({ type: 'error', message });
+        setError(message);
+        return;
+      }
       const instance_id = data?.instance_id || null;
       const status = String(data?.status || '').trim() || 'unknown';
       const qrcode = data?.qrcode ?? null;
       setWaInfo({ instance_id, status, qrcode });
-      addToast({ type: 'success', message: 'Instância criada' });
+      if (data.persist_failed) {
+        setWaPersistFailed(true);
+        addToast({
+          type: 'warning',
+          message: String(data.aviso || 'Instância criada na Zapster, mas falhou salvar na base. Use Verificar e corrigir.')
+        });
+      } else {
+        setWaPersistFailed(false);
+        addToast({ type: 'success', message: 'Instância criada' });
+      }
       setWaTokenMissing(false);
       setWaQrError(false);
       setWaQrTick((v) => v + 1);
     } catch (e) {
       const msg = String(e?.message || '');
-      if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
+      if (
+        msg.toLowerCase().includes('zapster_api_token') ||
+        msg.toLowerCase().includes('zapster_token_missing') ||
+        (msg.toLowerCase().includes('serviço de whatsapp') && msg.toLowerCase().includes('não configurado'))
+      ) {
         setWaTokenMissing(true);
       }
       setError(msg || 'Erro');
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function recoverZapsterInstance() {
+    if (!academyIdRef.current) return;
+    setError('');
+    setWaLoading(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/zapster/instances?action=recover', {
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      const raw = await resp.text();
+      const data = safeParseJson(raw) || {};
+      if (!resp.ok) {
+        if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
+        throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao recuperar vínculo'));
+      }
+      if (data.recovered) {
+        addToast({ type: 'success', message: 'Dispositivo recuperado com sucesso!' });
+        setWaPersistFailed(false);
+        await fetchWaInfo({ silent: true });
+        return;
+      }
+      if (data.already_linked) {
+        setWaPersistFailed(false);
+        await fetchWaInfo({ silent: true });
+        addToast({ type: 'success', message: 'Dispositivo já estava vinculado.' });
+        return;
+      }
+      const errMsg = String(data.erro || '').trim();
+      if (errMsg) {
+        addToast({ type: 'error', message: errMsg });
+      } else {
+        addToast({ type: 'warning', message: 'Nenhuma instância órfã encontrada para esta academia.' });
+      }
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao recuperar' });
     } finally {
       setWaLoading(false);
     }
@@ -618,15 +711,24 @@ export default function Inbox() {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao desconectar'));
+      const delData = safeParseJson(raw) || {};
+      if (!resp.ok) {
+        if (isZapsterTokenMissingPayload(delData)) setWaTokenMissing(true);
+        throw new Error(normalizeApiError(raw, String(delData.erro || '').trim() || 'Falha ao desconectar'));
+      }
       addToast({ type: 'success', message: 'Dispositivo desconectado' });
+      setWaPersistFailed(false);
       setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
       setWaTokenMissing(false);
       setWaQrError(false);
       setWaQrTick(0);
     } catch (e) {
       const msg = String(e?.message || '');
-      if (msg.toLowerCase().includes('zapster_api_token') || msg.toLowerCase().includes('token')) {
+      if (
+        msg.toLowerCase().includes('zapster_api_token') ||
+        msg.toLowerCase().includes('zapster_token_missing') ||
+        (msg.toLowerCase().includes('serviço de whatsapp') && msg.toLowerCase().includes('não configurado'))
+      ) {
         setWaTokenMissing(true);
       }
       setError(msg || 'Erro');
@@ -648,7 +750,9 @@ export default function Inbox() {
       });
       if (!(resp.ok || resp.status === 204)) {
         const raw = await resp.text();
-        throw new Error(normalizeApiError(raw, 'Falha ao ligar instância'));
+        const errData = safeParseJson(raw) || {};
+        if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instância'));
       }
       addToast({ type: 'success', message: 'Instância ligada' });
       await fetchWaInfo({ silent: true });
@@ -673,7 +777,9 @@ export default function Inbox() {
       });
       if (!(resp.ok || resp.status === 204)) {
         const raw = await resp.text();
-        throw new Error(normalizeApiError(raw, 'Falha ao desligar instância'));
+        const errData = safeParseJson(raw) || {};
+        if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao desligar instância'));
       }
       addToast({ type: 'success', message: 'Instância desligada' });
       await fetchWaInfo({ silent: true });
@@ -698,7 +804,9 @@ export default function Inbox() {
       });
       if (!(resp.ok || resp.status === 204)) {
         const raw = await resp.text();
-        throw new Error(normalizeApiError(raw, 'Falha ao reiniciar instância'));
+        const errData = safeParseJson(raw) || {};
+        if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar instância'));
       }
       addToast({ type: 'success', message: 'Reiniciando instância…' });
       setTimeout(() => {
@@ -924,57 +1032,71 @@ export default function Inbox() {
     }
   }
 
-  async function openPromptSettings() {
-    setLoadingPrompt(true);
-    setInboxTab('agente');
-    try {
-      const jwt = await getJwt();
-      const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') };
-      const [resp, instResp] = await Promise.all([
-        fetch('/api/settings/ai-prompt', { headers }),
-        fetch('/api/zapster/instances', { headers })
-      ]);
-      const instRaw = await instResp.text();
-      const instData = safeParseJson(instRaw) || {};
-      const conectado = instResp.ok && String(instData?.status || '').trim() === 'connected';
-      setWhatsappConectado(conectado);
+  function openPromptSettings() {
+    navigate('/inbox?tab=agente');
+  }
 
-      const data = await resp.json();
-      if (resp.ok && data && typeof data === 'object') {
-        const intro = String(data.prompt_intro || '');
-        const body = String(data.prompt_body || '');
-        const suffix = String(data.prompt_suffix || '');
-        setPromptIntro(intro);
-        setPromptBody(body);
-        setPromptSuffix(suffix);
-        setPromptSavedSnapshot({ intro, body, suffix });
-        setPromptConfigurado(isPromptConfiguredFromFields(intro, body));
-        setIaAtiva(data.ia_ativa === true);
-        setBirthdayMessage(String(data.birthdayMessage || '').replaceAll('{nome}', '{primeiroNome}'));
-        setFaqItems(parseFaqItems(data.faq_data));
-        setAiThreadsUsed(Number(data.ai_threads_used) || 0);
-        setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
-        setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
-        const wd = String(data.wizard_data || '').trim();
-        if (wd) {
-          try {
-            const parsed = JSON.parse(wd);
-            setWizardAgenteInitial(parsed && typeof parsed === 'object' ? parsed : null);
-          } catch {
+  useEffect(() => {
+    if (inboxTab !== 'agente' || !canConfigureAgenteIa) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingPrompt(true);
+      try {
+        const jwt = await getJwt();
+        const aid = String(academyId || '').trim();
+        if (!aid) return;
+        const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid };
+        const [resp, instResp] = await Promise.all([
+          fetch('/api/settings/ai-prompt', { headers }),
+          fetch('/api/zapster/instances', { headers })
+        ]);
+        const instRaw = await instResp.text();
+        const instData = safeParseJson(instRaw) || {};
+        if (isZapsterTokenMissingPayload(instData)) setWaTokenMissing(true);
+        const conectado = instResp.ok && String(instData?.status || '').trim() === 'connected';
+        if (!cancelled) setWhatsappConectado(conectado);
+
+        const data = await resp.json();
+        if (cancelled) return;
+        if (resp.ok && data && typeof data === 'object') {
+          const intro = String(data.prompt_intro || '');
+          const body = String(data.prompt_body || '');
+          const suffix = String(data.prompt_suffix || '');
+          setPromptIntro(intro);
+          setPromptBody(body);
+          setPromptSuffix(suffix);
+          setPromptSavedSnapshot({ intro, body, suffix });
+          setPromptConfigurado(isPromptConfiguredFromFields(intro, body));
+          setIaAtiva(data.ia_ativa === true);
+          setBirthdayMessage(String(data.birthdayMessage || '').replaceAll('{nome}', '{primeiroNome}'));
+          setFaqItems(parseFaqItems(data.faq_data));
+          setAiThreadsUsed(Number(data.ai_threads_used) || 0);
+          setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
+          setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
+          const wd = String(data.wizard_data || '').trim();
+          if (wd) {
+            try {
+              const parsed = JSON.parse(wd);
+              setWizardAgenteInitial(parsed && typeof parsed === 'object' ? parsed : null);
+            } catch {
+              setWizardAgenteInitial(null);
+            }
+          } else {
             setWizardAgenteInitial(null);
           }
         } else {
-          setWizardAgenteInitial(null);
+          throw new Error('Falha ao carregar');
         }
-      } else {
-        throw new Error('Falha ao carregar');
+      } catch (e) {
+        if (!cancelled) addToast({ type: 'error', message: e?.message || 'Erro ao carregar' });
+      } finally {
+        if (!cancelled) setLoadingPrompt(false);
       }
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao carregar' });
-    } finally {
-      setLoadingPrompt(false);
-    }
-  }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inboxTab, academyId, canConfigureAgenteIa]);
 
   async function savePromptSettings(overrides, { successMessage } = {}) {
     const use = overrides && typeof overrides === 'object' ? overrides : null;
@@ -3337,25 +3459,6 @@ export default function Inbox() {
   );
 
   const contextPanelVisible = contextOpen && !isNarrowDesktop;
-  /** Só mobile (<1024px): em desktop a sidebar já expõe Conversas / Agente IA; narrow desktop usa botões de aba. */
-  const compactTabs = isMobile;
-  const onTabChange = (nextTab) => {
-    const tab = String(nextTab || '').trim();
-    if (!tab) return;
-    if (tab === 'agente') {
-      if (!canConfigureAgenteIa) return;
-      openPromptSettings();
-      return;
-    }
-    if (tab === 'dispositivo') {
-      setInboxTab('dispositivo');
-      setWaQrError(false);
-      setWaQrTick((v) => v + 1);
-      fetchWaInfo();
-      return;
-    }
-    setInboxTab('conversas');
-  };
 
   return (
     <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
@@ -3530,6 +3633,18 @@ export default function Inbox() {
         .wizard-agente-radios--col { flex-direction: column; align-items: flex-start; }
         .wizard-agente-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
         .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        .device-config-error {
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--border);
+          background: var(--danger-light);
+          color: var(--text);
+        }
+        .device-config-error > span { font-size: 1.25rem; line-height: 1.2; flex-shrink: 0; }
+        .device-config-error strong { display: block; font-size: 14px; margin-bottom: 4px; color: var(--danger); }
+        .device-config-error p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
       ` }} />
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
@@ -3619,73 +3734,13 @@ export default function Inbox() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-        {compactTabs ? (
-          <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              className="form-input"
-              value={inboxTab === 'agente' ? 'agente' : inboxTab}
-              onChange={(e) => onTabChange(e.target.value)}
-              style={{ minWidth: 220, maxWidth: 360, padding: '10px 12px' }}
-              aria-label="Selecionar aba"
-            >
-              <option value="conversas">
-                {Number(stats?.unreadBacklog || 0) > 0
-                  ? `Conversas (${Number(stats.unreadBacklog) > 99 ? '99+' : stats.unreadBacklog})`
-                  : 'Conversas'}
-              </option>
-              <option value="dispositivo">Dispositivo</option>
-              {canConfigureAgenteIa && <option value="agente">Agente IA</option>}
-            </select>
-          </div>
-        ) : (
-          <>
-            <button
-              className={inboxTab === 'conversas' ? 'btn btn-primary' : 'btn btn-outline'}
-              type="button"
-              onClick={() => onTabChange('conversas')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-            >
-              <span>Conversas</span>
-              {Number(stats?.unreadBacklog || 0) > 0 && (
-                <span
-                  className="text-small"
-                  style={{
-                    minWidth: 20,
-                    height: 20,
-                    padding: '0 6px',
-                    borderRadius: 999,
-                    background: inboxTab === 'conversas' ? 'rgba(255,255,255,0.22)' : 'var(--danger-light)',
-                    color: inboxTab === 'conversas' ? 'var(--white)' : 'var(--danger)',
-                    fontWeight: 800,
-                    lineHeight: '20px',
-                    textAlign: 'center'
-                  }}
-                  title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens não lidas`}
-                >
-                  {Number(stats.unreadBacklog) > 99 ? '99+' : stats.unreadBacklog}
-                </span>
-              )}
-            </button>
-            <button
-              className={inboxTab === 'dispositivo' ? 'btn btn-primary' : 'btn btn-outline'}
-              type="button"
-              onClick={() => onTabChange('dispositivo')}
-            >
-              Dispositivo
-            </button>
-            {canConfigureAgenteIa && (
-              <button
-                className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
-                type="button"
-                onClick={() => onTabChange('agente')}
-              >
-                Agente IA
-              </button>
-            )}
-          </>
-        )}
-      </div>
+      {inboxTab !== 'conversas' && (
+        <div style={{ marginBottom: 12 }}>
+          <button type="button" className="btn btn-outline" onClick={() => navigate('/inbox')}>
+            ← Voltar às conversas
+          </button>
+        </div>
+      )}
 
       {menu && (
         <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
@@ -4011,6 +4066,18 @@ export default function Inbox() {
                 <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => fetchWaInfo()} disabled={waLoading} type="button">
                   Verificar status
                 </button>
+                {role === 'owner' && waPersistFailed && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '6px 10px' }}
+                    onClick={() => void recoverZapsterInstance()}
+                    disabled={waLoading || waTokenMissing}
+                    type="button"
+                    title="Tenta salvar na base o ID de uma instância já criada na Zapster"
+                  >
+                    Verificar e corrigir
+                  </button>
+                )}
                 {role === 'owner' && (
                   <button
                     className="btn btn-outline"
@@ -4065,8 +4132,29 @@ export default function Inbox() {
               </div>
             </div>
             {waTokenMissing && (
-              <div style={{ padding: 10, borderBottom: '1px solid var(--border)', background: 'var(--danger-light)', color: 'var(--danger)' }}>
-                Backend não configurado: defina a variável de ambiente ZAPSTER_API_TOKEN no servidor.
+              <div className="device-config-error" role="alert">
+                <span aria-hidden>⚠️</span>
+                <div>
+                  <strong>Configuração incompleta</strong>
+                  <p>
+                    O token de acesso ao WhatsApp não está configurado. Entre em contato com o suporte para finalizar a configuração.
+                  </p>
+                </div>
+              </div>
+            )}
+            {waPersistFailed && (
+              <div
+                style={{
+                  padding: 10,
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--warning-light)',
+                  color: 'var(--warning)'
+                }}
+              >
+                <p className="text-small" style={{ margin: 0, lineHeight: 1.45 }}>
+                  A instância foi criada na Zapster, mas o ID não foi salvo no Appwrite. Você pode usar o QR abaixo; após recarregar a página, use{' '}
+                  <strong>Verificar e corrigir</strong> para vincular de novo — ou corrija permissões/atributos da coleção de academias.
+                </p>
               </div>
             )}
             <div style={{ padding: 12, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -4158,9 +4246,14 @@ export default function Inbox() {
                       type="button"
                       className="btn btn-outline"
                       style={{ padding: '2px 10px', minHeight: 30, fontSize: 12, verticalAlign: 'middle' }}
-                      onClick={() => onTabChange('dispositivo')}
+                      onClick={() => {
+                        setWaQrError(false);
+                        setWaQrTick((v) => v + 1);
+                        navigate('/inbox?tab=dispositivo');
+                        void fetchWaInfo();
+                      }}
                     >
-                      Conectar na aba Dispositivo
+                      Abrir conexão do WhatsApp
                     </button>
                   </p>
                 )}
@@ -4181,25 +4274,37 @@ export default function Inbox() {
                 <p className="agent-subtitle" style={{ margin: '0 0 12px' }}>
                   Responda às perguntas da Nave. No final, geramos e guardamos automaticamente as instruções (incluindo regras fixas do sistema no bloco de limites).
                 </p>
-                <AgenteChatSetup
-                  academyId={String(academyId || '')}
-                  getJwt={getJwt}
-                  wizardInitial={wizardAgenteInitial}
-                  loading={loadingPrompt}
-                  onWizardReset={() =>
-                    setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() })
-                  }
-                  onComplete={async ({ intro, body, suffix, wizardPayload }) => {
-                    setPromptIntro(intro);
-                    setPromptBody(body);
-                    setPromptSuffix(suffix);
-                    setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
-                    await savePromptSettings(
-                      { prompt_intro: intro, prompt_body: body, prompt_suffix: suffix },
-                      { successMessage: 'Assistente configurado com sucesso!' }
-                    );
+                {/* Wizard IA: viewport com overflow contido para o scroll do chat não puxar a página (scroll fica em .agent-chat-messages). */}
+                <div
+                  className="agent-wizard-viewport"
+                  style={{
+                    position: 'relative',
+                    maxHeight: 'min(75vh, 640px)',
+                    overflow: 'hidden',
+                    overscrollBehavior: 'contain',
+                    borderRadius: 12
                   }}
-                />
+                >
+                  <AgenteChatSetup
+                    academyId={String(academyId || '')}
+                    getJwt={getJwt}
+                    wizardInitial={wizardAgenteInitial}
+                    loading={loadingPrompt}
+                    onWizardReset={() =>
+                      setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() })
+                    }
+                    onComplete={async ({ intro, body, suffix, wizardPayload }) => {
+                      setPromptIntro(intro);
+                      setPromptBody(body);
+                      setPromptSuffix(suffix);
+                      setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
+                      await savePromptSettings(
+                        { prompt_intro: intro, prompt_body: body, prompt_suffix: suffix },
+                        { successMessage: 'Assistente configurado com sucesso!' }
+                      );
+                    }}
+                  />
+                </div>
                 <div className="agent-actions" style={{ marginTop: 14 }}>
                   <div className="agent-actions-left" />
                   <div className="agent-actions-right">

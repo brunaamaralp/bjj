@@ -58,18 +58,11 @@ function ensureJson(req, res) {
 
 function checkWebhookToken(req, res) {
   const expectedToken = String(process.env.ZAPSTER_WEBHOOK_TOKEN || '').trim();
-  
+
   const q = String(req.query?.token || '').trim();
   const h = String(req.headers['x-webhook-token'] || '').trim();
   const a = String(req.headers.authorization || '').trim().replace(/^Bearer\s+/i, '');
   const provided = q || h || a;
-
-  console.log('[webhook-debug] token recebido:', q || '(vazio)');
-  console.log('[webhook-debug] header x-webhook-token:', h || '(vazio)');
-  console.log('[webhook-debug] header authorization:', a || '(vazio)');
-  console.log('[webhook-debug] token providenciado final:', provided || '(vazio)');
-  console.log('[webhook-debug] token esperado:', expectedToken ? `${expectedToken.slice(0, 10)}...` : '(vazio)');
-  console.log('[webhook-debug] match:', safeCompare(provided, expectedToken));
 
   if (!expectedToken) {
     console.error('[zapster][webhook] ZAPSTER_WEBHOOK_TOKEN não configurado — rejeitando');
@@ -78,6 +71,7 @@ function checkWebhookToken(req, res) {
   }
 
   if (!safeCompare(provided, expectedToken)) {
+    console.error('[zapster][webhook] token do webhook inválido — request rejeitado');
     res.status(401).json({ error: 'invalid_token' });
     return false;
   }

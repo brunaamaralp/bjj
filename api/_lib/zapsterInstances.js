@@ -87,6 +87,72 @@ function baseUrl() {
   return String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
 }
 
+const ZAPSTER_ERROR_MESSAGES = {
+  max_instances_reached:
+    'Limite de dispositivos atingido nesta conta Zapster. Entre em contato com o suporte ou remova uma instância não usada.',
+  unauthorized:
+    'Token de acesso ao WhatsApp (Zapster) inválido ou expirado. Verifique ZAPSTER_API_TOKEN no servidor.',
+  instance_already_exists:
+    'Este dispositivo já está registrado na Zapster. Tente reconectar ou remova a instância antiga antes de criar outra.',
+  invalid_webhook_url:
+    'URL de webhook inválida ou inacessível para a Zapster. Verifique o domínio público do servidor e a rota /api/webhook/zapster.',
+  default: 'Não foi possível conectar o dispositivo. Tente novamente em instantes.'
+};
+
+function collectZapsterErrorText(data) {
+  if (data == null) return '';
+  if (typeof data === 'string') return data;
+  const parts = [];
+  if (Array.isArray(data.errors)) {
+    for (const err of data.errors) {
+      if (!err || typeof err !== 'object') continue;
+      const code = String(err.code || err.type || '').trim();
+      const msg = String(err.message || err.detail || '').trim();
+      if (code) parts.push(code);
+      if (msg) parts.push(msg);
+    }
+  }
+  if (typeof data.message === 'string' && data.message.trim()) parts.push(data.message);
+  if (typeof data.error === 'string' && data.error.trim()) parts.push(data.error);
+  return parts.join(' ').trim();
+}
+
+/**
+ * @param {string} rawBody
+ * @param {unknown} parsedJson
+ * @param {number} status
+ */
+function getZapsterErrorMessage(rawBody, parsedJson, status) {
+  if (status === 401) {
+    return ZAPSTER_ERROR_MESSAGES.unauthorized;
+  }
+
+  const fromJson = collectZapsterErrorText(parsedJson).toLowerCase();
+  const text = `${String(rawBody || '').toLowerCase()} ${fromJson}`.trim();
+
+  if (text.includes('max_instances') || text.includes('max instances') || /\blimit\b/.test(text)) {
+    return ZAPSTER_ERROR_MESSAGES.max_instances_reached;
+  }
+  if (
+    text.includes('already_exists') ||
+    text.includes('already exists') ||
+    text.includes('duplicate') ||
+    text.includes('unique constraint')
+  ) {
+    return ZAPSTER_ERROR_MESSAGES.instance_already_exists;
+  }
+  if (text.includes('webhook') || text.includes('callback_url') || text.includes('callback url')) {
+    return ZAPSTER_ERROR_MESSAGES.invalid_webhook_url;
+  }
+
+  return ZAPSTER_ERROR_MESSAGES.default;
+}
+
+/** @param {{ ok: boolean; status: number; data: unknown; raw: string }} z */
+function getZapsterCreateFriendlyError(z) {
+  return getZapsterErrorMessage(z.raw, z.data, z.status || 0);
+}
+
 async function zapsterCreateInstance({ name, metadata, webhooks }) {
   const url = `${baseUrl()}/v1/wa/instances`;
   const body = {
@@ -118,6 +184,70 @@ async function zapsterGetInstance(id) {
     return { ok: resp.ok, status: resp.status, data, raw };
   } catch {
     return { ok: resp.ok, status: resp.status, data: null, raw };
+  }
+}
+
+/** Lista instâncias da conta (usado em recover). Formato da API pode variar. */
+async function zapsterListInstances() {
+  const url = `${baseUrl()}/v1/wa/instances`;
+  const resp = await fetch(url, { headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+  const raw = await resp.text();
+  try {
+    const data = JSON.parse(raw);
+    return { ok: resp.ok, status: resp.status, data, raw };
+  } catch {
+    return { ok: resp.ok, status: resp.status, data: null, raw };
+  }
+}
+
+/** @param {unknown} data */
+function normalizeWaInstancesList(data) {
+  let arr = [];
+  if (Array.isArray(data)) arr = data;
+  else if (data && typeof data === 'object') {
+    const o = /** @type {Record<string, unknown>} */ (data);
+    if (Array.isArray(o.instances)) arr = o.instances;
+    else if (Array.isArray(o.data)) arr = o.data;
+    else if (o.id) arr = [o];
+  }
+  return arr
+    .filter((row) => row && typeof row === 'object')
+    .map((row) => {
+      const r = /** @type {Record<string, unknown>} */ (row);
+      const id = String(r.id || r.instance_id || '').trim();
+      const meta = r.metadata && typeof r.metadata === 'object' ? /** @type {Record<string, unknown>} */ (r.metadata) : {};
+      const academyFromMeta = String(meta.academy_id || meta.academyId || '').trim();
+      return { id, metadataAcademyId: academyFromMeta };
+    })
+    .filter((x) => x.id);
+}
+
+/**
+ * @param {string} academyId
+ * @param {string} instanceId
+ * @param {number} [attempt]
+ */
+async function persistInstanceId(academyId, instanceId, attempt = 0) {
+  const id = String(instanceId || '').trim();
+  if (!id) return false;
+  try {
+    try {
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        zapster_instance_id: id,
+        zapsterInstanceId: id
+      });
+    } catch {
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { zapsterInstanceId: id });
+    }
+    console.log('[zapsterInstances] id persistido com sucesso:', id);
+    return true;
+  } catch (err) {
+    console.error('[zapsterInstances] falha ao persistir id (tentativa', attempt + 1, '):', err?.message || err);
+    if (attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      return persistInstanceId(academyId, id, attempt + 1);
+    }
+    return false;
   }
 }
 
@@ -190,6 +320,44 @@ export default async function handler(req, res) {
         return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao consultar instância' });
       }
     }
+    if (action === 'recover') {
+      try {
+        const current = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
+        if (current) {
+          return res.status(200).json({ sucesso: true, recovered: false, already_linked: true, instance_id: current });
+        }
+        const listed = await zapsterListInstances();
+        if (!listed.ok) {
+          console.warn('[zapsterInstances] recover: listagem Zapster falhou', { status: listed.status, raw: String(listed.raw || '').slice(0, 200) });
+          return res.status(200).json({
+            sucesso: true,
+            recovered: false,
+            erro:
+              'Não foi possível listar instâncias na Zapster (endpoint pode não existir nesta versão da API). Verifique o ID no Appwrite ou crie de novo.'
+          });
+        }
+        const items = normalizeWaInstancesList(listed.data);
+        const match = items.find((it) => String(it.metadataAcademyId || '').trim() === academyId);
+        if (!match?.id) {
+          return res.status(200).json({
+            sucesso: true,
+            recovered: false,
+            erro: 'Nenhuma instância com esta academia foi encontrada na Zapster.'
+          });
+        }
+        const ok = await persistInstanceId(academyId, match.id);
+        if (!ok) {
+          return res.status(200).json({
+            sucesso: true,
+            recovered: false,
+            erro: 'Instância encontrada na Zapster, mas falhou ao salvar no Appwrite após novas tentativas.'
+          });
+        }
+        return res.status(200).json({ sucesso: true, recovered: true, instance_id: match.id });
+      } catch (e) {
+        return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao recuperar instância' });
+      }
+    }
     try {
       const inst = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
       if (!inst) return res.status(200).json({ sucesso: true, instance_id: null, status: 'disconnected', qrcode: null });
@@ -228,17 +396,38 @@ export default async function handler(req, res) {
         webhooks: [{ url: webhookUrl, events: ['message.received', 'instance.qrcode', 'instance.status'] }]
       });
       if (!z.ok) {
-        const msg = z?.raw?.slice?.(0, 300) || 'Falha ao criar instância';
-        return res.status(z.status || 500).json({ sucesso: false, erro: msg });
+        const upstream = Number(z.status) || 500;
+        const friendlyMessage = getZapsterCreateFriendlyError(z);
+        console.error('[zapsterInstances] erro ao criar instância', {
+          status: upstream,
+          body: String(z.raw || '').slice(0, 300)
+        });
+        const httpStatus = upstream >= 500 ? 502 : 400;
+        return res.status(httpStatus).json({
+          sucesso: false,
+          erro: friendlyMessage,
+          codigo: upstream
+        });
       }
       const instanceId = String(z.data?.id || '').trim();
       const status = String(z.data?.status || '').trim() || 'unknown';
       const qrcode = z.data?.qrcode ?? null;
       if (instanceId) {
-        try {
-          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { zapster_instance_id: instanceId, zapsterInstanceId: instanceId });
-        } catch {
-          await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { zapsterInstanceId: instanceId });
+        const persisted = await persistInstanceId(academyId, instanceId);
+        if (!persisted) {
+          console.error('[zapsterInstances] CRÍTICO: instância criada no Zapster mas não persistida', {
+            academyId,
+            instanceId
+          });
+          return res.status(200).json({
+            sucesso: true,
+            instance_id: instanceId,
+            status,
+            qrcode,
+            aviso:
+              'Instância criada na Zapster, mas o salvamento na base falhou. Use "Verificar e corrigir" ou "Verificar status" após corrigir; se o QR sumir ao atualizar, toque em Verificar e corrigir.',
+            persist_failed: true
+          });
         }
       }
       return res.status(200).json({ sucesso: true, instance_id: instanceId || null, status, qrcode });

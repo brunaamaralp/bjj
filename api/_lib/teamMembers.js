@@ -1,16 +1,19 @@
-import { Client, Users, Teams, ID } from 'node-appwrite';
+import { Client, Users, Teams, ID, Databases } from 'node-appwrite';
 import { getAppwriteUserFromJwt, assertAcademyOwnedByOwner } from '../../lib/server/authAppwrite.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
 const API_KEY = process.env.APPWRITE_API_KEY || '';
+const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
+const ACADEMIES_COL =
+  process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Method Not Allowed' });
   }
 
-  if (!PROJECT_ID || !API_KEY) {
+  if (!PROJECT_ID || !API_KEY || !DB_ID || !ACADEMIES_COL) {
     return res.status(500).json({ erro: 'Configuração Appwrite ausente' });
   }
 
@@ -26,21 +29,33 @@ export default async function handler(req, res) {
     const user = await getAppwriteUserFromJwt(jwt);
     if (!user) return res.status(401).json({ erro: 'Não autenticado' });
 
-    const { name, email, password, teamId } = req.body;
+    const { name, email, password, teamId, academyId } = req.body;
+    const academyIdStr = String(academyId || '').trim();
 
+    if (!academyIdStr) return res.status(400).json({ erro: 'academyId obrigatório' });
     if (!teamId) return res.status(400).json({ erro: 'teamId obrigatório' });
     if (!email || !password || password.length < 8) {
       return res.status(400).json({ erro: 'Email e senha (mínimo 8 caracteres) são obrigatórios' });
     }
 
     const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(adminClient);
     const users = new Users(adminClient);
     const teams = new Teams(adminClient);
 
-    // Verificar se quem está chamando é o dono do time?
-    // Aqui assumimos que ele já está validado pela UI, mas o ideal seria checar se o teamId pertence ao user.
-    // Como é um MVP e a criação só se dá no painel do dono:
-    
+    try {
+      await assertAcademyOwnedByOwner(databases, academyIdStr, user.$id);
+    } catch (e) {
+      if (e?.code === 'FORBIDDEN') {
+        return res.status(403).json({ erro: 'Apenas o dono da academia pode convidar membros' });
+      }
+      throw e;
+    }
+    const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyIdStr);
+    if (String(academyDoc?.teamId || '').trim() !== String(teamId || '').trim()) {
+      return res.status(403).json({ erro: 'teamId não pertence a esta academia' });
+    }
+
     // 1. Criar o usuário no Auth
     let newUser;
     try {

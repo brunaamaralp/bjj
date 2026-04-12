@@ -7,7 +7,7 @@ import { authService } from '../../lib/auth';
 import { useUserRole } from '../../lib/useUserRole';
 import ExportButton from '../ExportButton';
 
-const GerenciamentoSection = ({ academy, leads }) => {
+const GerenciamentoSection = ({ academy, academyId, leads }) => {
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
     
@@ -70,7 +70,8 @@ const GerenciamentoSection = ({ academy, leads }) => {
                     name: newMember.name,
                     email: newMember.email,
                     password: newMember.password,
-                    teamId: academy.teamId
+                    teamId: academy.teamId,
+                    academyId: String(academyId || '').trim()
                 })
             });
 
