@@ -2062,26 +2062,65 @@ export default function Inbox() {
   const filteredItems = useMemo(() => {
     const arr = Array.isArray(prioritizedItems) ? prioritizedItems : [];
     const f = String(listFilter || 'all');
-    if (f === 'unread') return arr.filter((it) => Number(it?._unreadCount || 0) > 0);
+    const normTicket = (it) =>
+      String(it?._ticketStatus ?? it?.ticket_status ?? '')
+        .trim()
+        .toLowerCase();
+    const unreadN = (it) => {
+      const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    };
+    if (f === 'unread') return arr.filter((it) => unreadN(it) > 0);
     if (f === 'hot') return arr.filter((it) => Boolean(it?._hotLead));
     if (f === 'need_human') return arr.filter((it) => Boolean(it?._handoffActive));
-    if (f === 'waiting_customer') return arr.filter((it) => String(it?._ticketStatus || '') === 'waiting_customer');
-    if (f === 'resolved') return arr.filter((it) => String(it?._ticketStatus || '') === 'resolved');
-    if (f === 'transferred') return arr.filter((it) => String(it?._ticketStatus || '') === 'transferred');
+    if (f === 'waiting_customer') return arr.filter((it) => normTicket(it) === 'waiting_customer');
+    if (f === 'resolved') return arr.filter((it) => normTicket(it) === 'resolved');
+    if (f === 'transferred') return arr.filter((it) => normTicket(it) === 'transferred');
     return arr;
   }, [prioritizedItems, listFilter]);
 
   const groupedFilteredItems = useMemo(() => {
     const arr = Array.isArray(filteredItems) ? filteredItems : [];
-    const unread = arr.filter((it) => Number(it?._unreadCount || 0) > 0);
-    const resolved = arr.filter((it) => String(it?._ticketStatus || '') === 'resolved');
-    const open = arr.filter((it) => Number(it?._unreadCount || 0) <= 0 && String(it?._ticketStatus || '') !== 'resolved');
+    const unreadN = (it) => {
+      const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const isResolvedTicket = (it) =>
+      String(it?._ticketStatus ?? it?.ticket_status ?? '')
+        .trim()
+        .toLowerCase() === 'resolved';
+    const unread = arr.filter((it) => unreadN(it) > 0);
+    const resolved = arr.filter((it) => isResolvedTicket(it));
+    const open = arr.filter((it) => unreadN(it) <= 0 && !isResolvedTicket(it));
+    const keyOf = (it) => String(it?._phone || it?.phone_number || it?.id || '').trim();
+    const placed = new Set();
+    for (const it of [...unread, ...resolved, ...open]) {
+      const k = keyOf(it);
+      if (k) placed.add(k);
+    }
+    const orphan = arr.filter((it) => {
+      const k = keyOf(it);
+      return k && !placed.has(k);
+    });
+    const openMerged = orphan.length ? [...open, ...orphan] : open;
     return [
       { key: 'unread', label: 'Não lidas', items: unread },
-      { key: 'open', label: 'Em atendimento', items: open },
+      { key: 'open', label: 'Em atendimento', items: openMerged },
       { key: 'resolved', label: 'Resolvidas', items: resolved }
     ];
   }, [filteredItems]);
+
+  useEffect(() => {
+    const rows = groupedFilteredItems.reduce((n, g) => n + (Array.isArray(g.items) ? g.items.length : 0), 0);
+    console.log('[Inbox] ConversationList props', {
+      inboxTab,
+      isMobile,
+      selectedPhone: String(selectedPhone || ''),
+      itemsLen: items.length,
+      groupedRows: rows,
+      build: 'inbox-list-v3'
+    });
+  }, [inboxTab, isMobile, selectedPhone, items.length, groupedFilteredItems]);
 
   const handleSelectConversation = (it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
