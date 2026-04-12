@@ -132,9 +132,59 @@ const Welcome = () => (
               Quero testar grátis
               <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
             </Link>
+            <p className="navi-lp-hero-hint">
+              Teste grátis por 14 dias · Sem cartão de crédito · Cancele quando quiser
+            </p>
           </div>
           <div className="navi-lp-hero-right">
+            <figure className="navi-lp-hero-photo">
+              <img
+                src="/landing/martial-arts-class.png"
+                alt="Aula em academia de artes marciais, instrutor e alunos no tatame"
+                width={960}
+                height={600}
+                loading="eager"
+                decoding="async"
+              />
+            </figure>
             <ProductMock />
+          </div>
+        </div>
+      </section>
+
+      <section className="navi-lp-band" aria-label="Estúdios e academias">
+        <div className="navi-lp-inner">
+          <div className="navi-lp-gallery">
+            <figure className="navi-lp-gallery-item">
+              <img
+                src="/landing/ballet-studio.png"
+                alt="Aula de ballet em estúdio de dança"
+                width={640}
+                height={400}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <figure className="navi-lp-gallery-item">
+              <img
+                src="/landing/pilates-studio.png"
+                alt="Estúdio de Pilates com reformers e espelhos iluminados"
+                width={960}
+                height={400}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <figure className="navi-lp-gallery-item">
+              <img
+                src="/landing/instructor-wellness.png"
+                alt="Profissional em estúdio de atividade física e bem-estar"
+                width={640}
+                height={400}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
           </div>
         </div>
       </section>
@@ -228,19 +278,38 @@ const Welcome = () => (
       </section>
 
       <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-social">
-        <div className="navi-lp-inner navi-lp-inner--narrow">
+        <div className="navi-lp-inner">
           <h2 id="navi-lp-social" className="navi-lp-h2">
             Prova social
           </h2>
-          <figure className="navi-lp-social-card">
-            <blockquote className="navi-lp-quote">
-              <p>
-                “O Nave elevou completamente o nível do nosso atendimento. Hoje a gente converte mais,
-                acompanha melhor e não perde mais contato por falta de resposta.”
-              </p>
-            </blockquote>
-            <figcaption className="navi-lp-quote-by">— Gracie Barra Lagoa da Prata</figcaption>
-          </figure>
+          <div className="navi-lp-social-grid">
+            <div className="navi-lp-social-quote">
+              <blockquote className="navi-lp-quote">
+                <p>
+                  “O Nave elevou completamente o nível do nosso atendimento. Hoje a gente converte mais,
+                  acompanha melhor e não perde mais contato por falta de resposta.”
+                </p>
+              </blockquote>
+              <p className="navi-lp-quote-by">— Gracie Barra Lagoa da Prata</p>
+            </div>
+            <figure className="navi-lp-social-photo">
+              <img
+                src="/landing/instructor-wellness.png"
+                alt="Profissional em estúdio de bem-estar com tapete de exercício"
+                width={640}
+                height={800}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+          </div>
+          <div className="navi-lp-mid-cta">
+            <Link to="/cadastro" className="navi-lp-btn-mid">
+              Quero testar grátis
+              <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
+            </Link>
+            <p className="navi-lp-mid-cta-hint">14 dias grátis · Sem cartão · Cancele quando quiser</p>
+          </div>
         </div>
       </section>
 
@@ -258,12 +327,12 @@ const Welcome = () => (
         </div>
       </section>
 
-      <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-pos">
+      <section className="navi-lp-band navi-lp-band--soft" aria-labelledby="navi-lp-pos-head">
         <div className="navi-lp-inner">
-          <h2 id="navi-lp-pos" className="navi-lp-h2">
-            POSICIONAMENTO
+          <p className="navi-lp-eyebrow">Posicionamento</p>
+          <h2 id="navi-lp-pos-head" className="navi-lp-h2">
+            O Nave não deixa o relacionamento parar.
           </h2>
-          <p className="navi-lp-p">O Nave não deixa o relacionamento parar.</p>
           <p className="navi-lp-p">Ele garante que:</p>
           <ul className="navi-lp-checklist">
             {POSICIONAMENTO_ITENS.map((text) => (
@@ -273,12 +342,12 @@ const Welcome = () => (
         </div>
       </section>
 
-      <section className="navi-lp-band" aria-labelledby="navi-lp-fechamento">
+      <section className="navi-lp-band" aria-labelledby="navi-lp-fechamento-head">
         <div className="navi-lp-inner navi-lp-inner--narrow">
-          <h2 id="navi-lp-fechamento" className="navi-lp-h2">
-            FECHAMENTO
+          <p className="navi-lp-eyebrow">Fechamento</p>
+          <h2 id="navi-lp-fechamento-head" className="navi-lp-h2">
+            Chega de tratar lead como conversa solta.
           </h2>
-          <p className="navi-lp-p">Chega de tratar lead como conversa solta.</p>
           <p className="navi-lp-p">
             Com o Nave, cada contato vira um relacionamento estruturado, que aumenta suas chances de
             matrícula.
@@ -515,7 +584,132 @@ const Welcome = () => (
       }
       .navi-lp-btn-hero:active { transform: scale(0.98); }
 
-      .navi-lp-hero-right { animation: navi-lp-fade-up 0.45s 0.08s ease both; }
+      .navi-lp-hero-right {
+        animation: navi-lp-fade-up 0.45s 0.08s ease both;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .navi-lp-hero-hint {
+        margin: 12px 0 0;
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        line-height: 1.5;
+        max-width: 34rem;
+      }
+      .navi-lp-hero-photo {
+        margin: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid #EAE6FF;
+        box-shadow: 0 12px 36px rgba(91, 63, 191, 0.1);
+      }
+      .navi-lp-hero-photo img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+      }
+
+      .navi-lp-eyebrow {
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin: 0 0 10px;
+        font-weight: 500;
+      }
+      .navi-lp-eyebrow + .navi-lp-h2 { margin-top: 0; }
+
+      .navi-lp-gallery {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr 1fr;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .navi-lp-gallery-item {
+        margin: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #EAE6FF;
+        box-shadow: 0 8px 28px rgba(91, 63, 191, 0.08);
+      }
+      .navi-lp-gallery-item img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 160px;
+        object-fit: cover;
+        aspect-ratio: 4 / 3;
+      }
+
+      .navi-lp-social-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(20px, 3vw, 32px);
+        align-items: center;
+      }
+      .navi-lp-social-quote {
+        margin: 0;
+        padding: clamp(28px, 4vw, 40px);
+        background: white;
+        border: 1px solid #EAE6FF;
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(91, 63, 191, 0.08);
+      }
+      .navi-lp-social-photo {
+        margin: 0;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid #EAE6FF;
+        box-shadow: 0 12px 40px rgba(91, 63, 191, 0.1);
+      }
+      .navi-lp-social-photo img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 5;
+        object-fit: cover;
+      }
+      .navi-lp-mid-cta {
+        margin-top: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+      }
+      .navi-lp-btn-mid {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: none;
+        color: white;
+        background: var(--v500);
+        box-shadow: 0 6px 22px rgba(91, 63, 191, 0.28);
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+      .navi-lp-btn-mid:hover {
+        background: var(--v700);
+        transform: translateY(-2px);
+      }
+      .navi-lp-mid-cta-hint {
+        margin: 0;
+        font-family: var(--ff-mono);
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+      }
 
       .navi-lp-mock {
         border: 1.5px solid #E8E4FF;
@@ -641,14 +835,6 @@ const Welcome = () => (
       .navi-lp-band { padding: clamp(56px, 8vw, 80px) var(--nl-pad); }
       .navi-lp-band--soft { background: var(--bg); }
 
-      .navi-lp-social-card {
-        margin: 0;
-        padding: clamp(28px, 4vw, 40px);
-        background: white;
-        border: 1px solid #EAE6FF;
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(91, 63, 191, 0.08);
-      }
       .navi-lp-quote {
         margin: 0;
         padding: 0;
@@ -901,15 +1087,28 @@ const Welcome = () => (
         }
         .navi-lp-hero-right {
           order: -1;
-          max-width: 420px;
+          max-width: 480px;
           margin: 0 auto;
           width: 100%;
+        }
+        .navi-lp-social-grid {
+          grid-template-columns: 1fr;
+        }
+        .navi-lp-social-photo img {
+          aspect-ratio: 16 / 10;
         }
       }
       @media (max-width: 768px) {
         .navi-lp-footer-copy { width: 100%; }
         .navi-lp-mock-kanban {
           grid-template-columns: repeat(5, minmax(76px, 1fr));
+        }
+        .navi-lp-gallery {
+          grid-template-columns: 1fr;
+        }
+        .navi-lp-gallery-item img {
+          aspect-ratio: 16 / 10;
+          min-height: 200px;
         }
       }
     `,
