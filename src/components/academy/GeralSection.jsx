@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Phone, Mail, MapPin } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
@@ -17,12 +17,31 @@ const InfoRow = ({ icon, label, value }) => (
     </div>
 );
 
-const GeralSection = ({ academy, setAcademy, onSave }) => {
+const GeralSection = ({
+    academy,
+    setAcademy,
+    onSave,
+    taxUpdateNeeded = false,
+    companyTaxRegistered = false,
+    billingLive = false,
+    taxDocumentInput = '',
+    setTaxDocumentInput,
+    taxInputRef,
+    autoEditTax = false,
+}) => {
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
+    const didAutoOpenTax = useRef(false);
+
+    useEffect(() => {
+        if (autoEditTax && taxUpdateNeeded && role === 'owner' && !didAutoOpenTax.current) {
+            didAutoOpenTax.current = true;
+            setEditing(true);
+        }
+    }, [autoEditTax, taxUpdateNeeded, role]);
 
     const parseQuickTimes = (input) => {
         const asText = String(input || '').trim();
@@ -130,6 +149,26 @@ const GeralSection = ({ academy, setAcademy, onSave }) => {
                                 onChange={e => setAcademy({ ...academy, address: e.target.value })}
                                 placeholder="Rua, número, bairro" />
                         </div>
+                        {billingLive && role === 'owner' && taxUpdateNeeded && setTaxDocumentInput ? (
+                            <div className="form-group" id="navi-academy-tax" ref={taxInputRef}>
+                                <label>CPF ou CNPJ (nota fiscal)</label>
+                                <input
+                                    className="form-input"
+                                    value={taxDocumentInput}
+                                    onChange={(e) => setTaxDocumentInput(e.target.value)}
+                                    placeholder="Somente números ou com máscara"
+                                    autoComplete="off"
+                                />
+                                <p className="text-xs text-light" style={{ marginTop: 6 }}>
+                                    Usado na cobrança. Se já informou ao assinar, pode ignorar.
+                                </p>
+                            </div>
+                        ) : null}
+                        {billingLive && role === 'owner' && companyTaxRegistered && !taxUpdateNeeded ? (
+                            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                                CPF/CNPJ cadastrado para cobrança.
+                            </p>
+                        ) : null}
                         <div className="form-group">
                             <label>Horários rápidos (reagendar)</label>
                             <input className="form-input" value={academy.quickTimes}
@@ -151,6 +190,22 @@ const GeralSection = ({ academy, setAcademy, onSave }) => {
                         <InfoRow icon={<Phone size={16} />} label="Telefone" value={academy.phone} />
                         <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
                         <InfoRow icon={<MapPin size={16} />} label="Endereço" value={academy.address} />
+                        {billingLive && role === 'owner' && taxUpdateNeeded ? (
+                            <div
+                                className="info-row"
+                                style={{ background: 'var(--accent-light)', borderRadius: 8, padding: '12px 10px' }}
+                            >
+                                <span className="info-row-label" style={{ minWidth: 'auto' }}>
+                                    Fiscal
+                                </span>
+                                <span className="text-small" style={{ color: 'var(--text)', fontWeight: 600 }}>
+                                    Falta cadastrar CPF/CNPJ para nota fiscal. Toque em Editar.
+                                </span>
+                            </div>
+                        ) : null}
+                        {billingLive && role === 'owner' && companyTaxRegistered && !taxUpdateNeeded ? (
+                            <InfoRow icon={<Building2 size={16} />} label="Fiscal" value="CPF/CNPJ cadastrado" />
+                        ) : null}
                         <InfoRow icon={<ClockIcon />} label="Horários rápidos" value={academy.quickTimes} />
                     </div>
                 )}

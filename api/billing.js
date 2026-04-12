@@ -1,6 +1,14 @@
 import { Client, Databases } from 'node-appwrite';
 import { isBillingApiLive } from '../lib/server/billingApiEnabled.js';
-import { isBillingStoreConfigured } from '../lib/billing/billingAppwriteStore.js';
+import {
+  isBillingStoreConfigured,
+  getBillingDatabases,
+  findSubscriptionByStoreId,
+  findOtherStoreWithTaxDocument,
+  updateSubscriptionByStoreId,
+} from '../lib/billing/billingAppwriteStore.js';
+import { validateCpfCnpj } from '../lib/billing/validation.js';
+import { updateAsaasCustomer } from '../lib/billing/asaasClient.js';
 import { getAppwriteUserFromJwt, assertAcademyOwnedByOwner } from '../lib/server/authAppwrite.js';
 import { validateBillingCustomer } from '../lib/billing/validation.js';
 import { runCheckout } from '../lib/billing/runCheckout.js';
@@ -38,8 +46,44 @@ export default async function handler(req, res) {
       const storeId = String(req.query?.storeId || '').trim();
       if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
-      if (!isBillingApiLive()) return json(res, 200, { sucesso: true, accessLevel: 'full', status: 'preview', needsPlan: false });
+      if (!isBillingApiLive()) {
+        return json(res, 200, {
+          sucesso: true,
+          accessLevel: 'full',
+          status: 'preview',
+          needsPlan: false,
+          companyTaxOk: true,
+        });
+      }
       return json(res, 200, { sucesso: true, ...(await evaluateBillingAccess(storeId)) });
+    }
+
+    if (action === 'update-customer-tax') {
+      if (req.method !== 'POST') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
+      if (!isBillingApiLive()) return json(res, 503, { sucesso: false, erro: 'Cobrança desativada.' });
+      if (!isBillingStoreConfigured()) return json(res, 503, { sucesso: false, erro: 'Billing não configurado.' });
+      const storeId = String(req.body?.storeId || '').trim();
+      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      await assertAcademyOwnedByOwner(databases, storeId, me.$id);
+      const v = validateCpfCnpj(req.body?.cpfCnpj || '');
+      if (!v.ok) return json(res, 400, { sucesso: false, erro: v.error });
+      const billingDb = getBillingDatabases();
+      if (!billingDb) return json(res, 503, { sucesso: false, erro: 'Billing DB indisponível.' });
+      const conflict = await findOtherStoreWithTaxDocument(billingDb, v.digits, storeId);
+      if (conflict) {
+        return json(res, 400, { sucesso: false, erro: 'Este CPF/CNPJ já está vinculado a outra academia.' });
+      }
+      const sub = await findSubscriptionByStoreId(billingDb, storeId);
+      if (!sub) return json(res, 400, { sucesso: false, erro: 'Assinatura não encontrada para esta academia.' });
+      await updateSubscriptionByStoreId(billingDb, storeId, { taxDocumentDigits: v.digits });
+      if (sub.asaasCustomerId) {
+        try {
+          await updateAsaasCustomer(String(sub.asaasCustomerId), { cpfCnpj: v.digits });
+        } catch (e) {
+          return json(res, 502, { sucesso: false, erro: e?.message || 'Falha ao sincronizar com o gateway de pagamento.' });
+        }
+      }
+      return json(res, 200, { sucesso: true, companyTaxOk: true });
     }
 
     if (action === 'checkout') {

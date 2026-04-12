@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
-import { useLeadStore } from '../../store/useLeadStore';
 import { useUserRole } from '../../lib/useUserRole';
 
 const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
@@ -25,9 +24,6 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                 customLeadQuestions: JSON.stringify(qs)
             });
             setAcademy(a => ({ ...a, customLeadQuestions: qs }));
-            try {
-                await useLeadStore.getState().completeOnboardingStepIds(['ui_labels']);
-            } catch (e) { void e; }
             addToast({ type: 'success', message: 'Perguntas do lead salvas.' });
         } catch (e) { console.error('save questions:', e); }
     };

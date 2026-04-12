@@ -192,7 +192,15 @@ const App = () => {
             currentPeriodEnd: data.currentPeriodEnd,
             needsPlan: data.needsPlan,
             accessLevel: data.accessLevel,
+            companyTaxOk: data.companyTaxOk !== false,
           });
+          if (data.companyTaxOk === true) {
+            const cl = useLeadStore.getState().onboardingChecklist;
+            const taxItem = cl?.find((x) => x.id === 'company_tax');
+            if (taxItem && !taxItem.done) {
+              void useLeadStore.getState().completeOnboardingStepIds(['company_tax']);
+            }
+          }
           applyBillingNeedsPlanNudge(data);
         }
       } catch {
@@ -274,20 +282,26 @@ const App = () => {
             ]);
             list = memberOf.documents || [];
           }
-        } catch (e) {
-          console.error('Erro ao buscar academias como membro:', e);
+      } catch (e) {
+        console.error('Erro ao buscar academias como membro:', e);
         }
       }
 
+      const needsSingletonAcademyList = list.length === 0;
+
       let academyId = null;
-      setAcademyList(
-        list.map((d) => ({
-          id: d.$id,
-          name: d.name || d.$id,
-          ownerId: String(d?.ownerId || ''),
-          teamId: String(d?.teamId || '')
-        }))
-      );
+      const mappedAcademies = list.map((d) => ({
+        id: d.$id,
+        name: d.name || d.$id,
+        ownerId: String(d?.ownerId || ''),
+        teamId: String(d?.teamId || ''),
+      }));
+      setAcademyList(mappedAcademies);
+      try {
+        useLeadStore.getState().setAcademyList(mappedAcademies);
+      } catch (e) {
+        void e;
+      }
       const saved = localStorage.getItem('activeAcademyId');
       if (saved && list.find(d => d.$id === saved)) {
         academyId = saved;
@@ -415,6 +429,22 @@ const App = () => {
         try {
           useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
         } catch (e) { void e; }
+        if (needsSingletonAcademyList && doc) {
+          const single = [
+            {
+              id: academyId,
+              name: doc.name || academyId,
+              ownerId: String(doc.ownerId || u.$id || ''),
+              teamId: String(doc.teamId || ''),
+            },
+          ];
+          setAcademyList(single);
+          try {
+            useLeadStore.getState().setAcademyList(single);
+          } catch (e2) {
+            void e2;
+          }
+        }
       } catch (e) {
         void e;
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
@@ -463,6 +493,7 @@ const App = () => {
     await authService.logout();
     setUser(null);
     useLeadStore.getState().setAcademyId(null);
+    useLeadStore.getState().setAcademyList([]);
     useLeadStore.getState().setInboxUnreadConversations(0);
     useLeadStore.setState({ leads: [] });
   };

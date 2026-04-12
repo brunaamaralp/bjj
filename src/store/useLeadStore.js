@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
-import { mergeOnboardingStepIdsDone, parseOnboardingChecklist } from '../lib/onboardingChecklist.js';
+import {
+  mergeOnboardingStepIdsDone,
+  normalizeOnboardingChecklistList,
+  parseOnboardingChecklist,
+} from '../lib/onboardingChecklist.js';
 
 export const LEAD_STATUS = {
   NEW: 'Novo',
@@ -141,13 +145,17 @@ export const useLeadStore = create((set, get) => ({
   onboardingChecklist: null,
   /** Snapshot de /api/billing/status (acesso trial/plano). */
   billingAccess: null,
+  /** Espelho da lista de academias (ownerId/teamId para papel). Sincronizado a partir do App. */
+  academyList: [],
   /** Incrementado para o banner reler dismiss e reaparecer (Conta → mostrar checklist). */
   onboardingChecklistReopenNonce: 0,
+
+  setAcademyList: (list) => set({ academyList: Array.isArray(list) ? list : [] }),
 
   setAcademyId: (id) =>
     set({
       academyId: id,
-      ...(id ? {} : { onboardingChecklist: null, billingAccess: null }),
+      ...(id ? {} : { onboardingChecklist: null, billingAccess: null, academyList: [] }),
     }),
   setBillingAccess: (v) => set({ billingAccess: v && typeof v === 'object' ? v : null }),
   reopenOnboardingBanner: () =>
@@ -172,7 +180,7 @@ export const useLeadStore = create((set, get) => ({
         list == null
           ? parseOnboardingChecklist(null)
           : Array.isArray(list)
-            ? list
+            ? normalizeOnboardingChecklistList(list)
             : parseOnboardingChecklist(null),
     }),
   setInboxUnreadConversations: (n) =>
@@ -330,15 +338,11 @@ export const useLeadStore = create((set, get) => ({
               if (!Array.isArray(checklist)) checklist = [];
             }
           } catch { checklist = []; }
-          const updated = checklist.map(it => it.id === 'first_lead' ? { ...it, done: true } : it);
-          // If first_lead not present (older academies), append done item.
-          if (!updated.find(it => it.id === 'first_lead')) {
-            updated.push({ id: 'first_lead', title: 'Criar primeiro lead', done: true });
-          }
+          const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
           await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-            onboardingChecklist: JSON.stringify(updated)
+            onboardingChecklist: JSON.stringify(merged),
           });
-          get().setOnboardingChecklist(updated);
+          get().setOnboardingChecklist(merged);
         } catch (e) {
           console.warn('onboardingChecklist update failed:', e?.message || e);
         }
@@ -504,14 +508,11 @@ export const useLeadStore = create((set, get) => ({
             if (!Array.isArray(checklist)) checklist = [];
           }
         } catch { checklist = []; }
-        const updated = checklist.map(it => it.id === 'first_lead' ? { ...it, done: true } : it);
-        if (!updated.find(it => it.id === 'first_lead')) {
-          updated.push({ id: 'first_lead', title: 'Criar primeiro lead', done: true });
-        }
+        const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-          onboardingChecklist: JSON.stringify(updated)
+          onboardingChecklist: JSON.stringify(merged),
         });
-        get().setOnboardingChecklist(updated);
+        get().setOnboardingChecklist(merged);
       } catch (e) {
         console.warn('onboardingChecklist update failed (import):', e?.message || e);
       }

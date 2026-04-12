@@ -1110,6 +1110,22 @@ export default function Inbox() {
     };
   }, [inboxTab, academyId, canConfigureAgenteIa]);
 
+  useEffect(() => {
+    if (inboxTab !== 'agente' || !canConfigureAgenteIa || !promptConfigurado || !academyId) return;
+    const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'setup_ai')?.done;
+    if (done) return;
+    void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
+  }, [inboxTab, canConfigureAgenteIa, promptConfigurado, academyId]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    const connected = whatsappConectado || String(waInfo?.status || '').trim() === 'connected';
+    if (!connected) return;
+    const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
+    if (done) return;
+    void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
+  }, [whatsappConectado, waInfo?.status, academyId]);
+
   async function savePromptSettings(overrides, { successMessage } = {}) {
     const use = overrides && typeof overrides === 'object' ? overrides : null;
     const intro = use && 'prompt_intro' in use ? String(use.prompt_intro) : String(promptIntro || '');
@@ -1133,6 +1149,12 @@ export default function Inbox() {
       addToast({ type: 'success', message: successMessage ?? 'Instruções salvas' });
       setPromptSavedSnapshot({ intro, body: bodyPut, suffix: suffixPut });
       setPromptConfigurado(isPromptConfiguredFromFields(intro, bodyPut));
+      if (isPromptConfiguredFromFields(intro, bodyPut)) {
+        const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'setup_ai')?.done;
+        if (!done) {
+          void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
+        }
+      }
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
     } finally {

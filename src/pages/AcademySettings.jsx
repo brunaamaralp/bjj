@@ -1,29 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
-
-function parseQuickTimesList(input) {
-    const asText = String(input || '').trim();
-    if (!asText) return [];
-    const uniq = [];
-    const seen = new Set();
-    for (const part of asText.split(',')) {
-        const item = String(part || '').trim();
-        if (!item) continue;
-        if (!seen.has(item)) {
-            uniq.push(item);
-            seen.add(item);
-        }
-    }
-    return uniq;
-}
 import { useUiStore } from '../store/useUiStore';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
 import { ChevronLeft } from 'lucide-react';
 import GeralSection from '../components/academy/GeralSection';
 import AtendimentoSection from '../components/academy/AtendimentoSection';
 import PersonalizacaoSection from '../components/academy/PersonalizacaoSection';
 import GerenciamentoSection from '../components/academy/GerenciamentoSection';
+import { isBillingLive } from '../lib/billingEnabled';
+import { validateCpfCnpj } from '../../lib/billing/validation.js';
+import { useUserRole } from '../lib/useUserRole';
 
 const TABS = [
     { id: 'geral', label: 'Geral' },
@@ -35,7 +22,11 @@ const TABS = [
 const AcademySettings = () => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
+    const billingAccess = useLeadStore((s) => s.billingAccess);
     const addToast = useUiStore((s) => s.addToast);
+    const location = useLocation();
+    const taxInputRef = useRef(null);
+    const [taxDocumentInput, setTaxDocumentInput] = useState('');
 
     const [activeTab, setActiveTab] = useState('geral');
     const [academy, setAcademy] = useState({
@@ -47,8 +38,33 @@ const AcademySettings = () => {
         uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
         modules: { sales: false, inventory: false, finance: false },
         customLeadQuestions: [],
-        teamId: ''
+        teamId: '',
+        ownerId: '',
     });
+
+    const autoEditTax = useMemo(() => new URLSearchParams(location.search).get('focus') === 'tax', [location.search]);
+
+    const role = useUserRole(academy);
+
+    const taxUpdateNeeded = Boolean(
+        isBillingLive() &&
+            billingAccess &&
+            billingAccess.status !== 'preview' &&
+            billingAccess.accessLevel &&
+            billingAccess.accessLevel !== 'none' &&
+            billingAccess.companyTaxOk === false
+    );
+
+    useEffect(() => {
+        if (autoEditTax) {
+            setActiveTab('geral');
+            const t = window.setTimeout(() => {
+                taxInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 120);
+            return () => window.clearTimeout(t);
+        }
+        return undefined;
+    }, [autoEditTax]);
 
     const createId = () => {
         try {
@@ -126,6 +142,7 @@ const AcademySettings = () => {
                     uiLabels: labels,
                     modules: mods,
                     teamId: doc.teamId || '',
+                    ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
                 });
                 if (normalized.migrated) {
@@ -142,6 +159,41 @@ const AcademySettings = () => {
     const handleSave = async () => {
         if (!academyId) return;
         try {
+            const taxTrim = String(taxDocumentInput || '').trim();
+            if (role === 'owner' && taxUpdateNeeded && taxTrim) {
+                const v = validateCpfCnpj(taxTrim);
+                if (!v.ok) {
+                    addToast({ type: 'error', message: v.error });
+                    throw new Error('tax');
+                }
+                const jwt = await createSessionJwt();
+                if (!jwt) {
+                    addToast({ type: 'error', message: 'Sessão inválida. Entre de novo.' });
+                    throw new Error('tax');
+                }
+                const r = await fetch('/api/billing?action=update-customer-tax', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${jwt}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ storeId: academyId, cpfCnpj: taxTrim }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.sucesso) {
+                    addToast({ type: 'error', message: data.erro || 'Não foi possível salvar o CPF/CNPJ.' });
+                    throw new Error('tax');
+                }
+                setTaxDocumentInput('');
+                const b = useLeadStore.getState().billingAccess;
+                if (b) {
+                    useLeadStore.getState().setBillingAccess({ ...b, companyTaxOk: true });
+                }
+                try {
+                    await useLeadStore.getState().completeOnboardingStepIds(['company_tax']);
+                } catch (e) { void e; }
+            }
+
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 name: academy.name,
                 phone: academy.phone,
@@ -155,24 +207,11 @@ const AcademySettings = () => {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
                 useLeadStore.getState().setModules(academy.modules || {});
             } catch (e) { void e; }
-            const onboardingIds = [];
-            const name = String(academy.name || '').trim();
-            const phoneDigits = String(academy.phone || '').replace(/\D/g, '');
-            const email = String(academy.email || '').trim();
-            const emailOk = email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-            if (name && (phoneDigits.length >= 10 || emailOk)) {
-                onboardingIds.push('academy_info');
-            }
-            if (parseQuickTimesList(academy.quickTimes).length > 0) {
-                onboardingIds.push('quick_times');
-            }
-            if (onboardingIds.length > 0) {
-                try {
-                    await useLeadStore.getState().completeOnboardingStepIds(onboardingIds);
-                } catch (e) { void e; }
-            }
             addToast({ type: 'success', message: 'Configurações da academia salvas.' });
         } catch (e) {
+            if (String(e?.message) === 'tax') {
+                throw e;
+            }
             console.error('save academy:', e);
             addToast({ type: 'error', message: 'Não foi possível salvar as configurações.' });
             throw e;
@@ -210,7 +249,18 @@ const AcademySettings = () => {
             </nav>
 
             {activeTab === 'geral' && (
-                <GeralSection academy={academy} setAcademy={setAcademy} onSave={handleSave} />
+                <GeralSection
+                    academy={academy}
+                    setAcademy={setAcademy}
+                    onSave={handleSave}
+                    taxUpdateNeeded={taxUpdateNeeded}
+                    companyTaxRegistered={Boolean(billingAccess?.companyTaxOk)}
+                    billingLive={isBillingLive()}
+                    taxDocumentInput={taxDocumentInput}
+                    setTaxDocumentInput={setTaxDocumentInput}
+                    taxInputRef={taxInputRef}
+                    autoEditTax={autoEditTax}
+                />
             )}
             
             {activeTab === 'atendimento' && (

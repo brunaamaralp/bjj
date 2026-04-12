@@ -1,24 +1,41 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, ChevronRight, Sparkles } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import { X, ChevronRight, Sparkles, ChevronDown } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { isBillingLive } from '../lib/billingEnabled';
+import { useUserRole } from '../lib/useUserRole';
 import {
   onboardingDismissStorageKey,
   onboardingStepPath,
   trialDaysRemaining,
+  buildEffectiveCoreSteps,
+  ONBOARDING_STEP_TITLES,
 } from '../lib/onboardingChecklist.js';
 
 export default function OnboardingBanner() {
   const navigate = useNavigate();
-  const academyId = useLeadStore((s) => s.academyId);
-  const checklist = useLeadStore((s) => s.onboardingChecklist);
-  const billingAccess = useLeadStore((s) => s.billingAccess);
-  const reopenNonce = useLeadStore((s) => s.onboardingChecklistReopenNonce);
+  const { academyId, checklist, billingAccess, reopenNonce, academyList } = useLeadStore(
+    useShallow((s) => ({
+      academyId: s.academyId,
+      checklist: s.onboardingChecklist,
+      billingAccess: s.billingAccess,
+      reopenNonce: s.onboardingChecklistReopenNonce,
+      academyList: s.academyList,
+    }))
+  );
   const completeOnboardingStepIds = useLeadStore((s) => s.completeOnboardingStepIds);
   const addToast = useUiStore((s) => s.addToast);
   const [dismissed, setDismissed] = useState(false);
+  const [stepsOpen, setStepsOpen] = useState(false);
+
+  const academyDoc = useMemo(() => {
+    const list = Array.isArray(academyList) ? academyList : [];
+    return list.find((a) => a.id === academyId) || { ownerId: '', teamId: '' };
+  }, [academyList, academyId]);
+  const role = useUserRole(academyDoc);
+  const canConfigureAgenteIa = role === 'owner' || role === 'member';
 
   useEffect(() => {
     if (!academyId) {
@@ -32,21 +49,25 @@ export default function OnboardingBanner() {
     }
   }, [academyId, reopenNonce]);
 
-  const { pendingSteps, totalSteps, allDone } = useMemo(() => {
-    const list = Array.isArray(checklist) ? checklist : [];
-    const pending = list.filter((it) => !it.done);
-    return {
-      pendingSteps: pending,
-      totalSteps: list.length,
-      allDone: list.length > 0 && pending.length === 0,
-    };
-  }, [checklist]);
+  const list = Array.isArray(checklist) ? checklist : [];
+  const installPwaRow = list.find((it) => it.id === 'install_pwa');
+  const installPwaPending = Boolean(installPwaRow && !installPwaRow.done);
 
-  const showBanner =
-    Boolean(academyId) &&
-    !dismissed &&
-    totalSteps > 0 &&
-    !allDone;
+  const effectiveCore = useMemo(
+    () => buildEffectiveCoreSteps(list, billingAccess, isBillingLive()),
+    [list, billingAccess]
+  );
+
+  const { pendingCore, totalCore, allCoreDone } = useMemo(() => {
+    const pending = effectiveCore.filter((it) => !it.done);
+    return {
+      pendingCore: pending,
+      totalCore: effectiveCore.length,
+      allCoreDone: effectiveCore.length > 0 && pending.length === 0,
+    };
+  }, [effectiveCore]);
+
+  const showBanner = Boolean(academyId) && !dismissed && totalCore > 0 && !allCoreDone;
 
   const trialLine = useMemo(() => {
     if (!isBillingLive() || billingAccess?.status !== 'trial' || !billingAccess?.currentPeriodEnd) {
@@ -55,23 +76,34 @@ export default function OnboardingBanner() {
     const days = trialDaysRemaining(billingAccess.currentPeriodEnd);
     if (days == null) return null;
     const until = new Date(billingAccess.currentPeriodEnd).toLocaleDateString('pt-BR');
-    return `Trial: ${days} dia${days === 1 ? '' : 's'} restante${days === 1 ? '' : 's'} (até ${until}).`;
+    return `Trial: ${days} dia${days === 1 ? '' : 's'} até ${until}`;
   }, [billingAccess]);
 
   const needsPlanLine =
     isBillingLive() && billingAccess?.needsPlan && billingAccess?.status !== 'preview';
 
-  const installPwaPending = pendingSteps.some((s) => s.id === 'install_pwa');
-
   const handleDismiss = () => {
     if (!academyId) return;
     try {
       localStorage.setItem(onboardingDismissStorageKey(academyId), '1');
-    } catch { void 0; }
+    } catch {
+      void 0;
+    }
     setDismissed(true);
   };
 
-  const handleStepClick = (stepId) => {
+  const stepBlocked = (stepId) =>
+    (stepId === 'setup_ai' || stepId === 'connect_whatsapp') && !canConfigureAgenteIa;
+
+  const handleStepNav = (stepId) => {
+    if (stepBlocked(stepId)) {
+      addToast({
+        type: 'info',
+        message: 'Peça ao dono da academia para configurar a IA e o WhatsApp.',
+        duration: 6000,
+      });
+      return;
+    }
     const path = onboardingStepPath(stepId);
     if (path) {
       navigate(path);
@@ -91,23 +123,25 @@ export default function OnboardingBanner() {
     void completeOnboardingStepIds(['install_pwa']);
   };
 
+  const nextActionable = pendingCore.find((s) => !stepBlocked(s.id)) || pendingCore[0];
+
+  const doneCoreCount = effectiveCore.filter((s) => s.done).length;
+
   if (!showBanner) {
     return null;
   }
-
-  const next = pendingSteps[0];
 
   return (
     <div
       className="navi-onboarding-banner animate-in"
       role="region"
-      aria-label="Checklist de primeiros passos"
+      aria-label="Primeiros passos no Nave"
       style={{
-        margin: '0 20px 12px',
-        padding: '14px 16px',
+        margin: '0 20px 10px',
+        padding: '12px 14px',
         borderRadius: 'var(--radius, 12px)',
         border: '1px solid var(--border-light, #e2e8f0)',
-        background: 'linear-gradient(135deg, var(--accent-light, #ede9fe) 0%, var(--surface, #fff) 55%)',
+        background: 'var(--surface, #fff)',
         boxShadow: 'var(--shadow, 0 1px 3px rgba(0,0,0,0.06))',
       }}
     >
@@ -115,8 +149,8 @@ export default function OnboardingBanner() {
         <div
           style={{
             flexShrink: 0,
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             borderRadius: 10,
             background: 'var(--accent)',
             display: 'flex',
@@ -126,24 +160,37 @@ export default function OnboardingBanner() {
           }}
           aria-hidden
         >
-          <Sparkles size={22} strokeWidth={2} />
+          <Sparkles size={20} strokeWidth={2} />
         </div>
-        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <p className="navi-section-heading" style={{ margin: '0 0 4px', fontSize: '0.95rem' }}>
-            Bem-vindo ao Nave
-          </p>
-          <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-            Complete os primeiros passos para aproveitar o CRM. Faltam{' '}
-            <strong>{pendingSteps.length}</strong> de <strong>{totalSteps}</strong>.
+        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+          <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
+            <p className="navi-section-heading" style={{ margin: 0, fontSize: '0.9rem' }}>
+              Vamos deixar seu CRM pronto
+            </p>
+            <span
+              className="text-small"
+              style={{
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                background: 'var(--accent-light)',
+                padding: '2px 8px',
+                borderRadius: 999,
+              }}
+            >
+              {doneCoreCount}/{totalCore}
+            </span>
+          </div>
+          <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            Em poucos passos você vê a recepção, a IA e o WhatsApp funcionando.
           </p>
           {trialLine ? (
-            <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)', fontWeight: 600 }}>
+            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {trialLine}
             </p>
           ) : null}
           {needsPlanLine ? (
-            <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              Defina o plano para continuar após o trial:{' '}
+            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              Depois do trial, escolha um plano:{' '}
               <Link to="/planos" style={{ color: 'var(--accent)', fontWeight: 600 }}>
                 Ver planos
               </Link>
@@ -153,60 +200,104 @@ export default function OnboardingBanner() {
               </Link>
             </p>
           ) : null}
-          {next ? (
+
+          {nextActionable ? (
             <button
               type="button"
               className="btn-primary"
               style={{
-                marginTop: 12,
+                marginTop: 10,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                fontSize: '0.85rem',
+                fontSize: '0.82rem',
                 padding: '8px 14px',
-                minHeight: 38,
+                minHeight: 36,
               }}
-              onClick={() => handleStepClick(next.id)}
+              onClick={() => handleStepNav(nextActionable.id)}
             >
-              Próximo: {next.title}
+              Continuar: {ONBOARDING_STEP_TITLES[nextActionable.id] || nextActionable.title}
               <ChevronRight size={16} aria-hidden />
             </button>
           ) : null}
-          <ul className="text-small" style={{ margin: '12px 0 0', paddingLeft: 18, color: 'var(--text-muted)' }}>
-            {pendingSteps.slice(0, 4).map((s) => (
-              <li key={s.id} style={{ marginBottom: 4 }}>
-                <button
-                  type="button"
-                  onClick={() => handleStepClick(s.id)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    font: 'inherit',
-                    color: 'var(--accent)',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    textUnderlineOffset: 2,
-                  }}
-                >
-                  {s.title}
-                </button>
-              </li>
-            ))}
-            {pendingSteps.length > 4 ? (
-              <li style={{ listStyle: 'none', marginLeft: -18, marginTop: 6 }}>…</li>
-            ) : null}
-          </ul>
-          {installPwaPending ? (
+
+          {!canConfigureAgenteIa && pendingCore.some((s) => stepBlocked(s.id)) ? (
+            <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-muted)' }}>
+              A configuração de IA e WhatsApp é feita pelo dono ou por quem tem permissão de equipe.
+            </p>
+          ) : null}
+
+          <div style={{ marginTop: 10 }}>
             <button
               type="button"
-              className="btn-outline"
-              style={{ marginTop: 10, fontSize: '0.8rem', padding: '6px 12px', minHeight: 34 }}
-              onClick={handlePwaDone}
+              className="text-small"
+              onClick={() => setStepsOpen((o) => !o)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--accent)',
+                fontWeight: 600,
+              }}
             >
-              Já instalei o app na tela inicial
+              {stepsOpen ? 'Ocultar passos' : 'Ver todos os passos'}
+              <ChevronDown
+                size={16}
+                style={{ transform: stepsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+                aria-hidden
+              />
             </button>
-          ) : null}
+            {stepsOpen ? (
+              <div className="flex flex-wrap" style={{ marginTop: 8, gap: 6 }}>
+                  {pendingCore.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleStepNav(s.id)}
+                      disabled={stepBlocked(s.id)}
+                      className="text-small"
+                      style={{
+                        border: '1px solid var(--border-light)',
+                        background: stepBlocked(s.id) ? 'var(--surface-hover)' : 'var(--surface)',
+                        color: stepBlocked(s.id) ? 'var(--text-muted)' : 'var(--accent)',
+                        fontWeight: 600,
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        cursor: stepBlocked(s.id) ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {ONBOARDING_STEP_TITLES[s.id] || s.title}
+                    </button>
+                  ))}
+              </div>
+            ) : null}
+          </div>
+
+          <details style={{ marginTop: 12 }}>
+            <summary
+              className="text-small"
+              style={{ cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 600 }}
+            >
+              Dica: atalho na tela inicial
+            </summary>
+            <p className="text-small" style={{ margin: '8px 0 6px', color: 'var(--text-secondary)' }}>
+              No celular, adicione o Nave à tela inicial para abrir mais rápido.
+            </p>
+            {installPwaPending ? (
+              <button
+                type="button"
+                className="btn-outline"
+                style={{ fontSize: '0.78rem', padding: '5px 10px', minHeight: 32 }}
+                onClick={handlePwaDone}
+              >
+                Já instalei o app
+              </button>
+            ) : null}
+          </details>
         </div>
         <button
           type="button"
