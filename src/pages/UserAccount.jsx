@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { User, LogOut, ChevronRight, Info, Shield, CreditCard } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
+import { onboardingDismissStorageKey } from '../lib/onboardingChecklist.js';
 import { authService } from '../lib/auth';
 import { createSessionJwt } from '../lib/appwrite';
 import { isBillingLive } from '../lib/billingEnabled';
@@ -11,6 +12,7 @@ const MIN_PWD = 8;
 
 const UserAccount = ({ user, onLogout }) => {
     const academyId = useLeadStore((s) => s.academyId);
+    const reopenOnboardingBanner = useLeadStore((s) => s.reopenOnboardingBanner);
     const addToast = useUiStore((s) => s.addToast);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -74,6 +76,20 @@ const UserAccount = ({ user, onLogout }) => {
         }
     };
 
+    const showOnboardingChecklistAgain = () => {
+        if (!academyId) {
+            addToast({ type: 'info', message: 'Selecione uma academia primeiro.' });
+            return;
+        }
+        try {
+            localStorage.removeItem(onboardingDismissStorageKey(academyId));
+        } catch {
+            void 0;
+        }
+        reopenOnboardingBanner();
+        addToast({ type: 'success', message: 'O checklist voltará a aparecer no topo das páginas.' });
+    };
+
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="animate-in">
@@ -105,6 +121,18 @@ const UserAccount = ({ user, onLogout }) => {
                     </div>
                 </div>
             </div>
+
+            <section className="mt-6 animate-in" style={{ animationDelay: '0.07s' }}>
+                <h3 className="navi-section-heading mb-2">Primeiros passos</h3>
+                <div className="card flex items-center justify-between gap-4" style={{ flexWrap: 'wrap' }}>
+                    <p className="navi-subtitle" style={{ margin: 0, flex: '1 1 200px' }}>
+                        Fechou o checklist no topo? Você pode exibi-lo de novo quando quiser.
+                    </p>
+                    <button type="button" className="btn btn-secondary" onClick={showOnboardingChecklistAgain}>
+                        Mostrar checklist novamente
+                    </button>
+                </div>
+            </section>
 
             <section className="mt-6 animate-in" style={{ animationDelay: '0.08s' }}>
                 <h3 className="navi-section-heading mb-2">Segurança</h3>

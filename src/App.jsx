@@ -41,7 +41,9 @@ import Plans from './pages/Plans';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
+import OnboardingBanner from './components/OnboardingBanner.jsx';
 import { useUserRole } from './lib/useUserRole';
+import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 
 function defaultAiNameFromUser(user) {
   const raw = String(user?.name || '').trim();
@@ -71,6 +73,31 @@ const App = () => {
   const isAccountZone = ['/conta', '/empresa', '/templates'].includes(location.pathname);
   const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
   const academyIdStore = useLeadStore((s) => s.academyId);
+  const billingAccessTop = useLeadStore((s) => s.billingAccess);
+
+  const topbarTrialChip = useMemo(() => {
+    if (!isBillingLive() || billingAccessTop?.status !== 'trial' || !billingAccessTop?.currentPeriodEnd) {
+      return null;
+    }
+    const d = trialDaysRemaining(billingAccessTop.currentPeriodEnd);
+    if (d == null) return null;
+    return (
+      <span
+        className="text-small"
+        style={{
+          color: 'rgba(255,255,255,0.92)',
+          fontWeight: 600,
+          padding: '4px 10px',
+          borderRadius: 8,
+          background: 'rgba(255,255,255,0.12)',
+          whiteSpace: 'nowrap',
+        }}
+        title={`Trial até ${new Date(billingAccessTop.currentPeriodEnd).toLocaleDateString('pt-BR')}`}
+      >
+        Trial: {d} dia{d === 1 ? '' : 's'}
+      </span>
+    );
+  }, [billingAccessTop]);
 
   const inboxTabParam = useMemo(() => {
     const q = new URLSearchParams(location.search);
@@ -94,12 +121,13 @@ const App = () => {
   const sideLinkClass = ({ isActive: navIsActive }) =>
     `navi-side-link${navIsActive ? ' active' : ''}`;
 
+  /** Garante trial no servidor (chamar uma vez após definir academia). */
   const syncBilling = async (academyId) => {
-    if (!isBillingLive()) return;
+    if (!isBillingLive() || !academyId) return;
     try {
       const jwt = await createSessionJwt();
-      if (!jwt || !academyId) return;
-      const en = await fetch('/api/billing/ensure-trial', {
+      if (!jwt) return;
+      await fetch('/api/billing/ensure-trial', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,18 +135,74 @@ const App = () => {
         },
         body: JSON.stringify({ storeId: academyId }),
       });
-      if (!en.ok) return;
-      const st = await fetch(`/api/billing/status?storeId=${encodeURIComponent(academyId)}`, {
-        headers: { Authorization: `Bearer ${jwt}` },
-      });
-      const data = await st.json().catch(() => ({}));
-      if (data.sucesso && data.needsPlan && location.pathname !== '/planos') {
-        navigate('/planos');
-      }
     } catch (e) {
       void e;
     }
   };
+
+  /**
+   * needsPlan: na 1ª navegação da sessão só toast; da 2ª em diante redireciona para /planos (contador em sessionStorage).
+   */
+  const applyBillingNeedsPlanNudge = React.useCallback(
+    (data) => {
+      if (!data?.sucesso || !data.needsPlan || location.pathname === '/planos') return;
+      let hits = 0;
+      try {
+        hits = parseInt(sessionStorage.getItem('navi_billing_needsplan_navs') || '0', 10);
+      } catch {
+        hits = 0;
+      }
+      if (hits === 0) {
+        try {
+          sessionStorage.setItem('navi_billing_needsplan_navs', '1');
+          useUiStore.getState().addToast({
+            type: 'warning',
+            message:
+              'Quando o trial acabar, será preciso escolher um plano. Abra Planos ou Conta → Assinatura quando quiser configurar.',
+            duration: 9000,
+          });
+        } catch {
+          void 0;
+        }
+        return;
+      }
+      navigate('/planos');
+    },
+    [location.pathname, navigate]
+  );
+
+  useEffect(() => {
+    if (!user || !academyIdStore || !isBillingLive()) {
+      useLeadStore.getState().setBillingAccess(null);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const jwt = await createSessionJwt();
+        if (!jwt || cancelled) return;
+        const st = await fetch(`/api/billing/status?storeId=${encodeURIComponent(academyIdStore)}`, {
+          headers: { Authorization: `Bearer ${jwt}` },
+        });
+        const data = await st.json().catch(() => ({}));
+        if (cancelled) return;
+        if (data.sucesso) {
+          useLeadStore.getState().setBillingAccess({
+            status: data.status,
+            currentPeriodEnd: data.currentPeriodEnd,
+            needsPlan: data.needsPlan,
+            accessLevel: data.accessLevel,
+          });
+          applyBillingNeedsPlanNudge(data);
+        }
+      } catch {
+        void 0;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, academyIdStore, location.pathname, applyBillingNeedsPlanNudge]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((c) => {
@@ -232,6 +316,7 @@ const App = () => {
       }
       setAcademyId(academyId);
       localStorage.setItem('activeAcademyId', academyId);
+      useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       try {
         const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
         let ensuredTeamId = String(doc?.teamId || '').trim();
@@ -327,7 +412,13 @@ const App = () => {
         } else {
           setModules({ sales: false, inventory: false, finance: false });
         }
-      } catch (e) { void e; }
+        try {
+          useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
+        } catch (e) { void e; }
+      } catch (e) {
+        void e;
+        useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
+      }
       // Fetch leads after academy is set
       useLeadStore.getState().setAcademyId(academyId);
       await useLeadStore.getState().fetchLeads();
@@ -364,6 +455,11 @@ const App = () => {
   };
 
   const handleLogout = async () => {
+    try {
+      sessionStorage.removeItem('navi_billing_needsplan_navs');
+    } catch {
+      void 0;
+    }
     await authService.logout();
     setUser(null);
     useLeadStore.getState().setAcademyId(null);
@@ -425,6 +521,7 @@ const App = () => {
         setAcademyId(id);
         useLeadStore.getState().setInboxUnreadConversations(0);
         localStorage.setItem('activeAcademyId', id);
+        useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
         try {
           const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
           let uiLabels = null;
@@ -452,7 +549,11 @@ const App = () => {
               finance: Boolean(mods.finance),
             });
           }
-        } catch (e) { void e; }
+          useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
+        } catch (e) {
+          void e;
+          useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
+        }
         await useLeadStore.getState().fetchLeads();
       }}
     >
@@ -633,6 +734,7 @@ const App = () => {
               </button>
             </div>
             <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {topbarTrialChip}
               {academySelect}
               <button type="button" className="navi-topbar-logout" onClick={handleLogout}>
                 Sair
@@ -664,6 +766,7 @@ const App = () => {
           })()}
 
           <main className="main-content">
+            <OnboardingBanner />
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/login" element={<Navigate to="/" replace />} />

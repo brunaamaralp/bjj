@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
+import { mergeOnboardingStepIdsDone, parseOnboardingChecklist } from '../lib/onboardingChecklist.js';
 
 export const LEAD_STATUS = {
   NEW: 'Novo',
@@ -136,8 +137,44 @@ export const useLeadStore = create((set, get) => ({
   modules: { sales: false, inventory: false, finance: false },
   /** Conversas com mensagens não lidas (atualizado pelo Inbox; usado no nav). */
   inboxUnreadConversations: 0,
+  /** Itens do checklist de onboarding (sincronizado com academia.onboardingChecklist). */
+  onboardingChecklist: null,
+  /** Snapshot de /api/billing/status (acesso trial/plano). */
+  billingAccess: null,
+  /** Incrementado para o banner reler dismiss e reaparecer (Conta → mostrar checklist). */
+  onboardingChecklistReopenNonce: 0,
 
-  setAcademyId: (id) => set({ academyId: id }),
+  setAcademyId: (id) =>
+    set({
+      academyId: id,
+      ...(id ? {} : { onboardingChecklist: null, billingAccess: null }),
+    }),
+  setBillingAccess: (v) => set({ billingAccess: v && typeof v === 'object' ? v : null }),
+  reopenOnboardingBanner: () =>
+    set((s) => ({ onboardingChecklistReopenNonce: (s.onboardingChecklistReopenNonce || 0) + 1 })),
+
+  completeOnboardingStepIds: async (ids) => {
+    const academyId = get().academyId;
+    if (!academyId || !Array.isArray(ids) || ids.length === 0) return;
+    const merged = mergeOnboardingStepIdsDone(get().onboardingChecklist, ids);
+    try {
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        onboardingChecklist: JSON.stringify(merged),
+      });
+    } catch (e) {
+      console.warn('completeOnboardingStepIds Appwrite:', e?.message || e);
+    }
+    set({ onboardingChecklist: merged });
+  },
+  setOnboardingChecklist: (list) =>
+    set({
+      onboardingChecklist:
+        list == null
+          ? parseOnboardingChecklist(null)
+          : Array.isArray(list)
+            ? list
+            : parseOnboardingChecklist(null),
+    }),
   setInboxUnreadConversations: (n) =>
     set({ inboxUnreadConversations: Math.max(0, Math.floor(Number(n) || 0)) }),
   setTeamId: (id) => set({ teamId: id }),
@@ -301,6 +338,7 @@ export const useLeadStore = create((set, get) => ({
           await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
             onboardingChecklist: JSON.stringify(updated)
           });
+          get().setOnboardingChecklist(updated);
         } catch (e) {
           console.warn('onboardingChecklist update failed:', e?.message || e);
         }
@@ -473,6 +511,7 @@ export const useLeadStore = create((set, get) => ({
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
           onboardingChecklist: JSON.stringify(updated)
         });
+        get().setOnboardingChecklist(updated);
       } catch (e) {
         console.warn('onboardingChecklist update failed (import):', e?.message || e);
       }

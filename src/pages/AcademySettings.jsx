@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
+
+function parseQuickTimesList(input) {
+    const asText = String(input || '').trim();
+    if (!asText) return [];
+    const uniq = [];
+    const seen = new Set();
+    for (const part of asText.split(',')) {
+        const item = String(part || '').trim();
+        if (!item) continue;
+        if (!seen.has(item)) {
+            uniq.push(item);
+            seen.add(item);
+        }
+    }
+    return uniq;
+}
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { ChevronLeft } from 'lucide-react';
@@ -139,6 +155,22 @@ const AcademySettings = () => {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
                 useLeadStore.getState().setModules(academy.modules || {});
             } catch (e) { void e; }
+            const onboardingIds = [];
+            const name = String(academy.name || '').trim();
+            const phoneDigits = String(academy.phone || '').replace(/\D/g, '');
+            const email = String(academy.email || '').trim();
+            const emailOk = email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            if (name && (phoneDigits.length >= 10 || emailOk)) {
+                onboardingIds.push('academy_info');
+            }
+            if (parseQuickTimesList(academy.quickTimes).length > 0) {
+                onboardingIds.push('quick_times');
+            }
+            if (onboardingIds.length > 0) {
+                try {
+                    await useLeadStore.getState().completeOnboardingStepIds(onboardingIds);
+                } catch (e) { void e; }
+            }
             addToast({ type: 'success', message: 'Configurações da academia salvas.' });
         } catch (e) {
             console.error('save academy:', e);

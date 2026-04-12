@@ -527,6 +527,9 @@ const Pipeline = () => {
             });
             setStages(cleaned);
             setEditStages(false);
+            try {
+                await useLeadStore.getState().completeOnboardingStepIds(['quick_times']);
+            } catch (e) { void e; }
         } catch (e) {
             console.error('saveStages error', e);
         }
