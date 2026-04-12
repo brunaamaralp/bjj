@@ -1387,7 +1387,7 @@ const Pipeline = () => {
         .lead-card { position: relative; }
         .dropdown-panel {
           position: absolute; left: 14px; right: 14px; top: 100%; margin-top: 6px;
-          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel);
           box-shadow: var(--shadow-lg); padding: 10px; z-index: 15;
         }
         .dropdown-section { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

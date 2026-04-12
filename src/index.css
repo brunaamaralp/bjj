@@ -68,8 +68,14 @@
   --shadow-lg: 0 8px 32px rgba(91, 63, 191, 0.16);
   --shadow-accent: 0 4px 14px rgba(91, 63, 191, 0.25);
   --radius: 16px;
+  --radius-panel: 12px;
   --radius-sm: 10px;
   --radius-full: 50px;
+  /* Overlay leve para menus/dropdowns (não confundir com modal escuro tipo Pipeline .note-overlay). */
+  --overlay-menu: rgba(18, 16, 42, 0.15);
+  /* Badges tipo “Transferido” / info azul no Inbox (--info global continua violeta para texto UI). */
+  --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
+  --inbox-info-badge-fg: #1d4ed8;
   --transition: all 0.15s ease;
 
   --warning-bg: var(--warn-bg);
@@ -906,6 +912,30 @@ button:active {
   border-radius: 0 0 3px 3px;
 }
 
+/* Indicador de não lidas no Atendimento (sidebar + bottom nav) */
+.navi-inbox-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c500);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+}
+.navi-side-link .navi-inbox-unread-dot {
+  box-shadow: 0 0 0 2px var(--v50);
+}
+.navi-bottom-nav .navi-nav-item .navi-inbox-unread-dot {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+}
+
+/* Painéis flutuantes (ex.: Pipeline .dropdown-panel; Inbox define .inbox-menu-panel no próprio bloco) */
+.dropdown-panel {
+  border-radius: var(--radius-panel);
+}
+
 .navi-nav-fab {
   margin-top: -20px;
 }
@@ -956,19 +986,70 @@ button:active {
 }
 
 .navi-toast {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: min(280px, calc(100vw - 32px));
+  max-width: 400px;
   padding: 12px 16px;
+  padding-bottom: 15px;
   background: var(--white);
   border: 0.5px solid var(--border-violet);
   border-left: 3px solid var(--v500);
-  border-radius: 0 10px 10px 0;
-  box-shadow: 0 4px 16px rgba(91, 63, 191, 0.12);
-  cursor: pointer;
-  animation: navi-toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-  font-size: 13px;
+  border-radius: 0 var(--radius-sm, 10px) var(--radius-sm, 10px) 0;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: navi-toast-in 0.2s ease both;
+  font-size: 14px;
+  line-height: 1.4;
   color: var(--ink);
+}
+
+.navi-toast.removing {
+  animation: navi-toast-out 0.2s ease forwards;
+}
+
+.navi-toast-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.navi-toast-close {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.navi-toast-close:hover {
+  opacity: 1;
+}
+
+.navi-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  transform-origin: left center;
+  background: currentColor;
+  opacity: 0.28;
+  border-radius: 0 0 var(--radius-sm, 10px) 0;
+  animation: navi-toast-progress linear forwards;
+  pointer-events: none;
+}
+
+.navi-toast:hover .navi-toast-progress {
+  animation-play-state: paused;
 }
 
 .navi-toast.success {
@@ -979,14 +1060,42 @@ button:active {
   border-left-color: var(--c500);
 }
 
+.navi-toast.warning {
+  border-left-color: var(--warning);
+}
+
+.navi-toast.info {
+  border-left-color: var(--v400);
+}
+
 @keyframes navi-toast-in {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes navi-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes navi-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }
 

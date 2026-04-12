@@ -134,8 +134,12 @@ export const useLeadStore = create((set, get) => ({
   userId: null,
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
   modules: { sales: false, inventory: false, finance: false },
+  /** Conversas com mensagens não lidas (atualizado pelo Inbox; usado no nav). */
+  inboxUnreadConversations: 0,
 
   setAcademyId: (id) => set({ academyId: id }),
+  setInboxUnreadConversations: (n) =>
+    set({ inboxUnreadConversations: Math.max(0, Math.floor(Number(n) || 0)) }),
   setTeamId: (id) => set({ teamId: id }),
   setUserId: (id) => set({ userId: id }),
   setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),

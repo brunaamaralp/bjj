@@ -429,6 +429,7 @@ export default function Inbox() {
     const resolvedCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'resolved').length;
     const transferredCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'transferred').length;
     setStats((prev) => ({ ...prev, unreadBacklog, resolvedCount, transferredCount }));
+    useLeadStore.getState().setInboxUnreadConversations(unreadBacklog);
   }, [items]);
 
   useEffect(() => {
@@ -1256,7 +1257,6 @@ export default function Inbox() {
       });
       const contentType = resp.headers.get('content-type') || '';
       const raw = await resp.text();
-      console.log('[loadThread]', p, 'status:', resp.status, 'academy:', academyIdRef.current, 'body:', raw.slice(0, 300));
       if (!contentType.includes('application/json')) {
         console.error('[loadThread] resposta não é JSON', {
           phone: p,
@@ -1947,24 +1947,6 @@ export default function Inbox() {
     ];
   }, [filteredItems]);
 
-  useEffect(() => {
-    const rows = groupedFilteredItems.reduce((n, g) => n + (Array.isArray(g.items) ? g.items.length : 0), 0);
-    console.log('[Inbox] ConversationList slot', {
-      inboxTab,
-      isMobile,
-      selectedPhone: String(selectedPhone || ''),
-      itemsLen: items.length,
-      groupedRows: rows,
-      childPropName: 'groupedItems',
-      passShape: groupedFilteredItems.map((g) => ({
-        key: g.key,
-        itemsIsArray: Array.isArray(g.items),
-        n: Array.isArray(g.items) ? g.items.length : 0
-      })),
-      build: 'inbox-list-v3'
-    });
-  }, [inboxTab, isMobile, selectedPhone, items.length, groupedFilteredItems]);
-
   const handleSelectConversation = (it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
@@ -1993,7 +1975,13 @@ export default function Inbox() {
     const s = String(status || '').trim();
     if (s === 'resolved') return { label: 'Resolvido', bg: 'var(--success-light)', fg: 'var(--success)', tone: 'success' };
     if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'var(--warning-light)', fg: '#b45309', tone: 'warning' };
-    if (s === 'transferred') return { label: transferTo ? `Transferido • ${transferTo}` : 'Transferido', bg: 'rgba(59, 130, 246, 0.12)', fg: '#1d4ed8', tone: 'info' };
+    if (s === 'transferred')
+      return {
+        label: transferTo ? `Transferido • ${transferTo}` : 'Transferido',
+        bg: 'var(--inbox-info-badge-bg)',
+        fg: 'var(--inbox-info-badge-fg)',
+        tone: 'info'
+      };
     return { label: 'Em andamento', bg: 'rgba(6, 182, 212, 0.12)', fg: 'var(--info)', tone: 'info', isDefault: true };
   }
 
@@ -2193,7 +2181,28 @@ export default function Inbox() {
       }}
     >
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div>Conversas</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>Conversas</span>
+          {Number(stats?.unreadBacklog || 0) > 0 && (
+            <span
+              className="text-small"
+              style={{
+                minWidth: 22,
+                height: 22,
+                padding: '0 7px',
+                borderRadius: 999,
+                background: 'var(--danger-light)',
+                color: 'var(--danger)',
+                fontWeight: 700,
+                lineHeight: '22px',
+                textAlign: 'center'
+              }}
+              title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens não lidas`}
+            >
+              {Number(stats.unreadBacklog) > 99 ? '99+' : Number(stats.unreadBacklog)}
+            </span>
+          )}
+        </div>
         {!searchQuery && (
           <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
             {hasMore ? 'Role para carregar mais' : 'Fim'}
@@ -2355,9 +2364,6 @@ export default function Inbox() {
                 const untilLabel = untilIso ? formatTimeOnly(untilIso) || formatWhen(untilIso) : '';
                 let rem = null;
                 if (untilMs > 0) {
-                  if (import.meta.env.DEV) {
-                    console.log('[handoff] human_handoff_until valor:', selected?.human_handoff_until, typeof selected?.human_handoff_until, 'untilMs:', untilMs);
-                  }
                   const remaining = untilMs - Date.now();
                   if (remaining > 0) {
                     const hours = Math.floor(remaining / 3600000);
@@ -3359,8 +3365,8 @@ export default function Inbox() {
         .inbox-msg.selected { background: var(--v50); outline: 2px solid rgba(91, 63, 191, 0.35); }
         .inbox-msg-actions { opacity: 0; pointer-events: none; transition: var(--transition); }
         .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
-        .inbox-menu-overlay { position: fixed; inset: 0; background: rgba(18,16,42,0.12); z-index: 80; }
-        .inbox-menu-panel { position: fixed; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; z-index: 81; }
+        .inbox-menu-overlay { position: fixed; inset: 0; background: var(--overlay-menu); z-index: 80; }
+        .inbox-menu-panel { position: fixed; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); overflow: hidden; z-index: 81; }
         .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
         .inbox-menu-item:hover { background: var(--surface-hover); }
         .inbox-menu-item.danger { color: var(--danger); }
@@ -3545,7 +3551,16 @@ export default function Inbox() {
               </span>
             )}
             {Number(stats?.transferredCount || 0) > 0 && (
-              <span className="text-small" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#1d4ed8', padding: '2px 8px', borderRadius: 999 }} title="Conversas transferidas">
+              <span
+                className="text-small"
+                style={{
+                  background: 'var(--inbox-info-badge-bg)',
+                  color: 'var(--inbox-info-badge-fg)',
+                  padding: '2px 8px',
+                  borderRadius: 999
+                }}
+                title="Conversas transferidas"
+              >
                 Transferidas: {Number(stats.transferredCount)}
               </span>
             )}
@@ -3603,7 +3618,11 @@ export default function Inbox() {
               style={{ minWidth: 220, maxWidth: 360, padding: '10px 12px' }}
               aria-label="Selecionar aba"
             >
-              <option value="conversas">Conversas</option>
+              <option value="conversas">
+                {Number(stats?.unreadBacklog || 0) > 0
+                  ? `Conversas (${Number(stats.unreadBacklog) > 99 ? '99+' : stats.unreadBacklog})`
+                  : 'Conversas'}
+              </option>
               <option value="dispositivo">Dispositivo</option>
               {canConfigureAgenteIa && <option value="agente">Agente IA</option>}
             </select>
@@ -3619,8 +3638,28 @@ export default function Inbox() {
               className={inboxTab === 'conversas' ? 'btn btn-primary' : 'btn btn-outline'}
               type="button"
               onClick={() => onTabChange('conversas')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
             >
-              Conversas
+              <span>Conversas</span>
+              {Number(stats?.unreadBacklog || 0) > 0 && (
+                <span
+                  className="text-small"
+                  style={{
+                    minWidth: 20,
+                    height: 20,
+                    padding: '0 6px',
+                    borderRadius: 999,
+                    background: inboxTab === 'conversas' ? 'rgba(255,255,255,0.22)' : 'var(--danger-light)',
+                    color: inboxTab === 'conversas' ? 'var(--white)' : 'var(--danger)',
+                    fontWeight: 800,
+                    lineHeight: '20px',
+                    textAlign: 'center'
+                  }}
+                  title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens não lidas`}
+                >
+                  {Number(stats.unreadBacklog) > 99 ? '99+' : stats.unreadBacklog}
+                </span>
+              )}
             </button>
             <button
               className={inboxTab === 'dispositivo' ? 'btn btn-primary' : 'btn btn-outline'}

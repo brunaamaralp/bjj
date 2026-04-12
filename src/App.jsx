@@ -1,6 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutGrid, Users, PlusCircle, User, ShoppingBag, Boxes, BarChart3, MessageCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, Link, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import {
+  LayoutGrid,
+  PlusCircle,
+  User,
+  ShoppingBag,
+  Boxes,
+  BarChart3,
+  MessageCircle,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  Kanban,
+  GraduationCap,
+  Bot,
+  FileText
+} from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
 import { isBillingLive } from './lib/billingEnabled';
@@ -25,6 +40,8 @@ import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
+import NaviToasts from './components/NaviToasts.jsx';
+import { useUserRole } from './lib/useUserRole';
 
 function defaultAiNameFromUser(user) {
   const raw = String(user?.name || '').trim();
@@ -50,16 +67,32 @@ const App = () => {
       return false;
     }
   });
-  const toasts = useUiStore((s) => s.toasts);
-  const removeToast = useUiStore((s) => s.removeToast);
-  const leadSingular = (plural) => {
-    const base = String(plural || '').trim();
-    if (!base) return 'lead';
-    const lower = base.toLowerCase();
-    return lower.endsWith('s') ? lower.slice(0, -1) : lower;
-  };
-
   const isActive = (path) => location.pathname === path;
+  const isAccountZone = ['/conta', '/empresa', '/templates'].includes(location.pathname);
+  const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
+  const academyIdStore = useLeadStore((s) => s.academyId);
+
+  const inboxTabParam = useMemo(() => {
+    const q = new URLSearchParams(location.search);
+    return String(q.get('tab') || '').trim();
+  }, [location.search]);
+
+  const isInboxAgenteTab = location.pathname === '/inbox' && inboxTabParam === 'agente';
+  const isInboxConversasNavActive = location.pathname === '/inbox' && inboxTabParam !== 'agente';
+  const isInboxPath = location.pathname === '/inbox';
+
+  const academyDocForRole = useMemo(() => {
+    if (!academyIdStore) return null;
+    const a = academyList.find((x) => x.id === academyIdStore);
+    if (!a) return null;
+    return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
+  }, [academyList, academyIdStore]);
+
+  const navRole = useUserRole(academyDocForRole);
+  const canConfigureAgenteIa = navRole === 'owner' || navRole === 'member';
+
+  const sideLinkClass = ({ isActive: navIsActive }) =>
+    `navi-side-link${navIsActive ? ' active' : ''}`;
 
   const syncBilling = async (academyId) => {
     if (!isBillingLive()) return;
@@ -163,7 +196,14 @@ const App = () => {
       }
 
       let academyId = null;
-      setAcademyList(list.map(d => ({ id: d.$id, name: d.name || d.$id })));
+      setAcademyList(
+        list.map((d) => ({
+          id: d.$id,
+          name: d.name || d.$id,
+          ownerId: String(d?.ownerId || ''),
+          teamId: String(d?.teamId || '')
+        }))
+      );
       const saved = localStorage.getItem('activeAcademyId');
       if (saved && list.find(d => d.$id === saved)) {
         academyId = saved;
@@ -377,6 +417,7 @@ const App = () => {
     await authService.logout();
     setUser(null);
     useLeadStore.getState().setAcademyId(null);
+    useLeadStore.getState().setInboxUnreadConversations(0);
     useLeadStore.setState({ leads: [] });
   };
 
@@ -432,6 +473,7 @@ const App = () => {
       onChange={async (e) => {
         const id = e.target.value;
         setAcademyId(id);
+        useLeadStore.getState().setInboxUnreadConversations(0);
         localStorage.setItem('activeAcademyId', id);
         try {
           const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
@@ -517,97 +559,117 @@ const App = () => {
           <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
             <div className="navi-side-section">
               <span className="navi-side-section-title">CRM</span>
-              <Link
+              <NavLink
                 to="/"
-                className={`navi-side-link ${isActive('/') ? 'active' : ''}`}
+                end
+                className={sideLinkClass}
                 title={sidebarCollapsed ? 'Início' : undefined}
               >
                 <LayoutGrid size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Início</span>
-              </Link>
-              <Link
-                to="/new-lead"
-                className="navi-side-link primary"
-                title={sidebarCollapsed ? `Novo ${leadSingular(labels.leads)}` : undefined}
-              >
-                <PlusCircle size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Novo {leadSingular(labels.leads)}</span>
-              </Link>
-              <Link
+              </NavLink>
+              <NavLink
                 to="/pipeline"
-                className={`navi-side-link ${isActive('/pipeline') ? 'active' : ''}`}
+                className={sideLinkClass}
                 title={sidebarCollapsed ? (labels.pipeline || 'Funil') : undefined}
               >
-                <Users size={18} strokeWidth={1.75} />
+                <Kanban size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">{labels.pipeline || 'Funil'}</span>
-              </Link>
-              <Link
-                to="/inbox"
-                className={`navi-side-link ${isActive('/inbox') ? 'active' : ''}`}
-                title={sidebarCollapsed ? 'Atendimento' : undefined}
-              >
-                <MessageCircle size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Atendimento</span>
-              </Link>
-              <Link
+              </NavLink>
+              <NavLink
                 to="/students"
-                className={`navi-side-link ${isActive('/students') ? 'active' : ''}`}
+                className={sideLinkClass}
                 title={sidebarCollapsed ? labels.students : undefined}
               >
-                <Users size={18} strokeWidth={1.75} />
+                <GraduationCap size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">{labels.students}</span>
-              </Link>
-              <Link
+              </NavLink>
+              <NavLink
                 to="/reports"
-                className={`navi-side-link ${isActive('/reports') ? 'active' : ''}`}
+                className={sideLinkClass}
                 title={sidebarCollapsed ? 'Relatórios' : undefined}
               >
                 <BarChart3 size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Relatórios</span>
-              </Link>
+              </NavLink>
             </div>
+
+            <div className="navi-side-section">
+              <span className="navi-side-section-title">Atendimento</span>
+              <Link
+                to="/inbox"
+                className={`navi-side-link${isInboxConversasNavActive ? ' active' : ''}`}
+                title={sidebarCollapsed ? 'Conversas' : undefined}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Conversas</span>
+                {inboxUnread > 0 && (
+                  <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
+                )}
+              </Link>
+              {canConfigureAgenteIa && (
+                <Link
+                  to="/inbox?tab=agente"
+                  className={`navi-side-link${isInboxAgenteTab ? ' active' : ''}`}
+                  title={sidebarCollapsed ? 'Agente IA' : undefined}
+                >
+                  <Bot size={18} strokeWidth={1.75} />
+                  <span className="navi-side-link-label">Agente IA</span>
+                </Link>
+              )}
+              <NavLink
+                to="/templates"
+                className={sideLinkClass}
+                title={sidebarCollapsed ? 'Templates' : undefined}
+              >
+                <FileText size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Templates</span>
+              </NavLink>
+            </div>
+
             {((modules.inventory === true) || (modules.sales === true)) && (
               <div className="navi-side-section">
                 <span className="navi-side-section-title">Operações</span>
                 {modules.inventory === true && (
-                  <Link
+                  <NavLink
                     to="/estoque"
-                    className={`navi-side-link ${isActive('/estoque') ? 'active' : ''}`}
+                    className={sideLinkClass}
                     title={sidebarCollapsed ? 'Estoque' : undefined}
                   >
                     <Boxes size={18} strokeWidth={1.75} />
                     <span className="navi-side-link-label">Estoque</span>
-                  </Link>
+                  </NavLink>
                 )}
                 {modules.sales === true && (
-                  <Link
+                  <NavLink
                     to="/vendas"
-                    className={`navi-side-link ${isActive('/vendas') ? 'active' : ''}`}
+                    className={sideLinkClass}
                     title={sidebarCollapsed ? 'Vendas' : undefined}
                   >
                     <ShoppingBag size={18} strokeWidth={1.75} />
                     <span className="navi-side-link-label">Vendas</span>
-                  </Link>
+                  </NavLink>
                 )}
               </div>
             )}
+
             <div className="navi-side-section">
-              <Link
-                to="/conta"
-                className={`navi-side-link ${isActive('/conta') ? 'active' : ''}`}
-                title={sidebarCollapsed ? 'Conta' : undefined}
-              >
-                <User size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Conta</span>
-              </Link>
-              <Link
+              <NavLink
                 to="/empresa"
-                className={`navi-side-link ${isActive('/empresa') || isActive('/templates') ? 'active' : ''}`}
+                className={({ isActive }) => `navi-side-link${isActive || isAccountZone ? ' active' : ''}`}
                 title={sidebarCollapsed ? 'Minha academia' : undefined}
               >
                 <Building2 size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Minha academia</span>
-              </Link>
+              </NavLink>
+              <NavLink
+                to="/conta"
+                className={({ isActive }) => `navi-side-link${isActive || isAccountZone ? ' active' : ''}`}
+                title={sidebarCollapsed ? 'Conta' : undefined}
+              >
+                <User size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Conta</span>
+              </NavLink>
             </div>
           </nav>
         </aside>
@@ -678,12 +740,15 @@ const App = () => {
           <span>Início</span>
         </Link>
         <Link to="/pipeline" className={`navi-nav-item ${isActive('/pipeline') ? 'active' : ''}`}>
-          <Users size={22} strokeWidth={1.75} />
+          <Kanban size={22} strokeWidth={1.75} />
           <span>{labels.pipeline || 'Funil'}</span>
         </Link>
-        <Link to="/inbox" className={`navi-nav-item ${isActive('/inbox') ? 'active' : ''}`}>
+        <Link to="/inbox" className={`navi-nav-item ${isInboxPath ? 'active' : ''}`}>
           <MessageCircle size={22} strokeWidth={1.75} />
-          <span>Atendimento</span>
+          {inboxUnread > 0 && (
+            <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
+          )}
+          <span>Conversas</span>
         </Link>
         <Link to="/new-lead" className="navi-nav-item navi-nav-fab">
           <div className="navi-fab-btn">
@@ -691,7 +756,7 @@ const App = () => {
           </div>
         </Link>
         <Link to="/students" className={`navi-nav-item ${isActive('/students') ? 'active' : ''}`}>
-          <Users size={22} strokeWidth={1.75} />
+          <GraduationCap size={22} strokeWidth={1.75} />
           <span>{labels.students}</span>
         </Link>
         {modules.sales === true && (
@@ -700,24 +765,17 @@ const App = () => {
             <span>Loja</span>
           </Link>
         )}
-        <Link to="/conta" className={`navi-nav-item ${isActive('/conta') || isActive('/empresa') || isActive('/templates') ? 'active' : ''}`}>
+        <Link to="/conta" className={`navi-nav-item ${isAccountZone ? 'active' : ''}`}>
           <User size={22} strokeWidth={1.75} />
           <span>Conta</span>
         </Link>
       </nav>
 
-      {toasts && toasts.length > 0 && (
-        <div className="navi-toast-container">
-          {toasts.map((t) => (
-            <div key={t.id} className={`navi-toast ${t.type || ''}`} onClick={() => removeToast(t.id)} role="status">
-              <span>{t.message}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <NaviToasts />
 
       <style dangerouslySetInnerHTML={{
         __html: `
+          /* Topbar usa fundo var(--v900): estes RGBA são intencionais para contraste no tema escuro. */
           .navi-topbar-select {
             max-width: 220px;
             padding: 8px 12px;

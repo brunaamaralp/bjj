@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import ConversationItem from './ConversationItem';
 
 /** Aceita array ou (defensivo) objeto tipo mapa id→linha — antes virava [] e sumiam todos os cards. */
@@ -44,45 +44,6 @@ export default function ConversationList(props) {
   const groups = useMemo(() => safeGrouped(groupedItems), [groupedItems]);
   const flatCount = useMemo(() => groups.reduce((n, g) => n + g.items.length, 0), [groups]);
 
-  useEffect(() => {
-    console.log('[ConversationList] props recebidas', {
-      esperadas: [
-        'groupedItems',
-        'loading',
-        'totalItems',
-        'loadingMore',
-        'onSelectConversation',
-        'selectedPhone',
-        'ticketChip',
-        'formatTimeOnly',
-        'formatWhen'
-      ],
-      groupedItemsIsArray: Array.isArray(groupedItems),
-      groupedLength: Array.isArray(groupedItems) ? groupedItems.length : null,
-      groupItemLengths: Array.isArray(groupedItems)
-        ? groupedItems.map((g) => ({
-            key: g?.key,
-            len: normalizeGroupItems(g?.items).length,
-            itemsType: g?.items == null ? 'nullish' : Array.isArray(g.items) ? 'array' : typeof g.items
-          }))
-        : null,
-      afterSafeGrouped: groups.map((g) => ({ key: g.key, len: g.items.length })),
-      loading,
-      totalItems
-    });
-  }, [groupedItems, groups, loading, totalItems]);
-
-  useEffect(() => {
-    const groupedItemKeys = groups.map((g) => g.key);
-    const total = groups.reduce((n, g) => n + g.items.length, 0);
-    console.log('[ConversationList] MONTADO', {
-      groupedItemKeys,
-      total,
-      loading,
-      totalItems
-    });
-  }, [groups, loading, totalItems]);
-
   const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
 
   return (
@@ -116,7 +77,7 @@ export default function ConversationList(props) {
       {!loading && totalItems === 0 && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Nenhuma conversa.</div>}
       {!loading && totalItems > 0 && flatCount === 0 && (
         <div style={{ padding: 12, color: 'var(--danger)' }} role="status">
-          Lista não renderizou ({totalItems} conversas). Abra o log <code>[ConversationList] props recebidas</code>.
+          Lista não renderizou ({totalItems} conversas). Tente atualizar a página ou mudar o filtro.
         </div>
       )}
       {loadingMore && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Carregando mais…</div>}
