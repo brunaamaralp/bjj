@@ -2517,22 +2517,25 @@ export default function Inbox() {
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
                 const aiSuggestHuman = Boolean(lead?.needHuman);
-                const untilRaw = String(selected?.human_handoff_until || '').trim();
-                const untilMs = humanHandoffUntilToMs(untilRaw);
+                const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
                 const untilIso = untilMs > 0 ? new Date(untilMs).toISOString() : '';
                 const untilLabel = untilIso ? formatTimeOnly(untilIso) || formatWhen(untilIso) : '';
-                const getHandoffRemaining = (handoffUntil) => {
-                  if (!handoffUntil) return null;
-                  const remaining = new Date(handoffUntil).getTime() - Date.now();
-                  if (remaining <= 0) return null;
-                  const hours = Math.floor(remaining / 3600000);
-                  const minutes = Math.floor((remaining % 3600000) / 60000);
-                  if (hours > 0) return `${hours}h ${minutes}min`;
-                  return `${minutes}min`;
-                };
+                let rem = null;
+                if (untilMs > 0) {
+                  if (import.meta.env.DEV) {
+                    console.log('[handoff] human_handoff_until valor:', selected?.human_handoff_until, typeof selected?.human_handoff_until, 'untilMs:', untilMs);
+                  }
+                  const remaining = untilMs - Date.now();
+                  if (remaining > 0) {
+                    const hours = Math.floor(remaining / 3600000);
+                    const minutes = Math.floor((remaining % 3600000) / 60000);
+                    if (hours > 0) rem = `${hours}h ${minutes}min`;
+                    else if (minutes > 0) rem = `${minutes}min`;
+                    else rem = 'menos de 1min';
+                  }
+                }
 
                 if (selected?.need_human) {
-                  const rem = untilRaw ? getHandoffRemaining(untilRaw) : null;
                   return (
                     <>
                       <span
