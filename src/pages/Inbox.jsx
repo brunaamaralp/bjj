@@ -331,6 +331,7 @@ export default function Inbox() {
   const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
   const role = useUserRole(academyDoc);
+  const canConfigureAgenteIa = role === 'owner' || role === 'member';
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -671,12 +672,13 @@ export default function Inbox() {
         updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
         e.preventDefault();
+        if (!canConfigureAgenteIa) return;
         openPromptSettings();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selected?.ticket_status, selected?.transfer_to]);
+  }, [selected?.ticket_status, selected?.transfer_to, canConfigureAgenteIa]);
 
   function safeParseJson(raw) {
     try {
@@ -2740,7 +2742,7 @@ export default function Inbox() {
         </div>
       </div>
 
-      {role === 'owner' && promptModal && (
+      {canConfigureAgenteIa && promptModal && (
         <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 'min(960px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -3438,9 +3440,11 @@ export default function Inbox() {
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
             Recarregar
           </button>
-          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
-            Configurar IA
-          </button>
+          {canConfigureAgenteIa && (
+            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
+              Configurar IA
+            </button>
+          )}
         </div>
       </div>
 
@@ -3666,6 +3670,7 @@ export default function Inbox() {
     const tab = String(nextTab || '').trim();
     if (!tab) return;
     if (tab === 'agente') {
+      if (!canConfigureAgenteIa) return;
       openPromptSettings();
       return;
     }
@@ -3818,9 +3823,9 @@ export default function Inbox() {
             >
               <option value="conversas">Conversas</option>
               <option value="dispositivo">Dispositivo</option>
-              {role === 'owner' && <option value="agente">Agente IA</option>}
+              {canConfigureAgenteIa && <option value="agente">Agente IA</option>}
             </select>
-            {role === 'owner' && (
+            {canConfigureAgenteIa && (
               <button className="btn btn-outline" type="button" onClick={() => onTabChange('agente')} style={{ minHeight: 40, padding: '0 12px' }}>
                 IA
               </button>
@@ -3842,7 +3847,7 @@ export default function Inbox() {
             >
               Dispositivo
             </button>
-            {role === 'owner' && (
+            {canConfigureAgenteIa && (
               <button
                 className={inboxTab === 'agente' ? 'btn btn-primary' : 'btn btn-outline'}
                 type="button"
@@ -4047,7 +4052,7 @@ export default function Inbox() {
                       Atualiza
                     </span>
                   </button>
-                  {role === 'owner' && (
+                  {canConfigureAgenteIa && (
                     <button
                       className="inbox-menu-item"
                       type="button"
@@ -4276,9 +4281,9 @@ export default function Inbox() {
 
       {inboxTab === 'agente' && (
         <div style={{ marginBottom: 12 }}>
-          {role !== 'owner' ? (
+          {!canConfigureAgenteIa ? (
             <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-              Apenas o dono da academia pode configurar o Agente IA.
+              Apenas donos e membros da equipe da academia podem configurar o Agente IA.
             </div>
           ) : (
             <>
