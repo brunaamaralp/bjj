@@ -265,6 +265,19 @@ export default async function handler(req, res) {
         return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
       }
 
+      console.log('[agent/process] resposta do respond', {
+        hasData: !!agentData,
+        resposta:
+          agentData?.resposta != null && agentData.resposta !== ''
+            ? String(agentData.resposta).slice(0, 50)
+            : agentData?.resposta,
+        hasDeferred: !!agentData?.deferred_merge,
+        sent: agentData?.sent,
+        motivo: agentData?.motivo,
+        em_processamento: agentData?.em_processamento,
+        sucesso: agentData?.sucesso
+      });
+
       if (agentData?.em_processamento) {
         console.error('[agent/process] ainda em processamento após poll', { requestId, phone });
         return res.status(200).json({ sent: false, processing: true });
