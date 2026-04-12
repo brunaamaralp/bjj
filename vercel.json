@@ -4,6 +4,7 @@
     { "source": "/api/agent/:action(.*)", "destination": "/api/agent.js?action=$1" },
     { "source": "/api/settings/ai-prompt", "destination": "/api/agent.js?route=ai-prompt" },
     { "source": "/api/settings/prompt-preview", "destination": "/api/agent.js?route=prompt-preview" },
+    { "source": "/api/generate-prompt", "destination": "/api/generate-prompt" },
     { "source": "/api/academies/create", "destination": "/api/academy.js?route=create" },
     { "source": "/api/team/members", "destination": "/api/academy.js?route=members" },
     { "source": "/api/webhook/zapster", "destination": "/api/zapster.js?route=webhook" },

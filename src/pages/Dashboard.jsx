@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
-import { account } from '../lib/appwrite';
+import { account, databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
+import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
@@ -41,11 +43,47 @@ const Dashboard = () => {
 
     const [metrics, setMetrics] = useState({ newLeads: { current: 0, previous: 0 }, scheduled: { current: 0, previous: 0 }, converted: { current: 0, previous: 0 } });
     const [loadingMetrics, setLoadingMetrics] = useState(false);
+    const [academyWa, setAcademyWa] = useState({
+        name: '',
+        zapster_instance_id: '',
+        templates: DEFAULT_WHATSAPP_TEMPLATES
+    });
 
     useEffect(() => {
         if (academyId) {
             fetchLeads();
         }
+    }, [academyId]);
+
+    useEffect(() => {
+        if (!academyId) return;
+        let cancelled = false;
+        databases
+            .getDocument(DB_ID, ACADEMIES_COL, academyId)
+            .then((doc) => {
+                if (cancelled) return;
+                let parsed = {};
+                try {
+                    const raw = doc.whatsappTemplates;
+                    const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p;
+                } catch {
+                    parsed = {};
+                }
+                setAcademyWa({
+                    name: String(doc?.name || '').trim(),
+                    zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
+                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...parsed }
+                });
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setAcademyWa({ name: '', zapster_instance_id: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [academyId]);
 
     useEffect(() => {
@@ -295,38 +333,25 @@ const Dashboard = () => {
         allScheduled.length > 0 &&
         dateFilter !== 'all';
 
+    const sendDashboardTemplate = async (lead, templateKey) => {
+        await sendWhatsappTemplateOutbound({
+            lead,
+            academyId,
+            academyName: academyWa.name,
+            templateKey,
+            templatesMap: academyWa.templates,
+            zapsterInstanceId: academyWa.zapster_instance_id,
+            onToast: (t) => addToast(t)
+        });
+    };
+
     const handleWhatsApp = (lead) => {
-        const cleanPhone = String(lead?.phone || '').replace(/\D/g, '');
-        const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
-        const dateStr = lead?.scheduledDate ? new Date(`${lead.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : '';
-        const timeStr = String(lead?.scheduledTime || '').trim();
-
-        let text = `Olá ${firstName}! Tudo bem?`;
-        if (lead?.status === LEAD_STATUS.MISSED) {
-            text += ` Sentimos sua falta na aula experimental${dateStr ? ` do dia ${dateStr}` : ''}${timeStr ? ` às ${timeStr}` : ''}. Quer remarcar para outro dia?`;
-        } else {
-            text += ` O que achou da aula experimental${dateStr ? ` do dia ${dateStr}` : ''}? Quer que eu te envie os valores e horários para começar?`;
-        }
-
-        const msg = encodeURIComponent(text);
-        window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
+        const key = lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'post_class';
+        void sendDashboardTemplate(lead, key);
     };
 
     const handleWhatsAppScheduled = (lead) => {
-        const cleanPhone = String(lead?.phone || '').replace(/\D/g, '');
-        if (!cleanPhone) return;
-        const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
-        const dateStr = lead?.scheduledDate ? new Date(`${lead.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : '';
-        const timeStr = String(lead?.scheduledTime || '').trim();
-        let text = `Olá ${firstName}! Tudo bem?`;
-        if (dateStr && timeStr) {
-            text += ` Passando para confirmar sua aula experimental no dia ${dateStr} às ${timeStr}. Qualquer coisa, estamos à disposição!`;
-        } else if (dateStr) {
-            text += ` Passando para confirmar sua aula experimental no dia ${dateStr}. Qual horário combinamos?`;
-        } else {
-            text += ` Passando para combinar sua aula experimental. Qual o melhor dia e horário para você?`;
-        }
-        window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
+        void sendDashboardTemplate(lead, 'confirm');
     };
 
     return (

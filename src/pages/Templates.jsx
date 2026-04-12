@@ -4,33 +4,24 @@ import { MessageCircle, Save, RotateCcw, Send, User, Search, Copy, Check, Rotate
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import {
+  DEFAULT_WHATSAPP_TEMPLATES,
+  WHATSAPP_TEMPLATE_LABELS,
+  applyWhatsappTemplatePlaceholders
+} from '../../lib/whatsappTemplateDefaults.js';
 
-const DEFAULT_TEMPLATES = {
-  confirm: 'Olá {primeiroNome}! Confirmando sua aula experimental {dataAula}{horaAula}. Venha com roupa confortável! Qualquer dúvida, estamos à disposição.',
-  reminder: 'Oi {primeiroNome}! Passando para lembrar da sua aula experimental {amanhaData}{horaAula}. Estamos te esperando!',
-  post_class: '{primeiroNome}, foi um prazer ter você na nossa academia! O que achou da aula? Quer que eu te envie os valores e horários para começar?',
-  missed: 'Oi {primeiroNome}! Sentimos sua falta na aula experimental. Sei que imprevistos acontecem! Quer remarcar para outro dia? Estamos com horários disponíveis essa semana.',
-  recovery: 'Olá {primeiroNome}! Tudo bem? Vi que você visitou nossa academia recentemente. Ainda tem interesse em começar no Jiu-Jitsu? Temos turmas nos horários da manhã e noite. Vou adorar ajudar!',
-  dashboard_contact: 'Olá {primeiroNome}! O que achou da aula experimental{dataAulaOpcional}? Quer que eu te envie os valores e horários para começar?'
-};
+const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
+const labelFor = WHATSAPP_TEMPLATE_LABELS;
 
 const PLACEHOLDERS = [
   { key: '{primeiroNome}', label: 'Primeiro nome' },
+  { key: '{nome}', label: 'Igual a primeiro nome (legado)' },
   { key: '{dataAula}', label: 'Data da aula (DD/MM/AAAA)' },
   { key: '{horaAula}', label: 'Hora da aula (HH:MM)' },
   { key: '{amanhaData}', label: 'Texto “amanhã (DD/MM/AAAA)”' },
   { key: '{nomeAcademia}', label: 'Nome da academia' },
   { key: '{dataAulaOpcional}', label: 'Data opcional (prefixa “ do dia …”)' },
 ];
-
-const labelFor = {
-  confirm: 'Confirmar Aula',
-  reminder: 'Lembrete',
-  post_class: 'Pós-Aula',
-  missed: 'Não Compareceu',
-  recovery: 'Recuperação',
-  dashboard_contact: 'Contato (Dashboard)',
-};
 
 const Templates = () => {
   const academyId = useLeadStore((s) => s.academyId);
@@ -46,7 +37,7 @@ const Templates = () => {
   const [copiedKey, setCopiedKey] = useState('');
   const [expanded, setExpanded] = useState({});
 
-  const templateIds = useMemo(() => Object.keys(labelFor), []);
+  const templateIds = useMemo(() => Object.keys(DEFAULT_TEMPLATES), []);
 
   const sampleLead = useMemo(() => {
     const id = String(sampleLeadId || '').trim();
@@ -93,21 +84,8 @@ const Templates = () => {
       });
   }, [academyId]);
 
-  const renderTemplate = (text) => {
-    const nomeAcademia = academyName || 'nossa academia';
-    const nome = (sampleData?.name || '').trim().split(/\s+/)[0] || 'Aluno';
-    const dstr = sampleData?.scheduledDate ? new Date(`${sampleData.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : '';
-    const tstr = (sampleData?.scheduledTime || '').trim();
-    const dataOpcional = dstr ? ` do dia ${dstr}` : '';
-    const amanhaTexto = dstr ? `amanhã (${dstr})` : 'amanhã';
-    return String(text || '')
-      .replaceAll('{primeiroNome}', nome)
-      .replaceAll('{dataAula}', dstr)
-      .replaceAll('{horaAula}', tstr ? ` às ${tstr}` : '')
-      .replaceAll('{amanhaData}', amanhaTexto)
-      .replaceAll('{nomeAcademia}', nomeAcademia)
-      .replaceAll('{dataAulaOpcional}', dataOpcional);
-  };
+  const renderTemplate = (text) =>
+    applyWhatsappTemplatePlaceholders(String(text || ''), { lead: sampleData, academyName });
 
   const handleInsertPlaceholder = (key, id) => {
     const textarea = document.getElementById(`tpl-${id}`);
@@ -305,7 +283,7 @@ const Templates = () => {
                   <RotateCw size={16} />
                 </button>
                 <MessageCircle size={18} color="#25D366" />
-                <strong>{labelFor[id]}</strong>
+                <strong>{labelFor[id] || id}</strong>
                 {isChanged && <span className="tpl-badge">Não salvo</span>}
                 <span className="navi-mono-num">{raw.length} chars</span>
               </div>
@@ -323,6 +301,11 @@ const Templates = () => {
             </div>
             {isExpanded && (
               <>
+                {id === 'birthday' && (
+                  <p className="text-xs" style={{ marginBottom: 8, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                    Enviada automaticamente no aniversário do aluno (cron Zapster). Use {'{primeiroNome}'} e {'{nomeAcademia}'} — {'{nome}'} também é aceito (legado).
+                  </p>
+                )}
                 <div className="tpl-vars">
                   <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Variáveis</div>
                   <div className="tpl-vars-scroll">

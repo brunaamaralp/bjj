@@ -7,6 +7,8 @@ import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
+import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const normalizeDayToken = (t) => t.toLowerCase().trim().replace(/á/g, 'a').slice(0, 3);
@@ -118,6 +120,11 @@ const Pipeline = () => {
     const [searchStageScope, setSearchStageScope] = useState('all');
     const [openMenuId, setOpenMenuId] = useState(null);
     const [copiedId, setCopiedId] = useState(null);
+    const [waOutbound, setWaOutbound] = useState({
+        name: '',
+        zapster_instance_id: '',
+        templates: DEFAULT_WHATSAPP_TEMPLATES
+    });
     const [lostModalLead, setLostModalLead] = useState(null);
     const [dragTargetLead, setDragTargetLead] = useState(null);
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
@@ -288,6 +295,19 @@ const Pipeline = () => {
         };
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
+                let tplParsed = {};
+                try {
+                    const w = doc.whatsappTemplates;
+                    const p = typeof w === 'string' ? JSON.parse(w) : w;
+                    if (p && typeof p === 'object' && !Array.isArray(p)) tplParsed = p;
+                } catch {
+                    tplParsed = {};
+                }
+                setWaOutbound({
+                    name: String(doc?.name || '').trim(),
+                    zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
+                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
+                });
                 let raw = [];
                 if (Array.isArray(doc.quickTimes)) raw = doc.quickTimes;
                 else if (typeof doc.quickTimes === 'string' && doc.quickTimes.trim()) raw = doc.quickTimes.split(',').map(s => s.trim()).filter(Boolean);
@@ -337,17 +357,46 @@ const Pipeline = () => {
         return `${y}-${m}-${d}`;
     };
 
+    const templateSendKeys = useMemo(
+        () =>
+            Object.entries(waOutbound.templates)
+                .filter(([, v]) => typeof v === 'string' && String(v).trim())
+                .map(([k]) => k),
+        [waOutbound.templates]
+    );
+
+    const sendTemplateFromPipeline = async (e, lead, key) => {
+        e.stopPropagation();
+        setOpenMenuId(null);
+        await sendWhatsappTemplateOutbound({
+            lead,
+            academyId,
+            academyName: waOutbound.name,
+            templateKey: key,
+            templatesMap: waOutbound.templates,
+            zapsterInstanceId: waOutbound.zapster_instance_id,
+            onToast: (t) => {
+                setToast(t.message);
+                setTimeout(() => setToast(''), 3200);
+            }
+        });
+    };
+
     const handleWhatsApp = (e, lead) => {
         e.stopPropagation();
-        const clean = (lead.phone || '').replace(/\D/g, '');
-        const sugArr = itemsForDay('today').slice(0, 2).map(it => it.label);
-        const sug = sugArr.join('/');
-        const firstName = String(lead?.name || '').trim().split(/\s+/)[0] || 'Aluno';
-        const msg = (lead?.status === LEAD_STATUS.MISSED)
-            ? `Olá ${firstName}, sentimos sua ausência na aula combinada. Quer reagendar? Tenho hoje às ${sug} ou amanhã nos mesmos horários.`
-            : `Olá ${firstName}! Tudo bem? Quer agendar uma aula experimental? Tenho horários hoje às ${sug} ou amanhã nos mesmos horários.`;
-        const url = `https://wa.me/55${clean}?text=${encodeURIComponent(msg)}`;
-        window.open(url, '_blank');
+        const key = lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'recovery';
+        void sendWhatsappTemplateOutbound({
+            lead,
+            academyId,
+            academyName: waOutbound.name,
+            templateKey: key,
+            templatesMap: waOutbound.templates,
+            zapsterInstanceId: waOutbound.zapster_instance_id,
+            onToast: (t) => {
+                setToast(t.message);
+                setTimeout(() => setToast(''), 3200);
+            }
+        });
     };
 
     const handleReschedule = async (e, lead, day, time) => {
@@ -974,6 +1023,40 @@ const Pipeline = () => {
                                                         minWidth: '180px',
                                                         overflow: 'hidden',
                                                     }} onClick={(e) => e.stopPropagation()}>
+                                                        <div style={{ borderBottom: '1px solid #f5f5f5', paddingBottom: 4 }}>
+                                                            <div
+                                                                style={{
+                                                                    padding: '8px 16px 4px',
+                                                                    fontSize: 11,
+                                                                    fontWeight: 800,
+                                                                    color: '#888',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.02em',
+                                                                }}
+                                                            >
+                                                                Enviar mensagem
+                                                            </div>
+                                                            {templateSendKeys.map((key) => (
+                                                                <button
+                                                                    key={`${lead.id}-tpl-${key}`}
+                                                                    type="button"
+                                                                    onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
+                                                                    style={{
+                                                                        display: 'block',
+                                                                        width: '100%',
+                                                                        padding: '8px 16px',
+                                                                        textAlign: 'left',
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        cursor: 'pointer',
+                                                                        color: '#333',
+                                                                        fontSize: '13px',
+                                                                    }}
+                                                                >
+                                                                    {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                                                </button>
+                                                            ))}
+                                                        </div>
                                                         <button
                                                             onClick={(e) => handleCopyPhone(e, lead)}
                                                             style={{

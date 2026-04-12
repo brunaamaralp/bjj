@@ -2,6 +2,7 @@ import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from '
 import { setPlan } from '../../src/services/planService.js';
 import { AGENT_HISTORY_WINDOW } from '../../lib/constants.js';
 import { getPromptSettingsDocForSave } from '../../lib/server/academyPromptSettings.js';
+import { parseFaqItems } from '../../lib/whatsappTemplateDefaults.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -354,7 +355,10 @@ export default async function handler(req, res) {
         prompt_body: String(doc?.prompt_body || '').trim(),
         prompt_suffix: String(doc?.prompt_suffix || '').trim(),
         ia_ativa: academyDoc?.ia_ativa === true,
-        birthdayMessage: String(academyDoc?.birthdayMessage || '').trim(),
+        birthdayMessage: String(academyDoc?.birthdayMessage || '')
+          .trim()
+          .replaceAll('{nome}', '{primeiroNome}'),
+        faq_data: String(academyDoc?.faq_data ?? ''),
         ai_name: String(academyDoc?.ai_name || '').trim(),
         plan: safePlan,
         ai_threads_used: Number(academyDoc?.ai_threads_used) || 0,
@@ -391,11 +395,39 @@ export default async function handler(req, res) {
         return res.status(200).json({ sucesso: true });
       }
       if (patchAction === 'save_birthday_message') {
-        const msg = String(body.birthdayMessage || '').trim().slice(0, 500);
+        const msg = String(body.birthdayMessage || '')
+          .trim()
+          .slice(0, 500)
+          .replaceAll('{nome}', '{primeiroNome}');
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
           birthdayMessage: msg
         });
         return res.status(200).json({ sucesso: true, birthdayMessage: msg });
+      }
+      if (patchAction === 'save_faq_data') {
+        let arr;
+        if (Array.isArray(body.faq_data)) arr = body.faq_data;
+        else if (typeof body.faq_data === 'string') {
+          const s = String(body.faq_data || '').trim();
+          if (!s) {
+            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { faq_data: '' });
+            return res.status(200).json({ sucesso: true, faq_data: '' });
+          }
+          try {
+            arr = JSON.parse(s);
+          } catch {
+            return res.status(400).json({ sucesso: false, erro: 'faq_data JSON inválido' });
+          }
+        } else {
+          return res.status(400).json({ sucesso: false, erro: 'faq_data inválido' });
+        }
+        const normalized = parseFaqItems(arr);
+        const str = JSON.stringify(normalized);
+        if (str.length > 10000) {
+          return res.status(400).json({ sucesso: false, erro: 'faq_data excede 10.000 caracteres' });
+        }
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { faq_data: str });
+        return res.status(200).json({ sucesso: true, faq_data: str });
       }
       if (patchAction === 'toggle_ia') {
         const novoStatus = Boolean(body.ia_ativa);
@@ -444,7 +476,7 @@ export default async function handler(req, res) {
       return res.status(405).json({
         sucesso: false,
         erro:
-          'Use action: save_wizard_data, toggle_ia, save_birthday_message, set_plan ou update_ai_settings no body JSON'
+          'Use action: save_wizard_data, toggle_ia, save_birthday_message, save_faq_data, set_plan ou update_ai_settings no body JSON'
       });
     }
 

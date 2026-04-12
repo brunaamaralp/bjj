@@ -4,6 +4,8 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
+import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 
@@ -55,6 +57,16 @@ const LeadProfile = () => {
     const [deletingLead, setDeletingLead] = useState(false);
     const [lostModalOpen, setLostModalOpen] = useState(false);
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
+    const [waCtx, setWaCtx] = useState({
+        name: '',
+        zapster: '',
+        templates: DEFAULT_WHATSAPP_TEMPLATES
+    });
+    const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+
+    useEffect(() => {
+        setTemplateMenuOpen(false);
+    }, [id]);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -132,7 +144,20 @@ const LeadProfile = () => {
     useEffect(() => {
         if (!academyId) return;
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-            .then(doc => {
+            .then((doc) => {
+                let tplParsed = {};
+                try {
+                    const w = doc.whatsappTemplates;
+                    const p = typeof w === 'string' ? JSON.parse(w) : w;
+                    if (p && typeof p === 'object' && !Array.isArray(p)) tplParsed = p;
+                } catch {
+                    tplParsed = {};
+                }
+                setWaCtx({
+                    name: String(doc?.name || '').trim(),
+                    zapster: String(doc?.zapster_instance_id || '').trim(),
+                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
+                });
                 try {
                     const normalized = normalizeQuestions(doc.customLeadQuestions);
                     setCustomQuestions(normalized.questions);
@@ -141,9 +166,14 @@ const LeadProfile = () => {
                             customLeadQuestions: JSON.stringify(normalized.questions)
                         }).catch(() => void 0);
                     }
-                } catch { setCustomQuestions([]); }
+                } catch {
+                    setCustomQuestions([]);
+                }
             })
-            .catch(() => setCustomQuestions([]));
+            .catch(() => {
+                setCustomQuestions([]);
+                setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
+            });
     }, [academyId]);
 
     const statusPipelineMismatch = useMemo(() => {
@@ -359,18 +389,52 @@ const LeadProfile = () => {
         return digits;
     }
 
-    const handleWhatsApp = (customMsg) => {
-        const cleanPhone = formatWhatsAppNumber(lead.phone);
-        const url = customMsg
-            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(customMsg)}`
-            : `https://wa.me/${cleanPhone}`;
-        window.open(url, '_blank');
+    const sendTemplateKey = async (key) => {
+        setTemplateMenuOpen(false);
+        const r = await sendWhatsappTemplateOutbound({
+            lead,
+            academyId,
+            academyName: waCtx.name,
+            templateKey: key,
+            templatesMap: waCtx.templates,
+            zapsterInstanceId: waCtx.zapster,
+            onToast: (t) => addToast(t)
+        });
+        if (!r?.ok) return;
         try {
             const existing = Array.isArray(lead.notes) ? lead.notes : [];
-            const event = { type: 'message', channel: 'whatsapp', text: customMsg ? 'Mensagem WhatsApp enviada (template)' : 'Mensagem WhatsApp iniciada', at: new Date().toISOString(), by: 'user' };
-            const newNotes = [...existing, event];
-            updateLead(id, { notes: newNotes });
-        } catch { /* noop */ }
+            const label = WHATSAPP_TEMPLATE_LABELS[key] || key;
+            const event = {
+                type: 'message',
+                channel: 'whatsapp',
+                text: `WhatsApp: template “${label}”`,
+                at: new Date().toISOString(),
+                by: 'user'
+            };
+            updateLead(id, { notes: [...existing, event] });
+        } catch {
+            void 0;
+        }
+    };
+
+    const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
+
+    const handleWhatsAppBlank = () => {
+        const cleanPhone = formatWhatsAppNumber(lead.phone);
+        window.open(`https://wa.me/${cleanPhone}`, '_blank');
+        try {
+            const existing = Array.isArray(lead.notes) ? lead.notes : [];
+            const event = {
+                type: 'message',
+                channel: 'whatsapp',
+                text: 'Mensagem WhatsApp iniciada (sem template)',
+                at: new Date().toISOString(),
+                by: 'user'
+            };
+            updateLead(id, { notes: [...existing, event] });
+        } catch {
+            void 0;
+        }
     };
 
     const addNote = () => {
@@ -729,9 +793,86 @@ const LeadProfile = () => {
                 ) : null}
 
                 {/* Contact */}
-                <div className="flex gap-2 mt-4">
-                    <button type="button" className="contact-btn whatsapp contact-btn-full" onClick={() => handleWhatsApp()}>
-                        <MessageCircle size={18} color="currentColor" /> WhatsApp
+                <div className="flex flex-col gap-2 mt-4" style={{ position: 'relative' }}>
+                    <div className="flex gap-0" style={{ alignItems: 'stretch' }}>
+                        <button
+                            type="button"
+                            className="contact-btn whatsapp contact-btn-full"
+                            style={{ borderRadius: '8px 0 0 8px', flex: 1 }}
+                            disabled={!String(lead.phone || '').replace(/\D/g, '').length}
+                            title={!lead.phone ? 'Cadastre um telefone' : 'Enviar template “Contato (Dashboard)” ou abrir no WhatsApp'}
+                            onClick={() => handleWhatsAppPrimary()}
+                        >
+                            <MessageCircle size={18} color="currentColor" /> WhatsApp
+                        </button>
+                        <button
+                            type="button"
+                            className="contact-btn whatsapp"
+                            style={{
+                                borderRadius: '0 8px 8px 0',
+                                minWidth: 44,
+                                paddingLeft: 10,
+                                paddingRight: 10,
+                                borderLeft: '1px solid rgba(255,255,255,0.35)',
+                                flexShrink: 0
+                            }}
+                            disabled={!String(lead.phone || '').replace(/\D/g, '').length}
+                            aria-expanded={templateMenuOpen}
+                            aria-label="Escolher outro template"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setTemplateMenuOpen((o) => !o);
+                            }}
+                        >
+                            ▾
+                        </button>
+                    </div>
+                    {templateMenuOpen && (
+                        <div
+                            style={{
+                                border: '1px solid var(--border)',
+                                borderRadius: 8,
+                                background: 'var(--surface)',
+                                boxShadow: 'var(--shadow)',
+                                maxHeight: 260,
+                                overflowY: 'auto',
+                                zIndex: 20
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {Object.entries(waCtx.templates)
+                                .filter(([, text]) => typeof text === 'string' && String(text).trim())
+                                .map(([key]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        style={{
+                                            display: 'block',
+                                            width: '100%',
+                                            textAlign: 'left',
+                                            padding: '10px 14px',
+                                            border: 'none',
+                                            background: 'none',
+                                            font: 'inherit',
+                                            cursor: 'pointer',
+                                            color: 'var(--text)'
+                                        }}
+                                        onClick={() => void sendTemplateKey(key)}
+                                    >
+                                        {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                    </button>
+                                ))}
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        className="btn-outline"
+                        style={{ fontSize: '0.8rem', alignSelf: 'flex-start' }}
+                        disabled={!String(lead.phone || '').replace(/\D/g, '').length}
+                        onClick={() => handleWhatsAppBlank()}
+                    >
+                        Abrir WhatsApp em branco
                     </button>
                 </div>
             </div>

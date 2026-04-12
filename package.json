@@ -15,6 +15,7 @@
     "start:server": "node server/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
     "@vercel/functions": "^2.2.13",
     "appwrite": "^22.4.1",
     "date-fns": "^4.1.0",

@@ -2,6 +2,7 @@ import { Account, Client, Databases, Query, Teams } from 'node-appwrite';
 import { assembleAgentSystemPrompt } from '../../lib/server/assembleAgentSystemPrompt.js';
 import { fetchAcademyPromptSettings } from '../../lib/server/academyPromptSettings.js';
 import { buildPromptContactContext, profileLineForSystemPrompt } from '../../lib/server/agentPromptContext.js';
+import { parseFaqItems } from '../../lib/whatsappTemplateDefaults.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -107,6 +108,7 @@ export default async function handler(req, res) {
     const contactCtx = buildPromptContactContext(null, exemploNomeWa);
     const profileLine = profileLineForSystemPrompt(contactCtx);
 
+    const faqItems = parseFaqItems(academyDoc?.faq_data);
     const texto = assembleAgentSystemPrompt({
       effectiveIntro,
       effectiveBody,
@@ -114,7 +116,8 @@ export default async function handler(req, res) {
       profileLine,
       nomeContatoLine: contactCtx.nomeContatoLine,
       summaryText:
-        '(Exemplo de prévia — sem resumo persistido. Na conversa real, um resumo curto pode aparecer aqui quando existir.)'
+        '(Exemplo de prévia — sem resumo persistido. Na conversa real, um resumo curto pode aparecer aqui quando existir.)',
+      faqItems
     });
 
     return res.status(200).json({
