@@ -3339,7 +3339,8 @@ export default function Inbox() {
   );
 
   const contextPanelVisible = contextOpen && !isNarrowDesktop;
-  const compactTabs = isMobile || isNarrowDesktop;
+  /** Só mobile (<1024px): em desktop a sidebar já expõe Conversas / Agente IA; narrow desktop usa botões de aba. */
+  const compactTabs = isMobile;
   const onTabChange = (nextTab) => {
     const tab = String(nextTab || '').trim();
     if (!tab) return;
@@ -3421,6 +3422,18 @@ export default function Inbox() {
           gap: 12px;
           flex-wrap: wrap;
         }
+        .agent-toggle-label { font-weight: 600; font-size: 15px; color: var(--text); }
+        .agent-toggle-hint {
+          font-size: 13px;
+          color: var(--text-muted);
+          margin: 8px 0 0;
+          padding: 8px 12px;
+          background: var(--surface-hover, var(--v50));
+          border-radius: 8px;
+          border-left: 3px solid var(--warning);
+          line-height: 1.45;
+        }
+        .agent-toggle-hint strong { color: var(--text); font-weight: 700; }
         .agent-toggle-btn {
           min-height: 36px;
           padding: 8px 16px;
@@ -3626,11 +3639,6 @@ export default function Inbox() {
               <option value="dispositivo">Dispositivo</option>
               {canConfigureAgenteIa && <option value="agente">Agente IA</option>}
             </select>
-            {canConfigureAgenteIa && (
-              <button className="btn btn-outline" type="button" onClick={() => onTabChange('agente')} style={{ minHeight: 40, padding: '0 12px' }}>
-                IA
-              </button>
-            )}
           </div>
         ) : (
           <>
@@ -4115,7 +4123,7 @@ export default function Inbox() {
 
               <div className="agent-toggle-block">
                 <div className="agent-toggle-row">
-                  <span style={{ fontWeight: 600, fontSize: 15 }}>{iaAtiva ? 'Assistente ligado' : 'Assistente desligado'}</span>
+                  <span className="agent-toggle-label">{iaAtiva ? 'Assistente ligado' : 'Assistente desligado'}</span>
                   <button
                     type="button"
                     onClick={() => void handleToggleIa()}
@@ -4134,6 +4142,11 @@ export default function Inbox() {
                     {togglingIa ? '…' : iaAtiva ? 'Ligado' : 'Desligado'}
                   </button>
                 </div>
+                {!promptConfigurado && !iaAtiva && (
+                  <p className="agent-toggle-hint">
+                    Preencha as instruções abaixo e clique em <strong>Guardar</strong> para poder ativar o assistente.
+                  </p>
+                )}
                 {iaAtiva && !promptConfigurado && (
                   <p className="agent-warning">Salve as instruções para o assistente funcionar corretamente.</p>
                 )}
