@@ -1,4 +1,5 @@
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
+import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -274,7 +275,7 @@ function mergeMessages(existing, additions) {
   }
 
   out.sort((a, b) => toTsMs(a?.timestamp) - toTsMs(b?.timestamp));
-  return out.slice(-50);
+  return out.slice(-AGENT_HISTORY_WINDOW);
 }
 
 function pickText(v) {
@@ -428,7 +429,10 @@ export default async function handler(req, res) {
         ...(sendAtIso ? { status: 'scheduled', send_at: sendAtIso } : { status: 'sent' }),
         ...(sent?.message_id ? { message_id: String(sent.message_id) } : {})
       });
-      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { messages: JSON.stringify(messages.slice(-50)), updated_at: nowIso });
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+        messages: JSON.stringify(messages.slice(-AGENT_HISTORY_WINDOW)),
+        updated_at: nowIso
+      });
       try {
         const leadDoc = await findLeadByPhone(phone, academyId);
         if (leadDoc) await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { lead_id: leadDoc.$id });
@@ -628,7 +632,10 @@ export default async function handler(req, res) {
         status: 'canceled',
         canceled_at: nowIso
       };
-      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { messages: JSON.stringify(updated.slice(-50)), updated_at: nowIso });
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+        messages: JSON.stringify(updated.slice(-AGENT_HISTORY_WINDOW)),
+        updated_at: nowIso
+      });
 
       return res.status(200).json({ sucesso: true, id: messageId, status: 'canceled', canceled_at: nowIso });
     } catch (e) {

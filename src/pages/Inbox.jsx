@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { account, realtime, CONVERSATIONS_COL, DB_ID } from '../lib/appwrite';
+import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
-import { getHumanHandoffHoursForClient } from '../../lib/constants.js';
+import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
@@ -18,6 +18,44 @@ function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
   return raw.replace(/[^\d]/g, '');
+}
+
+/** Alinha com agentRespond: intro ou body efetivo. */
+function isPromptConfiguredFromFields(intro, body) {
+  return Boolean(String(intro || '').trim() || String(body || '').trim());
+}
+
+const WHATSAPP_TEMPLATE_LABELS = {
+  confirm: 'Confirmar Aula',
+  reminder: 'Lembrete',
+  post_class: 'Pós-Aula',
+  missed: 'Não Compareceu',
+  recovery: 'Recuperação',
+  dashboard_contact: 'Contato (Dashboard)'
+};
+
+function applyInboxTemplatePlaceholders(text, { lead, academyName }) {
+  const nomeAcademia = String(academyName || '').trim() || 'nossa academia';
+  const nome = String(lead?.name || lead?.lead_name || '').trim().split(/\s+/)[0] || '';
+  const sched = lead?.scheduledDate || lead?.scheduled_date || '';
+  let dstr = '';
+  if (sched) {
+    try {
+      dstr = new Date(`${sched}T00:00:00`).toLocaleDateString('pt-BR');
+    } catch {
+      dstr = '';
+    }
+  }
+  const tstr = String(lead?.scheduledTime || lead?.scheduled_time || '').trim();
+  const dataOpcional = dstr ? ` do dia ${dstr}` : '';
+  const amanhaTexto = dstr ? `amanhã (${dstr})` : 'amanhã';
+  return String(text || '')
+    .replaceAll('{primeiroNome}', nome)
+    .replaceAll('{dataAula}', dstr)
+    .replaceAll('{horaAula}', tstr ? ` às ${tstr}` : '')
+    .replaceAll('{amanhaData}', amanhaTexto)
+    .replaceAll('{nomeAcademia}', nomeAcademia)
+    .replaceAll('{dataAulaOpcional}', dataOpcional);
 }
 
 async function getJwt() {
@@ -374,6 +412,14 @@ export default function Inbox() {
   const [promptConfigurado, setPromptConfigurado] = useState(false);
   const [whatsappConectado, setWhatsappConectado] = useState(false);
   const [togglingIa, setTogglingIa] = useState(false);
+  const [aiThreadsUsed, setAiThreadsUsed] = useState(0);
+  const [aiThreadsLimit, setAiThreadsLimit] = useState(300);
+  const [aiOverageEnabled, setAiOverageEnabled] = useState(true);
+  const [academyNameForTemplates, setAcademyNameForTemplates] = useState('');
+  const [whatsappTemplatesObj, setWhatsappTemplatesObj] = useState(null);
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [promptPreviewText, setPromptPreviewText] = useState('');
+  const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
   const [generatingPrompt, setGeneratingPrompt] = useState(false);
   const [agenteUiTab, setAgenteUiTab] = useState('wizard');
   const [agenteWizardStep, setAgenteWizardStep] = useState(1);
@@ -424,11 +470,57 @@ export default function Inbox() {
     }
   }, [location.search]);
 
+  useEffect(() => {
+    if (!academyId) {
+      setAcademyNameForTemplates('');
+      setWhatsappTemplatesObj(null);
+      return;
+    }
+    let cancelled = false;
+    databases
+      .getDocument(DB_ID, ACADEMIES_COL, academyId)
+      .then((doc) => {
+        if (cancelled) return;
+        setAcademyNameForTemplates(String(doc?.name || '').trim());
+        try {
+          const w = doc.whatsappTemplates;
+          const parsed = typeof w === 'string' ? JSON.parse(w) : w;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            const strOnly = {};
+            for (const [k, v] of Object.entries(parsed)) {
+              if (typeof v === 'string' && String(v).trim()) strOnly[k] = v;
+            }
+            setWhatsappTemplatesObj(Object.keys(strOnly).length ? strOnly : null);
+          } else {
+            setWhatsappTemplatesObj(null);
+          }
+        } catch {
+          setWhatsappTemplatesObj(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAcademyNameForTemplates('');
+          setWhatsappTemplatesObj(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId]);
+
   const waOpen = inboxTab === 'dispositivo';
-  const quickTemplates = useMemo(
-    () => ['Oi! Como posso te ajudar hoje?', 'Perfeito! Vou te passar as opções agora.', 'Consigo te ajudar a agendar uma aula experimental gratuita.'],
-    []
-  );
+  const quickTemplates = useMemo(() => {
+    const raw = whatsappTemplatesObj;
+    if (!raw || typeof raw !== 'object') return [];
+    return Object.entries(raw)
+      .filter(([, tpl]) => typeof tpl === 'string' && String(tpl).trim())
+      .map(([key, text]) => ({
+        key,
+        label: WHATSAPP_TEMPLATE_LABELS[key] || key,
+        text: String(text)
+      }));
+  }, [whatsappTemplatesObj]);
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
@@ -1105,9 +1197,12 @@ export default function Inbox() {
         setPromptIntro(String(data.prompt_intro || ''));
         setPromptBody(String(data.prompt_body || ''));
         setPromptSuffix(String(data.prompt_suffix || ''));
-        setPromptConfigurado(Boolean(String(data.prompt_body || '').trim()));
+        setPromptConfigurado(isPromptConfiguredFromFields(data.prompt_intro, data.prompt_body));
         setIaAtiva(data.ia_ativa === true);
         setBirthdayMessage(String(data.birthdayMessage || ''));
+        setAiThreadsUsed(Number(data.ai_threads_used) || 0);
+        setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
+        setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
       } else {
         throw new Error('Falha ao carregar');
       }
@@ -1138,7 +1233,7 @@ export default function Inbox() {
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
       addToast({ type: 'success', message: 'Prompt atualizado' });
-      setPromptConfigurado(Boolean(bodyPut.trim()));
+      setPromptConfigurado(isPromptConfiguredFromFields(intro, bodyPut));
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
     } finally {
@@ -1167,6 +1262,25 @@ export default function Inbox() {
       addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
     } finally {
       setTogglingIa(false);
+    }
+  }
+
+  async function handlePreviewFullPrompt() {
+    if (loadingPromptPreview) return;
+    setLoadingPromptPreview(true);
+    try {
+      const jwt = await getJwt();
+      const resp = await fetch('/api/settings/prompt-preview', {
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.sucesso) throw new Error(data?.erro || 'Não foi possível carregar a prévia');
+      setPromptPreviewText(String(data.prompt || ''));
+      setShowPromptPreview(true);
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro na prévia do prompt' });
+    } finally {
+      setLoadingPromptPreview(false);
     }
   }
 
@@ -1225,7 +1339,7 @@ export default function Inbox() {
         setPromptIntro('');
         setPromptBody(String(data.prompt).trim());
         setPromptSuffix('');
-        setPromptConfigurado(true);
+        setPromptConfigurado(isPromptConfiguredFromFields('', data.prompt));
         setAgenteUiTab('advanced');
         addToast({ type: 'success', message: 'Prompt gerado — revise na edição avançada e salve.' });
         return;
@@ -1238,7 +1352,7 @@ export default function Inbox() {
       setPromptIntro(built.intro);
       setPromptBody(built.body);
       setPromptSuffix(built.suffix);
-      setPromptConfigurado(Boolean(String(built.body || '').trim()));
+      setPromptConfigurado(isPromptConfiguredFromFields(built.intro, built.body));
       setAgenteUiTab('advanced');
     } finally {
       setGeneratingPrompt(false);
@@ -1261,7 +1375,7 @@ export default function Inbox() {
     setPromptIntro(built.intro);
     setPromptBody(built.body);
     setPromptSuffix(built.suffix);
-    setPromptConfigurado(Boolean(String(built.body || '').trim()));
+    setPromptConfigurado(isPromptConfiguredFromFields(built.intro, built.body));
     addToast({ type: 'success', message: 'Prompt aplicado — use Salvar para gravar no servidor (ou abra Edição avançada para ajustar).' });
   }
 
@@ -1680,7 +1794,7 @@ export default function Inbox() {
           ...(sendAt ? { send_at: sendAt } : {}),
           ...(msgId ? { message_id: msgId } : {})
         });
-        return { ...prev, messages: msgs.slice(-50) };
+        return { ...prev, messages: msgs.slice(-AGENT_HISTORY_WINDOW) };
       });
       markSeen(phone);
       setDraft('');
@@ -3045,21 +3159,37 @@ export default function Inbox() {
                     }}
                   >
                     <div className="navi-section-heading" style={{ fontSize: '0.82rem', padding: '2px 6px 6px' }}>Mensagens prontas</div>
-                    {quickTemplates.map((tpl) => (
+                    {quickTemplates.length === 0 && (
+                      <div className="text-small" style={{ color: 'var(--text-muted)', padding: '4px 8px' }}>
+                        Nenhum template da academia. Configure em Templates no menu.
+                      </div>
+                    )}
+                    {quickTemplates.map((tpl) => {
+                      const lid = String(selected?.lead_id || '').trim();
+                      const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+                      const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
+                      return (
                       <button
-                        key={tpl}
+                        key={tpl.key}
                         type="button"
                         className="btn btn-outline"
                         style={{ textAlign: 'left', padding: '6px 10px', minHeight: 32, whiteSpace: 'normal', lineHeight: '18px' }}
                         onClick={() => {
-                          setDraft(tpl);
+                          const out = applyInboxTemplatePlaceholders(tpl.text, {
+                            lead: leadForTpl,
+                            academyName: academyNameForTemplates
+                          });
+                          setDraft(out);
                           setTemplatesOpen(false);
                           try { textareaRef.current?.focus(); } catch { void 0; }
                         }}
                       >
-                        {tpl.length > 60 ? `${tpl.slice(0, 60)}…` : tpl}
+                        <span style={{ display: 'block', fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{tpl.label}</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
+                        </span>
                       </button>
-                    ))}
+                    );})}
                   </div>
                 )}
               </div>
@@ -4152,6 +4282,58 @@ export default function Inbox() {
             </div>
           ) : (
             <>
+          {iaAtiva && !promptConfigurado && (
+            <div
+              role="alert"
+              style={{
+                marginBottom: 12,
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: '1px solid rgba(234, 179, 8, 0.45)',
+                background: 'rgba(254, 243, 199, 0.35)',
+                color: 'var(--text)',
+                fontSize: 13
+              }}
+            >
+              A IA está ativada mas o prompt não está configurado. Configure o prompt antes de confiar no atendimento automático.
+            </div>
+          )}
+          {!iaAtiva && promptConfigurado && (
+            <div
+              role="status"
+              style={{
+                marginBottom: 12,
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: '1px solid rgba(59, 130, 246, 0.35)',
+                background: 'rgba(219, 234, 254, 0.35)',
+                color: 'var(--text)',
+                fontSize: 13
+              }}
+            >
+              Prompt configurado. Ative a IA para começar o atendimento automático no WhatsApp.
+            </div>
+          )}
+          {iaAtiva &&
+            aiThreadsLimit > 0 &&
+            aiThreadsUsed >= aiThreadsLimit &&
+            !aiOverageEnabled && (
+              <div
+                role="alert"
+                style={{
+                  marginBottom: 12,
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(220, 38, 38, 0.35)',
+                  background: 'rgba(254, 226, 226, 0.35)',
+                  color: 'var(--text)',
+                  fontSize: 13
+                }}
+              >
+                Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode
+                ficar indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
+              </div>
+            )}
           <div
             style={{
               border: '1px solid var(--border)',
@@ -4183,23 +4365,41 @@ export default function Inbox() {
                 <span aria-hidden>{promptConfigurado ? '✅' : '⬜'}</span>
                 <span style={{ color: promptConfigurado ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>Prompt configurado</span>
                 {!promptConfigurado && (
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{
-                      padding: '2px 8px',
-                      minHeight: 28,
-                      fontSize: 12,
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'var(--purple)',
-                      boxShadow: 'none',
-                      fontWeight: 700
-                    }}
-                    onClick={() => setAgenteUiTab('wizard')}
-                  >
-                    Configurar →
-                  </button>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {iaAtiva && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          color: '#b45309',
+                          background: 'rgba(254, 243, 199, 0.9)',
+                          padding: '2px 8px',
+                          borderRadius: 999
+                        }}
+                      >
+                        Atenção
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{
+                        padding: '2px 8px',
+                        minHeight: 28,
+                        fontSize: 12,
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--purple)',
+                        boxShadow: 'none',
+                        fontWeight: 700
+                      }}
+                      onClick={() => setAgenteUiTab('wizard')}
+                    >
+                      Configurar →
+                    </button>
+                  </span>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
@@ -4238,7 +4438,15 @@ export default function Inbox() {
                 type="button"
                 onClick={() => void handleToggleIa()}
                 disabled={!promptConfigurado || togglingIa}
-                title={togglingIa ? 'Atualizando…' : iaAtiva ? 'Desativar IA' : 'Ativar IA'}
+                title={
+                  !promptConfigurado
+                    ? 'Configure o prompt antes de ativar'
+                    : togglingIa
+                      ? 'Atualizando…'
+                      : iaAtiva
+                        ? 'Desativar IA'
+                        : 'Ativar IA'
+                }
                 style={{
                   position: 'relative',
                   width: 48,
@@ -4336,13 +4544,23 @@ export default function Inbox() {
                   Recarregar
                 </button>
                 <button
+                  className="btn btn-outline"
+                  style={{ padding: '6px 10px' }}
+                  onClick={() => void handlePreviewFullPrompt()}
+                  type="button"
+                  disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
+                  title="Texto completo enviado ao modelo (inclui classificação JSON)"
+                >
+                  {loadingPromptPreview ? 'Carregando…' : 'Ver prompt completo'}
+                </button>
+                <button
                   className="btn btn-secondary"
                   style={{ padding: '6px 10px' }}
                   onClick={() => {
                     setPromptIntro(ANA_PROMPT_INTRO);
                     setPromptBody(ANA_PROMPT_BODY);
                     setPromptSuffix('');
-                    setPromptConfigurado(Boolean(String(ANA_PROMPT_BODY || '').trim()));
+                    setPromptConfigurado(isPromptConfiguredFromFields(ANA_PROMPT_INTRO, ANA_PROMPT_BODY));
                   }}
                   type="button"
                   disabled={savingPrompt || loadingPrompt}
@@ -4661,6 +4879,57 @@ export default function Inbox() {
               )}
             </div>
           </div>
+          {showPromptPreview && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Prévia do prompt completo"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 2000,
+                background: 'rgba(0,0,0,0.45)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 16
+              }}
+              onClick={() => setShowPromptPreview(false)}
+            >
+              <div
+                style={{
+                  maxWidth: 720,
+                  width: '100%',
+                  maxHeight: '85vh',
+                  overflow: 'auto',
+                  background: 'var(--surface)',
+                  borderRadius: 12,
+                  border: '1px solid var(--border)',
+                  padding: 16,
+                  boxShadow: 'var(--shadow)'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 10 }}>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>Prompt completo (prévia)</span>
+                  <button type="button" className="btn btn-outline" style={{ padding: '4px 12px' }} onClick={() => setShowPromptPreview(false)}>
+                    Fechar
+                  </button>
+                </div>
+                <pre
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    fontSize: 12,
+                    margin: 0,
+                    color: 'var(--text)',
+                    fontFamily: 'ui-monospace, Consolas, monospace'
+                  }}
+                >
+                  {promptPreviewText}
+                </pre>
+              </div>
+            </div>
+          )}
         </>
       )}
         </div>

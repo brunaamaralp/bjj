@@ -21,13 +21,16 @@ function resolveBaseUrl(req) {
   return host ? `https://${host}` : '';
 }
 
-function buildAgentPayload({ phone, name, academyId, message, messageId }) {
+function buildAgentPayload({ phone, name, academyId, message, messageId, outInstanceId }) {
+  const mid = String(messageId || '').trim();
+  const inst = String(outInstanceId || '').trim();
   return {
     phone,
     name,
     academy_id: academyId,
     message,
-    ...(String(messageId || '').trim() ? { message_id: String(messageId).trim() } : {})
+    ...(mid ? { message_id: mid } : {}),
+    ...(inst ? { out_instance_id: inst } : {})
   };
 }
 
@@ -164,7 +167,7 @@ export default async function handler(req, res) {
     'x-internal-secret': expected
   };
   const agentBody = JSON.stringify(
-    buildAgentPayload({ phone, name, academyId: academy, message, messageId })
+    buildAgentPayload({ phone, name, academyId: academy, message, messageId, outInstanceId: instOut })
   );
 
   try {
@@ -198,7 +201,11 @@ export default async function handler(req, res) {
     }
 
     if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
-      console.log('[agent/process] prompt não configurado — sem poll nem envio', { requestId, academyId: academy });
+      if (agentData.aviso_enviado) {
+        console.log('[agent/process] prompt não configurado — aviso já enviado pelo respond', { requestId, academyId: academy });
+        return res.status(200).json({ sent: true, motivo: 'prompt_nao_configurado' });
+      }
+      console.log('[agent/process] prompt não configurado — sem envio (sem instância ou falha Zapster)', { requestId, academyId: academy });
       return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
     }
 
@@ -233,6 +240,10 @@ export default async function handler(req, res) {
     }
 
     if (agentData.sucesso === false && String(agentData.motivo || '') === 'prompt_nao_configurado') {
+      if (agentData.aviso_enviado) {
+        console.log('[agent/process] prompt não configurado após poll — aviso já enviado', { requestId, academyId: academy });
+        return res.status(200).json({ sent: true, motivo: 'prompt_nao_configurado' });
+      }
       console.log('[agent/process] prompt não configurado após poll — sem envio', { requestId, academyId: academy });
       return res.status(200).json({ sent: false, motivo: 'prompt_nao_configurado' });
     }

@@ -1,11 +1,12 @@
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
 import { setPlan } from '../../src/services/planService.js';
+import { AGENT_HISTORY_WINDOW } from '../../lib/constants.js';
+import { getPromptSettingsDocForSave } from '../../lib/server/academyPromptSettings.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
-const SETTINGS_COL = process.env.APPWRITE_SETTINGS_COLLECTION_ID || process.env.VITE_APPWRITE_SETTINGS_COLLECTION_ID || '';
 const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
@@ -95,22 +96,6 @@ function permissionsForAcademyDoc(academyDoc) {
   if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
   if (perms.length > 0) return perms;
   return [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())];
-}
-
-async function getSettingsDoc(academyId) {
-  if (SETTINGS_COL) {
-    const list = await databases.listDocuments(DB_ID, SETTINGS_COL, [Query.equal('academy_id', [academyId]), Query.limit(1)]);
-    const doc = list.documents && list.documents[0] ? list.documents[0] : null;
-    if (doc) return { doc, coll: SETTINGS_COL, kind: 'settings' };
-  }
-  const list2 = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-    Query.equal('academy_id', [academyId]),
-    Query.equal('phone_number', ['__settings__']),
-    Query.limit(1)
-  ]);
-  const doc2 = list2.documents && list2.documents[0] ? list2.documents[0] : null;
-  if (doc2) return { doc: doc2, coll: CONVERSATIONS_COL, kind: 'conversations' };
-  return { doc: null, coll: SETTINGS_COL || CONVERSATIONS_COL, kind: SETTINGS_COL ? 'settings' : 'conversations' };
 }
 
 const IMPROVE_REPLY_SYSTEM = `Você é um assistente que melhora rascunhos de mensagens de atendimento humano no WhatsApp para uma academia de Jiu-Jitsu (Gracie Barra / atendimento em português do Brasil).
@@ -258,7 +243,7 @@ async function handleImproveReply(res, academyId, body) {
     ]);
     const existing = list.documents && list.documents[0] ? list.documents[0] : null;
     const all = existing ? safeParseMessagesForImprove(existing.messages) : [];
-    messages = all.slice(-10);
+    messages = all.slice(-AGENT_HISTORY_WINDOW);
   } catch (e) {
     return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao carregar conversa' });
   }
@@ -361,7 +346,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      const { doc } = await getSettingsDoc(academyId);
+      const { doc } = await getPromptSettingsDocForSave(academyId);
       const plan = String(academyDoc?.plan || 'starter').trim().toLowerCase();
       const safePlan = ['starter', 'studio', 'pro'].includes(plan) ? plan : 'starter';
       const out = {
@@ -450,7 +435,7 @@ export default async function handler(req, res) {
       const suffix = String(body.prompt_suffix || '').trim();
 
       const perms = permissionsForAcademyDoc(academyDoc);
-      const { doc, coll, kind } = await getSettingsDoc(academyId);
+      const { doc, coll, kind } = await getPromptSettingsDocForSave(academyId);
       const data = { prompt_intro: intro, prompt_body: bodyTxt, prompt_suffix: suffix };
       if (doc) {
         await databases.updateDocument(DB_ID, coll, doc.$id, data);
