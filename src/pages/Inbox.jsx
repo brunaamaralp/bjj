@@ -41,6 +41,7 @@ function formatTimeOnly(iso) {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** 0 = desconhecido/inválido — na ordenação por data ficam por último dentro do grupo. */
 function parseTimestampMs(value) {
   const s = String(value || '').trim();
   if (!s) return 0;
@@ -2037,26 +2038,29 @@ export default function Inbox() {
 
   const prioritizedItems = useMemo(() => {
     const arr = Array.isArray(enrichedItems) ? enrichedItems : [];
-    const score = (it) => {
-      let points = 0;
-      const unread = Number(it?._unreadCount || 0);
-      if (unread > 0) points += 40;
-      const ticketStatus = String(it?._ticketStatus || '').trim();
-      if (ticketStatus === 'waiting_customer') points += 20;
-      if (ticketStatus === 'transferred') points += 8;
-      if (ticketStatus === 'resolved') points -= 20;
-      if (it?._hotLead) points += 15;
-      if (it?._handoffActive) points += 10;
-      const updatedMs = parseTimestampMs(it?.updated_at);
-      const ageMinutes = updatedMs ? (Date.now() - updatedMs) / 60000 : 0;
-      if (ageMinutes > 30 && unread > 0) points += 15;
-      return points;
+    // Modelo híbrido: Não lidas / Em atendimento / Resolvidas vêm de groupedFilteredItems; dentro de cada grupo
+    // a ordem é só por data (mais recente no topo). O score abaixo era usado para priorizar inbox inteiro — desativado.
+    // const score = (it) => {
+    //   let points = 0;
+    //   const unread = Number(it?._unreadCount || 0);
+    //   if (unread > 0) points += 40;
+    //   const ticketStatus = String(it?._ticketStatus || '').trim();
+    //   if (ticketStatus === 'waiting_customer') points += 20;
+    //   if (ticketStatus === 'transferred') points += 8;
+    //   if (ticketStatus === 'resolved') points -= 20;
+    //   if (it?._hotLead) points += 15;
+    //   if (it?._handoffActive) points += 10;
+    //   const updatedMs = parseTimestampMs(it?.updated_at);
+    //   const ageMinutes = updatedMs ? (Date.now() - updatedMs) / 60000 : 0;
+    //   if (ageMinutes > 30 && unread > 0) points += 15;
+    //   return points;
+    // };
+    const activityMs = (it) => {
+      const u = parseTimestampMs(it?.updated_at);
+      if (u) return u;
+      return parseTimestampMs(it?.last_message_timestamp);
     };
-    return arr.slice().sort((a, b) => {
-      const diff = score(b) - score(a);
-      if (diff) return diff;
-      return parseTimestampMs(b?.updated_at) - parseTimestampMs(a?.updated_at);
-    });
+    return arr.slice().sort((a, b) => activityMs(b) - activityMs(a));
   }, [enrichedItems]);
 
   const filteredItems = useMemo(() => {
