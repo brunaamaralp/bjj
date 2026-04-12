@@ -119,21 +119,49 @@ function collectZapsterErrorText(data) {
 }
 
 /**
+ * Só trata como "limite de instâncias" mensagens explícitas da API.
+ * Evita /\blimit\b/ genérico (ex.: "character limit", "rate_limit" em alguns formatos, validações).
+ *
  * @param {string} rawBody
  * @param {unknown} parsedJson
  * @param {number} status
  */
 function getZapsterErrorMessage(rawBody, parsedJson, status) {
-  if (status === 401) {
+  const rawStr = String(rawBody || '');
+  const fromJson = collectZapsterErrorText(parsedJson).toLowerCase();
+  const text = `${rawStr.toLowerCase()} ${fromJson}`.trim();
+
+  console.error('[zapster] erro original (mapeamento):', {
+    status,
+    body: rawStr.slice(0, 500),
+  });
+
+  if (status === 401 || status === 403) {
     return ZAPSTER_ERROR_MESSAGES.unauthorized;
   }
 
-  const fromJson = collectZapsterErrorText(parsedJson).toLowerCase();
-  const text = `${String(rawBody || '').toLowerCase()} ${fromJson}`.trim();
+  if (status === 429) {
+    return 'Muitas tentativas. Aguarde alguns segundos e tente novamente.';
+  }
 
-  if (text.includes('max_instances') || text.includes('max instances') || /\blimit\b/.test(text)) {
+  const instanceLimitPhrases = [
+    'max_instances',
+    'max instances',
+    'max_instances_reached',
+    'maximum instances',
+    'instance limit exceeded',
+    'too many instances',
+    'instances_limit',
+    'instance_limit',
+    'quota of instances',
+    'device limit',
+    'limite de instância',
+    'limite de instâncias',
+  ];
+  if (instanceLimitPhrases.some((p) => text.includes(p))) {
     return ZAPSTER_ERROR_MESSAGES.max_instances_reached;
   }
+
   if (
     text.includes('already_exists') ||
     text.includes('already exists') ||
@@ -142,11 +170,17 @@ function getZapsterErrorMessage(rawBody, parsedJson, status) {
   ) {
     return ZAPSTER_ERROR_MESSAGES.instance_already_exists;
   }
+
   if (text.includes('webhook') || text.includes('callback_url') || text.includes('callback url')) {
     return ZAPSTER_ERROR_MESSAGES.invalid_webhook_url;
   }
 
-  return ZAPSTER_ERROR_MESSAGES.default;
+  if (text.includes('rate_limit') || text.includes('rate limit') || text.includes('too many requests')) {
+    return 'Muitas tentativas. Aguarde alguns segundos e tente novamente.';
+  }
+
+  console.error('[zapster] erro não mapeado:', { status, body: rawStr.slice(0, 300) });
+  return `Não foi possível conectar o dispositivo (${status || '—'}). Tente novamente.`;
 }
 
 /** @param {{ ok: boolean; status: number; data: unknown; raw: string }} z */
@@ -168,6 +202,19 @@ async function zapsterCreateInstance({ name, metadata, webhooks }) {
     body: JSON.stringify(body)
   });
   const raw = await resp.text();
+  if (!resp.ok) {
+    let headerObj = {};
+    try {
+      headerObj = Object.fromEntries(resp.headers.entries());
+    } catch {
+      void 0;
+    }
+    console.error('[zapsterInstances] erro real do Zapster (POST /v1/wa/instances):', {
+      status: resp.status,
+      body: raw.slice(0, 500),
+      headers: headerObj,
+    });
+  }
   try {
     const data = JSON.parse(raw);
     return { ok: resp.ok, status: resp.status, data, raw };
@@ -408,10 +455,6 @@ export default async function handler(req, res) {
       if (!z.ok) {
         const upstream = Number(z.status) || 500;
         const friendlyMessage = getZapsterCreateFriendlyError(z);
-        console.error('[zapsterInstances] erro ao criar instância', {
-          status: upstream,
-          body: String(z.raw || '').slice(0, 300)
-        });
         const httpStatus = upstream >= 500 ? 502 : 400;
         return res.status(httpStatus).json({
           sucesso: false,
