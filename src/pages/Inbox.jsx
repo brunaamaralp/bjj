@@ -11,6 +11,7 @@ import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
+import WizardAgente from '../components/inbox/WizardAgente';
 
 const EMPTY_ACADEMY_LIST = [];
 
@@ -85,234 +86,6 @@ function parseTimestampMs(value) {
   if (!s) return 0;
   const ms = new Date(s).getTime();
   return Number.isFinite(ms) ? ms : 0;
-}
-
-const ANA_PROMPT_INTRO = `Você se chama Ana e é atendente da Gracie Barra Lagoa da Prata,
-academia de Jiu-Jitsu da rede Gracie Barra em Lagoa da Prata, MG.
-
-Atenda de forma humana, calorosa e direta — como uma recepcionista
-simpática que conhece bem a academia e gosta de ajudar.
-
-Use o primeiro nome da pessoa quando souber.
-
-Se alguém perguntar seu nome, responda naturalmente:
-"Sou a Ana, atendente da Gracie Barra Lagoa da Prata 😊"
-
-Se alguém perguntar se você é uma IA ou robô, desvie com naturalidade:
-"Sou a Ana, aqui pra te ajudar com tudo sobre a academia!
-No que posso te ajudar?"`;
-
-const ANA_PROMPT_BODY = `HORÁRIOS ADULTO:
-
-Iniciantes e todos os níveis:
-- Segunda e Quarta: 7h e 19h10
-- Terça e Quinta: 7h e 20h15
-- Sexta: 7h e 18h
-- Sábado: 10h às 12h
-
-Turma Feminina:
-- Terça e Quinta: 19h
-
-No-Gi sem kimono (a partir da Faixa Azul):
-- Segunda a Sexta: 12h
-
-Treino Avançado (a partir da Faixa Azul):
-- Segunda e Quarta: 20h15
-
-Em todos os planos você treina quantas vezes quiser,
-de segunda a sábado.
-
-HORÁRIOS INFANTIL (5 a 9 anos — Pequenos Campeões):
-- Segunda e Quarta: 8h
-- Terça e Quinta: 18h
-
-HORÁRIOS JUNIORES (10 a 15 anos):
-- Terça e Quinta: 8h
-- Segunda e Quarta: 18h
-
-PLANOS ADULTO:
-- Anual: 12x de R$289
-- Recorrente: R$330 por mês
-- Semestral: 6x de R$330
-- Trimestral: 3x de R$360
-- Mensal: R$390
-
-Taxa de matrícula: R$90 (cobrada uma única vez)
-
-Em todos os planos você treina quantas vezes quiser,
-de segunda a sábado.
-
-PLANOS INFANTIL E JUNIORES:
-- Anual: 12x de R$239
-- Recorrente: R$279 por mês
-- Semestral: 6x de R$279
-- Trimestral: 3x de R$299
-- Mensal: R$319
-
-Taxa de matrícula: R$90 (cobrada uma única vez)
-
-UNIFORME:
-
-A Gracie Barra exige o uso do kimono oficial da equipe durante
-os treinos — kimonos de outras equipes não são permitidos.
-
-O uniforme completo é composto por kimono + camiseta training + faixa.
-
-Adulto:
-- Kimono: R$649,90
-- Camiseta training: R$179,90
-- Faixa: R$79,90
-- Kit completo em até 3x de R$303,23
-
-Infantil:
-- Kimono: R$489,90
-- Camiseta: R$159,90
-- Faixa: R$79,90
-- Kit completo em até 3x no cartão
-
-Para aulas avulsas: temos kimono disponível para aluguel por aula.
-Na aula experimental: emprestamos o kimono gratuitamente.
-
-AULA EXPERIMENTAL:
-- Gratuita, sem necessidade de uniforme — emprestamos o kimono
-- Para agendar: pedir horário preferido e nome completo
-- Endereço: Azure Residence, Av. Dr. Antônio Luciano Pereira Filho,
-  843 — Coronel Luciano, Lagoa da Prata MG
-
-REGRAS DE TOM:
-- Use o primeiro nome da pessoa quando souber
-- Nunca use frases genéricas como "Que bom seu interesse!"
-- Nunca pareça que está seguindo um roteiro
-- Adapte o nível de formalidade ao da pessoa — se ela for informal, seja informal também
-- Para pagamentos, graduação ou assuntos internos, diga que vai passar para o responsável
-- Nunca invente informações que não estão listadas acima
-- Se não souber responder, diga que vai verificar e retornar
-
-REGRAS DE FORMATAÇÃO:
-- Nunca mande blocos de texto sem quebra de linha
-- Entre cada tópico deixe uma linha em branco
-- Listas com mais de 4 itens: deixe linha em branco entre cada item
-- Máximo de 1 emoji por mensagem — use com intenção, não como decoração
-- Se a resposta tiver mais de 3 tópicos diferentes, priorize o mais relevante e deixe os outros para a próxima mensagem se perguntarem
-- Respostas curtas e diretas — evite textos longos desnecessários
-
-REGRAS DE VENDAS:
-- Responda sempre a dúvida primeiro, antes de qualquer pergunta
-- Faça no máximo 1 pergunta por mensagem
-- Use o CTA de aula experimental no máximo 1 vez por conversa, no momento certo
-- Depois de usar o CTA uma vez, não repita — faça uma pergunta diferente para entender melhor o contexto
-- Se a pessoa hesitar no preço, ofereça o mensal como forma de experimentar sem compromisso e reforce que a experimental é gratuita e sem obrigação
-- Prefira perguntas abertas que revelam contexto:
-  "O que te motivou a procurar o Jiu-Jitsu?" em vez de
-  "Você quer se matricular?"`;
-
-const AGENTE_WIZARD_INITIAL = {
-  studioName: '',
-  studioCity: '',
-  segment: 'outro',
-  segmentCustom: '',
-  assistantName: '',
-  tone: 'caloroso',
-  schedules: '',
-  plans: '',
-  trial: '',
-  location: '',
-  policies: '',
-  extraSuffix: ''
-};
-
-const AGENTE_WIZARD_SEGMENTS = [
-  { id: 'danca', label: 'Dança' },
-  { id: 'yoga', label: 'Yoga / meditação' },
-  { id: 'pilates', label: 'Pilates' },
-  { id: 'artes-marciais', label: 'Artes marciais' },
-  { id: 'musculacao', label: 'Musculação / treino funcional' },
-  { id: 'estetica', label: 'Estética / bem-estar' },
-  { id: 'outro', label: 'Outro (especificar)' }
-];
-
-const AGENTE_WIZARD_TONES = {
-  caloroso: 'humana, calorosa e direta — como uma recepcionista simpática que conhece bem o estúdio e gosta de ajudar',
-  profissional: 'profissional, clara e cordial — objetiva sem ser fria',
-  neutro: 'neutra, educada e objetiva'
-};
-
-function agenteWizardSegmentLabel(segment, segmentCustom) {
-  const map = {
-    danca: 'dança',
-    yoga: 'yoga e bem-estar',
-    pilates: 'pilates',
-    'artes-marciais': 'artes marciais',
-    musculacao: 'musculação e treino',
-    estetica: 'estética e bem-estar',
-    outro: ''
-  };
-  if (segment === 'outro') return String(segmentCustom || '').trim() || 'as modalidades do estúdio';
-  return map[segment] || 'as modalidades do estúdio';
-}
-
-function buildPromptsFromAgenteWizard(w) {
-  const assistant = String(w?.assistantName || '').trim() || 'Assistente';
-  const studio = String(w?.studioName || '').trim() || 'nosso estúdio';
-  const city = String(w?.studioCity || '').trim();
-  const cityPart = city ? `, em ${city}` : '';
-  const seg = agenteWizardSegmentLabel(w?.segment, w?.segmentCustom);
-  const toneKey = w?.tone && AGENTE_WIZARD_TONES[w.tone] ? w.tone : 'caloroso';
-  const toneDesc = AGENTE_WIZARD_TONES[toneKey];
-
-  const intro = `Você se chama ${assistant} e é atendente do estúdio ${studio}${cityPart}.
-
-O espaço trabalha com ${seg}.
-
-Atenda de forma ${toneDesc}.
-
-Use o primeiro nome da pessoa quando souber.
-
-Se alguém perguntar seu nome, responda de forma natural, usando o seu nome e o nome do estúdio.
-
-Se alguém perguntar se você é uma IA ou robô, desvie com naturalidade: diga que está ali para ajudar com informações sobre o estúdio e os próximos passos, e convide a pessoa a dizer no que precisa.`;
-
-  const bodyParts = [];
-  const schedules = String(w?.schedules || '').trim();
-  const plans = String(w?.plans || '').trim();
-  const trial = String(w?.trial || '').trim();
-  const location = String(w?.location || '').trim();
-  const policies = String(w?.policies || '').trim();
-
-  if (schedules) bodyParts.push(`HORÁRIOS E MODALIDADES:\n\n${schedules}`);
-  if (plans) bodyParts.push(`PLANOS E VALORES:\n\n${plans}`);
-  if (trial) bodyParts.push(`PRIMEIRA AULA, EXPERIMENTAL OU DEGUSTAÇÃO:\n\n${trial}`);
-  if (location) bodyParts.push(`LOCAL, ESTACIONAMENTO E COMO CHEGAR:\n\n${location}`);
-  if (policies) bodyParts.push(`POLÍTICAS, MATERIAIS E EQUIPAMENTOS:\n\n${policies}`);
-
-  const genericRules = `REGRAS DE TOM:
-- Use o primeiro nome da pessoa quando souber
-- Evite frases genéricas de marketing vazio ("Que bom seu interesse!")
-- Não pareça que está lendo um script fixo
-- Adapte o nível de formalidade ao da pessoa
-- Para contratos, cobranças delicadas, assuntos jurídicos ou casos muito específicos, diga que vai passar para um responsável humano
-- Nunca invente informações que não estão nas seções factuais acima
-- Se não souber responder, diga que vai verificar e retornar
-
-REGRAS DE FORMATAÇÃO:
-- Nunca mande blocos de texto sem quebra de linha
-- Entre cada tópico deixe uma linha em branco
-- Listas longas: deixe linha em branco entre itens quando fizer sentido
-- Use emoji com moderação (no máximo 1 por mensagem, só se combinar com o tom do estúdio)
-- Se a resposta envolver muitos tópicos, priorize o mais relevante e deixe o restante para a próxima mensagem se perguntarem
-- Prefira respostas curtas e diretas no WhatsApp
-
-REGRAS DE ATENDIMENTO:
-- Responda primeiro à dúvida principal; depois, se preciso, faça no máximo uma pergunta
-- Evite empilhar várias perguntas na mesma mensagem
-- Mencione convite para primeira aula, experimental ou degustação só quando fizer sentido no contexto, no máximo uma vez por conversa de forma natural
-- Se a pessoa hesitar em relação a valores, reforce o que já está descrito nas regras do estúdio (planos, experimentação) sem inventar descontos`;
-
-  bodyParts.push(genericRules);
-  const body = bodyParts.filter(Boolean).join('\n\n---\n\n');
-  const suffix = String(w?.extraSuffix || '').trim();
-
-  return { intro, body, suffix };
 }
 
 export default function Inbox() {
@@ -401,10 +174,17 @@ export default function Inbox() {
       return false;
     }
   });
-  const [promptModal, setPromptModal] = useState(false);
   const [promptIntro, setPromptIntro] = useState('');
   const [promptBody, setPromptBody] = useState('');
   const [promptSuffix, setPromptSuffix] = useState('');
+  const [promptSavedSnapshot, setPromptSavedSnapshot] = useState({ intro: '', body: '', suffix: '' });
+  const hasUnsavedPromptChanges = useMemo(
+    () =>
+      promptIntro !== promptSavedSnapshot.intro ||
+      promptBody !== promptSavedSnapshot.body ||
+      promptSuffix !== promptSavedSnapshot.suffix,
+    [promptIntro, promptBody, promptSuffix, promptSavedSnapshot]
+  );
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [iaAtiva, setIaAtiva] = useState(false);
@@ -421,10 +201,8 @@ export default function Inbox() {
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [promptPreviewText, setPromptPreviewText] = useState('');
   const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
-  const [generatingPrompt, setGeneratingPrompt] = useState(false);
-  const [agenteUiTab, setAgenteUiTab] = useState('wizard');
-  const [agenteWizardStep, setAgenteWizardStep] = useState(1);
-  const [agenteWizard, setAgenteWizard] = useState(() => ({ ...AGENTE_WIZARD_INITIAL }));
+  const [wizardAgenteOpen, setWizardAgenteOpen] = useState(false);
+  const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadPaging, setThreadPaging] = useState(false);
   const [threadCursor, setThreadCursor] = useState(null);
@@ -1196,15 +974,30 @@ export default function Inbox() {
 
       const data = await resp.json();
       if (resp.ok && data && typeof data === 'object') {
-        setPromptIntro(String(data.prompt_intro || ''));
-        setPromptBody(String(data.prompt_body || ''));
-        setPromptSuffix(String(data.prompt_suffix || ''));
-        setPromptConfigurado(isPromptConfiguredFromFields(data.prompt_intro, data.prompt_body));
+        const intro = String(data.prompt_intro || '');
+        const body = String(data.prompt_body || '');
+        const suffix = String(data.prompt_suffix || '');
+        setPromptIntro(intro);
+        setPromptBody(body);
+        setPromptSuffix(suffix);
+        setPromptSavedSnapshot({ intro, body, suffix });
+        setPromptConfigurado(isPromptConfiguredFromFields(intro, body));
         setIaAtiva(data.ia_ativa === true);
         setBirthdayMessage(String(data.birthdayMessage || ''));
         setAiThreadsUsed(Number(data.ai_threads_used) || 0);
         setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
         setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
+        const wd = String(data.wizard_data || '').trim();
+        if (wd) {
+          try {
+            const parsed = JSON.parse(wd);
+            setWizardAgenteInitial(parsed && typeof parsed === 'object' ? parsed : null);
+          } catch {
+            setWizardAgenteInitial(null);
+          }
+        } else {
+          setWizardAgenteInitial(null);
+        }
       } else {
         throw new Error('Falha ao carregar');
       }
@@ -1234,7 +1027,8 @@ export default function Inbox() {
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
-      addToast({ type: 'success', message: 'Prompt atualizado' });
+      addToast({ type: 'success', message: 'Instruções salvas' });
+      setPromptSavedSnapshot({ intro, body: bodyPut, suffix: suffixPut });
       setPromptConfigurado(isPromptConfiguredFromFields(intro, bodyPut));
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
@@ -1315,83 +1109,6 @@ export default function Inbox() {
     } finally {
       setSavingBirthdayMessage(false);
     }
-  }
-
-  async function generatePromptWithAgenteWizard() {
-    const sn = String(agenteWizard.studioName || '').trim();
-    const an = String(agenteWizard.assistantName || '').trim();
-    if (!sn || !an) {
-      addToast({ type: 'error', message: 'No passo 1, preencha o nome do estúdio e o nome do assistente virtual.' });
-      return;
-    }
-    setGeneratingPrompt(true);
-    try {
-      const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || academyId || '')
-        },
-        body: JSON.stringify({ action: 'generate_prompt', wizardData: agenteWizard })
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (resp.ok && data?.sucesso && String(data.prompt || '').trim()) {
-        setPromptIntro('');
-        setPromptBody(String(data.prompt).trim());
-        setPromptSuffix('');
-        setPromptConfigurado(isPromptConfiguredFromFields('', data.prompt));
-        setAgenteUiTab('advanced');
-        addToast({ type: 'success', message: 'Prompt gerado — revise na edição avançada e salve.' });
-        return;
-      }
-      const msg = data?.erro || data?.error || 'Falha ao gerar prompt';
-      throw new Error(typeof msg === 'string' ? msg : 'Falha ao gerar prompt');
-    } catch (e) {
-      addToast({ type: 'warning', message: e?.message || 'IA indisponível; usando modelo local do assistente.' });
-      const built = buildPromptsFromAgenteWizard(agenteWizard);
-      setPromptIntro(built.intro);
-      setPromptBody(built.body);
-      setPromptSuffix(built.suffix);
-      setPromptConfigurado(isPromptConfiguredFromFields(built.intro, built.body));
-      setAgenteUiTab('advanced');
-    } finally {
-      setGeneratingPrompt(false);
-    }
-  }
-
-  function buildFromAgenteWizardOrToast() {
-    const sn = String(agenteWizard.studioName || '').trim();
-    const an = String(agenteWizard.assistantName || '').trim();
-    if (!sn || !an) {
-      addToast({ type: 'error', message: 'No passo 1, preencha o nome do estúdio e o nome do assistente virtual.' });
-      return null;
-    }
-    return buildPromptsFromAgenteWizard(agenteWizard);
-  }
-
-  function applyAgenteWizardToPromptFields() {
-    const built = buildFromAgenteWizardOrToast();
-    if (!built) return;
-    setPromptIntro(built.intro);
-    setPromptBody(built.body);
-    setPromptSuffix(built.suffix);
-    setPromptConfigurado(isPromptConfiguredFromFields(built.intro, built.body));
-    addToast({ type: 'success', message: 'Prompt aplicado — use Salvar para gravar no servidor (ou abra Edição avançada para ajustar).' });
-  }
-
-  async function applyAgenteWizardAndSave() {
-    const built = buildFromAgenteWizardOrToast();
-    if (!built) return;
-    setPromptIntro(built.intro);
-    setPromptBody(built.body);
-    setPromptSuffix(built.suffix);
-    await savePromptSettings({
-      prompt_intro: built.intro,
-      prompt_body: built.body,
-      prompt_suffix: built.suffix
-    });
   }
 
   async function loadList({ reset = false, silent = false } = {}) {
@@ -2742,55 +2459,6 @@ export default function Inbox() {
         </div>
       </div>
 
-      {canConfigureAgenteIa && promptModal && (
-        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 'min(960px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Configurar Prompt da IA</div>
-              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPromptModal(false)} type="button">
-                Fechar
-              </button>
-            </div>
-            <div style={{ padding: 12, display: 'grid', gap: 12 }}>
-              {loadingPrompt && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
-              <div>
-                <div className="ctx-label" style={{ marginBottom: 6 }}>Introdução</div>
-                <textarea className="input" value={promptIntro} onChange={(e) => setPromptIntro(e.target.value)} rows={5} placeholder="Texto de introdução" disabled={loadingPrompt} />
-              </div>
-              <div>
-                <div className="ctx-label" style={{ marginBottom: 6 }}>Corpo</div>
-                <textarea className="input" value={promptBody} onChange={(e) => setPromptBody(e.target.value)} rows={10} placeholder="Regras, horários, preços, etc." disabled={loadingPrompt} />
-              </div>
-              <div>
-                <div className="ctx-label" style={{ marginBottom: 6 }}>Complemento</div>
-                <textarea className="input" value={promptSuffix} onChange={(e) => setPromptSuffix(e.target.value)} rows={5} placeholder="Instruções adicionais" disabled={loadingPrompt} />
-              </div>
-            </div>
-            <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button
-                className="btn btn-secondary"
-                style={{ padding: '6px 10px' }}
-                onClick={() => {
-                  setPromptIntro(ANA_PROMPT_INTRO);
-                  setPromptBody(ANA_PROMPT_BODY);
-                  setPromptSuffix('');
-                }}
-                type="button"
-                disabled={savingPrompt || loadingPrompt}
-              >
-                Aplicar prompt Ana
-              </button>
-              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setPromptModal(false)} type="button" disabled={savingPrompt}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={savePromptSettings} disabled={savingPrompt || loadingPrompt}>
-                {savingPrompt ? 'Salvando…' : loadingPrompt ? 'Carregando…' : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {transferModalOpen && (
         <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 'min(560px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
@@ -3731,6 +3399,120 @@ export default function Inbox() {
         @keyframes inboxSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
         @keyframes inbox-improve-spin { to { transform: rotate(360deg); } }
         .inbox-improve-spin { animation: inbox-improve-spin 0.75s linear infinite; }
+        .agent-header { margin-bottom: 24px; }
+        .agent-subtitle { color: var(--text-muted); font-size: 14px; margin: 0; line-height: 1.45; }
+        .agent-toggle-block {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 16px;
+          margin-bottom: 24px;
+        }
+        .agent-toggle-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .agent-toggle-btn {
+          min-height: 36px;
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: var(--surface-hover);
+          color: var(--text);
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        .agent-toggle-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .agent-toggle-btn.active {
+          background: var(--purple);
+          color: #fff;
+          border-color: var(--purple);
+        }
+        .agent-instructions-panel {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: var(--surface);
+          padding: 16px;
+          margin-bottom: 24px;
+        }
+        .agent-field { margin-bottom: 16px; }
+        .agent-field label {
+          display: block;
+          font-weight: 600;
+          margin-bottom: 6px;
+          font-size: 14px;
+        }
+        .agent-field-textarea {
+          width: 100%;
+          box-sizing: border-box;
+          border-radius: 8px;
+          padding: 10px 12px;
+          font-size: 14px;
+          resize: vertical;
+          font-family: inherit;
+        }
+        .agent-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-top: 16px;
+        }
+        .agent-actions-right { display: flex; gap: 8px; flex-wrap: wrap; }
+        .unsaved-indicator { color: var(--warning); font-size: 13px; font-weight: 600; }
+        .agent-accordion {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 12px 16px;
+          margin-bottom: 24px;
+          background: var(--surface);
+        }
+        .agent-accordion summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+        .agent-accordion-content { margin-top: 14px; }
+        .agent-warning { color: var(--danger); font-size: 13px; margin: 8px 0 0; line-height: 1.45; }
+        .agent-info { color: var(--text-muted); font-size: 13px; margin: 8px 0 0; line-height: 1.45; }
+        .agent-field-hint { color: var(--text-muted); font-size: 13px; margin: 0 0 8px; line-height: 1.45; }
+        .agent-instructions-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .wizard-agente-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 2100;
+          background: rgba(0, 0, 0, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+        }
+        .wizard-agente-panel {
+          width: min(560px, 100%);
+          max-height: min(90vh, 820px);
+          overflow: auto;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 16px;
+          box-shadow: var(--shadow-lg);
+        }
+        .wizard-agente-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+        .wizard-agente-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-top: 16px;
+          padding-top: 12px;
+          border-top: 1px solid var(--border);
+        }
+        .wizard-agente-checks, .wizard-agente-radios { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+        .wizard-agente-radios--col { flex-direction: column; align-items: flex-start; }
+        .wizard-agente-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+        .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
       ` }} />
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
@@ -4287,656 +4069,244 @@ export default function Inbox() {
             </div>
           ) : (
             <>
-          {iaAtiva && !promptConfigurado && (
-            <div
-              role="alert"
-              style={{
-                marginBottom: 12,
-                padding: '12px 14px',
-                borderRadius: 10,
-                border: '1px solid rgba(234, 179, 8, 0.45)',
-                background: 'rgba(254, 243, 199, 0.35)',
-                color: 'var(--text)',
-                fontSize: 13
-              }}
-            >
-              A IA está ativada mas o prompt não está configurado. Configure o prompt antes de confiar no atendimento automático.
-            </div>
-          )}
-          {!iaAtiva && promptConfigurado && (
-            <div
-              role="status"
-              style={{
-                marginBottom: 12,
-                padding: '12px 14px',
-                borderRadius: 10,
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                background: 'rgba(219, 234, 254, 0.35)',
-                color: 'var(--text)',
-                fontSize: 13
-              }}
-            >
-              Prompt configurado. Ative a IA para começar o atendimento automático no WhatsApp.
-            </div>
-          )}
-          {iaAtiva &&
-            aiThreadsLimit > 0 &&
-            aiThreadsUsed >= aiThreadsLimit &&
-            !aiOverageEnabled && (
-              <div
-                role="alert"
-                style={{
-                  marginBottom: 12,
-                  padding: '12px 14px',
-                  borderRadius: 10,
-                  border: '1px solid rgba(220, 38, 38, 0.35)',
-                  background: 'rgba(254, 226, 226, 0.35)',
-                  color: 'var(--text)',
-                  fontSize: 13
-                }}
-              >
-                Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode
-                ficar indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
+              <div className="agent-header">
+                <h2 className="navi-section-heading" style={{ fontSize: '1.25rem', margin: '0 0 8px' }}>Assistente IA</h2>
+                <p className="agent-subtitle">Configure como sua IA responde no WhatsApp</p>
               </div>
-            )}
-          <div
-            style={{
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              background: 'var(--surface)',
-              padding: 16,
-              marginBottom: 12
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
-              <span className="navi-section-heading" style={{ fontSize: '0.95rem', margin: 0 }}>
-                Status da IA
-              </span>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 800,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  background: iaAtiva ? 'var(--success-light)' : 'var(--surface-hover)',
-                  color: iaAtiva ? 'var(--success-text)' : 'var(--text-secondary)'
-                }}
-              >
-                {iaAtiva ? '● IA ativa' : '○ IA inativa'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
-                <span aria-hidden>{promptConfigurado ? '✅' : '⬜'}</span>
-                <span style={{ color: promptConfigurado ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>Prompt configurado</span>
-                {!promptConfigurado && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    {iaAtiva && (
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          color: '#b45309',
-                          background: 'rgba(254, 243, 199, 0.9)',
-                          padding: '2px 8px',
-                          borderRadius: 999
-                        }}
-                      >
-                        Atenção
-                      </span>
-                    )}
+
+              <div className="agent-toggle-block">
+                <div className="agent-toggle-row">
+                  <span style={{ fontWeight: 600, fontSize: 15 }}>{iaAtiva ? 'Assistente ligado' : 'Assistente desligado'}</span>
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleIa()}
+                    disabled={!promptConfigurado || togglingIa}
+                    className={`agent-toggle-btn${iaAtiva && promptConfigurado ? ' active' : ''}`}
+                    title={
+                      !promptConfigurado
+                        ? 'Salve as instruções antes de ativar'
+                        : togglingIa
+                          ? 'Atualizando…'
+                          : iaAtiva
+                            ? 'Desativar assistente'
+                            : 'Ativar assistente'
+                    }
+                  >
+                    {togglingIa ? '…' : iaAtiva ? 'Ligado' : 'Desligado'}
+                  </button>
+                </div>
+                {iaAtiva && !promptConfigurado && (
+                  <p className="agent-warning">Salve as instruções para o assistente funcionar corretamente.</p>
+                )}
+                {!iaAtiva && promptConfigurado && (
+                  <p className="agent-info">Instruções salvas. Ligue o assistente para começar a responder no WhatsApp.</p>
+                )}
+                {promptConfigurado && !whatsappConectado && (
+                  <p className="agent-info" style={{ marginTop: 8 }}>
+                    WhatsApp ainda não está conectado.{' '}
                     <button
                       type="button"
                       className="btn btn-outline"
-                      style={{
-                        padding: '2px 8px',
-                        minHeight: 28,
-                        fontSize: 12,
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--purple)',
-                        boxShadow: 'none',
-                        fontWeight: 700
-                      }}
-                      onClick={() => setAgenteUiTab('wizard')}
+                      style={{ padding: '2px 10px', minHeight: 30, fontSize: 12, verticalAlign: 'middle' }}
+                      onClick={() => onTabChange('dispositivo')}
                     >
-                      Configurar →
+                      Conectar na aba Dispositivo
                     </button>
-                  </span>
+                  </p>
+                )}
+                {iaAtiva && aiThreadsLimit > 0 && aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled && (
+                  <p className="agent-warning" style={{ marginTop: 8 }}>
+                    Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
+                    indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
+                  </p>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
-                <span aria-hidden>{whatsappConectado ? '✅' : '⬜'}</span>
-                <span style={{ color: whatsappConectado ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>WhatsApp conectado</span>
-                {!whatsappConectado && (
+
+              <div className="agent-instructions agent-instructions-panel">
+                <div className="agent-instructions-header">
+                  <h3 className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0 }}>
+                    Instruções do assistente
+                  </h3>
                   <button
                     type="button"
-                    className="btn btn-outline"
-                    style={{
-                      padding: '2px 8px',
-                      minHeight: 28,
-                      fontSize: 12,
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'var(--purple)',
-                      boxShadow: 'none',
-                      fontWeight: 700
-                    }}
-                    onClick={() => onTabChange('dispositivo')}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', minHeight: 36, fontSize: 13 }}
+                    onClick={() => setWizardAgenteOpen(true)}
+                    disabled={loadingPrompt}
                   >
-                    Conectar →
+                    Configurar com perguntas guiadas
                   </button>
-                )}
+                </div>
+                {loadingPrompt && <div className="text-small agent-info" style={{ marginBottom: 12 }}>Carregando…</div>}
+                <div className="agent-field">
+                  <label htmlFor="agent-prompt-intro">Nome e identidade</label>
+                  <textarea
+                    id="agent-prompt-intro"
+                    className="agent-field-textarea input"
+                    value={promptIntro}
+                    onChange={(e) => setPromptIntro(e.target.value)}
+                    rows={4}
+                    disabled={loadingPrompt}
+                    placeholder={
+                      'Ex: Você se chama Ana e atende pela Gracie Barra Lagoa da Prata, ' +
+                      'uma academia de Jiu-Jitsu. Seu tom é amigável, direto e acolhedor. ' +
+                      'Você fala em português brasileiro.'
+                    }
+                  />
+                </div>
+                <div className="agent-field">
+                  <label htmlFor="agent-prompt-body">O que saber para responder clientes</label>
+                  <textarea
+                    id="agent-prompt-body"
+                    className="agent-field-textarea input"
+                    value={promptBody}
+                    onChange={(e) => setPromptBody(e.target.value)}
+                    rows={10}
+                    disabled={loadingPrompt}
+                    placeholder={
+                      'Coloque aqui tudo que a IA precisa saber para responder bem:\n\n' +
+                      '• Horários das aulas (adulto, kids, etc.)\n' +
+                      '• Planos e preços\n' +
+                      '• Endereço e como chegar\n' +
+                      '• Como agendar uma aula experimental\n' +
+                      '• Modalidades oferecidas\n' +
+                      '• Qualquer outra informação que clientes costumam perguntar'
+                    }
+                  />
+                </div>
+                <div className="agent-field">
+                  <label htmlFor="agent-prompt-suffix">Regras e limites</label>
+                  <textarea
+                    id="agent-prompt-suffix"
+                    className="agent-field-textarea input"
+                    value={promptSuffix}
+                    onChange={(e) => setPromptSuffix(e.target.value)}
+                    rows={4}
+                    disabled={loadingPrompt}
+                    placeholder={
+                      'Ex: Nunca informe preços sem antes perguntar o perfil (adulto/kids). ' +
+                      'Se o cliente perguntar sobre pagamento atrasado, passe para um humano. ' +
+                      'Não faça promessas de desconto sem confirmação do responsável.'
+                    }
+                  />
+                </div>
+                <div className="agent-actions">
+                  <div className="agent-actions-left">
+                    {hasUnsavedPromptChanges && <span className="unsaved-indicator">Alterações não salvas</span>}
+                  </div>
+                  <div className="agent-actions-right">
+                    <button
+                      type="button"
+                      onClick={() => void handlePreviewFullPrompt()}
+                      className="btn btn-outline"
+                      disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
+                      title="Inclui classificação em JSON enviada ao modelo"
+                    >
+                      {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void savePromptSettings()}
+                      disabled={savingPrompt || loadingPrompt}
+                      className="btn btn-primary"
+                    >
+                      {savingPrompt ? 'Salvando…' : loadingPrompt ? 'Carregando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <span className="text-small" style={{ color: 'var(--text-secondary)', flex: '1 1 200px' }}>
-                {!promptConfigurado || !whatsappConectado
-                  ? 'Complete a configuração para ativar'
-                  : iaAtiva
-                    ? 'Clique para desativar a IA'
-                    : 'Clique para ativar a IA'}
-              </span>
-              <button
-                type="button"
-                onClick={() => void handleToggleIa()}
-                disabled={!promptConfigurado || togglingIa}
-                title={
-                  !promptConfigurado
-                    ? 'Configure o prompt antes de ativar'
-                    : togglingIa
-                      ? 'Atualizando…'
-                      : iaAtiva
-                        ? 'Desativar IA'
-                        : 'Ativar IA'
-                }
-                style={{
-                  position: 'relative',
-                  width: 48,
-                  height: 24,
-                  borderRadius: 999,
-                  border: 'none',
-                  padding: 0,
-                  flexShrink: 0,
-                  cursor: !promptConfigurado || togglingIa ? 'not-allowed' : 'pointer',
-                  opacity: !promptConfigurado ? 0.45 : 1,
-                  background:
-                    iaAtiva && promptConfigurado ? 'var(--purple)' : 'var(--border-light)',
-                  transition: 'background 0.2s ease'
-                }}
-              >
-                <span
+
+              <details className="agent-accordion">
+                <summary>Mensagem de aniversário</summary>
+                <div className="agent-accordion-content">
+                  <p className="agent-field-hint">
+                    Enviada automaticamente no dia do aniversário dos alunos ativos (status Matriculado). Use {'{nome}'} para personalizar.
+                  </p>
+                  <textarea
+                    className="agent-field-textarea input"
+                    value={birthdayMessage}
+                    onChange={(e) => setBirthdayMessage(e.target.value)}
+                    rows={3}
+                    disabled={loadingPrompt}
+                    placeholder="Ex: Feliz aniversário! A equipe deseja um dia incrível…"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveBirthdayMessage()}
+                    className="btn btn-outline"
+                    style={{ marginTop: 8 }}
+                    disabled={savingBirthdayMessage || loadingPrompt}
+                  >
+                    {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
+                  </button>
+                </div>
+              </details>
+
+              {showPromptPreview && (
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Como a IA recebe suas instruções"
                   style={{
-                    position: 'absolute',
-                    top: 4,
-                    left: iaAtiva && promptConfigurado ? 28 : 4,
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    background: 'var(--white)',
-                    boxShadow: 'var(--shadow-sm)',
-                    transition: 'left 0.2s ease',
-                    pointerEvents: 'none'
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 2000,
+                    background: 'rgba(0,0,0,0.45)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16
                   }}
-                />
-              </button>
-            </div>
-          </div>
-          <div
-            style={{
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              padding: 16,
-              marginBottom: 16,
-              background: 'var(--surface)'
-            }}
-          >
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 4px' }}>
-              Mensagem de aniversário
-            </p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>
-              Enviada automaticamente no dia do aniversário dos alunos ativos (status Matriculado). Use {'{nome}'} para
-              personalizar.
-            </p>
-            <textarea
-              value={birthdayMessage}
-              onChange={(e) => setBirthdayMessage(e.target.value)}
-              placeholder={
-                'Oi {nome}! A equipe toda deseja um feliz aniversário!\n\n' +
-                'Que este novo ano seja incrível para você. Nos vemos no treino!'
-              }
-              rows={4}
-              disabled={loadingPrompt}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                fontSize: 13,
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => void handleSaveBirthdayMessage()}
-              disabled={savingBirthdayMessage || loadingPrompt}
-              style={{
-                marginTop: 8,
-                padding: '8px 16px',
-                borderRadius: 8,
-                background: 'var(--purple)',
-                color: '#fff',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: savingBirthdayMessage || loadingPrompt ? 'not-allowed' : 'pointer',
-                opacity: savingBirthdayMessage || loadingPrompt ? 0.7 : 1
-              }}
-            >
-              {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
-            </button>
-          </div>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
-            <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-              <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Configurar Agente IA</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={openPromptSettings} type="button" disabled={loadingPrompt || savingPrompt}>
-                  Recarregar
-                </button>
-                <button
-                  className="btn btn-outline"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => void handlePreviewFullPrompt()}
-                  type="button"
-                  disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                  title="Texto completo enviado ao modelo (inclui classificação JSON)"
+                  onClick={() => setShowPromptPreview(false)}
                 >
-                  {loadingPromptPreview ? 'Carregando…' : 'Ver prompt completo'}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 10px' }}
-                  onClick={() => {
-                    setPromptIntro(ANA_PROMPT_INTRO);
-                    setPromptBody(ANA_PROMPT_BODY);
-                    setPromptSuffix('');
-                    setPromptConfigurado(isPromptConfiguredFromFields(ANA_PROMPT_INTRO, ANA_PROMPT_BODY));
-                  }}
-                  type="button"
-                  disabled={savingPrompt || loadingPrompt}
-                >
-                  Aplicar prompt Ana
-                </button>
-                <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => savePromptSettings()} disabled={savingPrompt || loadingPrompt} type="button">
-                  {savingPrompt ? 'Salvando…' : loadingPrompt ? 'Carregando…' : 'Salvar'}
-                </button>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', borderBottom: '1px solid var(--border)', alignItems: 'flex-end' }}>
-              <button
-                type="button"
-                className={agenteUiTab === 'wizard' ? 'btn btn-primary' : 'btn btn-outline'}
-                style={{ padding: '6px 12px', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginBottom: -1 }}
-                onClick={() => setAgenteUiTab('wizard')}
-              >
-                Configuração guiada
-              </button>
-              <button
-                type="button"
-                className={agenteUiTab === 'advanced' ? 'btn btn-primary' : 'btn btn-outline'}
-                style={{ padding: '6px 12px', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginBottom: -1 }}
-                onClick={() => setAgenteUiTab('advanced')}
-              >
-                Edição avançada
-              </button>
-            </div>
-            <div style={{ padding: 12, display: 'grid', gap: 12 }}>
-              {loadingPrompt && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
-              {agenteUiTab === 'advanced' && (
-                <>
-                  <div>
-                    <div className="ctx-label" style={{ marginBottom: 6 }}>Introdução</div>
-                    <textarea className="input" value={promptIntro} onChange={(e) => setPromptIntro(e.target.value)} rows={5} placeholder="Texto de introdução" disabled={loadingPrompt} />
-                  </div>
-                  <div>
-                    <div className="ctx-label" style={{ marginBottom: 6 }}>Corpo</div>
-                    <textarea className="input" value={promptBody} onChange={(e) => setPromptBody(e.target.value)} rows={10} placeholder="Regras, horários, preços, etc." disabled={loadingPrompt} />
-                  </div>
-                  <div>
-                    <div className="ctx-label" style={{ marginBottom: 6 }}>Complemento</div>
-                    <textarea className="input" value={promptSuffix} onChange={(e) => setPromptSuffix(e.target.value)} rows={5} placeholder="Instruções adicionais" disabled={loadingPrompt} />
-                  </div>
-                </>
-              )}
-              {agenteUiTab === 'wizard' && !loadingPrompt && (
-                <div style={{ display: 'grid', gap: 14 }}>
-                  {(() => {
-                    const stepTitles = ['', 'Estúdio e assistente', 'Tom de voz', 'Horários, valores e local', 'Políticas e complemento', 'Concluir'];
-                    const title = stepTitles[agenteWizardStep] || '';
-                    return (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                        <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                          Passo {agenteWizardStep} de 5 — {title}
+                  <div
+                    style={{
+                      maxWidth: 720,
+                      width: '100%',
+                      maxHeight: '85vh',
+                      overflow: 'auto',
+                      background: 'var(--surface)',
+                      borderRadius: 12,
+                      border: '1px solid var(--border)',
+                      padding: 16,
+                      boxShadow: 'var(--shadow)'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                        <div>
+                          <span style={{ fontWeight: 700, fontSize: 15 }}>Como a IA recebe suas instruções</span>
+                          <p className="agent-subtitle" style={{ margin: '6px 0 0', maxWidth: 520 }}>
+                            Este é o texto completo enviado ao assistente antes de cada conversa (inclui blocos técnicos como classificação).
+                          </p>
                         </div>
                         <button
                           type="button"
                           className="btn btn-outline"
-                          style={{ padding: '4px 10px', minHeight: 30 }}
-                          onClick={() => {
-                            setAgenteWizard({ ...AGENTE_WIZARD_INITIAL });
-                            setAgenteWizardStep(1);
-                          }}
+                          style={{ padding: '4px 12px', flexShrink: 0 }}
+                          onClick={() => setShowPromptPreview(false)}
                         >
-                          Limpar assistente
-                        </button>
-                      </div>
-                    );
-                  })()}
-                  {agenteWizardStep === 1 && (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <div className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                        Defina a identidade do estúdio e do assistente virtual. Esses dados entram na introdução do prompt.
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Nome do estúdio *</div>
-                        <input
-                          className="form-input"
-                          value={agenteWizard.studioName}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, studioName: e.target.value }))}
-                          placeholder="Ex.: Estúdio Movimento"
-                        />
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Cidade / região (opcional)</div>
-                        <input
-                          className="form-input"
-                          value={agenteWizard.studioCity}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, studioCity: e.target.value }))}
-                          placeholder="Ex.: São Paulo — Zona Sul"
-                        />
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Segmento principal</div>
-                        <select
-                          className="form-input"
-                          value={agenteWizard.segment}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, segment: e.target.value }))}
-                        >
-                          {AGENTE_WIZARD_SEGMENTS.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {agenteWizard.segment === 'outro' && (
-                        <div>
-                          <div className="ctx-label" style={{ marginBottom: 6 }}>Descreva o segmento</div>
-                          <input
-                            className="form-input"
-                            value={agenteWizard.segmentCustom}
-                            onChange={(e) => setAgenteWizard((p) => ({ ...p, segmentCustom: e.target.value }))}
-                            placeholder="Ex.: natação e hidroginástica"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Nome do assistente virtual *</div>
-                        <input
-                          className="form-input"
-                          value={agenteWizard.assistantName}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, assistantName: e.target.value }))}
-                          placeholder="Ex.: Marina"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {agenteWizardStep === 2 && (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <div className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                        Escolha o tom geral das respostas no WhatsApp.
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Tom</div>
-                        <select
-                          className="form-input"
-                          value={agenteWizard.tone}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, tone: e.target.value }))}
-                        >
-                          <option value="caloroso">Caloroso e acolhedor</option>
-                          <option value="profissional">Profissional e cordial</option>
-                          <option value="neutro">Neutro e objetivo</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                  {agenteWizardStep === 3 && (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <div className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                        Informações factuais que a IA pode citar. Só inclua o que estiver correto — a IA não deve inventar além disso.
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Horários e modalidades</div>
-                        <textarea
-                          className="input"
-                          rows={6}
-                          value={agenteWizard.schedules}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, schedules: e.target.value }))}
-                          placeholder="Turmas, níveis, dias e horários…"
-                        />
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Planos e valores</div>
-                        <textarea
-                          className="input"
-                          rows={5}
-                          value={agenteWizard.plans}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, plans: e.target.value }))}
-                          placeholder="Mensalidades, pacotes, matrícula, formas de pagamento…"
-                        />
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Primeira aula / experimental / degustação</div>
-                        <textarea
-                          className="input"
-                          rows={4}
-                          value={agenteWizard.trial}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, trial: e.target.value }))}
-                          placeholder="Como agendar, se é gratuito, o que levar…"
-                        />
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Local e acesso</div>
-                        <textarea
-                          className="input"
-                          rows={3}
-                          value={agenteWizard.location}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, location: e.target.value }))}
-                          placeholder="Endereço, referências, estacionamento…"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {agenteWizardStep === 4 && (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <div className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                        Políticas e texto extra: vão para o corpo (políticas) e para o complemento (instruções adicionais).
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Políticas, materiais e equipamentos</div>
-                        <textarea
-                          className="input"
-                          rows={5}
-                          value={agenteWizard.policies}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, policies: e.target.value }))}
-                          placeholder="Uniforme, cancelamento, idade mínima, saúde…"
-                        />
-                      </div>
-                      <div>
-                        <div className="ctx-label" style={{ marginBottom: 6 }}>Instruções adicionais (complemento do prompt)</div>
-                        <textarea
-                          className="input"
-                          rows={4}
-                          value={agenteWizard.extraSuffix}
-                          onChange={(e) => setAgenteWizard((p) => ({ ...p, extraSuffix: e.target.value }))}
-                          placeholder="Regras específicas do seu negócio, tom extra, o que evitar…"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {agenteWizardStep === 5 && (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                        Revise os dados acima. Ao aplicar, os campos Introdução, Corpo e Complemento serão preenchidos (o assistente combina tudo com regras genéricas de atendimento no WhatsApp).
-                      </p>
-                      <ul className="text-small" style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)' }}>
-                        <li>Estúdio: {String(agenteWizard.studioName || '').trim() || '—'}</li>
-                        <li>Assistente: {String(agenteWizard.assistantName || '').trim() || '—'}</li>
-                        <li>Blocos factuais preenchidos: {[agenteWizard.schedules, agenteWizard.plans, agenteWizard.trial, agenteWizard.location, agenteWizard.policies].filter((x) => String(x || '').trim()).length} de 5</li>
-                      </ul>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => void generatePromptWithAgenteWizard()}
-                          disabled={generatingPrompt || savingPrompt || loadingPrompt}
-                          title="Gera um prompt completo com Claude a partir dos dados do assistente"
-                        >
-                          {generatingPrompt ? (
-                            <>
-                              <Loader2 size={16} className="inbox-improve-spin" style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
-                              Gerando…
-                            </>
-                          ) : (
-                            '✨ Gerar prompt com IA'
-                          )}
-                        </button>
-                        <button type="button" className="btn btn-secondary" onClick={() => applyAgenteWizardToPromptFields()}>
-                          Aplicar ao prompt
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => {
-                            void applyAgenteWizardAndSave();
-                          }}
-                          disabled={savingPrompt}
-                        >
-                          {savingPrompt ? 'Salvando…' : 'Aplicar e salvar'}
-                        </button>
-                        <button type="button" className="btn btn-outline" onClick={() => setAgenteUiTab('advanced')}>
-                          Abrir edição avançada
+                          Fechar
                         </button>
                       </div>
                     </div>
-                  )}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginTop: 4,
-                      paddingTop: 12,
-                      borderTop: '1px solid var(--border)'
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ padding: '6px 12px' }}
-                      disabled={agenteWizardStep <= 1}
-                      onClick={() => setAgenteWizardStep((s) => Math.max(1, s - 1))}
+                    <pre
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        fontSize: 12,
+                        margin: 0,
+                        color: 'var(--text)',
+                        fontFamily: 'ui-monospace, Consolas, monospace'
+                      }}
                     >
-                      Voltar
-                    </button>
-                    {agenteWizardStep < 5 ? (
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{ padding: '6px 12px' }}
-                        onClick={() => {
-                          if (agenteWizardStep === 1) {
-                            if (!String(agenteWizard.studioName || '').trim() || !String(agenteWizard.assistantName || '').trim()) {
-                              addToast({
-                                type: 'error',
-                                message: 'No passo 1, preencha o nome do estúdio e o nome do assistente virtual.'
-                              });
-                              return;
-                            }
-                          }
-                          setAgenteWizardStep((s) => Math.min(5, s + 1));
-                        }}
-                      >
-                        Próximo
-                      </button>
-                    ) : (
-                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>Use os botões acima para aplicar.</span>
-                    )}
+                      {promptPreviewText}
+                    </pre>
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-          {showPromptPreview && (
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Prévia do prompt completo"
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 2000,
-                background: 'rgba(0,0,0,0.45)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16
-              }}
-              onClick={() => setShowPromptPreview(false)}
-            >
-              <div
-                style={{
-                  maxWidth: 720,
-                  width: '100%',
-                  maxHeight: '85vh',
-                  overflow: 'auto',
-                  background: 'var(--surface)',
-                  borderRadius: 12,
-                  border: '1px solid var(--border)',
-                  padding: 16,
-                  boxShadow: 'var(--shadow)'
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 10 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>Prompt completo (prévia)</span>
-                  <button type="button" className="btn btn-outline" style={{ padding: '4px 12px' }} onClick={() => setShowPromptPreview(false)}>
-                    Fechar
-                  </button>
-                </div>
-                <pre
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    fontSize: 12,
-                    margin: 0,
-                    color: 'var(--text)',
-                    fontFamily: 'ui-monospace, Consolas, monospace'
-                  }}
-                >
-                  {promptPreviewText}
-                </pre>
-              </div>
-            </div>
+            </>
           )}
-        </>
-      )}
         </div>
       )}
 
@@ -5018,6 +4388,24 @@ export default function Inbox() {
                   </div>
                 )
               )}
+      {canConfigureAgenteIa && wizardAgenteOpen && (
+        <WizardAgente
+          isOpen={wizardAgenteOpen}
+          onClose={() => setWizardAgenteOpen(false)}
+          initialData={wizardAgenteInitial}
+          getJwt={getJwt}
+          academyId={String(academyId || '')}
+          onComplete={(intro, body, suffix, savedWizard) => {
+            setPromptIntro(intro);
+            setPromptBody(body);
+            setPromptSuffix(suffix);
+            setPromptConfigurado(isPromptConfiguredFromFields(intro, body));
+            setWizardAgenteInitial(savedWizard && typeof savedWizard === 'object' ? savedWizard : null);
+            setWizardAgenteOpen(false);
+            addToast({ type: 'success', message: 'Prompt gerado! Revise e clique em Guardar.' });
+          }}
+        />
+      )}
     </div>
   );
 }

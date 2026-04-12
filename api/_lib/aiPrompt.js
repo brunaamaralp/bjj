@@ -363,7 +363,8 @@ export default async function handler(req, res) {
         billing_cycle_day: Math.min(
           Math.max(parseInt(String(academyDoc?.billing_cycle_day ?? 1), 10) || 1, 1),
           28
-        )
+        ),
+        wizard_data: String(academyDoc?.wizard_data ?? '')
       };
       return res.status(200).json({ sucesso: true, ...out });
     }
@@ -371,13 +372,30 @@ export default async function handler(req, res) {
     if (req.method === 'PATCH') {
       const body = (await readJsonBodyForPost(req)) || {};
       const patchAction = String(body.action || '').trim().toLowerCase();
+      if (patchAction === 'save_wizard_data') {
+        const raw =
+          typeof body.wizard_data === 'string' ? body.wizard_data : JSON.stringify(body.wizard_data ?? {});
+        const str = String(raw || '').trim();
+        if (!str) {
+          return res.status(400).json({ sucesso: false, erro: 'wizard_data vazio' });
+        }
+        if (str.length > 10000) {
+          return res.status(400).json({ sucesso: false, erro: 'wizard_data excede 10.000 caracteres' });
+        }
+        try {
+          JSON.parse(str);
+        } catch {
+          return res.status(400).json({ sucesso: false, erro: 'wizard_data JSON inválido' });
+        }
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { wizard_data: str });
+        return res.status(200).json({ sucesso: true });
+      }
       if (patchAction === 'save_birthday_message') {
         const msg = String(body.birthdayMessage || '').trim().slice(0, 500);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
           birthdayMessage: msg
         });
         return res.status(200).json({ sucesso: true, birthdayMessage: msg });
-      }
       if (patchAction === 'toggle_ia') {
         const novoStatus = Boolean(body.ia_ativa);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
@@ -424,7 +442,8 @@ export default async function handler(req, res) {
       res.setHeader('Allow', 'GET, PUT, POST, PATCH');
       return res.status(405).json({
         sucesso: false,
-        erro: 'Use action: toggle_ia, save_birthday_message, set_plan ou update_ai_settings no body JSON'
+        erro:
+          'Use action: save_wizard_data, toggle_ia, save_birthday_message, set_plan ou update_ai_settings no body JSON'
       });
     }
 
