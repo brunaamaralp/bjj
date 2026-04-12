@@ -4656,6 +4656,8 @@ export default function Inbox() {
           </div>
         </>
       )}
+        </div>
+      )}
 
       {error && (
         <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12 }}>
@@ -4663,7 +4665,8 @@ export default function Inbox() {
         </div>
       )}
 
-              {inboxTab === 'conversas' && (
+      {/* Conversas e erros: irmãos do bloco agente — nunca aninhar dentro de inboxTab === 'agente'. */}
+      {inboxTab === 'conversas' && (
                 isMobile ? (
                   <div className="inbox-mobile-split">
                     <div
@@ -4734,8 +4737,6 @@ export default function Inbox() {
                   </div>
                 )
               )}
-        </div>
-      )}
     </div>
   );
 }
