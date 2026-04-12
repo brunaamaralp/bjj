@@ -2,7 +2,12 @@ import { timingSafeEqual } from 'crypto';
 import { waitUntil } from '@vercel/functions';
 import { Client, Databases, Query } from 'node-appwrite';
 import { humanHandoffIsActive } from '../../lib/humanHandoffUntil.js';
-import { safeParseMessages, getOrCreateConversationDoc, updateConversationWithMerge } from '../../lib/server/conversationsStore.js';
+import {
+  safeParseMessages,
+  getOrCreateConversationDoc,
+  updateConversationWithMerge,
+  updateConversationLastDispatchMeta
+} from '../../lib/server/conversationsStore.js';
 
 const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
 /** Aguarda o fetch ao agent/process até este limite para o runtime não cortar antes da conexão (Vercel serverless). */
@@ -19,6 +24,13 @@ const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DE
 
 const appwriteClient = PROJECT_ID && API_KEY ? new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY) : null;
 const databases = appwriteClient ? new Databases(appwriteClient) : null;
+
+if (!String(process.env.INTERNAL_API_SECRET || '').trim()) {
+  console.error('[zapsterWebhook] AVISO STARTUP: INTERNAL_API_SECRET ausente');
+}
+if (!String(process.env.ZAPSTER_TOKEN || process.env.ZAPSTER_API_TOKEN || '').trim()) {
+  console.error('[zapsterWebhook] AVISO STARTUP: ZAPSTER_TOKEN / ZAPSTER_API_TOKEN ausente');
+}
 
 function safeCompare(a, b) {
   try {
@@ -199,6 +211,12 @@ async function resolveAcademyIdFromInstanceId(instanceId) {
     instanceId: inst,
     fallback: fallback || '(vazio — mensagem será ignorada)'
   });
+  if (inst && fallback) {
+    console.warn('[zapster][webhook] usando DEFAULT_ACADEMY_ID como fallback — configure zapster_instance_id na academia', {
+      instanceId: inst,
+      fallback
+    });
+  }
 
   return fallback;
 }
@@ -287,11 +305,16 @@ export default async function handler(req, res) {
     const requestId = String(messageId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     const academyId = await resolveAcademyIdFromInstanceId(instanceId);
     if (!academyId) {
-      console.warn('[zapster][webhook] academyId não resolvido — descartando mensagem', {
-        instanceId,
-        requestId
+      console.error(
+        '[zapster][webhook] academyId não resolvido — instância não mapeada e sem DEFAULT_ACADEMY_ID',
+        { instanceId, requestId }
+      );
+      return res.status(200).json({
+        ok: false,
+        motivo: 'academia_nao_encontrada',
+        instanceId: instanceId || null,
+        aviso: 'Configure zapster_instance_id no documento da academia no Appwrite ou defina DEFAULT_ACADEMY_ID'
       });
-      return res.status(200).json({ ok: true, motivo: 'academia_nao_encontrada' });
     }
     const academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId).catch(() => null);
     if (!academyDoc || !academyDoc.$id) return res.status(200).json({ sucesso: true, ignorado: true });
@@ -378,45 +401,56 @@ export default async function handler(req, res) {
     const internalSecret = String(process.env.INTERNAL_API_SECRET || '').trim();
 
     if (!internalSecret) {
-      console.error('[zapster][webhook] INTERNAL_API_SECRET ausente, agent/process não disparado', {
+      console.error('[zapster][webhook] CRÍTICO: INTERNAL_API_SECRET não configurado — IA não será disparada', {
         requestId,
         phone,
         academyId
       });
-    } else {
-      console.log('[zapster][webhook] dispatching', { requestId, phone, messageId, baseUrl });
-
-      const dispatchTask = (async () => {
-        try {
-          const r = await fetch(`${baseUrl}/api/agent/process`, {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'x-internal-secret': internalSecret
-            },
-            body: JSON.stringify({
-              phone,
-              name,
-              academyId,
-              message: text,
-              messageId,
-              requestId,
-              outInstanceId,
-              inboundDocId: null
-            })
-          });
-          console.log('[zapster][webhook] dispatch response', { requestId, status: r.status, baseUrl });
-        } catch (e) {
-          console.error('[zapster][webhook] dispatch error', {
-            error: e?.message,
-            baseUrl,
-            requestId
-          });
-        }
-      })();
-
-      waitUntil(dispatchTask);
+      await updateConversationLastDispatchMeta(phone, academyId, {
+        code: 'INTERNAL_API_SECRET_MISSING',
+        at: new Date().toISOString()
+      });
+      return res.status(200).json({
+        ok: true,
+        sucesso: true,
+        motivo: 'dispatch_skipped_no_secret',
+        aviso: 'INTERNAL_API_SECRET não configurado',
+        enfileirado: false
+      });
     }
+
+    console.log('[zapster][webhook] dispatching', { requestId, phone, messageId, baseUrl });
+
+    const dispatchTask = (async () => {
+      try {
+        const r = await fetch(`${baseUrl}/api/agent/process`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': internalSecret
+          },
+          body: JSON.stringify({
+            phone,
+            name,
+            academyId,
+            message: text,
+            messageId,
+            requestId,
+            outInstanceId,
+            inboundDocId: null
+          })
+        });
+        console.log('[zapster][webhook] dispatch response', { requestId, status: r.status, baseUrl });
+      } catch (e) {
+        console.error('[zapster][webhook] dispatch error', {
+          error: e?.message,
+          baseUrl,
+          requestId
+        });
+      }
+    })();
+
+    waitUntil(dispatchTask);
 
     res.setHeader('x-vercel-background', '1');
     return res.status(200).json({ ok: true, sucesso: true, enfileirado: true });

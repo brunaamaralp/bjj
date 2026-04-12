@@ -29,6 +29,8 @@ function buildAgentPayload({ phone, name, academyId, message, messageId, outInst
     name,
     academy_id: academyId,
     message,
+    /** Evita gravar a mensagem da assistente no Appwrite antes do envio WhatsApp confirmar. */
+    defer_assistant_merge: true,
     ...(mid ? { message_id: mid } : {}),
     ...(inst ? { out_instance_id: inst } : {})
   };
@@ -46,6 +48,8 @@ function safeCompare(a, b) {
 }
 
 function quotaBlockMessage(academyDoc) {
+  const custom = String(academyDoc?.quota_message || '').trim();
+  if (custom) return custom;
   const name = String(academyDoc?.ai_name || '').trim();
   const base =
     'O atendimento automático está temporariamente indisponível. Em breve alguém da equipe entrará em contato.';
@@ -143,15 +147,28 @@ export default async function handler(req, res) {
       quotaCheck = checkAiQuota(academyDoc);
       if (!quotaCheck.allowed) {
         const fallbackMsg = quotaBlockMessage(academyDoc);
-        if (instOut) {
-          const qSent = await sendZapsterText({ recipient: phone, text: fallbackMsg, instanceId: instOut });
+        const instQuota =
+          instOut ||
+          String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim() ||
+          String(process.env.DEFAULT_INSTANCE_ID || '').trim();
+        let qSent = null;
+        if (instQuota && phone) {
+          qSent = await sendZapsterText({ recipient: phone, text: fallbackMsg, instanceId: instQuota });
           if (!qSent?.ok) {
-            console.error('[agent/process] quota block send falhou', { requestId, erro: qSent?.erro });
+            console.error('[agent/process] quota block send falhou', { requestId, erro: qSent?.erro, instQuota });
           }
         } else {
-          console.warn('[agent/process] quota bloqueada sem outInstanceId', { requestId, phone });
+          console.error('[agent/process] quota esgotada e sem instância Zapster para fallback', {
+            requestId,
+            phone,
+            academyId: academy
+          });
         }
-        return res.status(200).json({ sent: Boolean(instOut), quota_blocked: true });
+        return res.status(200).json({
+          sent: Boolean(qSent?.ok),
+          quota_blocked: true,
+          fallback_sent: Boolean(qSent?.ok)
+        });
       }
     }
 
@@ -269,34 +286,44 @@ export default async function handler(req, res) {
 
       const sent = await sendZapsterText({ recipient: phone, text: resposta, instanceId: instOut });
       if (!sent?.ok) {
-        console.error('[agent/process] sendZapsterText falhou', {
+        console.error('[agent/process] sendZapsterText falhou — histórico da assistente não será gravado', {
           requestId,
           phone,
           outInstanceId: instOut,
           erro: sent?.erro
         });
-        return res.status(200).json({ sent: false, error: sent?.erro });
+        return res.status(200).json({ sent: false, reason: 'zapster_send_failed', error: sent?.erro });
       }
 
-      const nowIso = new Date().toISOString();
-      let conv = null;
-      const inbound = inboundId != null && inboundId !== '' ? String(inboundId).trim() : '';
-      if (inbound) {
-        conv = await getConversationDocById(inbound);
-        if (!conv || String(conv.academy_id || '') !== String(academy)) conv = null;
-      }
-      if (!conv) conv = await getOrCreateConversationDoc(phone, academy, academyDoc).catch(() => null);
-      const convId = String(conv?.$id || '').trim();
-      if (convId) {
-        const mid = String(messageId || '').trim();
-        const assistantMsg = {
-          role: 'assistant',
-          content: resposta,
-          timestamp: nowIso,
-          sender: 'ai',
-          ...(mid ? { in_reply_to: mid } : {})
-        };
-        await updateConversationWithMerge(convId, [assistantMsg]);
+      let convId = '';
+      const dm = agentData?.deferred_merge;
+      if (dm?.doc_id && Array.isArray(dm.additions) && dm.additions.length > 0) {
+        convId = String(dm.doc_id).trim();
+        const mergeUp = await updateConversationWithMerge(convId, dm.additions);
+        if (!mergeUp.ok) {
+          console.error('[agent/process] merge pós-Zapster falhou', { requestId, convId, erro: mergeUp.erro });
+        }
+      } else {
+        const nowIso = new Date().toISOString();
+        let conv = null;
+        const inbound = inboundId != null && inboundId !== '' ? String(inboundId).trim() : '';
+        if (inbound) {
+          conv = await getConversationDocById(inbound);
+          if (!conv || String(conv.academy_id || '') !== String(academy)) conv = null;
+        }
+        if (!conv) conv = await getOrCreateConversationDoc(phone, academy, academyDoc).catch(() => null);
+        convId = String(conv?.$id || '').trim();
+        if (convId) {
+          const mid = String(messageId || '').trim();
+          const assistantMsg = {
+            role: 'assistant',
+            content: resposta,
+            timestamp: nowIso,
+            sender: 'ai',
+            ...(mid ? { in_reply_to: mid } : {})
+          };
+          await updateConversationWithMerge(convId, [assistantMsg]);
+        }
       }
 
       if (isNewThread && convId) {
