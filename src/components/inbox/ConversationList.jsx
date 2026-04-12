@@ -1,28 +1,76 @@
 import React, { useEffect, useMemo } from 'react';
 import ConversationItem from './ConversationItem';
 
+/** Aceita array ou (defensivo) objeto tipo mapa id→linha — antes virava [] e sumiam todos os cards. */
+function normalizeGroupItems(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw == null) return [];
+  if (typeof raw === 'object') {
+    if (typeof raw.length === 'number' && !Array.isArray(raw)) {
+      try {
+        return Array.from(raw);
+      } catch {
+        void 0;
+      }
+    }
+    const vals = Object.values(raw);
+    if (vals.length && vals.every((v) => v != null && typeof v === 'object')) return vals;
+  }
+  return [];
+}
+
 function safeGrouped(groupedItems) {
   const arr = Array.isArray(groupedItems) ? groupedItems : [];
   return arr.map((g) => ({
     key: String(g?.key ?? ''),
     label: String(g?.label ?? ''),
-    items: Array.isArray(g?.items) ? g.items : []
+    items: normalizeGroupItems(g?.items)
   }));
 }
 
-export default function ConversationList({
-  groupedItems,
-  loading,
-  totalItems,
-  loadingMore,
-  onSelectConversation,
-  selectedPhone,
-  ticketChip,
-  formatTimeOnly,
-  formatWhen,
-}) {
+export default function ConversationList(props) {
+  const {
+    groupedItems,
+    loading,
+    totalItems,
+    loadingMore,
+    onSelectConversation,
+    selectedPhone,
+    ticketChip,
+    formatTimeOnly,
+    formatWhen
+  } = props;
+
   const groups = useMemo(() => safeGrouped(groupedItems), [groupedItems]);
   const flatCount = useMemo(() => groups.reduce((n, g) => n + g.items.length, 0), [groups]);
+
+  useEffect(() => {
+    console.log('[ConversationList] props recebidas', {
+      esperadas: [
+        'groupedItems',
+        'loading',
+        'totalItems',
+        'loadingMore',
+        'onSelectConversation',
+        'selectedPhone',
+        'ticketChip',
+        'formatTimeOnly',
+        'formatWhen'
+      ],
+      groupedItemsIsArray: Array.isArray(groupedItems),
+      groupedLength: Array.isArray(groupedItems) ? groupedItems.length : null,
+      groupItemLengths: Array.isArray(groupedItems)
+        ? groupedItems.map((g) => ({
+            key: g?.key,
+            len: normalizeGroupItems(g?.items).length,
+            itemsType: g?.items == null ? 'nullish' : Array.isArray(g.items) ? 'array' : typeof g.items
+          }))
+        : null,
+      afterSafeGrouped: groups.map((g) => ({ key: g.key, len: g.items.length })),
+      loading,
+      totalItems
+    });
+  }, [groupedItems, groups, loading, totalItems]);
 
   useEffect(() => {
     const groupedItemKeys = groups.map((g) => g.key);
@@ -35,7 +83,7 @@ export default function ConversationList({
     });
   }, [groups, loading, totalItems]);
 
-  const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0));
+  const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
 
   return (
     <div className="inbox-conversation-list-root" data-testid="inbox-conversation-list">
@@ -49,11 +97,11 @@ export default function ConversationList({
       {groups.map((group) => (
         <div key={group.key}>
           <div className="inbox-group-title">{group.label}</div>
-          {group.items.map((it) => {
+          {group.items.map((it, idx) => {
             const phone = String(it?._phone || it?.phone_number || '');
             return (
               <ConversationItem
-                key={String(it?.id || phone)}
+                key={`${group.key}:${String(it?.id || phone || idx)}`}
                 item={it}
                 active={phone === selectedPhone}
                 onSelect={() => onSelectConversation(it)}
@@ -66,6 +114,11 @@ export default function ConversationList({
         </div>
       ))}
       {!loading && totalItems === 0 && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Nenhuma conversa.</div>}
+      {!loading && totalItems > 0 && flatCount === 0 && (
+        <div style={{ padding: 12, color: 'var(--danger)' }} role="status">
+          Lista não renderizou ({totalItems} conversas). Abra o log <code>[ConversationList] props recebidas</code>.
+        </div>
+      )}
       {loadingMore && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Carregando mais…</div>}
     </div>
   );

@@ -31,7 +31,6 @@ export default function ConversationItem({
     <button
       type="button"
       data-inbox-conversation-item
-      key={String(item?.id || phone)}
       onClick={onSelect}
       className={`inbox-conversation-item${active ? ' active' : ''}`}
       style={{

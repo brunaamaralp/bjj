@@ -2112,12 +2112,18 @@ export default function Inbox() {
 
   useEffect(() => {
     const rows = groupedFilteredItems.reduce((n, g) => n + (Array.isArray(g.items) ? g.items.length : 0), 0);
-    console.log('[Inbox] ConversationList props', {
+    console.log('[Inbox] ConversationList slot', {
       inboxTab,
       isMobile,
       selectedPhone: String(selectedPhone || ''),
       itemsLen: items.length,
       groupedRows: rows,
+      childPropName: 'groupedItems',
+      passShape: groupedFilteredItems.map((g) => ({
+        key: g.key,
+        itemsIsArray: Array.isArray(g.items),
+        n: Array.isArray(g.items) ? g.items.length : 0
+      })),
       build: 'inbox-list-v3'
     });
   }, [inboxTab, isMobile, selectedPhone, items.length, groupedFilteredItems]);
