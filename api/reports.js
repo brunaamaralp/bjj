@@ -157,17 +157,26 @@ export default async function handler(req, res) {
     const newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, from, to));
     const newLeadsPrev = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, prevFrom, prevTo));
 
-    const scheduled = allLeads.filter(l => stageEventWithin(l, 'Agendado', from, to) || stageEventWithin(l, 'Aula experimental', from, to));
-    const scheduledPrev = allLeads.filter(l => stageEventWithin(l, 'Agendado', prevFrom, prevTo) || stageEventWithin(l, 'Aula experimental', prevFrom, prevTo));
+    const scheduled = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Agendado', from, to) || stageEventWithin(l, 'Aula experimental', from, to)));
+    const scheduledPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Agendado', prevFrom, prevTo) || stageEventWithin(l, 'Aula experimental', prevFrom, prevTo)));
 
-    const completed = allLeads.filter(l => stageEventWithin(l, 'Compareceu', from, to) || stageEventWithin(l, 'COMPLETED', from, to));
-    const completedPrev = allLeads.filter(l => stageEventWithin(l, 'Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'COMPLETED', prevFrom, prevTo));
+    const completed = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Compareceu', from, to) || stageEventWithin(l, 'COMPLETED', from, to)));
+    const completedPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'COMPLETED', prevFrom, prevTo)));
 
-    const missed = allLeads.filter(l => stageEventWithin(l, 'Não compareceu', from, to) || stageEventWithin(l, 'Não Compareceu', from, to) || stageEventWithin(l, 'MISSED', from, to));
-    const missedPrev = allLeads.filter(l => stageEventWithin(l, 'Não compareceu', prevFrom, prevTo) || stageEventWithin(l, 'Não Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'MISSED', prevFrom, prevTo));
+    const missed = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Não compareceu', from, to) || stageEventWithin(l, 'Não Compareceu', from, to) || stageEventWithin(l, 'MISSED', from, to)));
+    const missedPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Não compareceu', prevFrom, prevTo) || stageEventWithin(l, 'Não Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'MISSED', prevFrom, prevTo)));
 
-    const converted = allLeads.filter(l => (l.contact_type === 'student' && inRange(l.$updatedAt, from, to)) || stageEventWithin(l, 'Matriculado', from, to) || stageEventWithin(l, 'CONVERTED', from, to));
-    const convertedPrev = allLeads.filter(l => (l.contact_type === 'student' && inRange(l.$updatedAt, prevFrom, prevTo)) || stageEventWithin(l, 'Matriculado', prevFrom, prevTo) || stageEventWithin(l, 'CONVERTED', prevFrom, prevTo));
+    const countsAsConvertedInPeriod = (l, fromTs, toTs) => {
+      if (!isRealLead(l)) return false;
+      return (
+        (l.contact_type === 'student' && inRange(l.$updatedAt, fromTs, toTs)) ||
+        stageEventWithin(l, 'Matriculado', fromTs, toTs) ||
+        stageEventWithin(l, 'CONVERTED', fromTs, toTs)
+      );
+    };
+
+    const converted = allLeads.filter(l => countsAsConvertedInPeriod(l, from, to));
+    const convertedPrev = allLeads.filter(l => countsAsConvertedInPeriod(l, prevFrom, prevTo));
 
     const conversionRate = newLeads.length > 0
       ? Math.round((converted.length / newLeads.length) * 100)
@@ -190,8 +199,8 @@ export default async function handler(req, res) {
 
     chartData.forEach(bucket => {
         bucket.newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, bucket.start, bucket.end)).length;
-        bucket.scheduled = allLeads.filter(l => stageEventWithin(l, 'Agendado', bucket.start, bucket.end) || stageEventWithin(l, 'Aula experimental', bucket.start, bucket.end)).length;
-        bucket.converted = allLeads.filter(l => (l.contact_type === 'student' && inRange(l.$updatedAt, bucket.start, bucket.end)) || stageEventWithin(l, 'Matriculado', bucket.start, bucket.end) || stageEventWithin(l, 'CONVERTED', bucket.start, bucket.end)).length;
+        bucket.scheduled = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Agendado', bucket.start, bucket.end) || stageEventWithin(l, 'Aula experimental', bucket.start, bucket.end))).length;
+        bucket.converted = allLeads.filter(l => countsAsConvertedInPeriod(l, bucket.start, bucket.end)).length;
     });
 
     return json(res, 200, {

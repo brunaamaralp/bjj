@@ -8,6 +8,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
+import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -19,7 +20,7 @@ function expectedPipelineStageForStatus(status) {
         case LEAD_STATUS.SCHEDULED:
             return 'Aula experimental';
         case LEAD_STATUS.COMPLETED:
-            return 'Aula experimental';
+            return PIPELINE_WAITING_DECISION_STAGE;
         case LEAD_STATUS.CONVERTED:
             return 'Matriculado';
         case LEAD_STATUS.MISSED:
@@ -286,7 +287,7 @@ const LeadProfile = () => {
         const newNotes = [...existing, event];
         const pipelineStage =
             newStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : newStatus === LEAD_STATUS.COMPLETED ? 'Aula experimental'
+                : newStatus === LEAD_STATUS.COMPLETED ? PIPELINE_WAITING_DECISION_STAGE
                     : newStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
                         : newStatus === LEAD_STATUS.MISSED ? LEAD_STATUS.MISSED
                             : newStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST

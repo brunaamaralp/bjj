@@ -1,4 +1,5 @@
 import { Client, Databases, Account, Teams, Query } from 'node-appwrite';
+import { assertBillingActive, sendBillingGateError } from './billingGate.js';
 
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || process.env.ZAPSTER_API_URL || 'https://api.zapsterapi.com';
 const ZAPSTER_TOKEN = process.env.ZAPSTER_API_TOKEN || process.env.ZAPSTER_TOKEN || '';
@@ -281,6 +282,15 @@ export default async function handler(req, res) {
   const ctx = await ensureAcademyAccess(req, res, me);
   if (!ctx) return;
   const { academyId, doc } = ctx;
+
+  if (req.method === 'POST' || req.method === 'DELETE') {
+    try {
+      await assertBillingActive(academyId);
+    } catch (e) {
+      if (sendBillingGateError(res, e)) return;
+      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+    }
+  }
 
   const action = String(req.query?.action || '').trim().toLowerCase();
   const idParam = String(req.query?.id || '').trim();

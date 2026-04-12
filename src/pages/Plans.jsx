@@ -6,6 +6,8 @@ import { isBillingLive } from '../lib/billingEnabled';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 
+const PLAN_SLUG_BETA = 'beta';
+
 const BILLING_TYPES = [
   { id: 'PIX', label: 'PIX' },
   { id: 'BOLETO', label: 'Boleto' },
@@ -16,8 +18,7 @@ const Plans = ({ user }) => {
   const billingLive = isBillingLive();
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
-  const [plans, setPlans] = useState([]);
-  const [planSlug, setPlanSlug] = useState('monthly');
+  const [planPrice, setPlanPrice] = useState(297);
   const [billingType, setBillingType] = useState('PIX');
   const [loading, setLoading] = useState(false);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -45,7 +46,10 @@ const Plans = ({ user }) => {
       try {
         const r = await fetch('/api/billing/plans');
         const d = await r.json().catch(() => ({}));
-        if (!cancelled && r.ok && Array.isArray(d.plans)) setPlans(d.plans);
+        if (!cancelled && r.ok && Array.isArray(d.plans) && d.plans[0]) {
+          const v = Number(d.plans[0].value);
+          if (Number.isFinite(v)) setPlanPrice(v);
+        }
       } catch {
         void 0;
       } finally {
@@ -82,7 +86,7 @@ const Plans = ({ user }) => {
         },
         body: JSON.stringify({
           storeId: academyId,
-          planSlug,
+          planSlug: PLAN_SLUG_BETA,
           billingType,
           customer: form,
         }),
@@ -107,15 +111,17 @@ const Plans = ({ user }) => {
     }
   };
 
+  const priceLabel = loadingPlans && billingLive ? '…' : planPrice.toFixed(2).replace('.', ',');
+
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 40 }}>
       <div className="animate-in">
         <Link to="/" className="navi-eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <ChevronLeft size={16} /> Voltar ao início
         </Link>
-        <h2 className="navi-page-title">Planos Nave</h2>
+        <h2 className="navi-page-title">Nave Beta</h2>
         <p className="navi-subtitle" style={{ marginTop: 6 }}>
-          Assinatura do app via Asaas. Preencha os dados de faturamento (CPF/CNPJ e endereço) conforme exige o gateway.
+          Um plano mensal com pagamento seguro via Asaas (PIX, boleto ou cartão). Preencha os dados de faturamento abaixo.
         </p>
         {!billingLive && (
           <p
@@ -144,28 +150,28 @@ const Plans = ({ user }) => {
           >
             <CreditCard size={18} />
           </div>
-          <div>
-            <strong className="text-small">Checkout seguro</strong>
-            <p className="navi-subtitle" style={{ marginTop: 2 }}>
-              {!billingLive
-                ? 'Mensal e anual (valores serão carregados quando a cobrança for ativada).'
-                : loadingPlans
-                  ? 'Carregando planos…'
-                  : plans.length
-                    ? plans.map((p) => `${p.label || p.slug}: R$ ${Number(p.value).toFixed(2)}`).join(' · ')
-                    : 'Planos: mensal e anual.'}
+          <div style={{ flex: 1 }}>
+            <strong className="text-small">Nave Beta</strong>
+            <p className="navi-subtitle" style={{ marginTop: 4 }}>
+              Acesso completo a todas as funcionalidades durante o beta.
+            </p>
+            <p className="navi-page-title" style={{ marginTop: 12, fontSize: '1.75rem' }}>
+              R$ {priceLabel}
+              <span className="navi-subtitle" style={{ fontSize: '1rem', fontWeight: 500 }}>
+                {' '}
+                /mês
+              </span>
+            </p>
+            <p className="navi-subtitle" style={{ marginTop: 8 }}>
+              30 dias grátis incluídos (trial). Depois, cobrança mensal no Asaas.
+            </p>
+            <p className="navi-subtitle" style={{ marginTop: 6 }}>
+              Métodos: PIX · Boleto · Cartão de crédito
             </p>
           </div>
         </div>
 
         <form className="flex-col gap-3" onSubmit={onSubmit}>
-          <div className="form-group">
-            <label>Plano</label>
-            <select className="form-input" value={planSlug} onChange={(e) => setPlanSlug(e.target.value)} disabled={!billingLive}>
-              <option value="monthly">Mensal</option>
-              <option value="annual">Anual</option>
-            </select>
-          </div>
           <div className="form-group">
             <label>Forma de pagamento</label>
             <select className="form-input" value={billingType} onChange={(e) => setBillingType(e.target.value)} disabled={!billingLive}>
@@ -229,7 +235,7 @@ const Plans = ({ user }) => {
             <input className="form-input" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} required disabled={!billingLive} />
           </div>
           <button type="submit" className="btn-primary" disabled={loading || !billingLive}>
-            {!billingLive ? 'Pagamento em breve' : loading ? 'Redirecionando…' : 'Continuar para pagamento'}
+            {!billingLive ? 'Pagamento em breve' : loading ? 'Redirecionando…' : 'Começar trial gratuito'}
           </button>
         </form>
       </div>

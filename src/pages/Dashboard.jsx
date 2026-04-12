@@ -6,6 +6,7 @@ import { account, databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
+import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -187,7 +188,7 @@ const Dashboard = () => {
         if (!editLead) return;
         const pipelineStage =
             editStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : editStatus === LEAD_STATUS.COMPLETED ? 'Aula experimental'
+                : editStatus === LEAD_STATUS.COMPLETED ? PIPELINE_WAITING_DECISION_STAGE
                     : editStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
                         : editStatus === LEAD_STATUS.MISSED ? 'Não compareceu'
                             : editStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
@@ -263,8 +264,10 @@ const Dashboard = () => {
         return /^\d{4}-\d{2}-\d{2}$/.test(ymd);
     };
 
+    const excludeImportedOrigin = (l) => String(l?.origin || '').trim() !== 'Planilha';
+
     const allScheduled = (leads || [])
-        .filter((l) => l.status === LEAD_STATUS.SCHEDULED && hasExperimentalDate(l))
+        .filter((l) => excludeImportedOrigin(l) && l.status === LEAD_STATUS.SCHEDULED && hasExperimentalDate(l))
         .sort((a, b) => toDateTime(a) - toDateTime(b));
 
     const agendaLeads = allScheduled.filter(lead => {
@@ -283,7 +286,7 @@ const Dashboard = () => {
 
     // Follow-ups: dias desde a data da aula experimental; na agenda, só os primeiros 7 dias; mais recentes no topo
     const followUpsAll = leads
-        .filter(l => l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
+        .filter(l => excludeImportedOrigin(l) && (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED))
         .map(l => {
             const classDate = l.scheduledDate ? new Date(l.scheduledDate + 'T00:00:00') : new Date(l.createdAt);
             const diffMs = new Date() - classDate;
@@ -389,10 +392,18 @@ const Dashboard = () => {
                 const isRealLead = (l) => l.origin !== 'Planilha';
                 const newLeadsCur = leads.filter(l => isRealLead(l) && inRange(l.createdAt, mFrom, mTo)).length;
                 const newLeadsPrev = leads.filter(l => isRealLead(l) && inRange(l.createdAt, pmFrom, pmTo)).length;
-                const schedCur = leads.filter(l => { const d = parseYMD(l.scheduledDate); return d && inRange(d, wFrom, wTo); }).length;
-                const schedPrev = leads.filter(l => { const d = parseYMD(l.scheduledDate); return d && inRange(d, pwFrom, pwTo); }).length;
-                const convCur = leads.filter(l => stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, mFrom, mTo))).length;
-                const convPrev = leads.filter(l => stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, pmFrom, pmTo))).length;
+                const schedCur = leads.filter((l) => {
+                    if (!isRealLead(l)) return false;
+                    const d = parseYMD(l.scheduledDate);
+                    return d && inRange(d, wFrom, wTo);
+                }).length;
+                const schedPrev = leads.filter((l) => {
+                    if (!isRealLead(l)) return false;
+                    const d = parseYMD(l.scheduledDate);
+                    return d && inRange(d, pwFrom, pwTo);
+                }).length;
+                const convCur = leads.filter(l => isRealLead(l) && stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, mFrom, mTo))).length;
+                const convPrev = leads.filter(l => isRealLead(l) && stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, pmFrom, pmTo))).length;
                 const cards = [
                     { title: 'Novos leads no mês', cur: newLeadsCur, var: pctVar(newLeadsCur, newLeadsPrev) },
                     { title: 'Aulas agendadas (semana)', cur: schedCur, var: pctVar(schedCur, schedPrev) },

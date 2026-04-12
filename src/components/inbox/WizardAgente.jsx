@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 
 const SEGMENTS = ['Jiu-Jitsu', 'Muay Thai', 'Yoga', 'Pilates', 'Dança', 'Outro'];
 
@@ -228,7 +229,7 @@ export default function WizardAgente({ isOpen, onClose, onComplete, initialData,
         return;
       }
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PATCH',
         headers: {
           'content-type': 'application/json',
@@ -237,6 +238,7 @@ export default function WizardAgente({ isOpen, onClose, onComplete, initialData,
         },
         body: JSON.stringify({ action: 'save_wizard_data', wizard_data: json })
       });
+      if (blocked) return;
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || !data?.sucesso) {
         throw new Error(data?.erro || 'Não foi possível salvar o assistente guiado');

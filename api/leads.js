@@ -5,6 +5,7 @@ import {
   applyWhatsappTemplatePlaceholders
 } from '../lib/whatsappTemplateDefaults.js';
 import { ensureAuth, ensureAcademyAccess } from './_lib/academyAccess.js';
+import { assertBillingActive, sendBillingGateError } from './_lib/billingGate.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -205,6 +206,12 @@ export default async function handler(req, res) {
     const access = await ensureAcademyAccess(req, res, me);
     if (!access) return;
     const academyId = access.academyId;
+    try {
+      await assertBillingActive(academyId);
+    } catch (e) {
+      if (sendBillingGateError(res, e)) return;
+      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+    }
     const phone = normalizePhone(req.body?.phone || '');
     const name = String(req.body?.name || '').trim() || phone;
 
@@ -271,6 +278,12 @@ export default async function handler(req, res) {
     if (!me) return;
     const access = await ensureAcademyAccess(req, res, me);
     if (!access) return;
+    try {
+      await assertBillingActive(access.academyId);
+    } catch (e) {
+      if (sendBillingGateError(res, e)) return;
+      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+    }
     try {
       const lead = await databases.getDocument(DB_ID, LEADS_COL, id);
       const leadAcademy = String(lead?.academyId || lead?.academy_id || '').trim();

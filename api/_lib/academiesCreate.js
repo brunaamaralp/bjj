@@ -13,7 +13,11 @@ async function maybeEnsureTrial(academyId) {
   try {
     await ensureTrialSubscription(academyId);
   } catch (e) {
-    console.warn('[academies/create] ensureTrial', e?.message || e);
+    console.warn('[academies/create] ensureTrial (academia já criada; corrija permissões billing se necessário)', {
+      message: e?.message,
+      code: e?.code,
+      type: e?.type,
+    });
   }
 }
 
@@ -93,7 +97,10 @@ export default async function handler(req, res) {
         return res.status(200).json({ sucesso: true, id: academyId, teamId: teamIdExisting });
       }
 
-      const teamId = await createTeamForOwner();
+      const teamId = await createTeamForOwner().catch((err) => {
+        console.warn('[academies/create] createTeamForOwner (existing academy)', err?.message || err);
+        return '';
+      });
       if (teamId) {
         const perms = permsFor(teamId);
         try {
@@ -155,8 +162,14 @@ export default async function handler(req, res) {
     const doc = await databases.createDocument(DB_ID, ACADEMIES_COL, ID.unique(), payload, perms);
     await maybeEnsureTrial(doc.$id);
     return res.status(200).json({ sucesso: true, id: doc.$id, teamId: teamId || '' });
-  } catch (e) {
-    return res.status(500).json({ sucesso: false, erro: e.message || 'Erro interno' });
+  } catch (err) {
+    console.error('[academies/create] erro:', {
+      message: err?.message,
+      code: err?.code,
+      type: err?.type,
+      stack: typeof err?.stack === 'string' ? err.stack.slice(0, 500) : undefined,
+    });
+    return res.status(500).json({ sucesso: false, erro: err?.message || 'Erro interno' });
   }
 }
 

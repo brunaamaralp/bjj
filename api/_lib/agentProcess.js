@@ -9,6 +9,7 @@ import {
   updateConversationAiThreadCycle
 } from '../../lib/server/conversationsStore.js';
 import { getCurrentBillingCycleId, checkAiQuota, incrementAiThreads } from '../../src/services/planService.js';
+import { assertBillingActive, BillingGateError } from './billingGate.js';
 
 const processingLocks = new Map();
 
@@ -135,6 +136,20 @@ export default async function handler(req, res) {
     if (!academyDoc) {
       console.error('[agent/process] academia não encontrada', { requestId, academy });
       return res.status(200).json({ sent: false, error: 'academy_not_found' });
+    }
+
+    try {
+      await assertBillingActive(academy);
+    } catch (e) {
+      if (e instanceof BillingGateError) {
+        return res.status(e.status).json({
+          sent: false,
+          error: e.code,
+          message: e.message,
+          billing_blocked: true,
+        });
+      }
+      throw e;
     }
 
     const cycleId = getCurrentBillingCycleId(new Date(), academyDoc.billing_cycle_day);

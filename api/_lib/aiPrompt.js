@@ -3,6 +3,7 @@ import { setPlan } from '../../src/services/planService.js';
 import { AGENT_HISTORY_WINDOW } from '../../lib/constants.js';
 import { getPromptSettingsDocForSave } from '../../lib/server/academyPromptSettings.js';
 import { parseFaqItems } from '../../lib/whatsappTemplateDefaults.js';
+import { assertBillingActive, sendBillingGateError } from './billingGate.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -331,6 +332,13 @@ export default async function handler(req, res) {
   const academyDoc = await ensureAcademyAccess(req, res, me);
   if (!academyDoc) return;
   const academyId = String(academyDoc.$id || '').trim();
+
+  try {
+    await assertBillingActive(academyId);
+  } catch (e) {
+    if (sendBillingGateError(res, e)) return;
+    return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+  }
 
   try {
     if (req.method === 'POST') {

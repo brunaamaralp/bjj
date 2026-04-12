@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 
 export const SYSTEM_RULES = `
 REGRAS OBRIGATÓRIAS DO SISTEMA:
@@ -347,7 +348,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         return;
       }
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PATCH',
         headers: {
           'content-type': 'application/json',
@@ -356,6 +357,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         },
         body: JSON.stringify({ action: 'save_wizard_data', wizard_data: json })
       });
+      if (blocked) return;
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || !data?.sucesso) {
         console.error('[AgenteChatSetup] save_wizard_data', data?.erro);
@@ -512,7 +514,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
           const json = JSON.stringify(completedPayload);
           if (json.length <= 10000) {
             const jwt2 = await getJwt();
-            await fetch('/api/settings/ai-prompt', {
+            const { blocked: bl2, res: r2 } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
               method: 'PATCH',
               headers: {
                 'content-type': 'application/json',
@@ -521,6 +523,8 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
               },
               body: JSON.stringify({ action: 'save_wizard_data', wizard_data: json })
             });
+            if (bl2) return;
+            await r2.text().catch(() => '');
           }
         }
 

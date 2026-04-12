@@ -19,7 +19,7 @@ import {
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
 import { isBillingLive } from './lib/billingEnabled';
-import { ID, Query, Permission, Role } from 'appwrite';
+import { Query } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
 import { useUiStore } from './store/useUiStore';
 import Dashboard from './pages/Dashboard';
@@ -232,52 +232,24 @@ const App = () => {
           { id: 'first_lead', title: 'Criar primeiro lead', done: false },
           { id: 'install_pwa', title: 'Instalar atalho no celular', done: false }
         ];
-        try {
-          const jwt = await createSessionJwt();
-          const resp = await fetch('/api/academies/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${jwt}`
-            },
-            body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) })
-          });
-          const data = await resp.json().catch(() => ({}));
-          if (resp.ok && data && data.id) {
-            academyId = data.id;
-          } else {
-            throw new Error(data?.erro || 'Falha ao criar academia');
-          }
-        } catch {
-          const perms = [Permission.read(Role.user(u.$id)), Permission.update(Role.user(u.$id)), Permission.delete(Role.user(u.$id))];
-          const nowIsoFallback = new Date().toISOString();
-          const doc = await databases.createDocument(
-            DB_ID,
-            ACADEMIES_COL,
-            ID.unique(),
-            {
-              name: u.name || '',
-              phone: '',
-              email: u.email || '',
-              address: '',
-              ownerId: u.$id,
-              uiLabels: JSON.stringify({ leads: 'Leads', students: 'Alunos', classes: 'Aulas' }),
-              modules: JSON.stringify({ sales: false, inventory: false, finance: false }),
-              quickTimes: [],
-              financeConfig: JSON.stringify(defaultFinance),
-              onboardingChecklist: JSON.stringify(checklist),
-              customLeadQuestions: JSON.stringify([]),
-              ai_name: defaultAiNameFromUser(u),
-              plan: 'starter',
-              plan_started_at: nowIsoFallback,
-              ai_threads_limit: 300,
-              ai_threads_used: 0,
-              ai_overage_enabled: true,
-              billing_cycle_day: 1
-            },
-            perms
+        const jwt = await createSessionJwt();
+        const resp = await fetch('/api/academies/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`
+          },
+          body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok && data && data.id) {
+          academyId = data.id;
+        } else {
+          const detail = data?.erro || data?.error || `HTTP ${resp.status}`;
+          console.error('[setupAcademy] /api/academies/create falhou:', resp.status, detail);
+          throw new Error(
+            typeof detail === 'string' ? detail : 'Não foi possível criar a academia. Tente de novo ou fale com o suporte.'
           );
-          academyId = doc.$id;
         }
       }
       setAcademyId(academyId);

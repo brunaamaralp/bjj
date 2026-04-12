@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
+import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ThreadState from '../components/inbox/ThreadState';
@@ -558,9 +559,10 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/zapster/instances', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       const raw = await resp.text();
       const data = safeParseJson(raw) || {};
       if (!resp.ok) {
@@ -609,7 +611,7 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/zapster/instances', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -618,6 +620,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({})
       });
+      if (blocked) return;
       const raw = await resp.text();
       const data = safeParseJson(raw) || {};
       if (!resp.ok || data.sucesso === false) {
@@ -665,9 +668,10 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/zapster/instances?action=recover', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances?action=recover', {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       const raw = await resp.text();
       const data = safeParseJson(raw) || {};
       if (!resp.ok) {
@@ -706,10 +710,11 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances?id=${encodeURIComponent(id)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       const raw = await resp.text();
       const delData = safeParseJson(raw) || {};
       if (!resp.ok) {
@@ -744,10 +749,11 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances?action=power-on&id=${encodeURIComponent(id)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-on&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       if (!(resp.ok || resp.status === 204)) {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
@@ -771,10 +777,11 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances?action=power-off&id=${encodeURIComponent(id)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-off&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       if (!(resp.ok || resp.status === 204)) {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
@@ -798,10 +805,11 @@ export default function Inbox() {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/zapster/instances?action=restart&id=${encodeURIComponent(id)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=restart&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       if (!(resp.ok || resp.status === 204)) {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
@@ -993,7 +1001,7 @@ export default function Inbox() {
     if (!academyIdRef.current) return;
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1002,6 +1010,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'read' })
       });
+      if (blocked) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como lida'));
       setItems((prev) => {
@@ -1046,10 +1055,13 @@ export default function Inbox() {
         const aid = String(academyId || '').trim();
         if (!aid) return;
         const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid };
-        const [resp, instResp] = await Promise.all([
-          fetch('/api/settings/ai-prompt', { headers }),
-          fetch('/api/zapster/instances', { headers })
+        const [rPrompt, rInst] = await Promise.all([
+          fetchWithBillingGuard('/api/settings/ai-prompt', { headers }),
+          fetchWithBillingGuard('/api/zapster/instances', { headers })
         ]);
+        if (rPrompt.blocked || rInst.blocked) return;
+        const resp = rPrompt.res;
+        const instResp = rInst.res;
         const instRaw = await instResp.text();
         const instData = safeParseJson(instRaw) || {};
         if (isZapsterTokenMissingPayload(instData)) setWaTokenMissing(true);
@@ -1106,7 +1118,7 @@ export default function Inbox() {
     setSavingPrompt(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1115,6 +1127,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ prompt_intro: intro, prompt_body: bodyPut, prompt_suffix: suffixPut })
       });
+      if (blocked) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
       addToast({ type: 'success', message: successMessage ?? 'Instruções salvas' });
@@ -1132,7 +1145,7 @@ export default function Inbox() {
     setTogglingIa(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PATCH',
         headers: {
           'content-type': 'application/json',
@@ -1141,6 +1154,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'toggle_ia', ia_ativa: !iaAtiva })
       });
+      if (blocked) return;
       const data = await resp.json().catch(() => ({}));
       if (data?.sucesso) setIaAtiva(data.ia_ativa === true);
       else addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
@@ -1175,7 +1189,7 @@ export default function Inbox() {
     setSavingBirthdayMessage(true);
     try {
       const jwt = await getJwt();
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PATCH',
         headers: {
           'content-type': 'application/json',
@@ -1187,6 +1201,7 @@ export default function Inbox() {
           birthdayMessage
         })
       });
+      if (blocked) return;
       const data = await resp.json().catch(() => ({}));
       if (data?.sucesso) {
         setBirthdayMessage(String(data.birthdayMessage ?? birthdayMessage));
@@ -1209,7 +1224,7 @@ export default function Inbox() {
       const cleaned = faqItems
         .map((it) => ({ q: String(it?.q || '').trim(), a: String(it?.a || '').trim() }))
         .filter((it) => it.q && it.a);
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PATCH',
         headers: {
           'content-type': 'application/json',
@@ -1218,6 +1233,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'save_faq_data', faq_data: cleaned })
       });
+      if (blocked) return;
       const data = await resp.json().catch(() => ({}));
       if (data?.sucesso) {
         setFaqItems(parseFaqItems(data.faq_data));
@@ -1249,9 +1265,10 @@ export default function Inbox() {
       const cursorToUse = reset ? '' : String(nextCursor || '').trim();
       if (cursorToUse) qs.set('cursor', cursorToUse);
       if (searchQuery) qs.set('search', searchQuery);
-      const resp = await fetch(`/api/conversations?${qs.toString()}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
+      if (blocked) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversas'));
       const data = safeParseJson(raw) || {};
@@ -1371,10 +1388,11 @@ export default function Inbox() {
       params.set('limit', '50');
       if (cursor) params.set('cursor', String(cursor));
       const qs = params.toString();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
         ...(signal ? { signal } : {})
       });
+      if (blocked) return;
       const contentType = resp.headers.get('content-type') || '';
       const raw = await resp.text();
       if (!contentType.includes('application/json')) {
@@ -1537,7 +1555,7 @@ export default function Inbox() {
     if (!silent) setError('');
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1546,6 +1564,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'handoff', ativo: Boolean(ativo) })
       });
+      if (blocked) return false;
       const raw = await resp.text();
       if (!resp.ok) {
         const msg = String(raw || '').trim() ? normalizeApiError(raw, 'Falha ao atualizar handoff') : `Falha ao atualizar handoff (HTTP ${resp.status})`;
@@ -1668,7 +1687,7 @@ export default function Inbox() {
     try {
       const jwt = await getJwt();
       const aid = String(academyIdRef.current || '').trim();
-      const resp = await fetch('/api/settings/ai-prompt', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1677,6 +1696,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'improve_reply', draft: current, phone, academyId: aid })
       });
+      if (blocked) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao melhorar texto'));
       const data = safeParseJson(raw) || {};
@@ -1744,7 +1764,7 @@ export default function Inbox() {
     setError('');
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1753,6 +1773,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'link_lead', lead_id: leadId })
       });
+      if (blocked) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao associar lead'));
       const data = safeParseJson(raw) || {};
@@ -1791,7 +1812,7 @@ export default function Inbox() {
         return {};
       })();
       const jwt = await getJwt();
-      const resp = await fetch('/api/leads/convert', {
+      const { blocked, res: resp } = await fetchWithBillingGuard('/api/leads/convert', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -1810,6 +1831,7 @@ export default function Inbox() {
           }
         })
       });
+      if (blocked) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao converter lead'));
       const data = safeParseJson(raw) || {};
@@ -2115,7 +2137,7 @@ export default function Inbox() {
     setError('');
     try {
       const jwt = await getJwt();
-      const resp = await fetch(`/api/conversations/${encodeURIComponent(phone)}`, {
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -2124,6 +2146,7 @@ export default function Inbox() {
         },
         body: JSON.stringify({ action: 'ticket', status: s, ...(transferTo ? { transfer_to: String(transferTo) } : {}) })
       });
+      if (blocked) return false;
       const raw = await resp.text();
       if (!resp.ok) {
         const msg = String(raw || '').trim() ? normalizeApiError(raw, 'Falha ao atualizar ticket') : `Falha ao atualizar ticket (HTTP ${resp.status})`;

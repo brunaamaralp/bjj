@@ -9,6 +9,7 @@ import MatriculaModal from '../components/MatriculaModal';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
+import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const normalizeDayToken = (t) => t.toLowerCase().trim().replace(/á/g, 'a').slice(0, 3);
@@ -53,11 +54,12 @@ const timeStartMinutes = (timePart) => {
     return parseTimeToMinutes(start);
 };
 
-/** Ordem: Novo → Experimental (id técnico Aula experimental) → Não compareceu → Matrícula → Perdidos */
+/** Ordem: Novo → Experimental → Não compareceu → Aguardando decisão → Matrícula → Perdidos */
 const DEFAULT_STAGE_LABELS = [
     { id: 'Novo', label: 'Novo' },
     { id: 'Aula experimental', label: 'Experimental' },
     { id: LEAD_STATUS.MISSED, label: 'Não compareceu' },
+    { id: PIPELINE_WAITING_DECISION_STAGE, label: 'Aguardando decisão' },
     { id: 'Matriculado', label: 'Matrícula' },
     { id: LEAD_STATUS.LOST, label: 'Perdidos' },
 ];
@@ -65,6 +67,7 @@ const STAGE_COLORS = [
     { color: 'var(--accent)', bg: 'var(--accent-light)' },
     { color: 'var(--warning)', bg: 'var(--warning-light)' },
     { color: 'var(--danger)', bg: 'var(--danger-light)' },
+    { color: 'var(--v500)', bg: 'rgba(99, 102, 241, 0.12)' },
     { color: 'var(--success)', bg: 'var(--success-light)' },
     { color: 'var(--purple)', bg: 'var(--purple-light)' },
 ];
@@ -87,6 +90,8 @@ const leadMatchesContactType = (lead) => {
     const contactType = String(lead?.contact_type || '').trim();
     return !contactType || contactType === 'lead';
 };
+
+const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Planilha';
 
 const Pipeline = () => {
     const navigate = useNavigate();
@@ -293,6 +298,20 @@ const Pipeline = () => {
             if (!ids.has(LEAD_STATUS.LOST)) out.push({ id: LEAD_STATUS.LOST, label: 'Perdidos' });
             return out;
         };
+        const mergeWaitingDecisionStage = (cols) => {
+            const base = Array.isArray(cols) ? [...cols].filter(Boolean) : [];
+            const ids = new Set(base.map((c) => String(c?.id || '').trim()).filter(Boolean));
+            if (ids.has(PIPELINE_WAITING_DECISION_STAGE)) return base;
+            const matIdx = base.findIndex((c) => String(c?.id || '').trim() === 'Matriculado');
+            const row = { id: PIPELINE_WAITING_DECISION_STAGE, label: 'Aguardando decisão', slaDays: DEFAULT_STAGE_SLA_DAYS };
+            if (matIdx >= 0) {
+                base.splice(matIdx, 0, row);
+            } else {
+                const expIdx = base.findIndex((c) => String(c?.id || '').trim() === 'Aula experimental');
+                base.splice(expIdx >= 0 ? expIdx + 1 : base.length, 0, row);
+            }
+            return base;
+        };
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 let tplParsed = {};
@@ -318,21 +337,21 @@ const Pipeline = () => {
                     if (doc.stagesConfig) {
                         const conf = typeof doc.stagesConfig === 'string' ? JSON.parse(doc.stagesConfig) : doc.stagesConfig;
                         if (Array.isArray(conf) && conf.length > 0) {
-                            const normalized = ensureSpecialColumns(conf);
+                            const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(conf));
                             setStages(normalized);
                             setTempStages(normalized);
                         } else {
-                            const normalized = ensureSpecialColumns(DEFAULT_STAGE_LABELS);
+                            const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(DEFAULT_STAGE_LABELS));
                             setStages(normalized);
                             setTempStages(normalized);
                         }
                     } else {
-                        const normalized = ensureSpecialColumns(DEFAULT_STAGE_LABELS);
+                        const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(DEFAULT_STAGE_LABELS));
                         setStages(normalized);
                         setTempStages(normalized);
                     }
                 } catch {
-                    const normalized = ensureSpecialColumns(DEFAULT_STAGE_LABELS);
+                    const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(DEFAULT_STAGE_LABELS));
                     setStages(normalized);
                     setTempStages(normalized);
                 }
@@ -529,7 +548,7 @@ const Pipeline = () => {
             const known = stages.some((col) => col.id === stage);
             if (known) return stage;
             const st = (lead.status || '').toLowerCase();
-            if (st.includes('compareceu')) return 'Matriculado';
+            if (st.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
             if (st.includes('agendado')) return 'Aula experimental';
             if (st.includes('matricul')) return 'Matriculado';
             return 'Novo';
@@ -540,7 +559,7 @@ const Pipeline = () => {
         const s = (lead.status || '').toLowerCase();
         if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
         if (s.includes('agendado')) return 'Aula experimental';
-        if (s.includes('compareceu')) return 'Matriculado';
+        if (s.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
         if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
         if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
         if (s.includes('matricul')) return 'Matriculado';
@@ -579,6 +598,7 @@ const Pipeline = () => {
 
     const leadsForBoard = useMemo(() => {
         let list = leads
+            .filter((l) => leadIsPipelineFunnel(l))
             .filter((l) => leadMatchesContactType(l))
             .filter((l) => leadMatchesProfileFilter(l, profileFilter))
             .filter(filterByDate);
@@ -665,7 +685,29 @@ const Pipeline = () => {
             setDragOver(null);
             return;
         } else {
-            await updateLead(id, { pipelineStage: status });
+            const lead = getLeadById(id);
+            if (!lead) {
+                setDragOver(null);
+                return;
+            }
+            if (mapLeadToStageId(lead) === status) {
+                setDragOver(null);
+                return;
+            }
+            try {
+                const existing = Array.isArray(lead.notes) ? lead.notes : [];
+                const event = {
+                    type: 'pipeline_change',
+                    from: lead.pipelineStage || '',
+                    to: status,
+                    at: new Date().toISOString(),
+                    by: 'user',
+                };
+                const newNotes = [...existing, event];
+                await updateLead(id, { pipelineStage: status, notes: newNotes });
+            } catch {
+                await updateLead(id, { pipelineStage: status });
+            }
         }
         setDragOver(null);
         setToast('Movido no pipeline');
@@ -835,14 +877,14 @@ const Pipeline = () => {
                             <button
                                 type="button"
                                 className="btn-outline"
-                                title="Substitui a lista de etapas pelo modelo de 5 colunas. Clique em Salvar para gravar."
+                                title="Substitui a lista de etapas pelo modelo padrão. Clique em Salvar para gravar."
                                 onClick={() => {
-                                    const ok = window.confirm('Aplicar o modelo de funil com 5 etapas (Novo → Experimental → Não compareceu → Matrícula → Perdidos)? As etapas atuais serão substituídas neste editor até você salvar.');
+                                    const ok = window.confirm('Aplicar o modelo de funil (Novo → Experimental → Não compareceu → Aguardando decisão → Matrícula → Perdidos)? As etapas atuais serão substituídas neste editor até você salvar.');
                                     if (!ok) return;
                                     setTempStages(DEFAULT_STAGE_LABELS.map((s) => ({ ...s, slaDays: s.slaDays ?? DEFAULT_STAGE_SLA_DAYS })));
                                 }}
                             >
-                                Funil 5 etapas
+                                Funil padrão
                             </button>
                             <div className="grow"></div>
                             <button className="btn-outline" onClick={() => setEditStages(false)}>Cancelar</button>
