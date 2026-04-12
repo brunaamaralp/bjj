@@ -325,7 +325,11 @@ export default function Inbox() {
   const [hasMore, setHasMore] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 1023px)').matches
+      : false
+  );
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -441,8 +445,6 @@ export default function Inbox() {
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
   const prevAcademyIdForInboxRef = useRef('');
-  const isMobileRef = useRef(false);
-
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
   const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
   const handoffDurationPhrase = useMemo(
@@ -520,9 +522,7 @@ export default function Inbox() {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(max-width: 1023px)');
     const apply = () => {
-      const m = Boolean(mq.matches);
-      isMobileRef.current = m;
-      setIsMobile(m);
+      setIsMobile(Boolean(mq.matches));
     };
     apply();
     if (mq.addEventListener) mq.addEventListener('change', apply);
@@ -1368,8 +1368,12 @@ export default function Inbox() {
       }
       listMetaRef.current = nextMeta;
       if (reset) {
-        // No mobile, o layout só mostra lista OU thread; auto-selecionar a 1ª conversa escondia a lista inteira.
-        if (!selectedPhoneRef.current && next.length > 0 && !isMobileRef.current) {
+        // Nunca auto-selecionar em viewport estreita: evita lista desmontada no mobile e corrida ref/effect.
+        const viewportMobile =
+          typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(max-width: 1023px)').matches;
+        if (!selectedPhoneRef.current && next.length > 0 && !viewportMobile) {
           setSelectedPhone(String(next[0].phone_number || ''));
         }
       }
@@ -4616,7 +4620,22 @@ export default function Inbox() {
 
               {inboxTab === 'conversas' && (
                 isMobile ? (
-                  <div>{selectedPhone ? threadPanel : listPanel}</div>
+                  <div className="inbox-mobile-split">
+                    <div
+                      className="inbox-mobile-list-slot"
+                      style={{ display: selectedPhone ? 'none' : 'block' }}
+                      aria-hidden={selectedPhone ? true : undefined}
+                    >
+                      {listPanel}
+                    </div>
+                    <div
+                      className="inbox-mobile-thread-slot"
+                      style={{ display: selectedPhone ? 'block' : 'none' }}
+                      aria-hidden={!selectedPhone ? true : undefined}
+                    >
+                      {threadPanel}
+                    </div>
+                  </div>
                 ) : (
                   <div
                     style={{
