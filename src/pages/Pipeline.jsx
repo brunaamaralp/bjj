@@ -267,6 +267,14 @@ const Pipeline = () => {
         useLeadStore.getState().fetchLeads({ reset: true });
     }, [academyId]);
 
+    useEffect(() => {
+        const mainEl = document.querySelector('.main-content');
+        if (mainEl) mainEl.classList.add('pipeline-active');
+        return () => {
+            if (mainEl) mainEl.classList.remove('pipeline-active');
+        };
+    }, []);
+
     const handleLoadMoreLeads = async () => {
         if (loadingMore || leadsLoading || !leadsHasMore) return;
         await fetchMoreLeads();
@@ -638,7 +646,8 @@ const Pipeline = () => {
     const onDragEnter = (status) => {
         setDragOver(status);
     };
-    const onDragLeave = () => {
+    const onDragLeave = (e) => {
+        if (e.currentTarget.contains(e.relatedTarget)) return;
         setDragOver(null);
     };
     const onDrop = async (e, status) => {
@@ -1315,7 +1324,8 @@ const Pipeline = () => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-        .pipeline-container { width: 100%; display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0; }
+        .main-content.pipeline-active { overflow: hidden !important; padding: 0 !important; }
+        .pipeline-container { width: 100%; display: flex; flex-direction: column; flex: 1 1 0 !important; min-height: 0; overflow: hidden; }
         .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); overflow-x: hidden; }
         .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
         .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -1339,8 +1349,9 @@ const Pipeline = () => {
           .header-right { width: 100%; justify-content: flex-start; }
         }
         .kanban-wrapper { 
-          display: flex; gap: 10px; overflow-x: auto; padding: 10px 12px 14px; flex: 0 0 auto;
-          align-items: flex-start;
+          display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 10px 12px 0; flex: 1 1 0;
+          min-height: 0;
+          align-items: stretch;
           scroll-snap-type: x mandatory;
           scrollbar-width: thin;
           scrollbar-gutter: stable both-edges;
@@ -1369,6 +1380,10 @@ const Pipeline = () => {
           box-sizing: border-box;
           display: flex; flex-direction: column;
           gap: 8px; scroll-snap-align: start;
+          overflow-y: auto;
+          padding-bottom: 12px;
+          border-radius: var(--radius-sm);
+          transition: background 0.12s ease, outline 0.12s ease;
         }
         .col-header { 
           display: flex; justify-content: space-between; align-items: flex-start; 
@@ -1376,10 +1391,10 @@ const Pipeline = () => {
         }
         .col-header-titles { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
         .col-content {
-          flex: 0 0 auto; min-width: 0;
+          flex: 1 1 auto; min-width: 0; min-height: 40px;
           display: flex; flex-direction: column; gap: 8px;
         }
-        .drop-target .col-header { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-sm); }
+        .drop-target { background: var(--accent-light) !important; outline: 2px dashed var(--accent); outline-offset: -2px; }
         .col-header .pipeline-col-heading { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
         .col-dot { width: 8px; height: 8px; border-radius: 50%; }
         .col-count { 

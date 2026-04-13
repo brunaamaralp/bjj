@@ -2133,6 +2133,11 @@ export default function Inbox() {
       };
     });
     setSelectedPhone(phone); // Atualizar o phone por último, ou isoladamente, após as mudanças de ref/state
+
+    const unreadCount = Number(it?._unreadCount ?? it?.unread_count ?? 0);
+    if (unreadCount > 0) {
+      markSeen(phone);
+    }
   };
 
   function ticketChip(status, transferTo) {
