@@ -7,14 +7,14 @@ import NaviWordmark from '../components/NaviWordmark.jsx';
 /* ── WhatsApp Mockup ──────────────────────────────────────────────── */
 
 const MESSAGES = [
-  { role: 'user', text: 'Oi, quanto é a mensalidade?',                              delay: 300  },
-  { role: 'bot',  text: 'Você já praticou antes ou seria sua primeira vez? 😊',     delay: 1400 },
-  { role: 'user', text: 'Primeira vez',                                              delay: 2800 },
-  { role: 'bot',  text: 'Temos aula experimental gratuita! Manhã ou noite funciona melhor?', delay: 4000 },
-  { role: 'user', text: 'Noite',                                                     delay: 5400 },
-  { role: 'bot',  text: 'Terça às 19h está disponível. Confirmo sua vaga? 🥋',      delay: 6600 },
-  { role: 'user', text: 'Sim!',                                                      delay: 8000 },
-  { role: 'bot',  text: 'Perfeito! Vaga confirmada para terça às 19h. Te esperamos! 💪', delay: 9200 },
+  { role: 'user', text: 'Tenho interesse em começar, mas nunca fiz luta nenhuma',              delay: 300  },
+  { role: 'bot',  text: 'Sem problema, nossa turma iniciante é feita pra isso! Você prefere treinar de manhã ou à noite?', delay: 1600 },
+  { role: 'user', text: 'De manhã',                                                            delay: 3000 },
+  { role: 'bot',  text: 'Temos turma às 8h. Quer vir experimentar uma aula gratuita?',        delay: 4200 },
+  { role: 'user', text: 'Quero sim!',                                                          delay: 5600 },
+  { role: 'bot',  text: 'Confirmo sua vaga pra segunda às 8h? 🥋',                            delay: 6800 },
+  { role: 'user', text: 'Pode confirmar!',                                                     delay: 8200 },
+  { role: 'bot',  text: 'Ótimo! Te esperamos na segunda 💪',                                   delay: 9400 },
 ];
 
 const getTime = (offsetMinutes) => {
