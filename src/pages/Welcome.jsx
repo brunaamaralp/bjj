@@ -1,86 +1,130 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, MessageCircle, Check } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import NaviLogo from '../components/NaviLogo.jsx';
 import NaviWordmark from '../components/NaviWordmark.jsx';
 
-function KanbanTag({ children }) {
-  return <span className="navi-lp-kanban-tag">{children}</span>;
-}
+/* ── WhatsApp Mockup ──────────────────────────────────────────────── */
 
-/** Colunas alinhadas ao funil do produto (Pipeline). */
-function ProductMock() {
+const MESSAGES = [
+  { role: 'user', text: 'Oi, quanto é a mensalidade?',                              delay: 300  },
+  { role: 'bot',  text: 'Você já praticou antes ou seria sua primeira vez? 😊',     delay: 1400 },
+  { role: 'user', text: 'Primeira vez',                                              delay: 2800 },
+  { role: 'bot',  text: 'Temos aula experimental gratuita! Manhã ou noite funciona melhor?', delay: 4000 },
+  { role: 'user', text: 'Noite',                                                     delay: 5400 },
+  { role: 'bot',  text: 'Terça às 19h está disponível. Confirmo sua vaga? 🥋',      delay: 6600 },
+  { role: 'user', text: 'Sim!',                                                      delay: 8000 },
+  { role: 'bot',  text: 'Perfeito! Vaga confirmada para terça às 19h. Te esperamos! 💪', delay: 9200 },
+];
+
+const getTime = (offsetMinutes) => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - offsetMinutes);
+  return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+
+function WhatsAppMockup() {
+  const [visibleMessages, setVisibleMessages] = useState([]);
+  const [typing, setTyping] = useState(false);
+
+  useEffect(() => {
+    const timers = [];
+
+    const run = () => {
+      MESSAGES.forEach((msg, i) => {
+        if (msg.role === 'bot') {
+          timers.push(setTimeout(() => setTyping(true), msg.delay - 800));
+          timers.push(setTimeout(() => {
+            setTyping(false);
+            setVisibleMessages(prev => [...prev, { ...msg, idx: i }]);
+          }, msg.delay));
+        } else {
+          timers.push(setTimeout(() => {
+            setVisibleMessages(prev => [...prev, { ...msg, idx: i }]);
+          }, msg.delay));
+        }
+      });
+    };
+
+    run();
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  useEffect(() => {
+    if (visibleMessages.length === MESSAGES.length) {
+      const timer = setTimeout(() => {
+        setVisibleMessages([]);
+        setTyping(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [visibleMessages]);
+
   return (
-    <div className="navi-lp-mock" aria-hidden>
-      <div className="navi-lp-mock-top">
-        <div className="navi-lp-mock-top-left">
-          <MessageCircle size={18} color="white" strokeWidth={2.2} />
-          <span className="navi-lp-mock-wa-label">WhatsApp + Nave</span>
-          <span className="navi-lp-online-dot" />
+    <div className="wapp-mockup">
+      {/* Header */}
+      <div className="wapp-header">
+        <div className="wapp-avatar">N</div>
+        <div className="wapp-header-info">
+          <div className="wapp-name">Nave — Academia</div>
+          <div className="wapp-status">
+            <span className="wapp-online-dot" />
+            <span className="wapp-online-text">online agora</span>
+          </div>
         </div>
-        <div className="navi-lp-mock-pills">
-          <span className="navi-lp-mock-pill navi-lp-mock-pill--on">Funil</span>
-          <span className="navi-lp-mock-pill">Atendimento</span>
-        </div>
+        <div className="wapp-ai-badge">IA</div>
       </div>
-      <div className="navi-lp-mock-stats">
-        <div className="navi-lp-stat navi-lp-stat--vio">
-          <span className="navi-lp-stat-num navi-lp-stat-num--vio">7</span>
-          <span className="navi-lp-stat-lbl">Leads ativos</span>
-        </div>
-        <div className="navi-lp-stat navi-lp-stat--cor">
-          <span className="navi-lp-stat-num navi-lp-stat-num--cor">3</span>
-          <span className="navi-lp-stat-lbl">Em follow-up</span>
-        </div>
-        <div className="navi-lp-stat navi-lp-stat--ok">
-          <span className="navi-lp-stat-num navi-lp-stat-num--ok">12</span>
-          <span className="navi-lp-stat-lbl">Matriculados</span>
-        </div>
+
+      {/* Messages */}
+      <div className="wapp-body">
+        {visibleMessages.map((msg, i) => (
+          <div key={`${msg.idx}-${i}`} className={`wapp-msg ${msg.role}`}>
+            <div
+              className="wapp-bubble"
+              data-time={getTime(MESSAGES.length - msg.idx)}
+            >
+              {msg.text}
+            </div>
+          </div>
+        ))}
+
+        {typing && (
+          <div className="wapp-msg bot">
+            <div className="wapp-bubble wapp-typing">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+            </div>
+          </div>
+        )}
+
+        {visibleMessages.length === MESSAGES.length && (
+          <div className="wapp-result-badge">
+            Experimental agendada
+          </div>
+        )}
       </div>
-      <div className="navi-lp-mock-kanban-scroll">
-        <div className="navi-lp-mock-kanban">
-          <div className="navi-lp-kcol">
-            <div className="navi-lp-kcol-title">Novo</div>
-            <div className="navi-lp-kcard navi-lp-kcard--v">
-              <div className="navi-lp-kname">Rafael M.</div>
-              <KanbanTag>Jiu-Jitsu</KanbanTag>
-            </div>
-          </div>
-          <div className="navi-lp-kcol">
-            <div className="navi-lp-kcol-title">Experimental</div>
-            <div className="navi-lp-kcard navi-lp-kcard--c">
-              <div className="navi-lp-kname">Marina Costa</div>
-              <KanbanTag>Sáb 10h</KanbanTag>
-            </div>
-          </div>
-          <div className="navi-lp-kcol">
-            <div className="navi-lp-kcol-title">Não compareceu</div>
-            <div className="navi-lp-kcard navi-lp-kcard--miss">
-              <div className="navi-lp-kname">Julia S.</div>
-              <KanbanTag>Reagendar</KanbanTag>
-            </div>
-          </div>
-          <div className="navi-lp-kcol">
-            <div className="navi-lp-kcol-title">Aguardando decisão</div>
-            <div className="navi-lp-kcard navi-lp-kcard--wait">
-              <div className="navi-lp-kname">Pedro Lima</div>
-              <KanbanTag>Pós-aula</KanbanTag>
-            </div>
-          </div>
-          <div className="navi-lp-kcol">
-            <div className="navi-lp-kcol-title">Matrícula</div>
-            <div className="navi-lp-kcard navi-lp-kcard--g">
-              <div className="navi-lp-kname">Ana R.</div>
-              <KanbanTag>Plano mensal</KanbanTag>
-            </div>
-          </div>
+
+      {/* Footer */}
+      <div className="wapp-footer">
+        <div className="wapp-input-mock">Digite uma mensagem</div>
+        <div className="wapp-send-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+          </svg>
         </div>
       </div>
     </div>
   );
 }
 
+/* ── Constants ───────────────────────────────────────────────────── */
+
 const FUNIL_STEPS = ['Novo', 'Experimental', 'Não compareceu', 'Aguardando decisão', 'Matrícula'];
+
+function KanbanTag({ children }) {
+  return <span className="navi-lp-kanban-tag">{children}</span>;
+}
 
 const POSICIONAMENTO_ITENS = [
   'Todo lead seja bem atendido',
@@ -88,6 +132,8 @@ const POSICIONAMENTO_ITENS = [
   'Todo interessado seja acompanhado',
   'Toda oportunidade seja aproveitada',
 ];
+
+/* ── Page ────────────────────────────────────────────────────────── */
 
 const Welcome = () => {
   useEffect(() => {
@@ -121,12 +167,8 @@ const Welcome = () => {
           <NaviWordmark fontSize={20} />
         </Link>
         <div className="navi-lp-nav-cta">
-          <Link to="/login" className="navi-lp-btn-nav-ghost">
-            Entrar
-          </Link>
-          <Link to="/cadastro" className="navi-lp-btn-nav-primary">
-            Testar grátis
-          </Link>
+          <Link to="/login" className="navi-lp-btn-nav-ghost">Entrar</Link>
+          <Link to="/cadastro" className="navi-lp-btn-nav-primary">Testar grátis</Link>
         </div>
       </div>
     </nav>
@@ -150,16 +192,6 @@ const Welcome = () => {
               Pare de perder alunos por causa de atendimento ruim{' '}
               <span className="navi-lp-hero-h1-accent">no WhatsApp</span>
             </h1>
-            <p className="navi-lp-lead">O Nave é a plataforma de relacionamento para academias</p>
-            <p className="navi-lp-hero-p">Da primeira mensagem até a matrícula, e além.</p>
-            <p className="navi-lp-hero-p">
-              Atende 24h, conduz com técnica de vendas e acompanha cada lead até se tornar aluno.
-            </p>
-            <ul className="navi-lp-hero-bullets">
-              <li>Sem depender de recepcionista</li>
-              <li>Sem deixar lead esfriar</li>
-              <li>Mais resultado com os leads que você já recebe</li>
-            </ul>
             <Link to="/cadastro" className="navi-lp-btn-hero">
               Quero testar grátis
               <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
@@ -171,8 +203,9 @@ const Welcome = () => {
           <div className="navi-lp-hero-right">
             <span className="navi-lp-mock-blob" aria-hidden="true" />
             <div className="navi-lp-mock-wrap">
-              <ProductMock />
+              <WhatsAppMockup />
             </div>
+            <p className="wapp-caption">Conversa real simulada em tempo real</p>
           </div>
         </div>
       </section>
@@ -186,28 +219,16 @@ const Welcome = () => {
           </div>
           <div className="navi-lp-gallery">
             <figure className="navi-lp-gallery-item">
-              <img
-                src="/landing/ballet-studio.png"
-                alt="Aula de ballet em estúdio de dança"
-                width={640} height={400}
-                loading="lazy" decoding="async"
-              />
+              <img src="/landing/ballet-studio.png" alt="Aula de ballet em estúdio de dança"
+                width={640} height={400} loading="lazy" decoding="async" />
             </figure>
             <figure className="navi-lp-gallery-item">
-              <img
-                src="/landing/pilates-studio.png"
-                alt="Estúdio de Pilates com reformers e espelhos iluminados"
-                width={960} height={400}
-                loading="lazy" decoding="async"
-              />
+              <img src="/landing/pilates-studio.png" alt="Estúdio de Pilates com reformers e espelhos iluminados"
+                width={960} height={400} loading="lazy" decoding="async" />
             </figure>
             <figure className="navi-lp-gallery-item">
-              <img
-                src="/landing/instructor-wellness.png"
-                alt="Profissional em estúdio de atividade física e bem-estar"
-                width={640} height={400}
-                loading="lazy" decoding="async"
-              />
+              <img src="/landing/instructor-wellness.png" alt="Profissional em estúdio de atividade física e bem-estar"
+                width={640} height={400} loading="lazy" decoding="async" />
             </figure>
           </div>
         </div>
@@ -307,10 +328,7 @@ const Welcome = () => {
       </section>
 
       {/* ── DEPOIMENTO ── */}
-      <section
-        className="navi-lp-band navi-lp-band--soft navi-lp-reveal"
-        aria-label="Depoimento de academia parceira"
-      >
+      <section className="navi-lp-band navi-lp-band--soft navi-lp-reveal" aria-label="Depoimento de academia parceira">
         <div className="navi-lp-inner">
           <div className="navi-lp-social-grid">
             <div className="navi-lp-social-quote">
@@ -323,12 +341,9 @@ const Welcome = () => {
               <p className="navi-lp-quote-by">— Gracie Barra Lagoa da Prata</p>
             </div>
             <figure className="navi-lp-social-photo">
-              <img
-                src="/landing/martial-arts-class.png"
+              <img src="/landing/martial-arts-class.png"
                 alt="Aula em academia de artes marciais, instrutor e alunos no tatame"
-                width={960} height={600}
-                loading="lazy" decoding="async"
-              />
+                width={960} height={600} loading="lazy" decoding="async" />
             </figure>
           </div>
           <div className="navi-lp-mid-cta">
@@ -381,8 +396,7 @@ const Welcome = () => {
             Chega de tratar lead como conversa solta.
           </h2>
           <p className="navi-lp-p">
-            Com o Nave, cada contato vira um relacionamento estruturado, que aumenta suas chances de
-            matrícula.
+            Com o Nave, cada contato vira um relacionamento estruturado, que aumenta suas chances de matrícula.
           </p>
           <p className="navi-lp-p">
             Teste agora e veja a diferença nas suas conversas e no acompanhamento dos seus leads
@@ -470,7 +484,7 @@ const Welcome = () => {
         clip: rect(0,0,0,0); white-space: nowrap; border: 0;
       }
 
-      /* ── Focus states ── */
+      /* ── Focus ── */
       .navi-lp a:focus-visible {
         outline: none;
         box-shadow: 0 0 0 2px white, 0 0 0 4px var(--v500);
@@ -484,7 +498,7 @@ const Welcome = () => {
         box-shadow: 0 0 0 2px white, 0 0 0 4px var(--v500);
       }
 
-      /* ── Reveal animation ── */
+      /* ── Reveal ── */
       .navi-lp-reveal {
         opacity: 0; transform: translateY(24px);
         transition: opacity 0.6s ease, transform 0.6s ease;
@@ -510,25 +524,19 @@ const Welcome = () => {
         display: flex; align-items: center; gap: 10px;
         text-decoration: none; color: inherit; flex-shrink: 0;
       }
-      .navi-lp-nav-cta {
-        display: flex; align-items: center; gap: 10px;
-        flex-wrap: wrap; justify-content: flex-end;
-      }
+      .navi-lp-nav-cta { display: flex; align-items: center; gap: 10px; }
       .navi-lp-btn-nav-ghost {
-        display: inline-flex; align-items: center; gap: 6px;
+        display: inline-flex; align-items: center;
         padding: 8px 16px; min-height: 40px;
         border-radius: 100px; font-size: 14px; font-weight: 500;
-        text-decoration: none; color: #6b7280;
-        background: transparent; border: none;
-        transition: color 0.15s ease;
+        text-decoration: none; color: #6b7280; transition: color 0.15s ease;
       }
       .navi-lp-btn-nav-ghost:hover { color: var(--ink); }
       .navi-lp-btn-nav-primary {
         display: inline-flex; align-items: center; justify-content: center;
         padding: 8px 20px; min-height: 40px;
         border-radius: 100px; font-size: 14px; font-weight: 600;
-        text-decoration: none; color: white;
-        background: var(--lp-dark); border: none;
+        text-decoration: none; color: white; background: var(--lp-dark);
         transition: background 0.15s ease, transform 0.15s ease;
       }
       .navi-lp-btn-nav-primary:hover { background: #1f1840; transform: translateY(-1px); }
@@ -537,11 +545,8 @@ const Welcome = () => {
         .navi-lp-btn-nav-primary { font-size: 13px; padding: 8px 14px; }
       }
 
-      /* ── Hero — Fix 1: compact for 13" ── */
-      .navi-lp-hero {
-        position: relative; overflow: hidden;
-        background: #ffffff;
-      }
+      /* ── Hero ── */
+      .navi-lp-hero { position: relative; overflow: hidden; background: #fff; }
       .navi-lp-hero-mesh {
         position: absolute; inset: 0;
         pointer-events: none; z-index: 0; overflow: hidden;
@@ -551,17 +556,17 @@ const Welcome = () => {
         filter: blur(80px); pointer-events: none;
       }
       .navi-lp-blob--a {
-        width: min(420px, 80vw); height: min(420px, 80vw);
+        width: min(420px,80vw); height: min(420px,80vw);
         background: radial-gradient(circle, rgba(189,176,238,0.65) 0%, rgba(123,99,212,0.18) 55%, transparent 72%);
         top: -15%; right: -8%; opacity: 0.4;
       }
       .navi-lp-blob--b {
-        width: min(320px, 70vw); height: min(320px, 70vw);
+        width: min(320px,70vw); height: min(320px,70vw);
         background: radial-gradient(circle, rgba(240,112,112,0.28) 0%, transparent 68%);
         bottom: -5%; left: -12%; opacity: 0.28;
       }
       .navi-lp-blob--c {
-        width: min(240px, 55vw); height: min(240px, 55vw);
+        width: min(240px,55vw); height: min(240px,55vw);
         background: radial-gradient(circle, rgba(91,63,191,0.3) 0%, transparent 65%);
         top: 40%; right: 24%; opacity: 0.22;
       }
@@ -581,17 +586,16 @@ const Welcome = () => {
       .navi-lp-hero-grid {
         position: relative; z-index: 1;
         max-width: var(--lp-max); margin: 0 auto;
-        padding: clamp(28px, 3.5vw, 52px) var(--nl-pad) clamp(32px, 4vw, 60px);
+        padding: clamp(28px,3.5vw,56px) var(--nl-pad) clamp(32px,4vw,64px);
         display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
+        grid-template-columns: 1fr 1fr;
         align-items: center;
-        gap: clamp(24px, 3vw, 48px);
+        gap: clamp(24px,3vw,52px);
       }
 
-      /* ── Hero badge — Fix 2: dot instead of emoji ── */
       .navi-lp-hero-badge {
         display: inline-flex; align-items: center; gap: 8px;
-        padding: 5px 12px; margin-bottom: 18px;
+        padding: 5px 12px; margin-bottom: 20px;
         background: var(--lp-pill-bg); color: var(--lp-violet);
         border-radius: 100px; font-size: 12px; font-weight: 600;
         letter-spacing: -0.01em;
@@ -599,18 +603,16 @@ const Welcome = () => {
       }
       .navi-lp-badge-dot {
         width: 6px; height: 6px; border-radius: 50%;
-        background: var(--lp-violet); flex-shrink: 0;
-        display: inline-block;
+        background: var(--lp-violet); flex-shrink: 0; display: inline-block;
       }
-
       .navi-lp-hero-h1 {
         font-family: var(--ff-serif);
         font-weight: 700;
-        font-size: clamp(28px, 3.5vw, 48px);
+        font-size: clamp(28px,3.5vw,52px);
         letter-spacing: -0.03em;
         line-height: 1.1;
         color: var(--ink);
-        margin: 0 0 14px;
+        margin: 0 0 32px;
         animation: navi-lp-fade-up 0.45s 0.05s ease both;
       }
       .navi-lp-hero-h1-accent {
@@ -618,38 +620,8 @@ const Welcome = () => {
         font-style: italic; font-weight: 700;
         color: var(--lp-violet);
       }
-      .navi-lp-lead {
-        font-weight: 600;
-        font-size: clamp(15px, 1.8vw, 18px);
-        color: var(--v700); line-height: 1.45;
-        margin: 0 0 10px;
-        max-width: min(var(--lp-prose), 100%);
-        animation: navi-lp-fade-up 0.45s 0.08s ease both;
-      }
-      .navi-lp-hero-p {
-        font-size: 15px; color: #6b7280;
-        line-height: 1.65; margin: 0 0 8px;
-        max-width: min(var(--lp-prose), 100%);
-        animation: navi-lp-fade-up 0.45s 0.1s ease both;
-      }
 
-      /* ── Hero bullets — Fix 2: arrow via CSS ── */
-      .navi-lp-hero-bullets {
-        list-style: none; margin: 10px 0 16px; padding: 0;
-        display: flex; flex-direction: column; gap: 7px;
-        animation: navi-lp-fade-up 0.45s 0.13s ease both;
-      }
-      .navi-lp-hero-bullets li {
-        font-size: 14px; font-weight: 500; color: var(--ink2);
-        line-height: 1.5; padding-left: 1.3em; position: relative;
-      }
-      .navi-lp-hero-bullets li::before {
-        content: "→";
-        position: absolute; left: 0;
-        color: var(--lp-violet); font-weight: 700; font-size: 13px;
-      }
-
-      /* ── Hero CTA — Fix 3: neon glow on hover ── */
+      /* ── Hero CTA ── */
       .navi-lp-btn-hero {
         display: inline-flex; align-items: center; justify-content: center;
         gap: 10px; width: 100%; max-width: 280px;
@@ -659,7 +631,7 @@ const Welcome = () => {
         background: var(--lp-violet);
         box-shadow: 0 6px 22px rgba(91,63,191,0.28);
         transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.2s ease;
-        animation: navi-lp-fade-up 0.45s 0.16s ease both;
+        animation: navi-lp-fade-up 0.45s 0.1s ease both;
       }
       .navi-lp-btn-hero:hover {
         background: var(--lp-violet-dark);
@@ -668,21 +640,20 @@ const Welcome = () => {
       }
       .navi-lp-btn-hero:active { transform: scale(0.98); }
       .navi-lp-hero-hint {
-        margin: 12px 0 0;
-        font-size: 11px; letter-spacing: 0.02em;
+        margin: 12px 0 0; font-size: 11px; letter-spacing: 0.02em;
         color: #9ca3af; line-height: 1.6;
-        max-width: min(var(--lp-prose), 100%);
+        animation: navi-lp-fade-up 0.45s 0.15s ease both;
       }
 
-      /* ── Hero right + mockup wrap — Fix 3: neon border ── */
+      /* ── Hero right ── */
       .navi-lp-hero-right {
         position: relative; z-index: 1;
         animation: navi-lp-fade-up 0.5s 0.1s ease both;
-        align-self: center;
+        display: flex; flex-direction: column; align-items: center;
       }
       .navi-lp-mock-blob {
         position: absolute; width: 88%; height: 78%;
-        left: 50%; top: 52%;
+        left: 50%; top: 50%;
         transform: translate(-50%, -50%);
         border-radius: 45% 55% 48% 52% / 52% 48% 54% 46%;
         background: radial-gradient(
@@ -695,110 +666,190 @@ const Welcome = () => {
       }
       .navi-lp-mock-wrap {
         position: relative; z-index: 1;
-        border-radius: 20px; padding: 1.5px;
+        border-radius: 24px; padding: 1.5px;
         background: linear-gradient(135deg, rgba(189,176,238,0.8) 0%, rgba(91,63,191,0.3) 50%, rgba(123,99,212,0.55) 100%);
         box-shadow:
           0 0 0 1px rgba(177,78,255,0.2),
           0 0 24px rgba(177,78,255,0.08),
           0 20px 56px rgba(0,0,0,0.14);
       }
-      .navi-lp-mock-wrap .navi-lp-mock {
-        border: none; border-radius: 16px; box-shadow: none;
+
+      /* ── WhatsApp Mockup ── */
+      .wapp-mockup {
+        background: #ECE5DD;
+        border-radius: 22px;
+        overflow: hidden;
+        width: 100%;
+        max-width: 300px;
+        min-width: 240px;
       }
 
-      /* ── Mockup — Fix 2: online dot, Fix 3: neon dot ── */
-      .navi-lp-mock {
-        border: 1.5px solid #E8E4FF; border-radius: 18px;
-        overflow: hidden; background: white;
+      /* Header */
+      .wapp-header {
+        background: #075E54;
+        padding: 10px 14px;
+        display: flex; align-items: center; gap: 10px;
       }
-      .navi-lp-mock-top {
-        display: flex; align-items: center;
-        justify-content: space-between; gap: 10px;
-        padding: 11px 14px; background: var(--v500);
+      .wapp-avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        background: var(--lp-violet);
+        color: white; font-size: 14px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
       }
-      .navi-lp-mock-top-left { display: flex; align-items: center; gap: 8px; }
-      .navi-lp-mock-wa-label {
-        font-size: 12px; font-weight: 700;
-        color: white; letter-spacing: -0.02em;
+      .wapp-header-info { flex: 1; min-width: 0; }
+      .wapp-name {
+        font-size: 13px; font-weight: 600; color: white; line-height: 1.2;
       }
-      .navi-lp-online-dot {
-        width: 7px; height: 7px; border-radius: 50%;
+      .wapp-status { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+      .wapp-online-dot {
+        width: 6px; height: 6px; border-radius: 50%;
         background: var(--lp-neon);
-        box-shadow: 0 0 6px var(--lp-neon), 0 0 14px rgba(177,78,255,0.35);
+        box-shadow: 0 0 6px var(--lp-neon), 0 0 12px rgba(177,78,255,0.4);
         flex-shrink: 0; display: inline-block;
       }
-      .navi-lp-mock-pills { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-      .navi-lp-mock-pill {
-        font-size: 9px; font-weight: 600; padding: 4px 9px;
-        border-radius: 8px; color: rgba(255,255,255,0.55);
+      .wapp-online-text { font-size: 10px; color: var(--lp-neon); }
+      .wapp-ai-badge {
+        background: rgba(177,78,255,0.15);
+        color: var(--lp-neon);
+        border: 0.5px solid rgba(177,78,255,0.3);
+        border-radius: 4px;
+        font-size: 9px; font-weight: 700;
+        padding: 2px 6px; letter-spacing: 0.05em;
+        flex-shrink: 0;
       }
-      .navi-lp-mock-pill--on {
-        background: rgba(255,255,255,0.18); color: white;
+
+      /* Messages area */
+      .wapp-body {
+        padding: 10px 10px 6px;
+        display: flex; flex-direction: column; gap: 5px;
+        min-height: 200px; max-height: 280px;
+        overflow-y: auto;
+        background: #ECE5DD;
       }
-      .navi-lp-mock-stats {
-        display: grid; grid-template-columns: 1fr 1fr 1fr;
-        gap: 10px; padding: 12px;
-        border-bottom: 1px solid #F0EEF8;
+      .wapp-body::-webkit-scrollbar { display: none; }
+
+      /* Message row */
+      .wapp-msg { display: flex; }
+      .wapp-msg.user { justify-content: flex-end; }
+      .wapp-msg.bot  { justify-content: flex-start; }
+
+      @keyframes msg-in {
+        from { opacity: 0; transform: translateY(6px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
       }
-      .navi-lp-stat { border-radius: 12px; padding: 12px 8px; text-align: center; }
-      .navi-lp-stat--vio { background: var(--v50); }
-      .navi-lp-stat--cor { background: var(--c50); }
-      .navi-lp-stat--ok  { background: #E8F5EC; }
-      .navi-lp-stat-num {
-        display: block; font-size: 20px; font-weight: 800;
-        line-height: 1.1; margin-bottom: 4px;
+
+      .wapp-bubble {
+        max-width: 82%;
+        padding: 6px 10px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        position: relative;
+        animation: msg-in 0.25s ease forwards;
       }
-      .navi-lp-stat-num--vio { color: var(--v500); }
-      .navi-lp-stat-num--cor { color: var(--c500); }
-      .navi-lp-stat-num--ok  { color: #276534; }
-      .navi-lp-stat-lbl { font-size: 9px; font-weight: 600; color: var(--mid); }
-      .navi-lp-mock-kanban-scroll {
-        overflow-x: auto; -webkit-overflow-scrolling: touch;
-        background: #FAFAFE;
+      .wapp-bubble::after {
+        content: attr(data-time);
+        display: block;
+        font-size: 8.5px;
+        color: rgba(0,0,0,0.35);
+        text-align: right;
+        margin-top: 2px;
       }
-      .navi-lp-mock-kanban {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(80px, 1fr));
-        gap: 7px; padding: 10px; min-width: 0;
+      .wapp-msg.user .wapp-bubble {
+        background: #DCF8C6;
+        color: #1a1a1a;
+        border-radius: 10px 2px 10px 10px;
       }
-      .navi-lp-kcol-title {
-        font-family: var(--ff-mono); font-size: 7px;
-        letter-spacing: 0.06em; text-transform: uppercase;
-        color: var(--faint); margin-bottom: 7px;
-        line-height: 1.25; min-height: 2.4em;
-        display: flex; align-items: flex-end;
+      .wapp-msg.bot .wapp-bubble {
+        background: white;
+        color: #1a1a1a;
+        border-radius: 2px 10px 10px 10px;
       }
-      .navi-lp-kcard { border-radius: 8px; padding: 7px 6px; }
-      .navi-lp-kcard--v { background: var(--v50); }
-      .navi-lp-kcard--c { background: var(--c50); }
-      .navi-lp-kcard--miss { background: #fff5f5; border: 1px solid rgba(240,64,64,0.15); }
-      .navi-lp-kcard--wait { background: var(--warn-bg); border: 1px solid rgba(212,160,23,0.2); }
-      .navi-lp-kcard--g { background: var(--success-bg); }
-      .navi-lp-kname {
-        font-size: 9px; font-weight: 700; color: var(--ink);
-        margin-bottom: 5px; line-height: 1.2;
+
+      /* Typing */
+      .wapp-typing {
+        display: flex; align-items: center; gap: 4px;
+        padding: 10px 12px;
+        background: white;
+        border-radius: 2px 10px 10px 10px;
+        animation: msg-in 0.2s ease forwards;
       }
-      .navi-lp-kanban-tag {
-        font-weight: 600; font-size: 7px; letter-spacing: 0.04em;
-        text-transform: uppercase; padding: 2px 5px; border-radius: 4px;
-        background: var(--v100); color: var(--v700);
+      .wapp-typing::after { display: none; }
+
+      .typing-dot {
+        width: 5px; height: 5px; border-radius: 50%;
+        background: #999;
+        animation: typing-bounce 1.2s infinite;
+        flex-shrink: 0;
       }
-      .navi-lp-kcard--c .navi-lp-kanban-tag { background: rgba(240,64,64,0.12); color: var(--c500); }
-      .navi-lp-kcard--g .navi-lp-kanban-tag { background: rgba(39,101,52,0.12); color: #276534; }
+      .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+      .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes typing-bounce {
+        0%, 60%, 100% { transform: scale(0.8); opacity: 0.4; }
+        30% { transform: scale(1.1); opacity: 1; }
+      }
+
+      /* Result badge */
+      .wapp-result-badge {
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        background: rgba(37,211,102,0.12);
+        border: 0.5px solid rgba(37,211,102,0.3);
+        color: #128c3e;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 11px; font-weight: 600;
+        margin: 2px 0;
+        animation: badge-in 0.4s ease forwards;
+      }
+      .wapp-result-badge::before {
+        content: '';
+        width: 6px; height: 6px; border-radius: 50%;
+        background: #25D366;
+        box-shadow: 0 0 6px #25D366;
+        flex-shrink: 0;
+      }
+      @keyframes badge-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+
+      /* Footer */
+      .wapp-footer {
+        background: #f0f0f0;
+        padding: 7px 10px;
+        display: flex; align-items: center; gap: 7px;
+        border-top: 0.5px solid rgba(0,0,0,0.08);
+      }
+      .wapp-input-mock {
+        flex: 1; background: white; border-radius: 20px;
+        padding: 6px 12px; font-size: 11px; color: #aaa;
+      }
+      .wapp-send-btn {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: #25D366; color: white;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+      }
+
+      /* Caption */
+      .wapp-caption {
+        font-size: 11px; color: #9ca3af;
+        margin-top: 12px; font-style: italic;
+        text-align: center;
+        position: relative; z-index: 1;
+      }
 
       /* ── Gallery ── */
       .navi-lp-band--gallery {
-        position: relative; overflow: hidden;
-        background: var(--lp-light);
+        position: relative; overflow: hidden; background: var(--lp-light);
       }
       .navi-lp-gallery-mesh {
-        position: absolute; inset: 0;
-        pointer-events: none; z-index: 0; overflow: hidden;
+        position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
       }
       .navi-lp-band--gallery .navi-lp-inner { position: relative; z-index: 1; }
       .navi-lp-gallery {
-        display: grid; grid-template-columns: repeat(3, 1fr);
-        gap: 12px; align-items: stretch;
+        display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; align-items: stretch;
       }
       .navi-lp-gallery-item {
         margin: 0; border-radius: 16px; overflow: hidden;
@@ -812,95 +863,70 @@ const Welcome = () => {
 
       /* ── Section bands ── */
       .navi-lp-band {
-        padding: clamp(64px, 9vw, 104px) var(--nl-pad);
-        background: #ffffff;
+        padding: clamp(64px,9vw,104px) var(--nl-pad); background: #fff;
       }
       .navi-lp-band--soft { background: var(--lp-light); }
       .navi-lp-band--dark {
-        background: var(--lp-dark);
-        color: rgba(255,255,255,0.92);
+        background: var(--lp-dark); color: rgba(255,255,255,0.92);
         position: relative; overflow: hidden;
       }
       .navi-lp-band--dark::before {
-        content: '';
-        position: absolute; inset: 0;
+        content: ''; position: absolute; inset: 0;
         background: radial-gradient(ellipse 80% 50% at 90% 10%, rgba(91,63,191,0.22), transparent 58%);
         pointer-events: none;
       }
       .navi-lp-band--dark .navi-lp-inner { position: relative; z-index: 1; }
 
-      /* ── Inner containers ── */
+      /* ── Inner ── */
       .navi-lp-inner { max-width: var(--lp-max); margin: 0 auto; }
-      .navi-lp-inner--prose {
-        max-width: min(var(--lp-prose), 100%);
-        margin-left: auto; margin-right: auto;
-      }
+      .navi-lp-inner--prose,
       .navi-lp-inner--narrow {
-        max-width: min(var(--lp-prose), 100%);
+        max-width: min(var(--lp-prose),100%);
         margin-left: auto; margin-right: auto;
       }
 
       /* ── Cards ── */
       .navi-lp-card {
-        background: #ffffff;
-        border: 0.5px solid rgba(0,0,0,0.08);
-        border-radius: 16px;
-        padding: clamp(28px, 4vw, 44px);
+        background: #fff; border: 0.5px solid rgba(0,0,0,0.08);
+        border-radius: 16px; padding: clamp(28px,4vw,44px);
         box-shadow: 0 2px 16px rgba(18,16,42,0.04);
       }
-      .navi-lp-band--soft .navi-lp-card {
-        box-shadow: 0 4px 24px rgba(91,63,191,0.06);
-      }
-      .navi-lp-card .navi-lp-h2 { max-width: min(var(--lp-prose), 100%); margin: 0 0 20px; }
+      .navi-lp-band--soft .navi-lp-card { box-shadow: 0 4px 24px rgba(91,63,191,0.06); }
+      .navi-lp-card .navi-lp-h2 { max-width: min(var(--lp-prose),100%); margin: 0 0 20px; }
       .navi-lp-card .navi-lp-p,
       .navi-lp-card .navi-lp-list,
-      .navi-lp-card .navi-lp-accent-line { max-width: min(var(--lp-prose), 100%); }
+      .navi-lp-card .navi-lp-accent-line { max-width: min(var(--lp-prose),100%); }
       .navi-lp-card--split .navi-lp-accent-line--full { max-width: none; }
       .navi-lp-card--split { display: grid; gap: 20px 40px; }
       @media (min-width: 768px) {
         .navi-lp-card--split {
-          grid-template-columns: minmax(0,1fr) minmax(0,1fr);
-          align-items: start;
+          grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start;
         }
         .navi-lp-card--split .navi-lp-accent-line--full { grid-column: 1 / -1; }
       }
 
-      /* ── Decorative numbers ── */
+      /* ── Dec numbers ── */
       .navi-lp-dec-num {
-        display: block;
-        font-family: var(--ff-serif);
-        font-weight: 700;
-        font-size: clamp(48px, 6vw, 80px);
-        color: var(--lp-pill-bg);
-        line-height: 1;
-        letter-spacing: -0.04em;
-        margin-bottom: 8px;
-        user-select: none;
+        display: block; font-family: var(--ff-serif);
+        font-weight: 700; font-size: clamp(48px,6vw,80px);
+        color: var(--lp-pill-bg); line-height: 1;
+        letter-spacing: -0.04em; margin-bottom: 8px; user-select: none;
       }
 
       /* ── Typography ── */
       .navi-lp-h2 {
-        font-family: var(--ff-serif);
-        font-weight: 700;
-        font-size: clamp(24px, 3.2vw, 44px);
-        letter-spacing: -0.02em;
-        line-height: 1.1;
+        font-family: var(--ff-serif); font-weight: 700;
+        font-size: clamp(24px,3.2vw,44px);
+        letter-spacing: -0.02em; line-height: 1.1;
         color: var(--ink); margin: 0 0 20px;
       }
-      .navi-lp-h2--on-dark { color: #ffffff; margin-bottom: 14px; }
-      .navi-lp-sub-dark {
-        font-size: 17px; color: rgba(255,255,255,0.65);
-        margin: 0 0 28px; line-height: 1.55;
-      }
-      .navi-lp-p {
-        font-size: clamp(14px, 1.6vw, 16px);
-        color: #6b7280; line-height: 1.7; margin: 0 0 14px;
-      }
+      .navi-lp-h2--on-dark { color: #fff; margin-bottom: 14px; }
+      .navi-lp-sub-dark { font-size: 17px; color: rgba(255,255,255,0.65); margin: 0 0 28px; line-height: 1.55; }
+      .navi-lp-p { font-size: clamp(14px,1.6vw,16px); color: #6b7280; line-height: 1.7; margin: 0 0 14px; }
       .navi-lp-list {
         list-style: none; padding: 0; margin: 0 0 24px;
         display: flex; flex-direction: column; gap: 10px;
-        font-size: clamp(14px, 1.6vw, 16px);
-        color: var(--ink2); line-height: 1.6;
+        font-size: clamp(14px,1.6vw,16px); color: var(--ink2); line-height: 1.6;
       }
       .navi-lp-list li { padding-left: 1.4em; position: relative; }
       .navi-lp-list li::before {
@@ -909,30 +935,25 @@ const Welcome = () => {
       }
       .navi-lp-list--dark {
         list-style: none; padding: 0; margin: 0;
-        font-size: 17px; color: rgba(255,255,255,0.85);
-        gap: 14px;
+        font-size: 17px; color: rgba(255,255,255,0.85); gap: 14px;
       }
       .navi-lp-list--dark li { padding-left: 1.4em; }
       .navi-lp-list--dark li::before { content: "→"; color: var(--v200); }
       .navi-lp-accent-line {
-        font-size: clamp(14px, 1.6vw, 16px);
-        font-weight: 600; color: var(--v700);
-        margin: 14px 0 0; line-height: 1.5;
+        font-size: clamp(14px,1.6vw,16px); font-weight: 600;
+        color: var(--v700); margin: 14px 0 0; line-height: 1.5;
       }
 
       /* ── Quote / Social ── */
       .navi-lp-social-grid {
         display: grid; grid-template-columns: 1fr 1fr;
-        gap: clamp(20px, 3vw, 32px); align-items: stretch;
+        gap: clamp(20px,3vw,32px); align-items: stretch;
       }
       .navi-lp-social-quote {
-        margin: 0; padding: clamp(28px, 4vw, 44px);
-        background: #ffffff;
-        border: 0.5px solid rgba(0,0,0,0.08);
-        border-radius: 16px;
-        box-shadow: 0 2px 16px rgba(18,16,42,0.04);
-        display: flex; flex-direction: column;
-        justify-content: center; min-height: 0;
+        margin: 0; padding: clamp(28px,4vw,44px);
+        background: #fff; border: 0.5px solid rgba(0,0,0,0.08);
+        border-radius: 16px; box-shadow: 0 2px 16px rgba(18,16,42,0.04);
+        display: flex; flex-direction: column; justify-content: center;
       }
       .navi-lp-social-photo {
         margin: 0; border-radius: 16px; overflow: hidden;
@@ -946,16 +967,12 @@ const Welcome = () => {
       }
       .navi-lp-quote { margin: 0; padding: 0; border: none; }
       .navi-lp-quote p {
-        margin: 0;
-        font-family: var(--ff-serif);
-        font-style: italic;
-        font-size: clamp(17px, 2vw, 21px);
-        font-weight: 700; line-height: 1.55;
-        color: var(--ink); letter-spacing: -0.02em;
+        margin: 0; font-family: var(--ff-serif); font-style: italic;
+        font-size: clamp(17px,2vw,21px); font-weight: 700;
+        line-height: 1.55; color: var(--ink); letter-spacing: -0.02em;
       }
       .navi-lp-quote p::before {
-        content: "";
-        display: block; width: 36px; height: 3px;
+        content: ""; display: block; width: 36px; height: 3px;
         border-radius: 99px;
         background: linear-gradient(90deg, var(--v500), var(--v200));
         margin-bottom: 20px;
@@ -977,22 +994,18 @@ const Welcome = () => {
         transition: background 0.15s ease, transform 0.15s ease;
       }
       .navi-lp-btn-mid:hover { background: var(--lp-violet-dark); transform: translateY(-2px); }
-      .navi-lp-mid-cta-hint {
-        margin: 0; font-size: 12px; letter-spacing: 0.04em; color: #9ca3af;
-      }
+      .navi-lp-mid-cta-hint { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: #9ca3af; }
 
       /* ── Funnel ── */
       .navi-lp-funnel {
         display: flex; flex-wrap: wrap; align-items: center;
-        justify-content: flex-start; gap: 8px 6px; margin: 14px 0 24px;
+        gap: 8px 6px; margin: 14px 0 24px;
       }
       .navi-lp-funnel-chip {
         display: inline-flex; align-items: center;
         padding: 7px 12px; border-radius: 100px;
-        background: var(--lp-pill-bg);
-        border: 0.5px solid rgba(91,63,191,0.15);
-        font-size: 12px; font-weight: 600; color: var(--v700);
-        white-space: nowrap;
+        background: var(--lp-pill-bg); border: 0.5px solid rgba(91,63,191,0.15);
+        font-size: 12px; font-weight: 600; color: var(--v700); white-space: nowrap;
       }
       .navi-lp-funnel-arrow { color: var(--faint); font-size: 13px; font-weight: 600; }
 
@@ -1002,27 +1015,24 @@ const Welcome = () => {
         border-radius: 12px; background: var(--c50);
         border: 0.5px solid rgba(240,64,64,0.18);
       }
-      .navi-lp-alert-text {
-        margin: 0; font-size: 14px; font-weight: 600;
-        color: var(--ink); line-height: 1.5;
-      }
+      .navi-lp-alert-text { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.5; }
 
-      /* ── Checklist — Fix 2: Check icon ── */
+      /* ── Checklist ── */
       .navi-lp-checklist {
         list-style: none; padding: 0; margin: 16px 0 0;
         display: flex; flex-direction: column; gap: 14px;
       }
       .navi-lp-checklist li {
         display: flex; align-items: flex-start; gap: 10px;
-        font-size: clamp(14px, 1.6vw, 16px);
-        font-weight: 600; color: var(--ink); line-height: 1.45;
+        font-size: clamp(14px,1.6vw,16px); font-weight: 600;
+        color: var(--ink); line-height: 1.45;
       }
       .navi-lp-checklist li svg { flex-shrink: 0; margin-top: 2px; }
 
       /* ── Final CTA ── */
       .navi-lp-final-cta {
         background: var(--lp-violet);
-        padding: clamp(64px, 9vw, 104px) var(--nl-pad);
+        padding: clamp(64px,9vw,104px) var(--nl-pad);
         position: relative; overflow: hidden; text-align: center;
       }
       .navi-lp-final-circle {
@@ -1034,26 +1044,19 @@ const Welcome = () => {
       .navi-lp-final-inner {
         position: relative; z-index: 1;
         max-width: var(--lp-max); margin: 0 auto;
-        display: flex; flex-direction: column;
-        align-items: center; gap: 20px;
+        display: flex; flex-direction: column; align-items: center; gap: 20px;
       }
       .navi-lp-btn-final {
         display: inline-flex; align-items: center; justify-content: center;
         gap: 10px; width: 100%; max-width: 420px; min-height: 56px;
         padding: 15px 36px; border-radius: 100px;
         font-size: 16px; font-weight: 700; text-decoration: none;
-        color: var(--lp-violet); background: #ffffff;
-        border: none; box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        color: var(--lp-violet); background: #fff;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.18);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      .navi-lp-btn-final:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 36px rgba(0,0,0,0.24);
-      }
-      .navi-lp-final-hint {
-        margin: 0; font-size: 12px; letter-spacing: 0.04em;
-        color: rgba(255,255,255,0.5);
-      }
+      .navi-lp-btn-final:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,0.24); }
+      .navi-lp-final-hint { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: rgba(255,255,255,0.5); }
 
       /* ── Footer ── */
       .navi-lp-footer { background: var(--lp-dark); padding: 26px var(--nl-pad); }
@@ -1067,7 +1070,7 @@ const Welcome = () => {
         font-family: var(--ff-mono); font-size: 10px;
         color: rgba(255,255,255,0.35); margin: 0;
         display: flex; flex-wrap: wrap; align-items: center;
-        gap: 6px 8px; justify-content: flex-end; max-width: 100%;
+        gap: 6px 8px; justify-content: flex-end;
       }
       .navi-lp-footer-sep { color: rgba(255,255,255,0.15); user-select: none; }
       .navi-lp-footer-link {
@@ -1079,25 +1082,25 @@ const Welcome = () => {
       /* ── Responsive ── */
       @media (max-width: 900px) {
         .navi-lp-hero-grid { grid-template-columns: 1fr; }
-        .navi-lp-hero-right {
-          order: -1; max-width: 380px; margin: 0 auto; width: 100%;
-        }
+        .navi-lp-hero-right { order: -1; max-width: 320px; margin: 0 auto; width: 100%; }
         .navi-lp-social-grid { grid-template-columns: 1fr; }
         .navi-lp-social-photo { min-height: 220px; }
         .navi-lp-social-photo img { min-height: 220px; }
       }
       @media (max-width: 768px) {
         .navi-lp-footer-copy { width: 100%; justify-content: flex-start; }
-        .navi-lp-mock-kanban { grid-template-columns: repeat(5, minmax(72px, 1fr)); }
         .navi-lp-gallery { grid-template-columns: 1fr; }
         .navi-lp-gallery-item img { aspect-ratio: 16/10; min-height: 200px; }
-        .navi-lp-dec-num { font-size: clamp(40px, 10vw, 60px); }
+        .navi-lp-dec-num { font-size: clamp(40px,10vw,60px); }
       }
 
       /* ── Reduced motion ── */
       @media (prefers-reduced-motion: reduce) {
         .navi-lp-reveal { opacity: 1; transform: none; transition: none; }
         .navi-lp-reveal--in { opacity: 1; transform: none; }
+        .typing-dot { animation: none; opacity: 0.6; }
+        .wapp-msg { animation: none; }
+        .wapp-result-badge { animation: none; }
       }
     `,
     }}
