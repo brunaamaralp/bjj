@@ -1,5 +1,9 @@
 import { Account, Client, Databases, Query, Teams } from 'node-appwrite';
-import { assembleAgentSystemPrompt } from '../../lib/server/assembleAgentSystemPrompt.js';
+import {
+  assembleAgentSystemPrompt,
+  COMMUNICATION_RULES,
+  buildClassificationBlock
+} from '../../lib/server/assembleAgentSystemPrompt.js';
 import { fetchAcademyPromptSettings } from '../../lib/server/academyPromptSettings.js';
 import { buildPromptContactContext, profileLineForSystemPrompt } from '../../lib/server/agentPromptContext.js';
 import { parseFaqItems } from '../../lib/whatsappTemplateDefaults.js';
@@ -109,20 +113,31 @@ export default async function handler(req, res) {
     const profileLine = profileLineForSystemPrompt(contactCtx);
 
     const faqItems = parseFaqItems(academyDoc?.faq_data);
+    const summaryPreview =
+      '(Exemplo de prévia — sem resumo persistido. Na conversa real, um resumo curto pode aparecer aqui quando existir.)';
     const texto = assembleAgentSystemPrompt({
       effectiveIntro,
       effectiveBody,
       extraSuffix,
       profileLine,
       nomeContatoLine: contactCtx.nomeContatoLine,
-      summaryText:
-        '(Exemplo de prévia — sem resumo persistido. Na conversa real, um resumo curto pode aparecer aqui quando existir.)',
+      summaryText: summaryPreview,
       faqItems
     });
+
+    const preview_sections = [
+      { label: 'IDENTIDADE DO ASSISTENTE', content: effectiveIntro || '(não configurado)' },
+      { label: 'REGRAS DE COMUNICAÇÃO (sistema)', content: COMMUNICATION_RULES },
+      { label: 'PERFIL DO LEAD (dinâmico)', content: '[ gerado automaticamente por conversa ]' },
+      { label: 'INFORMAÇÕES DA ACADEMIA', content: effectiveBody || '(não configurado)' },
+      { label: 'REGRAS ESPECÍFICAS', content: extraSuffix || '(nenhuma)' },
+      { label: 'CLASSIFICAÇÃO JSON (sistema)', content: buildClassificationBlock() }
+    ];
 
     return res.status(200).json({
       sucesso: true,
       prompt: texto,
+      preview_sections,
       settings_source: settings.source,
       exemplo: { whatsappDisplayName: exemploNomeWa, leadDoc: null }
     });

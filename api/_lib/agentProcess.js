@@ -300,12 +300,16 @@ export default async function handler(req, res) {
 
       const resposta = String(agentData?.resposta || '').trim();
       if (!resposta) {
-        console.error('[agent/process] resposta vazia', {
-          requestId,
-          phone,
-          keys: Object.keys(agentData || {})
+        const intencao = String(agentData?.classificacao?.intencao || '').trim();
+        console.log(
+          '[agentProcess] resposta vazia — mensagem era aviso, não enviando WhatsApp',
+          { phone, intencao, messageId, requestId }
+        );
+        return res.status(200).json({
+          sent: false,
+          reason: 'aviso_sem_pergunta',
+          intencao: intencao || undefined
         });
-        return res.status(200).json({ sent: false, empty: true });
       }
 
       if (!instOut) {

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
 
 :root {
   /* Nave — violeta */
@@ -34,9 +34,10 @@
   --border-mid: rgba(91, 63, 191, 0.18);
   --border-strong: rgba(91, 63, 191, 0.3);
 
-  /* Tipografia — só Plus Jakarta + DM Mono (sem serif) */
+  /* Tipografia */
   --ff-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
   --ff-mono: 'DM Mono', monospace;
+  --ff-serif: 'Fraunces', Georgia, serif;
 
   /* Aliases legado (páginas existentes) */
   --primary: var(--v900);
