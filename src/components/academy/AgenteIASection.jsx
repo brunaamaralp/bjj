@@ -271,20 +271,31 @@ const AgenteIASection = ({ academyId, role }) => {
     }
 
     return (
-        <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+        <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
             <div className="agent-header">
-                <h2 className="navi-section-heading" style={{ fontSize: '1.25rem', margin: '0 0 8px' }}>Assistente IA</h2>
+                <h2 className="navi-section-heading" style={{ fontSize: '1.15rem', margin: '0 0 4px' }}>Assistente IA</h2>
                 <p className="agent-subtitle">Configure como sua IA responde no WhatsApp</p>
             </div>
 
             <div className="agent-toggle-block">
                 <div className="agent-toggle-row">
-                    <span className="agent-toggle-label">{iaAtiva ? 'Assistente ligado' : 'Assistente desligado'}</span>
+                    <div>
+                        <span className="agent-toggle-label">
+                            {togglingIa ? 'Atualizando…' : iaAtiva ? 'Assistente ligado' : 'Assistente desligado'}
+                        </span>
+                        {!promptConfigurado && (
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                                Configure o assistente abaixo para ativar
+                            </p>
+                        )}
+                    </div>
                     <button
                         type="button"
+                        role="switch"
+                        aria-checked={iaAtiva && promptConfigurado}
                         onClick={() => void handleToggleIa()}
                         disabled={!promptConfigurado || togglingIa}
-                        className={`agent-toggle-btn${iaAtiva && promptConfigurado ? ' active' : ''}`}
+                        className={`ai-switch${iaAtiva && promptConfigurado ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
                         title={
                             !promptConfigurado
                                 ? 'Conclua a configuração do assistente antes de ativar'
@@ -293,19 +304,14 @@ const AgenteIASection = ({ academyId, role }) => {
                                     : iaAtiva ? 'Desativar assistente' : 'Ativar assistente'
                         }
                     >
-                        {togglingIa ? '…' : iaAtiva ? 'Ligado' : 'Desligado'}
+                        <span className="ai-switch-thumb" />
                     </button>
                 </div>
-                {!promptConfigurado && !iaAtiva && (
-                    <p className="agent-toggle-hint">
-                        Conclua a configuração do assistente abaixo para poder ativá-lo.
-                    </p>
+                {!iaAtiva && promptConfigurado && (
+                    <p className="agent-info">Instruções salvas. Ligue o assistente para começar a responder no WhatsApp.</p>
                 )}
                 {iaAtiva && !promptConfigurado && (
                     <p className="agent-warning">Conclua a configuração do assistente para ele funcionar corretamente.</p>
-                )}
-                {!iaAtiva && promptConfigurado && (
-                    <p className="agent-info">Instruções salvas. Ligue o assistente para começar a responder no WhatsApp.</p>
                 )}
                 {promptConfigurado && !whatsappConectado && (
                     <p className="agent-info" style={{ marginTop: 8 }}>

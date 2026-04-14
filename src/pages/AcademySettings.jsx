@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Building2, Sparkles, Filter, Users, Settings } from 'lucide-react';
 import EstudioSection from '../components/academy/EstudioSection';
 import AgenteIASection from '../components/academy/AgenteIASection';
 import FunilSection from '../components/academy/FunilSection';
@@ -14,11 +14,11 @@ import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { useUserRole } from '../lib/useUserRole';
 
 const TABS = [
-    { id: 'estudio', label: 'Estúdio' },
-    { id: 'agente', label: 'Agente IA' },
-    { id: 'funil', label: 'Funil' },
-    { id: 'equipe', label: 'Equipe' },
-    { id: 'avancado', label: 'Avançado' },
+    { id: 'estudio', label: 'Estúdio', Icon: Building2 },
+    { id: 'agente', label: 'Agente IA', Icon: Sparkles },
+    { id: 'funil', label: 'Funil', Icon: Filter },
+    { id: 'equipe', label: 'Equipe', Icon: Users },
+    { id: 'avancado', label: 'Avançado', Icon: Settings },
 ];
 
 const VALID_TABS = new Set(TABS.map((t) => t.id));
@@ -250,20 +250,21 @@ const AcademySettings = () => {
                     <ChevronLeft size={18} strokeWidth={2} aria-hidden />
                     Voltar à conta
                 </Link>
-                <h2 className="navi-page-title">Minha academia</h2>
-                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Estúdio, agente de IA, funil, equipe e dados</p>
+                <h2 className="navi-page-title">{academy.name || 'Minha academia'}</h2>
+                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Configurações da academia</p>
             </div>
 
             <nav className="empresa-subnav" aria-label="Seções da academia">
                 <div className="empresa-subnav-scroll">
-                    {TABS.map((tab) => (
+                    {TABS.map(({ id, label, Icon }) => (
                         <button
-                            key={tab.id}
+                            key={id}
                             type="button"
-                            className={`empresa-subnav-tab ${activeTab === tab.id ? 'empresa-subnav-tab--active' : ''}`}
-                            onClick={() => setActiveTab(tab.id)}
+                            className={`empresa-subnav-tab ${activeTab === id ? 'empresa-subnav-tab--active' : ''}`}
+                            onClick={() => setActiveTab(id)}
                         >
-                            {tab.label}
+                            <Icon size={15} className="empresa-tab-icon" aria-hidden />
+                            {label}
                         </button>
                     ))}
                 </div>
@@ -320,50 +321,57 @@ const AcademySettings = () => {
           position: sticky;
           top: 0;
           z-index: 8;
-          margin: 4px -6px 14px;
-          padding: 6px 6px 10px;
-          background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 72%, rgba(246, 244, 255, 0) 100%);
-          border-bottom: 1px solid var(--border-light);
+          margin: 8px -6px 20px;
+          padding: 0 6px;
+          background: var(--bg);
+          border-bottom: 2px solid var(--border-light);
         }
         .empresa-subnav-scroll {
           display: flex;
           flex-wrap: nowrap;
-          gap: 6px;
+          gap: 0;
           overflow-x: auto;
           overflow-y: hidden;
           -webkit-overflow-scrolling: touch;
-          scrollbar-width: thin;
-          scrollbar-color: var(--v100) transparent;
-          padding-bottom: 2px;
+          scrollbar-width: none;
         }
-        .empresa-subnav-scroll::-webkit-scrollbar { height: 4px; }
-        .empresa-subnav-scroll::-webkit-scrollbar-thumb {
-          background: var(--v100);
-          border-radius: 4px;
-        }
+        .empresa-subnav-scroll::-webkit-scrollbar { display: none; }
         .empresa-subnav-tab {
           flex: 0 0 auto;
-          padding: 6px 12px;
-          font-size: 0.72rem;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          border-radius: 999px;
-          border: 1px solid var(--border-light);
-          background: var(--surface);
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 11px 18px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          border: none;
+          border-bottom: 2px solid transparent;
+          margin-bottom: -2px;
+          background: none;
           color: var(--text-secondary);
           cursor: pointer;
-          transition: var(--transition);
+          transition: color 0.15s ease, border-color 0.15s ease;
           font-family: var(--ff-ui, inherit);
+          white-space: nowrap;
+        }
+        .empresa-tab-icon {
+          opacity: 0.55;
+          transition: opacity 0.15s ease;
+          flex-shrink: 0;
         }
         .empresa-subnav-tab:hover {
-          border-color: var(--v200);
           color: var(--text);
-          background: var(--surface-hover);
+        }
+        .empresa-subnav-tab:hover .empresa-tab-icon {
+          opacity: 0.85;
         }
         .empresa-subnav-tab--active {
-          background: var(--accent-light);
           color: var(--accent);
-          border-color: rgba(91, 63, 191, 0.22);
+          border-bottom-color: var(--accent);
+        }
+        .empresa-subnav-tab--active .empresa-tab-icon {
+          opacity: 1;
         }
         .account-hero { border-top: 4px solid var(--accent); }
         .account-avatar {
@@ -419,6 +427,37 @@ const AcademySettings = () => {
         }
         .field-error {
           margin-top: 6px; font-size: 0.75rem; color: var(--danger); font-weight: 600;
+        }
+        /* Toggle switch para Agente IA */
+        .ai-switch {
+          position: relative;
+          width: 48px;
+          height: 28px;
+          border-radius: 999px;
+          border: none;
+          background: var(--border, #d1d5db);
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
+          transition: background 0.2s ease;
+        }
+        .ai-switch--on { background: var(--accent); }
+        .ai-switch:disabled { opacity: 0.45; cursor: not-allowed; }
+        .ai-switch--loading { opacity: 0.7; }
+        .ai-switch-thumb {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: #fff;
+          transition: transform 0.2s ease;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+          display: block;
+        }
+        .ai-switch--on .ai-switch-thumb {
+          transform: translateX(20px);
         }
       `}} />
         </div>

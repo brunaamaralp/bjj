@@ -99,19 +99,7 @@ const EstudioSection = ({
     };
 
     return (
-        <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-            <div className="account-hero card mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="account-avatar">
-                        <Building2 size={28} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <h3 className="navi-section-heading" style={{ fontSize: '1.15rem' }}>{academy.name || 'Minha Academia'}</h3>
-                        <p className="navi-subtitle" style={{ marginTop: 4 }}>{academy.email || 'Defina o contato da academia na seção abaixo'}</p>
-                    </div>
-                </div>
-            </div>
-
+        <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
             <div className="flex justify-between items-center mb-2">
                 <h3 className="navi-section-heading">Dados da Academia</h3>
                 {role === 'owner' && !editing && (
