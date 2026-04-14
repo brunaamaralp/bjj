@@ -1,5 +1,5 @@
-import instancesHandler from './_lib/zapsterInstances.js';
-import webhookHandler from './_lib/zapsterWebhook.js';
+import instancesHandler from '../lib/server/zapsterInstances.js';
+import webhookHandler from '../lib/server/zapsterWebhook.js';
 
 const REQUIRED_ENV = ['ZAPSTER_API_TOKEN', 'INTERNAL_API_SECRET', 'ANTHROPIC_API_KEY'];
 

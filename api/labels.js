@@ -1,5 +1,5 @@
 import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
-import { ensureAuth, ensureAcademyAccess } from './_lib/academyAccess.js';
+import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';

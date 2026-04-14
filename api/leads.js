@@ -4,8 +4,8 @@ import {
   BIRTHDAY_CRON_DEFAULT_TEXT,
   applyWhatsappTemplatePlaceholders
 } from '../lib/whatsappTemplateDefaults.js';
-import { ensureAuth, ensureAcademyAccess } from './_lib/academyAccess.js';
-import { assertBillingActive, sendBillingGateError } from './_lib/billingGate.js';
+import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
+import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';

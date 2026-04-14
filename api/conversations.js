@@ -2,7 +2,8 @@ import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
 import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../lib/humanHandoffUntil.js';
 import { getHumanHandoffHoursForServer } from '../lib/constants.js';
 import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
-import { assertBillingActive, sendBillingGateError } from './_lib/billingGate.js';
+import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
+import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -193,6 +194,8 @@ function ensureJsonBody(req, res) {
 }
 
 export default async function handler(req, res) {
+  if (req.query.route === 'notes') return conversationNotesHandler(req, res);
+
   if (!ensureConfig(res)) return;
 
   const me = await ensureAuth(req, res);
