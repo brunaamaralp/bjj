@@ -14,6 +14,7 @@ export default function NaviToasts() {
       {toasts.map((t) => {
         const type = t.type || 'info';
         const durationMs = typeof t.durationMs === 'number' ? t.durationMs : 4000;
+        const persistent = Boolean(t.persistent);
         return (
           <div
             key={t.id}
@@ -23,6 +24,66 @@ export default function NaviToasts() {
             onMouseLeave={() => resumeToast(t.id)}
           >
             <span className="navi-toast-message">{t.message}</span>
+            {t.secondaryAction && (
+              <button
+                type="button"
+                className="navi-toast-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try {
+                    t.secondaryAction.onClick();
+                  } catch {
+                    void 0;
+                  }
+                  removeToast(t.id);
+                }}
+                style={{
+                  marginRight: 6,
+                  padding: '4px 10px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: 'transparent',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {t.secondaryAction.label}
+              </button>
+            )}
+            {t.action && (
+              <button
+                type="button"
+                className="navi-toast-action"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const ret = t.action.onClick();
+                    const awaited = ret && typeof ret.then === 'function' ? await ret : ret;
+                    if (awaited === false) return;
+                  } catch {
+                    return;
+                  }
+                  removeToast(t.id);
+                }}
+                style={{
+                  marginRight: 6,
+                  padding: '4px 10px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: `1px solid ${t.actionDanger ? 'var(--danger)' : 'currentColor'}`,
+                  borderRadius: 8,
+                  background: 'transparent',
+                  color: t.actionDanger ? 'var(--danger)' : 'inherit',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               className="navi-toast-close"
@@ -34,7 +95,7 @@ export default function NaviToasts() {
             >
               ×
             </button>
-            {!t.removing && (
+            {!t.removing && !persistent && durationMs > 0 && (
               <span
                 className="navi-toast-progress"
                 style={{ animationDuration: `${durationMs}ms` }}

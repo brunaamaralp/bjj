@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
@@ -12,8 +12,10 @@ import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
+import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
 import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
+import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 const EMPTY_ACADEMY_LIST = [];
@@ -45,7 +47,7 @@ function formatTimeOnly(iso) {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-/** 0 = desconhecido/invÃ¡lido â€” na ordenaÃ§Ã£o por data ficam por Ãºltimo dentro do grupo. */
+/** 0 = desconhecido/inválido — na ordenação por data ficam por último dentro do grupo. */
 function parseTimestampMs(value) {
   const s = String(value || '').trim();
   if (!s) return 0;
@@ -53,8 +55,12 @@ function parseTimestampMs(value) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function isZapsterTokenMissingPayload(data) {
-  return Boolean(data && typeof data === 'object' && data.codigo === 'ZAPSTER_TOKEN_MISSING');
+/** Citação estilo WhatsApp para encaminhar na mesma conversa: cada linha com ">", depois linha em branco para o cursor. */
+function buildQuotedForwardBlock(originalText) {
+  const raw = String(originalText ?? '').replace(/\r\n/g, '\n');
+  const lines = raw.split('\n');
+  const quoted = lines.map((ln) => `> ${ln}`).join('\n');
+  return `${quoted}\n\n`;
 }
 
 export default function Inbox() {
@@ -74,6 +80,7 @@ export default function Inbox() {
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
+  const { waInfo, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected: false });
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -87,7 +94,7 @@ export default function Inbox() {
     const digits = normalizePhone(raw);
     if (!digits) return;
     
-    // Evita um setState redundante se o phone jÃ¡ Ã© o mesmo que estÃ¡ no state atual
+    // Evita um setState redundante se o phone já é o mesmo que está no state atual
     if (selectedPhoneRef.current === digits) return;
     
     setSelectedPhone(digits);
@@ -115,8 +122,13 @@ export default function Inbox() {
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [slashIndex, setSlashIndex] = useState(0);
 
   const [listFilter, setListFilter] = useState('all');
+  const listFilterRef = useRef('all');
+  const prevListFilterForReloadRef = useRef(null);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [labelFilter, setLabelFilter] = useState(null); // string id | null
   const [inboxLabels, setInboxLabels] = useState([]);
@@ -154,14 +166,6 @@ export default function Inbox() {
   const [ticketUpdating, setTicketUpdating] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferToDraft, setTransferToDraft] = useState('');
-  const [inboxTab, setInboxTab] = useState('conversas');
-  const [waLoading, setWaLoading] = useState(false);
-  const [waInfo, setWaInfo] = useState({ instance_id: null, status: 'disconnected', qrcode: null });
-  const [waTokenMissing, setWaTokenMissing] = useState(false);
-  const [waQrError, setWaQrError] = useState(false);
-  const [waQrTick, setWaQrTick] = useState(0);
-  const [waSyncing, setWaSyncing] = useState(false);
-  const [waPersistFailed, setWaPersistFailed] = useState(false);
   const [contextOpen, setContextOpen] = useState(() => {
     if (typeof window === 'undefined') return true;
     const raw = window.localStorage.getItem('inbox_context_open');
@@ -178,16 +182,6 @@ export default function Inbox() {
   const [threadAtBottom, setThreadAtBottom] = useState(true);
   const [newMsgCount, setNewMsgCount] = useState(0);
   const [msgFlags, setMsgFlags] = useState({});
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tab = String(params.get('tab') || '').trim();
-    if (tab === 'dispositivo' || tab === 'conversas') {
-      setInboxTab(tab);
-    } else {
-      setInboxTab('conversas');
-    }
-  }, [location.search]);
 
   useEffect(() => {
     if (!academyId) {
@@ -228,7 +222,6 @@ export default function Inbox() {
     };
   }, [academyId]);
 
-  const waOpen = inboxTab === 'dispositivo';
   const quickTemplates = useMemo(() => {
     const raw = whatsappTemplatesObj;
     if (!raw || typeof raw !== 'object') return [];
@@ -241,9 +234,21 @@ export default function Inbox() {
       }));
   }, [whatsappTemplatesObj]);
 
+  const slashFilteredTemplates = useMemo(() => {
+    const q = String(slashQuery || '').trim().toLowerCase();
+    return quickTemplates.filter(
+      (t) =>
+        !q ||
+        String(t.label).toLowerCase().includes(q) ||
+        String(t.text).toLowerCase().includes(q)
+    );
+  }, [quickTemplates, slashQuery]);
+
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
   const textareaRef = useRef(null);
+  const slashPopupRef = useRef(null);
+  const slashActiveItemRef = useRef(null);
   const threadScrollRef = useRef(null);
   const lastAutoScrollPhoneRef = useRef('');
   const threadMsgCountRef = useRef(0);
@@ -256,7 +261,6 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
-  const waPersistFailedRef = useRef(false);
   const prevAcademyIdForInboxRef = useRef('');
   const messageFlagsMigrationDoneRef = useRef(false);
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
@@ -273,6 +277,48 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  useEffect(() => {
+    setSlashOpen(false);
+    setSlashQuery('');
+  }, [selectedPhone]);
+
+  useEffect(() => {
+    if (!slashOpen) return;
+    setSlashIndex(0);
+  }, [slashQuery, slashOpen]);
+
+  useEffect(() => {
+    if (!slashOpen) return;
+    try {
+      slashActiveItemRef.current?.scrollIntoView?.({ block: 'nearest' });
+    } catch {
+      void 0;
+    }
+  }, [slashIndex, slashOpen, slashFilteredTemplates.length]);
+
+  useEffect(() => {
+    if (!slashOpen) return;
+    const onDown = (e) => {
+      const pop = slashPopupRef.current;
+      const ta = textareaRef.current;
+      const t = e.target;
+      if (pop && pop.contains(t)) return;
+      if (ta && ta.contains(t)) return;
+      setSlashOpen(false);
+      setSlashQuery('');
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [slashOpen]);
+
+  useEffect(() => {
+    listFilterRef.current = listFilter;
+  }, [listFilter]);
+
+  useEffect(() => {
+    if (!academyId) prevListFilterForReloadRef.current = null;
+  }, [academyId]);
 
   useEffect(() => {
     desktopNotifyRef.current = Boolean(desktopNotify);
@@ -293,11 +339,6 @@ export default function Inbox() {
   }, [academyId]);
 
   useEffect(() => {
-    waPersistFailedRef.current = waPersistFailed;
-  }, [waPersistFailed]);
-
-  useEffect(() => {
-    setWaPersistFailed(false);
     setLabelFilter(null);
   }, [academyId]);
 
@@ -381,12 +422,13 @@ export default function Inbox() {
   }, [isNarrowDesktop, contextOpen]);
 
   useEffect(() => {
+    if (listFilter === 'archived') return;
     const unreadBacklog = (Array.isArray(items) ? items : []).reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
     const resolvedCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'resolved').length;
     const transferredCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'transferred').length;
     setStats((prev) => ({ ...prev, unreadBacklog, resolvedCount, transferredCount }));
     useLeadStore.getState().setInboxUnreadConversations(unreadBacklog);
-  }, [items]);
+  }, [items, listFilter]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -743,350 +785,15 @@ export default function Inbox() {
     return s;
   }
 
-  const fetchWaInfo = useCallback(async ({ silent = false } = {}) => {
-    if (!academyIdRef.current) return;
-    if (!silent) setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      const data = safeParseJson(raw) || {};
-      if (!resp.ok) {
-        if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao consultar WhatsApp'));
-      }
-      const incomingId = data?.instance_id ?? null;
-      const status = String(data?.status || '').trim() || 'unknown';
-      const qrcode = data?.qrcode ?? null;
-      setWaInfo((prev) => {
-        if (incomingId) {
-          if (prev.instance_id === incomingId && prev.status === status && prev.qrcode === qrcode) return prev;
-          return { instance_id: incomingId, status, qrcode };
-        }
-        if (waPersistFailedRef.current && prev.instance_id) {
-          if (prev.status === status && prev.qrcode === qrcode) return prev;
-          return { ...prev, status, qrcode };
-        }
-        if (prev.instance_id === null && prev.status === status && prev.qrcode === qrcode) return prev;
-        return { instance_id: null, status: 'disconnected', qrcode: null };
-      });
-      if (incomingId) {
-        setWaPersistFailed(false);
-      }
-      setWaTokenMissing(false);
-      setWaQrError(false);
-      if (status !== 'connected') setWaQrTick((v) => v + 1);
-    } catch (e) {
-      const msg = String(e?.message || '');
-      if (
-        msg.toLowerCase().includes('zapster_api_token') ||
-        msg.toLowerCase().includes('zapster_token_missing') ||
-        (msg.toLowerCase().includes('serviÃ§o de whatsapp') && msg.toLowerCase().includes('nÃ£o configurado'))
-      ) {
-        setWaTokenMissing(true);
-      }
-      if (!silent) setError(msg || 'Erro');
-    } finally {
-      setWaLoading(false);
-    }
-  }, [getJwt]);
-
-  async function createWaInstance() {
-    if (!academyIdRef.current) return;
-    setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({})
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      const data = safeParseJson(raw) || {};
-      if (!resp.ok || data.sucesso === false) {
-        if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
-        const message = String(data.erro || '').trim() || normalizeApiError(raw, 'Erro ao conectar dispositivo');
-        addToast({ type: 'error', message });
-        setError(message);
-        return;
-      }
-      const instance_id = data?.instance_id || null;
-      const status = String(data?.status || '').trim() || 'unknown';
-      const qrcode = data?.qrcode ?? null;
-      setWaInfo({ instance_id, status, qrcode });
-      if (data.persist_failed) {
-        setWaPersistFailed(true);
-        addToast({
-          type: 'warning',
-          message: String(data.aviso || 'InstÃ¢ncia criada na Zapster, mas falhou salvar na base. Use Verificar e corrigir.')
-        });
-      } else {
-        setWaPersistFailed(false);
-        addToast({ type: 'success', message: 'InstÃ¢ncia criada' });
-      }
-      setWaTokenMissing(false);
-      setWaQrError(false);
-      setWaQrTick((v) => v + 1);
-    } catch (e) {
-      const msg = String(e?.message || '');
-      if (
-        msg.toLowerCase().includes('zapster_api_token') ||
-        msg.toLowerCase().includes('zapster_token_missing') ||
-        (msg.toLowerCase().includes('serviÃ§o de whatsapp') && msg.toLowerCase().includes('nÃ£o configurado'))
-      ) {
-        setWaTokenMissing(true);
-      }
-      setError(msg || 'Erro');
-    } finally {
-      setWaLoading(false);
-    }
-  }
-
-  async function recoverZapsterInstance() {
-    if (!academyIdRef.current) return;
-    setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances?action=recover', {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      const data = safeParseJson(raw) || {};
-      if (!resp.ok) {
-        if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao recuperar vÃ­nculo'));
-      }
-      if (data.recovered) {
-        addToast({ type: 'success', message: 'Dispositivo recuperado com sucesso!' });
-        setWaPersistFailed(false);
-        await fetchWaInfo({ silent: true });
-        return;
-      }
-      if (data.already_linked) {
-        setWaPersistFailed(false);
-        await fetchWaInfo({ silent: true });
-        addToast({ type: 'success', message: 'Dispositivo jÃ¡ estava vinculado.' });
-        return;
-      }
-      const errMsg = String(data.erro || '').trim();
-      if (errMsg) {
-        addToast({ type: 'error', message: errMsg });
-      } else {
-        addToast({ type: 'warning', message: 'Nenhuma instÃ¢ncia Ã³rfÃ£ encontrada para esta academia.' });
-      }
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao recuperar' });
-    } finally {
-      setWaLoading(false);
-    }
-  }
-
-  async function disconnectWaInstance() {
-    const id = String(waInfo?.instance_id || '').trim();
-    if (!id) return;
-    setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      const delData = safeParseJson(raw) || {};
-      if (!resp.ok) {
-        if (isZapsterTokenMissingPayload(delData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(delData.erro || '').trim() || 'Falha ao desconectar'));
-      }
-      addToast({ type: 'success', message: 'Dispositivo desconectado' });
-      setWaPersistFailed(false);
-      setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
-      setWaTokenMissing(false);
-      setWaQrError(false);
-      setWaQrTick(0);
-    } catch (e) {
-      const msg = String(e?.message || '');
-      if (
-        msg.toLowerCase().includes('zapster_api_token') ||
-        msg.toLowerCase().includes('zapster_token_missing') ||
-        (msg.toLowerCase().includes('serviÃ§o de whatsapp') && msg.toLowerCase().includes('nÃ£o configurado'))
-      ) {
-        setWaTokenMissing(true);
-      }
-      setError(msg || 'Erro');
-    } finally {
-      setWaLoading(false);
-    }
-  }
-
-  async function powerOnInstance() {
-    const id = String(waInfo?.instance_id || '').trim();
-    if (!id) return;
-    setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-on&id=${encodeURIComponent(id)}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      if (!(resp.ok || resp.status === 204)) {
-        const raw = await resp.text();
-        const errData = safeParseJson(raw) || {};
-        if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instÃ¢ncia'));
-      }
-      addToast({ type: 'success', message: 'InstÃ¢ncia ligada' });
-      await fetchWaInfo({ silent: true });
-    } catch (e) {
-      const msg = String(e?.message || '');
-      setError(msg || 'Erro');
-    } finally {
-      setWaLoading(false);
-    }
-  }
-
-  async function powerOffInstance() {
-    const id = String(waInfo?.instance_id || '').trim();
-    if (!id) return;
-    setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-off&id=${encodeURIComponent(id)}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      if (!(resp.ok || resp.status === 204)) {
-        const raw = await resp.text();
-        const errData = safeParseJson(raw) || {};
-        if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao desligar instÃ¢ncia'));
-      }
-      addToast({ type: 'success', message: 'InstÃ¢ncia desligada' });
-      await fetchWaInfo({ silent: true });
-    } catch (e) {
-      const msg = String(e?.message || '');
-      setError(msg || 'Erro');
-    } finally {
-      setWaLoading(false);
-    }
-  }
-
-  async function restartInstance() {
-    const id = String(waInfo?.instance_id || '').trim();
-    if (!id) return;
-    setError('');
-    setWaLoading(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=restart&id=${encodeURIComponent(id)}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      if (!(resp.ok || resp.status === 204)) {
-        const raw = await resp.text();
-        const errData = safeParseJson(raw) || {};
-        if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar instÃ¢ncia'));
-      }
-      addToast({ type: 'success', message: 'Reiniciando instÃ¢nciaâ€¦' });
-      setTimeout(() => {
-        fetchWaInfo({ silent: true });
-      }, 1200);
-    } catch (e) {
-      const msg = String(e?.message || '');
-      setError(msg || 'Erro');
-    } finally {
-      setWaLoading(false);
-    }
-  }
-
   async function reconcileLast24h() {
     if (!academyIdRef.current) return;
     setError('');
-    setWaSyncing(true);
-    try {
-      const jwt = await getJwt();
-      const resp = await fetch('/api/whatsapp?action=reconcile', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({})
-      });
-      const raw = await resp.text();
-      const data = safeParseJson(raw) || {};
-      if (!resp.ok) {
-        if (data?.code === 'messages_retention_exceeded' || resp.status === 402) {
-          addToast({ type: 'warning', message: 'Plano Zapster limita o histÃ³rico a 24h. As mensagens recentes foram importadas normalmente.' });
-          await loadList({ reset: true, silent: true });
-          const phone2 = String(selectedPhoneRef.current || '').trim();
-          if (phone2) await loadThread(phone2);
-          return;
-        }
-        throw new Error(normalizeApiError(raw, 'Falha ao atualizar'));
-      }
-      const updated = Number.isFinite(Number(data?.conversations_updated)) ? Number(data.conversations_updated) : 0;
-      const created = Number.isFinite(Number(data?.conversations_created)) ? Number(data.conversations_created) : 0;
-      const merged = Number.isFinite(Number(data?.messages_merged)) ? Number(data.messages_merged) : 0;
-      addToast({
-        type: 'success',
-        message: `Sincronizado â€¢ ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` â€¢ ${merged} msgs` : ''}`
-      });
+    await reconcileWhatsAppHistory(async () => {
       await loadList({ reset: true, silent: true });
       const phone = String(selectedPhoneRef.current || '').trim();
       if (phone) await loadThread(phone);
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao atualizar' });
-    } finally {
-      setWaSyncing(false);
-    }
+    });
   }
-
-  useEffect(() => {
-    if (!academyId) return;
-    fetchWaInfo({ silent: true });
-  }, [academyId]); // removed fetchWaInfo from dependencies
-
-  useEffect(() => {
-    if (!waOpen) return;
-    if (!waInfo || waInfo.status === 'connected') return;
-    const id = setInterval(() => {
-      fetchWaInfo({ silent: true });
-    }, 3000);
-    return () => clearInterval(id);
-  }, [waOpen, waInfo?.status]); // removed fetchWaInfo from dependencies
-
-  useEffect(() => {
-    if (!waOpen) return;
-    if (!waInfo?.instance_id) return;
-    if (waInfo?.status === 'connected') return;
-    if (waTokenMissing) return;
-    const id = setInterval(() => {
-      setWaQrTick((v) => v + 1);
-      setWaQrError(false);
-    }, 6000);
-    return () => clearInterval(id);
-  }, [waOpen, waInfo?.instance_id, waInfo?.status, waTokenMissing]);
 
   function playNotificationSound() {
     if (typeof window === 'undefined') return;
@@ -1142,7 +849,7 @@ export default function Inbox() {
       return;
     }
     if (typeof Notification === 'undefined') {
-      addToast({ type: 'warning', message: 'Este navegador nÃ£o suporta notificaÃ§Ãµes.' });
+      addToast({ type: 'warning', message: 'Este navegador não suporta notificações.' });
       return;
     }
     let perm = Notification.permission;
@@ -1150,7 +857,7 @@ export default function Inbox() {
       perm = await Notification.requestPermission();
     }
     if (perm !== 'granted') {
-      addToast({ type: 'warning', message: 'PermissÃ£o necessÃ¡ria para alertas do sistema.' });
+      addToast({ type: 'warning', message: 'Permissão necessária para alertas do sistema.' });
       return;
     }
     try {
@@ -1159,7 +866,7 @@ export default function Inbox() {
       void 0;
     }
     setDesktopNotify(true);
-    addToast({ type: 'success', message: 'VocÃª receberÃ¡ alertas quando chegar mensagem.' });
+    addToast({ type: 'success', message: 'Você receberá alertas quando chegar mensagem.' });
   }
 
   function setHighlightedPhone(phone) {
@@ -1224,7 +931,7 @@ export default function Inbox() {
       });
     } catch (e) {
       try {
-        addToast({ type: 'error', message: e?.message || 'NÃ£o foi possÃ­vel marcar como lida. Tente de novo.' });
+        addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como lida. Tente de novo.' });
       } catch {
         void 0;
       }
@@ -1274,6 +981,114 @@ export default function Inbox() {
     }
   }
 
+  async function unarchiveConversation(phone, { silent = false } = {}) {
+    const p = String(phone || '').trim();
+    if (!p || !academyIdRef.current) return false;
+    try {
+      const jwt = await getJwt();
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'unarchive' })
+      });
+      if (blocked) return false;
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao desarquivar'));
+      const curFilter = listFilterRef.current;
+      setSelected((prev) => {
+        if (!prev || String(prev.phone || '').trim() !== p) return prev;
+        return { ...prev, archived: false };
+      });
+      setItems((prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        if (curFilter === 'archived') return arr.filter((it) => String(it?.phone_number || '').trim() !== p);
+        return arr.map((it) => {
+          const ph = String(it?.phone_number || '').trim();
+          if (ph !== p) return it;
+          return { ...it, archived: false };
+        });
+      });
+      if (curFilter === 'archived' && String(selectedPhoneRef.current || '').trim() === p) {
+        setSelectedPhone('');
+        setSelected(null);
+      }
+      const fn = loadListRef.current;
+      if (typeof fn === 'function') void fn({ reset: true, silent: true });
+      if (!silent) addToast({ type: 'success', message: 'Conversa desarquivada' });
+      closeMenu();
+      return true;
+    } catch (e) {
+      try {
+        addToast({ type: 'error', message: e?.message || 'Não foi possível desarquivar.' });
+      } catch {
+        void 0;
+      }
+      return false;
+    }
+  }
+
+  async function archiveConversation(phone) {
+    const p = String(phone || '').trim();
+    if (!p || !academyIdRef.current) return;
+    try {
+      const jwt = await getJwt();
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'archive' })
+      });
+      if (blocked) return;
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao arquivar'));
+      const curFilter = listFilterRef.current;
+      setSelected((prev) => {
+        if (!prev || String(prev.phone || '').trim() !== p) return prev;
+        return { ...prev, archived: true };
+      });
+      setItems((prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        if (curFilter !== 'archived') return arr.filter((it) => String(it?.phone_number || '').trim() !== p);
+        return arr.map((it) => {
+          const ph = String(it?.phone_number || '').trim();
+          if (ph !== p) return it;
+          return { ...it, archived: true };
+        });
+      });
+      if (curFilter !== 'archived' && String(selectedPhoneRef.current || '').trim() === p) {
+        setSelectedPhone('');
+        setSelected(null);
+      }
+      const fn = loadListRef.current;
+      if (typeof fn === 'function') void fn({ reset: true, silent: true });
+      addToast({
+        type: 'info',
+        message: 'Conversa arquivada',
+        duration: 5000,
+        action: {
+          label: 'Desfazer',
+          onClick: () => {
+            void unarchiveConversation(p, { silent: true });
+          }
+        }
+      });
+      closeMenu();
+    } catch (e) {
+      try {
+        addToast({ type: 'error', message: e?.message || 'Não foi possível arquivar.' });
+      } catch {
+        void 0;
+      }
+    }
+  }
+
   function openPromptSettings() {
     navigate('/empresa?tab=agente');
   }
@@ -1305,6 +1120,7 @@ export default function Inbox() {
       const cursorToUse = reset ? '' : String(nextCursor || '').trim();
       if (cursorToUse) qs.set('cursor', cursorToUse);
       if (searchQuery) qs.set('search', searchQuery);
+      qs.set('archived', listFilterRef.current === 'archived' ? '1' : '0');
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -1426,7 +1242,7 @@ export default function Inbox() {
       const contentType = resp.headers.get('content-type') || '';
       const raw = await resp.text();
       if (!contentType.includes('application/json')) {
-        console.error('[loadThread] resposta nÃ£o Ã© JSON', {
+        console.error('[loadThread] resposta não é JSON', {
           phone: p,
           status: resp.status,
           contentType,
@@ -1462,7 +1278,8 @@ export default function Inbox() {
           need_human: Boolean(data?.need_human),
           human_handoff_until: handoffUntil || null,
           ticket_status: String(ticketStatus || 'open'),
-          transfer_to: transferTo || null
+          transfer_to: transferTo || null,
+          archived: Boolean(data?.archived)
         };
         if (!append || !prev || prev.phone !== p) {
           return { ...base, messages: incoming };
@@ -1483,7 +1300,7 @@ export default function Inbox() {
       try {
         const last = incoming.length > 0 ? incoming[incoming.length - 1] : null;
         const textRaw = String(last?.content || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-        const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}â€¦` : textRaw;
+        const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}…` : textRaw;
         if (preview) {
           setItems((prev) => {
             const arr = Array.isArray(prev) ? prev : [];
@@ -1738,10 +1555,10 @@ export default function Inbox() {
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao melhorar texto'));
       const data = safeParseJson(raw) || {};
       const improved = typeof data?.improved === 'string' ? data.improved.trim() : '';
-      if (!improved) throw new Error('Resposta invÃ¡lida do servidor');
+      if (!improved) throw new Error('Resposta inválida do servidor');
       setDraftBeforeImprove(current);
       setDraft(improved);
-      addToast({ type: 'success', message: 'Texto atualizado â€” revise antes de enviar' });
+      addToast({ type: 'success', message: 'Texto atualizado — revise antes de enviar' });
       try {
         setTimeout(() => textareaRef.current?.focus?.(), 0);
       } catch {
@@ -1875,8 +1692,8 @@ export default function Inbox() {
       const leadId = String(data?.id || '').trim();
       if (!leadId) throw new Error('ID do lead ausente');
       await linkLeadToConversation({ leadId });
-      addToast({ type: 'success', message: data?.ja_existe ? 'Lead jÃ¡ existente' : 'Lead criado' });
-      window.location.href = `/lead/${encodeURIComponent(leadId)}`;
+      addToast({ type: 'success', message: data?.ja_existe ? 'Lead já existente' : 'Lead criado' });
+      navigate(`/lead/${encodeURIComponent(leadId)}`);
     } catch (e) {
       setError(e?.message || 'Erro');
     } finally {
@@ -1934,8 +1751,71 @@ export default function Inbox() {
     }
   };
 
+  function applySlashTemplate(tpl) {
+    if (!tpl || typeof tpl.text !== 'string') return;
+    const lid = String(selected?.lead_id || '').trim();
+    const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+    const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
+    const out = applyWhatsappTemplatePlaceholders(tpl.text, {
+      lead: leadForTpl,
+      academyName: academyNameForTemplates
+    });
+    setDraft(out);
+    setSlashOpen(false);
+    setSlashQuery('');
+    setTimeout(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      const end = ta.value.length;
+      ta.setSelectionRange(end, end);
+    }, 0);
+  }
+
+  function handleDraftChange(e) {
+    const value = e.target.value;
+    setDraft(value);
+    if (!String(selectedPhone || '').trim()) {
+      setSlashOpen(false);
+      setSlashQuery('');
+      return;
+    }
+    const parts = String(value || '')
+      .split(/\s+/)
+      .filter((p) => p.length > 0);
+    const lastSeg = parts.length ? parts[parts.length - 1] : '';
+    if (lastSeg.startsWith('/')) {
+      setSlashQuery(lastSeg.slice(1));
+      setSlashOpen(true);
+    } else {
+      setSlashOpen(false);
+      setSlashQuery('');
+    }
+  }
+
   const emojis = useMemo(
-    () => ['ðŸ˜€', 'ðŸ˜‚', 'ðŸ˜', 'ðŸ¥°', 'ðŸ™', 'ðŸ‘', 'ðŸ‘', 'ðŸŽ‰', 'ðŸ”¥', 'âœ…', 'âŒ', 'ðŸ¤', 'ðŸ˜¢', 'ðŸ¤”', 'â­', 'ðŸ’ª', 'ðŸ¥‹', 'ðŸ“', 'ðŸ“ž', 'â°'],
+    () => [
+      '\u{1F600}',
+      '\u{1F602}',
+      '\u{1F60D}',
+      '\u{1F970}',
+      '\u{1F64F}',
+      '\u{1F44D}',
+      '\u{1F44F}',
+      '\u{1F389}',
+      '\u{1F525}',
+      '\u{2705}',
+      '\u{274C}',
+      '\u{1F91D}',
+      '\u{1F622}',
+      '\u{1F914}',
+      '\u{2B50}',
+      '\u{1F4AA}',
+      '\u{1F94B}',
+      '\u{1F4CD}',
+      '\u{1F4DE}',
+      '\u{23F0}',
+    ],
     []
   );
 
@@ -1956,6 +1836,18 @@ export default function Inbox() {
   useEffect(() => {
     loadList({ reset: true });
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    if (prevListFilterForReloadRef.current === null) {
+      prevListFilterForReloadRef.current = listFilter;
+      return;
+    }
+    if (prevListFilterForReloadRef.current === listFilter) return;
+    prevListFilterForReloadRef.current = listFilter;
+    const fn = loadListRef.current;
+    if (typeof fn === 'function') void fn({ reset: true, silent: true });
+  }, [listFilter, academyId]);
 
   useEffect(() => {
     const cur = String(academyId || '').trim();
@@ -2045,6 +1937,7 @@ export default function Inbox() {
         _unreadCount: unreadCount,
         _ticketStatus: ticketStatus,
         _transferTo: transferTo,
+        _archived: Boolean(it?.archived),
         _isHighlighted: Boolean(highlighted && typeof highlighted === 'object' && highlighted[phone] && Number(highlighted[phone]) > Date.now())
       };
     });
@@ -2052,8 +1945,8 @@ export default function Inbox() {
 
   const prioritizedItems = useMemo(() => {
     const arr = Array.isArray(enrichedItems) ? enrichedItems : [];
-    // Modelo hÃ­brido: NÃ£o lidas / Em atendimento / Resolvidas vÃªm de groupedFilteredItems; dentro de cada grupo
-    // a ordem Ã© sÃ³ por data (mais recente no topo). O score abaixo era usado para priorizar inbox inteiro â€” desativado.
+    // Modelo híbrido: Não lidas / Em atendimento / Resolvidas vêm de groupedFilteredItems; dentro de cada grupo
+    // a ordem é só por data (mais recente no topo). O score abaixo era usado para priorizar inbox inteiro — desativado.
     // const score = (it) => {
     //   let points = 0;
     //   const unread = Number(it?._unreadCount || 0);
@@ -2089,7 +1982,8 @@ export default function Inbox() {
       return Number.isFinite(n) ? n : 0;
     };
     let result = arr;
-    if (f === 'unread') result = arr.filter((it) => unreadN(it) > 0);
+    if (f === 'archived') result = arr.filter((it) => Boolean(it?.archived));
+    else if (f === 'unread') result = arr.filter((it) => unreadN(it) > 0);
     else if (f === 'hot') result = arr.filter((it) => Boolean(it?._hotLead));
     else if (f === 'need_human') result = arr.filter((it) => Boolean(it?._handoffActive));
     else if (f === 'waiting_customer') result = arr.filter((it) => normTicket(it) === 'waiting_customer');
@@ -2129,7 +2023,7 @@ export default function Inbox() {
     });
     const openMerged = orphan.length ? [...open, ...orphan] : open;
     return [
-      { key: 'unread', label: 'NÃ£o lidas', items: unread },
+      { key: 'unread', label: 'Não lidas', items: unread },
       { key: 'open', label: 'Em atendimento', items: openMerged },
       { key: 'resolved', label: 'Resolvidas', items: resolved }
     ];
@@ -2155,10 +2049,11 @@ export default function Inbox() {
         human_handoff_until: isSamePhone ? prev.human_handoff_until : null,
         ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),
         transfer_to: String(it?._transferTo || it?.transfer_to || '').trim() || null,
+        archived: Boolean(it?._archived ?? it?.archived),
         messages: isSamePhone && Array.isArray(prev?.messages) ? prev.messages : []
       };
     });
-    setSelectedPhone(phone); // Atualizar o phone por Ãºltimo, ou isoladamente, apÃ³s as mudanÃ§as de ref/state
+    setSelectedPhone(phone); // Atualizar o phone por último, ou isoladamente, após as mudanças de ref/state
 
     const unreadCount = Number(it?._unreadCount ?? it?.unread_count ?? 0);
     if (unreadCount > 0) {
@@ -2172,7 +2067,7 @@ export default function Inbox() {
     if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'var(--warning-light)', fg: '#b45309', tone: 'warning' };
     if (s === 'transferred')
       return {
-        label: transferTo ? `Transferido â€¢ ${transferTo}` : 'Transferido',
+        label: transferTo ? `Transferido • ${transferTo}` : 'Transferido',
         bg: 'var(--inbox-info-badge-bg)',
         fg: 'var(--inbox-info-badge-fg)',
         tone: 'info'
@@ -2339,7 +2234,7 @@ export default function Inbox() {
       const k = messageKey(m);
       if (!pinned[k]) continue;
       const content = String(m?.content || '').trim();
-      list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}â€¦` : content });
+      list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}…` : content });
     }
     return list;
   }, [selected?.messages, selectedPhoneFlags]);
@@ -2393,7 +2288,7 @@ export default function Inbox() {
                 lineHeight: '22px',
                 textAlign: 'center'
               }}
-              title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens nÃ£o lidas`}
+              title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens não lidas`}
             >
               {Number(stats.unreadBacklog) > 99 ? '99+' : Number(stats.unreadBacklog)}
             </span>
@@ -2420,7 +2315,7 @@ export default function Inbox() {
           style={{ padding: '6px 10px', minHeight: 34 }}
           onClick={() => setListFilter('unread')}
         >
-          NÃ£o lidas
+          Não lidas
         </button>
         <button
           type="button"
@@ -2437,6 +2332,14 @@ export default function Inbox() {
           onClick={() => setListFilter('resolved')}
         >
           Resolvidos
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'archived' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('archived')}
+        >
+          Arquivadas
         </button>
         <button
           type="button"
@@ -2552,7 +2455,7 @@ export default function Inbox() {
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
                 const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
-                return name || phone || 'â€”';
+                return name || phone || '—';
               })()}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
@@ -2605,11 +2508,11 @@ export default function Inbox() {
                         style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
                         title={
                           untilLabel
-                            ? `Atendimento humano por ${handoffDurationPhrase} (atÃ© ${untilLabel})`
+                            ? `Atendimento humano por ${handoffDurationPhrase} (até ${untilLabel})`
                             : `Atendimento humano ativo (${handoffDurationPhrase})`
                         }
                       >
-                        {untilLabel ? `Humano atÃ© ${untilLabel}` : 'Atendimento humano'}
+                        {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
                       </span>
                       {rem && (
                         <span className="text-small handoff-timer" style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '2px 8px', borderRadius: 999 }}>
@@ -2621,7 +2524,7 @@ export default function Inbox() {
                 }
                 if (aiSuggestHuman) {
                   return (
-                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="IA sugere intervenÃ§Ã£o humana">
+                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="IA sugere intervenção humana">
                       IA sugere humano
                     </span>
                   );
@@ -2646,6 +2549,17 @@ export default function Inbox() {
               Resolver
             </button>
           )}
+          {listFilter === 'archived' && selectedPhone ? (
+            <button
+              className="btn btn-outline"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => void unarchiveConversation(selectedPhone)}
+              disabled={!selectedPhone}
+              type="button"
+            >
+              Desarquivar
+            </button>
+          ) : null}
           {!selected?.need_human ? (
             <button
               className="btn btn-primary"
@@ -2683,7 +2597,7 @@ export default function Inbox() {
             aria-haspopup="menu"
             aria-expanded={menu?.kind === 'thread'}
           >
-            â‹¯
+            {'\u22EF'}
           </button>
         </div>
       </div>
@@ -2699,7 +2613,7 @@ export default function Inbox() {
             </div>
             <div style={{ padding: 12, display: 'grid', gap: 10 }}>
               <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                Use para marcar para qual Ã¡rea essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
+                Use para marcar para qual área essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
               </div>
               <div>
                 <div className="ctx-label" style={{ marginBottom: 6 }}>Destino (opcional)</div>
@@ -2742,7 +2656,7 @@ export default function Inbox() {
                 disabled={threadPaging || !threadCursor}
                 type="button"
               >
-                {threadPaging ? 'Carregandoâ€¦' : 'Carregar mensagens anteriores'}
+                {threadPaging ? 'Carregando…' : 'Carregar mensagens anteriores'}
               </button>
             </div>
           )}
@@ -2784,7 +2698,7 @@ export default function Inbox() {
                   {g.items.map(({ key, m }, idx) => {
                     const contentRaw = String(m?.content || '');
                     const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
-                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}â€¦` : contentRaw;
+                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
                     const statusLower = String(m?.status || '').trim().toLowerCase();
                     const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
                     const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
@@ -2808,7 +2722,7 @@ export default function Inbox() {
                       >
                         {idx === 0 && g.mine && (
                           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, color: senderKind === 'ai' ? 'var(--accent)' : 'var(--text-secondary)', letterSpacing: '0.02em' }}>
-                            {senderKind === 'ai' ? 'Agente IA' : 'VocÃª'}
+                            {senderKind === 'ai' ? 'Agente IA' : 'Você'}
                           </div>
                         )}
                         {m?.type === 'image' && m?.mediaUrl ? (
@@ -2841,7 +2755,7 @@ export default function Inbox() {
                                 padding: '8px 0'
                               }}
                             >
-                              Imagem indisponÃ­vel (link expirado ou bloqueado)
+                              Imagem indisponível (link expirado ou bloqueado)
                             </div>
                             {String(content || '').trim() && String(content || '').trim() !== '[imagem]' ? (
                               <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)', marginTop: 8 }}>
@@ -2871,8 +2785,8 @@ export default function Inbox() {
                         <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
                           <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                             {formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}
-                            {pinned ? ' â€¢ Fixada' : ''}
-                            {important ? ' â€¢ Importante' : ''}
+                            {pinned ? ' • Fixada' : ''}
+                            {important ? ' • Importante' : ''}
                           </span>
                           <div className="inbox-msg-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <button
@@ -2883,7 +2797,7 @@ export default function Inbox() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 const base = contentRaw.replace(/\s+/g, ' ').trim();
-                                const snippet = base.length > 120 ? `${base.slice(0, 120)}â€¦` : base;
+                                const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
                                 if (snippet) {
                                   setDraft((prev) => {
                                     const p = String(prev || '');
@@ -2924,7 +2838,7 @@ export default function Inbox() {
                               aria-haspopup="menu"
                               aria-expanded={menu?.kind === 'message' && menu?.payload?.key === key}
                             >
-                              â‹¯
+                              {'\u22EF'}
                             </button>
                           </div>
                         </div>
@@ -2945,7 +2859,7 @@ export default function Inbox() {
                             )}
                             {isCanceled && (
                               <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Cancelada: {canceledAt ? formatWhen(canceledAt) : 'â€”'}
+                                Cancelada: {canceledAt ? formatWhen(canceledAt) : '—'}
                               </span>
                             )}
                             {canCancel && (
@@ -2960,7 +2874,7 @@ export default function Inbox() {
                                 }}
                                 disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
                               >
-                                {cancelingMsgId === mid ? 'Cancelandoâ€¦' : 'Cancelar agendamento'}
+                                {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar agendamento'}
                               </button>
                             )}
                           </div>
@@ -2978,7 +2892,7 @@ export default function Inbox() {
               <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>ðŸ’¬</div>
               <div style={{ fontWeight: 700, color: 'var(--text)' }}>Nenhuma mensagem carregada</div>
               <div className="text-small" style={{ marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>
-                Se jÃ¡ hÃ¡ mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histÃ³rico das Ãºltimas 24h.
+                Se já há mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histórico das últimas 24h.
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
                 <button
@@ -2988,14 +2902,14 @@ export default function Inbox() {
                   disabled={waSyncing}
                   onClick={reconcileLast24h}
                 >
-                  {waSyncing ? 'Sincronizandoâ€¦' : 'â†» Sincronizar com WhatsApp'}
+                  {waSyncing ? 'Sincronizando…' : '↻ Sincronizar com WhatsApp'}
                 </button>
                 <button
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', minHeight: 34 }}
                   type="button"
                   onClick={() => {
-                    setDraft((prev) => String(prev || '').trim() ? prev : 'OlÃ¡! Como posso te ajudar hoje?');
+                    setDraft((prev) => String(prev || '').trim() ? prev : 'Olá! Como posso te ajudar hoje?');
                     try {
                       textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
                     } catch {
@@ -3019,7 +2933,7 @@ export default function Inbox() {
               onClick={() => scrollThreadToBottom({ clearNew: true })}
               title="Ir para o mais recente"
             >
-              {newMsgCount} novas â€¢ Ir para o mais recente
+              {newMsgCount} novas • Ir para o mais recente
             </button>
           </div>
         )}
@@ -3037,7 +2951,7 @@ export default function Inbox() {
                   type="button"
                   title="Mensagens prontas"
                 >
-                  âš¡
+                  {'\u26A1'}
                 </button>
                 {templatesOpen && (
                   <div
@@ -3085,7 +2999,7 @@ export default function Inbox() {
                       >
                         <span style={{ display: 'block', fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{tpl.label}</span>
                         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}â€¦` : tpl.text}
+                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
                         </span>
                       </button>
                     );})}
@@ -3147,40 +3061,109 @@ export default function Inbox() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-                const k = String(e.key || '').toLowerCase();
-                if (k === 'b') {
-                  e.preventDefault();
-                  applyWrapToDraft('*');
-                  return;
+          <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+            {slashOpen && selectedPhone && (
+              <div ref={slashPopupRef} className="inbox-slash-templates" role="listbox" aria-label="Templates rápidos">
+                {slashFilteredTemplates.length === 0 ? (
+                  <div className="text-small" style={{ color: 'var(--text-secondary)', padding: '10px 12px' }}>
+                    Nenhum template encontrado
+                  </div>
+                ) : (
+                  slashFilteredTemplates.map((tpl, idx) => {
+                    const rawPrev = String(tpl.text || '').replace(/\s+/g, ' ').trim();
+                    const preview = rawPrev.length > 60 ? `${rawPrev.slice(0, 60)}…` : rawPrev;
+                    return (
+                      <button
+                        key={tpl.key}
+                        type="button"
+                        role="option"
+                        aria-selected={idx === slashIndex}
+                        ref={idx === slashIndex ? slashActiveItemRef : undefined}
+                        className={`inbox-slash-templates-row${idx === slashIndex ? ' active' : ''}`}
+                        onMouseDown={(ev) => {
+                          ev.preventDefault();
+                          applySlashTemplate(tpl);
+                        }}
+                      >
+                        <span style={{ display: 'block', fontWeight: 700, fontSize: 13 }}>{tpl.label}</span>
+                        <span className="text-small" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 2 }}>
+                          {preview}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={handleDraftChange}
+              onKeyDown={(e) => {
+                if (slashOpen) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSlashIndex((i) => {
+                      const n = slashFilteredTemplates.length;
+                      if (n <= 0) return 0;
+                      return Math.min(i + 1, n - 1);
+                    });
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSlashIndex((i) => Math.max(0, i - 1));
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setSlashOpen(false);
+                    setSlashQuery('');
+                    return;
+                  }
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (slashFilteredTemplates.length > 0) {
+                      const n = slashFilteredTemplates.length;
+                      const idx = Math.min(Math.max(0, slashIndex), n - 1);
+                      applySlashTemplate(slashFilteredTemplates[idx]);
+                    } else {
+                      setSlashOpen(false);
+                      setSlashQuery('');
+                    }
+                    return;
+                  }
                 }
-                if (k === 'i') {
-                  e.preventDefault();
-                  applyWrapToDraft('_');
-                  return;
+                if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                  const k = String(e.key || '').toLowerCase();
+                  if (k === 'b') {
+                    e.preventDefault();
+                    applyWrapToDraft('*');
+                    return;
+                  }
+                  if (k === 'i') {
+                    e.preventDefault();
+                    applyWrapToDraft('_');
+                    return;
+                  }
+                  if (k === 'enter') {
+                    e.preventDefault();
+                    sendManual();
+                    return;
+                  }
                 }
-                if (k === 'enter') {
+                if (e.key === 'Escape') setEmojiOpen(false);
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   sendManual();
-                  return;
                 }
-              }
-              if (e.key === 'Escape') setEmojiOpen(false);
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendManual();
-              }
-            }}
-            placeholder={selected?.need_human ? 'Responder manualmenteâ€¦' : 'Agente IA ativo â€” responda para assumir o atendimento'}
-            className="form-input"
-            rows={3}
-            style={{ flex: 1, resize: 'vertical', minHeight: 88 }}
-          />
+              }}
+              placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
+              className="form-input"
+              rows={3}
+              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 88 }}
+            />
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button
@@ -3220,7 +3203,7 @@ export default function Inbox() {
                   String(draft || '').trim().length <= 3
                 }
                 type="button"
-                title={improvingDraft ? 'Melhorandoâ€¦' : 'Melhorar texto com IA (usa o contexto da conversa)'}
+                title={improvingDraft ? 'Melhorando…' : 'Melhorar texto com IA (usa o contexto da conversa)'}
                 aria-label={improvingDraft ? 'Melhorando texto com IA' : 'Melhorar texto com IA'}
                 aria-busy={improvingDraft}
               >
@@ -3247,11 +3230,11 @@ export default function Inbox() {
                   type="button"
                   title="Voltar ao texto antes da melhoria"
                 >
-                  â†© Desfazer
+                  {'\u21A9'} Desfazer
                 </button>
               )}
               <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
-                {sending ? 'Enviandoâ€¦' : 'Enviar'}
+                {sending ? 'Enviando…' : 'Enviar'}
               </button>
             </div>
           </div>
@@ -3288,7 +3271,7 @@ export default function Inbox() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
             <span className="ctx-label" style={{ marginBottom: 0 }}>Telefone</span>
             <span className="navi-ui-count" style={{ textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
-              {selectedPhone || 'â€”'}
+              {selectedPhone || '—'}
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
@@ -3345,6 +3328,8 @@ export default function Inbox() {
         </div>
       </div>
 
+      <ConversationNotesPanel academyId={academyId} conversationId={conversationIdForFlags} addToast={addToast} />
+
       {(() => {
         const phone = String(selectedPhone || '').trim();
         const leadId = String(selected?.lead_id || '').trim();
@@ -3361,7 +3346,7 @@ export default function Inbox() {
               Contato / Lead
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || 'â€”'}</div>
+              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
               {!!phone && (
                 <div className="navi-subtitle" style={{ marginTop: 0 }}>
                   {phone}
@@ -3402,7 +3387,12 @@ export default function Inbox() {
                 )}
                 {!!selected?.lead_id && (
                   <>
-                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => (window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`)} type="button">
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 10px', minHeight: 34 }}
+                      onClick={() => navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`)}
+                      type="button"
+                    >
                       Ver lead
                     </button>
                     <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => navigate('/pipeline')} type="button">
@@ -3411,7 +3401,12 @@ export default function Inbox() {
                   </>
                 )}
                 {!!lead?.id && (
-                  <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => (window.location.href = `/lead/${encodeURIComponent(String(lead.id))}`)} type="button">
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '6px 10px', minHeight: 34 }}
+                    onClick={() => navigate(`/lead/${encodeURIComponent(String(lead.id))}`)}
+                    type="button"
+                  >
                     Perfil completo
                   </button>
                 )}
@@ -3431,7 +3426,7 @@ export default function Inbox() {
               <div className="ctx-label" style={{ marginBottom: 6 }}>
                 Nome
               </div>
-              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: JoÃ£o Silva" />
+              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
             </div>
             <div>
               <div className="ctx-label" style={{ marginBottom: 6 }}>
@@ -3439,7 +3434,7 @@ export default function Inbox() {
               </div>
               <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
                 <option value="Adulto">Adulto</option>
-                <option value="CrianÃ§a">CrianÃ§a</option>
+                <option value="Criança">Criança</option>
                 <option value="Juniores">Juniores</option>
               </select>
             </div>
@@ -3448,7 +3443,7 @@ export default function Inbox() {
                 Fechar
               </button>
               <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={convertToLead} disabled={linkingLead} type="button">
-                {linkingLead ? 'Convertendoâ€¦' : 'Converter'}
+                {linkingLead ? 'Convertendo…' : 'Converter'}
               </button>
             </div>
           </div>
@@ -3466,7 +3461,7 @@ export default function Inbox() {
               Atualizar
             </button>
           </div>
-          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leadsâ€¦</div>}
+          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
           {!leadsLoading && leadCandidates.length === 0 && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhum lead encontrado.</div>}
           {!leadsLoading && leadCandidates.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -3530,7 +3525,7 @@ export default function Inbox() {
                   if (isMobile) setDetailsOpen(false);
                 }}
               >
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || 'â€”'}</span>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || '—'}</span>
                 <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                   Ver
                 </span>
@@ -3610,6 +3605,19 @@ export default function Inbox() {
         @keyframes inboxSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
         @keyframes inbox-improve-spin { to { transform: rotate(360deg); } }
         .inbox-improve-spin { animation: inbox-improve-spin 0.75s linear infinite; }
+        @keyframes inbox-slash-pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .inbox-slash-templates {
+          position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 8px; z-index: 55;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow);
+          max-height: 288px; overflow-y: auto; padding: 4px;
+          animation: inbox-slash-pop 120ms ease-out;
+        }
+        .inbox-slash-templates-row {
+          width: 100%; text-align: left; padding: 8px 10px; border: none; border-radius: 6px;
+          background: transparent; cursor: pointer; font: inherit; color: var(--text);
+          display: block; box-sizing: border-box;
+        }
+        .inbox-slash-templates-row:hover, .inbox-slash-templates-row.active { background: rgba(91, 63, 191, 0.08); }
         .agent-header { margin-bottom: 24px; }
         .agent-subtitle { color: var(--text-muted); font-size: 14px; margin: 0; line-height: 1.45; }
         .agent-toggle-block {
@@ -3736,18 +3744,6 @@ export default function Inbox() {
         .wizard-agente-radios--col { flex-direction: column; align-items: flex-start; }
         .wizard-agente-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
         .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
-        .device-config-error {
-          display: flex;
-          gap: 12px;
-          align-items: flex-start;
-          padding: 12px 14px;
-          border-bottom: 1px solid var(--border);
-          background: var(--danger-light);
-          color: var(--text);
-        }
-        .device-config-error > span { font-size: 1.25rem; line-height: 1.2; flex-shrink: 0; }
-        .device-config-error strong { display: block; font-size: 14px; margin-bottom: 4px; color: var(--danger); }
-        .device-config-error p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
       ` }} />
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
@@ -3755,14 +3751,14 @@ export default function Inbox() {
           <h2 className="navi-page-title" style={{ margin: 0 }}>Atendimento</h2>
           <div className="navi-eyebrow" style={{ marginTop: 6 }}>
             {loading ? (
-              'Carregandoâ€¦'
+              'Carregando…'
             ) : (
               <>
                 <span className="navi-ui-count">{items.length}</span> conversas
                 {lastUpdatedAt ? (
                   <>
                     {' '}
-                    â€¢ atualizado <span className="navi-ui-date">{formatWhen(lastUpdatedAt)}</span>
+                    • atualizado <span className="navi-ui-date">{formatWhen(lastUpdatedAt)}</span>
                   </>
                 ) : null}
               </>
@@ -3770,8 +3766,8 @@ export default function Inbox() {
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Number(stats?.unreadBacklog || 0) > 0 && (
-              <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens nÃ£o lidas">
-                NÃ£o lidas: {Number(stats.unreadBacklog)}
+              <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
+                Não lidas: {Number(stats.unreadBacklog)}
               </span>
             )}
             {Number(stats?.resolvedCount || 0) > 0 && (
@@ -3795,12 +3791,11 @@ export default function Inbox() {
             )}
           </div>
         </div>
-        {inboxTab === 'conversas' ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por telefone ou nomeâ€¦"
+              placeholder="Buscar por telefone ou nome…"
               className="form-input"
               style={{ flex: '1 1 320px', minWidth: 260, maxWidth: 520 }}
             />
@@ -3810,11 +3805,11 @@ export default function Inbox() {
             <button
               className={autoRefresh ? 'btn btn-secondary' : 'btn btn-outline'}
               onClick={() => setAutoRefresh((v) => !v)}
-              title={autoRefresh ? 'AtualizaÃ§Ã£o automÃ¡tica ativa (a cada 10s) â€” clique para pausar' : 'Ativar atualizaÃ§Ã£o automÃ¡tica a cada 10s'}
+              title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
               style={{ display: 'flex', alignItems: 'center', gap: 5 }}
               type="button"
             >
-              <span style={{ fontSize: 14 }}>â†»</span>
+              <span style={{ fontSize: 14 }}>↻</span>
               {autoRefresh ? 'Ao vivo' : 'Pausado'}
             </button>
             <button
@@ -3822,8 +3817,8 @@ export default function Inbox() {
               onClick={() => void toggleDesktopNotifyPreference()}
               title={
                 desktopNotify
-                  ? 'Alertas do sistema ativos (notificaÃ§Ã£o do Windows/macOS)'
-                  : 'Ativar notificaÃ§Ã£o do sistema ao receber mensagem (alÃ©m do aviso no app)'
+                  ? 'Alertas do sistema ativos (notificação do Windows/macOS)'
+                  : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
               }
               style={{ display: 'flex', alignItems: 'center', gap: 5 }}
               type="button"
@@ -3832,18 +3827,8 @@ export default function Inbox() {
               Alertas
             </button>
           </div>
-        ) : (
-          <div />
-        )}
       </div>
 
-      {inboxTab !== 'conversas' && (
-        <div style={{ marginBottom: 12 }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/inbox')}>
-            â† Voltar Ã s conversas
-          </button>
-        </div>
-      )}
 
       {menu && (
         <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
@@ -3868,7 +3853,7 @@ export default function Inbox() {
                     type="button"
                     onClick={() => {
                       const base = contentRaw.replace(/\s+/g, ' ').trim();
-                      const snippet = base.length > 120 ? `${base.slice(0, 120)}â€¦` : base;
+                      const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
                       if (snippet) {
                         setDraft((prev) => {
                           const p = String(prev || '');
@@ -3906,14 +3891,25 @@ export default function Inbox() {
                     className="inbox-menu-item"
                     type="button"
                     onClick={() => {
-                      copyToClipboard(contentRaw);
-                      addToast({ type: 'info', message: 'Copiado para encaminhar' });
+                      const block = buildQuotedForwardBlock(contentRaw);
+                      setDraft((prev) => {
+                        const p = String(prev || '');
+                        const prefix = p.trim() ? `${p}\n\n` : '';
+                        return `${prefix}${block}`;
+                      });
                       closeMenu();
+                      setTimeout(() => {
+                        const ta = textareaRef.current;
+                        if (!ta) return;
+                        ta.focus();
+                        const end = ta.value.length;
+                        ta.setSelectionRange(end, end);
+                      }, 0);
                     }}
                   >
                     Encaminhar
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Copia texto
+                      Cita no rascunho
                     </span>
                   </button>
                   <button
@@ -3956,20 +3952,26 @@ export default function Inbox() {
                       Seleciona
                     </span>
                   </button>
-                  <button
-                    className={`inbox-menu-item ${canCancel ? 'danger' : 'muted'}`}
-                    type="button"
-                    disabled={!canCancel || !mid}
-                    onClick={() => {
-                      if (canCancel && mid) cancelScheduledMessage(mid);
-                      closeMenu();
-                    }}
+                  <span
+                    style={{ display: 'block' }}
+                    title={!canCancel || !mid ? 'Só é possível excluir mensagens agendadas' : undefined}
                   >
-                    Excluir
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      {canCancel ? 'Cancela agendamento' : 'â€”'}
-                    </span>
-                  </button>
+                    <button
+                      className={`inbox-menu-item ${canCancel ? 'danger' : 'muted'}`}
+                      type="button"
+                      disabled={!canCancel || !mid}
+                      onClick={() => {
+                        if (canCancel && mid) cancelScheduledMessage(mid);
+                        closeMenu();
+                      }}
+                      style={{ width: '100%' }}
+                    >
+                      Excluir
+                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                        {canCancel ? 'Cancela agendamento' : '—'}
+                      </span>
+                    </button>
+                  </span>
                 </>
               );
             })()}
@@ -3980,6 +3982,7 @@ export default function Inbox() {
               const hasLead = Boolean(String(selected?.lead_id || '').trim());
               const listArr = Array.isArray(items) ? items : [];
               const listRow = listArr.find((row) => String(row?.phone_number || '').trim() === phone);
+              const isConvArchived = Boolean(listRow?.archived || selected?.archived);
               const threadUnread = Number.isFinite(Number(listRow?.unread_count))
                 ? Number(listRow.unread_count)
                 : 0;
@@ -4028,6 +4031,36 @@ export default function Inbox() {
                       Ticket
                     </span>
                   </button>
+                  {listFilter !== 'archived' && !isConvArchived && (
+                    <button
+                      className="inbox-menu-item"
+                      type="button"
+                      onClick={() => {
+                        void archiveConversation(phone);
+                      }}
+                      disabled={!phone}
+                    >
+                      Arquivar
+                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                        Inbox
+                      </span>
+                    </button>
+                  )}
+                  {(listFilter === 'archived' || isConvArchived) && (
+                    <button
+                      className="inbox-menu-item"
+                      type="button"
+                      onClick={() => {
+                        void unarchiveConversation(phone);
+                      }}
+                      disabled={!phone}
+                    >
+                      Desarquivar
+                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                        Inbox
+                      </span>
+                    </button>
+                  )}
                   <button
                     className="inbox-menu-item"
                     type="button"
@@ -4110,15 +4143,15 @@ export default function Inbox() {
                   )}
                   {hasLead && (
                     <>
-                      <button
-                        className="inbox-menu-item"
-                        type="button"
-                        onClick={() => {
-                          window.location.href = `/lead/${encodeURIComponent(String(selected.lead_id))}`;
-                          closeMenu();
-                        }}
-                      >
-                        Ver lead
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`);
+                      closeMenu();
+                    }}
+                  >
+                    Ver lead
                         <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                           Perfil
                         </span>
@@ -4226,156 +4259,6 @@ export default function Inbox() {
         );
       })()}
 
-      {inboxTab === 'dispositivo' && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
-            <div
-              style={{
-                padding: 10,
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Dispositivo WhatsApp</div>
-                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                  {waInfo?.status === 'connected' ? 'Conectado' : waInfo?.status || 'â€”'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => fetchWaInfo()} disabled={waLoading} type="button">
-                  Verificar status
-                </button>
-                {role === 'owner' && waPersistFailed && (
-                  <button
-                    className="btn btn-primary"
-                    style={{ padding: '6px 10px' }}
-                    onClick={() => void recoverZapsterInstance()}
-                    disabled={waLoading || waTokenMissing}
-                    type="button"
-                    title="Tenta salvar na base o ID de uma instÃ¢ncia jÃ¡ criada na Zapster"
-                  >
-                    Verificar e corrigir
-                  </button>
-                )}
-                {role === 'owner' && (
-                  <button
-                    className="btn btn-outline"
-                    style={{ padding: '6px 10px' }}
-                    onClick={reconcileLast24h}
-                    disabled={waLoading || waSyncing || waTokenMissing}
-                    type="button"
-                    title="Sincroniza mensagens das Ãºltimas 24 horas"
-                  >
-                    {waSyncing ? 'Atualizandoâ€¦' : 'Atualizar'}
-                  </button>
-                )}
-                {role === 'owner' && !waInfo?.instance_id && (
-                  <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={createWaInstance} disabled={waLoading || waTokenMissing} type="button">
-                    Conectar dispositivo
-                  </button>
-                )}
-                {role === 'owner' && !!waInfo?.instance_id && (
-                  <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={disconnectWaInstance} disabled={waLoading || waTokenMissing} type="button">
-                    Desconectar
-                  </button>
-                )}
-                {role === 'owner' && !!waInfo?.instance_id && waInfo?.status === 'offline' && (
-                  <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={powerOnInstance} disabled={waLoading || waTokenMissing} type="button" title="Liga a instÃ¢ncia se estiver offline">
-                    Ligar instÃ¢ncia
-                  </button>
-                )}
-                {role === 'owner' && !!waInfo?.instance_id && (
-                  <button
-                    className="btn btn-outline"
-                    style={{ padding: '6px 10px' }}
-                    onClick={powerOffInstance}
-                    disabled={waLoading || waTokenMissing}
-                    type="button"
-                    title="Desliga a instÃ¢ncia (mantÃ©m sessÃ£o quando possÃ­vel)"
-                  >
-                    Desligar instÃ¢ncia
-                  </button>
-                )}
-                {role === 'owner' && !!waInfo?.instance_id && (
-                  <button
-                    className="btn btn-outline"
-                    style={{ padding: '6px 10px' }}
-                    onClick={restartInstance}
-                    disabled={waLoading || waTokenMissing}
-                    type="button"
-                    title="Reinicia a instÃ¢ncia (pode ficar offline por atÃ© 1 minuto)"
-                  >
-                    Reiniciar
-                  </button>
-                )}
-              </div>
-            </div>
-            {waTokenMissing && (
-              <div className="device-config-error" role="alert">
-                <span aria-hidden>âš ï¸</span>
-                <div>
-                  <strong>ConfiguraÃ§Ã£o incompleta</strong>
-                  <p>
-                    O token de acesso ao WhatsApp nÃ£o estÃ¡ configurado. Entre em contato com o suporte para finalizar a configuraÃ§Ã£o.
-                  </p>
-                </div>
-              </div>
-            )}
-            {waPersistFailed && (
-              <div
-                style={{
-                  padding: 10,
-                  borderBottom: '1px solid var(--border)',
-                  background: 'var(--warning-light)',
-                  color: 'var(--warning)'
-                }}
-              >
-                <p className="text-small" style={{ margin: 0, lineHeight: 1.45 }}>
-                  A instÃ¢ncia foi criada na Zapster, mas o ID nÃ£o foi salvo no Appwrite. VocÃª pode usar o QR abaixo; apÃ³s recarregar a pÃ¡gina, use{' '}
-                  <strong>Verificar e corrigir</strong> para vincular de novo â€” ou corrija permissÃµes/atributos da coleÃ§Ã£o de academias.
-                </p>
-              </div>
-            )}
-            <div style={{ padding: 12, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              {!waInfo?.instance_id && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhuma instÃ¢ncia criada.</div>}
-              {!!waInfo?.instance_id && (
-                <>
-                  <div style={{ minWidth: 260 }}>
-                    <div className="ctx-label" style={{ marginBottom: 6 }}>InstÃ¢ncia</div>
-                    <div className="text-small" style={{ wordBreak: 'break-all' }}>{waInfo.instance_id}</div>
-                  </div>
-                  <div style={{ minWidth: 260 }}>
-                    <div className="ctx-label" style={{ marginBottom: 6 }}>QR Code</div>
-                    {waInfo?.status !== 'connected' && !!waInfo?.instance_id && !waTokenMissing && !waQrError && (
-                      <img
-                        src={`/api/zapster/instances?action=qrcode&id=${encodeURIComponent(String(waInfo.instance_id))}&ts=${waQrTick}`}
-                        alt="QR"
-                        onError={() => setWaQrError(true)}
-                        style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
-                      />
-                    )}
-                    {(waTokenMissing || waQrError || waInfo?.status === 'connected' || !waInfo?.instance_id) && (
-                      <div className="text-small" style={{ color: 'var(--text-secondary)', maxWidth: 480 }}>
-                        {waTokenMissing
-                          ? 'Backend nÃ£o configurado para QR.'
-                          : waInfo?.status === 'connected'
-                          ? 'Dispositivo conectado'
-                          : waQrError
-                          ? 'QR Code indisponÃ­vel no momento (instÃ¢ncia pode estar conectada).'
-                          : 'Aguardando QRâ€¦ toque em Verificar status'}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {error && (
         <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12 }}>
@@ -4383,7 +4266,7 @@ export default function Inbox() {
         </div>
       )}
 
-      {inboxTab === 'conversas' && (
+      {
                 isMobile ? (
                   <div className="inbox-mobile-split">
                     <div
@@ -4453,7 +4336,7 @@ export default function Inbox() {
                     {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
                   </div>
                 )
-              )}
+      }
     </div>
   );
 }

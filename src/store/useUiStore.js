@@ -51,6 +51,32 @@ export const useUiStore = create((set, get) => ({
       const kept = prev.length >= MAX_TOASTS ? prev.slice(-(MAX_TOASTS - 1)) : prev;
       if (kept.length < prev.length) dropToastsNotInKept(prev, kept);
 
+      const action =
+        toast.action &&
+        typeof toast.action === 'object' &&
+        typeof toast.action.label === 'string' &&
+        toast.action.label.trim() &&
+        typeof toast.action.onClick === 'function'
+          ? { label: toast.action.label.trim(), onClick: toast.action.onClick }
+          : null;
+
+      const secondaryAction =
+        toast.secondaryAction &&
+        typeof toast.secondaryAction === 'object' &&
+        typeof toast.secondaryAction.label === 'string' &&
+        toast.secondaryAction.label.trim()
+          ? {
+              label: toast.secondaryAction.label.trim(),
+              onClick:
+                typeof toast.secondaryAction.onClick === 'function'
+                  ? toast.secondaryAction.onClick
+                  : () => {}
+            }
+          : null;
+
+      const persistent = Boolean(toast.persistent);
+      const durationMs = persistent ? 0 : duration;
+
       return {
         toasts: [
           ...kept,
@@ -58,18 +84,25 @@ export const useUiStore = create((set, get) => ({
             id,
             type,
             message: toast.message || '',
-            durationMs: duration,
-            removing: false
+            durationMs,
+            persistent,
+            actionDanger: Boolean(toast.actionDanger),
+            removing: false,
+            action,
+            secondaryAction
           }
         ]
       };
     });
 
     const sid = String(id);
-    const end = Date.now() + duration;
-    deadlines.set(sid, end);
-    const timeoutId = setTimeout(() => get().removeToast(sid), duration);
-    timers.set(sid, timeoutId);
+    const persistent = Boolean(toast.persistent);
+    if (!persistent && duration > 0) {
+      const end = Date.now() + duration;
+      deadlines.set(sid, end);
+      const timeoutId = setTimeout(() => get().removeToast(sid), duration);
+      timers.set(sid, timeoutId);
+    }
   },
 
   removeToast: (id) => {

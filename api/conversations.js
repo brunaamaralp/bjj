@@ -154,7 +154,8 @@ function docToListItem(doc) {
     last_read_at: String(doc.last_read_at || '').trim(),
     last_user_msg_at: String(doc.last_user_msg_at || '').trim(),
     ...meta,
-    last_message_timestamp: meta.last_message_timestamp || updatedAt
+    last_message_timestamp: meta.last_message_timestamp || updatedAt,
+    archived: doc.archived === true
   };
 }
 
@@ -223,10 +224,15 @@ export default async function handler(req, res) {
     const cursor = String(req.query.cursor || '').trim();
     const search = String(req.query.search || '').trim();
     const searchDigits = normalizePhone(search);
+    const archivedOnly =
+      String(req.query.archived || '').trim() === '1' || String(req.query.archived || '').trim().toLowerCase() === 'true';
 
-    const queries = [Query.equal('academy_id', [academyId]), Query.orderDesc('updated_at'), Query.limit(limit + 1)];
+    const queries = [Query.equal('academy_id', [academyId])];
+    queries.push(archivedOnly ? Query.equal('archived', [true]) : Query.equal('archived', [false]));
+    queries.push(Query.orderDesc('updated_at'));
+    queries.push(Query.limit(limit + 1));
     if (searchDigits.length >= 2) {
-      queries.splice(1, 0, Query.startsWith('phone_number', searchDigits));
+      queries.splice(2, 0, Query.startsWith('phone_number', searchDigits));
     }
     if (cursor) {
       queries.push(Query.cursorAfter(cursor));
@@ -239,6 +245,7 @@ export default async function handler(req, res) {
       if (search.trim() && !searchDigits) {
         const wide = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
           Query.equal('academy_id', [academyId]),
+          archivedOnly ? Query.equal('archived', [true]) : Query.equal('archived', [false]),
           Query.orderDesc('updated_at'),
           Query.limit(120)
         ]);
@@ -270,6 +277,7 @@ export default async function handler(req, res) {
         return json(res, 200, {
           phone: phoneDigits,
           conversation_id: null,
+          archived: false,
           messages: [],
           next_cursor: '',
           summary: null,
@@ -307,6 +315,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         phone: phoneDigits,
         conversation_id: String(doc.$id || ''),
+        archived: doc.archived === true,
         messages: slice,
         next_cursor,
         summary: parseSummaryField(doc.summary),
@@ -351,6 +360,18 @@ export default async function handler(req, res) {
       if (!doc) return json(res, 404, { success: false, sucesso: false, erro: 'Conversa não encontrada' });
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 1 });
       return json(res, 200, { success: true });
+    }
+
+    if (action === 'archive') {
+      if (!doc) return json(res, 404, { sucesso: false, erro: 'Conversa não encontrada' });
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { archived: true });
+      return json(res, 200, { sucesso: true, archived: true });
+    }
+
+    if (action === 'unarchive') {
+      if (!doc) return json(res, 404, { sucesso: false, erro: 'Conversa não encontrada' });
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { archived: false });
+      return json(res, 200, { sucesso: true, archived: false });
     }
 
     if (action === 'handoff') {

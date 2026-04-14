@@ -13,7 +13,6 @@ export default function ConversationItem({
   enableLongPress = false,
   onLongPress,
 }) {
-  const phone = String(item?._phone || item?.phone_number || '');
   const hotLead = Boolean(item?._hotLead);
   const handoffActive = Boolean(item?._handoffActive);
   const aiSuggestHuman = Boolean(item?._aiSuggestHuman);

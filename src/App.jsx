@@ -103,8 +103,8 @@ const App = () => {
     return String(q.get('tab') || '').trim();
   }, [location.search]);
 
-  const isInboxAgenteTab = location.pathname === '/inbox' && inboxTabParam === 'agente';
-  const isInboxConversasNavActive = location.pathname === '/inbox' && inboxTabParam !== 'agente';
+  const isEmpresaAgenteTab = location.pathname === '/empresa' && inboxTabParam === 'agente';
+  const isInboxConversasNavActive = location.pathname === '/inbox';
   const isInboxPath = location.pathname === '/inbox';
 
   const academyDocForRole = useMemo(() => {
@@ -690,8 +690,8 @@ const App = () => {
               </Link>
               {canConfigureAgenteIa && (
                 <Link
-                  to="/inbox?tab=agente"
-                  className={`navi-side-link${isInboxAgenteTab ? ' active' : ''}`}
+                  to="/empresa?tab=agente"
+                  className={`navi-side-link${isEmpresaAgenteTab ? ' active' : ''}`}
                   title={sidebarCollapsed ? 'Agente IA' : undefined}
                 >
                   <Bot size={18} strokeWidth={1.75} />

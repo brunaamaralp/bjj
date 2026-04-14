@@ -91,7 +91,7 @@ const EstudioSection = ({
         try {
             await onSave();
             setEditing(false);
-        } catch (e) {
+        } catch {
             // Error handled in onSave
         } finally {
             setSaving(false);

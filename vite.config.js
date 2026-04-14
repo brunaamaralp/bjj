@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
     env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
   return {
+    build: {
+      chunkSizeWarningLimit: 2000,
+    },
     plugins: [
       react(),
       VitePWA({
