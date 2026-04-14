@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
@@ -6,7 +6,6 @@ import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/c
 import {
   WHATSAPP_TEMPLATE_LABELS,
   applyWhatsappTemplatePlaceholders,
-  parseFaqItems
 } from '../../lib/whatsappTemplateDefaults.js';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
@@ -17,19 +16,12 @@ import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
-import AgenteChatSetup from '../components/inbox/AgenteChatSetup';
-
 const EMPTY_ACADEMY_LIST = [];
 
 function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
   return raw.replace(/[^\d]/g, '');
-}
-
-/** Alinha com agentRespond: intro ou body efetivo. */
-function isPromptConfiguredFromFields(intro, body) {
-  return Boolean(String(intro || '').trim() || String(body || '').trim());
 }
 
 async function getJwt() {
@@ -53,7 +45,7 @@ function formatTimeOnly(iso) {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-/** 0 = desconhecido/inválido — na ordenação por data ficam por último dentro do grupo. */
+/** 0 = desconhecido/invÃ¡lido â€” na ordenaÃ§Ã£o por data ficam por Ãºltimo dentro do grupo. */
 function parseTimestampMs(value) {
   const s = String(value || '').trim();
   if (!s) return 0;
@@ -95,7 +87,7 @@ export default function Inbox() {
     const digits = normalizePhone(raw);
     if (!digits) return;
     
-    // Evita um setState redundante se o phone já é o mesmo que está no state atual
+    // Evita um setState redundante se o phone jÃ¡ Ã© o mesmo que estÃ¡ no state atual
     if (selectedPhoneRef.current === digits) return;
     
     setSelectedPhone(digits);
@@ -151,30 +143,8 @@ export default function Inbox() {
       return false;
     }
   });
-  const [promptIntro, setPromptIntro] = useState('');
-  const [promptBody, setPromptBody] = useState('');
-  const [promptSuffix, setPromptSuffix] = useState('');
-  const [promptSavedSnapshot, setPromptSavedSnapshot] = useState({ intro: '', body: '', suffix: '' });
-  const [loadingPrompt, setLoadingPrompt] = useState(false);
-  const [savingPrompt, setSavingPrompt] = useState(false);
-  const [iaAtiva, setIaAtiva] = useState(false);
-  const [birthdayMessage, setBirthdayMessage] = useState('');
-  const [savingBirthdayMessage, setSavingBirthdayMessage] = useState(false);
-  const [faqItems, setFaqItems] = useState([]);
-  const [savingFaq, setSavingFaq] = useState(false);
-  const [promptConfigurado, setPromptConfigurado] = useState(false);
-  const [whatsappConectado, setWhatsappConectado] = useState(false);
-  const [togglingIa, setTogglingIa] = useState(false);
-  const [aiThreadsUsed, setAiThreadsUsed] = useState(0);
-  const [aiThreadsLimit, setAiThreadsLimit] = useState(300);
-  const [aiOverageEnabled, setAiOverageEnabled] = useState(true);
   const [academyNameForTemplates, setAcademyNameForTemplates] = useState('');
   const [whatsappTemplatesObj, setWhatsappTemplatesObj] = useState(null);
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
-  const [promptPreviewText, setPromptPreviewText] = useState('');
-  const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
-  const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
-  const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadPaging, setThreadPaging] = useState(false);
   const [threadCursor, setThreadCursor] = useState(null);
@@ -433,22 +403,11 @@ export default function Inbox() {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
-        e.preventDefault();
-        if (!canConfigureAgenteIa) return;
-        openPromptSettings();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selected?.ticket_status, selected?.transfer_to, canConfigureAgenteIa]);
-
-  useEffect(() => {
-    if (!agentModalOpen) return;
-    const onEsc = (e) => { if (e.key === 'Escape') setAgentModalOpen(false); };
-    window.addEventListener('keydown', onEsc);
-    return () => window.removeEventListener('keydown', onEsc);
-  }, [agentModalOpen]);
+  }, [selected?.ticket_status, selected?.transfer_to]);
 
   function safeParseJson(raw) {
     try {
@@ -603,7 +562,7 @@ export default function Inbox() {
       if (
         msg.toLowerCase().includes('zapster_api_token') ||
         msg.toLowerCase().includes('zapster_token_missing') ||
-        (msg.toLowerCase().includes('serviço de whatsapp') && msg.toLowerCase().includes('não configurado'))
+        (msg.toLowerCase().includes('serviÃ§o de whatsapp') && msg.toLowerCase().includes('nÃ£o configurado'))
       ) {
         setWaTokenMissing(true);
       }
@@ -646,11 +605,11 @@ export default function Inbox() {
         setWaPersistFailed(true);
         addToast({
           type: 'warning',
-          message: String(data.aviso || 'Instância criada na Zapster, mas falhou salvar na base. Use Verificar e corrigir.')
+          message: String(data.aviso || 'InstÃ¢ncia criada na Zapster, mas falhou salvar na base. Use Verificar e corrigir.')
         });
       } else {
         setWaPersistFailed(false);
-        addToast({ type: 'success', message: 'Instância criada' });
+        addToast({ type: 'success', message: 'InstÃ¢ncia criada' });
       }
       setWaTokenMissing(false);
       setWaQrError(false);
@@ -660,7 +619,7 @@ export default function Inbox() {
       if (
         msg.toLowerCase().includes('zapster_api_token') ||
         msg.toLowerCase().includes('zapster_token_missing') ||
-        (msg.toLowerCase().includes('serviço de whatsapp') && msg.toLowerCase().includes('não configurado'))
+        (msg.toLowerCase().includes('serviÃ§o de whatsapp') && msg.toLowerCase().includes('nÃ£o configurado'))
       ) {
         setWaTokenMissing(true);
       }
@@ -684,7 +643,7 @@ export default function Inbox() {
       const data = safeParseJson(raw) || {};
       if (!resp.ok) {
         if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao recuperar vínculo'));
+        throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao recuperar vÃ­nculo'));
       }
       if (data.recovered) {
         addToast({ type: 'success', message: 'Dispositivo recuperado com sucesso!' });
@@ -695,14 +654,14 @@ export default function Inbox() {
       if (data.already_linked) {
         setWaPersistFailed(false);
         await fetchWaInfo({ silent: true });
-        addToast({ type: 'success', message: 'Dispositivo já estava vinculado.' });
+        addToast({ type: 'success', message: 'Dispositivo jÃ¡ estava vinculado.' });
         return;
       }
       const errMsg = String(data.erro || '').trim();
       if (errMsg) {
         addToast({ type: 'error', message: errMsg });
       } else {
-        addToast({ type: 'warning', message: 'Nenhuma instância órfã encontrada para esta academia.' });
+        addToast({ type: 'warning', message: 'Nenhuma instÃ¢ncia Ã³rfÃ£ encontrada para esta academia.' });
       }
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Erro ao recuperar' });
@@ -740,7 +699,7 @@ export default function Inbox() {
       if (
         msg.toLowerCase().includes('zapster_api_token') ||
         msg.toLowerCase().includes('zapster_token_missing') ||
-        (msg.toLowerCase().includes('serviço de whatsapp') && msg.toLowerCase().includes('não configurado'))
+        (msg.toLowerCase().includes('serviÃ§o de whatsapp') && msg.toLowerCase().includes('nÃ£o configurado'))
       ) {
         setWaTokenMissing(true);
       }
@@ -766,9 +725,9 @@ export default function Inbox() {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instância'));
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instÃ¢ncia'));
       }
-      addToast({ type: 'success', message: 'Instância ligada' });
+      addToast({ type: 'success', message: 'InstÃ¢ncia ligada' });
       await fetchWaInfo({ silent: true });
     } catch (e) {
       const msg = String(e?.message || '');
@@ -794,9 +753,9 @@ export default function Inbox() {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao desligar instância'));
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao desligar instÃ¢ncia'));
       }
-      addToast({ type: 'success', message: 'Instância desligada' });
+      addToast({ type: 'success', message: 'InstÃ¢ncia desligada' });
       await fetchWaInfo({ silent: true });
     } catch (e) {
       const msg = String(e?.message || '');
@@ -822,9 +781,9 @@ export default function Inbox() {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar instância'));
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar instÃ¢ncia'));
       }
-      addToast({ type: 'success', message: 'Reiniciando instância…' });
+      addToast({ type: 'success', message: 'Reiniciando instÃ¢nciaâ€¦' });
       setTimeout(() => {
         fetchWaInfo({ silent: true });
       }, 1200);
@@ -855,7 +814,7 @@ export default function Inbox() {
       const data = safeParseJson(raw) || {};
       if (!resp.ok) {
         if (data?.code === 'messages_retention_exceeded' || resp.status === 402) {
-          addToast({ type: 'warning', message: 'Plano Zapster limita o histórico a 24h. As mensagens recentes foram importadas normalmente.' });
+          addToast({ type: 'warning', message: 'Plano Zapster limita o histÃ³rico a 24h. As mensagens recentes foram importadas normalmente.' });
           await loadList({ reset: true, silent: true });
           const phone2 = String(selectedPhoneRef.current || '').trim();
           if (phone2) await loadThread(phone2);
@@ -868,7 +827,7 @@ export default function Inbox() {
       const merged = Number.isFinite(Number(data?.messages_merged)) ? Number(data.messages_merged) : 0;
       addToast({
         type: 'success',
-        message: `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
+        message: `Sincronizado â€¢ ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` â€¢ ${merged} msgs` : ''}`
       });
       await loadList({ reset: true, silent: true });
       const phone = String(selectedPhoneRef.current || '').trim();
@@ -960,7 +919,7 @@ export default function Inbox() {
       return;
     }
     if (typeof Notification === 'undefined') {
-      addToast({ type: 'warning', message: 'Este navegador não suporta notificações.' });
+      addToast({ type: 'warning', message: 'Este navegador nÃ£o suporta notificaÃ§Ãµes.' });
       return;
     }
     let perm = Notification.permission;
@@ -968,7 +927,7 @@ export default function Inbox() {
       perm = await Notification.requestPermission();
     }
     if (perm !== 'granted') {
-      addToast({ type: 'warning', message: 'Permissão necessária para alertas do sistema.' });
+      addToast({ type: 'warning', message: 'PermissÃ£o necessÃ¡ria para alertas do sistema.' });
       return;
     }
     try {
@@ -977,7 +936,7 @@ export default function Inbox() {
       void 0;
     }
     setDesktopNotify(true);
-    addToast({ type: 'success', message: 'Você receberá alertas quando chegar mensagem.' });
+    addToast({ type: 'success', message: 'VocÃª receberÃ¡ alertas quando chegar mensagem.' });
   }
 
   function setHighlightedPhone(phone) {
@@ -1042,7 +1001,7 @@ export default function Inbox() {
       });
     } catch (e) {
       try {
-        addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como lida. Tente de novo.' });
+        addToast({ type: 'error', message: e?.message || 'NÃ£o foi possÃ­vel marcar como lida. Tente de novo.' });
       } catch {
         void 0;
       }
@@ -1056,156 +1015,12 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!academyId) return;
-    const connected = whatsappConectado || String(waInfo?.status || '').trim() === 'connected';
+    const connected = String(waInfo?.status || '').trim() === 'connected';
     if (!connected) return;
     const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
     if (done) return;
     void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
-  }, [whatsappConectado, waInfo?.status, academyId]);
-
-  async function savePromptSettings(overrides, { successMessage } = {}) {
-    const use = overrides && typeof overrides === 'object' ? overrides : null;
-    const intro = use && 'prompt_intro' in use ? String(use.prompt_intro) : String(promptIntro || '');
-    const bodyPut = use && 'prompt_body' in use ? String(use.prompt_body) : String(promptBody || '');
-    const suffixPut = use && 'prompt_suffix' in use ? String(use.prompt_suffix) : String(promptSuffix || '');
-    setSavingPrompt(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ prompt_intro: intro, prompt_body: bodyPut, prompt_suffix: suffixPut })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar'));
-      addToast({ type: 'success', message: successMessage ?? 'Instruções salvas' });
-      setPromptSavedSnapshot({ intro, body: bodyPut, suffix: suffixPut });
-      setPromptConfigurado(isPromptConfiguredFromFields(intro, bodyPut));
-      if (isPromptConfiguredFromFields(intro, bodyPut)) {
-        const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'setup_ai')?.done;
-        if (!done) {
-          void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
-        }
-      }
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
-    } finally {
-      setSavingPrompt(false);
-    }
-  }
-
-  async function handleToggleIa() {
-    if (!promptConfigurado || togglingIa) return;
-    setTogglingIa(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
-        method: 'PATCH',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || '')
-        },
-        body: JSON.stringify({ action: 'toggle_ia', ia_ativa: !iaAtiva })
-      });
-      if (blocked) return;
-      const data = await resp.json().catch(() => ({}));
-      if (data?.sucesso) setIaAtiva(data.ia_ativa === true);
-      else addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
-    } finally {
-      setTogglingIa(false);
-    }
-  }
-
-  async function handlePreviewFullPrompt() {
-    if (loadingPromptPreview) return;
-    setLoadingPromptPreview(true);
-    try {
-      const jwt = await getJwt();
-      const resp = await fetch('/api/settings/prompt-preview', {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || !data?.sucesso) throw new Error(data?.erro || 'Não foi possível carregar a prévia');
-      setPromptPreviewText(String(data.prompt || ''));
-      setShowPromptPreview(true);
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro na prévia do prompt' });
-    } finally {
-      setLoadingPromptPreview(false);
-    }
-  }
-
-  async function handleSaveBirthdayMessage() {
-    if (savingBirthdayMessage) return;
-    setSavingBirthdayMessage(true);
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
-        method: 'PATCH',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || '')
-        },
-        body: JSON.stringify({
-          action: 'save_birthday_message',
-          birthdayMessage
-        })
-      });
-      if (blocked) return;
-      const data = await resp.json().catch(() => ({}));
-      if (data?.sucesso) {
-        setBirthdayMessage(String(data.birthdayMessage ?? birthdayMessage));
-        addToast({ type: 'success', message: 'Mensagem de aniversário salva' });
-      } else {
-        addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
-      }
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
-    } finally {
-      setSavingBirthdayMessage(false);
-    }
-  }
-
-  async function handleSaveFaqData() {
-    if (savingFaq) return;
-    setSavingFaq(true);
-    try {
-      const jwt = await getJwt();
-      const cleaned = faqItems
-        .map((it) => ({ q: String(it?.q || '').trim(), a: String(it?.a || '').trim() }))
-        .filter((it) => it.q && it.a);
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
-        method: 'PATCH',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || '')
-        },
-        body: JSON.stringify({ action: 'save_faq_data', faq_data: cleaned })
-      });
-      if (blocked) return;
-      const data = await resp.json().catch(() => ({}));
-      if (data?.sucesso) {
-        setFaqItems(parseFaqItems(data.faq_data));
-        addToast({ type: 'success', message: 'Perguntas frequentes salvas' });
-      } else {
-        addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
-      }
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
-    } finally {
-      setSavingFaq(false);
-    }
-  }
+  }, [waInfo?.status, academyId]);
 
   async function loadList({ reset = false, silent = false } = {}) {
     if (!academyIdRef.current) return;
@@ -1355,7 +1170,7 @@ export default function Inbox() {
       const contentType = resp.headers.get('content-type') || '';
       const raw = await resp.text();
       if (!contentType.includes('application/json')) {
-        console.error('[loadThread] resposta não é JSON', {
+        console.error('[loadThread] resposta nÃ£o Ã© JSON', {
           phone: p,
           status: resp.status,
           contentType,
@@ -1405,7 +1220,7 @@ export default function Inbox() {
       try {
         const last = incoming.length > 0 ? incoming[incoming.length - 1] : null;
         const textRaw = String(last?.content || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-        const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}…` : textRaw;
+        const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}â€¦` : textRaw;
         if (preview) {
           setItems((prev) => {
             const arr = Array.isArray(prev) ? prev : [];
@@ -1660,10 +1475,10 @@ export default function Inbox() {
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao melhorar texto'));
       const data = safeParseJson(raw) || {};
       const improved = typeof data?.improved === 'string' ? data.improved.trim() : '';
-      if (!improved) throw new Error('Resposta inválida do servidor');
+      if (!improved) throw new Error('Resposta invÃ¡lida do servidor');
       setDraftBeforeImprove(current);
       setDraft(improved);
-      addToast({ type: 'success', message: 'Texto atualizado — revise antes de enviar' });
+      addToast({ type: 'success', message: 'Texto atualizado â€” revise antes de enviar' });
       try {
         setTimeout(() => textareaRef.current?.focus?.(), 0);
       } catch {
@@ -1797,7 +1612,7 @@ export default function Inbox() {
       const leadId = String(data?.id || '').trim();
       if (!leadId) throw new Error('ID do lead ausente');
       await linkLeadToConversation({ leadId });
-      addToast({ type: 'success', message: data?.ja_existe ? 'Lead já existente' : 'Lead criado' });
+      addToast({ type: 'success', message: data?.ja_existe ? 'Lead jÃ¡ existente' : 'Lead criado' });
       window.location.href = `/lead/${encodeURIComponent(leadId)}`;
     } catch (e) {
       setError(e?.message || 'Erro');
@@ -1857,7 +1672,7 @@ export default function Inbox() {
   };
 
   const emojis = useMemo(
-    () => ['😀', '😂', '😍', '🥰', '🙏', '👍', '👏', '🎉', '🔥', '✅', '❌', '🤝', '😢', '🤔', '⭐', '💪', '🥋', '📍', '📞', '⏰'],
+    () => ['ðŸ˜€', 'ðŸ˜‚', 'ðŸ˜', 'ðŸ¥°', 'ðŸ™', 'ðŸ‘', 'ðŸ‘', 'ðŸŽ‰', 'ðŸ”¥', 'âœ…', 'âŒ', 'ðŸ¤', 'ðŸ˜¢', 'ðŸ¤”', 'â­', 'ðŸ’ª', 'ðŸ¥‹', 'ðŸ“', 'ðŸ“ž', 'â°'],
     []
   );
 
@@ -1972,8 +1787,8 @@ export default function Inbox() {
 
   const prioritizedItems = useMemo(() => {
     const arr = Array.isArray(enrichedItems) ? enrichedItems : [];
-    // Modelo híbrido: Não lidas / Em atendimento / Resolvidas vêm de groupedFilteredItems; dentro de cada grupo
-    // a ordem é só por data (mais recente no topo). O score abaixo era usado para priorizar inbox inteiro — desativado.
+    // Modelo hÃ­brido: NÃ£o lidas / Em atendimento / Resolvidas vÃªm de groupedFilteredItems; dentro de cada grupo
+    // a ordem Ã© sÃ³ por data (mais recente no topo). O score abaixo era usado para priorizar inbox inteiro â€” desativado.
     // const score = (it) => {
     //   let points = 0;
     //   const unread = Number(it?._unreadCount || 0);
@@ -2042,7 +1857,7 @@ export default function Inbox() {
     });
     const openMerged = orphan.length ? [...open, ...orphan] : open;
     return [
-      { key: 'unread', label: 'Não lidas', items: unread },
+      { key: 'unread', label: 'NÃ£o lidas', items: unread },
       { key: 'open', label: 'Em atendimento', items: openMerged },
       { key: 'resolved', label: 'Resolvidas', items: resolved }
     ];
@@ -2069,7 +1884,7 @@ export default function Inbox() {
         messages: isSamePhone && Array.isArray(prev?.messages) ? prev.messages : []
       };
     });
-    setSelectedPhone(phone); // Atualizar o phone por último, ou isoladamente, após as mudanças de ref/state
+    setSelectedPhone(phone); // Atualizar o phone por Ãºltimo, ou isoladamente, apÃ³s as mudanÃ§as de ref/state
 
     const unreadCount = Number(it?._unreadCount ?? it?.unread_count ?? 0);
     if (unreadCount > 0) {
@@ -2083,7 +1898,7 @@ export default function Inbox() {
     if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'var(--warning-light)', fg: '#b45309', tone: 'warning' };
     if (s === 'transferred')
       return {
-        label: transferTo ? `Transferido • ${transferTo}` : 'Transferido',
+        label: transferTo ? `Transferido â€¢ ${transferTo}` : 'Transferido',
         bg: 'var(--inbox-info-badge-bg)',
         fg: 'var(--inbox-info-badge-fg)',
         tone: 'info'
@@ -2250,7 +2065,7 @@ export default function Inbox() {
       const k = messageKey(m);
       if (!pinned[k]) continue;
       const content = String(m?.content || '').trim();
-      list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}…` : content });
+      list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}â€¦` : content });
     }
     return list;
   }, [selected?.messages, selectedPhoneFlags]);
@@ -2304,7 +2119,7 @@ export default function Inbox() {
                 lineHeight: '22px',
                 textAlign: 'center'
               }}
-              title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens não lidas`}
+              title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens nÃ£o lidas`}
             >
               {Number(stats.unreadBacklog) > 99 ? '99+' : Number(stats.unreadBacklog)}
             </span>
@@ -2331,7 +2146,7 @@ export default function Inbox() {
           style={{ padding: '6px 10px', minHeight: 34 }}
           onClick={() => setListFilter('unread')}
         >
-          Não lidas
+          NÃ£o lidas
         </button>
         <button
           type="button"
@@ -2436,7 +2251,7 @@ export default function Inbox() {
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
                 const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
-                return name || phone || '—';
+                return name || phone || 'â€”';
               })()}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
@@ -2489,11 +2304,11 @@ export default function Inbox() {
                         style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
                         title={
                           untilLabel
-                            ? `Atendimento humano por ${handoffDurationPhrase} (até ${untilLabel})`
+                            ? `Atendimento humano por ${handoffDurationPhrase} (atÃ© ${untilLabel})`
                             : `Atendimento humano ativo (${handoffDurationPhrase})`
                         }
                       >
-                        {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
+                        {untilLabel ? `Humano atÃ© ${untilLabel}` : 'Atendimento humano'}
                       </span>
                       {rem && (
                         <span className="text-small handoff-timer" style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '2px 8px', borderRadius: 999 }}>
@@ -2505,7 +2320,7 @@ export default function Inbox() {
                 }
                 if (aiSuggestHuman) {
                   return (
-                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="IA sugere intervenção humana">
+                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="IA sugere intervenÃ§Ã£o humana">
                       IA sugere humano
                     </span>
                   );
@@ -2567,7 +2382,7 @@ export default function Inbox() {
             aria-haspopup="menu"
             aria-expanded={menu?.kind === 'thread'}
           >
-            ⋯
+            â‹¯
           </button>
         </div>
       </div>
@@ -2583,7 +2398,7 @@ export default function Inbox() {
             </div>
             <div style={{ padding: 12, display: 'grid', gap: 10 }}>
               <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                Use para marcar para qual área essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
+                Use para marcar para qual Ã¡rea essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
               </div>
               <div>
                 <div className="ctx-label" style={{ marginBottom: 6 }}>Destino (opcional)</div>
@@ -2626,7 +2441,7 @@ export default function Inbox() {
                 disabled={threadPaging || !threadCursor}
                 type="button"
               >
-                {threadPaging ? 'Carregando…' : 'Carregar mensagens anteriores'}
+                {threadPaging ? 'Carregandoâ€¦' : 'Carregar mensagens anteriores'}
               </button>
             </div>
           )}
@@ -2668,7 +2483,7 @@ export default function Inbox() {
                   {g.items.map(({ key, m }, idx) => {
                     const contentRaw = String(m?.content || '');
                     const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
-                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
+                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}â€¦` : contentRaw;
                     const statusLower = String(m?.status || '').trim().toLowerCase();
                     const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
                     const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
@@ -2692,7 +2507,7 @@ export default function Inbox() {
                       >
                         {idx === 0 && g.mine && (
                           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, color: senderKind === 'ai' ? 'var(--accent)' : 'var(--text-secondary)', letterSpacing: '0.02em' }}>
-                            {senderKind === 'ai' ? 'Agente IA' : 'Você'}
+                            {senderKind === 'ai' ? 'Agente IA' : 'VocÃª'}
                           </div>
                         )}
                         {m?.type === 'image' && m?.mediaUrl ? (
@@ -2725,7 +2540,7 @@ export default function Inbox() {
                                 padding: '8px 0'
                               }}
                             >
-                              Imagem indisponível (link expirado ou bloqueado)
+                              Imagem indisponÃ­vel (link expirado ou bloqueado)
                             </div>
                             {String(content || '').trim() && String(content || '').trim() !== '[imagem]' ? (
                               <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)', marginTop: 8 }}>
@@ -2755,8 +2570,8 @@ export default function Inbox() {
                         <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
                           <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                             {formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}
-                            {pinned ? ' • Fixada' : ''}
-                            {important ? ' • Importante' : ''}
+                            {pinned ? ' â€¢ Fixada' : ''}
+                            {important ? ' â€¢ Importante' : ''}
                           </span>
                           <div className="inbox-msg-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <button
@@ -2767,7 +2582,7 @@ export default function Inbox() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 const base = contentRaw.replace(/\s+/g, ' ').trim();
-                                const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
+                                const snippet = base.length > 120 ? `${base.slice(0, 120)}â€¦` : base;
                                 if (snippet) {
                                   setDraft((prev) => {
                                     const p = String(prev || '');
@@ -2808,7 +2623,7 @@ export default function Inbox() {
                               aria-haspopup="menu"
                               aria-expanded={menu?.kind === 'message' && menu?.payload?.key === key}
                             >
-                              ⋯
+                              â‹¯
                             </button>
                           </div>
                         </div>
@@ -2829,7 +2644,7 @@ export default function Inbox() {
                             )}
                             {isCanceled && (
                               <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Cancelada: {canceledAt ? formatWhen(canceledAt) : '—'}
+                                Cancelada: {canceledAt ? formatWhen(canceledAt) : 'â€”'}
                               </span>
                             )}
                             {canCancel && (
@@ -2844,7 +2659,7 @@ export default function Inbox() {
                                 }}
                                 disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
                               >
-                                {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar agendamento'}
+                                {cancelingMsgId === mid ? 'Cancelandoâ€¦' : 'Cancelar agendamento'}
                               </button>
                             )}
                           </div>
@@ -2859,10 +2674,10 @@ export default function Inbox() {
 
           {!threadLoading && !error && !threadError && (selected?.messages || []).length === 0 && (
             <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
-              <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>💬</div>
+              <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>ðŸ’¬</div>
               <div style={{ fontWeight: 700, color: 'var(--text)' }}>Nenhuma mensagem carregada</div>
               <div className="text-small" style={{ marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>
-                Se já há mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histórico das últimas 24h.
+                Se jÃ¡ hÃ¡ mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histÃ³rico das Ãºltimas 24h.
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
                 <button
@@ -2872,14 +2687,14 @@ export default function Inbox() {
                   disabled={waSyncing}
                   onClick={reconcileLast24h}
                 >
-                  {waSyncing ? 'Sincronizando…' : '↻ Sincronizar com WhatsApp'}
+                  {waSyncing ? 'Sincronizandoâ€¦' : 'â†» Sincronizar com WhatsApp'}
                 </button>
                 <button
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', minHeight: 34 }}
                   type="button"
                   onClick={() => {
-                    setDraft((prev) => String(prev || '').trim() ? prev : 'Olá! Como posso te ajudar hoje?');
+                    setDraft((prev) => String(prev || '').trim() ? prev : 'OlÃ¡! Como posso te ajudar hoje?');
                     try {
                       textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
                     } catch {
@@ -2903,7 +2718,7 @@ export default function Inbox() {
               onClick={() => scrollThreadToBottom({ clearNew: true })}
               title="Ir para o mais recente"
             >
-              {newMsgCount} novas • Ir para o mais recente
+              {newMsgCount} novas â€¢ Ir para o mais recente
             </button>
           </div>
         )}
@@ -2921,7 +2736,7 @@ export default function Inbox() {
                   type="button"
                   title="Mensagens prontas"
                 >
-                  ⚡
+                  âš¡
                 </button>
                 {templatesOpen && (
                   <div
@@ -2969,7 +2784,7 @@ export default function Inbox() {
                       >
                         <span style={{ display: 'block', fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{tpl.label}</span>
                         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
+                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}â€¦` : tpl.text}
                         </span>
                       </button>
                     );})}
@@ -2986,7 +2801,7 @@ export default function Inbox() {
                 aria-expanded={emojiOpen}
                 title="Inserir emoji"
               >
-                😊
+                ðŸ˜Š
               </button>
               {emojiOpen && (
                 <div
@@ -3060,7 +2875,7 @@ export default function Inbox() {
                 sendManual();
               }
             }}
-            placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
+            placeholder={selected?.need_human ? 'Responder manualmenteâ€¦' : 'Agente IA ativo â€” responda para assumir o atendimento'}
             className="form-input"
             rows={3}
             style={{ flex: 1, resize: 'vertical', minHeight: 88 }}
@@ -3104,7 +2919,7 @@ export default function Inbox() {
                   String(draft || '').trim().length <= 3
                 }
                 type="button"
-                title={improvingDraft ? 'Melhorando…' : 'Melhorar texto com IA (usa o contexto da conversa)'}
+                title={improvingDraft ? 'Melhorandoâ€¦' : 'Melhorar texto com IA (usa o contexto da conversa)'}
                 aria-label={improvingDraft ? 'Melhorando texto com IA' : 'Melhorar texto com IA'}
                 aria-busy={improvingDraft}
               >
@@ -3131,11 +2946,11 @@ export default function Inbox() {
                   type="button"
                   title="Voltar ao texto antes da melhoria"
                 >
-                  ↩ Desfazer
+                  â†© Desfazer
                 </button>
               )}
               <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
-                {sending ? 'Enviando…' : 'Enviar'}
+                {sending ? 'Enviandoâ€¦' : 'Enviar'}
               </button>
             </div>
           </div>
@@ -3172,7 +2987,7 @@ export default function Inbox() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
             <span className="ctx-label" style={{ marginBottom: 0 }}>Telefone</span>
             <span className="navi-ui-count" style={{ textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
-              {selectedPhone || '—'}
+              {selectedPhone || 'â€”'}
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
@@ -3245,7 +3060,7 @@ export default function Inbox() {
               Contato / Lead
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
+              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || 'â€”'}</div>
               {!!phone && (
                 <div className="navi-subtitle" style={{ marginTop: 0 }}>
                   {phone}
@@ -3269,7 +3084,7 @@ export default function Inbox() {
                 )}
                 {hotLead && (
                   <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
-                    🔥 quente
+                    ðŸ”¥ quente
                   </span>
                 )}
               </div>
@@ -3315,7 +3130,7 @@ export default function Inbox() {
               <div className="ctx-label" style={{ marginBottom: 6 }}>
                 Nome
               </div>
-              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
+              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: JoÃ£o Silva" />
             </div>
             <div>
               <div className="ctx-label" style={{ marginBottom: 6 }}>
@@ -3323,7 +3138,7 @@ export default function Inbox() {
               </div>
               <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
                 <option value="Adulto">Adulto</option>
-                <option value="Criança">Criança</option>
+                <option value="CrianÃ§a">CrianÃ§a</option>
                 <option value="Juniores">Juniores</option>
               </select>
             </div>
@@ -3332,7 +3147,7 @@ export default function Inbox() {
                 Fechar
               </button>
               <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={convertToLead} disabled={linkingLead} type="button">
-                {linkingLead ? 'Convertendo…' : 'Converter'}
+                {linkingLead ? 'Convertendoâ€¦' : 'Converter'}
               </button>
             </div>
           </div>
@@ -3350,7 +3165,7 @@ export default function Inbox() {
               Atualizar
             </button>
           </div>
-          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
+          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leadsâ€¦</div>}
           {!leadsLoading && leadCandidates.length === 0 && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhum lead encontrado.</div>}
           {!leadsLoading && leadCandidates.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -3414,7 +3229,7 @@ export default function Inbox() {
                   if (isMobile) setDetailsOpen(false);
                 }}
               >
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || '—'}</span>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || 'â€”'}</span>
                 <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                   Ver
                 </span>
@@ -3639,14 +3454,14 @@ export default function Inbox() {
           <h2 className="navi-page-title" style={{ margin: 0 }}>Atendimento</h2>
           <div className="navi-eyebrow" style={{ marginTop: 6 }}>
             {loading ? (
-              'Carregando…'
+              'Carregandoâ€¦'
             ) : (
               <>
                 <span className="navi-ui-count">{items.length}</span> conversas
                 {lastUpdatedAt ? (
                   <>
                     {' '}
-                    • atualizado <span className="navi-ui-date">{formatWhen(lastUpdatedAt)}</span>
+                    â€¢ atualizado <span className="navi-ui-date">{formatWhen(lastUpdatedAt)}</span>
                   </>
                 ) : null}
               </>
@@ -3654,8 +3469,8 @@ export default function Inbox() {
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Number(stats?.unreadBacklog || 0) > 0 && (
-              <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
-                Não lidas: {Number(stats.unreadBacklog)}
+              <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens nÃ£o lidas">
+                NÃ£o lidas: {Number(stats.unreadBacklog)}
               </span>
             )}
             {Number(stats?.resolvedCount || 0) > 0 && (
@@ -3684,7 +3499,7 @@ export default function Inbox() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por telefone ou nome…"
+              placeholder="Buscar por telefone ou nomeâ€¦"
               className="form-input"
               style={{ flex: '1 1 320px', minWidth: 260, maxWidth: 520 }}
             />
@@ -3694,11 +3509,11 @@ export default function Inbox() {
             <button
               className={autoRefresh ? 'btn btn-secondary' : 'btn btn-outline'}
               onClick={() => setAutoRefresh((v) => !v)}
-              title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
+              title={autoRefresh ? 'AtualizaÃ§Ã£o automÃ¡tica ativa (a cada 10s) â€” clique para pausar' : 'Ativar atualizaÃ§Ã£o automÃ¡tica a cada 10s'}
               style={{ display: 'flex', alignItems: 'center', gap: 5 }}
               type="button"
             >
-              <span style={{ fontSize: 14 }}>↻</span>
+              <span style={{ fontSize: 14 }}>â†»</span>
               {autoRefresh ? 'Ao vivo' : 'Pausado'}
             </button>
             <button
@@ -3706,8 +3521,8 @@ export default function Inbox() {
               onClick={() => void toggleDesktopNotifyPreference()}
               title={
                 desktopNotify
-                  ? 'Alertas do sistema ativos (notificação do Windows/macOS)'
-                  : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
+                  ? 'Alertas do sistema ativos (notificaÃ§Ã£o do Windows/macOS)'
+                  : 'Ativar notificaÃ§Ã£o do sistema ao receber mensagem (alÃ©m do aviso no app)'
               }
               style={{ display: 'flex', alignItems: 'center', gap: 5 }}
               type="button"
@@ -3724,7 +3539,7 @@ export default function Inbox() {
       {inboxTab !== 'conversas' && (
         <div style={{ marginBottom: 12 }}>
           <button type="button" className="btn btn-outline" onClick={() => navigate('/inbox')}>
-            ← Voltar às conversas
+            â† Voltar Ã s conversas
           </button>
         </div>
       )}
@@ -3752,7 +3567,7 @@ export default function Inbox() {
                     type="button"
                     onClick={() => {
                       const base = contentRaw.replace(/\s+/g, ' ').trim();
-                      const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
+                      const snippet = base.length > 120 ? `${base.slice(0, 120)}â€¦` : base;
                       if (snippet) {
                         setDraft((prev) => {
                           const p = String(prev || '');
@@ -3851,7 +3666,7 @@ export default function Inbox() {
                   >
                     Excluir
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      {canCancel ? 'Cancela agendamento' : '—'}
+                      {canCancel ? 'Cancela agendamento' : 'â€”'}
                     </span>
                   </button>
                 </>
@@ -4046,7 +3861,7 @@ export default function Inbox() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Dispositivo WhatsApp</div>
                 <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                  {waInfo?.status === 'connected' ? 'Conectado' : waInfo?.status || '—'}
+                  {waInfo?.status === 'connected' ? 'Conectado' : waInfo?.status || 'â€”'}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -4060,7 +3875,7 @@ export default function Inbox() {
                     onClick={() => void recoverZapsterInstance()}
                     disabled={waLoading || waTokenMissing}
                     type="button"
-                    title="Tenta salvar na base o ID de uma instância já criada na Zapster"
+                    title="Tenta salvar na base o ID de uma instÃ¢ncia jÃ¡ criada na Zapster"
                   >
                     Verificar e corrigir
                   </button>
@@ -4072,9 +3887,9 @@ export default function Inbox() {
                     onClick={reconcileLast24h}
                     disabled={waLoading || waSyncing || waTokenMissing}
                     type="button"
-                    title="Sincroniza mensagens das últimas 24 horas"
+                    title="Sincroniza mensagens das Ãºltimas 24 horas"
                   >
-                    {waSyncing ? 'Atualizando…' : 'Atualizar'}
+                    {waSyncing ? 'Atualizandoâ€¦' : 'Atualizar'}
                   </button>
                 )}
                 {role === 'owner' && !waInfo?.instance_id && (
@@ -4088,8 +3903,8 @@ export default function Inbox() {
                   </button>
                 )}
                 {role === 'owner' && !!waInfo?.instance_id && waInfo?.status === 'offline' && (
-                  <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={powerOnInstance} disabled={waLoading || waTokenMissing} type="button" title="Liga a instância se estiver offline">
-                    Ligar instância
+                  <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={powerOnInstance} disabled={waLoading || waTokenMissing} type="button" title="Liga a instÃ¢ncia se estiver offline">
+                    Ligar instÃ¢ncia
                   </button>
                 )}
                 {role === 'owner' && !!waInfo?.instance_id && (
@@ -4099,9 +3914,9 @@ export default function Inbox() {
                     onClick={powerOffInstance}
                     disabled={waLoading || waTokenMissing}
                     type="button"
-                    title="Desliga a instância (mantém sessão quando possível)"
+                    title="Desliga a instÃ¢ncia (mantÃ©m sessÃ£o quando possÃ­vel)"
                   >
-                    Desligar instância
+                    Desligar instÃ¢ncia
                   </button>
                 )}
                 {role === 'owner' && !!waInfo?.instance_id && (
@@ -4111,7 +3926,7 @@ export default function Inbox() {
                     onClick={restartInstance}
                     disabled={waLoading || waTokenMissing}
                     type="button"
-                    title="Reinicia a instância (pode ficar offline por até 1 minuto)"
+                    title="Reinicia a instÃ¢ncia (pode ficar offline por atÃ© 1 minuto)"
                   >
                     Reiniciar
                   </button>
@@ -4120,11 +3935,11 @@ export default function Inbox() {
             </div>
             {waTokenMissing && (
               <div className="device-config-error" role="alert">
-                <span aria-hidden>⚠️</span>
+                <span aria-hidden>âš ï¸</span>
                 <div>
-                  <strong>Configuração incompleta</strong>
+                  <strong>ConfiguraÃ§Ã£o incompleta</strong>
                   <p>
-                    O token de acesso ao WhatsApp não está configurado. Entre em contato com o suporte para finalizar a configuração.
+                    O token de acesso ao WhatsApp nÃ£o estÃ¡ configurado. Entre em contato com o suporte para finalizar a configuraÃ§Ã£o.
                   </p>
                 </div>
               </div>
@@ -4139,17 +3954,17 @@ export default function Inbox() {
                 }}
               >
                 <p className="text-small" style={{ margin: 0, lineHeight: 1.45 }}>
-                  A instância foi criada na Zapster, mas o ID não foi salvo no Appwrite. Você pode usar o QR abaixo; após recarregar a página, use{' '}
-                  <strong>Verificar e corrigir</strong> para vincular de novo — ou corrija permissões/atributos da coleção de academias.
+                  A instÃ¢ncia foi criada na Zapster, mas o ID nÃ£o foi salvo no Appwrite. VocÃª pode usar o QR abaixo; apÃ³s recarregar a pÃ¡gina, use{' '}
+                  <strong>Verificar e corrigir</strong> para vincular de novo â€” ou corrija permissÃµes/atributos da coleÃ§Ã£o de academias.
                 </p>
               </div>
             )}
             <div style={{ padding: 12, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              {!waInfo?.instance_id && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhuma instância criada.</div>}
+              {!waInfo?.instance_id && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhuma instÃ¢ncia criada.</div>}
               {!!waInfo?.instance_id && (
                 <>
                   <div style={{ minWidth: 260 }}>
-                    <div className="ctx-label" style={{ marginBottom: 6 }}>Instância</div>
+                    <div className="ctx-label" style={{ marginBottom: 6 }}>InstÃ¢ncia</div>
                     <div className="text-small" style={{ wordBreak: 'break-all' }}>{waInfo.instance_id}</div>
                   </div>
                   <div style={{ minWidth: 260 }}>
@@ -4165,12 +3980,12 @@ export default function Inbox() {
                     {(waTokenMissing || waQrError || waInfo?.status === 'connected' || !waInfo?.instance_id) && (
                       <div className="text-small" style={{ color: 'var(--text-secondary)', maxWidth: 480 }}>
                         {waTokenMissing
-                          ? 'Backend não configurado para QR.'
+                          ? 'Backend nÃ£o configurado para QR.'
                           : waInfo?.status === 'connected'
                           ? 'Dispositivo conectado'
                           : waQrError
-                          ? 'QR Code indisponível no momento (instância pode estar conectada).'
-                          : 'Aguardando QR… toque em Verificar status'}
+                          ? 'QR Code indisponÃ­vel no momento (instÃ¢ncia pode estar conectada).'
+                          : 'Aguardando QRâ€¦ toque em Verificar status'}
                       </div>
                     )}
                   </div>
@@ -4181,297 +3996,12 @@ export default function Inbox() {
         </div>
       )}
 
-      {false && (
-        <div style={{ marginBottom: 12 }}>
-          {!canConfigureAgenteIa ? (
-            <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-              Apenas donos e membros da equipe da academia podem configurar o Agente IA.
-            </div>
-          ) : (
-            <>
-              <div className="agent-header">
-                <h2 className="navi-section-heading" style={{ fontSize: '1.25rem', margin: '0 0 8px' }}>Assistente IA</h2>
-                <p className="agent-subtitle">Configure como sua IA responde no WhatsApp</p>
-              </div>
-
-              <div className="agent-toggle-block">
-                <div className="agent-toggle-row">
-                  <span className="agent-toggle-label">{iaAtiva ? 'Assistente ligado' : 'Assistente desligado'}</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleIa()}
-                    disabled={!promptConfigurado || togglingIa}
-                    className={`agent-toggle-btn${iaAtiva && promptConfigurado ? ' active' : ''}`}
-                    title={
-                      !promptConfigurado
-                        ? 'Conclua a configuração do assistente antes de ativar'
-                        : togglingIa
-                          ? 'Atualizando…'
-                          : iaAtiva
-                            ? 'Desativar assistente'
-                            : 'Ativar assistente'
-                    }
-                  >
-                    {togglingIa ? '…' : iaAtiva ? 'Ligado' : 'Desligado'}
-                  </button>
-                </div>
-                {!promptConfigurado && !iaAtiva && (
-                  <p className="agent-toggle-hint">
-                    Conclua a configuração do assistente abaixo para poder ativá-lo.
-                  </p>
-                )}
-                {iaAtiva && !promptConfigurado && (
-                  <p className="agent-warning">Conclua a configuração do assistente para ele funcionar corretamente.</p>
-                )}
-                {!iaAtiva && promptConfigurado && (
-                  <p className="agent-info">Instruções salvas. Ligue o assistente para começar a responder no WhatsApp.</p>
-                )}
-                {promptConfigurado && !whatsappConectado && (
-                  <p className="agent-info" style={{ marginTop: 8 }}>
-                    WhatsApp ainda não está conectado.{' '}
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ padding: '2px 10px', minHeight: 30, fontSize: 12, verticalAlign: 'middle' }}
-                      onClick={() => {
-                        setWaQrError(false);
-                        setWaQrTick((v) => v + 1);
-                        navigate('/inbox?tab=dispositivo');
-                        void fetchWaInfo();
-                      }}
-                    >
-                      Abrir conexão do WhatsApp
-                    </button>
-                  </p>
-                )}
-                {iaAtiva && aiThreadsLimit > 0 && aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled && (
-                  <p className="agent-warning" style={{ marginTop: 8 }}>
-                    Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
-                    indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
-                  </p>
-                )}
-              </div>
-
-              <div className="agent-instructions agent-instructions-panel">
-                <div className="agent-instructions-header">
-                  <h3 className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0 }}>
-                    Instruções do assistente
-                  </h3>
-                </div>
-                <p className="agent-subtitle" style={{ margin: '0 0 12px' }}>
-                  Configure o assistente respondendo às perguntas guiadas. No final, as instruções são geradas e salvas automaticamente.
-                </p>
-                <div className="agent-status-card">
-                  <div className="agent-status-row">
-                    <span className={`agent-status-dot ${promptConfigurado ? 'agent-status-dot--configured' : 'agent-status-dot--pending'}`} />
-                    <span className="agent-status-label">
-                      {loadingPrompt
-                        ? 'Carregando…'
-                        : promptConfigurado
-                        ? 'Assistente configurado'
-                        : 'Assistente ainda não configurado'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="agent-config-btn"
-                    disabled={loadingPrompt}
-                    onClick={() => setAgentModalOpen(true)}
-                  >
-                    {promptConfigurado ? 'Reconfigurar assistente' : 'Configurar assistente'}
-                  </button>
-                </div>
-                <div className="agent-actions" style={{ marginTop: 14 }}>
-                  <div className="agent-actions-left" />
-                  <div className="agent-actions-right">
-                    <button
-                      type="button"
-                      onClick={() => void handlePreviewFullPrompt()}
-                      className="btn btn-outline"
-                      disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                      title="Inclui classificação em JSON enviada ao modelo"
-                    >
-                      {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <details className="agent-accordion">
-                <summary>Mensagem de aniversário (resposta da IA)</summary>
-                <div className="agent-accordion-content">
-                  <p className="agent-field-hint">
-                    Texto de referência para quando o aluno escreve no <strong>dia do aniversário</strong>. Use {'{primeiroNome}'} para personalizar. O envio automático por cron usa o template{' '}
-                    <strong>Aniversário</strong> em Mensagens; se estiver vazio, este texto pode ser usado como reserva no cron.
-                  </p>
-                  <textarea
-                    className="agent-field-textarea input"
-                    value={birthdayMessage}
-                    onChange={(e) => setBirthdayMessage(e.target.value)}
-                    rows={3}
-                    disabled={loadingPrompt}
-                    placeholder="Ex: Feliz aniversário, {primeiroNome}! A equipe deseja um dia incrível…"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveBirthdayMessage()}
-                    className="btn btn-outline"
-                    style={{ marginTop: 8 }}
-                    disabled={savingBirthdayMessage || loadingPrompt}
-                  >
-                    {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
-                  </button>
-                </div>
-              </details>
-
-              <details className="agent-accordion">
-                <summary>Perguntas frequentes</summary>
-                <div className="agent-accordion-content">
-                  <p className="agent-field-hint">
-                    Pares pergunta/resposta entram no contexto do assistente como base factual. Isso é separado dos templates de WhatsApp (mensagens proativas).
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {faqItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                          padding: 10,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 8
-                        }}
-                      >
-                        <input
-                          className="input"
-                          value={item.q}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, q: v } : p)));
-                          }}
-                          placeholder="Pergunta"
-                          disabled={loadingPrompt}
-                        />
-                        <textarea
-                          className="agent-field-textarea input"
-                          value={item.a}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, a: v } : p)));
-                          }}
-                          placeholder="Resposta"
-                          rows={3}
-                          disabled={loadingPrompt}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          style={{ alignSelf: 'flex-start' }}
-                          onClick={() => setFaqItems((prev) => prev.filter((_, i) => i !== idx))}
-                          disabled={loadingPrompt}
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      onClick={() => setFaqItems((prev) => [...prev, { q: '', a: '' }])}
-                      disabled={loadingPrompt}
-                    >
-                      + Adicionar pergunta
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      onClick={() => void handleSaveFaqData()}
-                      disabled={savingFaq || loadingPrompt}
-                    >
-                      {savingFaq ? 'Salvando…' : 'Salvar perguntas frequentes'}
-                    </button>
-                  </div>
-                </div>
-              </details>
-
-              {showPromptPreview && (
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Como a IA recebe suas instruções"
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 2000,
-                    background: 'rgba(0,0,0,0.45)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 16
-                  }}
-                  onClick={() => setShowPromptPreview(false)}
-                >
-                  <div
-                    style={{
-                      maxWidth: 720,
-                      width: '100%',
-                      maxHeight: '85vh',
-                      overflow: 'auto',
-                      background: 'var(--surface)',
-                      borderRadius: 12,
-                      border: '1px solid var(--border)',
-                      padding: 16,
-                      boxShadow: 'var(--shadow)'
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                        <div>
-                          <span style={{ fontWeight: 700, fontSize: 15 }}>Como a IA recebe suas instruções</span>
-                          <p className="agent-subtitle" style={{ margin: '6px 0 0', maxWidth: 520 }}>
-                            Este é o texto completo enviado ao assistente antes de cada conversa (inclui blocos técnicos como classificação).
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          style={{ padding: '4px 12px', flexShrink: 0 }}
-                          onClick={() => setShowPromptPreview(false)}
-                        >
-                          Fechar
-                        </button>
-                      </div>
-                    </div>
-                    <pre
-                      style={{
-                        whiteSpace: 'pre-wrap',
-                        fontSize: 12,
-                        margin: 0,
-                        color: 'var(--text)',
-                        fontFamily: 'ui-monospace, Consolas, monospace'
-                      }}
-                    >
-                      {promptPreviewText}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
       {error && (
         <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12 }}>
           {error}
         </div>
       )}
 
-      {/* Conversas e erros: irmãos do bloco agente — nunca aninhar dentro de inboxTab === 'agente'. */}
       {inboxTab === 'conversas' && (
                 isMobile ? (
                   <div className="inbox-mobile-split">
@@ -4543,40 +4073,6 @@ export default function Inbox() {
                   </div>
                 )
               )}
-
-      {/* ── Modal de configuração do assistente IA ── */}
-      {agentModalOpen && (
-        <div
-          className="agent-modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Configuração do assistente"
-          onClick={() => setAgentModalOpen(false)}
-        >
-          <div className="agent-modal-panel" onClick={(e) => e.stopPropagation()}>
-            <AgenteChatSetup
-              academyId={String(academyId || '')}
-              getJwt={getJwt}
-              wizardInitial={wizardAgenteInitial}
-              loading={loadingPrompt}
-              onWizardReset={() =>
-                setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() })
-              }
-              onComplete={async ({ intro, body, suffix, wizardPayload }) => {
-                setPromptIntro(intro);
-                setPromptBody(body);
-                setPromptSuffix(suffix);
-                setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
-                await savePromptSettings(
-                  { prompt_intro: intro, prompt_body: body, prompt_suffix: suffix },
-                  { successMessage: 'Assistente configurado com sucesso!' }
-                );
-                setAgentModalOpen(false);
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
