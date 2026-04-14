@@ -130,6 +130,13 @@ export default async function handler(req, res) {
       return t >= new Date(fromTs).getTime() && t <= new Date(toTs).getTime();
     };
 
+    const inRangeYmd = (ymd, fromTs, toTs) => {
+      if (!ymd) return false;
+      const [Y, M, D] = String(ymd).split('-').map(Number);
+      const t = new Date(Y, (M || 1) - 1, D || 1).getTime();
+      return t >= new Date(fromTs).getTime() && t <= new Date(toTs).getTime();
+    };
+
     const parseNotes = (notesStr) => {
         if (!notesStr) return [];
         try {
@@ -157,8 +164,8 @@ export default async function handler(req, res) {
     const newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, from, to));
     const newLeadsPrev = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, prevFrom, prevTo));
 
-    const scheduled = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Agendado', from, to) || stageEventWithin(l, 'Aula experimental', from, to)));
-    const scheduledPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Agendado', prevFrom, prevTo) || stageEventWithin(l, 'Aula experimental', prevFrom, prevTo)));
+    const scheduled = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, from, to));
+    const scheduledPrev = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, prevFrom, prevTo));
 
     const completed = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Compareceu', from, to) || stageEventWithin(l, 'COMPLETED', from, to)));
     const completedPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'COMPLETED', prevFrom, prevTo)));
@@ -199,7 +206,7 @@ export default async function handler(req, res) {
 
     chartData.forEach(bucket => {
         bucket.newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, bucket.start, bucket.end)).length;
-        bucket.scheduled = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Agendado', bucket.start, bucket.end) || stageEventWithin(l, 'Aula experimental', bucket.start, bucket.end))).length;
+        bucket.scheduled = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, bucket.start, bucket.end)).length;
         bucket.converted = allLeads.filter(l => countsAsConvertedInPeriod(l, bucket.start, bucket.end)).length;
     });
 

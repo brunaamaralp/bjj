@@ -314,7 +314,7 @@ const Reports = () => {
         await fetchMoreLeads();
     };
 
-    const hasAnyActivity = reportData ? Object.values(reportData.metrics).some(m => m.cur > 0) : false;
+    const hasAnyActivity = reportData ? Object.values(reportData.metrics).some((m) => (m.current ?? 0) > 0) : false;
 
     const drillList = reportData && drillKey ? reportData.metrics[drillKey]?.list || [] : [];
 
@@ -504,7 +504,7 @@ const Reports = () => {
             <div className="reports-kpi-grid mt-4 animate-in">
                 <Card
                     title="Novos leads"
-                    value={reportData.metrics.newLeads.cur || reportData.metrics.newLeads.current}
+                    value={reportData.metrics.newLeads.current}
                     variation={reportData.metrics.newLeads.var || reportData.metrics.newLeads.variation || pctVar(reportData.metrics.newLeads.current, reportData.metrics.newLeads.previous)}
                     icon={<UserPlus size={18} color="var(--v500)" strokeWidth={2} />}
                     color="accent"
@@ -512,7 +512,7 @@ const Reports = () => {
                 />
                 <Card
                     title="Aulas agendadas"
-                    value={reportData.metrics.scheduled.cur || reportData.metrics.scheduled.current}
+                    value={reportData.metrics.scheduled.current}
                     variation={reportData.metrics.scheduled.var || reportData.metrics.scheduled.variation || pctVar(reportData.metrics.scheduled.current, reportData.metrics.scheduled.previous)}
                     icon={<Calendar size={18} color="var(--warn-text)" strokeWidth={2} />}
                     color="warning"
@@ -520,7 +520,7 @@ const Reports = () => {
                 />
                 <Card
                     title="Compareceram"
-                    value={reportData.metrics.completed?.current || reportData.metrics.showed?.cur || reportData.metrics.showed?.current}
+                    value={reportData.metrics.completed?.current ?? reportData.metrics.showed?.current}
                     variation={reportData.metrics.completed ? pctVar(reportData.metrics.completed.current, reportData.metrics.completed.previous) : (reportData.metrics.showed?.var || reportData.metrics.showed?.variation)}
                     icon={<CheckCircle2 size={18} color="var(--success-dot)" strokeWidth={2} />}
                     color="success"
@@ -528,7 +528,7 @@ const Reports = () => {
                 />
                 <Card
                     title="Não compareceram"
-                    value={reportData.metrics.missed.cur || reportData.metrics.missed.current}
+                    value={reportData.metrics.missed.current}
                     variation={reportData.metrics.missed.var || reportData.metrics.missed.variation || pctVar(reportData.metrics.missed.current, reportData.metrics.missed.previous)}
                     icon={<XCircle size={18} color="var(--danger)" strokeWidth={2} />}
                     color="danger"
@@ -536,13 +536,13 @@ const Reports = () => {
                 />
                 <Card
                     title="Matrículas"
-                    value={reportData.metrics.converted.cur || reportData.metrics.converted.current}
+                    value={reportData.metrics.converted.current}
                     variation={reportData.metrics.converted.var || reportData.metrics.converted.variation || pctVar(reportData.metrics.converted.current, reportData.metrics.converted.previous)}
                     icon={<Users size={18} color="var(--v700)" strokeWidth={2} />}
                     color="purple"
                     onClick={() => setDrillKey('converted')}
                 />
-                <Card title="Taxa de conversão" value={`${reportData.metrics.conversionRate.cur || reportData.metrics.conversionRate.current}%`} variation={reportData.metrics.conversionRate.var || reportData.metrics.conversionRate.variation || pctVar(reportData.metrics.conversionRate.current, reportData.metrics.conversionRate.previous)} icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />} color="accent" />
+                <Card title="Taxa de conversão" value={`${reportData.metrics.conversionRate.current}%`} variation={reportData.metrics.conversionRate.var || reportData.metrics.conversionRate.variation || pctVar(reportData.metrics.conversionRate.current, reportData.metrics.conversionRate.previous)} icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />} color="accent" />
             </div>
             ) : null}
 
