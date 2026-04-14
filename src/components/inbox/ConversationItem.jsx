@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
+
+const LONG_PRESS_MS = 520;
+const MOVE_CANCEL_PX = 12;
 
 export default function ConversationItem({
   item,
@@ -7,6 +10,8 @@ export default function ConversationItem({
   ticketChip,
   formatTimeOnly,
   formatWhen,
+  enableLongPress = false,
+  onLongPress,
 }) {
   const phone = String(item?._phone || item?.phone_number || '');
   const hotLead = Boolean(item?._hotLead);
@@ -27,11 +32,80 @@ export default function ConversationItem({
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
   const preview = rawPrev.length > 40 ? `${rawPrev.slice(0, 40)}…` : rawPrev;
 
+  const longPressTimerRef = useRef(null);
+  const longPressFiredRef = useRef(false);
+  const touchStartRef = useRef(null);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      return;
+    }
+    onSelect?.();
+  }, [onSelect]);
+
+  const handleTouchStart = useCallback(
+    (e) => {
+      if (!enableLongPress || !onLongPress) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      longPressFiredRef.current = false;
+      touchStartRef.current = { x: t.clientX, y: t.clientY };
+      clearLongPressTimer();
+      longPressTimerRef.current = setTimeout(() => {
+        longPressTimerRef.current = null;
+        longPressFiredRef.current = true;
+        try {
+          onLongPress();
+        } catch {
+          void 0;
+        }
+        try {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(12);
+        } catch {
+          void 0;
+        }
+      }, LONG_PRESS_MS);
+    },
+    [enableLongPress, onLongPress, clearLongPressTimer]
+  );
+
+  const handleTouchMove = useCallback(
+    (e) => {
+      if (!enableLongPress || !touchStartRef.current) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      const dx = Math.abs(t.clientX - touchStartRef.current.x);
+      const dy = Math.abs(t.clientY - touchStartRef.current.y);
+      if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+        touchStartRef.current = null;
+        clearLongPressTimer();
+      }
+    },
+    [enableLongPress, clearLongPressTimer]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    touchStartRef.current = null;
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
   return (
     <button
       type="button"
       data-inbox-conversation-item
-      onClick={onSelect}
+      onClick={handleClick}
+      onTouchStart={enableLongPress ? handleTouchStart : undefined}
+      onTouchMove={enableLongPress ? handleTouchMove : undefined}
+      onTouchEnd={enableLongPress ? handleTouchEnd : undefined}
+      onTouchCancel={enableLongPress ? handleTouchEnd : undefined}
       className={`inbox-conversation-item${active ? ' active' : ''}`}
       style={{
         display: 'block',
@@ -73,9 +147,9 @@ export default function ConversationItem({
               >
                 {contactType === 'student' ? 'Aluno' : 'Lead'}
               </span>
-              {hotLead && <span title="Lead quente" style={{ fontSize: 12 }}>🔥</span>}
-              {handoffActive && <span title="Atendimento assumido" style={{ fontSize: 12 }}>⏸️</span>}
-              {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção" style={{ fontSize: 12 }}>⚠️</span>}
+              {hotLead && <span title="Lead quente" style={{ fontSize: 12 }}>{'\uD83D\uDD25'}</span>}
+              {handoffActive && <span title="Atendimento assumido" style={{ fontSize: 12 }}>{'\u23F8\uFE0F'}</span>}
+              {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção" style={{ fontSize: 12 }}>{'\u26A0\uFE0F'}</span>}
               {item?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>

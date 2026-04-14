@@ -171,6 +171,8 @@ export default function Inbox() {
   });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [menu, setMenu] = useState(null);
+  /** Mobile: bottom sheet após long press na lista (só ação "marcar não lida" quando aplicável). */
+  const [conversationSheet, setConversationSheet] = useState(null);
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
   const [expandedMsgs, setExpandedMsgs] = useState({});
   const [threadAtBottom, setThreadAtBottom] = useState(true);
@@ -1019,6 +1021,49 @@ export default function Inbox() {
     } catch (e) {
       try {
         addToast({ type: 'error', message: e?.message || 'NÃ£o foi possÃ­vel marcar como lida. Tente de novo.' });
+      } catch {
+        void 0;
+      }
+    }
+  }
+
+  async function markUnread(phone) {
+    const p = String(phone || '').trim();
+    if (!p) return;
+    if (!academyIdRef.current) return;
+    try {
+      const jwt = await getJwt();
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'unread' })
+      });
+      if (blocked) return;
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como não lida'));
+      setItems((prev) => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return arr.map((it) => {
+          const ph = String(it?.phone_number || '').trim();
+          if (ph !== p) return it;
+          return { ...it, unread_count: 1 };
+        });
+      });
+      setSelected((prev) => {
+        if (!prev || String(prev.phone || '').trim() !== p) return prev;
+        return null;
+      });
+      setSelectedPhone((prevPhone) => (String(prevPhone || '').trim() === p ? '' : prevPhone));
+      setConversationSheet(null);
+      closeMenu();
+      addToast({ type: 'success', message: 'Marcado como não lida' });
+    } catch (e) {
+      try {
+        addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como não lida.' });
       } catch {
         void 0;
       }
@@ -2265,6 +2310,12 @@ export default function Inbox() {
           ticketChip={ticketChip}
           formatTimeOnly={formatTimeOnly}
           formatWhen={formatWhen}
+          isMobile={isMobile}
+          onConversationLongPress={(it) => {
+            const u = Number(it?._unreadCount ?? it?.unread_count ?? 0);
+            if (!isMobile || u !== 0) return;
+            setConversationSheet({ item: it });
+          }}
         />
       </div>
     </div>
@@ -3722,6 +3773,11 @@ export default function Inbox() {
               const payload = menu.payload && typeof menu.payload === 'object' ? menu.payload : {};
               const phone = String(payload.phone || '').trim();
               const hasLead = Boolean(String(selected?.lead_id || '').trim());
+              const listArr = Array.isArray(items) ? items : [];
+              const listRow = listArr.find((row) => String(row?.phone_number || '').trim() === phone);
+              const threadUnread = Number.isFinite(Number(listRow?.unread_count))
+                ? Number(listRow.unread_count)
+                : 0;
               return (
                 <>
                   <button
@@ -3781,6 +3837,21 @@ export default function Inbox() {
                       Atualiza
                     </span>
                   </button>
+                  {threadUnread === 0 && (
+                    <button
+                      className="inbox-menu-item"
+                      type="button"
+                      onClick={() => {
+                        void markUnread(phone);
+                      }}
+                      disabled={!phone}
+                    >
+                      Marcar como não lida
+                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                        Lista
+                      </span>
+                    </button>
+                  )}
                   {canConfigureAgenteIa && (
                     <button
                       className="inbox-menu-item"
@@ -3889,6 +3960,66 @@ export default function Inbox() {
           </div>
         </div>
       )}
+
+      {conversationSheet && isMobile && (() => {
+        const it = conversationSheet.item;
+        const phone = String(it?._phone || it?.phone_number || '').trim();
+        const title = String(it?._displayTitle || phone || 'Conversa');
+        if (!phone) return null;
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              zIndex: 72,
+              inset: 0,
+              background: 'rgba(18,16,42,0.45)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+            }}
+            onClick={() => setConversationSheet(null)}
+            role="presentation"
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 560,
+                background: 'var(--surface)',
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                border: '1px solid var(--border)',
+                borderBottom: 'none',
+                padding: '12px 16px 20px',
+                boxShadow: '0 -8px 32px rgba(0,0,0,0.12)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ width: 40, height: 4, borderRadius: 4, background: 'var(--border)', margin: '0 auto 14px' }} aria-hidden />
+              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {title}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: '100%', minHeight: 44 }}
+                onClick={() => {
+                  void markUnread(phone);
+                }}
+              >
+                Marcar como não lida
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ width: '100%', minHeight: 44, marginTop: 8 }}
+                onClick={() => setConversationSheet(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {inboxTab === 'dispositivo' && (
         <div style={{ marginBottom: 12 }}>

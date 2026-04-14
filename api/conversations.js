@@ -345,6 +345,12 @@ export default async function handler(req, res) {
       return json(res, 200, { ok: true, unread_count: 0, last_read_at: nowIso });
     }
 
+    if (action === 'unread') {
+      if (!doc) return json(res, 404, { success: false, sucesso: false, erro: 'Conversa não encontrada' });
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 1 });
+      return json(res, 200, { success: true });
+    }
+
     if (action === 'handoff') {
       if (!doc) {
         doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);

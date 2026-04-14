@@ -38,7 +38,9 @@ export default function ConversationList(props) {
     selectedPhone,
     ticketChip,
     formatTimeOnly,
-    formatWhen
+    formatWhen,
+    isMobile = false,
+    onConversationLongPress
   } = props;
 
   const groups = useMemo(() => safeGrouped(groupedItems), [groupedItems]);
@@ -69,6 +71,8 @@ export default function ConversationList(props) {
                 ticketChip={ticketChip}
                 formatTimeOnly={formatTimeOnly}
                 formatWhen={formatWhen}
+                enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
+                onLongPress={() => onConversationLongPress?.(it)}
               />
             );
           })}
