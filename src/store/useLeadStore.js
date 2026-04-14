@@ -78,12 +78,6 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
   if (u.isFirstExperience !== undefined) copyIf('is_first_experience', u.isFirstExperience);
   if (u.belt !== undefined) copyIf('belt', u.belt);
-  if (u.borrowedKimono !== undefined) {
-    copyIf('borrowed_kimono', String(u.borrowedKimono || '').trim().slice(0, 32));
-  }
-  if (u.borrowedShirt !== undefined) {
-    copyIf('borrowed_shirt', String(u.borrowedShirt || '').trim().slice(0, 32));
-  }
   if (u.customAnswers !== undefined) {
     patch.custom_answers_json = JSON.stringify(u.customAnswers || {});
   }
@@ -310,11 +304,6 @@ export const useLeadStore = create((set, get) => ({
         pipeline_stage_changed_at: nowIso,
         status_changed_at: nowIso
       };
-      const bk = String(lead.borrowedKimono || '').trim();
-      const bs = String(lead.borrowedShirt || '').trim();
-      if (bk) docPayload.borrowed_kimono = bk.slice(0, 32);
-      if (bs) docPayload.borrowed_shirt = bs.slice(0, 32);
-
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
       await addLeadEvent({
@@ -516,11 +505,6 @@ export const useLeadStore = create((set, get) => ({
             belt: lead.belt || '',
             custom_answers_json: JSON.stringify(lead.customAnswers || {})
           };
-        const ibk = String(lead.borrowedKimono || '').trim();
-        const ibs = String(lead.borrowedShirt || '').trim();
-        if (ibk) importPayload.borrowed_kimono = ibk.slice(0, 32);
-        if (ibs) importPayload.borrowed_shirt = ibs.slice(0, 32);
-
         const doc = await databases.createDocument(
           DB_ID,
           LEADS_COL,

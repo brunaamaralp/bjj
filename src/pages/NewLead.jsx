@@ -94,7 +94,6 @@ const NewLead = () => {
 
             const cleanPhone = data.phone.replace(/\D/g, '');
 
-            const bk = String(data.borrowedKimono || '').trim().slice(0, 32);
             const created = await addLead({
                 name: data.name,
                 phone: cleanPhone,
@@ -108,7 +107,6 @@ const NewLead = () => {
                 age: data.age || '',
                 scheduledDate: data.scheduledDate || '',
                 scheduledTime: data.scheduledTime || '',
-                ...(bk ? { borrowedKimono: bk } : {}),
                 notes: history,
             });
             if (created?.id) {
@@ -231,16 +229,6 @@ const NewLead = () => {
                     </div>
 
                     {/* Campo de faixa removido; pode ser configurado em Perguntas do Lead */}
-                </div>
-
-                <div className="form-group card animate-in" style={{ animationDelay: '0.14s' }}>
-                    <label>Kimono emprestado (experimental) <span className="optional-label" style={{ textTransform: 'none', fontWeight: 500 }}>(opcional)</span></label>
-                    <input
-                        {...register('borrowedKimono')}
-                        className="form-input"
-                        placeholder="Ex.: Sim A2, Não, ou deixe em branco"
-                        maxLength={32}
-                    />
                 </div>
 
                 {/* Agendamento */}

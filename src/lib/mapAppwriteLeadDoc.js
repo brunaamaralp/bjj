@@ -45,8 +45,6 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     notes: [],
     isFirstExperience: doc.is_first_experience || 'Sim',
     belt: doc.belt || '',
-    borrowedKimono: doc.borrowed_kimono || '',
-    borrowedShirt: doc.borrowed_shirt || '',
     customAnswers: parseCustomAnswersJson(doc.custom_answers_json),
     intention: doc.whatsapp_intention || '',
     priority: doc.whatsapp_priority || '',
