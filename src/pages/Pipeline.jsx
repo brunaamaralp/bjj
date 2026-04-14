@@ -411,19 +411,12 @@ const Pipeline = () => {
 
     const handleWhatsApp = (e, lead) => {
         e.stopPropagation();
-        const key = lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'recovery';
-        void sendWhatsappTemplateOutbound({
-            lead,
-            academyId,
-            academyName: waOutbound.name,
-            templateKey: key,
-            templatesMap: waOutbound.templates,
-            zapsterInstanceId: waOutbound.zapster_instance_id,
-            onToast: (t) => {
-                setToast(t.message);
-                setTimeout(() => setToast(''), 3200);
-            }
-        });
+        if (!lead?.phone) {
+            setToast('Lead sem telefone cadastrado');
+            setTimeout(() => setToast(''), 3200);
+            return;
+        }
+        navigate(`/inbox?phone=${encodeURIComponent(lead.phone)}`);
     };
 
     const handleReschedule = async (e, lead, day, time) => {
