@@ -3016,7 +3016,7 @@ export default function Inbox() {
                 aria-expanded={emojiOpen}
                 title="Inserir emoji"
               >
-                ðŸ˜Š
+                {'\u{1F60A}'}
               </button>
               {emojiOpen && (
                 <div
@@ -4178,7 +4178,7 @@ export default function Inbox() {
         </div>
       )}
 
-      {isMobile && detailsOpen && selectedPhone && (
+      {(isMobile || isNarrowDesktop) && detailsOpen && selectedPhone && (
         <div
           style={{ position: 'fixed', zIndex: 70, inset: 0, background: 'rgba(18,16,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
           onClick={() => setDetailsOpen(false)}
