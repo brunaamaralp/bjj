@@ -231,7 +231,11 @@ export default async function handler(req, res) {
       String(req.query.archived || '').trim() === '1' || String(req.query.archived || '').trim().toLowerCase() === 'true';
 
     const queries = [Query.equal('academy_id', [academyId])];
-    queries.push(archivedOnly ? Query.equal('archived', [true]) : Query.equal('archived', [false]));
+    if (archivedOnly) {
+      queries.push(Query.equal('archived', [true]));
+    } else {
+      queries.push(Query.notEqual('archived', [true]));
+    }
     queries.push(Query.orderDesc('updated_at'));
     queries.push(Query.limit(limit + 1));
     if (searchDigits.length >= 2) {
@@ -248,7 +252,7 @@ export default async function handler(req, res) {
       if (search.trim() && !searchDigits) {
         const wide = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
           Query.equal('academy_id', [academyId]),
-          archivedOnly ? Query.equal('archived', [true]) : Query.equal('archived', [false]),
+          archivedOnly ? Query.equal('archived', [true]) : Query.notEqual('archived', [true]),
           Query.orderDesc('updated_at'),
           Query.limit(120)
         ]);
