@@ -1175,16 +1175,6 @@ export default function Inbox() {
         notifiedOnceRef.current = true;
       }
       listMetaRef.current = nextMeta;
-      if (reset) {
-        // Nunca auto-selecionar em viewport estreita: evita lista desmontada no mobile e corrida ref/effect.
-        const viewportMobile =
-          typeof window !== 'undefined' &&
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(max-width: 1023px)').matches;
-        if (!selectedPhoneRef.current && next.length > 0 && !viewportMobile) {
-          setSelectedPhone(String(next[0].phone_number || ''));
-        }
-      }
     } catch (e) {
       if (!silent) setError(e?.message || 'Erro');
     } finally {

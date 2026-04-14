@@ -1,12 +1,23 @@
 import React from 'react';
+import { MessageSquare } from 'lucide-react';
 
 export default function ThreadState({ type, errorText = '', onRetry }) {
   if (type === 'none-selected') {
     return (
-      <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', minHeight: '62vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', maxWidth: 420, padding: 20 }}>
-          <div className="navi-section-heading" style={{ fontSize: '1.05rem', width: '100%', justifyContent: 'center', marginBottom: 6 }}>Selecione uma conversa para começar</div>
-          <div className="navi-subtitle" style={{ margin: 0, textAlign: 'center' }}>Escolha uma conversa na coluna da esquerda para abrir o histórico e responder.</div>
+      <div
+        style={{
+          minHeight: '62vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}
+      >
+        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <MessageSquare size={44} strokeWidth={1.35} style={{ margin: '0 auto 14px', opacity: 0.55 }} aria-hidden />
+          <p style={{ margin: 0, fontSize: '1rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+            Selecione uma conversa para começar
+          </p>
         </div>
       </div>
     );
