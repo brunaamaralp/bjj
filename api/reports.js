@@ -1,5 +1,13 @@
 import { Client, Databases, Query } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
+import {
+    buildWeekBuckets,
+    buildMonthBuckets,
+    isRealLead,
+    inRange,
+    inRangeYmd,
+    countsAsConvertedInPeriod
+} from '../lib/reportsMetrics.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -11,80 +19,6 @@ const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).se
 const databases = new Databases(adminClient);
 
 function json(res, status, obj) { res.status(status).json(obj); }
-
-const startOfWeek = (d) => {
-    const dd = new Date(d);
-    const day = dd.getDay();
-    const diff = (day + 6) % 7;
-    dd.setDate(dd.getDate() - diff);
-    dd.setHours(0, 0, 0, 0);
-    return dd;
-};
-
-const endOfWeek = (d) => {
-    const dd = startOfWeek(d);
-    dd.setDate(dd.getDate() + 6);
-    dd.setHours(23, 59, 59, 999);
-    return dd;
-};
-
-const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
-const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-
-function buildWeekBuckets(fromRaw, toRaw) {
-    const fromD = new Date(fromRaw);
-    const toDEnd = new Date(toRaw);
-    // `toRaw` já é o fim inclusivo do período (ISO do cliente); não usar setHours aqui no servidor (UTC distorceria).
-
-    const out = [];
-    let s = startOfWeek(new Date(fromD));
-    let guard = 0;
-    const toMs = toDEnd.getTime();
-    while (s.getTime() <= toMs && guard++ < 60) {
-        const e = endOfWeek(s);
-        const clipEndMs = Math.min(e.getTime(), toMs);
-        const clipEnd = new Date(clipEndMs);
-        out.push({
-            start: new Date(s),
-            end: clipEnd,
-            label: `${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}`,
-            newLeads: 0,
-            scheduled: 0,
-            converted: 0
-        });
-        const next = new Date(e);
-        next.setDate(next.getDate() + 1);
-        next.setHours(0, 0, 0, 0);
-        s = startOfWeek(next);
-    }
-    return out;
-}
-
-function buildMonthBuckets(fromRaw, toRaw) {
-    const fromD = new Date(fromRaw);
-    const toDEnd = new Date(toRaw);
-    // Mesma regra que buildWeekBuckets: fim do período vem pronto no ISO.
-
-    const out = [];
-    let s = startOfMonth(new Date(fromD));
-    let guard = 0;
-    const toMs = toDEnd.getTime();
-    while (s.getTime() <= toMs && guard++ < 36) {
-        const e = endOfMonth(s);
-        const clipEndMs = Math.min(e.getTime(), toMs);
-        const clipEnd = new Date(clipEndMs);
-        out.push({
-            start: new Date(s),
-            end: clipEnd,
-            label: `${String(s.getMonth() + 1).padStart(2, '0')}/${String(s.getFullYear()).slice(-2)}`,
-            newLeads: 0,
-            scheduled: 0,
-            converted: 0
-        });
-        s = startOfMonth(new Date(s.getFullYear(), s.getMonth() + 1, 1));
-    }
-    return out;
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
@@ -135,20 +69,6 @@ export default async function handler(req, res) {
 
     const allLeads = await fetchAll(baseQueries);
 
-    const isRealLead = (l) => l.origin !== 'Planilha';
-    const inRange = (ts, fromTs, toTs) => {
-      if (!ts) return false;
-      const t = new Date(ts).getTime();
-      return t >= new Date(fromTs).getTime() && t <= new Date(toTs).getTime();
-    };
-
-    const inRangeYmd = (ymd, fromTs, toTs) => {
-      if (!ymd) return false;
-      const [Y, M, D] = String(ymd).split('-').map(Number);
-      const t = new Date(Y, (M || 1) - 1, D || 1).getTime();
-      return t >= new Date(fromTs).getTime() && t <= new Date(toTs).getTime();
-    };
-
     const newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, from, to));
     const newLeadsPrev = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, prevFrom, prevTo));
 
@@ -160,12 +80,6 @@ export default async function handler(req, res) {
 
     const missed = allLeads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, from, to));
     const missedPrev = allLeads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, prevFrom, prevTo));
-
-    const countsAsConvertedInPeriod = (l, fromTs, toTs) => {
-      if (!isRealLead(l)) return false;
-      if (l.converted_at && inRange(l.converted_at, fromTs, toTs)) return true;
-      return l.contact_type === 'student' && inRange(l.$updatedAt, fromTs, toTs);
-    };
 
     const converted = allLeads.filter(l => countsAsConvertedInPeriod(l, from, to));
     const convertedPrev = allLeads.filter(l => countsAsConvertedInPeriod(l, prevFrom, prevTo));

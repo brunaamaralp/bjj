@@ -340,6 +340,7 @@ const LeadProfile = () => {
 
     const handleSave = async () => {
         const payload = { ...form };
+        if (!String(payload.borrowedKimono || '').trim()) delete payload.borrowedKimono;
         const hasDate = String(payload.scheduledDate || '').trim().length > 0;
         if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
             payload.status = LEAD_STATUS.SCHEDULED;
@@ -713,6 +714,17 @@ const LeadProfile = () => {
                                     {/* Campo de faixa removido; pode ser configurado como pergunta personalizada */}
                                 </div>
                                 <div className="form-group mt-2">
+                                    <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Kimono emprestado (experimental)</label>
+                                    <input
+                                        name="borrowedKimono"
+                                        value={form.borrowedKimono || ''}
+                                        onChange={onChange}
+                                        className="form-input"
+                                        placeholder="Opcional — ex.: Sim A2, Não, ou deixe em branco"
+                                        maxLength={32}
+                                    />
+                                </div>
+                                <div className="form-group mt-2">
                                     <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Data de nascimento</label>
                                     <input
                                         type="date"
@@ -820,6 +832,11 @@ const LeadProfile = () => {
                                 <span className="info-badge">
                                     {lead.isFirstExperience === 'Sim' ? 'Iniciante' : 'Já treina'}
                                 </span>
+                                {hasLeadDisplayValue(lead.borrowedKimono) ? (
+                                    <span className="info-badge" title="Kimono emprestado (experimental)">
+                                        Kimono: {String(lead.borrowedKimono).trim()}
+                                    </span>
+                                ) : null}
                             </div>
                         ) : null}
 

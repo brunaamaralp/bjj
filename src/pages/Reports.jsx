@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { hasAnyActivity } from '../lib/reportActivity.js';
 import { account } from '../lib/appwrite';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -314,7 +315,7 @@ const Reports = () => {
         await fetchMoreLeads();
     };
 
-    const hasAnyActivity = reportData ? Object.values(reportData.metrics).some((m) => (m.current ?? 0) > 0) : false;
+    const reportHasActivity = hasAnyActivity(reportData);
 
     const drillList = reportData && drillKey ? reportData.metrics[drillKey]?.list || [] : [];
 
@@ -489,7 +490,7 @@ const Reports = () => {
                         Volte ao início ou ao funil e aguarde o carregamento. Se a academia ainda não tiver leads, cadastre o primeiro no menu.
                     </p>
                 </div>
-            ) : !showInitialLoad && !hasAnyActivity ? (
+            ) : !showInitialLoad && !reportHasActivity ? (
                 <div className="reports-empty card mt-4">
                     <p className="navi-section-heading" style={{ marginBottom: 8 }}>
                         Sem atividade neste período

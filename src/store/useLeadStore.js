@@ -2,22 +2,15 @@ import { create } from 'zustand';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
 import { addLeadEvent } from '../lib/leadEvents.js';
+import { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
+import { mapAppwriteDocToLead } from '../lib/mapAppwriteLeadDoc.js';
 import {
   mergeOnboardingStepIdsDone,
   normalizeOnboardingChecklistList,
   parseOnboardingChecklist,
 } from '../lib/onboardingChecklist.js';
 
-export const LEAD_STATUS = {
-  NEW: 'Novo',
-  SCHEDULED: 'Agendado',
-  COMPLETED: 'Compareceu',
-  MISSED: 'Não Compareceu',
-  CONVERTED: 'Matriculado',
-  LOST: 'Não fechou'
-};
-
-export const LEAD_ORIGIN = ['Instagram', 'Indicação', 'WhatsApp', 'Passou na porta', 'Evento'];
+export { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 
 export const LEADS_PAGE_SIZE = 200;
 
@@ -38,16 +31,6 @@ function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
   return raw.replace(/\D/g, '');
-}
-
-function parseCustomAnswersJson(raw) {
-  if (!raw || typeof raw !== 'string') return {};
-  try {
-    const o = JSON.parse(raw);
-    return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
-  } catch {
-    return {};
-  }
 }
 
 function permissionContextFromStore(get) {
@@ -95,8 +78,12 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
   if (u.isFirstExperience !== undefined) copyIf('is_first_experience', u.isFirstExperience);
   if (u.belt !== undefined) copyIf('belt', u.belt);
-  if (u.borrowedKimono !== undefined) copyIf('borrowed_kimono', u.borrowedKimono);
-  if (u.borrowedShirt !== undefined) copyIf('borrowed_shirt', u.borrowedShirt);
+  if (u.borrowedKimono !== undefined) {
+    copyIf('borrowed_kimono', String(u.borrowedKimono || '').trim().slice(0, 32));
+  }
+  if (u.borrowedShirt !== undefined) {
+    copyIf('borrowed_shirt', String(u.borrowedShirt || '').trim().slice(0, 32));
+  }
   if (u.customAnswers !== undefined) {
     patch.custom_answers_json = JSON.stringify(u.customAnswers || {});
   }
@@ -125,63 +112,6 @@ function updatesToAppwritePatch(updates, currentLead) {
   }
 
   return patch;
-}
-
-function mapAppwriteDocToLead(doc, operationalStatusSet) {
-  const fromStage = String(doc.pipeline_stage || '').trim();
-  const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
-  const effectivePipelineStage =
-    fromStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
-
-  const whatsappLeadQuenteRaw = String(doc.whatsapp_lead_quente || '').trim().toLowerCase();
-  const hotLead = whatsappLeadQuenteRaw === 'sim';
-
-  return {
-    id: doc.$id,
-    name: doc.name,
-    phone: doc.phone,
-    type: doc.type || 'Adulto',
-    origin: doc.origin || '',
-    contact_type: doc.contact_type ?? 'lead',
-    status,
-    pipelineStage: effectivePipelineStage,
-    scheduledDate: doc.scheduledDate || '',
-    scheduledTime: doc.scheduledTime || '',
-    parentName: doc.parentName || '',
-    age: doc.age || '',
-    birthDate: doc.birth_date || doc.birthDate || '',
-    /**
-     * DEPRECATED: notes será removido após validação.
-     * Não usar em código novo — timeline em lead_events.
-     */
-    notes: [],
-    isFirstExperience: doc.is_first_experience || 'Sim',
-    belt: doc.belt || '',
-    borrowedKimono: doc.borrowed_kimono || '',
-    borrowedShirt: doc.borrowed_shirt || '',
-    customAnswers: parseCustomAnswersJson(doc.custom_answers_json),
-    intention: doc.whatsapp_intention || '',
-    priority: doc.whatsapp_priority || '',
-    hotLead,
-    needHuman: Boolean(doc.need_human),
-    statusChangedAt: doc.status_changed_at || doc.statusChangedAt || '',
-    pipelineStageChangedAt: doc.pipeline_stage_changed_at || doc.$createdAt || '',
-    attendedAt: doc.attended_at || null,
-    missedAt: doc.missed_at || null,
-    lostAt: doc.lost_at || null,
-    convertedAt: doc.converted_at || null,
-    importedAt: doc.imported_at || null,
-    lastNoteAt: doc.last_note_at || null,
-    lastWhatsappActivityAt: doc.last_whatsapp_activity_at || null,
-    whatsappClassifiedAt: doc.whatsapp_classified_at || null,
-    createdAt: doc.$createdAt,
-    lostReason: doc.lostReason || '',
-    plan: doc.plan || '',
-    enrollmentDate: doc.enrollmentDate || '',
-    emergencyContact: doc.emergencyContact || '',
-    emergencyPhone: doc.emergencyPhone || '',
-    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : []
-  };
 }
 
 export const useLeadStore = create((set, get) => ({
@@ -374,14 +304,16 @@ export const useLeadStore = create((set, get) => ({
         notes: '',
         is_first_experience: lead.isFirstExperience || 'Sim',
         belt: lead.belt || '',
-        borrowed_kimono: lead.borrowedKimono || '',
-        borrowed_shirt: lead.borrowedShirt || '',
         custom_answers_json: JSON.stringify(lead.customAnswers || {}),
         birth_date: String(lead.birthDate || '').slice(0, 10),
         pipeline_stage: lead.pipelineStage || 'Novo',
         pipeline_stage_changed_at: nowIso,
         status_changed_at: nowIso
       };
+      const bk = String(lead.borrowedKimono || '').trim();
+      const bs = String(lead.borrowedShirt || '').trim();
+      if (bk) docPayload.borrowed_kimono = bk.slice(0, 32);
+      if (bs) docPayload.borrowed_shirt = bs.slice(0, 32);
 
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
@@ -562,11 +494,7 @@ export const useLeadStore = create((set, get) => ({
           continue;
         }
 
-        const doc = await databases.createDocument(
-          DB_ID,
-          LEADS_COL,
-          ID.unique(),
-          {
+        const importPayload = {
             name: lead.name,
             phone: lead.phone || '',
             type: lead.type || 'Adulto',
@@ -586,10 +514,18 @@ export const useLeadStore = create((set, get) => ({
             birth_date: String(lead.birthDate || '').slice(0, 10),
             is_first_experience: lead.isFirstExperience || 'Sim',
             belt: lead.belt || '',
-            borrowed_kimono: lead.borrowedKimono || '',
-            borrowed_shirt: lead.borrowedShirt || '',
             custom_answers_json: JSON.stringify(lead.customAnswers || {})
-          },
+          };
+        const ibk = String(lead.borrowedKimono || '').trim();
+        const ibs = String(lead.borrowedShirt || '').trim();
+        if (ibk) importPayload.borrowed_kimono = ibk.slice(0, 32);
+        if (ibs) importPayload.borrowed_shirt = ibs.slice(0, 32);
+
+        const doc = await databases.createDocument(
+          DB_ID,
+          LEADS_COL,
+          ID.unique(),
+          importPayload,
           perms
         );
 
