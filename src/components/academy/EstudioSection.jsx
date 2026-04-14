@@ -17,7 +17,7 @@ const InfoRow = ({ icon, label, value }) => (
     </div>
 );
 
-const GeralSection = ({
+const EstudioSection = ({
     academy,
     setAcademy,
     onSave,
@@ -100,7 +100,6 @@ const GeralSection = ({
 
     return (
         <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-            {/* Academy Avatar */}
             <div className="account-hero card mb-6">
                 <div className="flex items-center gap-4">
                     <div className="account-avatar">
@@ -174,7 +173,7 @@ const GeralSection = ({
                             <input className="form-input" value={academy.quickTimes}
                                 onChange={e => setAcademy({ ...academy, quickTimes: e.target.value })}
                                 placeholder="Ex: 18:00, 19:00, 20:00" />
-                            <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de “Não Compareceu”.</p>
+                            <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de "Não Compareceu".</p>
                             {fieldErrors.quickTimes ? <p className="field-error">{fieldErrors.quickTimes}</p> : null}
                         </div>
                         <div className="flex gap-2">
@@ -214,4 +213,4 @@ const GeralSection = ({
     );
 };
 
-export default GeralSection;
+export default EstudioSection;

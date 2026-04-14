@@ -4,10 +4,11 @@ import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 
-const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
+const FunilSection = ({ academy, setAcademy, academyId }) => {
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
     const [newQuestion, setNewQuestion] = useState('');
+    const [saving, setSaving] = useState(false);
 
     const createId = () => {
         try {
@@ -19,13 +20,36 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
 
     const saveQuestions = async (qs) => {
         if (!academyId) return;
+        setSaving(true);
         try {
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 customLeadQuestions: JSON.stringify(qs)
             });
             setAcademy(a => ({ ...a, customLeadQuestions: qs }));
             addToast({ type: 'success', message: 'Perguntas do lead salvas.' });
-        } catch (e) { console.error('save questions:', e); }
+        } catch (e) {
+            console.error('save questions:', e);
+            addToast({ type: 'error', message: 'Não foi possível salvar as perguntas.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleAddQuestion = () => {
+        const q = (newQuestion || '').trim();
+        if (!q) return;
+        const newQ = { id: createId(), label: q, type: 'text' };
+        setAcademy(a => ({ ...a, customLeadQuestions: [...(a.customLeadQuestions || []), newQ] }));
+        setNewQuestion('');
+    };
+
+    const handleRemoveQuestion = (id, idx) => {
+        setAcademy(a => ({
+            ...a,
+            customLeadQuestions: id
+                ? (a.customLeadQuestions || []).filter((it) => it?.id !== id)
+                : (a.customLeadQuestions || []).filter((_, i) => i !== idx)
+        }));
     };
 
     return (
@@ -42,17 +66,9 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                 placeholder="Ex: Qual é seu objetivo principal?"
                                 value={newQuestion}
                                 onChange={(e) => setNewQuestion(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleAddQuestion(); }}
                             />
-                            <button
-                                className="btn-secondary"
-                                onClick={() => {
-                                    const q = (newQuestion || '').trim();
-                                    if (!q) return;
-                                    const qs = [...(academy.customLeadQuestions || []), { id: createId(), label: q, type: 'text' }];
-                                    setNewQuestion('');
-                                    saveQuestions(qs);
-                                }}
-                            >
+                            <button className="btn-secondary" onClick={handleAddQuestion}>
                                 <Plus size={16} /> Adicionar
                             </button>
                         </div>
@@ -113,8 +129,7 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                             readOnly={role !== 'owner'}
                                             onChange={(e) => {
                                                 if (role !== 'owner') return;
-                                                const raw = e.target.value;
-                                                const arr = raw.split(',').map(s => s.trim()).filter(Boolean);
+                                                const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
                                                 const id = q?.id;
                                                 setAcademy((a) => ({
                                                     ...a,
@@ -134,13 +149,7 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                                         <button
                                             className="icon-btn"
                                             title="Remover"
-                                            onClick={() => {
-                                                const id = q?.id;
-                                                const qs = id
-                                                    ? (academy.customLeadQuestions || []).filter((it) => it?.id !== id)
-                                                    : (academy.customLeadQuestions || []).filter((_, i) => i !== idx);
-                                                saveQuestions(qs);
-                                            }}
+                                            onClick={() => handleRemoveQuestion(q?.id, idx)}
                                         >
                                             <X size={14} />
                                         </button>
@@ -187,8 +196,9 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
                             <button
                                 className="btn-secondary"
                                 onClick={() => saveQuestions(academy.customLeadQuestions || [])}
+                                disabled={saving}
                             >
-                                Salvar alterações
+                                {saving ? 'Salvando...' : 'Salvar alterações'}
                             </button>
                         </div>
                     )}
@@ -199,4 +209,4 @@ const PersonalizacaoSection = ({ academy, setAcademy, academyId }) => {
     );
 };
 
-export default PersonalizacaoSection;
+export default FunilSection;

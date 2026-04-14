@@ -1,34 +1,40 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
 import { ChevronLeft } from 'lucide-react';
-import GeralSection from '../components/academy/GeralSection';
-import AtendimentoSection from '../components/academy/AtendimentoSection';
-import PersonalizacaoSection from '../components/academy/PersonalizacaoSection';
-import GerenciamentoSection from '../components/academy/GerenciamentoSection';
+import EstudioSection from '../components/academy/EstudioSection';
+import AgenteIASection from '../components/academy/AgenteIASection';
+import FunilSection from '../components/academy/FunilSection';
+import EquipeSection from '../components/academy/EquipeSection';
+import AvancadoSection from '../components/academy/AvancadoSection';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { useUserRole } from '../lib/useUserRole';
 
 const TABS = [
-    { id: 'geral', label: 'Geral' },
-    { id: 'atendimento', label: 'Atendimento' },
-    { id: 'personalizacao', label: 'Personalização' },
-    { id: 'gerenciamento', label: 'Gerenciamento' },
+    { id: 'estudio', label: 'Estúdio' },
+    { id: 'agente', label: 'Agente IA' },
+    { id: 'funil', label: 'Funil' },
+    { id: 'equipe', label: 'Equipe' },
+    { id: 'avancado', label: 'Avançado' },
 ];
+
+const VALID_TABS = new Set(TABS.map((t) => t.id));
 
 const AcademySettings = () => {
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const billingAccess = useLeadStore((s) => s.billingAccess);
     const addToast = useUiStore((s) => s.addToast);
-    const location = useLocation();
     const taxInputRef = useRef(null);
     const [taxDocumentInput, setTaxDocumentInput] = useState('');
 
-    const [activeTab, setActiveTab] = useState('geral');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const rawTab = searchParams.get('tab') || '';
+    const activeTab = VALID_TABS.has(rawTab) ? rawTab : 'estudio';
+
     const [academy, setAcademy] = useState({
         name: '',
         phone: '',
@@ -42,7 +48,8 @@ const AcademySettings = () => {
         ownerId: '',
     });
 
-    const autoEditTax = useMemo(() => new URLSearchParams(location.search).get('focus') === 'tax', [location.search]);
+    const focus = searchParams.get('focus');
+    const autoEditTax = focus === 'tax';
 
     const role = useUserRole(academy);
 
@@ -55,16 +62,26 @@ const AcademySettings = () => {
             billingAccess.companyTaxOk === false
     );
 
+    // Redirect bare /empresa to ?tab=estudio and handle ?focus=tax
     useEffect(() => {
-        if (autoEditTax) {
-            setActiveTab('geral');
+        if (!VALID_TABS.has(rawTab)) {
+            setSearchParams({ tab: 'estudio' }, { replace: true });
+            return;
+        }
+        if (autoEditTax && activeTab !== 'estudio') {
+            setSearchParams((prev) => { prev.set('tab', 'estudio'); return prev; }, { replace: true });
+        }
+    }, [rawTab, autoEditTax]);
+
+    useEffect(() => {
+        if (autoEditTax && activeTab === 'estudio') {
             const t = window.setTimeout(() => {
                 taxInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 120);
             return () => window.clearTimeout(t);
         }
         return undefined;
-    }, [autoEditTax]);
+    }, [autoEditTax, activeTab]);
 
     const createId = () => {
         try {
@@ -218,6 +235,10 @@ const AcademySettings = () => {
         }
     };
 
+    const setActiveTab = (id) => {
+        setSearchParams({ tab: id });
+    };
+
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="animate-in">
@@ -230,7 +251,7 @@ const AcademySettings = () => {
                     Voltar à conta
                 </Link>
                 <h2 className="navi-page-title">Minha academia</h2>
-                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Integrações, agente de IA, funil e dados do seu estúdio</p>
+                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Estúdio, agente de IA, funil, equipe e dados</p>
             </div>
 
             <nav className="empresa-subnav" aria-label="Seções da academia">
@@ -248,8 +269,8 @@ const AcademySettings = () => {
                 </div>
             </nav>
 
-            {activeTab === 'geral' && (
-                <GeralSection
+            {activeTab === 'estudio' && (
+                <EstudioSection
                     academy={academy}
                     setAcademy={setAcademy}
                     onSave={handleSave}
@@ -262,17 +283,34 @@ const AcademySettings = () => {
                     autoEditTax={autoEditTax}
                 />
             )}
-            
-            {activeTab === 'atendimento' && (
-                <AtendimentoSection academy={academy} />
+
+            {activeTab === 'agente' && (
+                <AgenteIASection
+                    academyId={academyId}
+                    role={role}
+                />
             )}
-            
-            {activeTab === 'personalizacao' && (
-                <PersonalizacaoSection academy={academy} setAcademy={setAcademy} onSave={handleSave} academyId={academyId} />
+
+            {activeTab === 'funil' && (
+                <FunilSection
+                    academy={academy}
+                    setAcademy={setAcademy}
+                    academyId={academyId}
+                />
             )}
-            
-            {activeTab === 'gerenciamento' && (
-                <GerenciamentoSection academy={academy} academyId={academyId} leads={leads} />
+
+            {activeTab === 'equipe' && (
+                <EquipeSection
+                    academy={academy}
+                    academyId={academyId}
+                />
+            )}
+
+            {activeTab === 'avancado' && (
+                <AvancadoSection
+                    academy={academy}
+                    leads={leads}
+                />
             )}
 
             <style dangerouslySetInnerHTML={{

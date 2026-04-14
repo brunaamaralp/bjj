@@ -847,18 +847,25 @@ const Welcome = () => {
       .navi-lp-gallery-mesh {
         position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
       }
-      .navi-lp-band--gallery .navi-lp-inner { position: relative; z-index: 1; }
+      .navi-lp-band--gallery .navi-lp-inner {
+        position: relative; z-index: 1;
+        max-width: min(1480px, calc(100vw - 2 * var(--nl-pad)));
+      }
       .navi-lp-gallery {
-        display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; align-items: stretch;
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: stretch;
       }
       .navi-lp-gallery-item {
-        margin: 0; border-radius: 16px; overflow: hidden;
-        border: 0.5px solid rgba(91,63,191,0.1);
-        box-shadow: 0 4px 20px rgba(91,63,191,0.07);
+        margin: 0; border-radius: 20px; overflow: hidden;
+        border: 0.5px solid rgba(91,63,191,0.12);
+        box-shadow: 0 6px 32px rgba(91,63,191,0.09), 0 1px 4px rgba(0,0,0,0.06);
+        background: #fff;
       }
       .navi-lp-gallery-item img {
         display: block; width: 100%; height: 100%;
-        min-height: 160px; object-fit: cover; aspect-ratio: 4/3;
+        min-height: 200px; object-fit: cover; aspect-ratio: 16/10;
+      }
+      @media (max-width: 700px) {
+        .navi-lp-gallery { grid-template-columns: 1fr; gap: 16px; }
       }
 
       /* ── Section bands ── */

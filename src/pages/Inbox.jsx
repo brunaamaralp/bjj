@@ -174,6 +174,7 @@ export default function Inbox() {
   const [promptPreviewText, setPromptPreviewText] = useState('');
   const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
   const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
+  const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadPaging, setThreadPaging] = useState(false);
   const [threadCursor, setThreadCursor] = useState(null);
@@ -216,7 +217,7 @@ export default function Inbox() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = String(params.get('tab') || '').trim();
-    if (tab === 'agente' || tab === 'dispositivo' || tab === 'conversas') {
+    if (tab === 'dispositivo' || tab === 'conversas') {
       setInboxTab(tab);
     } else {
       setInboxTab('conversas');
@@ -441,6 +442,13 @@ export default function Inbox() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selected?.ticket_status, selected?.transfer_to, canConfigureAgenteIa]);
+
+  useEffect(() => {
+    if (!agentModalOpen) return;
+    const onEsc = (e) => { if (e.key === 'Escape') setAgentModalOpen(false); };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [agentModalOpen]);
 
   function safeParseJson(raw) {
     try {
@@ -1042,80 +1050,9 @@ export default function Inbox() {
   }
 
   function openPromptSettings() {
-    navigate('/inbox?tab=agente');
+    navigate('/empresa?tab=agente');
   }
 
-  useEffect(() => {
-    if (inboxTab !== 'agente' || !canConfigureAgenteIa) return;
-    let cancelled = false;
-    (async () => {
-      setLoadingPrompt(true);
-      try {
-        const jwt = await getJwt();
-        const aid = String(academyId || '').trim();
-        if (!aid) return;
-        const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid };
-        const [rPrompt, rInst] = await Promise.all([
-          fetchWithBillingGuard('/api/settings/ai-prompt', { headers }),
-          fetchWithBillingGuard('/api/zapster/instances', { headers })
-        ]);
-        if (rPrompt.blocked || rInst.blocked) return;
-        const resp = rPrompt.res;
-        const instResp = rInst.res;
-        const instRaw = await instResp.text();
-        const instData = safeParseJson(instRaw) || {};
-        if (isZapsterTokenMissingPayload(instData)) setWaTokenMissing(true);
-        const conectado = instResp.ok && String(instData?.status || '').trim() === 'connected';
-        if (!cancelled) setWhatsappConectado(conectado);
-
-        const data = await resp.json();
-        if (cancelled) return;
-        if (resp.ok && data && typeof data === 'object') {
-          const intro = String(data.prompt_intro || '');
-          const body = String(data.prompt_body || '');
-          const suffix = String(data.prompt_suffix || '');
-          setPromptIntro(intro);
-          setPromptBody(body);
-          setPromptSuffix(suffix);
-          setPromptSavedSnapshot({ intro, body, suffix });
-          setPromptConfigurado(isPromptConfiguredFromFields(intro, body));
-          setIaAtiva(data.ia_ativa === true);
-          setBirthdayMessage(String(data.birthdayMessage || '').replaceAll('{nome}', '{primeiroNome}'));
-          setFaqItems(parseFaqItems(data.faq_data));
-          setAiThreadsUsed(Number(data.ai_threads_used) || 0);
-          setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
-          setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
-          const wd = String(data.wizard_data || '').trim();
-          if (wd) {
-            try {
-              const parsed = JSON.parse(wd);
-              setWizardAgenteInitial(parsed && typeof parsed === 'object' ? parsed : null);
-            } catch {
-              setWizardAgenteInitial(null);
-            }
-          } else {
-            setWizardAgenteInitial(null);
-          }
-        } else {
-          throw new Error('Falha ao carregar');
-        }
-      } catch (e) {
-        if (!cancelled) addToast({ type: 'error', message: e?.message || 'Erro ao carregar' });
-      } finally {
-        if (!cancelled) setLoadingPrompt(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [inboxTab, academyId, canConfigureAgenteIa]);
-
-  useEffect(() => {
-    if (inboxTab !== 'agente' || !canConfigureAgenteIa || !promptConfigurado || !academyId) return;
-    const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'setup_ai')?.done;
-    if (done) return;
-    void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
-  }, [inboxTab, canConfigureAgenteIa, promptConfigurado, academyId]);
 
   useEffect(() => {
     if (!academyId) return;
@@ -4244,7 +4181,7 @@ export default function Inbox() {
         </div>
       )}
 
-      {inboxTab === 'agente' && (
+      {false && (
         <div style={{ marginBottom: 12 }}>
           {!canConfigureAgenteIa ? (
             <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
@@ -4322,38 +4259,27 @@ export default function Inbox() {
                   </h3>
                 </div>
                 <p className="agent-subtitle" style={{ margin: '0 0 12px' }}>
-                  Responda às perguntas da Nave. No final, geramos e guardamos automaticamente as instruções (incluindo regras fixas do sistema no bloco de limites).
+                  Configure o assistente respondendo às perguntas guiadas. No final, as instruções são geradas e salvas automaticamente.
                 </p>
-                {/* Wizard IA: viewport com overflow contido para o scroll do chat não puxar a página (scroll fica em .agent-chat-messages). */}
-                <div
-                  className="agent-wizard-viewport"
-                  style={{
-                    position: 'relative',
-                    maxHeight: 'min(75vh, 640px)',
-                    overflow: 'hidden',
-                    overscrollBehavior: 'contain',
-                    borderRadius: 12
-                  }}
-                >
-                  <AgenteChatSetup
-                    academyId={String(academyId || '')}
-                    getJwt={getJwt}
-                    wizardInitial={wizardAgenteInitial}
-                    loading={loadingPrompt}
-                    onWizardReset={() =>
-                      setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() })
-                    }
-                    onComplete={async ({ intro, body, suffix, wizardPayload }) => {
-                      setPromptIntro(intro);
-                      setPromptBody(body);
-                      setPromptSuffix(suffix);
-                      setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
-                      await savePromptSettings(
-                        { prompt_intro: intro, prompt_body: body, prompt_suffix: suffix },
-                        { successMessage: 'Assistente configurado com sucesso!' }
-                      );
-                    }}
-                  />
+                <div className="agent-status-card">
+                  <div className="agent-status-row">
+                    <span className={`agent-status-dot ${promptConfigurado ? 'agent-status-dot--configured' : 'agent-status-dot--pending'}`} />
+                    <span className="agent-status-label">
+                      {loadingPrompt
+                        ? 'Carregando…'
+                        : promptConfigurado
+                        ? 'Assistente configurado'
+                        : 'Assistente ainda não configurado'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="agent-config-btn"
+                    disabled={loadingPrompt}
+                    onClick={() => setAgentModalOpen(true)}
+                  >
+                    {promptConfigurado ? 'Reconfigurar assistente' : 'Configurar assistente'}
+                  </button>
                 </div>
                 <div className="agent-actions" style={{ marginTop: 14 }}>
                   <div className="agent-actions-left" />
@@ -4617,6 +4543,40 @@ export default function Inbox() {
                   </div>
                 )
               )}
+
+      {/* ── Modal de configuração do assistente IA ── */}
+      {agentModalOpen && (
+        <div
+          className="agent-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Configuração do assistente"
+          onClick={() => setAgentModalOpen(false)}
+        >
+          <div className="agent-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <AgenteChatSetup
+              academyId={String(academyId || '')}
+              getJwt={getJwt}
+              wizardInitial={wizardAgenteInitial}
+              loading={loadingPrompt}
+              onWizardReset={() =>
+                setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() })
+              }
+              onComplete={async ({ intro, body, suffix, wizardPayload }) => {
+                setPromptIntro(intro);
+                setPromptBody(body);
+                setPromptSuffix(suffix);
+                setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
+                await savePromptSettings(
+                  { prompt_intro: intro, prompt_body: body, prompt_suffix: suffix },
+                  { successMessage: 'Assistente configurado com sucesso!' }
+                );
+                setAgentModalOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
