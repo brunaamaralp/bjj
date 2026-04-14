@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
+import LabelPill from '../components/shared/LabelPill';
+import LabelSelector from '../components/shared/LabelSelector';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
@@ -51,6 +53,9 @@ const LeadProfile = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const uiLabels = useLeadStore((s) => s.labels);
 
+    // Academy-level labels list (for the selector dropdown)
+    const [allLabels, setAllLabels] = useState([]);
+
     const [note, setNote] = useState('');
     const [eventTypeFilter, setEventTypeFilter] = useState('all');
     const [editing, setEditing] = useState(false);
@@ -68,6 +73,24 @@ const LeadProfile = () => {
     useEffect(() => {
         setTemplateMenuOpen(false);
     }, [id]);
+
+    useEffect(() => {
+        if (!academyId) return;
+        (async () => {
+            try {
+                const jwt = await account.createJWT();
+                const token = String(jwt?.jwt || '').trim();
+                const res = await fetch('/api/labels', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'x-academy-id': academyId,
+                    },
+                });
+                const data = await res.json();
+                if (data?.sucesso) setAllLabels(data.labels || []);
+            } catch { /* silent */ }
+        })();
+    }, [academyId]);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -450,6 +473,14 @@ const LeadProfile = () => {
         updateLead(id, { notes: newNotes });
     };
 
+    const handleLabelsChange = async (newIds) => {
+        try {
+            await updateLead(id, { label_ids: newIds });
+        } catch {
+            addToast({ type: 'error', message: 'Erro ao atualizar etiquetas.' });
+        }
+    };
+
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
     const contactType = String(lead.contact_type || '').trim() || (lead.status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
 
@@ -684,6 +715,28 @@ const LeadProfile = () => {
                                 </span>
                             </div>
                         ) : null}
+
+                        {/* Labels */}
+                        {!editing && (
+                            <div className="flex flex-wrap gap-2 mt-2" style={{ alignItems: 'center' }}>
+                                {(lead.labelIds || []).map((labelId) => {
+                                    const label = allLabels.find((l) => l.$id === labelId);
+                                    if (!label) return null;
+                                    return (
+                                        <LabelPill
+                                            key={labelId}
+                                            label={label}
+                                            onRemove={() => handleLabelsChange((lead.labelIds || []).filter((x) => x !== labelId))}
+                                        />
+                                    );
+                                })}
+                                <LabelSelector
+                                    allLabels={allLabels}
+                                    selectedIds={lead.labelIds || []}
+                                    onChange={handleLabelsChange}
+                                />
+                            </div>
+                        )}
                         {!editing && customQuestions.length > 0 && (
                             <div className="flex-col gap-2 mt-2">
                                 {customQuestions.map((q) => {

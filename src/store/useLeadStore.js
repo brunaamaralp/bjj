@@ -86,6 +86,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
           enrollmentDate: doc.enrollmentDate || '',
           emergencyContact: doc.emergencyContact || '',
           emergencyPhone: doc.emergencyPhone || '',
+          labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
         };
       }
     } catch {
@@ -125,6 +126,7 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
     enrollmentDate: doc.enrollmentDate || '',
     emergencyContact: doc.emergencyContact || '',
     emergencyPhone: doc.emergencyPhone || '',
+    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
   };
 }
 
@@ -366,6 +368,10 @@ export const useLeadStore = create((set, get) => ({
       ) {
         normalizedUpdates.contact_type = 'student';
       }
+      // Keep in-memory labelIds in sync when label_ids is updated
+      if (Array.isArray(normalizedUpdates.label_ids)) {
+        normalizedUpdates.labelIds = [...normalizedUpdates.label_ids];
+      }
 
       const mergedLead = { ...currentLead, ...normalizedUpdates };
 
@@ -406,6 +412,7 @@ export const useLeadStore = create((set, get) => ({
       delete payload.pipelineStage;
       delete payload.statusChangedAt;
       delete payload.birthDate;
+      delete payload.labelIds; // in-memory alias; Appwrite uses label_ids
 
       await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 

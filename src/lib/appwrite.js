@@ -20,6 +20,7 @@ export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a1
 export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID || "699f10500032d0fd5b80";
 export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "699f1068000e1b1ca1d2";
 export const CONVERSATIONS_COL = import.meta.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || "";
+export const LABELS_COL = import.meta.env.VITE_APPWRITE_LABELS_COLLECTION_ID || "";
 export const STOCK_ITEMS_COL = import.meta.env.VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID || "";
 export const INVENTORY_MOVE_FN_ID = import.meta.env.VITE_APPWRITE_INVENTORY_MOVE_FN_ID || "";
 export const SALES_CREATE_FN_ID = import.meta.env.VITE_APPWRITE_SALES_CREATE_FN_ID || "";

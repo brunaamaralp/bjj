@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
@@ -118,6 +118,8 @@ export default function Inbox() {
 
   const [listFilter, setListFilter] = useState('all');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [labelFilter, setLabelFilter] = useState(null); // string id | null
+  const [inboxLabels, setInboxLabels] = useState([]);
   const [stats, setStats] = useState({
     resolvedCount: 0,
     transferredCount: 0
@@ -302,6 +304,21 @@ export default function Inbox() {
 
   useEffect(() => {
     setWaPersistFailed(false);
+    setLabelFilter(null);
+  }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    (async () => {
+      try {
+        const token = await getJwt();
+        const res = await fetch('/api/labels', {
+          headers: { Authorization: `Bearer ${token}`, 'x-academy-id': academyId },
+        });
+        const data = await res.json();
+        if (data?.sucesso) setInboxLabels(data.labels || []);
+      } catch { /* silent */ }
+    })();
   }, [academyId]);
 
   useEffect(() => {
@@ -1823,14 +1840,21 @@ export default function Inbox() {
       const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
       return Number.isFinite(n) ? n : 0;
     };
-    if (f === 'unread') return arr.filter((it) => unreadN(it) > 0);
-    if (f === 'hot') return arr.filter((it) => Boolean(it?._hotLead));
-    if (f === 'need_human') return arr.filter((it) => Boolean(it?._handoffActive));
-    if (f === 'waiting_customer') return arr.filter((it) => normTicket(it) === 'waiting_customer');
-    if (f === 'resolved') return arr.filter((it) => normTicket(it) === 'resolved');
-    if (f === 'transferred') return arr.filter((it) => normTicket(it) === 'transferred');
-    return arr;
-  }, [prioritizedItems, listFilter]);
+    let result = arr;
+    if (f === 'unread') result = arr.filter((it) => unreadN(it) > 0);
+    else if (f === 'hot') result = arr.filter((it) => Boolean(it?._hotLead));
+    else if (f === 'need_human') result = arr.filter((it) => Boolean(it?._handoffActive));
+    else if (f === 'waiting_customer') result = arr.filter((it) => normTicket(it) === 'waiting_customer');
+    else if (f === 'resolved') result = arr.filter((it) => normTicket(it) === 'resolved');
+    else if (f === 'transferred') result = arr.filter((it) => normTicket(it) === 'transferred');
+    if (labelFilter) {
+      result = result.filter((it) => {
+        const ids = it?._lead?.labelIds;
+        return Array.isArray(ids) && ids.includes(labelFilter);
+      });
+    }
+    return result;
+  }, [prioritizedItems, listFilter, labelFilter]);
 
   const groupedFilteredItems = useMemo(() => {
     const arr = Array.isArray(filteredItems) ? filteredItems : [];
@@ -2198,6 +2222,27 @@ export default function Inbox() {
             >
               Transferidos
             </button>
+            {inboxLabels.length > 0 && (
+              <select
+                value={labelFilter || ''}
+                onChange={(e) => setLabelFilter(e.target.value || null)}
+                style={{
+                  padding: '6px 10px',
+                  minHeight: 34,
+                  border: labelFilter ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: labelFilter ? 'var(--accent-light)' : 'var(--surface)',
+                  color: labelFilter ? 'var(--accent)' : 'var(--text-primary)',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Etiqueta: todas</option>
+                {inboxLabels.map((l) => (
+                  <option key={l.$id} value={l.$id}>{l.name}</option>
+                ))}
+              </select>
+            )}
           </>
         )}
       </div>
