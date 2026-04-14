@@ -136,14 +136,12 @@ function getZapsterErrorMessage(rawBody, parsedJson, status) {
     body: rawStr.slice(0, 500),
   });
 
-  if (status === 401 || status === 403) {
-    return ZAPSTER_ERROR_MESSAGES.unauthorized;
-  }
-
   if (status === 429) {
     return 'Muitas tentativas. Aguarde alguns segundos e tente novamente.';
   }
 
+  // Checar conteúdo do body ANTES do status genérico 401/403
+  // (Zapster pode retornar 401/403 para limite de instâncias)
   const instanceLimitPhrases = [
     'max_instances',
     'max instances',
@@ -160,6 +158,10 @@ function getZapsterErrorMessage(rawBody, parsedJson, status) {
   ];
   if (instanceLimitPhrases.some((p) => text.includes(p))) {
     return ZAPSTER_ERROR_MESSAGES.max_instances_reached;
+  }
+
+  if (status === 401 || status === 403) {
+    return ZAPSTER_ERROR_MESSAGES.unauthorized;
   }
 
   if (
@@ -454,6 +456,32 @@ export default async function handler(req, res) {
       });
       if (!z.ok) {
         const upstream = Number(z.status) || 500;
+        // Se o erro for 401/403/409 ou limite de instâncias, tenta recuperar instância órfã
+        const isLimitOrConflict =
+          upstream === 401 || upstream === 403 || upstream === 409 ||
+          String(z.raw || '').toLowerCase().includes('max_instances') ||
+          String(z.raw || '').toLowerCase().includes('instance') ||
+          String(z.raw || '').toLowerCase().includes('limit') ||
+          String(z.raw || '').toLowerCase().includes('already');
+        if (isLimitOrConflict) {
+          try {
+            const listed = await zapsterListInstances();
+            if (listed.ok) {
+              const items = normalizeWaInstancesList(listed.data);
+              const orphan = items.find((it) => String(it.metadataAcademyId || '').trim() === academyId);
+              if (orphan?.id) {
+                console.log('[zapsterInstances] instância órfã encontrada, vinculando:', orphan.id);
+                await persistInstanceId(academyId, orphan.id);
+                const zOrphan = await zapsterGetInstance(orphan.id);
+                const status = String(zOrphan.data?.status || '').trim() || 'disconnected';
+                const qrcode = zOrphan.data?.qrcode ?? null;
+                return res.status(200).json({ sucesso: true, instance_id: orphan.id, status, qrcode, recovered: true });
+              }
+            }
+          } catch (recoverErr) {
+            console.error('[zapsterInstances] falha ao tentar recuperar instância órfã:', recoverErr?.message);
+          }
+        }
         const friendlyMessage = getZapsterCreateFriendlyError(z);
         const httpStatus = upstream >= 500 ? 502 : 400;
         return res.status(httpStatus).json({
