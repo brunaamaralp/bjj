@@ -269,6 +269,7 @@ export default async function handler(req, res) {
       if (!doc) {
         return json(res, 200, {
           phone: phoneDigits,
+          conversation_id: null,
           messages: [],
           next_cursor: '',
           summary: null,
@@ -305,6 +306,7 @@ export default async function handler(req, res) {
 
       return json(res, 200, {
         phone: phoneDigits,
+        conversation_id: String(doc.$id || ''),
         messages: slice,
         next_cursor,
         summary: parseSummaryField(doc.summary),

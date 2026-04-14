@@ -11,6 +11,8 @@
     { "source": "/api/zapster/instances", "destination": "/api/zapster.js?route=instances" },
     { "source": "/api/conversations", "destination": "/api/conversations.js" },
     { "source": "/api/conversations/:phone(.*)", "destination": "/api/conversations.js?phone=$1" },
+    { "source": "/api/message-flags/:message_id(.*)", "destination": "/api/message-flags.js?message_id=$1" },
+    { "source": "/api/message-flags", "destination": "/api/message-flags.js" },
     { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },
     { "source": "/v1/webhooks/asaas", "destination": "/api/v1/webhooks/asaas" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
