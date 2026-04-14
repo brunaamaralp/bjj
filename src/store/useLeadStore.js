@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query, Permission, Role } from 'appwrite';
+import { addLeadEvent } from '../lib/leadEvents.js';
 import {
   mergeOnboardingStepIdsDone,
   normalizeOnboardingChecklistList,
@@ -20,83 +21,121 @@ export const LEAD_ORIGIN = ['Instagram', 'Indicação', 'WhatsApp', 'Passou na p
 
 export const LEADS_PAGE_SIZE = 200;
 
+/** Campos que não são persistidos no Appwrite (aliases / derivados). */
+const CLIENT_ONLY_KEYS = new Set([
+  'id',
+  'createdAt',
+  'notes',
+  'intention',
+  'priority',
+  'hotLead',
+  'labelIds',
+  '_isNew',
+  'whatsappClassifiedAt'
+]);
+
 function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
   return raw.replace(/\D/g, '');
 }
 
-function mapAppwriteDocToLead(doc, operationalStatusSet) {
-  let history = [];
-  let isFirstExperience = 'Sim';
-  let belt = '';
-  let borrowedKimono = '';
-  let borrowedShirt = '';
-  let pipelineStage = '';
-  let pipelineStageChangedAt = '';
+function parseCustomAnswersJson(raw) {
+  if (!raw || typeof raw !== 'string') return {};
+  try {
+    const o = JSON.parse(raw);
+    return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+  } catch {
+    return {};
+  }
+}
 
-  if (doc.notes) {
-    try {
-      const parsed = JSON.parse(doc.notes);
-      if (Array.isArray(parsed)) {
-        history = parsed;
-      } else {
-        history = parsed.history || [];
-        isFirstExperience = parsed.isFirstExperience || 'Sim';
-        belt = parsed.belt || '';
-        borrowedKimono = parsed.borrowedKimono || '';
-        borrowedShirt = parsed.borrowedShirt || '';
-        pipelineStage = parsed.pipelineStage || '';
-        pipelineStageChangedAt = parsed.pipelineStageChangedAt || '';
-        const customAnswers = parsed.customAnswers || {};
-        const intention = parsed.whatsappIntention || '';
-        const priority = parsed.whatsappPriority || '';
-        const hotLead = String(parsed.whatsappLeadQuente || parsed.priority || '').toLowerCase() === 'sim';
-        const needHuman = String(parsed.needHuman || '').toLowerCase() === 'sim';
-        const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
-        const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
-        return {
-          id: doc.$id,
-          name: doc.name,
-          phone: doc.phone,
-          type: doc.type || 'Adulto',
-          origin: doc.origin || '',
-          contact_type: doc.contact_type ?? 'lead',
-          status,
-          pipelineStage: effectivePipelineStage,
-          scheduledDate: doc.scheduledDate || '',
-          scheduledTime: doc.scheduledTime || '',
-          parentName: doc.parentName || '',
-          age: doc.age || '',
-          birthDate: parsed.birthDate || doc.birthDate || '',
-          notes: history,
-          isFirstExperience,
-          belt,
-          borrowedKimono,
-          borrowedShirt,
-          customAnswers,
-          intention,
-          priority,
-          hotLead,
-          needHuman,
-          statusChangedAt: parsed.statusChangedAt || doc.statusChangedAt || '',
-          pipelineStageChangedAt: pipelineStageChangedAt || parsed.statusChangedAt || doc.$createdAt || '',
-          createdAt: doc.$createdAt,
-          lostReason: doc.lostReason || '',
-          plan: doc.plan || '',
-          enrollmentDate: doc.enrollmentDate || '',
-          emergencyContact: doc.emergencyContact || '',
-          emergencyPhone: doc.emergencyPhone || '',
-          labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
-        };
-      }
-    } catch {
-      console.warn('Notes parse error, treating as empty history');
-    }
+function permissionContextFromStore(get) {
+  const academyId = get().academyId;
+  const academyList = get().academyList || [];
+  const acadDoc = academyList.find((a) => a.id === academyId) || {};
+  return {
+    ownerId: acadDoc.ownerId || '',
+    teamId: acadDoc.teamId || '',
+    userId: get().userId || ''
+  };
+}
+
+/**
+ * Converte updates camelCase (UI) → payload Appwrite (snake novos + camel legados).
+ * Não inclui `notes` (deprecado).
+ */
+function updatesToAppwritePatch(updates, currentLead) {
+  const patch = {};
+  const u = updates;
+
+  const copyIf = (key, val) => {
+    if (val === undefined) return;
+    patch[key] = val;
+  };
+
+  if (u.name !== undefined) copyIf('name', u.name);
+  if (u.phone !== undefined) copyIf('phone', u.phone);
+  if (u.type !== undefined) copyIf('type', u.type);
+  if (u.origin !== undefined) copyIf('origin', u.origin);
+  if (u.contact_type !== undefined) copyIf('contact_type', u.contact_type);
+  if (u.status !== undefined) copyIf('status', u.status);
+  if (u.scheduledDate !== undefined) copyIf('scheduledDate', u.scheduledDate);
+  if (u.scheduledTime !== undefined) copyIf('scheduledTime', u.scheduledTime);
+  if (u.parentName !== undefined) copyIf('parentName', u.parentName);
+  if (u.age !== undefined) copyIf('age', u.age);
+  if (u.lostReason !== undefined) copyIf('lostReason', u.lostReason);
+  if (u.plan !== undefined) copyIf('plan', u.plan);
+  if (u.enrollmentDate !== undefined) copyIf('enrollmentDate', u.enrollmentDate);
+  if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
+  if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);
+  if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
+
+  if (u.pipelineStage !== undefined) copyIf('pipeline_stage', u.pipelineStage);
+  if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
+  if (u.isFirstExperience !== undefined) copyIf('is_first_experience', u.isFirstExperience);
+  if (u.belt !== undefined) copyIf('belt', u.belt);
+  if (u.borrowedKimono !== undefined) copyIf('borrowed_kimono', u.borrowedKimono);
+  if (u.borrowedShirt !== undefined) copyIf('borrowed_shirt', u.borrowedShirt);
+  if (u.customAnswers !== undefined) {
+    patch.custom_answers_json = JSON.stringify(u.customAnswers || {});
   }
 
+  if (u.attendedAt !== undefined) copyIf('attended_at', u.attendedAt);
+  if (u.missedAt !== undefined) copyIf('missed_at', u.missedAt);
+  if (u.lostAt !== undefined) copyIf('lost_at', u.lostAt);
+  if (u.convertedAt !== undefined) copyIf('converted_at', u.convertedAt);
+  if (u.importedAt !== undefined) copyIf('imported_at', u.importedAt);
+  if (u.statusChangedAt !== undefined) copyIf('status_changed_at', u.statusChangedAt);
+  if (u.pipelineStageChangedAt !== undefined) copyIf('pipeline_stage_changed_at', u.pipelineStageChangedAt);
+  if (u.lastNoteAt !== undefined) copyIf('last_note_at', u.lastNoteAt);
+  if (u.lastWhatsappActivityAt !== undefined) copyIf('last_whatsapp_activity_at', u.lastWhatsappActivityAt);
+
+  if (u.whatsappIntention !== undefined) copyIf('whatsapp_intention', u.whatsappIntention);
+  if (u.whatsappPriority !== undefined) copyIf('whatsapp_priority', u.whatsappPriority);
+  if (u.whatsappLeadQuente !== undefined) copyIf('whatsapp_lead_quente', u.whatsappLeadQuente);
+  if (u.needHuman !== undefined) copyIf('need_human', Boolean(u.needHuman));
+
+  const nowIso = new Date().toISOString();
+  if (typeof u.status !== 'undefined' && u.status !== currentLead.status) {
+    patch.status_changed_at = nowIso;
+  }
+  if (typeof u.pipelineStage !== 'undefined' && u.pipelineStage !== currentLead.pipelineStage) {
+    patch.pipeline_stage_changed_at = nowIso;
+  }
+
+  return patch;
+}
+
+function mapAppwriteDocToLead(doc, operationalStatusSet) {
+  const fromStage = String(doc.pipeline_stage || '').trim();
   const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
-  const effectivePipelineStage = pipelineStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
+  const effectivePipelineStage =
+    fromStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
+
+  const whatsappLeadQuenteRaw = String(doc.whatsapp_lead_quente || '').trim().toLowerCase();
+  const hotLead = whatsappLeadQuenteRaw === 'sim';
+
   return {
     id: doc.$id,
     name: doc.name,
@@ -110,25 +149,38 @@ function mapAppwriteDocToLead(doc, operationalStatusSet) {
     scheduledTime: doc.scheduledTime || '',
     parentName: doc.parentName || '',
     age: doc.age || '',
-    birthDate: doc.birthDate || '',
-    notes: history,
-    isFirstExperience,
-    belt,
-    borrowedKimono,
-    borrowedShirt,
-    intention: '',
-    priority: '',
-    hotLead: false,
-    needHuman: false,
-    statusChangedAt: doc.statusChangedAt || '',
-    pipelineStageChangedAt: doc.$createdAt,
+    birthDate: doc.birth_date || doc.birthDate || '',
+    /**
+     * DEPRECATED: notes será removido após validação.
+     * Não usar em código novo — timeline em lead_events.
+     */
+    notes: [],
+    isFirstExperience: doc.is_first_experience || 'Sim',
+    belt: doc.belt || '',
+    borrowedKimono: doc.borrowed_kimono || '',
+    borrowedShirt: doc.borrowed_shirt || '',
+    customAnswers: parseCustomAnswersJson(doc.custom_answers_json),
+    intention: doc.whatsapp_intention || '',
+    priority: doc.whatsapp_priority || '',
+    hotLead,
+    needHuman: Boolean(doc.need_human),
+    statusChangedAt: doc.status_changed_at || doc.statusChangedAt || '',
+    pipelineStageChangedAt: doc.pipeline_stage_changed_at || doc.$createdAt || '',
+    attendedAt: doc.attended_at || null,
+    missedAt: doc.missed_at || null,
+    lostAt: doc.lost_at || null,
+    convertedAt: doc.converted_at || null,
+    importedAt: doc.imported_at || null,
+    lastNoteAt: doc.last_note_at || null,
+    lastWhatsappActivityAt: doc.last_whatsapp_activity_at || null,
+    whatsappClassifiedAt: doc.whatsapp_classified_at || null,
     createdAt: doc.$createdAt,
     lostReason: doc.lostReason || '',
     plan: doc.plan || '',
     enrollmentDate: doc.enrollmentDate || '',
     emergencyContact: doc.emergencyContact || '',
     emergencyPhone: doc.emergencyPhone || '',
-    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
+    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : []
   };
 }
 
@@ -143,15 +195,10 @@ export const useLeadStore = create((set, get) => ({
   userId: null,
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
   modules: { sales: false, inventory: false, finance: false },
-  /** Conversas com mensagens não lidas (atualizado pelo Inbox; usado no nav). */
   inboxUnreadConversations: 0,
-  /** Itens do checklist de onboarding (sincronizado com academia.onboardingChecklist). */
   onboardingChecklist: null,
-  /** Snapshot de /api/billing/status (acesso trial/plano). */
   billingAccess: null,
-  /** Espelho da lista de academias (ownerId/teamId para papel). Sincronizado a partir do App. */
   academyList: [],
-  /** Incrementado para o banner reler dismiss e reaparecer (Conta → mostrar checklist). */
   onboardingChecklistReopenNonce: 0,
 
   setAcademyList: (list) => set({ academyList: Array.isArray(list) ? list : [] }),
@@ -159,7 +206,7 @@ export const useLeadStore = create((set, get) => ({
   setAcademyId: (id) =>
     set({
       academyId: id,
-      ...(id ? {} : { onboardingChecklist: null, billingAccess: null, academyList: [] }),
+      ...(id ? {} : { onboardingChecklist: null, billingAccess: null, academyList: [] })
     }),
   setBillingAccess: (v) => set({ billingAccess: v && typeof v === 'object' ? v : null }),
   reopenOnboardingBanner: () =>
@@ -171,7 +218,7 @@ export const useLeadStore = create((set, get) => ({
     const merged = mergeOnboardingStepIdsDone(get().onboardingChecklist, ids);
     try {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        onboardingChecklist: JSON.stringify(merged),
+        onboardingChecklist: JSON.stringify(merged)
       });
     } catch (e) {
       console.warn('completeOnboardingStepIds Appwrite:', e?.message || e);
@@ -185,7 +232,7 @@ export const useLeadStore = create((set, get) => ({
           ? parseOnboardingChecklist(null)
           : Array.isArray(list)
             ? normalizeOnboardingChecklistList(list)
-            : parseOnboardingChecklist(null),
+            : parseOnboardingChecklist(null)
     }),
   setInboxUnreadConversations: (n) =>
     set({ inboxUnreadConversations: Math.max(0, Math.floor(Number(n) || 0)) }),
@@ -212,7 +259,7 @@ export const useLeadStore = create((set, get) => ({
       const queries = [
         Query.equal('academyId', academyId),
         Query.orderDesc('$createdAt'),
-        Query.limit(LEADS_PAGE_SIZE),
+        Query.limit(LEADS_PAGE_SIZE)
       ];
       if (opts.search) {
         queries.push(Query.contains('name', opts.search));
@@ -242,7 +289,7 @@ export const useLeadStore = create((set, get) => ({
             leads: [...localsToKeep, ...leads],
             loading: false,
             leadsHasMore: pageFull,
-            leadsCursor: pageFull && lastId ? lastId : null,
+            leadsCursor: pageFull && lastId ? lastId : null
           };
         });
       } else {
@@ -253,7 +300,7 @@ export const useLeadStore = create((set, get) => ({
             leads: [...state.leads, ...appended],
             loadingMore: false,
             leadsHasMore: pageFull,
-            leadsCursor: pageFull && lastId ? lastId : null,
+            leadsCursor: pageFull && lastId ? lastId : null
           };
         });
       }
@@ -271,39 +318,48 @@ export const useLeadStore = create((set, get) => ({
     const academyId = get().academyId;
     if (!academyId) return;
 
-    console.log('📝 addLead starting with LEADS_COL:', LEADS_COL);
-
     try {
       const wasEmpty = get().leads.length === 0;
       const userId = get().userId;
-      
+      const permCtx = permissionContextFromStore(get);
+
       const academyList = get().academyList || [];
       const acadDoc = academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' };
       const ownerId = acadDoc.ownerId || get().ownerId;
       const teamId = acadDoc.teamId || get().teamId;
-      
+
       const perms = [];
-      if (ownerId) perms.push(Permission.read(Role.user(ownerId)), Permission.update(Role.user(ownerId)), Permission.delete(Role.user(ownerId)));
-      if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
+      if (ownerId) {
+        perms.push(
+          Permission.read(Role.user(ownerId)),
+          Permission.update(Role.user(ownerId)),
+          Permission.delete(Role.user(ownerId))
+        );
+      }
+      if (teamId) {
+        perms.push(
+          Permission.read(Role.team(teamId)),
+          Permission.update(Role.team(teamId)),
+          Permission.delete(Role.team(teamId))
+        );
+      }
       if (perms.length === 0) {
-        if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
-        else perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
+        if (userId) {
+          perms.push(
+            Permission.read(Role.user(userId)),
+            Permission.update(Role.user(userId)),
+            Permission.delete(Role.user(userId))
+          );
+        } else {
+          perms.push(
+            Permission.read(Role.users()),
+            Permission.update(Role.users()),
+            Permission.delete(Role.users())
+          );
+        }
       }
 
-      const notesData = {
-        history: lead.notes || [],
-        isFirstExperience: lead.isFirstExperience || 'Sim',
-        belt: lead.belt || '',
-        borrowedKimono: lead.borrowedKimono || '',
-        borrowedShirt: lead.borrowedShirt || '',
-        customAnswers: lead.customAnswers || {},
-        pipelineStage: lead.pipelineStage || 'Novo',
-        pipelineStageChangedAt: new Date().toISOString(),
-        statusChangedAt: new Date().toISOString(),
-        birthDate: lead.birthDate || '',
-      };
-
-      // Só atributos da collection no Appwrite — nunca espalhar `lead` (ex.: birthDate fica em notes JSON).
+      const nowIso = new Date().toISOString();
       const docPayload = {
         name: String(lead.name || '').trim(),
         phone: String(lead.phone || '').trim(),
@@ -314,22 +370,56 @@ export const useLeadStore = create((set, get) => ({
         scheduledTime: String(lead.scheduledTime || ''),
         parentName: String(lead.parentName || ''),
         age: lead.age != null && lead.age !== '' ? String(lead.age) : '',
-        notes: JSON.stringify(notesData),
         academyId,
+        notes: '',
+        is_first_experience: lead.isFirstExperience || 'Sim',
+        belt: lead.belt || '',
+        borrowed_kimono: lead.borrowedKimono || '',
+        borrowed_shirt: lead.borrowedShirt || '',
+        custom_answers_json: JSON.stringify(lead.customAnswers || {}),
+        birth_date: String(lead.birthDate || '').slice(0, 10),
+        pipeline_stage: lead.pipelineStage || 'Novo',
+        pipeline_stage_changed_at: nowIso,
+        status_changed_at: nowIso
       };
+
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
+
+      await addLeadEvent({
+        academyId,
+        leadId: doc.$id,
+        type: 'lead_criado',
+        text: 'Lead criado',
+        at: doc.$createdAt,
+        createdBy: userId || 'user',
+        permissionContext: permCtx
+      });
+
+      for (const ev of lead.notes || []) {
+        if (ev && ev.type === 'note' && String(ev.text || '').trim()) {
+          await addLeadEvent({
+            academyId,
+            leadId: doc.$id,
+            type: 'note',
+            text: String(ev.text).slice(0, 1000),
+            at: ev.at || nowIso,
+            createdBy: 'user',
+            permissionContext: permCtx
+          });
+        }
+      }
 
       const newLead = {
         id: doc.$id,
         ...lead,
         pipelineStage: lead.pipelineStage || 'Novo',
-        notes: lead.notes || [],
+        notes: [],
         createdAt: doc.$createdAt,
-        pipelineStageChangedAt: notesData.pipelineStageChangedAt,
-        _isNew: true,
+        pipelineStageChangedAt: nowIso,
+        statusChangedAt: nowIso,
+        _isNew: true
       };
 
-      console.log('✅ addLead success:', newLead);
       set((state) => ({ leads: [newLead, ...state.leads] }));
 
       if (wasEmpty) {
@@ -338,13 +428,18 @@ export const useLeadStore = create((set, get) => ({
           let checklist = [];
           try {
             if (acad.onboardingChecklist) {
-              checklist = typeof acad.onboardingChecklist === 'string' ? JSON.parse(acad.onboardingChecklist) : acad.onboardingChecklist;
+              checklist =
+                typeof acad.onboardingChecklist === 'string'
+                  ? JSON.parse(acad.onboardingChecklist)
+                  : acad.onboardingChecklist;
               if (!Array.isArray(checklist)) checklist = [];
             }
-          } catch { checklist = []; }
+          } catch {
+            checklist = [];
+          }
           const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
           await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-            onboardingChecklist: JSON.stringify(merged),
+            onboardingChecklist: JSON.stringify(merged)
           });
           get().setOnboardingChecklist(merged);
         } catch (e) {
@@ -353,14 +448,14 @@ export const useLeadStore = create((set, get) => ({
       }
       return newLead;
     } catch (e) {
-      console.error('❌ addLead error:', e);
-      throw e; // Rethrow to allow handling in the UI
+      console.error('addLead error:', e);
+      throw e;
     }
   },
 
   updateLead: async (id, updates) => {
     try {
-      const currentLead = get().leads.find(l => l.id === id);
+      const currentLead = get().leads.find((l) => l.id === id);
       if (!currentLead) return;
 
       const normalizedUpdates = { ...updates };
@@ -370,69 +465,44 @@ export const useLeadStore = create((set, get) => ({
       ) {
         normalizedUpdates.contact_type = 'student';
       }
-      // Keep in-memory labelIds in sync when label_ids is updated
       if (Array.isArray(normalizedUpdates.label_ids)) {
         normalizedUpdates.labelIds = [...normalizedUpdates.label_ids];
       }
 
+      const filtered = {};
+      for (const [k, v] of Object.entries(normalizedUpdates)) {
+        if (!CLIENT_ONLY_KEYS.has(k)) filtered[k] = v;
+      }
+
+      const patch = updatesToAppwritePatch(filtered, currentLead);
+
+      delete patch.id;
+      delete patch.createdAt;
+      delete patch.notes;
+
+      await databases.updateDocument(DB_ID, LEADS_COL, id, patch);
+
       const mergedLead = { ...currentLead, ...normalizedUpdates };
-
-      // Pack metadata into notes for storage
-      const notesData = {
-        history: mergedLead.notes || [],
-        isFirstExperience: mergedLead.isFirstExperience || 'Sim',
-        belt: mergedLead.belt || '',
-        borrowedKimono: mergedLead.borrowedKimono || '',
-        borrowedShirt: mergedLead.borrowedShirt || '',
-        customAnswers: mergedLead.customAnswers || {},
-        pipelineStage: mergedLead.pipelineStage || 'Novo',
-        pipelineStageChangedAt: currentLead.pipelineStageChangedAt || '',
-        statusChangedAt: currentLead.statusChangedAt || '',
-        birthDate: mergedLead.birthDate ?? currentLead.birthDate ?? '',
-      };
-
-      if (typeof normalizedUpdates.status !== 'undefined' && normalizedUpdates.status !== currentLead.status) {
-        notesData.statusChangedAt = new Date().toISOString();
+      if (typeof filtered.status !== 'undefined' && filtered.status !== currentLead.status) {
+        mergedLead.statusChangedAt = patch.status_changed_at || mergedLead.statusChangedAt;
       }
-      if (typeof normalizedUpdates.pipelineStage !== 'undefined' && normalizedUpdates.pipelineStage !== currentLead.pipelineStage) {
-        notesData.pipelineStageChangedAt = new Date().toISOString();
+      if (typeof filtered.pipelineStage !== 'undefined' && filtered.pipelineStage !== currentLead.pipelineStage) {
+        mergedLead.pipelineStageChangedAt = patch.pipeline_stage_changed_at || mergedLead.pipelineStageChangedAt;
       }
-
-      const payload = {
-        ...normalizedUpdates,
-        notes: JSON.stringify(notesData)
-      };
-
-      // Remove fields Appwrite doesn't expect or that shouldn't be in the payload
-      delete payload.id;
-      delete payload.createdAt;
-      delete payload.isFirstExperience;
-      delete payload.belt;
-      delete payload.borrowedKimono;
-      delete payload.borrowedShirt;
-      delete payload.customAnswers;
-      delete payload.pipelineStage;
-      delete payload.statusChangedAt;
-      delete payload.birthDate;
-      delete payload.labelIds; // in-memory alias; Appwrite uses label_ids
-
-      await databases.updateDocument(DB_ID, LEADS_COL, id, payload);
 
       set((state) => ({
-        leads: state.leads.map((l) =>
-          l.id === id ? { ...l, ...normalizedUpdates, statusChangedAt: notesData.statusChangedAt, pipelineStageChangedAt: notesData.pipelineStageChangedAt } : l
-        ),
+        leads: state.leads.map((l) => (l.id === id ? mergedLead : l))
       }));
     } catch (e) {
       console.error('updateLead error:', e);
-      throw e; // Rethrow to allow handling in the UI
+      throw e;
     }
   },
 
   deleteLead: async (id) => {
     const previousLeads = get().leads;
     set((state) => ({
-      leads: state.leads.filter((l) => l.id !== id),
+      leads: state.leads.filter((l) => l.id !== id)
     }));
     try {
       await databases.deleteDocument(DB_ID, LEADS_COL, id);
@@ -451,55 +521,98 @@ export const useLeadStore = create((set, get) => ({
     const newLeads = [];
     const userId = get().userId;
     const teamId = get().teamId;
+    const permCtx = permissionContextFromStore(get);
     const perms = [];
-    if (userId) perms.push(Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId)));
-    if (teamId) perms.push(Permission.read(Role.team(teamId)), Permission.update(Role.team(teamId)), Permission.delete(Role.team(teamId)));
-    if (perms.length === 0) perms.push(Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users()));
+    if (userId) {
+      perms.push(
+        Permission.read(Role.user(userId)),
+        Permission.update(Role.user(userId)),
+        Permission.delete(Role.user(userId))
+      );
+    }
+    if (teamId) {
+      perms.push(
+        Permission.read(Role.team(teamId)),
+        Permission.update(Role.team(teamId)),
+        Permission.delete(Role.team(teamId))
+      );
+    }
+    if (perms.length === 0) {
+      perms.push(
+        Permission.read(Role.users()),
+        Permission.update(Role.users()),
+        Permission.delete(Role.users())
+      );
+    }
+
     for (const lead of leadsArray) {
       try {
         const nowIso = new Date().toISOString();
-        const history = [{ type: 'import', source: 'Planilha', at: nowIso, by: 'system' }];
-        // `contact_type` define a identidade do cadastro; `status` continua sendo etapa do funil.
         const contactType = String(lead.contact_type || '').trim() || 'lead';
-        
         const phone = lead.phone || '';
         const name = lead.name || '';
-        
-        // Local check first
-        const existsLocally = get().leads.find(l => normalizePhone(l.phone) === normalizePhone(phone) && String(l.name).toLowerCase() === String(name).toLowerCase());
+
+        const existsLocally = get().leads.find(
+          (l) =>
+            normalizePhone(l.phone) === normalizePhone(phone) &&
+            String(l.name).toLowerCase() === String(name).toLowerCase()
+        );
         if (existsLocally) {
-           console.log('Skipping duplicate lead in import:', name);
-           continue;
+          console.log('Skipping duplicate lead in import:', name);
+          continue;
         }
 
-        const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
-          name: lead.name,
-          phone: lead.phone || '',
-          type: lead.type || 'Adulto',
-          contact_type: contactType,
-          origin: lead.origin || 'Planilha',
-          status: lead.status || LEAD_STATUS.NEW,
-          scheduledDate: lead.scheduledDate || '',
-          scheduledTime: lead.scheduledTime || '',
-          parentName: lead.parentName || '',
-          age: lead.age || '',
-          notes: JSON.stringify({ 
-            history, 
-            pipelineStage: lead.pipelineStage || 'Novo', 
-            pipelineStageChangedAt: nowIso, 
-            statusChangedAt: nowIso,
-            birthDate: lead.birthDate || '',
-          }),
+        const doc = await databases.createDocument(
+          DB_ID,
+          LEADS_COL,
+          ID.unique(),
+          {
+            name: lead.name,
+            phone: lead.phone || '',
+            type: lead.type || 'Adulto',
+            contact_type: contactType,
+            origin: lead.origin || 'Planilha',
+            status: lead.status || LEAD_STATUS.NEW,
+            scheduledDate: lead.scheduledDate || '',
+            scheduledTime: lead.scheduledTime || '',
+            parentName: lead.parentName || '',
+            age: lead.age || '',
+            notes: '',
+            academyId,
+            pipeline_stage: lead.pipelineStage || 'Novo',
+            imported_at: nowIso,
+            status_changed_at: nowIso,
+            pipeline_stage_changed_at: nowIso,
+            birth_date: String(lead.birthDate || '').slice(0, 10),
+            is_first_experience: lead.isFirstExperience || 'Sim',
+            belt: lead.belt || '',
+            borrowed_kimono: lead.borrowedKimono || '',
+            borrowed_shirt: lead.borrowedShirt || '',
+            custom_answers_json: JSON.stringify(lead.customAnswers || {})
+          },
+          perms
+        );
+
+        await addLeadEvent({
           academyId,
-        }, perms);
+          leadId: doc.$id,
+          type: 'import',
+          text: 'Importado (Planilha)',
+          at: nowIso,
+          createdBy: 'system',
+          payloadJson: { source: 'Planilha' },
+          permissionContext: permCtx
+        });
+
         newLeads.push({
           id: doc.$id,
           ...lead,
           contact_type: contactType,
           pipelineStage: lead.pipelineStage || 'Novo',
-          notes: history,
+          notes: [],
           createdAt: doc.$createdAt,
           pipelineStageChangedAt: nowIso,
+          importedAt: nowIso
         });
       } catch (e) {
         console.error('import error for', lead.name, e);
@@ -513,13 +626,18 @@ export const useLeadStore = create((set, get) => ({
         let checklist = [];
         try {
           if (acad.onboardingChecklist) {
-            checklist = typeof acad.onboardingChecklist === 'string' ? JSON.parse(acad.onboardingChecklist) : acad.onboardingChecklist;
+            checklist =
+              typeof acad.onboardingChecklist === 'string'
+                ? JSON.parse(acad.onboardingChecklist)
+                : acad.onboardingChecklist;
             if (!Array.isArray(checklist)) checklist = [];
           }
-        } catch { checklist = []; }
+        } catch {
+          checklist = [];
+        }
         const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-          onboardingChecklist: JSON.stringify(merged),
+          onboardingChecklist: JSON.stringify(merged)
         });
         get().setOnboardingChecklist(merged);
       } catch (e) {
@@ -528,11 +646,9 @@ export const useLeadStore = create((set, get) => ({
     }
   },
 
-  getLeadById: (id) => get().leads.find((l) => l.id === id),
+  getLeadById: (id) => get().leads.find((l) => l.id === id)
 }));
 
-// Debug exposure
 if (typeof window !== 'undefined') {
   window.useLeadStore = useLeadStore;
-  console.log('🥋 useLeadStore exposed to window');
 }

@@ -6,6 +6,7 @@ import {
 } from '../lib/whatsappTemplateDefaults.js';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
+import { addLeadEventServer } from '../lib/server/leadEvents.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -42,7 +43,7 @@ function todayYmdSaoPaulo() {
 }
 
 function extractBirthYmdFromLeadDoc(doc) {
-  const top = String(doc?.birthDate || '').trim().slice(0, 10);
+  const top = String(doc?.birth_date || doc?.birthDate || '').trim().slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(top)) return top;
   try {
     const parsed = doc?.notes ? JSON.parse(doc.notes) : null;
@@ -229,6 +230,7 @@ export default async function handler(req, res) {
         return json(res, 200, { sucesso: true, ja_existe: true, id: existing.$id });
       }
 
+      const nowIso = new Date().toISOString();
       const payload = {
         name,
         phone,
@@ -237,7 +239,10 @@ export default async function handler(req, res) {
         status: 'Novo',
         origin: 'WhatsApp',
         academyId,
-        notes: JSON.stringify({ history: [{ type: 'lead_criado', text: 'Convertido via Inbox', at: new Date().toISOString() }] })
+        notes: '',
+        pipeline_stage: 'Novo',
+        status_changed_at: nowIso,
+        pipeline_stage_changed_at: nowIso
       };
 
       const created = await databases.createDocument(
@@ -247,6 +252,14 @@ export default async function handler(req, res) {
         payload,
         [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]
       );
+      await addLeadEventServer({
+        academyId,
+        leadId: created.$id,
+        type: 'lead_criado',
+        text: 'Convertido via Inbox',
+        at: created.$createdAt,
+        createdBy: 'system'
+      });
       return json(res, 200, { sucesso: true, ja_existe: false, id: created.$id });
     } catch (e) {
       return json(res, 500, { sucesso: false, erro: e.message });

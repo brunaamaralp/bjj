@@ -149,49 +149,22 @@ export default async function handler(req, res) {
       return t >= new Date(fromTs).getTime() && t <= new Date(toTs).getTime();
     };
 
-    const parseNotes = (notesStr) => {
-        if (!notesStr) return [];
-        try {
-            const parsed = JSON.parse(notesStr);
-            if (Array.isArray(parsed)) return parsed;
-            if (parsed && Array.isArray(parsed.history)) return parsed.history;
-            return [];
-        } catch {
-            return [];
-        }
-    };
-
-    const stageEventWithin = (lead, toStatus, fromTs, toTs) => {
-      const notes = parseNotes(lead.notes);
-      const hit = notes.find(e =>
-        e?.type === 'stage_change' &&
-        e?.to === toStatus &&
-        inRange(e?.at || e?.date, fromTs, toTs)
-      );
-      if (hit) return true;
-      if (lead.status === toStatus && lead.statusChangedAt && inRange(lead.statusChangedAt, fromTs, toTs)) return true;
-      return false;
-    };
-
     const newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, from, to));
     const newLeadsPrev = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, prevFrom, prevTo));
 
     const scheduled = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, from, to));
     const scheduledPrev = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, prevFrom, prevTo));
 
-    const completed = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Compareceu', from, to) || stageEventWithin(l, 'COMPLETED', from, to)));
-    const completedPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'COMPLETED', prevFrom, prevTo)));
+    const completed = allLeads.filter((l) => isRealLead(l) && l.attended_at && inRange(l.attended_at, from, to));
+    const completedPrev = allLeads.filter((l) => isRealLead(l) && l.attended_at && inRange(l.attended_at, prevFrom, prevTo));
 
-    const missed = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Não compareceu', from, to) || stageEventWithin(l, 'Não Compareceu', from, to) || stageEventWithin(l, 'MISSED', from, to)));
-    const missedPrev = allLeads.filter(l => isRealLead(l) && (stageEventWithin(l, 'Não compareceu', prevFrom, prevTo) || stageEventWithin(l, 'Não Compareceu', prevFrom, prevTo) || stageEventWithin(l, 'MISSED', prevFrom, prevTo)));
+    const missed = allLeads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, from, to));
+    const missedPrev = allLeads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, prevFrom, prevTo));
 
     const countsAsConvertedInPeriod = (l, fromTs, toTs) => {
       if (!isRealLead(l)) return false;
-      return (
-        (l.contact_type === 'student' && inRange(l.$updatedAt, fromTs, toTs)) ||
-        stageEventWithin(l, 'Matriculado', fromTs, toTs) ||
-        stageEventWithin(l, 'CONVERTED', fromTs, toTs)
-      );
+      if (l.converted_at && inRange(l.converted_at, fromTs, toTs)) return true;
+      return l.contact_type === 'student' && inRange(l.$updatedAt, fromTs, toTs);
     };
 
     const converted = allLeads.filter(l => countsAsConvertedInPeriod(l, from, to));

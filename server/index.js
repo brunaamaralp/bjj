@@ -1,5 +1,6 @@
 import express from 'express';
 import { Client, Databases, Permission, Role, Query, ID } from 'node-appwrite';
+import { addLeadEventServer } from '../lib/server/leadEvents.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -71,27 +72,24 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
     };
     const contactType = toContactType(classificacao.tipo_contato);
 
-    const appendHistory = (notesJson) => {
-      let parsed = {};
-      try {
-        parsed = notesJson ? JSON.parse(notesJson) : {};
-      } catch {
-        parsed = {};
-      }
-      if (!parsed.history || !Array.isArray(parsed.history)) parsed.history = [];
-      parsed.history.push(msgEvent);
-      if (toBoolSim(classificacao.lead_quente)) parsed.priority = 'sim';
-      if (toBoolSim(atendimento.precisa_resposta_humana)) parsed.needHuman = 'sim';
-      return JSON.stringify(parsed);
-    };
-
     if (existing) {
-      const updatedNotes = appendHistory(existing.notes || '');
+      const atIso = String(atendimento.data_hora || new Date().toISOString());
       const payload = {
-        notes: updatedNotes,
-        contact_type: contactType
+        contact_type: contactType,
+        last_whatsapp_activity_at: new Date().toISOString()
       };
+      if (toBoolSim(classificacao.lead_quente)) payload.whatsapp_lead_quente = 'sim';
+      if (toBoolSim(atendimento.precisa_resposta_humana)) payload.need_human = true;
       const up = await databases.updateDocument(DB_ID, LEADS_COL, existing.$id, payload);
+      await addLeadEventServer({
+        academyId: DEFAULT_ACADEMY_ID,
+        leadId: existing.$id,
+        type: 'whatsapp',
+        text: String(atendimento.mensagem_original || '').slice(0, 1000),
+        at: atIso,
+        createdBy: 'system',
+        payloadJson: msgEvent
+      });
       if (toBoolSim(atendimento.precisa_resposta_humana)) {
         try {
           if (TASKS_COL) {
@@ -111,7 +109,7 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
       return res.status(200).json({ sucesso: true, id: up.$id });
     }
 
-    const newNotes = appendHistory('');
+    const nowIso = new Date().toISOString();
     const created = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), {
       name: String(contato.nome || '').trim() || telefone,
       phone: telefone,
@@ -123,14 +121,26 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
       scheduledTime: '',
       parentName: '',
       age: '',
-      notes: newNotes,
-      statusChangedAt: new Date().toISOString(),
+      notes: '',
+      pipeline_stage: 'Novo',
+      status_changed_at: nowIso,
+      pipeline_stage_changed_at: nowIso,
+      last_whatsapp_activity_at: nowIso,
       academyId: DEFAULT_ACADEMY_ID
     }, [
       Permission.read(Role.users()),
       Permission.update(Role.users()),
       Permission.delete(Role.users()),
     ]);
+    await addLeadEventServer({
+      academyId: DEFAULT_ACADEMY_ID,
+      leadId: created.$id,
+      type: 'whatsapp',
+      text: String(atendimento.mensagem_original || '').slice(0, 1000),
+      at: String(atendimento.data_hora || nowIso),
+      createdBy: 'system',
+      payloadJson: msgEvent
+    });
     if (toBoolSim(atendimento.precisa_resposta_humana)) {
       try {
         if (TASKS_COL) {

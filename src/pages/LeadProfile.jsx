@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -51,7 +52,67 @@ const LeadProfile = () => {
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);
     const academyId = useLeadStore((s) => s.academyId);
+    const userId = useLeadStore((s) => s.userId);
+    const academyList = useLeadStore((s) => s.academyList);
     const uiLabels = useLeadStore((s) => s.labels);
+
+    const permCtx = useMemo(() => {
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
+    }, [academyList, academyId, userId]);
+
+    const [timelineEvents, setTimelineEvents] = useState([]);
+
+    const mapLeadEventDocToUi = useCallback((d) => {
+        const at = d.at;
+        const base = { at, from: d.from, to: d.to, text: d.text || '' };
+        let payload = {};
+        try {
+            if (d.payload_json) payload = JSON.parse(d.payload_json);
+        } catch {
+            payload = {};
+        }
+        const t = d.type;
+        if (t === 'schedule') {
+            return {
+                type: 'schedule',
+                date: payload.date || d.to || '',
+                time: payload.time || '',
+                at,
+                text: d.text || ''
+            };
+        }
+        if (t === 'whatsapp') {
+            return {
+                type: 'message',
+                channel: 'whatsapp',
+                text: d.text || 'WhatsApp',
+                at,
+                meta: payload
+            };
+        }
+        if (t === 'attended') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.COMPLETED, at, text: d.text };
+        if (t === 'missed') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.MISSED, at, text: d.text };
+        if (t === 'converted') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.CONVERTED, at, text: d.text };
+        if (t === 'lost') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.LOST, at, text: d.text };
+        if (t === 'lead_criado') return { type: 'import', source: 'CRM', at, text: d.text || 'Lead criado' };
+        return { type: t, ...base };
+    }, []);
+
+    const refreshTimeline = useCallback(async () => {
+        if (!id || !academyId) return;
+        try {
+            const res = await getLeadEvents(id, academyId);
+            const docs = res.documents || [];
+            setTimelineEvents(docs.map(mapLeadEventDocToUi));
+        } catch {
+            setTimelineEvents([]);
+        }
+    }, [id, academyId, mapLeadEventDocToUi]);
+
+    useEffect(() => {
+        void refreshTimeline();
+    }, [refreshTimeline]);
 
     // Academy-level labels list (for the selector dropdown)
     const [allLabels, setAllLabels] = useState([]);
@@ -305,9 +366,7 @@ const LeadProfile = () => {
     };
 
     const handleUpdateStatus = async (newStatus) => {
-        const existing = Array.isArray(lead.notes) ? lead.notes : [];
-        const event = { type: 'stage_change', from: lead.status || '', to: newStatus, at: new Date().toISOString(), by: 'user' };
-        const newNotes = [...existing, event];
+        const nowIso = new Date().toISOString();
         const pipelineStage =
             newStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
                 : newStatus === LEAD_STATUS.COMPLETED ? PIPELINE_WAITING_DECISION_STAGE
@@ -316,13 +375,35 @@ const LeadProfile = () => {
                             : newStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
                                 : undefined;
 
+        const eventType =
+            newStatus === LEAD_STATUS.COMPLETED
+                ? 'attended'
+                : newStatus === LEAD_STATUS.MISSED
+                  ? 'missed'
+                  : newStatus === LEAD_STATUS.CONVERTED
+                    ? 'converted'
+                    : 'stage_change';
+
         try {
-            await updateLead(id, {
+            await addLeadEvent({
+                academyId,
+                leadId: id,
+                type: eventType,
+                from: lead.pipelineStage || lead.status || '',
+                to: newStatus,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            const patch = {
                 status: newStatus,
                 ...(newStatus === LEAD_STATUS.CONVERTED ? { contact_type: 'student' } : {}),
-                ...(pipelineStage ? { pipelineStage } : {}),
-                notes: newNotes
-            });
+                ...(pipelineStage ? { pipelineStage } : {})
+            };
+            if (newStatus === LEAD_STATUS.COMPLETED) patch.attendedAt = nowIso;
+            if (newStatus === LEAD_STATUS.MISSED) patch.missedAt = nowIso;
+            if (newStatus === LEAD_STATUS.CONVERTED) patch.convertedAt = nowIso;
+            await updateLead(id, patch);
+            await refreshTimeline();
             if (newStatus === LEAD_STATUS.SCHEDULED) {
                 const fresh = useLeadStore.getState().leads.find((l) => l.id === id);
                 if (fresh) {
@@ -378,17 +459,25 @@ const LeadProfile = () => {
     };
 
     const confirmMarkLost = async (lostReason) => {
-        const existing = Array.isArray(lead.notes) ? lead.notes : [];
-        const event = { type: 'stage_change', from: lead.status || '', to: LEAD_STATUS.LOST, at: new Date().toISOString(), by: 'user' };
-        const newNotes = [...existing, event];
+        await addLeadEvent({
+            academyId,
+            leadId: id,
+            type: 'lost',
+            from: lead.status || '',
+            to: LEAD_STATUS.LOST,
+            text: String(lostReason || '').slice(0, 1000),
+            createdBy: userId || 'user',
+            permissionContext: permCtx
+        });
         await updateLead(id, {
             status: LEAD_STATUS.LOST,
             scheduledDate: '',
             scheduledTime: '',
             pipelineStage: LEAD_STATUS.LOST,
             lostReason,
-            notes: newNotes,
+            lostAt: new Date().toISOString()
         });
+        await refreshTimeline();
     };
     const handleDeleteLead = async () => {
         const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
@@ -426,16 +515,17 @@ const LeadProfile = () => {
         });
         if (!r?.ok) return;
         try {
-            const existing = Array.isArray(lead.notes) ? lead.notes : [];
             const label = WHATSAPP_TEMPLATE_LABELS[key] || key;
-            const event = {
+            await addLeadEvent({
+                academyId,
+                leadId: id,
                 type: 'message',
-                channel: 'whatsapp',
                 text: `WhatsApp: template “${label}”`,
-                at: new Date().toISOString(),
-                by: 'user'
-            };
-            updateLead(id, { notes: [...existing, event] });
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
+            await refreshTimeline();
         } catch {
             void 0;
         }
@@ -443,34 +533,51 @@ const LeadProfile = () => {
 
     const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
 
-    const handleWhatsAppBlank = () => {
+    const handleWhatsAppBlank = async () => {
         const cleanPhone = formatWhatsAppNumber(lead.phone);
         window.open(`https://wa.me/${cleanPhone}`, '_blank');
         try {
-            const existing = Array.isArray(lead.notes) ? lead.notes : [];
-            const event = {
+            await addLeadEvent({
+                academyId,
+                leadId: id,
                 type: 'message',
-                channel: 'whatsapp',
                 text: 'Mensagem WhatsApp iniciada (sem template)',
-                at: new Date().toISOString(),
-                by: 'user'
-            };
-            updateLead(id, { notes: [...existing, event] });
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
+            await refreshTimeline();
         } catch {
             void 0;
         }
     };
 
-    const addNote = () => {
+    const addNote = async () => {
         if (!note.trim()) return;
-        const newNotes = [...(lead.notes || []), { type: 'note', text: note, at: new Date().toISOString(), by: 'user' }];
-        updateLead(id, { notes: newNotes });
+        await addLeadEvent({
+            academyId,
+            leadId: id,
+            type: 'note',
+            text: note.trim().slice(0, 1000),
+            createdBy: userId || 'user',
+            permissionContext: permCtx
+        });
+        await updateLead(id, { lastNoteAt: new Date().toISOString() });
         setNote('');
+        await refreshTimeline();
     };
-    const addNoteQuick = (text) => {
+    const addNoteQuick = async (text) => {
         if (!text) return;
-        const newNotes = [...(lead.notes || []), { type: 'note', text, at: new Date().toISOString(), by: 'user' }];
-        updateLead(id, { notes: newNotes });
+        await addLeadEvent({
+            academyId,
+            leadId: id,
+            type: 'note',
+            text: String(text).slice(0, 1000),
+            createdBy: userId || 'user',
+            permissionContext: permCtx
+        });
+        await updateLead(id, { lastNoteAt: new Date().toISOString() });
+        await refreshTimeline();
     };
 
     const handleLabelsChange = async (newIds) => {
@@ -1042,7 +1149,7 @@ const LeadProfile = () => {
                 </div>
 
                 <div className="flex-col gap-2 mt-3">
-                    {([...((lead.notes || []))]
+                    {([...(timelineEvents || [])]
                       .filter(ev => eventTypeFilter === 'all' ? true : (ev.type || 'note') === eventTypeFilter)
                       .sort((a,b) => {
                         const ta = new Date(a.at || a.date || 0).getTime();

@@ -7,6 +7,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.j
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { addLeadEvent } from '../lib/leadEvents.js';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -380,15 +381,6 @@ const Dashboard = () => {
                 const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
                 const parseYMD = (s) => { if (!s) return null; const [Y,M,D] = s.split('-').map(Number); return new Date(Y,(M||1)-1,D||1); };
                 const inRange = (ts,a,b) => { if (!ts) return false; const t = new Date(ts).getTime(); return t>=a.getTime() && t<=b.getTime(); };
-                const stageEventWithin = (lead, toStatus, cmp) => {
-                    const evs = Array.isArray(lead.notes) ? lead.notes : [];
-                    return evs.some(e =>
-                        e &&
-                        e.type === 'stage_change' &&
-                        e.to === toStatus &&
-                        cmp(e.at || e.date)
-                    );
-                };
                 const now = new Date();
                 const mFrom = startOfMonth(now), mTo = endOfMonth(now);
                 const pmFrom = startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), pmTo = endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1));
@@ -409,8 +401,14 @@ const Dashboard = () => {
                     const d = parseYMD(l.scheduledDate);
                     return d && inRange(d, pwFrom, pwTo);
                 }).length;
-                const convCur = leads.filter(l => isRealLead(l) && stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, mFrom, mTo))).length;
-                const convPrev = leads.filter(l => isRealLead(l) && stageEventWithin(l, LEAD_STATUS.CONVERTED, (ts) => inRange(ts, pmFrom, pmTo))).length;
+                const convCur = leads.filter((l) => {
+                    if (!isRealLead(l) || !l.convertedAt) return false;
+                    return inRange(l.convertedAt, mFrom, mTo);
+                }).length;
+                const convPrev = leads.filter((l) => {
+                    if (!isRealLead(l) || !l.convertedAt) return false;
+                    return inRange(l.convertedAt, pmFrom, pmTo);
+                }).length;
                 const cards = [
                     { title: 'Novos leads no mês', cur: newLeadsCur, var: pctVar(newLeadsCur, newLeadsPrev) },
                     { title: 'Aulas agendadas (semana)', cur: schedCur, var: pctVar(schedCur, schedPrev) },
@@ -557,9 +555,22 @@ const Dashboard = () => {
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         try {
-                                            await useLeadStore.getState().updateLead(lead.id, {
+                                            const st = useLeadStore.getState();
+                                            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+                                            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+                                            await addLeadEvent({
+                                                academyId: st.academyId,
+                                                leadId: lead.id,
+                                                type: 'attended',
+                                                from: lead.pipelineStage || lead.status || '',
+                                                to: LEAD_STATUS.COMPLETED,
+                                                createdBy: st.userId || 'user',
+                                                permissionContext: permCtx
+                                            });
+                                            await st.updateLead(lead.id, {
                                                 status: LEAD_STATUS.COMPLETED,
-                                                pipelineStage: 'Aula experimental'
+                                                pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
+                                                attendedAt: new Date().toISOString()
                                             });
                                             addToast({ type: 'success', message: 'Comparecimento registrado.' });
                                         } catch (err) {
@@ -575,9 +586,22 @@ const Dashboard = () => {
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         try {
-                                            await useLeadStore.getState().updateLead(lead.id, {
+                                            const st = useLeadStore.getState();
+                                            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+                                            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+                                            await addLeadEvent({
+                                                academyId: st.academyId,
+                                                leadId: lead.id,
+                                                type: 'missed',
+                                                from: lead.pipelineStage || lead.status || '',
+                                                to: LEAD_STATUS.MISSED,
+                                                createdBy: st.userId || 'user',
+                                                permissionContext: permCtx
+                                            });
+                                            await st.updateLead(lead.id, {
                                                 status: LEAD_STATUS.MISSED,
-                                                pipelineStage: 'Não compareceu'
+                                                pipelineStage: LEAD_STATUS.MISSED,
+                                                missedAt: new Date().toISOString()
                                             });
                                             addToast({ type: 'success', message: 'Falta registrada.' });
                                         } catch (err) {

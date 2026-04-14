@@ -18,6 +18,8 @@ const realtime = new Realtime(client);
 // IDs para as collections e banco (necessários para o funcionamento do CRM)
 export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a11c21825";
 export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID || "699f10500032d0fd5b80";
+/** Collection lead_events (timeline). Opcional até configurar no Appwrite. */
+export const LEAD_EVENTS_COL = import.meta.env.VITE_APPWRITE_LEAD_EVENTS_COLLECTION_ID || "";
 export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "699f1068000e1b1ca1d2";
 export const CONVERSATIONS_COL = import.meta.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || "";
 export const LABELS_COL = import.meta.env.VITE_APPWRITE_LABELS_COLLECTION_ID || "";

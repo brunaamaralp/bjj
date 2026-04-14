@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search } from 'lucide-react';
@@ -98,6 +99,12 @@ const Pipeline = () => {
     const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
+    const userId = useLeadStore((s) => s.userId);
+    const academyList = useLeadStore((s) => s.academyList);
+    const permCtx = useMemo(() => {
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
+    }, [academyList, academyId, userId]);
     const leadsLoading = useLeadStore((s) => s.loading);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
     const loadingMore = useLeadStore((s) => s.loadingMore);
@@ -425,10 +432,17 @@ const Pipeline = () => {
         if (day === 'tomorrow') base.setDate(base.getDate() + 1);
         const ymd = toYMD(base);
         try {
-            const existing = Array.isArray(lead.notes) ? lead.notes : [];
-            const event = { type: 'schedule', date: ymd, time, at: new Date().toISOString(), by: 'user' };
-            const newNotes = [...existing, event];
-            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental', notes: newNotes });
+            await addLeadEvent({
+                academyId,
+                leadId: lead.id,
+                type: 'schedule',
+                to: ymd,
+                text: 'Aula experimental agendada',
+                createdBy: userId || 'user',
+                permissionContext: permCtx,
+                payloadJson: { date: ymd, time }
+            });
+            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental' });
         } catch {
             await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental' });
         }
@@ -470,7 +484,20 @@ const Pipeline = () => {
         if (stageId === LEAD_STATUS.MISSED) {
             const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
             if (!ok) return;
-            await updateLead(leadId, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED });
+            await addLeadEvent({
+                academyId,
+                leadId,
+                type: 'missed',
+                from: lead?.pipelineStage || lead?.status || '',
+                to: LEAD_STATUS.MISSED,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(leadId, {
+                status: LEAD_STATUS.MISSED,
+                pipelineStage: LEAD_STATUS.MISSED,
+                missedAt: new Date().toISOString()
+            });
             setMoverOpenId(null);
             setToast('Marcado como não compareceu');
             setTimeout(() => setToast(''), 2000);
@@ -479,22 +506,23 @@ const Pipeline = () => {
         if (stageId === LEAD_STATUS.LOST) {
             openLostModal(leadId, async (lostReason) => {
                 const cur = getLeadById(leadId) || lead;
-                const existing = Array.isArray(cur?.notes) ? cur.notes : [];
-                const event = {
-                    type: 'stage_change',
+                await addLeadEvent({
+                    academyId,
+                    leadId,
+                    type: 'lost',
                     from: cur?.status || '',
                     to: LEAD_STATUS.LOST,
-                    at: new Date().toISOString(),
-                    by: 'user',
-                };
-                const newNotes = [...existing, event];
+                    text: String(lostReason || '').slice(0, 1000),
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx
+                });
                 await updateLead(leadId, {
                     status: LEAD_STATUS.LOST,
                     scheduledDate: '',
                     scheduledTime: '',
                     pipelineStage: LEAD_STATUS.LOST,
                     lostReason,
-                    notes: newNotes,
+                    lostAt: new Date().toISOString()
                 });
                 setMoverOpenId(null);
                 setToast('Marcado como perdido');
@@ -503,10 +531,16 @@ const Pipeline = () => {
             return;
         }
         try {
-            const existing = Array.isArray(lead?.notes) ? lead.notes : [];
-            const event = { type: 'pipeline_change', from: lead?.pipelineStage || '', to: stageId, at: new Date().toISOString(), by: 'user' };
-            const newNotes = [...existing, event];
-            await updateLead(leadId, { pipelineStage: stageId, notes: newNotes });
+            await addLeadEvent({
+                academyId,
+                leadId,
+                type: 'pipeline_change',
+                from: lead?.pipelineStage || '',
+                to: stageId,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(leadId, { pipelineStage: stageId });
         } catch {
             await updateLead(leadId, { pipelineStage: stageId });
         }
@@ -660,26 +694,40 @@ const Pipeline = () => {
             const lead = getLeadById(id);
             const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
             if (!ok) { setDragOver(null); return; }
-            await updateLead(id, { status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED });
+            await addLeadEvent({
+                academyId,
+                leadId: id,
+                type: 'missed',
+                from: lead?.pipelineStage || lead?.status || '',
+                to: LEAD_STATUS.MISSED,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(id, {
+                status: LEAD_STATUS.MISSED,
+                pipelineStage: LEAD_STATUS.MISSED,
+                missedAt: new Date().toISOString()
+            });
         } else if (status === LEAD_STATUS.LOST) {
             openLostModal(id, async (lostReason) => {
                 const cur = getLeadById(id);
-                const existing = Array.isArray(cur?.notes) ? cur.notes : [];
-                const event = {
-                    type: 'stage_change',
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
+                    type: 'lost',
                     from: cur?.status || '',
                     to: LEAD_STATUS.LOST,
-                    at: new Date().toISOString(),
-                    by: 'user',
-                };
-                const newNotes = [...existing, event];
+                    text: String(lostReason || '').slice(0, 1000),
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx
+                });
                 await updateLead(id, {
                     status: LEAD_STATUS.LOST,
                     scheduledDate: '',
                     scheduledTime: '',
                     pipelineStage: LEAD_STATUS.LOST,
                     lostReason,
-                    notes: newNotes,
+                    lostAt: new Date().toISOString()
                 });
                 setToast('Marcado como perdido');
                 setTimeout(() => setToast(''), 2000);
@@ -697,16 +745,16 @@ const Pipeline = () => {
                 return;
             }
             try {
-                const existing = Array.isArray(lead.notes) ? lead.notes : [];
-                const event = {
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
                     type: 'pipeline_change',
                     from: lead.pipelineStage || '',
                     to: status,
-                    at: new Date().toISOString(),
-                    by: 'user',
-                };
-                const newNotes = [...existing, event];
-                await updateLead(id, { pipelineStage: status, notes: newNotes });
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx
+                });
+                await updateLead(id, { pipelineStage: status });
             } catch {
                 await updateLead(id, { pipelineStage: status });
             }
@@ -726,9 +774,15 @@ const Pipeline = () => {
             setNoteOpen(false);
             return;
         }
-        const existing = Array.isArray(noteLead.notes) ? noteLead.notes : [];
-        const newNotes = [...existing, { text: noteText, date: new Date().toISOString() }];
-        await updateLead(noteLead.id, { notes: newNotes });
+        await addLeadEvent({
+            academyId,
+            leadId: noteLead.id,
+            type: 'note',
+            text: noteText.trim().slice(0, 1000),
+            createdBy: userId || 'user',
+            permissionContext: permCtx
+        });
+        await updateLead(noteLead.id, { lastNoteAt: new Date().toISOString() });
         setNoteOpen(false);
         setToast('Observação salva');
         setTimeout(() => setToast(''), 2000);
@@ -1261,10 +1315,20 @@ const Pipeline = () => {
                 onConfirmSimple={async () => {
                     setMatriculaModalOpen(false);
                     if (dragTargetLead) {
+                        await addLeadEvent({
+                            academyId,
+                            leadId: dragTargetLead.id,
+                            type: 'converted',
+                            from: dragTargetLead.pipelineStage || '',
+                            to: LEAD_STATUS.CONVERTED,
+                            createdBy: userId || 'user',
+                            permissionContext: permCtx
+                        });
                         await updateLead(dragTargetLead.id, {
                             status: LEAD_STATUS.CONVERTED,
                             contact_type: 'student',
                             pipelineStage: 'Matriculado',
+                            convertedAt: new Date().toISOString()
                         });
                         setToast('Lead matriculado com sucesso!');
                         setTimeout(() => setToast(''), 2000);
@@ -1287,23 +1351,24 @@ const Pipeline = () => {
                     onClose={() => setLostModalLead(null)}
                     onConfirm={async (reason) => {
                         const cur = lostModalLead;
-                        const existing = Array.isArray(cur?.notes) ? cur.notes : [];
-                        const event = {
-                            type: 'stage_change',
-                            from: cur?.status || '',
-                            to: LEAD_STATUS.LOST,
-                            at: new Date().toISOString(),
-                            by: 'user',
-                        };
-                        const newNotes = [...existing, event];
                         try {
+                            await addLeadEvent({
+                                academyId,
+                                leadId: cur.id,
+                                type: 'lost',
+                                from: cur?.status || '',
+                                to: LEAD_STATUS.LOST,
+                                text: String(reason || '').slice(0, 1000),
+                                createdBy: userId || 'user',
+                                permissionContext: permCtx
+                            });
                             await updateLead(cur.id, {
                                 status: LEAD_STATUS.LOST,
                                 scheduledDate: '',
                                 scheduledTime: '',
                                 pipelineStage: LEAD_STATUS.LOST,
                                 lostReason: reason,
-                                notes: newNotes,
+                                lostAt: new Date().toISOString()
                             });
                             setToast('Marcado como perdido');
                             setTimeout(() => setToast(''), 2000);
