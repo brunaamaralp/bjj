@@ -270,19 +270,26 @@ const Dashboard = () => {
         .filter((l) => excludeImportedOrigin(l) && l.status === LEAD_STATUS.SCHEDULED && hasExperimentalDate(l))
         .sort((a, b) => toDateTime(a) - toDateTime(b));
 
-    const agendaLeads = allScheduled.filter(lead => {
-        if (dateFilter === 'all') return true;
-        if (!lead.scheduledDate) return false;
+    const agendaLeads = allScheduled
+        .filter(
+            (lead) =>
+                lead.status !== LEAD_STATUS.CONVERTED &&
+                lead.pipelineStage !== 'Matriculado' &&
+                lead.contact_type !== 'student'
+        )
+        .filter((lead) => {
+            if (dateFilter === 'all') return true;
+            if (!lead.scheduledDate) return false;
 
-        // Use YYYY-MM-DD from lead.scheduledDate directly for comparison to avoid TZ shifts
-        const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-        const leadDate = new Date(y, m - 1, d);
+            // Use YYYY-MM-DD from lead.scheduledDate directly for comparison to avoid TZ shifts
+            const [y, m, d] = lead.scheduledDate.split('-').map(Number);
+            const leadDate = new Date(y, m - 1, d);
 
-        if (dateFilter === 'today') return leadDate.toDateString() === today.toDateString();
-        if (dateFilter === 'tomorrow') return leadDate.toDateString() === tomorrow.toDateString();
-        if (dateFilter === 'week') return leadDate >= today && leadDate < weekEnd;
-        return true;
-    });
+            if (dateFilter === 'today') return leadDate.toDateString() === today.toDateString();
+            if (dateFilter === 'tomorrow') return leadDate.toDateString() === tomorrow.toDateString();
+            if (dateFilter === 'week') return leadDate >= today && leadDate < weekEnd;
+            return true;
+        });
 
     // Follow-ups: dias desde a data da aula experimental; na agenda, só os primeiros 7 dias; mais recentes no topo
     const followUpsAll = leads

@@ -31,13 +31,19 @@ const endOfWeek = (d) => {
 const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
 const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 
-function buildWeekBuckets(fromD, toDEnd) {
+function buildWeekBuckets(fromRaw, toRaw) {
+    const fromD = new Date(fromRaw);
+    const toDEnd = new Date(toRaw);
+    // `toRaw` já é o fim inclusivo do período (ISO do cliente); não usar setHours aqui no servidor (UTC distorceria).
+
     const out = [];
     let s = startOfWeek(new Date(fromD));
     let guard = 0;
-    while (s <= toDEnd && guard++ < 60) {
+    const toMs = toDEnd.getTime();
+    while (s.getTime() <= toMs && guard++ < 60) {
         const e = endOfWeek(s);
-        const clipEnd = e.getTime() > toDEnd.getTime() ? toDEnd : e;
+        const clipEndMs = Math.min(e.getTime(), toMs);
+        const clipEnd = new Date(clipEndMs);
         out.push({
             start: new Date(s),
             end: clipEnd,
@@ -54,13 +60,19 @@ function buildWeekBuckets(fromD, toDEnd) {
     return out;
 }
 
-function buildMonthBuckets(fromD, toDEnd) {
+function buildMonthBuckets(fromRaw, toRaw) {
+    const fromD = new Date(fromRaw);
+    const toDEnd = new Date(toRaw);
+    // Mesma regra que buildWeekBuckets: fim do período vem pronto no ISO.
+
     const out = [];
     let s = startOfMonth(new Date(fromD));
     let guard = 0;
-    while (s <= toDEnd && guard++ < 36) {
+    const toMs = toDEnd.getTime();
+    while (s.getTime() <= toMs && guard++ < 36) {
         const e = endOfMonth(s);
-        const clipEnd = e.getTime() > toDEnd.getTime() ? toDEnd : e;
+        const clipEndMs = Math.min(e.getTime(), toMs);
+        const clipEnd = new Date(clipEndMs);
         out.push({
             start: new Date(s),
             end: clipEnd,
