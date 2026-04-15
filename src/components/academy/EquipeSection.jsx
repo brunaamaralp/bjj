@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import { teams } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
@@ -11,29 +11,35 @@ const EquipeSection = ({ academy, academyId }) => {
 
     const [members, setMembers] = useState([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [membersLoadError, setMembersLoadError] = useState(false);
     const [newMember, setNewMember] = useState({ name: '', email: '', password: '' });
     const [savingMember, setSavingMember] = useState(false);
     const [memberError, setMemberError] = useState('');
 
+    const loadMembers = useCallback(async () => {
+        if (!academy?.teamId) return;
+        setMembersLoadError(false);
+        setLoadingMembers(true);
+        try {
+            const result = await teams.listMemberships(academy.teamId);
+            setMembers(result.memberships || []);
+        } catch (e) {
+            console.error('loadMembers error:', e);
+            setMembersLoadError(true);
+            setMembers([]);
+        } finally {
+            setLoadingMembers(false);
+        }
+    }, [academy?.teamId]);
+
     useEffect(() => {
         if (!academy?.teamId) {
             setMembers([]);
+            setMembersLoadError(false);
             return;
         }
-        const loadMembers = async () => {
-            setLoadingMembers(true);
-            try {
-                const result = await teams.listMemberships(academy.teamId);
-                setMembers(result.memberships || []);
-            } catch (e) {
-                console.error('loadMembers error:', e);
-                setMembers([]);
-            } finally {
-                setLoadingMembers(false);
-            }
-        };
-        loadMembers();
-    }, [academy?.teamId]);
+        void loadMembers();
+    }, [academy?.teamId, loadMembers]);
 
     const handleCreateMember = async (e) => {
         e.preventDefault();
@@ -102,6 +108,14 @@ const EquipeSection = ({ academy, academyId }) => {
                             <div className="flex justify-between items-center mb-2">
                                 <span className="navi-section-heading" style={{ fontSize: '0.95rem' }}>Membros</span>
                             </div>
+                            {membersLoadError && !loadingMembers && (
+                                <div className="section-error" role="alert">
+                                    <span>Não foi possível carregar a equipe.</span>
+                                    <button type="button" className="btn-secondary" onClick={() => void loadMembers()}>
+                                        Tentar novamente
+                                    </button>
+                                </div>
+                            )}
                             {loadingMembers ? (
                                 <p className="text-small" style={{ color: 'var(--text-muted)' }}>Carregando equipe...</p>
                             ) : (
@@ -122,7 +136,8 @@ const EquipeSection = ({ academy, academyId }) => {
                                                     </span>
                                                     {role === 'owner' && !isOwner && (
                                                         <button
-                                                            className="icon-btn"
+                                                            type="button"
+                                                            className="icon-btn icon-btn-remove icon-only"
                                                             title="Remover membro"
                                                             onClick={() => handleRemoveMember(m.$id)}
                                                         >
@@ -175,7 +190,16 @@ const EquipeSection = ({ academy, academyId }) => {
                                         />
                                     </div>
                                     {memberError && <p className="field-error">{memberError}</p>}
-                                    <button type="submit" className="btn-secondary mt-1" disabled={savingMember}>
+                                    <button
+                                        type="submit"
+                                        className="btn-secondary mt-1"
+                                        disabled={
+                                            savingMember ||
+                                            !newMember.name.trim() ||
+                                            !newMember.email.trim() ||
+                                            !newMember.password.trim()
+                                        }
+                                    >
                                         <Plus size={16} /> {savingMember ? 'Criando...' : 'Adicionar Conta'}
                                     </button>
                                 </form>
@@ -184,7 +208,7 @@ const EquipeSection = ({ academy, academyId }) => {
                     </div>
                 ) : (
                     <div className="navi-subtitle" style={{ marginTop: 0 }}>
-                        Nenhum time associado. Faça logout e login novamente para criar/associar automaticamente.
+                        Não foi possível identificar sua equipe. Entre em contato com o suporte se o problema persistir.
                     </div>
                 )}
             </div>

@@ -25,11 +25,11 @@ function formatInstructionsSavedAt(iso) {
     return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-/** Rótulo curto para o status Zapster na UI do Agente (não conectado). */
+/** Rótulo curto para o status da conexão WhatsApp na UI do Agente (não conectado). */
 function formatWaAgentStatus(status) {
     const k = String(status || '').trim().toLowerCase();
     if (!k) return 'Em configuração';
-    if (k === 'offline') return 'Instância desligada';
+    if (k === 'offline') return 'Conexão desligada';
     if (k === 'open' || k === 'scanning' || k === 'qrcode') return 'Aguardando leitura do QR';
     if (k === 'connecting' || k === 'syncing') return 'Conectando…';
     if (k === 'disconnected') return 'Desvinculado do WhatsApp';
@@ -37,7 +37,7 @@ function formatWaAgentStatus(status) {
     return String(status).replace(/_/g, ' ');
 }
 
-/** Ícone + cores para a faixa de status (instância não conectada). */
+/** Ícone + cores para a faixa de status (conexão não ativa). */
 function waAgentStatusVisual(status) {
     const k = String(status || '').trim().toLowerCase();
     if (k === 'offline') return { Icon: Power, accent: '#c2410c', bg: 'rgba(194, 65, 12, 0.08)' };
@@ -84,6 +84,25 @@ const AgenteIASection = ({ academyId, role }) => {
     const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
     const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
     const [agentModalOpen, setAgentModalOpen] = useState(false);
+    const [waConfirm, setWaConfirm] = useState(null);
+
+    useEffect(() => {
+        if (!waConfirm) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setWaConfirm(null);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [waConfirm]);
+
+    const handleWaConfirmAction = () => {
+        if (!waConfirm) return;
+        const { variant } = waConfirm;
+        setWaConfirm(null);
+        if (variant === 'disconnect') void zap.disconnectWaInstance();
+        if (variant === 'powerOff') void zap.powerOffInstance();
+        if (variant === 'restart') void zap.restartInstance();
+    };
 
     const instructionsSavedLabel = useMemo(
         () => formatInstructionsSavedAt(wizardAgenteInitial?.savedAt),
@@ -371,7 +390,14 @@ const AgenteIASection = ({ academyId, role }) => {
                                     type="button"
                                     className="btn btn-outline"
                                     style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                    onClick={() => void zap.disconnectWaInstance()}
+                                    onClick={() =>
+                                        setWaConfirm({
+                                            variant: 'disconnect',
+                                            title: 'Desconectar WhatsApp?',
+                                            description: 'O assistente vai parar de responder até você conectar novamente.',
+                                            confirmLabel: 'Desconectar',
+                                        })
+                                    }
                                     disabled={zap.waLoading || zap.waTokenMissing}
                                 >
                                     Desconectar
@@ -401,7 +427,7 @@ const AgenteIASection = ({ academyId, role }) => {
                                 }}
                             >
                                 <p className="text-small" style={{ margin: 0, lineHeight: 1.45 }}>
-                                    A instância foi criada na Zapster, mas o ID não foi salvo no Appwrite. Use <strong>Verificar e corrigir</strong> nas ferramentas abaixo, se disponível.
+                                    A conexão foi criada, mas não foi possível salvar os dados no sistema. Use <strong>Verificar e corrigir</strong> nas ferramentas abaixo, se disponível.
                                 </p>
                             </div>
                         )}
@@ -456,7 +482,7 @@ const AgenteIASection = ({ academyId, role }) => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                                         <WaStatusIcon size={20} color={waStatusVisual.accent} strokeWidth={2} aria-hidden />
                                         <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                            Status da instância
+                                            Status da conexão
                                         </span>
                                     </div>
                                     <span className="text-small" style={{ fontWeight: 700, color: 'var(--text)' }}>
@@ -626,15 +652,41 @@ const AgenteIASection = ({ academyId, role }) => {
                                     </button>
                                     {!!zap.waInfo?.instance_id && zap.waInfo?.status === 'offline' && (
                                         <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.powerOnInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                            Ligar instância
+                                            Ligar conexão
                                         </button>
                                     )}
                                     {!!zap.waInfo?.instance_id && (
                                         <>
-                                            <button type="button" className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => void zap.powerOffInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                                Desligar instância
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline"
+                                                style={{ padding: '6px 10px' }}
+                                                onClick={() =>
+                                                    setWaConfirm({
+                                                        variant: 'powerOff',
+                                                        title: 'Desligar a conexão?',
+                                                        description: 'O WhatsApp pode ficar offline até você ligar novamente.',
+                                                        confirmLabel: 'Desligar',
+                                                    })
+                                                }
+                                                disabled={zap.waLoading || zap.waTokenMissing}
+                                            >
+                                                Desligar conexão
                                             </button>
-                                            <button type="button" className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => void zap.restartInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline"
+                                                style={{ padding: '6px 10px' }}
+                                                onClick={() =>
+                                                    setWaConfirm({
+                                                        variant: 'restart',
+                                                        title: 'Reiniciar a conexão?',
+                                                        description: 'Pode levar alguns instantes. Use se o atendimento travou.',
+                                                        confirmLabel: 'Reiniciar',
+                                                    })
+                                                }
+                                                disabled={zap.waLoading || zap.waTokenMissing}
+                                            >
                                                 Reiniciar
                                             </button>
                                         </>
@@ -677,6 +729,10 @@ const AgenteIASection = ({ academyId, role }) => {
                     </div>
                 </div>
 
+                {loadingPrompt ? (
+                    <div className="empresa-skeleton-block" style={{ height: 80 }} aria-busy="true" aria-label="Carregando configurações do assistente" />
+                ) : (
+                    <>
                 {iaAtiva && !zap.waConnected && (
                     <div
                         style={{
@@ -772,13 +828,21 @@ const AgenteIASection = ({ academyId, role }) => {
                 <details className="agent-accordion" style={{ marginTop: 20 }}>
                     <summary>Opções avançadas</summary>
                     <div className="agent-accordion-content">
+                        <details className="agent-accordion agent-accordion-nested" style={{ marginBottom: 16 }}>
+                            <summary className="text-small" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                Detalhes para suporte
+                            </summary>
+                            <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
+                                O assistente também recebe dados estruturados do lead (formato JSON) junto com o texto. Use <strong>Ver como a IA recebe</strong> abaixo para inspecionar o conteúdo completo.
+                            </p>
+                        </details>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
                             <button
                                 type="button"
                                 onClick={() => void handlePreviewFullPrompt()}
                                 className="btn btn-outline"
                                 disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                                title="Inclui classificação em JSON enviada ao modelo"
+                                title="Mostra o texto completo enviado ao modelo, incluindo dados estruturados do lead"
                             >
                                 {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
                             </button>
@@ -863,7 +927,47 @@ const AgenteIASection = ({ academyId, role }) => {
                         </div>
                     </div>
                 </details>
+                    </>
+                )}
             </div>
+
+            {waConfirm && (
+                <div
+                    className="confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="wa-confirm-title"
+                    onClick={() => (zap.waLoading ? undefined : setWaConfirm(null))}
+                >
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="confirm-icon-wrap">
+                            <AlertTriangle size={28} color="var(--danger)" aria-hidden />
+                        </div>
+                        <h3 id="wa-confirm-title" className="navi-section-heading">{waConfirm.title}</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 10 }}>{waConfirm.description}</p>
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                type="button"
+                                className="btn-outline"
+                                style={{ flex: 1 }}
+                                onClick={() => setWaConfirm(null)}
+                                disabled={zap.waLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-danger"
+                                style={{ flex: 1 }}
+                                onClick={handleWaConfirmAction}
+                                disabled={zap.waLoading}
+                            >
+                                {waConfirm.confirmLabel}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showPromptPreview && (
                 <div

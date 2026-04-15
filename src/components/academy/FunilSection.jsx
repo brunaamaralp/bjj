@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, X, ChevronRight, Tag, Pencil } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
@@ -11,6 +11,7 @@ function LabelColorSwatch({ color, selected, onSelect }) {
     return (
         <button
             type="button"
+            className="icon-only"
             aria-label={`Selecionar cor ${color}`}
             aria-pressed={selected}
             onClick={() => onSelect(color)}
@@ -32,7 +33,24 @@ function LabelColorSwatch({ color, selected, onSelect }) {
     );
 }
 
-const FunilSection = ({ academy, setAcademy, academyId }) => {
+function serializeLeadQuestions(qs) {
+    const arr = Array.isArray(qs) ? qs : [];
+    return JSON.stringify(
+        arr.map((q) => {
+            const base = {
+                id: String(q?.id || ''),
+                label: String(q?.label || ''),
+                type: String(q?.type || 'text') || 'text',
+            };
+            if (Array.isArray(q?.options) && q.options.length > 0) {
+                return { ...base, options: q.options.map((x) => String(x)) };
+            }
+            return base;
+        })
+    );
+}
+
+const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }) => {
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
     const [newQuestion, setNewQuestion] = useState('');
@@ -44,6 +62,7 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
     const [newLabelColor, setNewLabelColor] = useState('');
     const [editingLabel, setEditingLabel] = useState(null); // { $id, name, color }
     const [labelsLoading, setLabelsLoading] = useState(false);
+    const [labelsError, setLabelsError] = useState(false);
     const [lastCreatedId, setLastCreatedId] = useState(null);
     const [exitingIds, setExitingIds] = useState({});
     const enterClearRef = useRef(null);
@@ -56,6 +75,18 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
         return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
     };
 
+    const [savedQuestionsDigest, setSavedQuestionsDigest] = useState('');
+
+    useEffect(() => {
+        if (!academyId) return;
+        setSavedQuestionsDigest(serializeLeadQuestions(academy.customLeadQuestions));
+    }, [academyId, academyDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- baseline após carga
+
+    const hasUnsavedChanges = useMemo(
+        () => serializeLeadQuestions(academy.customLeadQuestions) !== savedQuestionsDigest,
+        [academy.customLeadQuestions, savedQuestionsDigest]
+    );
+
     const saveQuestions = async (qs) => {
         if (!academyId) return;
         setSaving(true);
@@ -64,6 +95,7 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                 customLeadQuestions: JSON.stringify(qs)
             });
             setAcademy(a => ({ ...a, customLeadQuestions: qs }));
+            setSavedQuestionsDigest(serializeLeadQuestions(qs));
             addToast({ type: 'success', message: 'Perguntas do lead salvas.' });
         } catch (e) {
             console.error('save questions:', e);
@@ -101,11 +133,20 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
     const fetchLabels = async () => {
         if (!academyId) return;
         setLabelsLoading(true);
+        setLabelsError(false);
         try {
             const res = await fetch(`/api/labels`, { headers: await labelsHeaders() });
-            const data = await res.json();
-            if (data?.sucesso) setLabels(data.labels || []);
-        } catch { /* silent */ } finally {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.sucesso) {
+                setLabels(data.labels || []);
+            } else {
+                setLabels([]);
+                setLabelsError(true);
+            }
+        } catch {
+            setLabels([]);
+            setLabelsError(true);
+        } finally {
             setLabelsLoading(false);
         }
     };
@@ -235,6 +276,19 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
             </div>
             <div className="card">
                 <div className="flex-col gap-3">
+                    {hasUnsavedChanges && role === 'owner' && (
+                        <div className="unsaved-banner" role="status">
+                            <span>Você tem alterações não salvas nas perguntas.</span>
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                disabled={saving}
+                                onClick={() => void saveQuestions(academy.customLeadQuestions || [])}
+                            >
+                                Salvar agora
+                            </button>
+                        </div>
+                    )}
                     {role === 'owner' && (
                         <div className="flex gap-2">
                             <input
@@ -244,7 +298,7 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                                 onChange={(e) => setNewQuestion(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddQuestion(); }}
                             />
-                            <button className="btn-secondary" onClick={handleAddQuestion}>
+                            <button type="button" className="btn-secondary" onClick={handleAddQuestion}>
                                 <Plus size={16} /> Adicionar
                             </button>
                         </div>
@@ -323,7 +377,8 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                                 {role === 'owner' && (
                                     <>
                                         <button
-                                            className="icon-btn"
+                                            type="button"
+                                            className="icon-btn icon-only"
                                             title="Remover"
                                             onClick={() => handleRemoveQuestion(q?.id, idx)}
                                         >
@@ -331,7 +386,8 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                                         </button>
                                         <div className="flex gap-2">
                                             <button
-                                                className="icon-btn"
+                                                type="button"
+                                                className="icon-btn icon-only"
                                                 title="Mover para cima"
                                                 onClick={() => {
                                                     if (idx <= 0) return;
@@ -344,7 +400,8 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                                                 <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />
                                             </button>
                                             <button
-                                                className="icon-btn"
+                                                type="button"
+                                                className="icon-btn icon-only"
                                                 title="Mover para baixo"
                                                 onClick={() => {
                                                     const list = [...(academy.customLeadQuestions || [])];
@@ -370,8 +427,9 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                     {role === 'owner' && (
                         <div className="flex gap-2 mt-2">
                             <button
+                                type="button"
                                 className="btn-secondary"
-                                onClick={() => saveQuestions(academy.customLeadQuestions || [])}
+                                onClick={() => void saveQuestions(academy.customLeadQuestions || [])}
                                 disabled={saving}
                             >
                                 {saving ? 'Salvando...' : 'Salvar alterações'}
@@ -407,11 +465,19 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
             </div>
             <div className="card">
                 <div className="flex-col gap-3">
+                    {labelsError && !labelsLoading && (
+                        <div className="section-error" role="alert">
+                            <span>Não foi possível carregar as etiquetas.</span>
+                            <button type="button" className="btn-secondary" onClick={() => void fetchLabels()}>
+                                Tentar novamente
+                            </button>
+                        </div>
+                    )}
                     {labelsLoading && (
                         <p className="navi-subtitle" style={{ margin: 0 }}>Carregando...</p>
                     )}
 
-                    {!labelsLoading && labels.length === 0 && (
+                    {!labelsLoading && !labelsError && labels.length === 0 && (
                         <div
                             style={{
                                 textAlign: 'center',
@@ -427,7 +493,7 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                         </div>
                     )}
 
-                    {!labelsLoading && labels.length > 0 && (
+                    {!labelsLoading && !labelsError && labels.length > 0 && (
                         <div className="flex-col gap-2">
                             {labels.map((label) => (
                                 <div
@@ -489,7 +555,7 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                                                 <div className="flex gap-1" style={{ marginLeft: 'auto', flexShrink: 0 }}>
                                                     <button
                                                         type="button"
-                                                        className="icon-btn"
+                                                        className="icon-btn icon-only"
                                                         title="Editar"
                                                         onClick={() =>
                                                             setEditingLabel({
@@ -503,7 +569,7 @@ const FunilSection = ({ academy, setAcademy, academyId }) => {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className="icon-btn"
+                                                        className="icon-btn icon-only"
                                                         title="Excluir"
                                                         onClick={() => requestDeleteLabel(label)}
                                                     >

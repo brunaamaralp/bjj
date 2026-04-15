@@ -35,6 +35,10 @@ const AcademySettings = () => {
     const rawTab = searchParams.get('tab') || '';
     const activeTab = VALID_TABS.has(rawTab) ? rawTab : 'estudio';
 
+    const [academyLoadState, setAcademyLoadState] = useState('idle');
+    const [academyReloadNonce, setAcademyReloadNonce] = useState(0);
+    const [academyDataVersion, setAcademyDataVersion] = useState(0);
+
     const [academy, setAcademy] = useState({
         name: '',
         phone: '',
@@ -130,9 +134,16 @@ const AcademySettings = () => {
     };
 
     useEffect(() => {
-        if (!academyId) return;
-        databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-            .then(async (doc) => {
+        if (!academyId) {
+            setAcademyLoadState('idle');
+            return undefined;
+        }
+        let cancelled = false;
+        setAcademyLoadState('loading');
+        (async () => {
+            try {
+                const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+                if (cancelled) return;
                 let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' };
                 let mods = { sales: false, inventory: false, finance: false };
                 try {
@@ -169,9 +180,17 @@ const AcademySettings = () => {
                         });
                     } catch (e) { void e; }
                 }
-            })
-            .catch(e => console.error('fetch academy:', e));
-    }, [academyId]);
+                setAcademyLoadState('ok');
+                setAcademyDataVersion((v) => v + 1);
+            } catch (e) {
+                if (!cancelled) {
+                    console.error('fetch academy:', e);
+                    setAcademyLoadState('error');
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [academyId, academyReloadNonce]);
 
     const handleSave = async () => {
         if (!academyId) return;
@@ -240,7 +259,7 @@ const AcademySettings = () => {
     };
 
     return (
-        <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
+        <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="animate-in">
                 <Link
                     to="/conta"
@@ -253,6 +272,19 @@ const AcademySettings = () => {
                 <h2 className="navi-page-title">{academy.name || 'Minha academia'}</h2>
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Configurações da academia</p>
             </div>
+
+            {academyLoadState === 'error' && (
+                <div className="error-banner" role="alert">
+                    <span>Não foi possível carregar as configurações.</span>
+                    <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setAcademyReloadNonce((n) => n + 1)}
+                    >
+                        Tentar novamente
+                    </button>
+                </div>
+            )}
 
             <nav className="empresa-subnav" aria-label="Seções da academia">
                 <div className="empresa-subnav-scroll">
@@ -297,6 +329,7 @@ const AcademySettings = () => {
                     academy={academy}
                     setAcademy={setAcademy}
                     academyId={academyId}
+                    academyDataVersion={academyDataVersion}
                 />
             )}
 
@@ -458,6 +491,55 @@ const AcademySettings = () => {
         }
         .ai-switch--on .ai-switch-thumb {
           transform: translateX(20px);
+        }
+        @keyframes empresaSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+        .empresa-skeleton-block {
+          border-radius: 10px;
+          width: 100%;
+          max-width: 420px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: empresaSk 1.2s ease-in-out infinite;
+        }
+        .error-banner {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+          padding: 12px 14px; margin: 12px 0 16px; border-radius: 10px;
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.35);
+          color: var(--text);
+          font-size: 0.9rem;
+        }
+        .section-error {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+          padding: 12px 14px; margin-bottom: 12px; border-radius: 8px;
+          background: rgba(220, 38, 38, 0.06);
+          border: 1px solid rgba(220, 38, 38, 0.28);
+          font-size: 0.88rem;
+          color: var(--text);
+        }
+        .unsaved-banner {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+          padding: 10px 14px; margin-bottom: 12px; border-radius: 8px;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          font-size: 0.9rem;
+          color: var(--text);
+        }
+        .academy-settings-page .form-input,
+        .academy-settings-page .input,
+        .academy-settings-page .agent-field-textarea {
+          font-size: 16px;
+        }
+        .academy-settings-page button:not(.icon-only):not(.ai-switch) {
+          min-height: 44px;
+          padding-inline: 16px;
+        }
+        .academy-settings-page .icon-btn-remove {
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
       `}} />
         </div>
