@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
-import { ID, Query, Permission, Role } from 'appwrite';
+import { ID, Query } from 'appwrite';
 import { addLeadEvent } from '../lib/leadEvents.js';
+import { buildClientDocumentPermissions } from '../lib/clientDocumentPermissions.js';
 import { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 import { mapAppwriteDocToLead } from '../lib/mapAppwriteLeadDoc.js';
 import {
@@ -249,39 +250,9 @@ export const useLeadStore = create((set, get) => ({
 
       const academyList = get().academyList || [];
       const acadDoc = academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' };
-      const ownerId = acadDoc.ownerId || get().ownerId;
-      const teamId = acadDoc.teamId || get().teamId;
-
-      const perms = [];
-      if (ownerId) {
-        perms.push(
-          Permission.read(Role.user(ownerId)),
-          Permission.update(Role.user(ownerId)),
-          Permission.delete(Role.user(ownerId))
-        );
-      }
-      if (teamId) {
-        perms.push(
-          Permission.read(Role.team(teamId)),
-          Permission.update(Role.team(teamId)),
-          Permission.delete(Role.team(teamId))
-        );
-      }
-      if (perms.length === 0) {
-        if (userId) {
-          perms.push(
-            Permission.read(Role.user(userId)),
-            Permission.update(Role.user(userId)),
-            Permission.delete(Role.user(userId))
-          );
-        } else {
-          perms.push(
-            Permission.read(Role.users()),
-            Permission.update(Role.users()),
-            Permission.delete(Role.users())
-          );
-        }
-      }
+      const teamId = String(acadDoc.teamId || get().teamId || '').trim();
+      const sessionUserId = String(userId || '').trim();
+      const perms = buildClientDocumentPermissions({ teamId, userId: sessionUserId });
 
       const nowIso = new Date().toISOString();
       const docPayload = {
@@ -441,30 +412,11 @@ export const useLeadStore = create((set, get) => ({
     const wasEmpty = get().leads.length === 0;
     const newLeads = [];
     const userId = get().userId;
-    const teamId = get().teamId;
+    const academyList = get().academyList || [];
+    const acadDoc = academyList.find((a) => a.id === academyId) || {};
+    const teamId = String(acadDoc.teamId || get().teamId || '').trim();
     const permCtx = permissionContextFromStore(get);
-    const perms = [];
-    if (userId) {
-      perms.push(
-        Permission.read(Role.user(userId)),
-        Permission.update(Role.user(userId)),
-        Permission.delete(Role.user(userId))
-      );
-    }
-    if (teamId) {
-      perms.push(
-        Permission.read(Role.team(teamId)),
-        Permission.update(Role.team(teamId)),
-        Permission.delete(Role.team(teamId))
-      );
-    }
-    if (perms.length === 0) {
-      perms.push(
-        Permission.read(Role.users()),
-        Permission.update(Role.users()),
-        Permission.delete(Role.users())
-      );
-    }
+    const perms = buildClientDocumentPermissions({ teamId, userId });
 
     for (const lead of leadsArray) {
       try {

@@ -4,40 +4,12 @@
  * Env: VITE_APPWRITE_LEAD_EVENTS_COLLECTION_ID
  */
 import { databases, DB_ID, LEAD_EVENTS_COL } from './appwrite';
-import { ID, Query, Permission, Role } from 'appwrite';
+import { ID, Query } from 'appwrite';
+import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 
-function eventPermissions({ ownerId, teamId, userId }) {
-  const perms = [];
-  if (ownerId) {
-    perms.push(
-      Permission.read(Role.user(ownerId)),
-      Permission.update(Role.user(ownerId)),
-      Permission.delete(Role.user(ownerId))
-    );
-  }
-  if (teamId) {
-    perms.push(
-      Permission.read(Role.team(teamId)),
-      Permission.update(Role.team(teamId)),
-      Permission.delete(Role.team(teamId))
-    );
-  }
-  if (perms.length === 0) {
-    if (userId) {
-      perms.push(
-        Permission.read(Role.user(userId)),
-        Permission.update(Role.user(userId)),
-        Permission.delete(Role.user(userId))
-      );
-    } else {
-      perms.push(
-        Permission.read(Role.users()),
-        Permission.update(Role.users()),
-        Permission.delete(Role.users())
-      );
-    }
-  }
-  return perms;
+/** @param {{ ownerId?: string, teamId?: string, userId?: string }} ctx — ownerId ignorado no cliente (regra Appwrite). */
+function eventPermissions(ctx = {}) {
+  return buildClientDocumentPermissions({ teamId: ctx.teamId, userId: ctx.userId });
 }
 
 /**
