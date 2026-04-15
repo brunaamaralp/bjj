@@ -26,13 +26,30 @@ function zapsterTokenMissingResponse(res) {
   });
 }
 
+function firstQueryString(v) {
+  if (v == null) return '';
+  if (Array.isArray(v)) return String(v[0] ?? '').trim();
+  return String(v).trim();
+}
+
+/**
+ * Este arquivo só multiplexa dois handlers. Não use `req.query.action` como
+ * rota de alto nível: em GET ?action=qrcode isso virava route=qrcode e
+ * `route === 'instances'` falhava (404 invalid_zapster_action + QR em loop).
+ */
 export default async function handler(req, res) {
-  const route = req.query.route || req.query.action || (Array.isArray(req.query.slug) ? req.query.slug?.[0] : req.query.slug);
-  const isInstances = route === 'instances' || req.url.includes('/instances');
-  if (isInstances && !hasZapsterApiToken()) {
+  const url = String(req.url || '');
+  const qRoute = firstQueryString(req.query.route);
+
+  const isWebhook =
+    qRoute === 'webhook' || url.includes('/webhook') || url.includes('route=webhook');
+
+  if (isWebhook) {
+    return webhookHandler(req, res);
+  }
+
+  if (!hasZapsterApiToken()) {
     return zapsterTokenMissingResponse(res);
   }
-  if (isInstances) return instancesHandler(req, res);
-  if (route === 'webhook' || req.url.includes('/webhook')) return webhookHandler(req, res);
-  return res.status(404).json({ error: 'invalid_zapster_action' });
+  return instancesHandler(req, res);
 }
