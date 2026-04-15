@@ -5,7 +5,7 @@ import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
-import { Smartphone, Bot, AlertTriangle, Loader2 } from 'lucide-react';
+import { Smartphone, Bot, AlertTriangle } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
 
 async function getJwt() {
@@ -39,7 +39,7 @@ const AgenteIASection = ({ academyId, role }) => {
     const canConfigure = role === 'owner' || role === 'member';
     const isOwner = role === 'owner';
 
-    const zap = useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected: true });
+    const zap = useZapsterWhatsAppConnection(academyId);
 
     const [promptIntro, setPromptIntro] = useState('');
     const [promptBody, setPromptBody] = useState('');
@@ -275,7 +275,11 @@ const AgenteIASection = ({ academyId, role }) => {
     }
 
     const qrSrc =
-        zap.waInfo?.status !== 'connected' && zap.waInfo?.instance_id && !zap.waTokenMissing && !zap.waQrError
+        zap.waQrShown &&
+        zap.waInfo?.status !== 'connected' &&
+        zap.waInfo?.instance_id &&
+        !zap.waTokenMissing &&
+        !zap.waQrError
             ? `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(String(zap.waInfo.instance_id))}&ts=${zap.waQrTick}`
             : null;
 
@@ -381,7 +385,7 @@ const AgenteIASection = ({ academyId, role }) => {
                             <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
                                 <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>
                                     {isOwner
-                                        ? 'Gere o código QR para vincular o WhatsApp desta academia.'
+                                        ? 'Crie a instância e, em seguida, use o botão para exibir o código QR e ler no celular.'
                                         : 'Peça ao dono da academia para conectar o WhatsApp aqui.'}
                                 </p>
                                 {isOwner && (
@@ -391,7 +395,7 @@ const AgenteIASection = ({ academyId, role }) => {
                                         onClick={() => void zap.createWaInstance()}
                                         disabled={zap.waLoading || zap.waTokenMissing}
                                     >
-                                        {zap.waLoading ? 'Aguarde…' : 'Gerar código QR'}
+                                        {zap.waLoading ? 'Aguarde…' : 'Criar instância e preparar QR'}
                                     </button>
                                 )}
                             </div>
@@ -399,30 +403,69 @@ const AgenteIASection = ({ academyId, role }) => {
 
                         {!!zap.waInfo?.instance_id && !zap.waTokenMissing && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                                {qrSrc ? (
-                                    <img
-                                        src={qrSrc}
-                                        alt="QR Code WhatsApp"
-                                        onLoad={() => zap.onQrImageLoad()}
-                                        onError={() => zap.onQrImageError()}
-                                        style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
-                                    />
-                                ) : (
-                                    <div className="text-small" style={{ color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 360 }}>
-                                        {zap.waQrError
-                                            ? 'QR Code indisponível no momento. Toque em Atualizar abaixo ou verifique se o dispositivo já está conectado.'
-                                            : 'Carregando QR…'}
+                                {!zap.waQrShown && (
+                                    <div style={{ textAlign: 'center', maxWidth: 380 }}>
+                                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+                                            O QR não é exibido sozinho. Quando estiver pronto para parear o celular, toque no botão abaixo para gerar a
+                                            imagem e escanear.
+                                        </p>
+                                        {isOwner ? (
+                                            <button
+                                                type="button"
+                                                className="btn btn-primary"
+                                                onClick={() => void zap.revealWaQrCode()}
+                                                disabled={zap.waLoading || zap.waTokenMissing}
+                                            >
+                                                {zap.waLoading ? 'Aguarde…' : 'Mostrar código QR'}
+                                            </button>
+                                        ) : (
+                                            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                                                Peça ao dono para exibir o código QR aqui.
+                                            </p>
+                                        )}
                                     </div>
                                 )}
-                                <ol className="text-small" style={{ margin: 0, paddingLeft: 20, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 320 }}>
-                                    <li>Abra o WhatsApp no celular</li>
-                                    <li>Toque em Dispositivos conectados</li>
-                                    <li>Aponte a câmera para o QR acima</li>
-                                </ol>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)' }}>
-                                    <Loader2 size={18} className="agente-wa-spinner" aria-hidden />
-                                    <span className="text-small">Aguardando leitura…</span>
-                                </div>
+                                {zap.waQrShown && qrSrc ? (
+                                    <>
+                                        <img
+                                            src={qrSrc}
+                                            alt="QR Code WhatsApp"
+                                            onLoad={() => zap.onQrImageLoad()}
+                                            onError={() => zap.onQrImageError()}
+                                            style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
+                                        />
+                                        {isOwner && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline"
+                                                style={{ padding: '6px 12px' }}
+                                                onClick={() => zap.refreshWaQrCode()}
+                                                disabled={zap.waLoading || zap.waTokenMissing}
+                                            >
+                                                Novo QR (atualizar imagem)
+                                            </button>
+                                        )}
+                                    </>
+                                ) : null}
+                                {zap.waQrShown && !qrSrc ? (
+                                    <div className="text-small" style={{ color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 360 }}>
+                                        {zap.waQrError
+                                            ? 'QR indisponível no momento. Tente «Novo QR» ou verifique se o dispositivo já está conectado.'
+                                            : 'Carregando imagem do QR…'}
+                                    </div>
+                                ) : null}
+                                {zap.waQrShown && (
+                                    <>
+                                        <ol className="text-small" style={{ margin: 0, paddingLeft: 20, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 320 }}>
+                                            <li>Abra o WhatsApp no celular</li>
+                                            <li>Toque em Dispositivos conectados</li>
+                                            <li>Aponte a câmera para o QR acima</li>
+                                        </ol>
+                                        <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 360 }}>
+                                            Depois de escanear, use <strong>Atualizar status</strong> nas ferramentas para confirmar a conexão.
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         )}
 

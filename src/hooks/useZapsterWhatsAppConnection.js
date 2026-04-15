@@ -32,10 +32,10 @@ function normalizeApiError(raw, fallback) {
 }
 
 /**
- * Estado e ações Zapster/WhatsApp compartilhadas entre Inbox (só leitura) e Agente IA (QR + polling).
+ * Estado e ações Zapster/WhatsApp compartilhadas entre Inbox (só leitura) e Agente IA (QR manual).
  * @param {string} academyId
- * @param {{ pollWhileDisconnected?: boolean }} options — polling de status + refresh do QR quando true */
-export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected = false } = {}) {
+ */
+export function useZapsterWhatsAppConnection(academyId) {
   const academyIdRef = useRef('');
   const waPersistFailedRef = useRef(false);
   const [waLoading, setWaLoading] = useState(false);
@@ -43,6 +43,8 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
   const [waTokenMissing, setWaTokenMissing] = useState(false);
   const [waQrError, setWaQrError] = useState(false);
   const [waQrTick, setWaQrTick] = useState(0);
+  /** Só carrega a imagem do QR depois que o usuário pede (evita leitura/disparos automáticos). */
+  const [waQrShown, setWaQrShown] = useState(false);
   const [waSyncing, setWaSyncing] = useState(false);
   const [waPersistFailed, setWaPersistFailed] = useState(false);
   const [connectionError, setConnectionError] = useState('');
@@ -90,9 +92,10 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
         setWaPersistFailed(false);
       }
       setWaTokenMissing(false);
-      // Só limpar erro de QR quando conectado. A cada poll (3s) limpar + mudar URL
-      // do <img> gerava reload infinito (waQrTick era incrementado aqui antes).
-      if (status === 'connected') setWaQrError(false);
+      if (status === 'connected') {
+        setWaQrError(false);
+        setWaQrShown(false);
+      }
     } catch (e) {
       const msg = String(e?.message || '');
       if (
@@ -149,6 +152,7 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
       }
       setWaTokenMissing(false);
       setWaQrError(false);
+      setWaQrShown(true);
       setWaQrTick((v) => v + 1);
     } catch (e) {
       const msg = String(e?.message || '');
@@ -163,6 +167,19 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
     } finally {
       setWaLoading(false);
     }
+  }, []);
+
+  const revealWaQrCode = useCallback(async () => {
+    if (!academyIdRef.current) return;
+    setWaQrShown(true);
+    setWaQrError(false);
+    setWaQrTick((v) => v + 1);
+    await fetchWaInfo({ silent: true });
+  }, [fetchWaInfo]);
+
+  const refreshWaQrCode = useCallback(() => {
+    setWaQrError(false);
+    setWaQrTick((v) => v + 1);
   }, []);
 
   const recoverZapsterInstance = useCallback(async () => {
@@ -184,15 +201,11 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
       if (data.recovered) {
         useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo recuperado com sucesso!' });
         setWaPersistFailed(false);
-        setWaQrError(false);
-        setWaQrTick((v) => v + 1);
         await fetchWaInfo({ silent: true });
         return;
       }
       if (data.already_linked) {
         setWaPersistFailed(false);
-        setWaQrError(false);
-        setWaQrTick((v) => v + 1);
         await fetchWaInfo({ silent: true });
         useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo já estava vinculado.' });
         return;
@@ -234,6 +247,7 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
       setWaTokenMissing(false);
       setWaQrError(false);
       setWaQrTick(0);
+      setWaQrShown(false);
     } catch (e) {
       const msg = String(e?.message || '');
       if (
@@ -268,8 +282,6 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
         throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instância'));
       }
       useUiStore.getState().addToast({ type: 'success', message: 'Instância ligada' });
-      setWaQrError(false);
-      setWaQrTick((v) => v + 1);
       await fetchWaInfo({ silent: true });
     } catch (e) {
       setConnectionError(String(e?.message || '') || 'Erro');
@@ -325,8 +337,6 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
       }
       useUiStore.getState().addToast({ type: 'success', message: 'Reiniciando instância…' });
       setTimeout(() => {
-        setWaQrError(false);
-        setWaQrTick((v) => v + 1);
         fetchWaInfo({ silent: true });
       }, 1200);
     } catch (e) {
@@ -397,29 +407,9 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
 
   useEffect(() => {
     if (!academyId) return;
+    setWaQrShown(false);
     fetchWaInfo({ silent: true });
   }, [academyId, fetchWaInfo]);
-
-  useEffect(() => {
-    if (!pollWhileDisconnected) return;
-    if (!waInfo || waInfo.status === 'connected') return;
-    const id = setInterval(() => {
-      fetchWaInfo({ silent: true });
-    }, 3000);
-    return () => clearInterval(id);
-  }, [pollWhileDisconnected, waInfo?.status, fetchWaInfo]);
-
-  useEffect(() => {
-    if (!pollWhileDisconnected) return;
-    if (!waInfo?.instance_id) return;
-    if (waInfo?.status === 'connected') return;
-    if (waTokenMissing) return;
-    const id = setInterval(() => {
-      setWaQrTick((v) => v + 1);
-      setWaQrError(false);
-    }, 25000);
-    return () => clearInterval(id);
-  }, [pollWhileDisconnected, waInfo?.instance_id, waInfo?.status, waTokenMissing]);
 
   const waConnected = String(waInfo?.status || '').trim() === 'connected';
 
@@ -436,6 +426,7 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
     waLoading,
     waTokenMissing,
     waQrError,
+    waQrShown,
     waQrTick,
     waSyncing,
     waPersistFailed,
@@ -450,6 +441,8 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
     restartInstance,
     reconcileWhatsAppHistory,
     onQrImageError,
-    onQrImageLoad
+    onQrImageLoad,
+    revealWaQrCode,
+    refreshWaQrCode
   };
 }

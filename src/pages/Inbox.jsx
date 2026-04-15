@@ -80,7 +80,7 @@ export default function Inbox() {
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
-  const { waInfo, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected: false });
+  const { waInfo, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId);
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
