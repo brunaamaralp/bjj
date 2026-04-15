@@ -6,7 +6,8 @@ import {
     isRealLead,
     inRange,
     inRangeYmd,
-    countsAsConvertedInPeriod
+    countsAsConvertedInPeriod,
+    countsAsMissedExperimentalInPeriod
 } from '../lib/reportsMetrics.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -78,8 +79,8 @@ export default async function handler(req, res) {
     const completed = allLeads.filter((l) => isRealLead(l) && l.attended_at && inRange(l.attended_at, from, to));
     const completedPrev = allLeads.filter((l) => isRealLead(l) && l.attended_at && inRange(l.attended_at, prevFrom, prevTo));
 
-    const missed = allLeads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, from, to));
-    const missedPrev = allLeads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, prevFrom, prevTo));
+    const missed = allLeads.filter((l) => countsAsMissedExperimentalInPeriod(l, from, to));
+    const missedPrev = allLeads.filter((l) => countsAsMissedExperimentalInPeriod(l, prevFrom, prevTo));
 
     const converted = allLeads.filter(l => countsAsConvertedInPeriod(l, from, to));
     const convertedPrev = allLeads.filter(l => countsAsConvertedInPeriod(l, prevFrom, prevTo));

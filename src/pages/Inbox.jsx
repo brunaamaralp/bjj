@@ -164,8 +164,6 @@ export default function Inbox() {
   const [threadCursor, setThreadCursor] = useState(null);
   const [threadHasMore, setThreadHasMore] = useState(false);
   const [ticketUpdating, setTicketUpdating] = useState(false);
-  const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [transferToDraft, setTransferToDraft] = useState('');
   const [contextOpen, setContextOpen] = useState(() => {
     if (typeof window === 'undefined') return true;
     const raw = window.localStorage.getItem('inbox_context_open');
@@ -440,10 +438,6 @@ export default function Inbox() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
         e.preventDefault();
         loadThread(selectedPhoneRef.current);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
-        e.preventDefault();
-        setTransferToDraft(String(selected?.transfer_to || '').trim());
-        setTransferModalOpen(true);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
@@ -451,7 +445,7 @@ export default function Inbox() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selected?.ticket_status, selected?.transfer_to]);
+  }, [selected?.ticket_status]);
 
   function safeParseJson(raw) {
     try {
@@ -2164,6 +2158,11 @@ export default function Inbox() {
         addToast({ type: 'success', message: 'Conversa reaberta' });
       } else if (s === 'waiting_customer') {
         addToast({ type: 'success', message: 'Marcado como aguardando cliente' });
+      // TODO: transferência real exige:
+      // - transferred_to_user_id
+      // - notificação para destinatário
+      // - fila "transferidas para mim" por atendente
+      // Reativar quando multi-atendente for implementado.
       } else if (s === 'transferred') {
         addToast({ type: 'success', message: 'Conversa transferida' });
       }
@@ -2467,14 +2466,6 @@ export default function Inbox() {
             >
               Precisa de você
             </button>
-            <button
-              type="button"
-              className={listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
-              style={{ padding: '6px 10px', minHeight: 34 }}
-              onClick={() => setListFilter('transferred')}
-            >
-              Transferidos
-            </button>
             {inboxLabels.length > 0 && (
               <select
                 value={labelFilter || ''}
@@ -2706,15 +2697,17 @@ export default function Inbox() {
               else setContextOpen((v) => !v);
             }}
             disabled={!selectedPhone}
+            title="Abrir painel de detalhes"
             type="button"
           >
-            Painel
+            Detalhes
           </button>
           <button
             className="btn btn-outline"
             style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900 }}
             onClick={(e) => openMenu('thread', e.currentTarget, { phone: String(selectedPhone || '').trim() })}
             disabled={!selectedPhone}
+            title={!selectedPhone ? 'Selecione uma conversa para ver as ações' : 'Mais ações'}
             type="button"
             aria-haspopup="menu"
             aria-expanded={menu?.kind === 'thread'}
@@ -2723,45 +2716,6 @@ export default function Inbox() {
           </button>
         </div>
       </div>
-
-      {transferModalOpen && (
-        <div style={{ position: 'fixed', zIndex: 50, inset: 0, background: 'rgba(18,16,42,0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 'min(560px, 92vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Transferir conversa</div>
-              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setTransferModalOpen(false)} type="button">
-                Fechar
-              </button>
-            </div>
-            <div style={{ padding: 12, display: 'grid', gap: 10 }}>
-              <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                Use para marcar para qual área essa conversa foi transferida (ex.: Financeiro, Secretaria, Comercial).
-              </div>
-              <div>
-                <div className="ctx-label" style={{ marginBottom: 6 }}>Destino (opcional)</div>
-                <input className="input" value={transferToDraft} onChange={(e) => setTransferToDraft(e.target.value)} placeholder="Ex.: Financeiro" />
-              </div>
-            </div>
-            <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setTransferModalOpen(false)} type="button" disabled={ticketUpdating}>
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ padding: '6px 10px' }}
-                onClick={async () => {
-                  const ok = await updateTicket({ status: 'transferred', transferTo: transferToDraft });
-                  if (ok) setTransferModalOpen(false);
-                }}
-                disabled={ticketUpdating}
-                type="button"
-              >
-                Transferir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div style={{ position: 'relative' }}>
         <div
@@ -3432,18 +3386,6 @@ export default function Inbox() {
             className="btn btn-outline"
             style={{ padding: '6px 10px', minHeight: 34 }}
             type="button"
-            onClick={() => {
-              setTransferToDraft(String(selected?.transfer_to || '').trim());
-              setTransferModalOpen(true);
-            }}
-            disabled={!selectedPhone || ticketUpdating}
-          >
-            Transferir
-          </button>
-          <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34 }}
-            type="button"
             onClick={() => updateTicket({ status: 'waiting_customer' })}
             disabled={!selectedPhone || ticketUpdating}
             title="Marca como aguardando resposta do cliente"
@@ -3754,6 +3696,10 @@ export default function Inbox() {
             align-items: center;
             justify-content: center;
             box-sizing: border-box;
+          }
+          .inbox-thread-header > div:last-child .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
           }
           .inbox-composer-action-btn {
             min-width: 44px !important;
@@ -4135,7 +4081,7 @@ export default function Inbox() {
                   >
                     {isMobile || isNarrowDesktop ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Painel
+                      Detalhes
                     </span>
                   </button>
                   <button
@@ -4148,21 +4094,6 @@ export default function Inbox() {
                     disabled={!phone || ticketUpdating}
                   >
                     Aguardando cliente
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Ticket
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item"
-                    type="button"
-                    onClick={() => {
-                      setTransferToDraft(String(selected?.transfer_to || '').trim());
-                      setTransferModalOpen(true);
-                      closeMenu();
-                    }}
-                    disabled={!phone || ticketUpdating}
-                  >
-                    Transferir
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                       Ticket
                     </span>

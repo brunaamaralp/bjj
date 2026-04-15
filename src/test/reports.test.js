@@ -4,9 +4,11 @@ import {
   isRealLead,
   inRange,
   inRangeYmd,
-  countsAsConvertedInPeriod
+  countsAsConvertedInPeriod,
+  countsAsMissedExperimentalInPeriod
 } from '../../lib/reportsMetrics.js';
 import { hasAnyActivity } from '../lib/reportActivity.js';
+import { LEAD_STATUS } from '../store/useLeadStore.js';
 
 const makeLeads = (overrides = []) =>
   overrides.map((o, i) => ({
@@ -61,13 +63,25 @@ describe('relatório — Não compareceram', () => {
 
   it('conta leads com missed_at no período', () => {
     const leads = makeLeads([{ missed_at: '2026-04-12T10:00:00.000Z' }]);
-    const n = leads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, from, to)).length;
+    const n = leads.filter((l) => countsAsMissedExperimentalInPeriod(l, from, to)).length;
     expect(n).toBe(1);
   });
 
-  it('não conta leads sem missed_at', () => {
+  it('conta fallback legado por status MISSED com scheduledDate no período', () => {
+    const leads = makeLeads([{ status: LEAD_STATUS.MISSED, scheduledDate: '2026-04-18', missed_at: null }]);
+    const n = leads.filter((l) => countsAsMissedExperimentalInPeriod(l, from, to)).length;
+    expect(n).toBe(1);
+  });
+
+  it('não conta status MISSED sem data de aula no período (fallback)', () => {
+    const leads = makeLeads([{ status: LEAD_STATUS.MISSED, scheduledDate: '2026-03-28', missed_at: null }]);
+    const n = leads.filter((l) => countsAsMissedExperimentalInPeriod(l, from, to)).length;
+    expect(n).toBe(0);
+  });
+
+  it('não conta leads sem missed_at e sem fallback válido', () => {
     const leads = makeLeads([{ missed_at: null }]);
-    const n = leads.filter((l) => isRealLead(l) && l.missed_at && inRange(l.missed_at, from, to)).length;
+    const n = leads.filter((l) => countsAsMissedExperimentalInPeriod(l, from, to)).length;
     expect(n).toBe(0);
   });
 });
