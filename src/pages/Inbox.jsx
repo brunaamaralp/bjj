@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
@@ -13,7 +13,7 @@ import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { Bell, BellOff, Loader2, Sparkles } from 'lucide-react';
+import { Bell, BellOff, Flame, Loader2, MessageSquare, Sparkles } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
 import ThreadState from '../components/inbox/ThreadState';
@@ -727,6 +727,11 @@ export default function Inbox() {
         });
         if (!res.ok) throw new Error('post');
         applyLocal();
+        if (t === 'pinned') {
+          addToast({ type: 'success', message: 'Mensagem fixada' });
+        } else {
+          addToast({ type: 'success', message: 'Marcada como importante' });
+        }
       } else {
         const qs = new URLSearchParams({
           type: t,
@@ -739,6 +744,11 @@ export default function Inbox() {
         });
         if (!res.ok) throw new Error('delete');
         applyLocal();
+        if (t === 'pinned') {
+          addToast({ type: 'success', message: 'Mensagem desfixada' });
+        } else {
+          addToast({ type: 'success', message: 'Importante removido' });
+        }
       }
     } catch {
       addToast({ type: 'error', message: 'Não foi possível atualizar a mensagem.' });
@@ -892,7 +902,7 @@ export default function Inbox() {
     }
   }
 
-  async function markSeen(phone) {
+  async function markSeen(phone, { notifySuccess = false } = {}) {
     const p = String(phone || '').trim();
     if (!p) return;
     if (!academyIdRef.current) return;
@@ -929,6 +939,9 @@ export default function Inbox() {
         delete n[p];
         return n;
       });
+      if (notifySuccess) {
+        addToast({ type: 'success', message: 'Marcado como lida' });
+      }
     } catch (e) {
       try {
         addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como lida. Tente de novo.' });
@@ -1440,6 +1453,12 @@ export default function Inbox() {
         });
       });
       await loadList({ reset: true, silent: true });
+      if (!silent) {
+        addToast({
+          type: 'success',
+          message: ativo ? 'Você assumiu o atendimento' : 'IA reativada',
+        });
+      }
       return true;
     } catch (e) {
       if (!silent) setError(e?.message || 'Erro');
@@ -1472,6 +1491,13 @@ export default function Inbox() {
       if (scheduleOn && !sendAtIso) {
         addToast({ type: 'error', message: 'Escolha data e hora para agendar' });
         return;
+      }
+      if (scheduleOn && sendAtIso) {
+        const sendMs = new Date(sendAtIso).getTime();
+        if (!Number.isFinite(sendMs) || sendMs <= Date.now()) {
+          addToast({ type: 'error', message: 'A data de agendamento deve ser no futuro' });
+          return;
+        }
       }
       const shouldAssume = !selected?.need_human;
       if (shouldAssume) {
@@ -2132,6 +2158,15 @@ export default function Inbox() {
         });
       });
       await loadList({ reset: true, silent: true });
+      if (s === 'resolved') {
+        addToast({ type: 'success', message: 'Conversa resolvida' });
+      } else if (s === 'open') {
+        addToast({ type: 'success', message: 'Conversa reaberta' });
+      } else if (s === 'waiting_customer') {
+        addToast({ type: 'success', message: 'Marcado como aguardando cliente' });
+      } else if (s === 'transferred') {
+        addToast({ type: 'success', message: 'Conversa transferida' });
+      }
       return true;
     } catch (e) {
       setError(e?.message || 'Erro');
@@ -2274,6 +2309,39 @@ export default function Inbox() {
     if (remaining < 240) loadList({ reset: false, silent: true });
   };
 
+  const handleClearInboxListFilters = useCallback(() => {
+    setListFilter('all');
+    setLabelFilter(null);
+    setShowMoreFilters(false);
+    setSearch('');
+  }, []);
+
+  const waChatConnected = useMemo(() => String(waInfo?.status || '').trim() === 'connected', [waInfo?.status]);
+
+  const [inboxVvInset, setInboxVvInset] = useState(0);
+  const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (!isMobile) {
+      setInboxVvInset(0);
+      setInboxSlashMaxHeight(288);
+      return;
+    }
+    const vv = window.visualViewport;
+    const upd = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+      setInboxVvInset(inset);
+      setInboxSlashMaxHeight(Math.min(288, Math.max(120, Math.floor(vv.height * 0.38))));
+    };
+    upd();
+    vv.addEventListener('resize', upd);
+    vv.addEventListener('scroll', upd);
+    return () => {
+      vv.removeEventListener('resize', upd);
+      vv.removeEventListener('scroll', upd);
+    };
+  }, [isMobile]);
+
   const listPanel = (
     <div
       style={{
@@ -2290,30 +2358,46 @@ export default function Inbox() {
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>Conversas</span>
-          {Number(stats?.unreadBacklog || 0) > 0 && (
-            <span
-              className="text-small"
-              style={{
-                minWidth: 22,
-                height: 22,
-                padding: '0 7px',
-                borderRadius: 999,
-                background: 'var(--danger-light)',
-                color: 'var(--danger)',
-                fontWeight: 700,
-                lineHeight: '22px',
-                textAlign: 'center'
-              }}
-              title={`${Number(stats.unreadBacklog)} conversa(s) com mensagens não lidas`}
-            >
-              {Number(stats.unreadBacklog) > 99 ? '99+' : Number(stats.unreadBacklog)}
-            </span>
-          )}
         </div>
         {!searchQuery && (
           <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
             {hasMore ? 'Role para carregar mais' : 'Fim'}
           </div>
+        )}
+      </div>
+      <div
+        style={{
+          padding: '8px 10px',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        {Number(stats?.unreadBacklog || 0) > 0 && (
+          <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
+            Não lidas: {Number(stats.unreadBacklog)}
+          </span>
+        )}
+        {Number(stats?.resolvedCount || 0) > 0 && (
+          <span className="text-small" style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 999 }} title="Conversas em status resolvido">
+            Resolvidas: {Number(stats.resolvedCount)}
+          </span>
+        )}
+        {Number(stats?.transferredCount || 0) > 0 && (
+          <span
+            className="text-small"
+            style={{
+              background: 'var(--inbox-info-badge-bg)',
+              color: 'var(--inbox-info-badge-fg)',
+              padding: '2px 8px',
+              borderRadius: 999,
+            }}
+            title="Conversas transferidas"
+          >
+            Transferidas: {Number(stats.transferredCount)}
+          </span>
         )}
       </div>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -2381,7 +2465,7 @@ export default function Inbox() {
               style={{ padding: '6px 10px', minHeight: 34 }}
               onClick={() => setListFilter('need_human')}
             >
-              Aguardando humano
+              Precisa de você
             </button>
             <button
               type="button"
@@ -2435,9 +2519,9 @@ export default function Inbox() {
           formatTimeOnly={formatTimeOnly}
           formatWhen={formatWhen}
           isMobile={isMobile}
+          onClearListFilters={handleClearInboxListFilters}
           onConversationLongPress={(it) => {
-            const u = Number(it?._unreadCount ?? it?.unread_count ?? 0);
-            if (!isMobile || u !== 0) return;
+            if (!isMobile) return;
             setConversationSheet({ item: it });
           }}
         />
@@ -2445,11 +2529,19 @@ export default function Inbox() {
     </div>
   );
 
+  const threadMessagesEmptyUi = Boolean(
+    selectedPhone &&
+    !threadLoading &&
+    !error &&
+    !threadError &&
+    (!Array.isArray(selected?.messages) || selected.messages.length === 0)
+  );
+
   const threadPanel = !selectedPhone ? (
     <ThreadState type="none-selected" />
   ) : (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
-      <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+      <div className="inbox-thread-header" style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
           {isMobile && (
             <button
@@ -2557,11 +2649,25 @@ export default function Inbox() {
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', maxWidth: '100%' }}>
           {String(selected?.ticket_status || '') === 'resolved' ? (
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => updateTicket({ status: 'open' })} disabled={!selectedPhone || ticketUpdating} type="button">
+            <button
+              className="btn btn-outline"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => updateTicket({ status: 'open' })}
+              disabled={!selectedPhone || ticketUpdating}
+              type="button"
+              title="Reabre o ticket; use o filtro Em atendimento para acompanhar conversas abertas"
+            >
               Reabrir
             </button>
           ) : (
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => updateTicket({ status: 'resolved' })} disabled={!selectedPhone || ticketUpdating} type="button">
+            <button
+              className="btn btn-outline"
+              style={{ padding: '6px 10px', minHeight: 34 }}
+              onClick={() => updateTicket({ status: 'resolved' })}
+              disabled={!selectedPhone || ticketUpdating}
+              type="button"
+              title="Marca como resolvido; a conversa entra no filtro Resolvidas"
+            >
               Resolver
             </button>
           )}
@@ -2684,7 +2790,7 @@ export default function Inbox() {
               onRetry={() => loadThread(selectedPhone)}
             />
           )}
-          {!threadLoading && !error && !threadError && (!selected?.messages || selected.messages.length === 0) && <ThreadState type="empty" />}
+          {threadMessagesEmptyUi && !waChatConnected && <ThreadState type="empty" />}
 
           {Array.isArray(threadBlocks) && threadBlocks.map((b) => {
             if (b.type === 'day') {
@@ -2903,9 +3009,11 @@ export default function Inbox() {
             );
           })}
 
-          {!threadLoading && !error && !threadError && (selected?.messages || []).length === 0 && (
+          {threadMessagesEmptyUi && waChatConnected && (
             <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
-              <div style={{ fontSize: 28, lineHeight: '28px', marginBottom: 6 }}>ðŸ’¬</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                <MessageSquare size={36} strokeWidth={1.35} style={{ opacity: 0.55, color: 'var(--text-muted)' }} aria-hidden />
+              </div>
               <div style={{ fontWeight: 700, color: 'var(--text)' }}>Nenhuma mensagem carregada</div>
               <div className="text-small" style={{ marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>
                 Se já há mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histórico das últimas 24h.
@@ -2955,14 +3063,23 @@ export default function Inbox() {
         )}
       </div>
 
-      <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div
+        style={{
+          padding: 12,
+          paddingBottom: isMobile ? 12 + inboxVvInset : 12,
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {selectedPhone && (
               <div style={{ position: 'relative' }}>
                 <button
-                  className={templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}
-                  style={{ minHeight: 28, padding: '0 8px', fontSize: 14 }}
+                  className={`inbox-composer-action-btn ${templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}`}
+                  style={{ padding: '0 10px', fontSize: 14 }}
                   onClick={() => { setTemplatesOpen((v) => !v); setEmojiOpen(false); }}
                   type="button"
                   title="Mensagens prontas"
@@ -3025,8 +3142,8 @@ export default function Inbox() {
             )}
             <div style={{ position: 'relative' }}>
               <button
-                className="btn btn-outline"
-                style={{ minHeight: 28, padding: '0 8px', fontSize: 16 }}
+                className="btn btn-outline inbox-composer-action-btn"
+                style={{ padding: '0 10px', fontSize: 16 }}
                 onClick={() => { setEmojiOpen((v) => !v); setTemplatesOpen(false); }}
                 type="button"
                 aria-expanded={emojiOpen}
@@ -3054,12 +3171,12 @@ export default function Inbox() {
                       <button
                         key={em}
                         type="button"
+                        className="inbox-composer-emoji-grid-btn"
                         onClick={() => {
                           insertAtCursor(em);
                           setEmojiOpen(false);
                         }}
                         style={{
-                          minHeight: 30,
                           padding: 0,
                           borderRadius: 10,
                           background: 'transparent',
@@ -3079,7 +3196,7 @@ export default function Inbox() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
           <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
             {slashOpen && selectedPhone && (
-              <div ref={slashPopupRef} className="inbox-slash-templates" role="listbox" aria-label="Templates rápidos">
+              <div ref={slashPopupRef} className="inbox-slash-templates" style={{ maxHeight: inboxSlashMaxHeight }} role="listbox" aria-label="Templates rápidos">
                 {slashFilteredTemplates.length === 0 ? (
                   <div className="text-small" style={{ color: 'var(--text-secondary)', padding: '10px 12px' }}>
                     Nenhum template encontrado
@@ -3385,8 +3502,9 @@ export default function Inbox() {
                   </span>
                 )}
                 {hotLead && (
-                  <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
-                    ðŸ”¥ quente
+                  <span className="text-small inbox-hot-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
+                    <Flame size={12} aria-hidden />
+                    Quente
                   </span>
                 )}
               </div>
@@ -3628,6 +3746,34 @@ export default function Inbox() {
           max-height: 288px; overflow-y: auto; padding: 4px;
           animation: inbox-slash-pop 120ms ease-out;
         }
+        @media (max-width: 1023px) {
+          .inbox-thread-header > div:last-child .btn {
+            min-width: 44px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+          }
+          .inbox-composer-action-btn {
+            min-width: 44px !important;
+            min-height: 44px !important;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+          }
+          .inbox-composer-emoji-grid-btn {
+            min-width: 44px;
+            min-height: 44px;
+          }
+        }
+        .inbox-note-delete-btn {
+          min-width: 44px;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
         .inbox-slash-templates-row {
           width: 100%; text-align: left; padding: 8px 10px; border: none; border-radius: 6px;
           background: transparent; cursor: pointer; font: inherit; color: var(--text);
@@ -3778,32 +3924,6 @@ export default function Inbox() {
                   </>
                 ) : null}
               </>
-            )}
-          </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {Number(stats?.unreadBacklog || 0) > 0 && (
-              <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
-                Não lidas: {Number(stats.unreadBacklog)}
-              </span>
-            )}
-            {Number(stats?.resolvedCount || 0) > 0 && (
-              <span className="text-small" style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 999 }} title="Conversas em status resolvido">
-                Resolvidas: {Number(stats.resolvedCount)}
-              </span>
-            )}
-            {Number(stats?.transferredCount || 0) > 0 && (
-              <span
-                className="text-small"
-                style={{
-                  background: 'var(--inbox-info-badge-bg)',
-                  color: 'var(--inbox-info-badge-fg)',
-                  padding: '2px 8px',
-                  borderRadius: 999
-                }}
-                title="Conversas transferidas"
-              >
-                Transferidas: {Number(stats.transferredCount)}
-              </span>
             )}
           </div>
         </div>
@@ -4219,6 +4339,7 @@ export default function Inbox() {
         const it = conversationSheet.item;
         const phone = String(it?._phone || it?.phone_number || '').trim();
         const title = String(it?._displayTitle || phone || 'Conversa');
+        const sheetUnread = Number(it?._unreadCount ?? it?.unread_count ?? 0);
         if (!phone) return null;
         return (
           <div
@@ -4252,15 +4373,40 @@ export default function Inbox() {
               <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {title}
               </div>
+              {sheetUnread === 0 ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', minHeight: 44 }}
+                  onClick={() => {
+                    void markUnread(phone);
+                  }}
+                >
+                  Marcar como não lida
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', minHeight: 44 }}
+                  onClick={() => {
+                    void markSeen(phone, { notifySuccess: true });
+                    setConversationSheet(null);
+                  }}
+                >
+                  Marcar como lida
+                </button>
+              )}
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ width: '100%', minHeight: 44 }}
+                className="btn btn-outline"
+                style={{ width: '100%', minHeight: 44, marginTop: 8 }}
                 onClick={() => {
-                  void markUnread(phone);
+                  void archiveConversation(phone);
+                  setConversationSheet(null);
                 }}
               >
-                Marcar como não lida
+                Arquivar
               </button>
               <button
                 type="button"

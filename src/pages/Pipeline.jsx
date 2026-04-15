@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
@@ -98,6 +99,8 @@ const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Pl
 const Pipeline = () => {
     const navigate = useNavigate();
     const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead, fetchLeads } = useLeadStore();
+    const leadsError = useLeadStore((s) => s.leadsError);
+    const addToast = useUiStore((s) => s.addToast);
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -145,6 +148,9 @@ const Pipeline = () => {
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [quickFilter, setQuickFilter] = useState(null);
+    const [confirmModal, setConfirmModal] = useState(null);
+    const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(true);
+    const [noteError, setNoteError] = useState('');
 
     const searchStageScopeOptions = useMemo(() => [
         { value: 'all', label: 'Todas as etapas' },
@@ -219,9 +225,22 @@ const Pipeline = () => {
     const handleDeleteLead = (e, leadId) => {
         e.stopPropagation();
         setOpenMenuId(null);
-        if (window.confirm('Tem certeza que deseja excluir este lead?')) {
-            deleteLead(leadId);
-        }
+        setConfirmModal({
+            title: 'Excluir lead?',
+            description: 'Esta ação remove o lead permanentemente.',
+            confirmLabel: 'Excluir',
+            onConfirm: async () => {
+                try {
+                    await deleteLead(leadId);
+                    setToast('Lead excluído');
+                    setTimeout(() => setToast(''), 2500);
+                } catch (err) {
+                    addToast({ type: 'error', message: err?.message || 'Não foi possível excluir o lead.' });
+                } finally {
+                    setConfirmModal(null);
+                }
+            }
+        });
     };
 
     const stepKanbanScrollFromClientX = (clientX) => {
@@ -383,8 +402,10 @@ const Pipeline = () => {
                     setTempStages(normalized);
                 }
             })
-            .catch(() => {});
-    }, [academyId]);
+            .catch(() => {
+                addToast({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
+            });
+    }, [academyId, addToast]);
 
     const getDayIndex = (date) => date.getDay();
     const itemsForDay = (key) => {
@@ -494,25 +515,36 @@ const Pipeline = () => {
         }
 
         if (stageId === LEAD_STATUS.MISSED) {
-            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
-            if (!ok) return;
-            await addLeadEvent({
-                academyId,
-                leadId,
-                type: 'missed',
-                from: lead?.pipelineStage || lead?.status || '',
-                to: LEAD_STATUS.MISSED,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
+            setConfirmModal({
+                title: 'Marcar como não compareceu?',
+                description: `Mover "${lead?.name || 'Sem nome'}" para "Não compareceu".`,
+                confirmLabel: 'Confirmar',
+                onConfirm: async () => {
+                    try {
+                        await addLeadEvent({
+                            academyId,
+                            leadId,
+                            type: 'missed',
+                            from: lead?.pipelineStage || lead?.status || '',
+                            to: LEAD_STATUS.MISSED,
+                            createdBy: userId || 'user',
+                            permissionContext: permCtx
+                        });
+                        await updateLead(leadId, {
+                            status: LEAD_STATUS.MISSED,
+                            pipelineStage: LEAD_STATUS.MISSED,
+                            missedAt: new Date().toISOString()
+                        });
+                        setMoverOpenId(null);
+                        setToast('Marcado como não compareceu');
+                        setTimeout(() => setToast(''), 2000);
+                    } catch (err) {
+                        addToast({ type: 'error', message: err?.message || 'Não foi possível mover o lead.' });
+                    } finally {
+                        setConfirmModal(null);
+                    }
+                }
             });
-            await updateLead(leadId, {
-                status: LEAD_STATUS.MISSED,
-                pipelineStage: LEAD_STATUS.MISSED,
-                missedAt: new Date().toISOString()
-            });
-            setMoverOpenId(null);
-            setToast('Marcado como não compareceu');
-            setTimeout(() => setToast(''), 2000);
             return;
         }
         if (stageId === LEAD_STATUS.LOST) {
@@ -554,9 +586,9 @@ const Pipeline = () => {
             });
             const payload = getStageUpdatePayload(stageId);
             await updateLead(leadId, payload);
-        } catch {
-            const payload = getStageUpdatePayload(stageId);
-            await updateLead(leadId, payload);
+        } catch (err) {
+            addToast({ type: 'error', message: err?.message || 'Não foi possível mover no pipeline.' });
+            return;
         }
         setMoverOpenId(null);
         setToast('Movido no pipeline');
@@ -716,22 +748,38 @@ const Pipeline = () => {
 
         if (status === LEAD_STATUS.MISSED) {
             const lead = getLeadById(id);
-            const ok = window.confirm(`Mover "${lead?.name || 'Sem nome'}" para "Não compareceu"? Isso marca o status como Não Compareceu.`);
-            if (!ok) { setDragOver(null); return; }
-            await addLeadEvent({
-                academyId,
-                leadId: id,
-                type: 'missed',
-                from: lead?.pipelineStage || lead?.status || '',
-                to: LEAD_STATUS.MISSED,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
+            setConfirmModal({
+                title: 'Marcar como não compareceu?',
+                description: `Mover "${lead?.name || 'Sem nome'}" para "Não compareceu".`,
+                confirmLabel: 'Confirmar',
+                onConfirm: async () => {
+                    try {
+                        await addLeadEvent({
+                            academyId,
+                            leadId: id,
+                            type: 'missed',
+                            from: lead?.pipelineStage || lead?.status || '',
+                            to: LEAD_STATUS.MISSED,
+                            createdBy: userId || 'user',
+                            permissionContext: permCtx
+                        });
+                        await updateLead(id, {
+                            status: LEAD_STATUS.MISSED,
+                            pipelineStage: LEAD_STATUS.MISSED,
+                            missedAt: new Date().toISOString()
+                        });
+                        setToast('Marcado como não compareceu');
+                        setTimeout(() => setToast(''), 2000);
+                    } catch (err) {
+                        addToast({ type: 'error', message: err?.message || 'Não foi possível mover o lead.' });
+                    } finally {
+                        setDragOver(null);
+                        setConfirmModal(null);
+                    }
+                }
             });
-            await updateLead(id, {
-                status: LEAD_STATUS.MISSED,
-                pipelineStage: LEAD_STATUS.MISSED,
-                missedAt: new Date().toISOString()
-            });
+            setDragOver(null);
+            return;
         } else if (status === LEAD_STATUS.LOST) {
             openLostModal(id, async (lostReason) => {
                 const cur = getLeadById(id);
@@ -780,9 +828,10 @@ const Pipeline = () => {
                 });
                 const payload = getStageUpdatePayload(status);
                 await updateLead(id, payload);
-            } catch {
-                const payload = getStageUpdatePayload(status);
-                await updateLead(id, payload);
+            } catch (err) {
+                addToast({ type: 'error', message: err?.message || 'Não foi possível mover no pipeline.' });
+                setDragOver(null);
+                return;
             }
         }
         setDragOver(null);
@@ -796,10 +845,14 @@ const Pipeline = () => {
         setNoteOpen(true);
     };
     const saveNote = async () => {
-        if (!noteLead || !noteText.trim()) {
-            setNoteOpen(false);
+        if (!noteLead) {
             return;
         }
+        if (!noteText.trim()) {
+            setNoteError('Digite uma observação antes de salvar.');
+            return;
+        }
+        setNoteError('');
         await addLeadEvent({
             academyId,
             leadId: noteLead.id,
@@ -823,7 +876,16 @@ const Pipeline = () => {
                             <h2 className="navi-page-title">{labels.pipeline || 'Funil'}</h2>
                             <p className="navi-eyebrow" style={{ marginTop: 6, maxWidth: '42ch' }}>Fluxo de matrícula até a conversão</p>
                         </div>
-                        <div className="filters">
+                        <div className="filters-mobile-toggle-wrap">
+                            <button
+                                type="button"
+                                className="btn-outline filters-mobile-toggle"
+                                onClick={() => setFiltersCollapsedMobile((v) => !v)}
+                            >
+                                {filtersCollapsedMobile ? 'Mostrar filtros' : 'Ocultar filtros'}
+                            </button>
+                        </div>
+                        <div className={`filters${filtersCollapsedMobile ? ' filters-collapsed-mobile' : ''}`}>
                             <div className="pipeline-search-row">
                                 <div className="pipeline-search-wrap" title="Filtra por nome ou telefone">
                                     <Search size={14} className="pipeline-search-icon" aria-hidden />
@@ -868,7 +930,7 @@ const Pipeline = () => {
                                     <option value="all">Todos os perfis</option>
                                     <option value="Adulto">Adulto</option>
                                     <option value="Criança">Criança</option>
-                                    <option value="Juniores">Júnior</option>
+                                    <option value="Juniores">Juniores</option>
                                 </select>
                             </div>
                             <div className="origin-group">
@@ -961,9 +1023,15 @@ const Pipeline = () => {
                                 className="btn-outline"
                                 title="Substitui a lista de etapas pelo modelo padrão. Clique em Salvar para gravar."
                                 onClick={() => {
-                                    const ok = window.confirm('Aplicar o modelo de funil (Novo → Experimental → Não compareceu → Aguardando decisão → Matrícula → Perdidos)? As etapas atuais serão substituídas neste editor até você salvar.');
-                                    if (!ok) return;
-                                    setTempStages(DEFAULT_STAGE_LABELS.map((s) => ({ ...s, slaDays: s.slaDays ?? DEFAULT_STAGE_SLA_DAYS })));
+                                    setConfirmModal({
+                                        title: 'Aplicar funil padrão?',
+                                        description: 'As etapas atuais do editor serão substituídas até você salvar.',
+                                        confirmLabel: 'Aplicar',
+                                        onConfirm: async () => {
+                                            setTempStages(DEFAULT_STAGE_LABELS.map((s) => ({ ...s, slaDays: s.slaDays ?? DEFAULT_STAGE_SLA_DAYS })));
+                                            setConfirmModal(null);
+                                        }
+                                    });
                                 }}
                             >
                                 Funil padrão
@@ -975,6 +1043,16 @@ const Pipeline = () => {
                     </div>
                 )}
             </div>
+            {leadsError ? (
+                <div className="container" style={{ paddingTop: 10 }}>
+                    <div className="dashboard-error-banner" role="alert">
+                        <span>Não foi possível carregar os leads do funil.</span>
+                        <button type="button" className="btn-secondary" onClick={() => void fetchLeads({ reset: true })}>
+                            Tentar novamente
+                        </button>
+                    </div>
+                </div>
+            ) : null}
 
             {showKanbanInitialLoading ? (
                 <div className="pipeline-kanban-loading-hint" role="status">
@@ -1168,20 +1246,20 @@ const Pipeline = () => {
                                                         top: '100%',
                                                         right: 0,
                                                         zIndex: 100,
-                                                        background: 'white',
-                                                        border: '1px solid #eee',
+                                                        background: 'var(--surface)',
+                                                        border: '1px solid var(--border)',
                                                         borderRadius: '8px',
                                                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                                                         minWidth: '180px',
                                                         overflow: 'hidden',
                                                     }} onClick={(e) => e.stopPropagation()}>
-                                                        <div style={{ borderBottom: '1px solid #f5f5f5', paddingBottom: 4 }}>
+                                                        <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: 4 }}>
                                                             <div
                                                                 style={{
                                                                     padding: '8px 16px 4px',
                                                                     fontSize: 11,
                                                                     fontWeight: 800,
-                                                                    color: '#888',
+                                                                    color: 'var(--text-muted)',
                                                                     textTransform: 'uppercase',
                                                                     letterSpacing: '0.02em',
                                                                 }}
@@ -1201,7 +1279,7 @@ const Pipeline = () => {
                                                                         background: 'none',
                                                                         border: 'none',
                                                                         cursor: 'pointer',
-                                                                        color: '#333',
+                                                                        color: 'var(--text)',
                                                                         fontSize: '13px',
                                                                     }}
                                                                 >
@@ -1218,9 +1296,9 @@ const Pipeline = () => {
                                                                 textAlign: 'left',
                                                                 background: 'none',
                                                                 border: 'none',
-                                                                borderBottom: '1px solid #f5f5f5',
+                                                                borderBottom: '1px solid var(--border-light)',
                                                                 cursor: 'pointer',
-                                                                color: '#333',
+                                                                color: 'var(--text)',
                                                                 fontSize: '14px',
                                                             }}
                                                         >
@@ -1235,7 +1313,7 @@ const Pipeline = () => {
                                                                 textAlign: 'left',
                                                                 background: 'none',
                                                                 border: 'none',
-                                                                borderBottom: '1px solid #f5f5f5',
+                                                                borderBottom: '1px solid var(--border-light)',
                                                                 cursor: 'pointer',
                                                                 color: '#E65100',
                                                                 fontSize: '14px',
@@ -1369,24 +1447,28 @@ const Pipeline = () => {
                 onConfirmSimple={async () => {
                     setMatriculaModalOpen(false);
                     if (dragTargetLead) {
-                        await addLeadEvent({
-                            academyId,
-                            leadId: dragTargetLead.id,
-                            type: 'converted',
-                            from: dragTargetLead.pipelineStage || '',
-                            to: LEAD_STATUS.CONVERTED,
-                            createdBy: userId || 'user',
-                            permissionContext: permCtx
-                        });
-                        await updateLead(dragTargetLead.id, {
-                            status: LEAD_STATUS.CONVERTED,
-                            contact_type: 'student',
-                            pipelineStage: 'Matriculado',
-                            convertedAt: new Date().toISOString()
-                        });
-                        setToast('Lead matriculado com sucesso!');
-                        setTimeout(() => setToast(''), 2000);
-                        setDragTargetLead(null);
+                        try {
+                            await addLeadEvent({
+                                academyId,
+                                leadId: dragTargetLead.id,
+                                type: 'converted',
+                                from: dragTargetLead.pipelineStage || '',
+                                to: LEAD_STATUS.CONVERTED,
+                                createdBy: userId || 'user',
+                                permissionContext: permCtx
+                            });
+                            await updateLead(dragTargetLead.id, {
+                                status: LEAD_STATUS.CONVERTED,
+                                contact_type: 'student',
+                                pipelineStage: 'Matriculado',
+                                convertedAt: new Date().toISOString()
+                            });
+                            setToast('Lead matriculado com sucesso!');
+                            setTimeout(() => setToast(''), 2000);
+                            setDragTargetLead(null);
+                        } catch (err) {
+                            addToast({ type: 'error', message: err?.message || 'Não foi possível concluir a matrícula.' });
+                        }
                     }
                 }}
                 onConfirmFull={() => {
@@ -1454,11 +1536,17 @@ const Pipeline = () => {
         .pipeline-load-more { background: var(--surface-hover) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important; }
         .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
+        .filters-mobile-toggle-wrap { display: none; }
         @media (max-width: 1024px) {
           .header-layout { align-items: flex-start; }
           .header-left { width: 100%; }
           .filters { width: 100%; margin-right: 0; }
           .header-right { width: 100%; justify-content: flex-start; }
+        }
+        @media (max-width: 640px) {
+          .filters-mobile-toggle-wrap { display: block; width: 100%; margin-top: 4px; }
+          .filters-mobile-toggle { width: 100%; min-height: 44px; }
+          .filters.filters-collapsed-mobile { display: none; }
         }
         .pipeline-kanban-loading-hint {
           padding: 8px 16px 0;
@@ -1718,6 +1806,18 @@ const Pipeline = () => {
         .note-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
       `}} />
             {toast && <div className="toast">{toast}</div>}
+            {confirmModal && (
+                <div className="note-overlay" onClick={() => setConfirmModal(null)}>
+                    <div className="note-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="navi-section-heading" style={{ marginBottom: 8 }}>{confirmModal.title}</h3>
+                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 14 }}>{confirmModal.description}</p>
+                        <div className="note-footer">
+                            <button className="btn-outline" onClick={() => setConfirmModal(null)}>Cancelar</button>
+                            <button className="btn-secondary" onClick={() => void confirmModal.onConfirm?.()}>{confirmModal.confirmLabel || 'Confirmar'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {noteOpen && (
                 <div className="note-overlay" onClick={() => setNoteOpen(false)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>
@@ -1728,9 +1828,10 @@ const Pipeline = () => {
                             onChange={(e) => setNoteText(e.target.value)}
                             placeholder="Ex.: Ligação realizada, reagendado para quinta às 19:00"
                         />
+                        {noteError ? <p className="text-small" style={{ color: 'var(--danger)', marginTop: 8 }}>{noteError}</p> : null}
                         <div className="note-footer">
                             <button className="btn-outline" onClick={() => setNoteOpen(false)}>Cancelar</button>
-                            <button className="btn-secondary" onClick={saveNote}>Salvar</button>
+                            <button className="btn-secondary" onClick={saveNote} disabled={!String(noteText || '').trim()}>Salvar</button>
                         </div>
                     </div>
                 </div>

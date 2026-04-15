@@ -40,7 +40,8 @@ export default function ConversationList(props) {
     formatTimeOnly,
     formatWhen,
     isMobile = false,
-    onConversationLongPress
+    onConversationLongPress,
+    onClearListFilters,
   } = props;
 
   const groups = useMemo(() => safeGrouped(groupedItems), [groupedItems]);
@@ -78,10 +79,19 @@ export default function ConversationList(props) {
           })}
         </div>
       ))}
-      {!loading && totalItems === 0 && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Nenhuma conversa.</div>}
+      {!loading && totalItems === 0 && (
+        <div style={{ padding: 12, color: 'var(--text-secondary)' }} role="status">
+          Nenhuma conversa encontrada.
+        </div>
+      )}
       {!loading && totalItems > 0 && flatCount === 0 && (
-        <div style={{ padding: 12, color: 'var(--danger)' }} role="status">
-          Lista não renderizou ({totalItems} conversas). Tente atualizar a página ou mudar o filtro.
+        <div style={{ padding: 12, color: 'var(--text-secondary)' }} role="status">
+          <p style={{ margin: '0 0 10px' }}>Nenhuma conversa com este filtro ou busca.</p>
+          {typeof onClearListFilters === 'function' ? (
+            <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px', minHeight: 36 }} onClick={() => onClearListFilters()}>
+              Limpar filtros
+            </button>
+          ) : null}
         </div>
       )}
       {loadingMore && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Carregando mais…</div>}

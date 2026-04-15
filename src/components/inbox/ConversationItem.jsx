@@ -1,4 +1,5 @@
 import React, { useRef, useCallback } from 'react';
+import { AlertTriangle, Flame, PauseCircle } from 'lucide-react';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
@@ -146,9 +147,69 @@ export default function ConversationItem({
               >
                 {contactType === 'student' ? 'Aluno' : 'Lead'}
               </span>
-              {hotLead && <span title="Lead quente" style={{ fontSize: 12 }}>{'\uD83D\uDD25'}</span>}
-              {handoffActive && <span title="Atendimento assumido" style={{ fontSize: 12 }}>{'\u23F8\uFE0F'}</span>}
-              {!handoffActive && aiSuggestHuman && <span title="IA sugere intervenção" style={{ fontSize: 12 }}>{'\u26A0\uFE0F'}</span>}
+              {hotLead && (
+                <span
+                  title="Lead quente"
+                  className="inbox-status-chip inbox-status-chip-hot"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    padding: '1px 7px',
+                    borderRadius: 999,
+                    background: 'rgba(245, 158, 11, 0.18)',
+                    color: '#b45309',
+                    flexShrink: 0
+                  }}
+                >
+                  <Flame size={12} aria-hidden />
+                  Quente
+                </span>
+              )}
+              {handoffActive && (
+                <span
+                  title="Atendimento assumido"
+                  className="inbox-status-chip inbox-status-chip-human"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    padding: '1px 7px',
+                    borderRadius: 999,
+                    background: 'var(--v50)',
+                    color: 'var(--accent)',
+                    flexShrink: 0
+                  }}
+                >
+                  <PauseCircle size={12} aria-hidden />
+                  Humano
+                </span>
+              )}
+              {!handoffActive && aiSuggestHuman && (
+                <span
+                  title="IA sugere intervenção"
+                  className="inbox-status-chip inbox-status-chip-warn"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    padding: '1px 7px',
+                    borderRadius: 999,
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#b45309',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertTriangle size={12} aria-hidden />
+                  IA alerta
+                </span>
+              )}
               {item?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>

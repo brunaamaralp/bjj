@@ -15,6 +15,7 @@ const EquipeSection = ({ academy, academyId }) => {
     const [newMember, setNewMember] = useState({ name: '', email: '', password: '' });
     const [savingMember, setSavingMember] = useState(false);
     const [memberError, setMemberError] = useState('');
+    const [removeConfirm, setRemoveConfirm] = useState(null);
 
     const loadMembers = useCallback(async () => {
         if (!academy?.teamId) return;
@@ -87,15 +88,7 @@ const EquipeSection = ({ academy, academyId }) => {
     };
 
     const handleRemoveMember = async (membershipId) => {
-        if (!window.confirm('Remover este membro da equipe?')) return;
-        try {
-            await teams.deleteMembership(academy.teamId, membershipId);
-            setMembers(prev => prev.filter(m => m.$id !== membershipId));
-            addToast({ type: 'success', message: 'Membro removido.' });
-        } catch (e) {
-            console.error('Erro ao remover:', e);
-            addToast({ type: 'error', message: 'Não foi possível remover o membro.' });
-        }
+        setRemoveConfirm({ membershipId });
     };
 
     return (
@@ -212,6 +205,40 @@ const EquipeSection = ({ academy, academyId }) => {
                     </div>
                 )}
             </div>
+            {removeConfirm ? (
+                <div className="confirm-overlay" onClick={() => setRemoveConfirm(null)}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="confirm-icon-wrap">
+                            <Trash2 size={20} color="var(--danger)" />
+                        </div>
+                        <h3 className="navi-section-heading">Remover membro?</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 8 }}>
+                            Este acesso será revogado imediatamente.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+                            <button type="button" className="btn-outline" onClick={() => setRemoveConfirm(null)}>Cancelar</button>
+                            <button
+                                type="button"
+                                className="btn-danger"
+                                onClick={async () => {
+                                    try {
+                                        await teams.deleteMembership(academy.teamId, removeConfirm.membershipId);
+                                        setMembers(prev => prev.filter(m => m.$id !== removeConfirm.membershipId));
+                                        addToast({ type: 'success', message: 'Membro removido.' });
+                                    } catch (e) {
+                                        console.error('Erro ao remover:', e);
+                                        addToast({ type: 'error', message: 'Não foi possível remover o membro.' });
+                                    } finally {
+                                        setRemoveConfirm(null);
+                                    }
+                                }}
+                            >
+                                Remover
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </section>
     );
 };

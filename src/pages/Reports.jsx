@@ -636,18 +636,31 @@ const Reports = () => {
                         Período muito curto ou inválido para agrupar.
                     </p>
                 ) : (
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={chartHeight}>
                         <BarChart data={reportData.chart}>
                             <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
                             <YAxis fontSize={11} tickLine={false} axisLine={false} />
                             <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                            {chartMetric === 'new' && <Bar dataKey="newLeads" name="Novos leads" fill="#5B3FBF" radius={[4, 4, 0, 0]} />}
-                            {chartMetric === 'scheduled' && <Bar dataKey="scheduled" name="Agendados" fill="#F59E0B" radius={[4, 4, 0, 0]} />}
-                            {chartMetric === 'converted' && <Bar dataKey="converted" name="Matrículas" fill="#10B981" radius={[4, 4, 0, 0]} />}
+                            {chartMetric === 'new' && <Bar dataKey="newLeads" name="Novos leads" fill="var(--v500)" radius={[4, 4, 0, 0]} />}
+                            {chartMetric === 'scheduled' && <Bar dataKey="scheduled" name="Agendados" fill="var(--warn-text)" radius={[4, 4, 0, 0]} />}
+                            {chartMetric === 'converted' && <Bar dataKey="converted" name="Matrículas" fill="var(--success-text)" radius={[4, 4, 0, 0]} />}
                         </BarChart>
                     </ResponsiveContainer>
                 )}
             </div>
+            ) : null}
+
+            {!error && !showInitialLoad ? (
+                <details className="reports-methodology mt-4">
+                    <summary className="reports-methodology-summary">
+                        <Info size={16} aria-hidden />
+                        Como calculamos
+                    </summary>
+                    <div className="reports-methodology-body">
+                        <p>Todos os KPIs comparam o período selecionado contra o período imediatamente anterior de mesma duração.</p>
+                        <p>Filtros de origem e perfil são aplicados tanto nos totais quanto no gráfico.</p>
+                    </div>
+                </details>
             ) : null}
 
             {drillKey ? (

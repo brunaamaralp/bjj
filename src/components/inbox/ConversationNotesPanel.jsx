@@ -68,6 +68,24 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
     };
   }, [academyId, conversationId, addToast]);
 
+  async function postNoteBody(text) {
+    const aid = String(academyId || '').trim();
+    const cid = String(conversationId || '').trim();
+    const jwt = await getJwt();
+    const res = await fetch('/api/conversation-notes', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+        'x-academy-id': aid,
+      },
+      body: JSON.stringify({ academy_id: aid, conversation_id: cid, body: text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.sucesso) throw new Error(data?.erro || 'Falha ao salvar');
+    return data.note;
+  }
+
   async function handleAdd(e) {
     e?.preventDefault?.();
     const aid = String(academyId || '').trim();
@@ -80,20 +98,9 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
     }
     setSaving(true);
     try {
-      const jwt = await getJwt();
-      const res = await fetch('/api/conversation-notes', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'Content-Type': 'application/json',
-          'x-academy-id': aid,
-        },
-        body: JSON.stringify({ academy_id: aid, conversation_id: cid, body: text }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.sucesso) throw new Error(data?.erro || 'Falha ao salvar');
+      const note = await postNoteBody(text);
       setDraft('');
-      setNotes((prev) => [data.note, ...prev]);
+      setNotes((prev) => [note, ...prev]);
       addToast?.({ type: 'success', message: 'Nota salva' });
     } catch (e) {
       addToast?.({ type: 'error', message: e?.message || 'Erro ao salvar nota' });
@@ -106,6 +113,7 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
     const id = String(noteId || '').trim();
     const aid = String(academyId || '').trim();
     if (!id || !aid || deletingId) return;
+    const backupBody = String(notes.find((n) => String(n.$id) === id)?.body || '');
     setDeletingId(id);
     try {
       const jwt = await getJwt();
@@ -117,7 +125,30 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) throw new Error(data?.erro || 'Falha ao excluir');
       setNotes((prev) => prev.filter((n) => String(n.$id) !== id));
-      addToast?.({ type: 'success', message: 'Nota removida' });
+      const canUndo = String(backupBody || '').trim().length > 0;
+      addToast?.({
+        type: 'info',
+        message: 'Nota excluída',
+        duration: 5000,
+        ...(canUndo
+          ? {
+              action: {
+                label: 'Desfazer',
+                onClick: () => {
+                  void (async () => {
+                    try {
+                      const note = await postNoteBody(backupBody);
+                      setNotes((prev) => [note, ...prev]);
+                      addToast?.({ type: 'success', message: 'Nota restaurada' });
+                    } catch (e) {
+                      addToast?.({ type: 'error', message: e?.message || 'Não foi possível desfazer.' });
+                    }
+                  })();
+                },
+              },
+            }
+          : {}),
+      });
     } catch (e) {
       addToast?.({ type: 'error', message: e?.message || 'Erro ao excluir' });
     } finally {
@@ -150,16 +181,27 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
       )}
       {featureOn && (
         <form onSubmit={handleAdd} style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-          <textarea
-            className="form-input"
-            rows={3}
-            placeholder="Lembrete para a equipe (não é enviado ao cliente)…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            disabled={saving || loading}
-            maxLength={MAX_LEN}
-            style={{ resize: 'vertical', minHeight: 72 }}
-          />
+          <div className="note-input-wrapper" style={{ display: 'grid', gap: 4 }}>
+            <textarea
+              className="form-input"
+              rows={3}
+              placeholder="Lembrete para a equipe (não é enviado ao cliente)…"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={saving || loading}
+              maxLength={MAX_LEN}
+              style={{ resize: 'vertical', minHeight: 72 }}
+            />
+            <span
+              className="text-small"
+              style={{
+                textAlign: 'right',
+                color: draft.length > 3800 ? 'var(--warning)' : 'var(--text-secondary)',
+              }}
+            >
+              {draft.length}/{MAX_LEN}
+            </span>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button className="btn btn-secondary" type="submit" disabled={saving || loading || !String(draft || '').trim()}>
               {saving ? 'Salvando…' : 'Adicionar nota'}
@@ -195,8 +237,8 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
                 </div>
                 <button
                   type="button"
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', minHeight: 32, flexShrink: 0 }}
+                  className="btn btn-outline inbox-note-delete-btn"
+                  style={{ padding: '4px 10px', flexShrink: 0 }}
                   onClick={() => handleDelete(n.$id)}
                   disabled={deletingId === n.$id}
                   title="Excluir nota"
