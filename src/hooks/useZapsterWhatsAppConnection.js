@@ -90,8 +90,9 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
         setWaPersistFailed(false);
       }
       setWaTokenMissing(false);
-      setWaQrError(false);
-      if (status !== 'connected') setWaQrTick((v) => v + 1);
+      // Só limpar erro de QR quando conectado. A cada poll (3s) limpar + mudar URL
+      // do <img> gerava reload infinito (waQrTick era incrementado aqui antes).
+      if (status === 'connected') setWaQrError(false);
     } catch (e) {
       const msg = String(e?.message || '');
       if (
@@ -183,11 +184,15 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
       if (data.recovered) {
         useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo recuperado com sucesso!' });
         setWaPersistFailed(false);
+        setWaQrError(false);
+        setWaQrTick((v) => v + 1);
         await fetchWaInfo({ silent: true });
         return;
       }
       if (data.already_linked) {
         setWaPersistFailed(false);
+        setWaQrError(false);
+        setWaQrTick((v) => v + 1);
         await fetchWaInfo({ silent: true });
         useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo já estava vinculado.' });
         return;
@@ -263,6 +268,8 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
         throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instância'));
       }
       useUiStore.getState().addToast({ type: 'success', message: 'Instância ligada' });
+      setWaQrError(false);
+      setWaQrTick((v) => v + 1);
       await fetchWaInfo({ silent: true });
     } catch (e) {
       setConnectionError(String(e?.message || '') || 'Erro');
@@ -318,6 +325,8 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
       }
       useUiStore.getState().addToast({ type: 'success', message: 'Reiniciando instância…' });
       setTimeout(() => {
+        setWaQrError(false);
+        setWaQrTick((v) => v + 1);
         fetchWaInfo({ silent: true });
       }, 1200);
     } catch (e) {
@@ -408,7 +417,7 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
     const id = setInterval(() => {
       setWaQrTick((v) => v + 1);
       setWaQrError(false);
-    }, 6000);
+    }, 25000);
     return () => clearInterval(id);
   }, [pollWhileDisconnected, waInfo?.instance_id, waInfo?.status, waTokenMissing]);
 
@@ -416,6 +425,10 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
 
   const onQrImageError = useCallback(() => {
     setWaQrError(true);
+  }, []);
+
+  const onQrImageLoad = useCallback(() => {
+    setWaQrError(false);
   }, []);
 
   return {
@@ -436,6 +449,7 @@ export function useZapsterWhatsAppConnection(academyId, { pollWhileDisconnected 
     powerOffInstance,
     restartInstance,
     reconcileWhatsAppHistory,
-    onQrImageError
+    onQrImageError,
+    onQrImageLoad
   };
 }

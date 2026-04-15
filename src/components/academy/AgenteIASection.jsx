@@ -403,6 +403,7 @@ const AgenteIASection = ({ academyId, role }) => {
                                     <img
                                         src={qrSrc}
                                         alt="QR Code WhatsApp"
+                                        onLoad={() => zap.onQrImageLoad()}
                                         onError={() => zap.onQrImageError()}
                                         style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
                                     />
