@@ -45,6 +45,8 @@ export function useZapsterWhatsAppConnection(academyId) {
   const [waQrTick, setWaQrTick] = useState(0);
   /** Só carrega a imagem do QR depois que o usuário pede (evita leitura/disparos automáticos). */
   const [waQrShown, setWaQrShown] = useState(false);
+  /** Após o primeiro erro ao carregar a imagem do QR, exibe o botão "Gerar novo QR". */
+  const [waQrLoadFailedOnce, setWaQrLoadFailedOnce] = useState(false);
   const [waSyncing, setWaSyncing] = useState(false);
   const [waPersistFailed, setWaPersistFailed] = useState(false);
   const [connectionError, setConnectionError] = useState('');
@@ -95,6 +97,7 @@ export function useZapsterWhatsAppConnection(academyId) {
       if (status === 'connected') {
         setWaQrError(false);
         setWaQrShown(false);
+        setWaQrLoadFailedOnce(false);
       }
     } catch (e) {
       const msg = String(e?.message || '');
@@ -152,6 +155,7 @@ export function useZapsterWhatsAppConnection(academyId) {
       }
       setWaTokenMissing(false);
       setWaQrError(false);
+      setWaQrLoadFailedOnce(false);
       setWaQrShown(true);
       setWaQrTick((v) => v + 1);
     } catch (e) {
@@ -248,6 +252,7 @@ export function useZapsterWhatsAppConnection(academyId) {
       setWaQrError(false);
       setWaQrTick(0);
       setWaQrShown(false);
+      setWaQrLoadFailedOnce(false);
     } catch (e) {
       const msg = String(e?.message || '');
       if (
@@ -408,6 +413,7 @@ export function useZapsterWhatsAppConnection(academyId) {
   useEffect(() => {
     if (!academyId) return;
     setWaQrShown(false);
+    setWaQrLoadFailedOnce(false);
     fetchWaInfo({ silent: true });
   }, [academyId, fetchWaInfo]);
 
@@ -415,6 +421,7 @@ export function useZapsterWhatsAppConnection(academyId) {
 
   const onQrImageError = useCallback(() => {
     setWaQrError(true);
+    setWaQrLoadFailedOnce(true);
   }, []);
 
   const onQrImageLoad = useCallback(() => {
@@ -427,6 +434,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     waTokenMissing,
     waQrError,
     waQrShown,
+    waQrLoadFailedOnce,
     waQrTick,
     waSyncing,
     waPersistFailed,
