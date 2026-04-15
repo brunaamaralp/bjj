@@ -1490,6 +1490,14 @@ export default function Inbox() {
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao enviar'));
       const data = safeParseJson(raw) || {};
+      const waUrl = typeof data?.wa_me_url === 'string' ? data.wa_me_url.trim() : '';
+      if (String(data?.channel || '').trim() === 'wa_me' && waUrl) {
+        try {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+        } catch {
+          void 0;
+        }
+      }
       const status = String(data?.status || '').trim();
       const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
       const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
@@ -1513,7 +1521,15 @@ export default function Inbox() {
       setDraftBeforeImprove(null);
       setScheduleOn(false);
       setScheduleAtLocal('');
-      addToast({ type: 'success', message: status === 'scheduled' ? 'Agendado' : 'Enviado' });
+      addToast({
+        type: 'success',
+        message:
+          String(data?.channel || '').trim() === 'wa_me'
+            ? 'Sem instância API: abrimos o WhatsApp para você concluir o envio.'
+            : status === 'scheduled'
+              ? 'Agendado'
+              : 'Enviado'
+      });
       await loadList({ reset: true, silent: true });
       try {
         setTimeout(() => {

@@ -76,6 +76,21 @@ function normalizePhone(v) {
   return raw.replace(/[^\d]/g, '');
 }
 
+/** Dígitos para wa.me (mesma regra do cliente: BR com DDI 55). */
+function digitsForWaMe(phoneDigits) {
+  const d = String(phoneDigits || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('55') && d.length >= 12) return d;
+  if (d.length >= 10 && d.length <= 11) return `55${d}`;
+  return d;
+}
+
+function buildWaMeUrl(phoneDigits, text) {
+  const waDigits = digitsForWaMe(phoneDigits);
+  if (!waDigits) return '';
+  return `https://wa.me/${waDigits}?text=${encodeURIComponent(String(text || ''))}`;
+}
+
 function resolveAcademyId(req) {
   const h = String(req.headers['x-academy-id'] || '').trim();
   if (h) return h;
@@ -348,6 +363,31 @@ async function findLeadByPhone(phone, academyId) {
   return null;
 }
 
+async function appendOutboundToConversation(phone, academyId, academyDoc, text, { sendAtIso = '', messageId = '', status = 'sent' }) {
+  const { doc } = await getOrCreateConversationDoc(phone, academyId, academyDoc);
+  const messages = safeParseMessages(doc.messages);
+  const nowIso = new Date().toISOString();
+  const row = {
+    role: 'assistant',
+    content: text,
+    timestamp: nowIso,
+    sender: 'human',
+    ...(sendAtIso ? { status: 'scheduled', send_at: sendAtIso } : { status: status || 'sent' }),
+    ...(messageId ? { message_id: String(messageId) } : {})
+  };
+  messages.push(row);
+  await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+    messages: JSON.stringify(messages.slice(-AGENT_HISTORY_WINDOW)),
+    updated_at: nowIso
+  });
+  try {
+    const leadDoc = await findLeadByPhone(phone, academyId);
+    if (leadDoc) await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { lead_id: leadDoc.$id });
+  } catch {
+    void 0;
+  }
+}
+
 async function sendZapsterText({ recipient, text, instanceId, sendAt }) {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
   const url = `${urlBase}/v1/wa/messages`;
@@ -534,9 +574,9 @@ export default async function handler(req, res) {
     const text = String(req.body?.text || '').trim();
     const sendAtRaw = String(req.body?.send_at || '').trim();
     if (!phone || !text) return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
+    let sendAtIso = '';
     try {
       const instanceId = await getZapsterInstanceIdForAcademy(academyDoc, academyId);
-      let sendAtIso = '';
       if (sendAtRaw) {
         const ms = new Date(sendAtRaw).getTime();
         if (!Number.isFinite(ms)) return res.status(400).json({ sucesso: false, erro: 'send_at inválido (use ISO 8601)' });
@@ -546,6 +586,28 @@ export default async function handler(req, res) {
         if (ms > max) return res.status(400).json({ sucesso: false, erro: 'send_at excede o limite do plano (até 7 dias)' });
         sendAtIso = new Date(ms).toISOString();
       }
+
+      if (!String(instanceId || '').trim()) {
+        if (sendAtIso) {
+          return res.status(400).json({
+            sucesso: false,
+            erro: 'Para agendar o envio é preciso conectar o WhatsApp (instância Zapster) em Agente IA.'
+          });
+        }
+        const waMeUrl = buildWaMeUrl(phone, text);
+        if (!waMeUrl) return res.status(400).json({ sucesso: false, erro: 'Telefone inválido para abrir o WhatsApp.' });
+        await appendOutboundToConversation(phone, academyId, academyDoc, text, { status: 'wa_me' });
+        return res.status(200).json({
+          sucesso: true,
+          enviado: false,
+          channel: 'wa_me',
+          wa_me_url: waMeUrl,
+          status: 'wa_me',
+          send_at: null,
+          message_id: null
+        });
+      }
+
       const sent = await sendZapsterTextWithOptionalRecover({
         recipient: phone,
         text,
@@ -553,25 +615,10 @@ export default async function handler(req, res) {
         initialInstanceId: instanceId,
         sendAt: sendAtIso
       });
-      const { doc } = await getOrCreateConversationDoc(phone, academyId, academyDoc);
-      const messages = safeParseMessages(doc.messages);
-      const nowIso = new Date().toISOString();
-      messages.push({
-        role: 'assistant',
-        content: text,
-        timestamp: nowIso,
-        sender: 'human',
-        ...(sendAtIso ? { status: 'scheduled', send_at: sendAtIso } : { status: 'sent' }),
-        ...(sent?.message_id ? { message_id: String(sent.message_id) } : {})
+      await appendOutboundToConversation(phone, academyId, academyDoc, text, {
+        sendAtIso,
+        messageId: sent?.message_id ? String(sent.message_id) : ''
       });
-      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-        messages: JSON.stringify(messages.slice(-AGENT_HISTORY_WINDOW)),
-        updated_at: nowIso
-      });
-      try {
-        const leadDoc = await findLeadByPhone(phone, academyId);
-        if (leadDoc) await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { lead_id: leadDoc.$id });
-      } catch {}
       return res.status(200).json({
         sucesso: true,
         enviado: true,
@@ -580,6 +627,26 @@ export default async function handler(req, res) {
         message_id: sent?.message_id ? String(sent.message_id) : null
       });
     } catch (e) {
+      const raw = String(e?.zapsterRaw || '');
+      if (!sendAtIso && isZapsterInstanceNotFound(raw)) {
+        const waMeUrl = buildWaMeUrl(phone, text);
+        if (waMeUrl) {
+          try {
+            await appendOutboundToConversation(phone, academyId, academyDoc, text, { status: 'wa_me' });
+            return res.status(200).json({
+              sucesso: true,
+              enviado: false,
+              channel: 'wa_me',
+              wa_me_url: waMeUrl,
+              status: 'wa_me',
+              send_at: null,
+              message_id: null
+            });
+          } catch (inner) {
+            return res.status(500).json({ sucesso: false, erro: inner?.message || 'Erro ao gravar conversa' });
+          }
+        }
+      }
       return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
     }
   }

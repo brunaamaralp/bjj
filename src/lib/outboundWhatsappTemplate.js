@@ -54,16 +54,23 @@ export async function sendWhatsappTemplateOutbound({
         body: JSON.stringify({ phone: phoneRaw, text: message })
       });
       const txt = await resp.text();
+      let j = {};
+      try {
+        j = JSON.parse(txt);
+      } catch {
+        j = {};
+      }
       if (!resp.ok) {
         let msg = 'Falha ao enviar';
-        try {
-          const j = JSON.parse(txt);
-          if (j?.erro) msg = String(j.erro);
-        } catch {
-          if (txt) msg = txt.slice(0, 200);
-        }
+        if (j && typeof j === 'object' && typeof j.erro === 'string' && j.erro.trim()) msg = String(j.erro).trim();
+        else if (txt) msg = txt.slice(0, 200);
         onToast?.({ type: 'error', message: msg });
         return { ok: false };
+      }
+      if (j?.channel === 'wa_me' && typeof j.wa_me_url === 'string' && j.wa_me_url.trim()) {
+        window.open(j.wa_me_url.trim(), '_blank', 'noopener,noreferrer');
+        onToast?.({ type: 'success', message: 'Abra o WhatsApp para concluir o envio.' });
+        return { ok: true };
       }
       onToast?.({ type: 'success', message: 'Mensagem enviada!' });
       return { ok: true };
