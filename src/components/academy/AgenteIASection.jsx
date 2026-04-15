@@ -25,6 +25,18 @@ function formatInstructionsSavedAt(iso) {
     return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+/** Rótulo curto para o status Zapster na UI do Agente (não conectado). */
+function formatWaAgentStatus(status) {
+    const k = String(status || '').trim().toLowerCase();
+    if (!k) return 'Em configuração';
+    if (k === 'offline') return 'Instância desligada';
+    if (k === 'open' || k === 'scanning' || k === 'qrcode') return 'Aguardando leitura do QR';
+    if (k === 'connecting' || k === 'syncing') return 'Conectando…';
+    if (k === 'disconnected') return 'Desvinculado do WhatsApp';
+    if (k === 'unknown') return 'Em verificação';
+    return String(status).replace(/_/g, ' ');
+}
+
 const cardBase = {
     borderRadius: 12,
     padding: 20,
@@ -382,11 +394,12 @@ const AgenteIASection = ({ academyId, role }) => {
                         )}
 
                         {!zap.waInfo?.instance_id && (
-                            <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-                                <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>
+                            <div style={{ textAlign: 'center', padding: '8px 0 16px', maxWidth: 420, margin: '0 auto' }}>
+                                <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)' }}>Primeiro passo</p>
+                                <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 }}>
                                     {isOwner
-                                        ? 'Crie a instância e, em seguida, use o botão para exibir o código QR e ler no celular.'
-                                        : 'Peça ao dono da academia para conectar o WhatsApp aqui.'}
+                                        ? 'Crie a conexão desta academia com o WhatsApp. Na sequência você poderá exibir o código QR para escanear no celular.'
+                                        : 'Peça ao dono da academia para iniciar a conexão com o WhatsApp aqui.'}
                                 </p>
                                 {isOwner && (
                                     <button
@@ -395,76 +408,174 @@ const AgenteIASection = ({ academyId, role }) => {
                                         onClick={() => void zap.createWaInstance()}
                                         disabled={zap.waLoading || zap.waTokenMissing}
                                     >
-                                        {zap.waLoading ? 'Aguarde…' : 'Criar instância e preparar QR'}
+                                        {zap.waLoading ? 'Aguarde…' : 'Começar conexão WhatsApp'}
                                     </button>
                                 )}
                             </div>
                         )}
 
                         {!!zap.waInfo?.instance_id && !zap.waTokenMissing && (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'stretch',
+                                    gap: 16,
+                                    width: '100%',
+                                    maxWidth: 440,
+                                    margin: '0 auto',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        flexWrap: 'wrap',
+                                        gap: 10,
+                                        padding: '12px 14px',
+                                        borderRadius: 10,
+                                        border: '1px solid var(--border)',
+                                        background: 'var(--surface)',
+                                    }}
+                                >
+                                    <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                        Status da instância
+                                    </span>
+                                    <span className="text-small" style={{ fontWeight: 700, color: 'var(--text)' }}>
+                                        {formatWaAgentStatus(zap.waInfo?.status)}
+                                    </span>
+                                </div>
+
                                 {!zap.waQrShown && (
-                                    <div style={{ textAlign: 'center', maxWidth: 380 }}>
-                                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
-                                            O QR não é exibido sozinho. Quando estiver pronto para parear o celular, toque no botão abaixo para gerar a
-                                            imagem e escanear.
+                                    <div
+                                        style={{
+                                            textAlign: 'center',
+                                            padding: '18px 16px',
+                                            borderRadius: 12,
+                                            border: '1px solid var(--border)',
+                                            background: 'var(--surface)',
+                                        }}
+                                    >
+                                        <p style={{ margin: '0 0 8px', fontWeight: 600, fontSize: '0.98rem', color: 'var(--text)' }}>
+                                            Parear com o celular
                                         </p>
-                                        {isOwner ? (
+                                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.55 }}>
+                                            {isOwner ? (
+                                                <>
+                                                    No celular, abra o <strong>WhatsApp</strong> → menu (três pontos ou configurações) →{' '}
+                                                    <strong>Aparelhos conectados</strong> → <strong>Conectar um aparelho</strong>. Depois toque em{' '}
+                                                    <strong>Exibir código QR</strong> aqui e aponte a câmera para a tela.
+                                                </>
+                                            ) : (
+                                                <>Somente o dono da academia pode abrir o código QR nesta página. Você pode atualizar o status abaixo para ver se a conexão já foi feita.</>
+                                            )}
+                                        </p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                                            {isOwner && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary"
+                                                    onClick={() => zap.revealWaQrCode()}
+                                                    disabled={zap.waLoading || zap.waTokenMissing}
+                                                >
+                                                    Exibir código QR
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
-                                                className="btn btn-primary"
-                                                onClick={() => void zap.revealWaQrCode()}
+                                                className="btn btn-outline"
+                                                style={{ padding: '8px 14px' }}
+                                                onClick={() => void zap.fetchWaInfo()}
                                                 disabled={zap.waLoading || zap.waTokenMissing}
                                             >
-                                                {zap.waLoading ? 'Aguarde…' : 'Mostrar código QR'}
+                                                Atualizar status
                                             </button>
-                                        ) : (
-                                            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                                                Peça ao dono para exibir o código QR aqui.
-                                            </p>
-                                        )}
+                                        </div>
                                     </div>
                                 )}
+
                                 {zap.waQrShown && qrSrc ? (
-                                    <>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
                                         <img
                                             src={qrSrc}
                                             alt="QR Code WhatsApp"
                                             onLoad={() => zap.onQrImageLoad()}
                                             onError={() => zap.onQrImageError()}
-                                            style={{ width: 240, height: 240, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 8 }}
+                                            style={{
+                                                width: 240,
+                                                height: 240,
+                                                objectFit: 'contain',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 12,
+                                                background: '#fff',
+                                            }}
                                         />
-                                        {isOwner && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                                            {isOwner && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    style={{ padding: '8px 14px' }}
+                                                    onClick={() => zap.refreshWaQrCode()}
+                                                    disabled={zap.waLoading || zap.waTokenMissing}
+                                                >
+                                                    Gerar novo QR
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
                                                 className="btn btn-outline"
-                                                style={{ padding: '6px 12px' }}
-                                                onClick={() => zap.refreshWaQrCode()}
+                                                style={{ padding: '8px 14px' }}
+                                                onClick={() => void zap.fetchWaInfo()}
                                                 disabled={zap.waLoading || zap.waTokenMissing}
                                             >
-                                                Novo QR (atualizar imagem)
+                                                Atualizar status
                                             </button>
-                                        )}
-                                    </>
+                                        </div>
+                                    </div>
                                 ) : null}
+
                                 {zap.waQrShown && !qrSrc ? (
-                                    <div className="text-small" style={{ color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 360 }}>
+                                    <div
+                                        className="text-small"
+                                        style={{
+                                            color: 'var(--text-secondary)',
+                                            textAlign: 'center',
+                                            padding: '12px 14px',
+                                            borderRadius: 10,
+                                            border: '1px dashed var(--border)',
+                                            lineHeight: 1.5,
+                                        }}
+                                    >
                                         {zap.waQrError
-                                            ? 'QR indisponível no momento. Tente «Novo QR» ou verifique se o dispositivo já está conectado.'
+                                            ? 'Não foi possível carregar o QR. Tente "Gerar novo QR" ou confira se o WhatsApp já está conectado e use Atualizar status.'
                                             : 'Carregando imagem do QR…'}
                                     </div>
                                 ) : null}
+
                                 {zap.waQrShown && (
-                                    <>
-                                        <ol className="text-small" style={{ margin: 0, paddingLeft: 20, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 320 }}>
-                                            <li>Abra o WhatsApp no celular</li>
-                                            <li>Toque em Dispositivos conectados</li>
-                                            <li>Aponte a câmera para o QR acima</li>
-                                        </ol>
-                                        <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 360 }}>
-                                            Depois de escanear, use <strong>Atualizar status</strong> nas ferramentas para confirmar a conexão.
+                                    <div
+                                        style={{
+                                            padding: '14px 16px',
+                                            borderRadius: 10,
+                                            borderLeft: '4px solid #25D366',
+                                            background: 'var(--surface)',
+                                            textAlign: 'left',
+                                        }}
+                                    >
+                                        <p className="text-small" style={{ margin: '0 0 10px', fontWeight: 600, color: 'var(--text)' }}>
+                                            No celular
                                         </p>
-                                    </>
+                                        <ol className="text-small" style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                                            <li>Abra o WhatsApp</li>
+                                            <li>Aparelhos conectados → Conectar um aparelho</li>
+                                            <li>Escaneie o código acima</li>
+                                        </ol>
+                                        <p className="text-small" style={{ margin: '12px 0 0', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                            Quando terminar no celular, toque em <strong>Atualizar status</strong> aqui para aparecer como conectado.
+                                        </p>
+                                    </div>
                                 )}
                             </div>
                         )}

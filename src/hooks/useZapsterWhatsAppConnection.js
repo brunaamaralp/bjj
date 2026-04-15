@@ -57,10 +57,10 @@ export function useZapsterWhatsAppConnection(academyId) {
     waPersistFailedRef.current = waPersistFailed;
   }, [waPersistFailed]);
 
-  const fetchWaInfo = useCallback(async ({ silent = false } = {}) => {
+  const fetchWaInfo = useCallback(async ({ silent = false, quiet = false } = {}) => {
     if (!academyIdRef.current) return;
     if (!silent) setConnectionError('');
-    setWaLoading(true);
+    if (!quiet) setWaLoading(true);
     try {
       const jwt = await getJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
@@ -107,7 +107,7 @@ export function useZapsterWhatsAppConnection(academyId) {
       }
       if (!silent) setConnectionError(msg || 'Erro');
     } finally {
-      setWaLoading(false);
+      if (!quiet) setWaLoading(false);
     }
   }, []);
 
@@ -169,12 +169,12 @@ export function useZapsterWhatsAppConnection(academyId) {
     }
   }, []);
 
-  const revealWaQrCode = useCallback(async () => {
+  const revealWaQrCode = useCallback(() => {
     if (!academyIdRef.current) return;
     setWaQrShown(true);
     setWaQrError(false);
     setWaQrTick((v) => v + 1);
-    await fetchWaInfo({ silent: true });
+    void fetchWaInfo({ silent: true, quiet: true });
   }, [fetchWaInfo]);
 
   const refreshWaQrCode = useCallback(() => {
