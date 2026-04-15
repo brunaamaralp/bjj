@@ -202,6 +202,130 @@ async function getZapsterInstanceIdForAcademy(academyDoc, academyId) {
   }
 }
 
+/** @param {string} raw */
+function zapsterFirstErrorFromBody(raw) {
+  const data = safeParseJson(raw);
+  if (!data || typeof data !== 'object') return { code: '', message: '' };
+  const arr = Array.isArray(data.errors) ? data.errors : [];
+  const first = arr[0] && typeof arr[0] === 'object' ? arr[0] : null;
+  return {
+    code: String(first?.code || '').trim(),
+    message: String(first?.message || '').trim()
+  };
+}
+
+/** @param {string} raw */
+function isZapsterInstanceNotFound(raw) {
+  const { code, message } = zapsterFirstErrorFromBody(raw);
+  const low = `${code} ${message} ${String(raw || '')}`.toLowerCase();
+  return code === 'instance_not_found' || low.includes('instance not found');
+}
+
+/** @param {unknown} data */
+function normalizeWaInstancesList(data) {
+  let arr = [];
+  if (Array.isArray(data)) arr = data;
+  else if (data && typeof data === 'object') {
+    const o = /** @type {Record<string, unknown>} */ (data);
+    if (Array.isArray(o.instances)) arr = o.instances;
+    else if (Array.isArray(o.data)) arr = o.data;
+    else if (o.id) arr = [o];
+  }
+  return arr
+    .filter((row) => row && typeof row === 'object')
+    .map((row) => {
+      const r = /** @type {Record<string, unknown>} */ (row);
+      const id = String(r.id || r.instance_id || '').trim();
+      const meta = r.metadata && typeof r.metadata === 'object' ? /** @type {Record<string, unknown>} */ (r.metadata) : {};
+      const academyFromMeta = String(meta.academy_id || meta.academyId || '').trim();
+      return { id, metadataAcademyId: academyFromMeta };
+    })
+    .filter((x) => x.id);
+}
+
+async function zapsterListInstancesRaw() {
+  const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
+  const url = `${urlBase}/v1/wa/instances`;
+  const resp = await fetch(url, { headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+  const raw = await resp.text();
+  let data = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = null;
+  }
+  return { ok: resp.ok, status: resp.status, data, raw };
+}
+
+/**
+ * Se a Zapster ainda tiver uma instância com metadata.academy_id = academyId, devolve o id.
+ * @param {string} academyId
+ */
+async function recoverZapsterInstanceIdFromList(academyId) {
+  const aid = String(academyId || '').trim();
+  if (!aid) return '';
+  const listed = await zapsterListInstancesRaw();
+  if (!listed.ok || !listed.data) return '';
+  const items = normalizeWaInstancesList(listed.data);
+  const match = items.find((it) => String(it.metadataAcademyId || '').trim() === aid);
+  return match?.id ? String(match.id).trim() : '';
+}
+
+async function persistAcademyZapsterInstanceId(academyId, instanceId) {
+  const id = String(instanceId || '').trim();
+  if (!id || !academyId) return false;
+  try {
+    try {
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        zapster_instance_id: id,
+        zapsterInstanceId: id
+      });
+    } catch {
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, { zapsterInstanceId: id });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** @param {string} raw @param {number} httpStatus */
+function friendlyZapsterSendError(raw, httpStatus) {
+  if (isZapsterInstanceNotFound(raw)) {
+    return 'Instância WhatsApp não encontrada na Zapster (ID inválido ou instância removida). Em Agente IA, use «Verificar e corrigir» ou reconecte escaneando o QR.';
+  }
+  const { code, message } = zapsterFirstErrorFromBody(raw);
+  if (message) return message;
+  const s = String(raw || '').trim();
+  if (s) return s.slice(0, 280);
+  return httpStatus ? `Falha ao enviar (HTTP ${httpStatus})` : 'Falha ao enviar';
+}
+
+/**
+ * Envia na Zapster; se o ID salvo na academia estiver morto, tenta achar instância
+ * pela listagem (metadata.academy_id) e persiste antes de um segundo envio.
+ */
+async function sendZapsterTextWithOptionalRecover({ recipient, text, academyId, initialInstanceId, sendAt }) {
+  let instanceId = String(initialInstanceId || '').trim();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await sendZapsterText({ recipient, text, instanceId, sendAt });
+    } catch (e) {
+      const raw = String(e?.zapsterRaw || '');
+      if (attempt === 0 && isZapsterInstanceNotFound(raw)) {
+        const recovered = await recoverZapsterInstanceIdFromList(academyId);
+        if (recovered && recovered !== instanceId) {
+          await persistAcademyZapsterInstanceId(academyId, recovered);
+          instanceId = recovered;
+          continue;
+        }
+      }
+      throw e;
+    }
+  }
+  throw new Error('Falha ao enviar');
+}
+
 async function findLeadByPhone(phone, academyId) {
   if (!LEADS_COL) return null;
   const candidates = [];
@@ -236,7 +360,12 @@ async function sendZapsterText({ recipient, text, instanceId, sendAt }) {
     body: JSON.stringify(body)
   });
   const raw = await resp.text();
-  if (!resp.ok) throw new Error(raw || `HTTP ${resp.status}`);
+  if (!resp.ok) {
+    const err = new Error(friendlyZapsterSendError(raw, resp.status));
+    err.zapsterRaw = raw;
+    err.zapsterHttpStatus = resp.status;
+    throw err;
+  }
   const data = safeParseJson(raw);
   const messageId = pickMessageId(data);
   return { raw, data, message_id: messageId || null };
@@ -417,7 +546,13 @@ export default async function handler(req, res) {
         if (ms > max) return res.status(400).json({ sucesso: false, erro: 'send_at excede o limite do plano (até 7 dias)' });
         sendAtIso = new Date(ms).toISOString();
       }
-      const sent = await sendZapsterText({ recipient: phone, text, instanceId, sendAt: sendAtIso });
+      const sent = await sendZapsterTextWithOptionalRecover({
+        recipient: phone,
+        text,
+        academyId,
+        initialInstanceId: instanceId,
+        sendAt: sendAtIso
+      });
       const { doc } = await getOrCreateConversationDoc(phone, academyId, academyDoc);
       const messages = safeParseMessages(doc.messages);
       const nowIso = new Date().toISOString();
