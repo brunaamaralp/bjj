@@ -11,7 +11,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
-import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -44,10 +44,48 @@ const STATUS_CONFIG = {
     [LEAD_STATUS.LOST]: { bg: '#f1f5f9', color: '#64748b' },
 };
 
+/** Rótulo curto na faixa da timeline (tipo do evento na UI). */
+const TIMELINE_EVENT_LABELS = {
+    message: 'Mensagem enviada',
+    call: 'Ligação',
+    schedule: 'Agendamento',
+    stage_change: 'Mudança de etapa',
+    pipeline_change: 'Movido no funil',
+    note: 'Nota',
+    import: 'Importação',
+    attended: 'Compareceu à aula',
+    missed: 'Não compareceu',
+    converted: 'Matriculado',
+    lost: 'Não fechou',
+    whatsapp: 'WhatsApp',
+};
+
+const ENGLISH_STATUS_TOKEN_LABELS = {
+    NEW: 'Novo',
+    SCHEDULED: 'Agendado',
+    COMPLETED: 'Compareceu',
+    MISSED: 'Não compareceu',
+    CONVERTED: 'Matriculado',
+    LOST: 'Não fechou',
+    STAGE_CHANGE: 'Mudança de etapa',
+    PIPELINE_CHANGE: 'Movido no funil',
+};
+
+function humanizeTimelineStage(s) {
+    const t = String(s || '').trim();
+    if (!t) return '—';
+    if (STATUS_CONFIG[t]) return t;
+    if (PIPELINE_STAGES.includes(t)) return t;
+    const upper = t.toUpperCase().replace(/\s+/g, '_');
+    if (ENGLISH_STATUS_TOKEN_LABELS[upper]) return ENGLISH_STATUS_TOKEN_LABELS[upper];
+    return t.replace(/_/g, ' ');
+}
+
 const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const lead = useLeadStore((s) => s.leads.find((l) => l.id === id));
+    const loading = useLeadStore((s) => s.loading);
     const updateLead = useLeadStore((s) => s.updateLead);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);
@@ -62,6 +100,13 @@ const LeadProfile = () => {
     }, [academyList, academyId, userId]);
 
     const [timelineEvents, setTimelineEvents] = useState([]);
+    const [timelineError, setTimelineError] = useState(false);
+    const [confirmModal, setConfirmModal] = useState(null);
+    const [confirmBusy, setConfirmBusy] = useState(false);
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+    const [addingNote, setAddingNote] = useState(false);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -101,14 +146,30 @@ const LeadProfile = () => {
 
     const refreshTimeline = useCallback(async () => {
         if (!id || !academyId) return;
+        setTimelineError(false);
         try {
             const res = await getLeadEvents(id, academyId);
             const docs = res.documents || [];
             setTimelineEvents(docs.map(mapLeadEventDocToUi));
         } catch {
+            setTimelineError(true);
             setTimelineEvents([]);
         }
     }, [id, academyId, mapLeadEventDocToUi]);
+
+    const [eventTypeFilter, setEventTypeFilter] = useState('all');
+
+    const filteredTimelineEvents = useMemo(
+        () =>
+            [...(timelineEvents || [])]
+                .filter((ev) => (eventTypeFilter === 'all' ? true : (ev.type || 'note') === eventTypeFilter))
+                .sort((a, b) => {
+                    const ta = new Date(a.at || a.date || 0).getTime();
+                    const tb = new Date(b.at || b.date || 0).getTime();
+                    return tb - ta;
+                }),
+        [timelineEvents, eventTypeFilter]
+    );
 
     useEffect(() => {
         void refreshTimeline();
@@ -118,7 +179,6 @@ const LeadProfile = () => {
     const [allLabels, setAllLabels] = useState([]);
 
     const [note, setNote] = useState('');
-    const [eventTypeFilter, setEventTypeFilter] = useState('all');
     const [editing, setEditing] = useState(false);
     const [customQuestions, setCustomQuestions] = useState([]);
     const [deletingLead, setDeletingLead] = useState(false);
@@ -149,9 +209,11 @@ const LeadProfile = () => {
                 });
                 const data = await res.json();
                 if (data?.sucesso) setAllLabels(data.labels || []);
-            } catch { /* silent */ }
+            } catch {
+                addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' });
+            }
         })();
-    }, [academyId]);
+    }, [academyId, addToast]);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -310,12 +372,41 @@ const LeadProfile = () => {
         });
     };
 
-    if (!lead) return (
-        <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
-            <p className="text-light">Lead não encontrado.</p>
-            <button className="btn-primary mt-4" onClick={() => navigate('/')}>Voltar</button>
-        </div>
-    );
+    if (loading && !lead) {
+        return (
+            <div className="container lead-profile-loading" style={{ paddingTop: 24, paddingBottom: 40 }}>
+                <div className="lead-profile-inner">
+                    <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--title" aria-hidden />
+                    <div className="lead-profile-skeleton-card mt-4">
+                        <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--line" />
+                        <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--line short" />
+                        <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--line" />
+                    </div>
+                    <p className="text-small text-light mt-4" style={{ textAlign: 'center' }}>Carregando perfil…</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!lead) {
+        return (
+            <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
+                <p className="text-light">Lead não encontrado.</p>
+                <button type="button" className="btn-primary mt-4" onClick={() => navigate('/')}>Voltar</button>
+            </div>
+        );
+    }
+
+    const runConfirmModalAction = async () => {
+        if (!confirmModal?.onConfirm || confirmBusy) return;
+        setConfirmBusy(true);
+        try {
+            await confirmModal.onConfirm();
+        } finally {
+            setConfirmBusy(false);
+            setConfirmModal(null);
+        }
+    };
 
     const startEdit = () => {
         fillFormFromLead(lead);
@@ -331,12 +422,27 @@ const LeadProfile = () => {
         setForm((f) => ({ ...f, [name]: value }));
     };
     const onChangeCustom = (q, value) => {
-        const id = String(q?.id || q || '').trim();
-        if (!id) return;
-        setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [id]: value } }));
+        const qid = String(q?.id || q || '').trim();
+        if (!qid) return;
+        setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [qid]: value } }));
+    };
+
+    const executeSaveLead = async (payload) => {
+        setSaving(true);
+        try {
+            await updateLead(id, payload);
+            setEditing(false);
+            addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
+            await refreshTimeline();
+        } catch (e) {
+            addToast({ type: 'error', message: e?.message || 'Erro ao salvar os dados.' });
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleSave = async () => {
+        if (saving) return;
         const payload = { ...form };
         const hasDate = String(payload.scheduledDate || '').trim().length > 0;
         if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
@@ -349,21 +455,23 @@ const LeadProfile = () => {
         const afterExp = expectedPipelineStageForStatus(payload.status ?? lead.status);
         const stageAfter = String(payload.pipelineStage ?? lead.pipelineStage ?? '').trim();
         if (afterExp && stageAfter && stageAfter !== afterExp) {
-            const ok = window.confirm(
-                `O status (${payload.status ?? lead.status}) costuma ir com a etapa “${afterExp}”, mas a etapa atual é “${stageAfter}”. Isso pode deixar o card na coluna errada no funil. Deseja salvar mesmo assim?`
-            );
-            if (!ok) return;
+            setConfirmModal({
+                title: 'Status e etapa divergem',
+                description: `O status (${payload.status ?? lead.status}) costuma ir com a etapa “${afterExp}”, mas a etapa atual é “${stageAfter}”. Isso pode deixar o card na coluna errada no funil. Deseja salvar mesmo assim?`,
+                confirmLabel: 'Salvar mesmo assim',
+                danger: false,
+                onConfirm: async () => {
+                    await executeSaveLead(payload);
+                },
+            });
+            return;
         }
-        try {
-            await updateLead(id, payload);
-            setEditing(false);
-            addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
-        } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao salvar os dados.' });
-        }
+        await executeSaveLead(payload);
     };
 
     const handleUpdateStatus = async (newStatus) => {
+        if (updatingStatus) return;
+        setUpdatingStatus(true);
         const nowIso = new Date().toISOString();
         const pipelineStage =
             newStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
@@ -421,6 +529,8 @@ const LeadProfile = () => {
         } catch (e) {
             addToast({ type: 'error', message: e?.message || 'Não foi possível atualizar o status.' });
             throw e;
+        } finally {
+            setUpdatingStatus(false);
         }
     };
     const handleMarkLost = () => {
@@ -433,7 +543,7 @@ const LeadProfile = () => {
 
     const handleConfirmSimple = () => {
         setMatriculaModalOpen(false);
-        handleUpdateStatus(LEAD_STATUS.CONVERTED);
+        void handleUpdateStatus(LEAD_STATUS.CONVERTED);
     };
 
     const handleConfirmFull = async () => {
@@ -477,9 +587,7 @@ const LeadProfile = () => {
         });
         await refreshTimeline();
     };
-    const handleDeleteLead = async () => {
-        const ok = window.confirm(`Excluir o lead "${lead?.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
-        if (!ok) return;
+    const deleteLeadExecute = async () => {
         if (deletingLead) return;
         setDeletingLead(true);
         try {
@@ -493,6 +601,16 @@ const LeadProfile = () => {
         }
     };
 
+    const openDeleteLeadConfirm = () => {
+        setConfirmModal({
+            title: 'Excluir lead?',
+            description: 'Esta ação não pode ser desfeita. Todos os dados do lead serão removidos.',
+            confirmLabel: 'Excluir',
+            danger: true,
+            onConfirm: deleteLeadExecute,
+        });
+    };
+
     function formatWhatsAppNumber(phone) {
         const digits = String(phone || '').replace(/\D/g, '');
         if (digits.startsWith('55') && digits.length >= 12) return digits;
@@ -501,31 +619,37 @@ const LeadProfile = () => {
     }
 
     const sendTemplateKey = async (key) => {
+        if (sendingWhatsapp) return;
+        setSendingWhatsapp(true);
         setTemplateMenuOpen(false);
-        const r = await sendWhatsappTemplateOutbound({
-            lead,
-            academyId,
-            academyName: waCtx.name,
-            templateKey: key,
-            templatesMap: waCtx.templates,
-            zapsterInstanceId: waCtx.zapster,
-            onToast: (t) => addToast(t)
-        });
-        if (!r?.ok) return;
         try {
-            const label = WHATSAPP_TEMPLATE_LABELS[key] || key;
-            await addLeadEvent({
+            const r = await sendWhatsappTemplateOutbound({
+                lead,
                 academyId,
-                leadId: id,
-                type: 'message',
-                text: `WhatsApp: template “${label}”`,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
+                academyName: waCtx.name,
+                templateKey: key,
+                templatesMap: waCtx.templates,
+                zapsterInstanceId: waCtx.zapster,
+                onToast: (t) => addToast(t)
             });
-            await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
-            await refreshTimeline();
-        } catch {
-            void 0;
+            if (!r?.ok) return;
+            try {
+                const label = WHATSAPP_TEMPLATE_LABELS[key] || key;
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
+                    type: 'message',
+                    text: `WhatsApp: template “${label}”`,
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx
+                });
+                await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
+                await refreshTimeline();
+            } catch (err) {
+                console.error('Erro ao registrar evento WhatsApp', err);
+            }
+        } finally {
+            setSendingWhatsapp(false);
         }
     };
 
@@ -545,24 +669,32 @@ const LeadProfile = () => {
             });
             await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
             await refreshTimeline();
-        } catch {
-            void 0;
+        } catch (err) {
+            console.error('Erro ao registrar evento WhatsApp', err);
         }
     };
 
     const addNote = async () => {
-        if (!note.trim()) return;
-        await addLeadEvent({
-            academyId,
-            leadId: id,
-            type: 'note',
-            text: note.trim().slice(0, 1000),
-            createdBy: userId || 'user',
-            permissionContext: permCtx
-        });
-        await updateLead(id, { lastNoteAt: new Date().toISOString() });
-        setNote('');
-        await refreshTimeline();
+        if (!note.trim() || addingNote) return;
+        setAddingNote(true);
+        try {
+            await addLeadEvent({
+                academyId,
+                leadId: id,
+                type: 'note',
+                text: note.trim().slice(0, 1000),
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(id, { lastNoteAt: new Date().toISOString() });
+            setNote('');
+            addToast({ type: 'success', message: 'Nota adicionada.' });
+            await refreshTimeline();
+        } catch (e) {
+            addToast({ type: 'error', message: e?.message || 'Não foi possível salvar a nota.' });
+        } finally {
+            setAddingNote(false);
+        }
     };
     const addNoteQuick = async (text) => {
         if (!text) return;
@@ -581,6 +713,7 @@ const LeadProfile = () => {
     const handleLabelsChange = async (newIds) => {
         try {
             await updateLead(id, { label_ids: newIds });
+            addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
         } catch {
             addToast({ type: 'error', message: 'Erro ao atualizar etiquetas.' });
         }
@@ -609,16 +742,18 @@ const LeadProfile = () => {
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="lead-profile-inner">
                 <div className="flex items-center gap-4">
-                <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>{profilePageTitle}</h2>
+                <button type="button" className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
+                <span className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>{profilePageTitle}</span>
                 {!editing ? (
                     <button className="btn-outline" style={{ marginLeft: 'auto' }} onClick={startEdit}>
                         <Pencil size={16} color="var(--text-secondary)" /> Editar
                     </button>
                 ) : (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                        <button className="btn-outline" onClick={cancelEdit}><X size={16} /> Cancelar</button>
-                        <button className="btn-secondary" onClick={handleSave}><Save size={16} /> Salvar</button>
+                        <button type="button" className="btn-outline" onClick={cancelEdit}><X size={16} /> Cancelar</button>
+                        <button type="button" className="btn-secondary" onClick={() => void handleSave()} disabled={saving}>
+                            <Save size={16} /> {saving ? 'Salvando…' : 'Salvar'}
+                        </button>
                     </div>
                 )}
                 </div>
@@ -650,7 +785,7 @@ const LeadProfile = () => {
                     <div>
                         {!editing ? (
                             <>
-                                <h2 className="navi-page-title" style={{ fontSize: 'clamp(1.2rem, 2.6vw, 1.5rem)', margin: 0 }}>{lead.name}</h2>
+                                <h1 className="navi-page-title" style={{ fontSize: 'clamp(1.2rem, 2.6vw, 1.5rem)', margin: 0 }}>{lead.name}</h1>
                                 <p className="navi-subtitle" style={{ marginTop: 4 }}>
                                     {[
                                         lead.type,
@@ -843,17 +978,27 @@ const LeadProfile = () => {
                             </div>
                         )}
                         {!editing && customQuestions.length > 0 && (
-                            <div className="flex-col gap-2 mt-2">
-                                {customQuestions.map((q) => {
+                            <div className="custom-questions-section flex-col gap-2 mt-3">
+                                <h4 className="lead-student-fields-title" style={{ marginBottom: 4 }}>Respostas do formulário de captação</h4>
+                                {customQuestions.every((q) => {
                                     const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
-                                    if (!hasLeadDisplayValue(ans)) return null;
-                                    return (
-                                        <div key={q?.id || q?.label} className="info-row">
-                                            <span className="info-row-label">{q?.label || '-'}</span>
-                                            <span className="info-row-value">{String(ans).trim()}</span>
-                                        </div>
-                                    );
-                                })}
+                                    return !hasLeadDisplayValue(ans);
+                                }) ? (
+                                    <p className="text-small" style={{ color: 'var(--text-muted)', margin: 0 }}>Ainda sem respostas.</p>
+                                ) : (
+                                    <div className="flex-col gap-2">
+                                        {customQuestions.map((q) => {
+                                            const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
+                                            if (!hasLeadDisplayValue(ans)) return null;
+                                            return (
+                                                <div key={q?.id || q?.label} className="info-row">
+                                                    <span className="info-row-label">{q?.label || '-'}</span>
+                                                    <span className="info-row-value">{String(ans).trim()}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -958,11 +1103,11 @@ const LeadProfile = () => {
                             type="button"
                             className="contact-btn whatsapp contact-btn-full"
                             style={{ borderRadius: '8px 0 0 8px', flex: 1 }}
-                            disabled={!String(lead.phone || '').replace(/\D/g, '').length}
+                            disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
                             title={!lead.phone ? 'Cadastre um telefone' : 'Enviar template “Contato (Dashboard)” ou abrir no WhatsApp'}
                             onClick={() => handleWhatsAppPrimary()}
                         >
-                            <MessageCircle size={18} color="currentColor" /> WhatsApp
+                            <MessageCircle size={18} color="currentColor" /> {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
                         </button>
                         <button
                             type="button"
@@ -975,7 +1120,7 @@ const LeadProfile = () => {
                                 borderLeft: '1px solid rgba(255,255,255,0.35)',
                                 flexShrink: 0
                             }}
-                            disabled={!String(lead.phone || '').replace(/\D/g, '').length}
+                            disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
                             aria-expanded={templateMenuOpen}
                             aria-label="Escolher outro template"
                             onClick={(e) => {
@@ -1017,6 +1162,7 @@ const LeadProfile = () => {
                                             cursor: 'pointer',
                                             color: 'var(--text)'
                                         }}
+                                        disabled={sendingWhatsapp}
                                         onClick={() => void sendTemplateKey(key)}
                                     >
                                         {WHATSAPP_TEMPLATE_LABELS[key] || key}
@@ -1042,15 +1188,15 @@ const LeadProfile = () => {
                 <div className="action-grid">
                     {lead.status !== LEAD_STATUS.CONVERTED && (
                         <>
-                            <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.SCHEDULED)}>
+                            <button type="button" className="action-btn" disabled={updatingStatus} onClick={() => void handleUpdateStatus(LEAD_STATUS.SCHEDULED)}>
                                 <Calendar size={22} color="var(--warning)" />
                                 <span>Agendar</span>
                             </button>
-                            <button className="action-btn" onClick={() => handleUpdateStatus(LEAD_STATUS.COMPLETED)}>
+                            <button type="button" className="action-btn" disabled={updatingStatus} onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}>
                                 <UserCheck size={22} color="var(--success)" />
-                                <span>Presença</span>
+                                <span>Compareceu</span>
                             </button>
-                            <button className="action-btn action-highlight" onClick={handleMatricularClick}>
+                            <button type="button" className="action-btn action-highlight" disabled={updatingStatus} onClick={handleMatricularClick}>
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
@@ -1090,7 +1236,7 @@ const LeadProfile = () => {
                         </button>
                         <button
                             type="button"
-                            onClick={handleDeleteLead}
+                            onClick={openDeleteLeadConfirm}
                             disabled={deletingLead}
                             style={{
                                 padding: '8px 16px',
@@ -1127,13 +1273,13 @@ const LeadProfile = () => {
                         className="note-area"
                         rows={3}
                     />
-                    <button className="btn-primary note-send-btn" onClick={addNote} disabled={!note.trim()}>
-                        <Send size={16} /> Salvar
+                    <button type="button" className="btn-primary note-send-btn" onClick={() => void addNote()} disabled={!note.trim() || addingNote}>
+                        <Send size={16} /> {addingNote ? 'Adicionando…' : 'Salvar'}
                     </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                    <button className="tpl-chip" onClick={() => addNoteQuick('WhatsApp enviado')}>WhatsApp enviado</button>
-                    <button className="tpl-chip" onClick={() => addNoteQuick('Proposta enviada')}>Proposta enviada</button>
+                    <button type="button" className="tpl-chip" onClick={() => void addNoteQuick('WhatsApp enviado')}>WhatsApp enviado</button>
+                    <button type="button" className="tpl-chip" onClick={() => void addNoteQuick('Proposta enviada')}>Proposta enviada</button>
                 </div>
                 <div className="filter-strip mt-3" style={{ maxWidth: '100%' }}>
                     <button type="button" className={`filter-pill${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
@@ -1146,40 +1292,107 @@ const LeadProfile = () => {
                     <button type="button" className={`filter-pill${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
                 </div>
 
-                <div className="flex-col gap-2 mt-3">
-                    {([...(timelineEvents || [])]
-                      .filter(ev => eventTypeFilter === 'all' ? true : (ev.type || 'note') === eventTypeFilter)
-                      .sort((a,b) => {
-                        const ta = new Date(a.at || a.date || 0).getTime();
-                        const tb = new Date(b.at || b.date || 0).getTime();
-                        return tb - ta;
-                      })).map((n, i) => {
-                        const when = new Date(n.at || n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                        let icon = null;
-                        let tag = '';
-                        let label = n.text || '';
-                        if ((n.type || 'note') === 'message') { icon = <MessageCircle size={16} color="#25D366" />; tag = 'Mensagem'; label = n.text || 'Mensagem WhatsApp'; }
-                        else if (n.type === 'call') { icon = <Phone size={16} color="var(--accent)" />; tag = 'Ligação'; label = n.text || 'Ligação'; }
-                        else if (n.type === 'schedule') { icon = <Calendar size={16} color="var(--warning)" />; tag = 'Agendamento'; label = `Agendado para ${n.date} ${n.time || ''}`.trim(); }
-                        else if (n.type === 'stage_change') { icon = <ArrowRight size={16} color="var(--text-secondary)" />; tag = 'Mudança'; label = `Mudou de ${n.from} para ${n.to}`; }
-                        else if (n.type === 'pipeline_change') { icon = <ChevronRight size={16} color="var(--text-secondary)" />; tag = 'Pipeline'; label = `Pipeline: de ${n.from} para ${n.to}`; }
-                        else if (n.type === 'import') { icon = <Copy size={16} color="var(--text-secondary)" />; tag = 'Importação'; label = `Importado (${n.source || 'Import'})`; }
-                        else { icon = <Check size={16} color="var(--text-secondary)" />; tag = 'Nota'; }
-                        return (
-                            <div key={i} className="card note-item event-row">
-                                <div className="event-icon">{icon}</div>
-                                <div className="event-content">
-                                    <div className="event-head">
-                                        <span className="event-tag">{tag}</span>
-                                        <span className="event-time navi-mono-date">{when}</span>
+                {timelineError ? (
+                    <div className="timeline-error-banner mt-3" role="alert">
+                        <span>Não foi possível carregar o histórico.</span>
+                        <button type="button" className="btn-outline timeline-error-retry" onClick={() => void refreshTimeline()}>
+                            Tentar novamente
+                        </button>
+                    </div>
+                ) : null}
+
+                {!timelineError && filteredTimelineEvents.length === 0 ? (
+                    <div className="timeline-empty-state mt-3">
+                        <p style={{ margin: 0 }}>
+                            {eventTypeFilter === 'all'
+                                ? 'Nenhum evento registrado ainda.'
+                                : 'Nenhum evento neste filtro.'}
+                        </p>
+                        {eventTypeFilter !== 'all' ? (
+                            <button type="button" className="btn-outline timeline-empty-clear" onClick={() => setEventTypeFilter('all')}>
+                                Limpar filtro
+                            </button>
+                        ) : null}
+                    </div>
+                ) : null}
+
+                {!timelineError && filteredTimelineEvents.length > 0 ? (
+                    <div className="flex-col gap-2 mt-3">
+                        {filteredTimelineEvents.map((n, i) => {
+                            const when = new Date(n.at || n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                            const type = n.type || 'note';
+                            const tag = TIMELINE_EVENT_LABELS[type] ?? type;
+                            let icon = null;
+                            let label = n.text || '';
+                            if (type === 'message') {
+                                icon = <MessageCircle size={16} color="#25D366" />;
+                                label = n.text || TIMELINE_EVENT_LABELS.message;
+                            } else if (type === 'call') {
+                                icon = <Phone size={16} color="var(--accent)" />;
+                                label = n.text || TIMELINE_EVENT_LABELS.call;
+                            } else if (type === 'schedule') {
+                                icon = <Calendar size={16} color="var(--warning)" />;
+                                label = `Agendado para ${n.date} ${n.time || ''}`.trim();
+                            } else if (type === 'stage_change') {
+                                icon = <ArrowRight size={16} color="var(--text-secondary)" />;
+                                label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
+                            } else if (type === 'pipeline_change') {
+                                icon = <ChevronRight size={16} color="var(--text-secondary)" />;
+                                label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
+                            } else if (type === 'import') {
+                                icon = <Copy size={16} color="var(--text-secondary)" />;
+                                label = `Importado (${n.source || 'Import'})`;
+                            } else {
+                                icon = <Check size={16} color="var(--text-secondary)" />;
+                                label = n.text || TIMELINE_EVENT_LABELS.note;
+                            }
+                            return (
+                                <div key={i} className="card note-item event-row">
+                                    <div className="event-icon">{icon}</div>
+                                    <div className="event-content">
+                                        <div className="event-head">
+                                            <span className="event-tag">{tag}</span>
+                                            <span className="event-time navi-mono-date">{when}</span>
+                                        </div>
+                                        <p className="event-text">{label}</p>
                                     </div>
-                                    <p className="event-text">{label}</p>
                                 </div>
-                            </div>
-                        );
-                      })}
-                </div>
+                            );
+                        })}
+                    </div>
+                ) : null}
             </div>
+
+            {confirmModal ? (
+                <div
+                    className="dashboard-confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="lead-profile-confirm-title"
+                    onClick={() => (confirmBusy ? undefined : setConfirmModal(null))}
+                >
+                    <div className="dashboard-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="dashboard-confirm-icon-wrap">
+                            <AlertTriangle size={28} color="var(--danger)" aria-hidden />
+                        </div>
+                        <h3 id="lead-profile-confirm-title" className="navi-section-heading">{confirmModal.title}</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 10, lineHeight: 1.45 }}>{confirmModal.description}</p>
+                        <div className="dashboard-confirm-actions">
+                            <button type="button" className="btn-outline" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))} disabled={confirmBusy}>
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className={confirmModal.danger ? 'btn-danger' : 'btn-secondary'}
+                                onClick={() => void runConfirmModalAction()}
+                                disabled={confirmBusy}
+                            >
+                                {confirmBusy ? 'Aguarde…' : confirmModal.confirmLabel}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
 
             <MatriculaModal
                 isOpen={matriculaModalOpen}
@@ -1207,6 +1420,86 @@ const LeadProfile = () => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
+        @keyframes leadProfileSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+        .lead-profile-skeleton-bar {
+          border-radius: 10px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: leadProfileSk 1.2s ease-in-out infinite;
+        }
+        .lead-profile-skeleton-bar--title { width: 55%; max-width: 240px; height: 22px; }
+        .lead-profile-skeleton-bar--line { margin-top: 14px; width: 100%; height: 14px; }
+        .lead-profile-skeleton-bar--line.short { width: 72%; }
+        .lead-profile-skeleton-card {
+          border-radius: var(--radius);
+          border: 1px solid var(--border);
+          background: var(--surface);
+          padding: 20px 18px;
+        }
+        .timeline-error-banner {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+          padding: 12px 14px; border-radius: 10px;
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.35);
+          color: var(--text);
+          font-size: 0.9rem;
+        }
+        .timeline-error-retry { font-size: 0.85rem; padding: 8px 14px; min-height: 40px; }
+        .timeline-empty-state {
+          padding: 16px 14px; border-radius: 10px;
+          border: 1px dashed var(--border);
+          background: var(--surface-hover);
+          color: var(--text-secondary);
+          font-size: 0.9rem;
+          display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+        }
+        .timeline-empty-clear { font-size: 0.85rem; padding: 8px 14px; min-height: 40px; }
+        .dashboard-confirm-overlay {
+          position: fixed; inset: 0; z-index: 400;
+          background: rgba(18, 16, 42, 0.5);
+          backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center;
+          padding: 20px;
+        }
+        .dashboard-confirm-modal {
+          background: var(--surface);
+          border-radius: var(--radius);
+          padding: 24px;
+          width: 100%;
+          max-width: 380px;
+          text-align: center;
+          border: 0.5px solid var(--border-violet);
+          box-shadow: var(--shadow-lg);
+        }
+        .dashboard-confirm-icon-wrap {
+          width: 56px; height: 56px; border-radius: 50%;
+          background: var(--danger-light);
+          margin: 0 auto 16px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .dashboard-confirm-actions {
+          display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;
+        }
+        .dashboard-confirm-actions .btn-outline,
+        .dashboard-confirm-actions .btn-danger,
+        .dashboard-confirm-actions .btn-secondary {
+          flex: 1;
+          min-width: 120px;
+        }
+        .dashboard-confirm-overlay .btn-danger {
+          background: var(--danger);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-sm);
+          font-weight: 700;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .dashboard-confirm-overlay .btn-danger:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
         .lead-profile-inner {
           max-width: min(100%, 42rem);
           margin-left: auto;
@@ -1280,6 +1573,7 @@ const LeadProfile = () => {
         }
         .action-btn span { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
         .action-btn:active { transform: scale(0.95); }
+        .action-btn:disabled { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
         .action-highlight { border-color: var(--accent); background: var(--accent-light); }
         .action-highlight span { color: var(--accent); }
 
@@ -1297,9 +1591,10 @@ const LeadProfile = () => {
         .note-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .note-item { border-left: 3px solid var(--border); padding: 12px 16px; }
         .tpl-chip {
-          min-height: 28px; padding: 6px 12px; border-radius: var(--radius-full);
+          min-height: 44px; padding-inline: 12px; padding-block: 6px; border-radius: var(--radius-full);
           background: var(--surface); border: 1px solid var(--border);
           font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
+          display: flex; align-items: center;
         }
         .tpl-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
         .event-row { display: flex; gap: 10px; align-items: flex-start; }

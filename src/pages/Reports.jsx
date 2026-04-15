@@ -85,7 +85,7 @@ const leadToCsvRow = (l) => ({
     criado_em: l.createdAt ? new Date(l.createdAt).toISOString() : '',
 });
 
-const Card = ({ title, value, variation, icon, color, onClick, disabled }) => {
+const Card = ({ title, value, variation, icon, color, onClick, disabled, trendHint }) => {
     const isUp = typeof variation === 'number' ? variation >= 0 : true;
     const clickable = Boolean(onClick) && !disabled;
     const safeColor = ['accent', 'warning', 'success', 'danger', 'purple'].includes(color) ? color : 'accent';
@@ -120,7 +120,9 @@ const Card = ({ title, value, variation, icon, color, onClick, disabled }) => {
                         {isUp && variation > 0 ? '+' : ''}
                         {variation}%
                     </span>
-                    <span className="reports-kpi-trend-hint">vs. período anterior</span>
+                    <span className="reports-kpi-trend-hint" title={trendHint || undefined}>
+                        vs. período anterior
+                    </span>
                 </div>
             )}
             {clickable ? <span className="reports-kpi-cta">Ver lista</span> : null}
@@ -134,6 +136,7 @@ const DRILL_LABELS = {
     newLeads: 'Novos leads no período',
     scheduled: 'Aulas agendadas no período',
     showed: 'Compareceram (registrado no período)',
+    completed: 'Compareceram (registrado no período)',
     missed: 'Não compareceram (registrado no período)',
     converted: 'Matrículas no período',
 };
@@ -143,9 +146,26 @@ const DRILL_PANEL_ACCENT = {
     newLeads: 'accent',
     scheduled: 'warning',
     showed: 'success',
+    completed: 'success',
     missed: 'danger',
     converted: 'purple',
 };
+
+function trendHintFor(metricKey, presetKey) {
+    if (metricKey === 'conversionRate') {
+        return 'Taxa do período atual vs período anterior (mesma duração).';
+    }
+    if (presetKey === 'today') {
+        return 'Comparado com o dia anterior.';
+    }
+    if (presetKey === 'week') {
+        return 'Comparado com a semana anterior (mesma duração).';
+    }
+    if (presetKey === 'month' || presetKey === 'last_month') {
+        return 'Comparado com o mês civil anterior.';
+    }
+    return 'Comparado com o intervalo imediatamente anterior de mesma duração.';
+}
 
 const pctVar = (cur, prev) => {
     if (prev === 0) return cur > 0 ? 100 : 0;
@@ -173,10 +193,20 @@ const Reports = () => {
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [dateError, setDateError] = useState(null);
+    const [chartHeight, setChartHeight] = useState(() =>
+        typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 260
+    );
     const academyId = useLeadStore((s) => s.academyId);
 
     const showInitialLoad = loading && !reportData;
     const showRefreshing = loading && reportData;
+
+    useEffect(() => {
+        const onResize = () => setChartHeight(window.innerWidth < 640 ? 200 : 260);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     useEffect(() => {
         if (!exportOpen) return;
@@ -203,6 +233,16 @@ const Reports = () => {
 
     const fetchReport = async () => {
         if (!academyId) return;
+        if (preset === 'custom') {
+            const fa = parseYMD(range.from);
+            const ta = parseYMD(range.to);
+            if (fa && ta && fa.getTime() > ta.getTime()) {
+                setDateError('A data inicial deve ser anterior à data final.');
+                setError(null);
+                return;
+            }
+        }
+        setDateError(null);
         setLoading(true);
         setError(null);
 
@@ -276,6 +316,7 @@ const Reports = () => {
             setReportData(data);
         } catch (e) {
             setError('Não foi possível carregar o relatório. Tente novamente.');
+            setReportData(null);
             console.error(e);
         } finally {
             setLoading(false);
@@ -283,8 +324,8 @@ const Reports = () => {
     };
 
     useEffect(() => {
-        fetchReport();
-    }, [range, originFilter, profileFilter, chartMode, academyId]);
+        void fetchReport();
+    }, [range, originFilter, profileFilter, chartMode, academyId, preset]);
 
     const rangeSlug = `${range.from}_${range.to}`;
 
@@ -324,18 +365,47 @@ const Reports = () => {
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <div>
                     <h1 className="navi-page-title">Relatórios</h1>
-                    <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-                        Indicadores por período · {range.from} — {range.to}
+                    <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6 }}>
+                        <span>
+                            Indicadores por período · {range.from} — {range.to}
+                        </span>
+                        {leadsHasMore ? (
+                            <>
+                                <span
+                                    className="reports-partial-badge"
+                                    title="Relatório pode refletir só os registros já carregados no app. Atualize a lista ou carregue mais na base de leads para aproximar o total."
+                                >
+                                    Parcial
+                                </span>
+                                <span className="reports-partial-inline-actions">
+                                    <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleRefreshList()} disabled={listRefreshing || leadsLoading}>
+                                        <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'reports-spin' : ''} aria-hidden />
+                                        Atualizar lista
+                                    </button>
+                                    <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleLoadMore()} disabled={loadingMore || leadsLoading}>
+                                        {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                                    </button>
+                                </span>
+                            </>
+                        ) : null}
                     </p>
                 </div>
                 <div className="reports-export-wrap" ref={exportWrapRef}>
                     <button
                         type="button"
                         className="btn-secondary reports-export-btn"
-                        onClick={() => !showInitialLoad && setExportOpen((o) => !o)}
+                        onClick={() => !showInitialLoad && reportHasActivity && !error && setExportOpen((o) => !o)}
                         aria-expanded={exportOpen}
-                        disabled={!reportData || loading}
-                        title={!reportData ? 'Aguarde o carregamento dos dados' : undefined}
+                        disabled={!reportData || loading || !reportHasActivity || Boolean(error)}
+                        title={
+                            error
+                                ? 'Corrija o carregamento do relatório antes de exportar.'
+                                : !reportData || loading
+                                    ? 'Aguarde o carregamento dos dados'
+                                    : !reportHasActivity
+                                        ? 'Sem dados para exportar neste período'
+                                        : 'Exportar relatório em CSV'
+                        }
                     >
                         {loading ? 'Carregando...' : (
                             <>
@@ -374,65 +444,23 @@ const Reports = () => {
                 </div>
             ) : null}
 
+            {error ? (
+                <div className="reports-error-banner mt-3" role="alert">
+                    <span>{error}</span>
+                    <button type="button" className="btn-secondary" onClick={() => void fetchReport()}>
+                        Tentar novamente
+                    </button>
+                </div>
+            ) : null}
+
             {showInitialLoad ? (
-                <div className="reports-loading-card card mt-4" role="status" aria-live="polite" aria-busy="true">
-                    <Loader2 size={36} className="reports-loading-spinner" aria-hidden />
-                    <p className="navi-section-heading" style={{ margin: '12px 0 6px' }}>
-                        Carregando leads
-                    </p>
-                    <p className="text-small" style={{ color: 'var(--text-muted)', margin: 0 }}>
-                        Buscando informações para montar os indicadores. Isso costuma levar poucos segundos.
-                    </p>
+                <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="reports-kpi-card reports-kpi-skeleton" style={{ minHeight: 100 }} />
+                    ))}
                 </div>
             ) : null}
 
-            {!showInitialLoad && leadsHasMore ? (
-                <div className="reports-partial-banner mt-3">
-                    <p>
-                        <strong>Lista parcial:</strong> há mais registros no servidor. Os números refletem só os leads já carregados. Atualize ou carregue mais para
-                        aproximar o total.
-                    </p>
-                    <div className="reports-partial-actions">
-                        <button type="button" className="btn-outline reports-refresh-mini" onClick={handleRefreshList} disabled={listRefreshing || leadsLoading}>
-                            <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'reports-spin' : ''} aria-hidden />
-                            Atualizar lista
-                        </button>
-                        <button type="button" className="btn-outline reports-refresh-mini" onClick={handleLoadMore} disabled={loadingMore || leadsLoading}>
-                            {loadingMore ? 'Carregando…' : 'Carregar mais'}
-                        </button>
-                    </div>
-                </div>
-            ) : null}
-
-            {!showInitialLoad ? (
-            <details className="reports-methodology card mt-3">
-                <summary className="reports-methodology-summary">
-                    <Info size={16} aria-hidden />
-                    Como calculamos os indicadores
-                </summary>
-                <div className="reports-methodology-body text-small">
-                    <p>
-                        <strong>Novos leads:</strong> contagem por <code>criado em</code> dentro do período.
-                    </p>
-                    <p>
-                        <strong>Agendados:</strong> leads cuja <strong>data da aula experimental</strong> cai no período.
-                    </p>
-                    <p>
-                        <strong>Compareceu / Não compareceu / Matrícula:</strong> usamos eventos de mudança de status na linha do tempo do lead (e, quando existir,
-                        a data de mudança de status). Leads antigos sem histórico podem não entrar nessas métricas.
-                    </p>
-                    <p>
-                        <strong>Taxa de conversão:</strong> matrículas ÷ novos leads no mesmo período (pode passar de 100% se matrículas vierem de leads criados antes
-                        do período).
-                    </p>
-                    <p>
-                        <strong>Gráfico:</strong> barras usam o mesmo período selecionado acima, agrupado por semana ou mês.
-                    </p>
-                </div>
-            </details>
-            ) : null}
-
-            {!showInitialLoad ? (
             <div className="card reports-filters-card mt-4" style={{ padding: 16 }}>
                 <div className="filters-row">
                     <Calendar size={16} aria-hidden />
@@ -449,10 +477,13 @@ const Reports = () => {
                         ))}
                     </div>
                     {preset === 'custom' && (
-                        <div className="custom-range">
-                            <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" />
-                            <span>até</span>
-                            <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
+                        <div className="custom-range-wrap">
+                            <div className="custom-range">
+                                <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" />
+                                <span>até</span>
+                                <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
+                            </div>
+                            {dateError ? <span className="reports-field-error">{dateError}</span> : null}
                         </div>
                     )}
                 </div>
@@ -479,9 +510,8 @@ const Reports = () => {
                     </label>
                 </div>
             </div>
-            ) : null}
 
-            {!showInitialLoad && leads.length === 0 && !leadsLoading ? (
+            {!error && !showInitialLoad && leads.length === 0 && !leadsLoading ? (
                 <div className="reports-empty card mt-4">
                     <p className="navi-section-heading" style={{ marginBottom: 8 }}>
                         Nenhum lead carregado
@@ -490,7 +520,7 @@ const Reports = () => {
                         Volte ao início ou ao funil e aguarde o carregamento. Se a academia ainda não tiver leads, cadastre o primeiro no menu.
                     </p>
                 </div>
-            ) : !showInitialLoad && !reportHasActivity ? (
+            ) : !error && !showInitialLoad && !reportHasActivity ? (
                 <div className="reports-empty card mt-4">
                     <p className="navi-section-heading" style={{ marginBottom: 8 }}>
                         Sem atividade neste período
@@ -501,7 +531,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {!showInitialLoad && reportData?.metrics ? (
+            {!error && !showInitialLoad && reportData?.metrics ? (
             <div className="reports-kpi-grid mt-4 animate-in">
                 <Card
                     title="Novos leads"
@@ -509,6 +539,7 @@ const Reports = () => {
                     variation={reportData.metrics.newLeads.var || reportData.metrics.newLeads.variation || pctVar(reportData.metrics.newLeads.current, reportData.metrics.newLeads.previous)}
                     icon={<UserPlus size={18} color="var(--v500)" strokeWidth={2} />}
                     color="accent"
+                    trendHint={trendHintFor('newLeads', preset)}
                     onClick={() => setDrillKey('newLeads')}
                 />
                 <Card
@@ -517,6 +548,7 @@ const Reports = () => {
                     variation={reportData.metrics.scheduled.var || reportData.metrics.scheduled.variation || pctVar(reportData.metrics.scheduled.current, reportData.metrics.scheduled.previous)}
                     icon={<Calendar size={18} color="var(--warn-text)" strokeWidth={2} />}
                     color="warning"
+                    trendHint={trendHintFor('scheduled', preset)}
                     onClick={() => setDrillKey('scheduled')}
                 />
                 <Card
@@ -525,6 +557,7 @@ const Reports = () => {
                     variation={reportData.metrics.completed ? pctVar(reportData.metrics.completed.current, reportData.metrics.completed.previous) : (reportData.metrics.showed?.var || reportData.metrics.showed?.variation)}
                     icon={<CheckCircle2 size={18} color="var(--success-dot)" strokeWidth={2} />}
                     color="success"
+                    trendHint={trendHintFor('completed', preset)}
                     onClick={() => setDrillKey('completed')}
                 />
                 <Card
@@ -533,6 +566,7 @@ const Reports = () => {
                     variation={reportData.metrics.missed.var || reportData.metrics.missed.variation || pctVar(reportData.metrics.missed.current, reportData.metrics.missed.previous)}
                     icon={<XCircle size={18} color="var(--danger)" strokeWidth={2} />}
                     color="danger"
+                    trendHint={trendHintFor('missed', preset)}
                     onClick={() => setDrillKey('missed')}
                 />
                 <Card
@@ -541,13 +575,21 @@ const Reports = () => {
                     variation={reportData.metrics.converted.var || reportData.metrics.converted.variation || pctVar(reportData.metrics.converted.current, reportData.metrics.converted.previous)}
                     icon={<Users size={18} color="var(--v700)" strokeWidth={2} />}
                     color="purple"
+                    trendHint={trendHintFor('converted', preset)}
                     onClick={() => setDrillKey('converted')}
                 />
-                <Card title="Taxa de conversão" value={`${reportData.metrics.conversionRate.current}%`} variation={reportData.metrics.conversionRate.var || reportData.metrics.conversionRate.variation || pctVar(reportData.metrics.conversionRate.current, reportData.metrics.conversionRate.previous)} icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />} color="accent" />
+                <Card
+                    title="Taxa de conversão"
+                    value={`${reportData.metrics.conversionRate.current}%`}
+                    variation={reportData.metrics.conversionRate.var || reportData.metrics.conversionRate.variation || pctVar(reportData.metrics.conversionRate.current, reportData.metrics.conversionRate.previous)}
+                    icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />}
+                    color="accent"
+                    trendHint={trendHintFor('conversionRate', preset)}
+                />
             </div>
             ) : null}
 
-            {!showInitialLoad && reportData?.chart ? (
+            {!error && !showInitialLoad && reportData?.chart ? (
             <div className="card reports-evo-card mt-4">
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução no período</h3>

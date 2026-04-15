@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
@@ -37,6 +37,7 @@ function formatDate(dateStr) {
 }
 
 const Students = () => {
+    const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
     const updateLead = useLeadStore((s) => s.updateLead);
     const addToast = useUiStore((s) => s.addToast);
@@ -44,6 +45,7 @@ const Students = () => {
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
+    const leadsError = useLeadStore((s) => s.leadsError);
     const [searchTerm, setSearchTerm] = useState('');
     const [filtroTipo, setFiltroTipo] = useState('Todos');
     const [filtroOrigem, setFiltroOrigem] = useState('Todas');
@@ -66,8 +68,14 @@ const Students = () => {
     }, []);
 
     const handlePanelSave = async (studentId, form) => {
-        await updateLead(studentId, form);
-        setSelectedStudent((prev) => (prev && prev.id === studentId ? { ...prev, ...form } : prev));
+        try {
+            await updateLead(studentId, form);
+            setSelectedStudent((prev) => (prev && prev.id === studentId ? { ...prev, ...form } : prev));
+            addToast({ type: 'success', message: 'Salvo com sucesso.' });
+        } catch {
+            addToast({ type: 'error', message: 'Erro ao salvar. Tente novamente.' });
+            throw new Error('SAVE_FAILED');
+        }
     };
 
     const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student');
@@ -156,16 +164,18 @@ const Students = () => {
         }
     };
 
+    /** Mesmo critério da lista na UI: matriculado (status) ou contact_type aluno. */
     const fetchAllStudents = async (academyId) => {
-        // According to user instruction, we only query status CONVERTED
-        // but we might want to include contact_type student if Appwrite supports it.
-        // We will just use the query user asked for.
-        const response = await databases.listDocuments(DB_ID, LEADS_COL, [
-            Query.equal('academyId', academyId),
-            Query.equal('status', LEAD_STATUS.CONVERTED),
-            Query.limit(5000)
+        const base = [Query.equal('academyId', academyId), Query.limit(5000)];
+        const [byStatus, byContact] = await Promise.all([
+            databases.listDocuments(DB_ID, LEADS_COL, [...base, Query.equal('status', LEAD_STATUS.CONVERTED)]),
+            databases.listDocuments(DB_ID, LEADS_COL, [...base, Query.equal('contact_type', 'student')]),
         ]);
-        return response.documents || [];
+        const map = new Map();
+        for (const d of [...(byStatus.documents || []), ...(byContact.documents || [])]) {
+            map.set(d.$id, d);
+        }
+        return [...map.values()];
     };
 
     const handleExportAll = async () => {
@@ -219,21 +229,23 @@ const Students = () => {
         : studentLabel;
     const pipelineName = labels.pipeline || 'Funil';
 
-    const exportTooltip = 'Exporta somente os alunos já carregados. Atualize a lista antes para exportar todos.';
+    // TODO: quando existir status inativo, adicionar filtro "Ativos/Inativos" aqui.
+    const exportTooltip =
+        'Exporta alunos com status Matriculado ou tipo de contato Aluno (mesmo critério da lista). Até 5000 por critério no servidor.';
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <header className="animate-in">
                 <div className="flex justify-between items-center flex-wrap gap-2">
                     <div>
-                        <h2 className="navi-page-title">{studentLabel} Ativos</h2>
+                        <h2 className="navi-page-title">{studentLabel}</h2>
                         <p className="navi-eyebrow" style={{ marginTop: 6 }}>
                             Total nesta lista:{' '}
                             <span className="navi-ui-count">{filteredStudents.length}</span>
                             {filtrosAtivos && students.length !== filteredStudents.length
                                 ? ` (de ${students.length})`
                                 : ''}
-                            {leadsHasMore ? ' (parcial — há mais leads no servidor)' : ''}
+                            {leadsHasMore ? ' (parcial — há mais alunos no servidor)' : ''}
                         </p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
@@ -252,6 +264,7 @@ const Students = () => {
                             className="export-btn"
                             onClick={handleExportAll}
                             disabled={exporting}
+                            title={exportTooltip}
                         >
                             <Download size={16} /> {exporting ? 'Exportando...' : 'Exportar'}
                         </button>
@@ -261,6 +274,15 @@ const Students = () => {
                     </div>
                 </div>
             </header>
+
+            {leadsError ? (
+                <div className="dashboard-error-banner mt-3" role="alert">
+                    <span>Não foi possível carregar os alunos.</span>
+                    <button type="button" className="btn-secondary" onClick={() => void fetchLeads({ reset: true })}>
+                        Tentar novamente
+                    </button>
+                </div>
+            ) : null}
 
             <div
                 className="students-split-wrap"
@@ -299,7 +321,7 @@ const Students = () => {
                     <Search size={18} className="search-icon" />
                     <input
                         type="text"
-                        placeholder="Buscar por nome ou celular..."
+                        placeholder="Buscar por nome, celular ou perfil..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="search-input"
@@ -371,7 +393,7 @@ const Students = () => {
                                         <button
                                             key={tipo}
                                             type="button"
-                                            className="students-tipo-chip"
+                                            className={`students-tipo-chip${filtroTipo === tipo ? ' students-tipo-chip--active' : ''}`}
                                             onClick={() => setFiltroTipo(tipo)}
                                         >
                                             <span>{tipo}</span>
@@ -392,7 +414,7 @@ const Students = () => {
                         onClick={handleLoadMore}
                         disabled={loadingMore || leadsLoading}
                     >
-                        {loadingMore ? 'Carregando…' : 'Carregar mais leads'}
+                        {loadingMore ? 'Carregando…' : 'Carregar mais alunos'}
                     </button>
                     <p className="text-xs text-light mt-1">
                         A lista de alunos usa os mesmos dados do servidor que o {pipelineName}. Carregue mais para incluir matriculados em registros antigos.
@@ -462,101 +484,20 @@ const Students = () => {
             })()}
 
             <div className="flex-col gap-2 mt-4">
-                {filteredStudents.length > 0 ? filteredStudents.map((student, i) => {
-                    const digits = normalizePhone(student.phone);
-                    return (
-                        <div
-                            key={student.id}
-                            className="card student-card animate-in"
-                            style={{ animationDelay: `${0.03 * i}s` }}
-                        >
-                            <div className="flex justify-between items-center">
-                                <div
-                                    className="student-card-main"
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            setSelectedStudent(student);
-                                        }
-                                    }}
-                                    onClick={() => setSelectedStudent(student)}
-                                    style={{
-                                        flex: 1,
-                                        minWidth: 0,
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                        border: 'none',
-                                        background: 'none',
-                                        padding: 0,
-                                        font: 'inherit',
-                                        color: 'inherit',
-                                    }}
-                                >
-                                    <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
-                                    <p className="text-small" style={{ margin: 0 }}>
-                                        {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
-                                    </p>
-                                    {(student.plan || student.enrollmentDate) && (
-                                        <div className="student-card-meta" style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                            {student.plan && (
-                                                <span className="student-meta-item">
-                                                    📋 {student.plan}
-                                                </span>
-                                            )}
-                                            {student.enrollmentDate && (
-                                                <span className="student-meta-item">
-                                                    📅 Desde {formatDate(student.enrollmentDate)}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {digits ? (
-                                        <Link
-                                            to={`/inbox?phone=${encodeURIComponent(digits)}`}
-                                            className="student-inbox-link"
-                                            draggable={false}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            Atendimento
-                                        </Link>
-                                    ) : null}
-                                    <button
-                                        type="button"
-                                        className="quick-action-btn"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.open(`https://wa.me/55${digits}`, '_blank');
-                                        }}
-                                        disabled={!digits}
-                                        title="WhatsApp"
-                                    >
-                                        <MessageCircle size={16} color="#25D366" />
-                                    </button>
-                                    <Link
-                                        to={`/lead/${student.id}`}
-                                        className="student-profile-chevron"
-                                        onClick={(e) => e.stopPropagation()}
-                                        title="Perfil completo"
-                                        aria-label="Abrir perfil completo"
-                                    >
-                                        <ChevronRight size={16} color="var(--text-muted)" />
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                }) : (
+                {leadsLoading && students.length === 0 ? (
+                    <div className="students-skeleton-list mt-4" role="status" aria-live="polite" aria-busy="true">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="card student-card students-skeleton-row" style={{ height: 72 }} />
+                        ))}
+                    </div>
+                ) : students.length === 0 ? (
                     <div
+                        className="card students-empty-root mt-4 animate-in"
                         style={{
                             textAlign: 'center',
                             padding: '48px 16px',
                             color: 'var(--text-muted)',
                         }}
-                        className="mt-4 animate-in"
                     >
                         {filtrosAtivos ? (
                             <>
@@ -579,9 +520,135 @@ const Students = () => {
                                 </button>
                             </>
                         ) : (
-                            <p>Nenhum {studentSingular.toLowerCase()} cadastrado ainda.</p>
+                            <>
+                                <p className="navi-section-heading" style={{ marginBottom: 8, color: 'var(--text)' }}>
+                                    Nenhum {studentSingular.toLowerCase()} matriculado ainda.
+                                </p>
+                                <p className="text-small" style={{ marginBottom: 20, lineHeight: 1.5, maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto' }}>
+                                    Matrículas são feitas pelo {pipelineName} — mova um contato para o status &quot;{LEAD_STATUS.CONVERTED}&quot;.
+                                </p>
+                                <button type="button" className="btn-primary" onClick={() => navigate('/pipeline')}>
+                                    Ir para o {pipelineName}
+                                </button>
+                            </>
                         )}
                     </div>
+                ) : filteredStudents.length === 0 ? (
+                    <div
+                        className="mt-4 animate-in"
+                        style={{
+                            textAlign: 'center',
+                            padding: '48px 16px',
+                            color: 'var(--text-muted)',
+                        }}
+                    >
+                        <p style={{ marginBottom: 12 }}>
+                            Nenhum {studentSingular.toLowerCase()} encontrado com esses filtros.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={limparFiltros}
+                            style={{
+                                color: 'var(--purple)',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: 14,
+                                textDecoration: 'underline',
+                            }}
+                        >
+                            Limpar filtros
+                        </button>
+                    </div>
+                ) : (
+                    filteredStudents.map((student, i) => {
+                        const digits = normalizePhone(student.phone);
+                        return (
+                            <div
+                                key={student.id}
+                                className="card student-card animate-in"
+                                style={{ animationDelay: `${0.03 * i}s` }}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <div
+                                        className="student-card-main"
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                setSelectedStudent(student);
+                                            }
+                                        }}
+                                        onClick={() => setSelectedStudent(student)}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: 0,
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            border: 'none',
+                                            background: 'none',
+                                            padding: 0,
+                                            font: 'inherit',
+                                            color: 'inherit',
+                                        }}
+                                    >
+                                        <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
+                                        <p className="text-small" style={{ margin: 0 }}>
+                                            {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
+                                        </p>
+                                        {(student.plan || student.enrollmentDate) && (
+                                            <div className="student-card-meta" style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                {student.plan && (
+                                                    <span className="student-meta-item">
+                                                        📋 {student.plan}
+                                                    </span>
+                                                )}
+                                                {student.enrollmentDate && (
+                                                    <span className="student-meta-item">
+                                                        📅 Desde {formatDate(student.enrollmentDate)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 student-card-actions">
+                                        {digits ? (
+                                            <Link
+                                                to={`/inbox?phone=${encodeURIComponent(digits)}`}
+                                                className="student-inbox-link students-touch-hit"
+                                                draggable={false}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                Atendimento
+                                            </Link>
+                                        ) : null}
+                                        <button
+                                            type="button"
+                                            className="quick-action-btn students-touch-hit"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                window.open(`https://wa.me/55${digits}`, '_blank');
+                                            }}
+                                            disabled={!digits}
+                                            title="WhatsApp"
+                                        >
+                                            <MessageCircle size={16} color="#25D366" />
+                                        </button>
+                                        <Link
+                                            to={`/lead/${student.id}`}
+                                            className="student-profile-chevron students-touch-hit"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title="Perfil completo"
+                                            aria-label="Abrir perfil completo"
+                                        >
+                                            <ChevronRight size={16} color="var(--text-muted)" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
                 )}
             </div>
 
@@ -637,6 +704,24 @@ const Students = () => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
+        @keyframes studentsSkeletonShimmer {
+          from { background-position: 200% 0; }
+          to { background-position: -200% 0; }
+        }
+        .dashboard-error-banner {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+          padding: 12px 14px; border-radius: 10px;
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.35);
+          color: var(--text);
+          font-size: 0.9rem;
+        }
+        .students-skeleton-row {
+          border-left: 4px solid var(--border);
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: studentsSkeletonShimmer 1.2s ease-in-out infinite;
+        }
         .search-wrapper { position: relative; }
         .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
         .search-input { 
@@ -791,6 +876,16 @@ const Students = () => {
           color: var(--accent);
           background: var(--accent-light);
         }
+        .students-tipo-chip--active {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+        }
+        .students-tipo-chip--active .students-tipo-chip-count {
+          background: rgba(255,255,255,0.2);
+          border-color: rgba(255,255,255,0.35);
+          color: #fff;
+        }
         .student-card { 
           padding: 16px 16px; 
           border-left: 4px solid var(--purple); 
@@ -801,8 +896,6 @@ const Students = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
           border-radius: 50%;
           color: var(--text-muted);
         }
@@ -812,9 +905,24 @@ const Students = () => {
           text-decoration: none; margin-right: 2px;
         }
         .student-inbox-link:hover { text-decoration: underline; }
-        .quick-action-btn { 
-          width: 36px; height: 36px; border-radius: 50%; 
-          background: var(--border-light); padding: 0; min-height: auto;
+        .student-card .students-touch-hit {
+          min-width: 44px;
+          min-height: 44px;
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .student-card .student-inbox-link.students-touch-hit {
+          padding: 0 10px;
+          border-radius: 10px;
+        }
+        .student-card .student-profile-chevron.students-touch-hit {
+          border-radius: 12px;
+        }
+        .quick-action-btn {
+          border-radius: 50%;
+          background: var(--border-light); padding: 0;
           display: flex; align-items: center; justify-content: center;
         }
         .quick-action-btn:hover:not(:disabled) { background: var(--border); }

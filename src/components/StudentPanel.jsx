@@ -75,6 +75,8 @@ export function StudentPanel({ student, onClose, onSave }) {
             setForm(next);
             setEditingKey(null);
             setDraft('');
+        } catch {
+            // Feedback de erro fica a cargo do pai (ex.: toast em Students).
         } finally {
             setSavingKey(null);
         }

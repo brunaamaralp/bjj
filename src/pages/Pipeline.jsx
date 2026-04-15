@@ -11,6 +11,7 @@ import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const normalizeDayToken = (t) => t.toLowerCase().trim().replace(/á/g, 'a').slice(0, 3);
@@ -96,7 +97,7 @@ const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Pl
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead } = useLeadStore();
+    const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead, fetchLeads } = useLeadStore();
     const labels = useLeadStore((s) => s.labels);
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -166,6 +167,17 @@ const Pipeline = () => {
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        if (!academyId) return;
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                void fetchLeads({ reset: true });
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [academyId, fetchLeads]);
 
     const handleSearch = async (term) => {
         setKanbanSearch(term);
@@ -540,9 +552,11 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            await updateLead(leadId, { pipelineStage: stageId });
+            const payload = getStageUpdatePayload(stageId);
+            await updateLead(leadId, payload);
         } catch {
-            await updateLead(leadId, { pipelineStage: stageId });
+            const payload = getStageUpdatePayload(stageId);
+            await updateLead(leadId, payload);
         }
         setMoverOpenId(null);
         setToast('Movido no pipeline');
@@ -575,11 +589,27 @@ const Pipeline = () => {
         if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
         if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
 
+        const stageFromStatusOnly = (l) => {
+            const hasDirect = stages.find((s) => s.id === l.status);
+            if (hasDirect) return l.status;
+            const s = (l.status || '').toLowerCase();
+            if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
+            if (s.includes('agendado')) return 'Aula experimental';
+            if (s.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
+            if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
+            if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
+            if (s.includes('matricul')) return 'Matriculado';
+            return 'Novo';
+        };
+
         let stage = lead?.pipelineStage ? String(lead.pipelineStage).trim() : '';
         if (stage === 'Contato feito') stage = 'Novo';
         if (stage === 'Negociação') stage = 'Matriculado';
 
         if (stage) {
+            if (stage === 'Aula experimental' && lead.status !== LEAD_STATUS.SCHEDULED) {
+                return stageFromStatusOnly(lead);
+            }
             const known = stages.some((col) => col.id === stage);
             if (known) return stage;
             const st = (lead.status || '').toLowerCase();
@@ -589,16 +619,7 @@ const Pipeline = () => {
             return 'Novo';
         }
 
-        const hasDirect = stages.find(s => s.id === lead.status);
-        if (hasDirect) return lead.status;
-        const s = (lead.status || '').toLowerCase();
-        if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
-        if (s.includes('agendado')) return 'Aula experimental';
-        if (s.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
-        if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
-        if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
-        if (s.includes('matricul')) return 'Matriculado';
-        return 'Novo';
+        return stageFromStatusOnly(lead);
     }, [stages]);
 
     const filterByDate = useCallback((lead) => {
@@ -630,6 +651,9 @@ const Pipeline = () => {
         if (to && dateRef > to) return false;
         return true;
     }, [filterDateFrom, filterDateTo, quickFilter]);
+
+    /** Primeira carga: evita colunas vazias sem feedback até o fetch do Appwrite. */
+    const showKanbanInitialLoading = Boolean(leadsLoading && (!Array.isArray(leads) || leads.length === 0));
 
     const leadsForBoard = useMemo(() => {
         let list = leads
@@ -754,9 +778,11 @@ const Pipeline = () => {
                     createdBy: userId || 'user',
                     permissionContext: permCtx
                 });
-                await updateLead(id, { pipelineStage: status });
+                const payload = getStageUpdatePayload(status);
+                await updateLead(id, payload);
             } catch {
-                await updateLead(id, { pipelineStage: status });
+                const payload = getStageUpdatePayload(status);
+                await updateLead(id, payload);
             }
         }
         setDragOver(null);
@@ -950,13 +976,41 @@ const Pipeline = () => {
                 )}
             </div>
 
+            {showKanbanInitialLoading ? (
+                <div className="pipeline-kanban-loading-hint" role="status">
+                    Carregando leads do funil…
+                </div>
+            ) : null}
+
             <div
                 ref={kanbanWrapperRef}
                 className="kanban-wrapper"
-                onDragOverCapture={onKanbanWrapperDragOverCapture}
+                onDragOverCapture={showKanbanInitialLoading ? undefined : onKanbanWrapperDragOverCapture}
+                aria-busy={showKanbanInitialLoading || undefined}
+                aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
             >
                 {stages.map((col, idx) => {
                     const color = STAGE_COLORS[idx % STAGE_COLORS.length];
+                    if (showKanbanInitialLoading) {
+                        return (
+                            <div key={col.id} className="kanban-column pipeline-kanban-skeleton-col">
+                                <div className="col-header">
+                                    <div className="col-header-titles">
+                                        <div className="flex items-center gap-2">
+                                            <span className="col-dot" style={{ background: color.color }} />
+                                            <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
+                                        </div>
+                                    </div>
+                                    <span className="pipeline-kanban-skeleton-count" aria-hidden />
+                                </div>
+                                <div className="col-content">
+                                    <div className="pipeline-kanban-skeleton-card" />
+                                    <div className="pipeline-kanban-skeleton-card pipeline-kanban-skeleton-card--short" />
+                                    <div className="pipeline-kanban-skeleton-card" />
+                                </div>
+                            </div>
+                        );
+                    }
                     const colLeads = leadsForBoard
                       .filter(l => mapLeadToStageId(l) === col.id)
                       .filter(l => originFilter === 'all' ? true : (l.origin || '') === originFilter)
@@ -1406,6 +1460,12 @@ const Pipeline = () => {
           .filters { width: 100%; margin-right: 0; }
           .header-right { width: 100%; justify-content: flex-start; }
         }
+        .pipeline-kanban-loading-hint {
+          padding: 8px 16px 0;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--text-secondary);
+        }
         .kanban-wrapper { 
           display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 10px 12px 0; flex: 1 1 0;
           min-height: 0;
@@ -1442,6 +1502,39 @@ const Pipeline = () => {
           padding-bottom: 12px;
           border-radius: var(--radius-sm);
           transition: background 0.12s ease, outline 0.12s ease;
+        }
+        .pipeline-kanban-skeleton-col {
+          pointer-events: none;
+          opacity: 0.92;
+        }
+        .pipeline-kanban-skeleton-count {
+          display: inline-block;
+          min-width: 28px;
+          height: 22px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.14) 25%, rgba(148,163,184,0.28) 50%, rgba(148,163,184,0.14) 75%);
+          background-size: 200% 100%;
+          animation: pipelineKanbanSk 1.15s ease-in-out infinite;
+        }
+        .pipeline-kanban-skeleton-card {
+          height: 88px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border-light);
+          background: linear-gradient(90deg, rgba(148,163,184,0.1) 25%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.1) 75%);
+          background-size: 200% 100%;
+          animation: pipelineKanbanSk 1.15s ease-in-out infinite;
+        }
+        .pipeline-kanban-skeleton-card--short { height: 72px; }
+        @keyframes pipelineKanbanSk {
+          from { background-position: 200% 0; }
+          to { background-position: -200% 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pipeline-kanban-skeleton-count,
+          .pipeline-kanban-skeleton-card {
+            animation: none;
+            background: rgba(148,163,184,0.16);
+          }
         }
         .col-header { 
           display: flex; justify-content: space-between; align-items: flex-start; 

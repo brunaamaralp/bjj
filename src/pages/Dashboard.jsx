@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
-import { account, databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2, AlertTriangle } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
+import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -33,7 +34,7 @@ const nextQuarterTime = () => {
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { leads, loading, fetchLeads, academyId } = useLeadStore();
+    const { leads, loading, fetchLeads, academyId, leadsError } = useLeadStore();
     const addToast = useUiStore((s) => s.addToast);
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -43,13 +44,15 @@ const Dashboard = () => {
     const [editTime, setEditTime] = useState('');
     const [editStatus, setEditStatus] = useState(LEAD_STATUS.SCHEDULED);
 
-    const [metrics, setMetrics] = useState({ newLeads: { current: 0, previous: 0 }, scheduled: { current: 0, previous: 0 }, converted: { current: 0, previous: 0 } });
-    const [loadingMetrics, setLoadingMetrics] = useState(false);
     const [academyWa, setAcademyWa] = useState({
         name: '',
         zapster_instance_id: '',
         templates: DEFAULT_WHATSAPP_TEMPLATES
     });
+    const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
+    const [confirmModal, setConfirmModal] = useState(null);
+    const [confirmBusy, setConfirmBusy] = useState(false);
+    const [savingPresence, setSavingPresence] = useState({});
 
     useEffect(() => {
         if (academyId) {
@@ -59,7 +62,19 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (!academyId) return;
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                void fetchLeads({ reset: true });
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [academyId, fetchLeads]);
+
+    useEffect(() => {
+        if (!academyId) return;
         let cancelled = false;
+        setAcademyWaLoadFailed(false);
         databases
             .getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then((doc) => {
@@ -72,6 +87,7 @@ const Dashboard = () => {
                 } catch {
                     parsed = {};
                 }
+                setAcademyWaLoadFailed(false);
                 setAcademyWa({
                     name: String(doc?.name || '').trim(),
                     zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
@@ -80,84 +96,13 @@ const Dashboard = () => {
             })
             .catch(() => {
                 if (!cancelled) {
+                    setAcademyWaLoadFailed(true);
                     setAcademyWa({ name: '', zapster_instance_id: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
                 }
             });
         return () => {
             cancelled = true;
         };
-    }, [academyId]);
-
-    useEffect(() => {
-        const fetchMetrics = async () => {
-            if (!academyId) return;
-            setLoadingMetrics(true);
-            try {
-                const jwt = await account.createJWT();
-                const res = await fetch('/api/reports', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwt.jwt}`,
-                        'x-academy-id': String(academyId || '')
-                    },
-                    body: JSON.stringify({
-                        academyId,
-                        from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-                        to: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999).toISOString(),
-                        prevFrom: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString(),
-                        prevTo: new Date(new Date().getFullYear(), new Date().getMonth(), 0, 23, 59, 59, 999).toISOString(),
-                        filters: { origin: 'all', type: 'all' },
-                        chartMode: 'weekly'
-                    })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    const now = new Date();
-                    const dayOfWeek = now.getDay();
-                    const weekFrom = new Date(now);
-                    weekFrom.setDate(now.getDate() - dayOfWeek);
-                    weekFrom.setHours(0, 0, 0, 0);
-                    const weekTo = new Date(weekFrom);
-                    weekTo.setDate(weekFrom.getDate() + 6);
-                    weekTo.setHours(23, 59, 59, 999);
-                    
-                    const pwFrom = new Date(weekFrom);
-                    pwFrom.setDate(pwFrom.getDate() - 7);
-                    const pwTo = new Date(weekTo);
-                    pwTo.setDate(pwTo.getDate() - 7);
-
-                    const resWeek = await fetch('/api/reports', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${jwt.jwt}`,
-                            'x-academy-id': String(academyId || '')
-                        },
-                        body: JSON.stringify({
-                            academyId,
-                            from: weekFrom.toISOString(),
-                            to: weekTo.toISOString(),
-                            prevFrom: pwFrom.toISOString(),
-                            prevTo: pwTo.toISOString(),
-                            filters: { origin: 'all', type: 'all' }
-                        })
-                    });
-                    const dataWeek = await resWeek.json();
-
-                    setMetrics({
-                        newLeads: data.metrics.newLeads,
-                        scheduled: resWeek.ok ? dataWeek.metrics.scheduled : data.metrics.scheduled,
-                        converted: data.metrics.converted
-                    });
-                }
-            } catch (e) {
-                console.error('Erro ao carregar métricas do dashboard:', e);
-            } finally {
-                setLoadingMetrics(false);
-            }
-        };
-        fetchMetrics();
     }, [academyId]);
 
     const handleRefresh = async () => {
@@ -224,10 +169,19 @@ const Dashboard = () => {
         closeEdit();
     };
 
-    const deleteLead = async () => {
+    const openRemoveScheduleConfirm = () => {
         if (!editLead) return;
-        const ok = window.confirm(`Excluir o lead "${editLead.name || 'Sem nome'}"? Essa ação não pode ser desfeita.`);
-        if (!ok) return;
+        setConfirmModal({
+            title: 'Excluir agendamento?',
+            description: `O agendamento de ${editLead.name || 'este lead'} será removido e o lead voltará para o funil.`,
+            confirmLabel: 'Excluir',
+            danger: true,
+            onConfirm: removeSchedule,
+        });
+    };
+
+    const deleteLeadConfirmed = async () => {
+        if (!editLead) return;
         try {
             await useLeadStore.getState().deleteLead(editLead.id);
             addToast({ type: 'success', message: 'Lead excluído.' });
@@ -235,6 +189,29 @@ const Dashboard = () => {
             addToast({ type: 'error', message: 'Erro ao excluir lead.' });
         }
         closeEdit();
+    };
+
+    const openDeleteLeadConfirm = () => {
+        if (!editLead) return;
+        const nm = editLead.name || 'Sem nome';
+        setConfirmModal({
+            title: 'Excluir lead?',
+            description: `Excluir o lead "${nm}"? Essa ação não pode ser desfeita.`,
+            confirmLabel: 'Excluir lead',
+            danger: true,
+            onConfirm: deleteLeadConfirmed,
+        });
+    };
+
+    const runConfirmModalAction = async () => {
+        if (!confirmModal?.onConfirm || confirmBusy) return;
+        setConfirmBusy(true);
+        try {
+            await confirmModal.onConfirm();
+        } finally {
+            setConfirmBusy(false);
+            setConfirmModal(null);
+        }
     };
 
     const today = new Date();
@@ -259,25 +236,13 @@ const Dashboard = () => {
         return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
     };
 
-    /** Agenda da recepção: só quem tem data civil YYYY-MM-DD (evita “Agendado” sem horário no calendário). */
-    const hasExperimentalDate = (l) => {
-        const ymd = String(l?.scheduledDate || '').trim().split('T')[0];
-        return /^\d{4}-\d{2}-\d{2}$/.test(ymd);
-    };
-
     const excludeImportedOrigin = (l) => String(l?.origin || '').trim() !== 'Planilha';
 
     const allScheduled = (leads || [])
-        .filter((l) => excludeImportedOrigin(l) && l.status === LEAD_STATUS.SCHEDULED && hasExperimentalDate(l))
+        .filter(isLeadScheduledForExperimental)
         .sort((a, b) => toDateTime(a) - toDateTime(b));
 
     const agendaLeads = allScheduled
-        .filter(
-            (lead) =>
-                lead.status !== LEAD_STATUS.CONVERTED &&
-                lead.pipelineStage !== 'Matriculado' &&
-                lead.contact_type !== 'student'
-        )
         .filter((lead) => {
             if (dateFilter === 'all') return true;
             if (!lead.scheduledDate) return false;
@@ -367,6 +332,72 @@ const Dashboard = () => {
         void sendDashboardTemplate(lead, 'confirm');
     };
 
+    const markLeadAttended = async (lead) => {
+        const k = `${lead.id}:attended`;
+        setSavingPresence((p) => ({ ...p, [k]: true }));
+        try {
+            const st = useLeadStore.getState();
+            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+            await addLeadEvent({
+                academyId: st.academyId,
+                leadId: lead.id,
+                type: 'attended',
+                from: lead.pipelineStage || lead.status || '',
+                to: LEAD_STATUS.COMPLETED,
+                createdBy: st.userId || 'user',
+                permissionContext: permCtx
+            });
+            await st.updateLead(lead.id, {
+                status: LEAD_STATUS.COMPLETED,
+                pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
+                attendedAt: new Date().toISOString()
+            });
+            addToast({ type: 'success', message: 'Comparecimento registrado.' });
+        } catch (err) {
+            addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
+        } finally {
+            setSavingPresence((p) => {
+                const n = { ...p };
+                delete n[k];
+                return n;
+            });
+        }
+    };
+
+    const markLeadMissed = async (lead) => {
+        const k = `${lead.id}:missed`;
+        setSavingPresence((p) => ({ ...p, [k]: true }));
+        try {
+            const st = useLeadStore.getState();
+            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+            await addLeadEvent({
+                academyId: st.academyId,
+                leadId: lead.id,
+                type: 'missed',
+                from: lead.pipelineStage || lead.status || '',
+                to: LEAD_STATUS.MISSED,
+                createdBy: st.userId || 'user',
+                permissionContext: permCtx
+            });
+            await st.updateLead(lead.id, {
+                status: LEAD_STATUS.MISSED,
+                pipelineStage: LEAD_STATUS.MISSED,
+                missedAt: new Date().toISOString()
+            });
+            addToast({ type: 'success', message: 'Não compareceu registrado.' });
+        } catch (err) {
+            addToast({ type: 'error', message: 'Erro ao registrar não compareceu.' });
+        } finally {
+            setSavingPresence((p) => {
+                const n = { ...p };
+                delete n[k];
+                return n;
+            });
+        }
+    };
+
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
             <div className="reception-agenda-inner">
@@ -374,7 +405,23 @@ const Dashboard = () => {
                 <h1 className="navi-page-title">Agenda da Recepção</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
             </div>
-            {(() => {
+
+            {leadsError && (
+                <div className="dashboard-error-banner" role="alert">
+                    <span>Não foi possível carregar os dados.</span>
+                    <button type="button" className="btn-secondary" onClick={() => void fetchLeads()}>
+                        Tentar novamente
+                    </button>
+                </div>
+            )}
+
+            {loading ? (
+                <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }} aria-busy="true" aria-label="Carregando indicadores">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 120 }} />
+                    ))}
+                </div>
+            ) : (() => {
                 const startOfWeek = (d) => { const dd = new Date(d); const day = dd.getDay(); const diff = (day + 6) % 7; dd.setDate(dd.getDate()-diff); dd.setHours(0,0,0,0); return dd; };
                 const endOfWeek = (d) => { const dd = startOfWeek(d); dd.setDate(dd.getDate()+6); dd.setHours(23,59,59,999); return dd; };
                 const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
@@ -410,9 +457,24 @@ const Dashboard = () => {
                     return inRange(l.convertedAt, pmFrom, pmTo);
                 }).length;
                 const cards = [
-                    { title: 'Novos leads no mês', cur: newLeadsCur, var: pctVar(newLeadsCur, newLeadsPrev) },
-                    { title: 'Aulas agendadas (semana)', cur: schedCur, var: pctVar(schedCur, schedPrev) },
-                    { title: 'Matrículas no mês', cur: convCur, var: pctVar(convCur, convPrev) },
+                    {
+                        title: 'Novos leads no mês',
+                        cur: newLeadsCur,
+                        var: pctVar(newLeadsCur, newLeadsPrev),
+                        trendTitle: 'Comparado com o mês civil anterior (novos leads criados no período).',
+                    },
+                    {
+                        title: 'Aulas agendadas (semana)',
+                        cur: schedCur,
+                        var: pctVar(schedCur, schedPrev),
+                        trendTitle: 'Comparado com o intervalo de 7 dias imediatamente anterior (mesma lógica de “semana” do card).',
+                    },
+                    {
+                        title: 'Matrículas no mês',
+                        cur: convCur,
+                        var: pctVar(convCur, convPrev),
+                        trendTitle: 'Comparado com o mês civil anterior (matrículas registradas no período).',
+                    },
                 ];
                 return (
                     <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
@@ -428,7 +490,7 @@ const Dashboard = () => {
                                             {up && c.var > 0 ? '+' : ''}
                                             {c.var}%
                                         </span>
-                                        <span className="agenda-kpi-trend-hint">vs. período anterior</span>
+                                        <span className="agenda-kpi-trend-hint" title={c.trendTitle}>vs. período anterior</span>
                                     </div>
                                 </div>
                             );
@@ -536,7 +598,18 @@ const Dashboard = () => {
                                     title={!hasPhone ? 'Cadastre um telefone válido no perfil' : 'Abrir WhatsApp com mensagem de confirmação'}
                                     onClick={(e) => { e.stopPropagation(); handleWhatsAppScheduled(lead); }}
                                 >
-                                    <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                    <span className="dashboard-wa-btn-inner">
+                                        {academyWaLoadFailed && (
+                                            <span
+                                                className="dashboard-wa-warning-badge"
+                                                title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
+                                                aria-hidden
+                                            >
+                                                ⚠️
+                                            </span>
+                                        )}
+                                        <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                    </span>
                                 </button>
                                 <button
                                     type="button"
@@ -552,64 +625,26 @@ const Dashboard = () => {
                                 <button
                                     type="button"
                                     className="btn-success flex-1"
-                                    onClick={async (e) => {
+                                    disabled={Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`])}
+                                    onClick={(e) => {
                                         e.stopPropagation();
-                                        try {
-                                            const st = useLeadStore.getState();
-                                            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
-                                            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
-                                            await addLeadEvent({
-                                                academyId: st.academyId,
-                                                leadId: lead.id,
-                                                type: 'attended',
-                                                from: lead.pipelineStage || lead.status || '',
-                                                to: LEAD_STATUS.COMPLETED,
-                                                createdBy: st.userId || 'user',
-                                                permissionContext: permCtx
-                                            });
-                                            await st.updateLead(lead.id, {
-                                                status: LEAD_STATUS.COMPLETED,
-                                                pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
-                                                attendedAt: new Date().toISOString()
-                                            });
-                                            addToast({ type: 'success', message: 'Comparecimento registrado.' });
-                                        } catch (err) {
-                                            addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
-                                        }
+                                        void markLeadAttended(lead);
                                     }}
                                 >
-                                    <CheckCircle size={16} /> Compareceu
+                                    <CheckCircle size={16} />{' '}
+                                    {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
                                 </button>
                                 <button
                                     type="button"
                                     className="btn-outline flex-1"
-                                    onClick={async (e) => {
+                                    disabled={Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`])}
+                                    onClick={(e) => {
                                         e.stopPropagation();
-                                        try {
-                                            const st = useLeadStore.getState();
-                                            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
-                                            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
-                                            await addLeadEvent({
-                                                academyId: st.academyId,
-                                                leadId: lead.id,
-                                                type: 'missed',
-                                                from: lead.pipelineStage || lead.status || '',
-                                                to: LEAD_STATUS.MISSED,
-                                                createdBy: st.userId || 'user',
-                                                permissionContext: permCtx
-                                            });
-                                            await st.updateLead(lead.id, {
-                                                status: LEAD_STATUS.MISSED,
-                                                pipelineStage: LEAD_STATUS.MISSED,
-                                                missedAt: new Date().toISOString()
-                                            });
-                                            addToast({ type: 'success', message: 'Falta registrada.' });
-                                        } catch (err) {
-                                            addToast({ type: 'error', message: 'Erro ao registrar falta.' });
-                                        }
+                                        void markLeadMissed(lead);
                                     }}
                                 >
-                                    <XCircle size={16} /> Faltou
+                                    <XCircle size={16} />{' '}
+                                    {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
                                 </button>
                             </div>
                         </div>
@@ -657,8 +692,12 @@ const Dashboard = () => {
                                     <div style={{ flex: 1 }}>
                                         <div className="flex items-center gap-2">
                                             <strong>{lead.name}</strong>
-                                            <span className="urgency-tag" style={{ background: urgency.color + '18', color: urgency.color }}>
-                                                {lead.daysAgo === 0 ? 'Hoje' : `${lead.daysAgo}d`}
+                                            <span
+                                                className="urgency-tag"
+                                                style={{ background: urgency.color + '18', color: urgency.color }}
+                                                title={lead.daysAgo === 0 ? 'Dia da aula experimental' : `Há ${lead.daysAgo} dias desde a data da aula`}
+                                            >
+                                                {lead.daysAgo === 0 ? 'Hoje' : `há ${lead.daysAgo} dias`}
                                             </span>
                                         </div>
                                         <p className="text-small">{lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''} • {urgency.label}</p>
@@ -673,12 +712,25 @@ const Dashboard = () => {
                                 {/* Quick actions */}
                                 <div className="flex gap-2 mt-3 pt-3 border-t">
                                     <button
+                                        type="button"
                                         className="followup-action-btn flex-1"
                                         onClick={(e) => { e.stopPropagation(); handleWhatsApp(lead); }}
                                     >
-                                        <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                        <span className="dashboard-wa-btn-inner">
+                                            {academyWaLoadFailed && (
+                                                <span
+                                                    className="dashboard-wa-warning-badge"
+                                                    title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
+                                                    aria-hidden
+                                                >
+                                                    ⚠️
+                                                </span>
+                                            )}
+                                            <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                        </span>
                                     </button>
                                     <button
+                                        type="button"
                                         className="followup-action-btn flex-1"
                                         onClick={(e) => { e.stopPropagation(); navigate(`/lead/${lead.id}`); }}
                                     >
@@ -705,6 +757,37 @@ const Dashboard = () => {
                 )}
             </section>
             </div>
+
+            {confirmModal && (
+                <div
+                    className="dashboard-confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="dashboard-confirm-title"
+                    onClick={() => (confirmBusy ? undefined : setConfirmModal(null))}
+                >
+                    <div className="dashboard-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="dashboard-confirm-icon-wrap">
+                            <AlertTriangle size={28} color="var(--danger)" aria-hidden />
+                        </div>
+                        <h3 id="dashboard-confirm-title" className="navi-section-heading">{confirmModal.title}</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 10, lineHeight: 1.45 }}>{confirmModal.description}</p>
+                        <div className="dashboard-confirm-actions">
+                            <button type="button" className="btn-outline" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))} disabled={confirmBusy}>
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-danger"
+                                onClick={() => void runConfirmModalAction()}
+                                disabled={confirmBusy}
+                            >
+                                {confirmBusy ? 'Aguarde…' : confirmModal.confirmLabel}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {editOpen && (
                 <div className="navi-modal-overlay" onClick={closeEdit}>
@@ -741,18 +824,18 @@ const Dashboard = () => {
                                 <option value={LEAD_STATUS.NEW}>Novo</option>
                                 <option value={LEAD_STATUS.SCHEDULED}>Agendado</option>
                                 <option value={LEAD_STATUS.COMPLETED}>Compareceu</option>
-                                <option value={LEAD_STATUS.MISSED}>Não Compareceu</option>
+                                <option value={LEAD_STATUS.MISSED}>Não compareceu</option>
                                 <option value={LEAD_STATUS.CONVERTED}>Matriculado</option>
                                 <option value={LEAD_STATUS.LOST}>Não fechou</option>
                             </select>
                         </div>
                         <div className="edit-actions">
-                            <button className="btn-outline danger-outline" onClick={removeSchedule} title="Excluir agendamento e voltar para Novo">Excluir agendamento</button>
-                            <button className="btn-outline danger-outline" onClick={deleteLead} title="Excluir lead">
+                            <button type="button" className="btn-outline danger-outline" onClick={openRemoveScheduleConfirm} title="Excluir agendamento e voltar para Novo">Excluir agendamento</button>
+                            <button type="button" className="btn-outline danger-outline" onClick={openDeleteLeadConfirm} title="Excluir lead">
                                 <Trash2 size={14} /> Excluir lead
                             </button>
-                            <button className="btn-outline" onClick={closeEdit}>Cancelar</button>
-                            <button className="btn-secondary" onClick={saveEdit}>Salvar</button>
+                            <button type="button" className="btn-outline" onClick={closeEdit}>Cancelar</button>
+                            <button type="button" className="btn-secondary" onClick={saveEdit}>Salvar</button>
                         </div>
                     </div>
                 </div>
@@ -844,6 +927,79 @@ const Dashboard = () => {
           color: var(--text-secondary);
           opacity: 0.75;
           margin-top: 2px;
+          cursor: help;
+        }
+        @keyframes dashboardSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+        .agenda-kpi-skeleton {
+          pointer-events: none;
+          border-radius: 16px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: dashboardSk 1.2s ease-in-out infinite;
+        }
+        .dashboard-error-banner {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+          padding: 12px 14px; margin: 12px 0 16px; border-radius: 10px;
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.35);
+          color: var(--text);
+          font-size: 0.9rem;
+        }
+        .dashboard-wa-btn-inner {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .dashboard-wa-warning-badge {
+          font-size: 0.95rem;
+          line-height: 1;
+        }
+        .dashboard-confirm-overlay {
+          position: fixed; inset: 0; z-index: 400;
+          background: rgba(18, 16, 42, 0.5);
+          backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center;
+          padding: 20px;
+        }
+        .dashboard-confirm-modal {
+          background: var(--surface);
+          border-radius: var(--radius);
+          padding: 24px;
+          width: 100%;
+          max-width: 380px;
+          text-align: center;
+          border: 0.5px solid var(--border-violet);
+          box-shadow: var(--shadow-lg);
+        }
+        .dashboard-confirm-icon-wrap {
+          width: 56px; height: 56px; border-radius: 50%;
+          background: var(--danger-light);
+          margin: 0 auto 16px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .dashboard-confirm-actions {
+          display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;
+        }
+        .dashboard-confirm-actions .btn-outline,
+        .dashboard-confirm-actions .btn-danger {
+          flex: 1;
+          min-width: 120px;
+        }
+        .dashboard-confirm-overlay .btn-danger {
+          background: var(--danger);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-sm);
+          font-weight: 700;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .dashboard-confirm-overlay .btn-danger:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
         .hub-quick-row {
           display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
@@ -930,7 +1086,9 @@ const Dashboard = () => {
         .followup-action-btn {
           background: var(--surface-hover); border: 1px solid var(--border-light);
           border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 600;
-          min-height: 36px; gap: 6px; color: var(--text-secondary);
+          min-height: 44px;
+          padding-inline: 12px;
+          gap: 6px; color: var(--text-secondary);
         }
         .followup-action-btn:hover { border-color: var(--accent); color: var(--accent); }
         .followup-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -940,12 +1098,17 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .followup-action-btn {
           border-radius: 10px;
-          min-height: 38px;
+          min-height: 44px;
+          padding-inline: 12px;
           font-weight: 700;
         }
         .refresh-btn {
           background: none; border: none; color: var(--text-muted);
-          width: 32px; height: 32px; padding: 0; min-height: auto;
+          min-width: 44px;
+          min-height: 44px;
+          width: auto;
+          height: auto;
+          padding: 0;
           display: flex; align-items: center; justify-content: center;
           cursor: pointer; transition: var(--transition);
         }
@@ -954,11 +1117,16 @@ const Dashboard = () => {
         .spin-refresh { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .edit-time-btn { 
-          width: 32px; height: 32px; border-radius: 50%;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
           background: var(--v500); color: #fff;
           display: inline-flex; align-items: center; justify-content: center;
           border: none; cursor: pointer;
-          padding: 0; min-height: auto; flex: 0 0 32px;
+          padding: 0;
+          flex: 0 0 44px;
           box-shadow: 0 4px 14px rgba(91, 63, 191, 0.28);
           transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
@@ -993,7 +1161,9 @@ const Dashboard = () => {
         .danger-outline { border-color: var(--danger) !important; color: var(--danger) !important; }
         .time-chips { display: flex; flex-wrap: wrap; gap: 6px; }
         .time-chip {
-          min-height: 30px; padding: 6px 10px; border-radius: var(--radius-full);
+          min-height: 44px;
+          padding: 6px 12px;
+          border-radius: var(--radius-full);
           background: var(--surface-hover); border: 1px solid var(--border);
           font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);
         }

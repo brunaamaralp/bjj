@@ -112,6 +112,7 @@ function updatesToAppwritePatch(updates, currentLead) {
 export const useLeadStore = create((set, get) => ({
   leads: [],
   loading: false,
+  leadsError: false,
   loadingMore: false,
   leadsHasMore: false,
   leadsCursor: null,
@@ -176,8 +177,8 @@ export const useLeadStore = create((set, get) => ({
       if (get().loadingMore || !get().leadsHasMore || !get().leadsCursor) return;
     }
 
-    if (reset) set({ loading: true });
-    else set({ loadingMore: true });
+    if (reset) set({ loading: true, leadsError: false });
+    else set({ loadingMore: true, leadsError: false });
 
     try {
       const operationalStatusSet = new Set(Object.values(LEAD_STATUS));
@@ -213,6 +214,7 @@ export const useLeadStore = create((set, get) => ({
           return {
             leads: [...localsToKeep, ...leads],
             loading: false,
+            leadsError: false,
             leadsHasMore: pageFull,
             leadsCursor: pageFull && lastId ? lastId : null
           };
@@ -224,6 +226,7 @@ export const useLeadStore = create((set, get) => ({
           return {
             leads: [...state.leads, ...appended],
             loadingMore: false,
+            leadsError: false,
             leadsHasMore: pageFull,
             leadsCursor: pageFull && lastId ? lastId : null
           };
@@ -231,7 +234,7 @@ export const useLeadStore = create((set, get) => ({
       }
     } catch (e) {
       console.error('fetchLeads error:', e);
-      set({ loading: false, loadingMore: false });
+      set({ loading: false, loadingMore: false, leadsError: true });
     }
   },
 
