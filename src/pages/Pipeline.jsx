@@ -152,6 +152,8 @@ const Pipeline = () => {
     const [confirmModal, setConfirmModal] = useState(null);
     const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(true);
     const [noteError, setNoteError] = useState('');
+    const [waDropdownOpenId, setWaDropdownOpenId] = useState(null);
+    const [missedModalLead, setMissedModalLead] = useState(null);
 
     const searchStageScopeOptions = useMemo(() => [
         { value: 'all', label: 'Todas as etapas' },
@@ -170,7 +172,10 @@ const Pipeline = () => {
     }, [stages]);
 
     useEffect(() => {
-        const handleClickOutside = () => setOpenMenuId(null);
+        const handleClickOutside = () => {
+            setOpenMenuId(null);
+            setWaDropdownOpenId(null);
+        };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
@@ -504,96 +509,59 @@ const Pipeline = () => {
         const lead = getLeadById(leadId);
         setLostModal({ leadId, leadName: lead?.name || 'Lead', onConfirm });
     };
-    const moveToStatus = async (e, leadId, stageId) => {
+    const handleConfirmPresence = async (e, lead) => {
         e.stopPropagation();
-        const lead = getLeadById(leadId);
-
-        if (stageId === 'Matriculado') {
-            setDragTargetLead(lead);
-            setMatriculaModalOpen(true);
-            setMoverOpenId(null);
-            return;
-        }
-
-        if (stageId === LEAD_STATUS.MISSED) {
-            setConfirmModal({
-                title: 'Marcar como não compareceu?',
-                description: `Mover "${lead?.name || 'Sem nome'}" para "Não compareceu".`,
-                confirmLabel: 'Confirmar',
-                onConfirm: async () => {
-                    try {
-                        await addLeadEvent({
-                            academyId,
-                            leadId,
-                            type: 'missed',
-                            from: lead?.pipelineStage || lead?.status || '',
-                            to: LEAD_STATUS.MISSED,
-                            createdBy: userId || 'user',
-                            permissionContext: permCtx
-                        });
-                        await updateLead(leadId, {
-                            status: LEAD_STATUS.MISSED,
-                            pipelineStage: LEAD_STATUS.MISSED,
-                            missedAt: new Date().toISOString()
-                        });
-                        setMoverOpenId(null);
-                        setToast('Marcado como não compareceu');
-                        setTimeout(() => setToast(''), 2000);
-                    } catch (err) {
-                        addToast({ type: 'error', message: friendlyError(err, 'action') });
-                    } finally {
-                        setConfirmModal(null);
-                    }
-                }
-            });
-            return;
-        }
-        if (stageId === LEAD_STATUS.LOST) {
-            openLostModal(leadId, async (lostReason) => {
-                const cur = getLeadById(leadId) || lead;
-                await addLeadEvent({
-                    academyId,
-                    leadId,
-                    type: 'lost',
-                    from: cur?.status || '',
-                    to: LEAD_STATUS.LOST,
-                    text: String(lostReason || '').slice(0, 1000),
-                    createdBy: userId || 'user',
-                    permissionContext: permCtx
-                });
-                await updateLead(leadId, {
-                    status: LEAD_STATUS.LOST,
-                    scheduledDate: '',
-                    scheduledTime: '',
-                    pipelineStage: LEAD_STATUS.LOST,
-                    lostReason,
-                    lostAt: new Date().toISOString()
-                });
-                setMoverOpenId(null);
-                setToast('Marcado como perdido');
-                setTimeout(() => setToast(''), 2000);
-            });
-            return;
-        }
         try {
+            await updateLead(lead.id, {
+                status: LEAD_STATUS.COMPLETED,
+                pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
+                attendedAt: new Date().toISOString(),
+                statusChangedAt: new Date().toISOString()
+            });
             await addLeadEvent({
                 academyId,
-                leadId,
-                type: 'pipeline_change',
-                from: lead?.pipelineStage || '',
-                to: stageId,
+                leadId: lead.id,
+                type: 'attended',
+                from: lead.pipelineStage || '',
+                to: PIPELINE_WAITING_DECISION_STAGE,
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            const payload = getStageUpdatePayload(stageId);
-            await updateLead(leadId, payload);
+            setToast('Presença confirmada');
+            setOpenMenuId(null);
+            setTimeout(() => setToast(''), 2000);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
-            return;
         }
-        setMoverOpenId(null);
-        setToast('Movido no pipeline');
-        setTimeout(() => setToast(''), 2000);
+    };
+
+    const handleMissedWithReason = async (lead, reason) => {
+        try {
+            const now = new Date().toISOString();
+            await updateLead(lead.id, {
+                status: LEAD_STATUS.MISSED,
+                pipelineStage: LEAD_STATUS.MISSED,
+                missedAt: now,
+                missed_reason: reason,
+                statusChangedAt: now
+            });
+            await addLeadEvent({
+                academyId,
+                leadId: lead.id,
+                type: 'missed',
+                from: lead.pipelineStage || '',
+                to: LEAD_STATUS.MISSED,
+                text: `Motivo: ${reason}`,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            setToast('Lead movido para Não compareceu');
+            setMissedModalLead(null);
+            setOpenMenuId(null);
+            setTimeout(() => setToast(''), 2000);
+        } catch (err) {
+            addToast({ type: 'error', message: friendlyError(err, 'action') });
+        }
     };
     const saveStages = async () => {
         try {
@@ -807,37 +775,82 @@ const Pipeline = () => {
             });
             setDragOver(null);
             return;
-        } else {
-            const lead = getLeadById(id);
-            if (!lead) {
-                setDragOver(null);
-                return;
-            }
-            if (mapLeadToStageId(lead) === status) {
-                setDragOver(null);
-                return;
-            }
-            try {
+    const moveToStatus = async (e, leadId, stageId) => {
+        e.stopPropagation();
+        const lead = getLeadById(leadId);
+        if (!lead) return;
+
+        if (stageId === 'Matriculado') {
+            setDragTargetLead(lead);
+            setMatriculaModalOpen(true);
+            setMoverOpenId(null);
+            return;
+        }
+
+        if (stageId === LEAD_STATUS.MISSED) {
+            setMissedModalLead(lead);
+            setMoverOpenId(null);
+            return;
+        }
+
+        if (stageId === LEAD_STATUS.LOST) {
+            openLostModal(leadId, async (lostReason) => {
+                const cur = getLeadById(leadId);
                 await addLeadEvent({
                     academyId,
-                    leadId: id,
-                    type: 'pipeline_change',
-                    from: lead.pipelineStage || '',
-                    to: status,
+                    leadId,
+                    type: 'lost',
+                    from: cur?.status || '',
+                    to: LEAD_STATUS.LOST,
+                    text: String(lostReason || '').slice(0, 1000),
                     createdBy: userId || 'user',
                     permissionContext: permCtx
                 });
-                const payload = getStageUpdatePayload(status);
-                await updateLead(id, payload);
-            } catch (err) {
-                addToast({ type: 'error', message: friendlyError(err, 'action') });
-                setDragOver(null);
-                return;
-            }
+                await updateLead(leadId, {
+                    status: LEAD_STATUS.LOST,
+                    scheduledDate: '',
+                    scheduledTime: '',
+                    pipelineStage: LEAD_STATUS.LOST,
+                    lostReason,
+                    lostAt: new Date().toISOString()
+                });
+                setMoverOpenId(null);
+                setToast('Marcado como perdido');
+                setTimeout(() => setToast(''), 2000);
+            });
+            return;
         }
-        setDragOver(null);
+
+        try {
+            await addLeadEvent({
+                academyId,
+                leadId,
+                type: 'pipeline_change',
+                from: lead.pipelineStage || '',
+                to: stageId,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            const payload = getStageUpdatePayload(stageId);
+            await updateLead(leadId, payload);
+        } catch (err) {
+            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            return;
+        }
+        setMoverOpenId(null);
         setToast('Movido no pipeline');
         setTimeout(() => setToast(''), 2000);
+    };
+
+    const handleSplitWaMain = (e, lead) => {
+        e.stopPropagation();
+        handleWhatsApp(e, lead);
+    };
+
+    const toggleWaDropdown = (e, leadId) => {
+        e.stopPropagation();
+        setWaDropdownOpenId(prev => prev === leadId ? null : leadId);
+        setOpenMenuId(null);
     };
     const openNote = (e, lead) => {
         e.stopPropagation();
@@ -966,6 +979,13 @@ const Pipeline = () => {
                         </div>
                     </div>
                     <div className="header-right">
+                        <button 
+                            className="btn-primary" 
+                            onClick={() => navigate('/new-lead')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <PlusCircle size={16} /> Novo lead
+                        </button>
                         {leadsHasMore ? (
                             <button
                                 type="button"
@@ -1188,156 +1208,105 @@ const Pipeline = () => {
                                                 </span>
                                             </div>
                                         ) : null}
-                                        <div className="action-bar action-bar--icons mt-2">
-                                            <button
-                                                type="button"
-                                                className="action-btn action-btn--icon"
-                                                draggable={false}
-                                                title="WhatsApp"
-                                                aria-label="Abrir WhatsApp"
-                                                onClick={(e) => handleWhatsApp(e, lead)}
-                                            >
-                                                <MessageCircle size={17} strokeWidth={2} aria-hidden />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="action-btn action-btn--icon"
-                                                draggable={false}
-                                                title="Agendar"
-                                                aria-label="Agendar"
-                                                onClick={(e) => openScheduler(e, lead.id)}
-                                            >
-                                                <Calendar size={17} strokeWidth={2} aria-hidden />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="action-btn action-btn--icon"
-                                                draggable={false}
-                                                title="Mover de etapa"
-                                                aria-label="Mover de etapa"
-                                                onClick={(e) => openMover(e, lead.id)}
-                                            >
-                                                <ChevronRight size={17} strokeWidth={2} aria-hidden />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="action-btn action-btn--icon"
-                                                draggable={false}
-                                                title="Observação"
-                                                aria-label="Adicionar observação"
-                                                onClick={(e) => openNote(e, lead)}
-                                            >
-                                                <StickyNote size={17} strokeWidth={2} aria-hidden />
-                                            </button>
+                                        <div className="action-bar action-bar--reorganized mt-3">
+                                            <div className="wa-split-btn">
+                                                <button
+                                                    type="button"
+                                                    className="wa-main-btn"
+                                                    onClick={(e) => handleSplitWaMain(e, lead)}
+                                                    title="Conversar"
+                                                >
+                                                    <MessageCircle size={16} /> WhatsApp
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="wa-drop-toggle"
+                                                    onClick={(e) => toggleWaDropdown(e, lead.id)}
+                                                    title="Templates"
+                                                >
+                                                    <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                                                </button>
+                                                {waDropdownOpenId === lead.id && (
+                                                    <div className="wa-templates-dropdown" onClick={(e) => e.stopPropagation()}>
+                                                        <div className="dropdown-panel-header">Templates</div>
+                                                        {templateSendKeys.length === 0 && (
+                                                            <div className="dropdown-item disabled">Sem templates</div>
+                                                        )}
+                                                        {templateSendKeys.map((key) => (
+                                                            <button
+                                                                key={`${lead.id}-tpl-${key}`}
+                                                                type="button"
+                                                                className="dropdown-item"
+                                                                onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
+                                                            >
+                                                                {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             <div style={{ position: 'relative' }}>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setOpenMenuId(openMenuId === lead.id ? null : lead.id);
+                                                        setWaDropdownOpenId(null);
                                                     }}
                                                     title="Mais ações"
-                                                    className="action-btn action-btn--icon"
+                                                    className="action-btn action-btn--menu"
                                                     draggable={false}
                                                 >
                                                     ⋯
                                                 </button>
                                                 {openMenuId === lead.id && (
-                                                    <div style={{
-                                                        position: 'absolute',
-                                                        top: '100%',
-                                                        right: 0,
-                                                        zIndex: 100,
-                                                        background: 'var(--surface)',
-                                                        border: '1px solid var(--border)',
-                                                        borderRadius: '8px',
-                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                        minWidth: '180px',
-                                                        overflow: 'hidden',
-                                                    }} onClick={(e) => e.stopPropagation()}>
-                                                        <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: 4 }}>
-                                                            <div
-                                                                style={{
-                                                                    padding: '8px 16px 4px',
-                                                                    fontSize: 11,
-                                                                    fontWeight: 800,
-                                                                    color: 'var(--text-muted)',
-                                                                    textTransform: 'uppercase',
-                                                                    letterSpacing: '0.02em',
-                                                                }}
-                                                            >
-                                                                Enviar mensagem
-                                                            </div>
-                                                            {templateSendKeys.map((key) => (
-                                                                <button
-                                                                    key={`${lead.id}-tpl-${key}`}
-                                                                    type="button"
-                                                                    onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
-                                                                    style={{
-                                                                        display: 'block',
-                                                                        width: '100%',
-                                                                        padding: '8px 16px',
-                                                                        textAlign: 'left',
-                                                                        background: 'none',
-                                                                        border: 'none',
-                                                                        cursor: 'pointer',
-                                                                        color: 'var(--text)',
-                                                                        fontSize: '13px',
-                                                                    }}
-                                                                >
-                                                                    {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                                    <div className="action-menu-panel" onClick={(e) => e.stopPropagation()}>
+                                                        {/* Grupo 1: Alta frequência */}
+                                                        <div className="menu-group">
+                                                            <button className="menu-item" onClick={(e) => openScheduler(e, lead.id)}>
+                                                                <Calendar size={16} /> Agendar aula experimental
+                                                            </button>
+                                                            {lead.pipelineStage === 'Aula experimental' && (
+                                                                <button className="menu-item success" onClick={(e) => handleConfirmPresence(e, lead)}>
+                                                                    <PlusCircle size={16} /> Confirmar presença
                                                                 </button>
-                                                            ))}
+                                                            )}
+                                                            {lead.pipelineStage === 'Aula experimental' && (
+                                                                <button className="menu-item warning" onClick={(e) => { e.stopPropagation(); setMissedModalLead(lead); setOpenMenuId(null); }}>
+                                                                    <Calendar size={16} /> Não compareceu
+                                                                </button>
+                                                            )}
+                                                            {['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
+                                                                <button className="menu-item primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
+                                                                    <GraduationCap size={16} /> Matricular
+                                                                </button>
+                                                            )}
+                                                            <button className="menu-item" onClick={(e) => openMover(e, lead.id)}>
+                                                                <ChevronRight size={16} /> Mover para etapa
+                                                            </button>
                                                         </div>
-                                                        <button
-                                                            onClick={(e) => handleCopyPhone(e, lead)}
-                                                            style={{
-                                                                display: 'block',
-                                                                width: '100%',
-                                                                padding: '10px 16px',
-                                                                textAlign: 'left',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                borderBottom: '1px solid var(--border-light)',
-                                                                cursor: 'pointer',
-                                                                color: 'var(--text)',
-                                                                fontSize: '14px',
-                                                            }}
-                                                        >
-                                                            {copiedId === lead.id ? '✓ Copiado!' : 'Copiar telefone'}
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => handleMarkAsLost(e, lead)}
-                                                            style={{
-                                                                display: 'block',
-                                                                width: '100%',
-                                                                padding: '10px 16px',
-                                                                textAlign: 'left',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                borderBottom: '1px solid var(--border-light)',
-                                                                cursor: 'pointer',
-                                                                color: '#E65100',
-                                                                fontSize: '14px',
-                                                            }}
-                                                        >
-                                                            Marcar como perdido
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => handleDeleteLead(e, lead.id)}
-                                                            style={{
-                                                                display: 'block',
-                                                                width: '100%',
-                                                                padding: '10px 16px',
-                                                                textAlign: 'left',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                color: '#E53935',
-                                                                fontSize: '14px',
-                                                            }}
-                                                        >
-                                                            Excluir lead
-                                                        </button>
+
+                                                        {/* Grupo 2: Secundárias */}
+                                                        <div className="menu-divider" />
+                                                        <div className="menu-group">
+                                                            <button className="menu-item" onClick={(e) => openNote(e, lead)}>
+                                                                <StickyNote size={16} /> Adicionar nota
+                                                            </button>
+                                                            <button className="menu-item" onClick={(e) => handleCopyPhone(e, lead)}>
+                                                                <Phone size={16} /> {copiedId === lead.id ? '✓ Copiado!' : 'Copiar telefone'}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Grupo 3: Destrutivas */}
+                                                        <div className="menu-divider" />
+                                                        <div className="menu-group">
+                                                            <button className="menu-item danger-text" onClick={(e) => handleMarkAsLost(e, lead)}>
+                                                                <MessageCircle size={16} /> Marcar como perdido
+                                                            </button>
+                                                            <button className="menu-item danger-text" onClick={(e) => handleDeleteLead(e, lead.id)}>
+                                                                <StickyNote size={16} className="text-danger" /> Excluir lead
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -1480,6 +1449,37 @@ const Pipeline = () => {
                     setDragTargetLead(null);
                 }}
             />
+
+            {missedModalLead && (
+                <div className="note-overlay" onClick={() => setMissedModalLead(null)}>
+                    <div className="note-modal mini-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '340px' }}>
+                        <h4 className="navi-section-heading" style={{ marginBottom: 16, fontSize: '0.95rem' }}>Por que não compareceu?</h4>
+                        <div className="reason-grid">
+                            {[
+                                'Esqueceu',
+                                'Imprevisto pessoal',
+                                'Problema de saúde',
+                                'Não avisou',
+                                'Vai remarcar',
+                                'Outro'
+                            ].map(reason => (
+                                <button
+                                    key={reason}
+                                    className="reason-chip"
+                                    onClick={() => handleMissedWithReason(missedModalLead, reason)}
+                                >
+                                    {reason}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="note-footer" style={{ marginTop: 20 }}>
+                            <button className="btn-ghost" onClick={() => setMissedModalLead(null)} style={{ fontSize: '0.85rem', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {lostModalLead && (
                 <LostReasonModal
@@ -1748,63 +1748,29 @@ const Pipeline = () => {
           background: var(--surface); color: var(--text-muted);
         }
         .more-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .action-bar { display: flex; gap: 6px; flex-wrap: wrap; }
-        .action-bar--icons { gap: 4px; flex-wrap: nowrap; }
-        .action-btn {
-          min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
-          font-size: 0.78rem; font-weight: 700; border: 1px solid var(--border);
-          background: var(--surface); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;
-        }
-        .action-btn--icon {
-          min-width: 34px; width: 34px; height: 34px; padding: 0; gap: 0;
-          border-radius: var(--radius-sm); justify-content: center;
-        }
-        .action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .action-btn.danger { border-color: var(--danger); color: var(--danger); }
-        .action-btn.danger:hover { background: var(--danger-light); }
-        .action-btn.lost { border-color: var(--warning); color: var(--warning); }
-        .action-btn.lost:hover { background: var(--warning-light); }
-        .lead-card { position: relative; }
-        .dropdown-panel {
-          position: absolute; left: 14px; right: 14px; top: 100%; margin-top: 6px;
-          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel);
-          box-shadow: var(--shadow-lg); padding: 10px; z-index: 15;
-        }
-        .dropdown-section { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-        .dropdown-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; }
-        .dropdown-times { display: flex; gap: 6px; flex-wrap: wrap; }
-        .dropdown-item {
-          width: 100%; text-align: left; padding: 8px 10px; border-radius: var(--radius-sm);
-          border: 1px solid var(--border); background: var(--surface);
-          font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
-        }
-        .dropdown-item.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
-        .toast {
-          position: fixed; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
-          background: var(--success); color: white; padding: 10px 14px; border-radius: var(--radius-full);
-          font-size: 0.85rem; font-weight: 700; box-shadow: var(--shadow);
-          z-index: 300; animation: fadeInUp 0.2s ease;
-          max-width: min(92vw, 420px); text-align: center;
-        }
-        @media (min-width: 900px) {
-          .toast { bottom: 24px; }
-        }
-        .note-overlay {
-          position: fixed; inset: 0; background: rgba(18, 16, 42, 0.5);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 300; animation: fadeIn 0.2s ease;
-        }
-        .note-modal {
-          background: var(--surface); border-radius: var(--radius);
-          width: 100%; max-width: 460px; padding: 16px;
-          box-shadow: var(--shadow-lg); animation: fadeInUp 0.25s ease;
-        }
-        .note-textarea {
-          width: 100%; min-height: 100px; border: 1px solid var(--border);
-          border-radius: var(--radius-sm); padding: 12px; font-family: inherit; font-size: 0.95rem;
-          outline: none; background: var(--surface); color: var(--text);
-        }
-        .note-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+        .action-bar--reorganized { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+        .wa-split-btn { display: flex; align-items: stretch; border: 1px solid var(--success); border-radius: var(--radius-sm); overflow: visible; position: relative; background: var(--success); }
+        .wa-main-btn { background: var(--success); color: white; border: none; padding: 6px 10px; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+        .wa-main-btn:hover { background: #2e7d32; }
+        .wa-drop-toggle { background: #2e7d32; color: white; border: none; border-left: 1px solid rgba(255,255,255,0.2); padding: 0 6px; cursor: pointer; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; display: flex; align-items: center; }
+        .wa-templates-dropdown { position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 180px; z-index: 100; overflow: hidden; }
+        .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
+        .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+        .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 100; overflow: hidden; padding: 6px 0; }
+        .menu-group { display: flex; flex-direction: column; }
+        .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; text-align: left; cursor: pointer; transition: background 0.15s; }
+        .menu-item:hover { background: var(--surface-hover); color: var(--accent); }
+        .menu-item svg { color: var(--text-muted); }
+        .menu-item:hover svg { color: var(--accent); }
+        .menu-item.primary { color: var(--accent); }
+        .menu-item.success { color: var(--success); }
+        .menu-item.warning { color: var(--warning); }
+        .menu-item.danger-text { color: var(--danger); }
+        .menu-item.danger-text:hover { background: var(--danger-light); }
+        .menu-divider { height: 1px; background: var(--border-light); margin: 6px 0; }
+        .reason-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .reason-chip { padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; text-align: center; }
+        .reason-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
       `}} />
             {toast && <div className="toast">{toast}</div>}
             {confirmModal && (

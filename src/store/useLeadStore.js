@@ -85,6 +85,7 @@ function updatesToAppwritePatch(updates, currentLead) {
 
   if (u.attendedAt !== undefined) copyIf('attended_at', u.attendedAt);
   if (u.missedAt !== undefined) copyIf('missed_at', u.missedAt);
+  if (u.missed_reason !== undefined) copyIf('missed_reason', u.missed_reason);
   if (u.lostAt !== undefined) copyIf('lost_at', u.lostAt);
   if (u.convertedAt !== undefined) copyIf('converted_at', u.convertedAt);
   if (u.importedAt !== undefined) copyIf('imported_at', u.importedAt);
