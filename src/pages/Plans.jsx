@@ -1,141 +1,100 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { friendlyError } from '../lib/errorMessages';
-import { ChevronLeft, CreditCard } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, Zap, Building2, Rocket } from 'lucide-react';
 import { createSessionJwt } from '../lib/appwrite';
 import { isBillingLive } from '../lib/billingEnabled';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
+import { PLAN_CONFIG } from '../lib/planConfig';
 
-const PLAN_SLUG_BETA = 'beta';
+// Links de pagamento externos por plano (gerados no painel do Asaas)
+// Configurar como variáveis de ambiente no Vercel e .env.local
+const CHECKOUT_LINKS = {
+  starter: import.meta.env.VITE_ASAAS_LINK_STARTER || '',
+  studio:  import.meta.env.VITE_ASAAS_LINK_STUDIO  || '',
+  pro:     import.meta.env.VITE_ASAAS_LINK_PRO     || '',
+};
 
-const BILLING_TYPES = [
-  { id: 'PIX', label: 'PIX' },
-  { id: 'BOLETO', label: 'Boleto' },
-  { id: 'CREDIT_CARD', label: 'Cartão de crédito' },
-];
+const PLAN_ICONS = {
+  starter: Zap,
+  studio:  Building2,
+  pro:     Rocket,
+};
+
+const PLAN_ORDER = ['starter', 'studio', 'pro'];
 
 const Plans = ({ user }) => {
   const navigate = useNavigate();
   const billingLive = isBillingLive();
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
-  const [planPrice, setPlanPrice] = useState(297);
-  const [billingType, setBillingType] = useState('PIX');
-  const [loading, setLoading] = useState(false);
-  const [loadingPlans, setLoadingPlans] = useState(true);
-  const [form, setForm] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    cpfCnpj: '',
-    phone: '',
-    postalCode: '',
-    address: '',
-    addressNumber: '',
-    complement: '',
-    neighborhood: '',
-    uf: '',
-    city: '',
-  });
+
+  // Plano atual da academia (vem do documento via API)
+  const [currentPlan, setCurrentPlan] = useState(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
 
   useEffect(() => {
-    if (!billingLive) {
-      setLoadingPlans(false);
-      return undefined;
+    if (!academyId) {
+      setLoadingStatus(false);
+      return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch('/api/billing/plans');
+        const jwt = await createSessionJwt();
+        if (!jwt) return;
+        const r = await fetch(`/api/billing/status?storeId=${encodeURIComponent(academyId)}`, {
+          headers: { Authorization: `Bearer ${jwt}` },
+        });
         const d = await r.json().catch(() => ({}));
-        if (!cancelled && r.ok && Array.isArray(d.plans) && d.plans[0]) {
-          const v = Number(d.plans[0].value);
-          if (Number.isFinite(v)) setPlanPrice(v);
+        if (!cancelled && d.sucesso && d.plan) {
+          setCurrentPlan(d.plan);
         }
       } catch {
         void 0;
       } finally {
-        if (!cancelled) setLoadingPlans(false);
+        if (!cancelled) setLoadingStatus(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [billingLive]);
+    return () => { cancelled = true; };
+  }, [academyId]);
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const handleCheckout = (planKey) => {
     if (!billingLive) {
       addToast({ type: 'info', message: 'Assinatura ainda não está ativa. Em breve.' });
       return;
     }
     if (!academyId) {
-      addToast({
-        type: 'error',
-        message: 'Sessão expirada. Faça login novamente.',
-      });
+      addToast({ type: 'error', message: 'Sessão expirada. Faça login novamente.' });
       navigate('/login');
       return;
     }
-    const jwt = await createSessionJwt();
-    if (!jwt) {
-      addToast({ type: 'error', message: 'Sessão inválida. Entre novamente.' });
-      return;
-    }
-    setLoading(true);
-    try {
-      const resp = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-        },
-        body: JSON.stringify({
-          storeId: academyId,
-          planSlug: PLAN_SLUG_BETA,
-          billingType,
-          customer: form,
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        throw new Error(data.erro || data.error || 'Falha ao iniciar checkout');
-      }
-      const url = data.paymentUrl;
-      if (url && url.startsWith('http')) {
-        window.location.href = url;
-        return;
-      }
-      addToast({
-        type: 'success',
-        message: data.reused ? 'Retomando link de pagamento recente.' : 'Checkout criado. Conclua o pagamento no Asaas.',
-      });
-    } catch (err) {
+    const link = CHECKOUT_LINKS[planKey];
+    if (!link) {
       addToast({
         type: 'error',
-        message: 'Não foi possível processar o pagamento. Entre em contato pelo WhatsApp.',
+        message: 'Link de pagamento indisponível. Entre em contato pelo WhatsApp.',
         action: {
           label: 'Falar com suporte',
-          onClick: () => window.open('https://api.whatsapp.com/send?phone=5511999999999')
-        }
+          onClick: () => window.open('https://api.whatsapp.com/send?phone=5511999999999'),
+        },
       });
-    } finally {
-      setLoading(false);
+      return;
     }
+    window.open(link, '_blank', 'noopener,noreferrer');
   };
 
-  const priceLabel = loadingPlans && billingLive ? '…' : planPrice.toFixed(2).replace('.', ',');
-
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 40 }}>
+    <div className="container" style={{ paddingTop: 20, paddingBottom: 48 }}>
       <div className="animate-in">
         <Link to="/" className="navi-eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <ChevronLeft size={16} /> Voltar ao início
         </Link>
-        <h2 className="navi-page-title">Nave Beta</h2>
+        <h2 className="navi-page-title">Escolha seu plano</h2>
         <p className="navi-subtitle" style={{ marginTop: 6 }}>
-          Um plano mensal com pagamento seguro via Asaas (PIX, boleto ou cartão). Preencha os dados de faturamento abaixo.
+          Pague com PIX, boleto ou cartão — via Asaas, com segurança. 30 dias grátis em qualquer plano.
         </p>
+
         {!billingLive && (
           <p
             className="navi-subtitle"
@@ -147,111 +106,180 @@ const Plans = ({ user }) => {
               color: 'var(--warn-text, #854d0e)',
             }}
           >
-            Prévia: cobrança desativada. O botão de pagamento só será liberado quando a assinatura for ativada no deploy.
+            Prévia: cobrança desativada. Os botões de pagamento serão habilitados quando a assinatura estiver ativa.
           </p>
         )}
       </div>
 
-      <div className="card mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-        <div className="flex items-center gap-3 mb-4">
-          <div
-            className="action-icon"
-            style={{
-              background: 'var(--accent-light)',
-              color: 'var(--accent)',
-            }}
-          >
-            <CreditCard size={18} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <strong className="text-small">Nave Beta</strong>
-            <p className="navi-subtitle" style={{ marginTop: 4 }}>
-              Acesso completo a todas as funcionalidades durante o beta.
-            </p>
-            <p className="navi-page-title" style={{ marginTop: 12, fontSize: '1.75rem' }}>
-              R$ {priceLabel}
-              <span className="navi-subtitle" style={{ fontSize: '1rem', fontWeight: 500 }}>
-                {' '}
-                /mês
-              </span>
-            </p>
-            <p className="navi-subtitle" style={{ marginTop: 8 }}>
-              30 dias grátis incluídos (trial). Depois, cobrança mensal no Asaas.
-            </p>
-            <p className="navi-subtitle" style={{ marginTop: 6 }}>
-              Métodos: PIX · Boleto · Cartão de crédito
-            </p>
-          </div>
-        </div>
+      {/* Grade de planos */}
+      <div
+        className="animate-in"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: 20,
+          marginTop: 28,
+          animationDelay: '0.05s',
+        }}
+      >
+        {PLAN_ORDER.map((key) => {
+          const plan = PLAN_CONFIG[key];
+          const Icon = PLAN_ICONS[key] || Zap;
+          const isCurrentPlan = currentPlan === key;
+          const isStudio = key === 'studio';
 
-        <form className="flex-col gap-3" onSubmit={onSubmit}>
-          <div className="form-group">
-            <label>Forma de pagamento</label>
-            <select className="form-input" value={billingType} onChange={(e) => setBillingType(e.target.value)} disabled={!billingLive}>
-              {BILLING_TYPES.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Nome completo / razão social</label>
-            <input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>E-mail</label>
-            <input className="form-input" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>CPF ou CNPJ</label>
-            <input className="form-input" value={form.cpfCnpj} onChange={(e) => setForm((f) => ({ ...f, cpfCnpj: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>Telefone (opcional)</label>
-            <input className="form-input" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>CEP</label>
-            <input className="form-input" value={form.postalCode} onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>Endereço (logradouro)</label>
-            <input className="form-input" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>Número</label>
-            <input className="form-input" value={form.addressNumber} onChange={(e) => setForm((f) => ({ ...f, addressNumber: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>Complemento</label>
-            <input className="form-input" value={form.complement} onChange={(e) => setForm((f) => ({ ...f, complement: e.target.value }))} disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>Bairro</label>
-            <input className="form-input" value={form.neighborhood} onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))} disabled={!billingLive} />
-          </div>
-          <div className="form-group">
-            <label>UF</label>
-            <input
-              className="form-input"
-              maxLength={2}
-              placeholder="SP"
-              value={form.uf}
-              onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}
-              required
-              disabled={!billingLive}
-            />
-          </div>
-          <div className="form-group">
-            <label>Cidade</label>
-            <input className="form-input" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} required disabled={!billingLive} />
-          </div>
-          <button type="submit" className="btn-primary" disabled={loading || !billingLive}>
-            {!billingLive ? 'Pagamento em breve' : loading ? 'Redirecionando…' : 'Começar trial gratuito'}
-          </button>
-        </form>
+          return (
+            <div
+              key={key}
+              className="card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0,
+                padding: 0,
+                overflow: 'hidden',
+                border: isStudio
+                  ? '2px solid var(--accent)'
+                  : isCurrentPlan
+                  ? '2px solid var(--success)'
+                  : '1px solid var(--border)',
+                position: 'relative',
+              }}
+            >
+              {/* Ribbon */}
+              {isStudio && !isCurrentPlan && (
+                <div
+                  style={{
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    padding: '5px 0',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Mais popular
+                </div>
+              )}
+              {isCurrentPlan && (
+                <div
+                  style={{
+                    background: 'var(--success)',
+                    color: '#fff',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    padding: '5px 0',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  ✓ Plano atual
+                </div>
+              )}
+
+              {/* Header */}
+              <div style={{ padding: '20px 24px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: 'var(--accent-light)',
+                      color: 'var(--accent)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon size={18} />
+                  </div>
+                  <div>
+                    <strong className="text-small" style={{ fontSize: '1rem' }}>{plan.name}</strong>
+                    <p className="navi-subtitle" style={{ marginTop: 2, fontSize: '0.78rem' }}>{plan.description}</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span className="navi-page-title" style={{ fontSize: '2rem' }}>
+                    R$ {plan.price.toLocaleString('pt-BR')}
+                  </span>
+                  <span className="navi-subtitle">/mês</span>
+                </div>
+                <p className="navi-subtitle" style={{ marginTop: 4, fontSize: '0.78rem' }}>
+                  R$ {plan.overage_price.toFixed(2).replace('.', ',')} por conversa adicional
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: 'var(--border-light)', margin: '0 24px' }} />
+
+              {/* Features */}
+              <ul style={{ listStyle: 'none', padding: '16px 24px', margin: 0, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {plan.features.map((f) => (
+                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <CheckCircle2 size={15} color="var(--success)" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              <div style={{ padding: '0 24px 24px' }}>
+                {isCurrentPlan ? (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--success-light, rgba(34,197,94,0.1))',
+                      color: 'var(--success)',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    Plano ativo
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={isStudio ? 'btn-primary' : 'btn-outline'}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => handleCheckout(key)}
+                    disabled={!billingLive && currentPlan !== key}
+                  >
+                    {!billingLive
+                      ? 'Em breve'
+                      : currentPlan
+                      ? 'Fazer upgrade'
+                      : '30 dias grátis — assinar'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Rodapé informativo */}
+      {loadingStatus && academyId && (
+        <p className="navi-subtitle" style={{ textAlign: 'center', marginTop: 20 }}>Carregando plano atual…</p>
+      )}
+      <p className="navi-subtitle" style={{ textAlign: 'center', marginTop: 24, fontSize: '0.8rem' }}>
+        Dúvidas?{' '}
+        <a
+          href="https://api.whatsapp.com/send?phone=5511999999999"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--accent)', fontWeight: 600 }}
+        >
+          Fale com o suporte
+        </a>
+      </p>
     </div>
   );
 };

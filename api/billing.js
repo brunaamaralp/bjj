@@ -46,6 +46,18 @@ export default async function handler(req, res) {
       const storeId = String(req.query?.storeId || '').trim();
       if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
+
+      // Ler plano atual da academia
+      let plan = null;
+      try {
+        const DB_ID_LOCAL = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
+        const ACADEMIES_COL_LOCAL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
+        if (DB_ID_LOCAL && ACADEMIES_COL_LOCAL) {
+          const doc = await databases.getDocument(DB_ID_LOCAL, ACADEMIES_COL_LOCAL, storeId);
+          plan = String(doc?.plan || 'starter').trim().toLowerCase() || 'starter';
+        }
+      } catch { void 0; }
+
       if (!isBillingApiLive()) {
         return json(res, 200, {
           sucesso: true,
@@ -53,9 +65,10 @@ export default async function handler(req, res) {
           status: 'preview',
           needsPlan: false,
           companyTaxOk: true,
+          plan,
         });
       }
-      return json(res, 200, { sucesso: true, ...(await evaluateBillingAccess(storeId)) });
+      return json(res, 200, { sucesso: true, plan, ...(await evaluateBillingAccess(storeId)) });
     }
 
     if (action === 'update-customer-tax') {
