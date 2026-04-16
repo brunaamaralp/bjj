@@ -3,7 +3,7 @@ import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
@@ -57,6 +57,304 @@ const timeStartMinutes = (timePart) => {
     const start = norm.split('-')[0].trim();
     return parseTimeToMinutes(start);
 };
+const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
+import {
+    DndContext,
+    DragOverlay,
+    closestCorners,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    useDroppable,
+    defaultDropAnimationSideEffects,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    useSortable,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+const dropAnimationConfig = {
+    sideEffects: defaultDropAnimationSideEffects({
+        styles: {
+            active: {
+                opacity: '0.4',
+            },
+        },
+    }),
+};
+
+/**
+ * Card puramente visual para ser usado tanto no grid quanto no Overlay.
+ */
+const LeadCard = React.memo(({ lead, isDragging, isOverlay, onClick, navigate, openMenuId, schedulerOpenId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, handleReschedule, itemsForDay, isExpanded, toggleExpanded, MAX_CHIPS, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, openScheduler, handleConfirmPresence, setMissedModalLead, GraduationCap, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, ...props }) => {
+    return (
+        <div
+            className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} animate-in`}
+            style={{
+                zIndex: (openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id) ? 20 : 1,
+                ...props.style
+            }}
+            onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
+            {...props}
+        >
+            <div className="lead-card-title-row lead-card-title-row--name-only">
+                <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
+                    {lead.name}
+                </span>
+            </div>
+            <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
+                <Phone size={12} /> {lead.phone}
+                {normalizeKanbanPhone(lead.phone) && !isOverlay ? (
+                    <Link
+                        to={`/inbox?phone=${encodeURIComponent(normalizeKanbanPhone(lead.phone))}`}
+                        className="lead-inbox-link"
+                        draggable={false}
+                        onClick={(e) => e.stopPropagation()}
+                        data-no-dnd="true"
+                    >
+                        Atendimento
+                    </Link>
+                ) : null}
+            </div>
+            <div className="lead-meta mt-1 flex items-center gap-2">
+                {lead.hotLead ? <span className="type-pill">🔥</span> : null}
+                {lead.needHuman ? <span className="type-pill">Precisa resposta</span> : null}
+                {lead.intention ? <span className="type-pill">{lead.intention}</span> : null}
+                {lead.priority ? <span className="type-pill">{lead.priority}</span> : null}
+            </div>
+            {lead.scheduledDate && (
+                <div className="lead-meta mt-1 flex items-center gap-2">
+                    <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
+                </div>
+            )}
+            {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
+                <div className="lead-meta mt-1">
+                    <span
+                        style={{
+                            fontSize: 11,
+                            color: 'var(--text-muted)',
+                            background: 'var(--surface-hover)',
+                            borderRadius: 4,
+                            padding: '2px 6px',
+                            display: 'inline-block',
+                        }}
+                    >
+                        {lead.lostReason}
+                    </span>
+                </div>
+            ) : null}
+            <div className="action-bar action-bar--reorganized mt-3">
+                <div className="wa-split-btn" data-no-dnd="true">
+                    <button
+                        type="button"
+                        className="wa-main-btn"
+                        onClick={(e) => handleSplitWaMain(e, lead)}
+                        title="Conversar"
+                    >
+                        <MessageCircle size={16} /> WhatsApp
+                    </button>
+                    <button
+                        type="button"
+                        className="wa-drop-toggle"
+                        onClick={(e) => toggleWaDropdown(e, lead.id)}
+                        title="Templates"
+                    >
+                        <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                    </button>
+                    {waDropdownOpenId === lead.id && (
+                        <div className="wa-templates-dropdown" onClick={(e) => e.stopPropagation()}>
+                            <div className="dropdown-panel-header">Templates</div>
+                            {templateSendKeys.length === 0 && (
+                                <div className="dropdown-item disabled">Sem templates</div>
+                            )}
+                            {templateSendKeys.map((key) => (
+                                <button
+                                    key={`${lead.id}-tpl-${key}`}
+                                    type="button"
+                                    className="dropdown-item"
+                                    onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
+                                >
+                                    {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ position: 'relative' }} data-no-dnd="true">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === lead.id ? null : lead.id);
+                            setWaDropdownOpenId(null);
+                        }}
+                        title="Mais ações"
+                        className="action-btn action-btn--menu"
+                    >
+                        ⋯
+                    </button>
+                    {openMenuId === lead.id && (
+                        <div className="action-menu-panel" onClick={(e) => e.stopPropagation()}>
+                            <div className="menu-group">
+                                <button className="menu-item" onClick={(e) => openScheduler(e, lead.id)}>
+                                    <Calendar size={16} /> Agendar aula experimental
+                                </button>
+                                {lead.pipelineStage === 'Aula experimental' && (
+                                    <button className="menu-item success" onClick={(e) => handleConfirmPresence(e, lead)}>
+                                        <PlusCircle size={16} /> Confirmar presença
+                                    </button>
+                                )}
+                                {lead.pipelineStage === 'Aula experimental' && (
+                                    <button className="menu-item warning" onClick={(e) => { e.stopPropagation(); setMissedModalLead(lead); setOpenMenuId(null); }}>
+                                        <Calendar size={16} /> Não compareceu
+                                    </button>
+                                )}
+                                {['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
+                                    <button className="menu-item primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
+                                        <GraduationCap size={16} /> Matricular
+                                    </button>
+                                )}
+                                <button className="menu-item" onClick={(e) => openMover(e, lead.id)}>
+                                    <ChevronRight size={16} /> Mover para etapa
+                                </button>
+                            </div>
+                            <div className="menu-divider" />
+                            <div className="menu-group">
+                                <button className="menu-item" onClick={(e) => openNote(e, lead)}>
+                                    <StickyNote size={16} /> Adicionar nota
+                                </button>
+                                <button className="menu-item" onClick={(e) => handleCopyPhone(e, lead)}>
+                                    <Phone size={16} /> {copiedId === lead.id ? '✓ Copiado!' : 'Copiar telefone'}
+                                </button>
+                            </div>
+                            <div className="menu-divider" />
+                            <div className="menu-group">
+                                <button className="menu-item danger-text" onClick={(e) => handleMarkAsLost(e, lead)}>
+                                    <MessageCircle size={16} /> Marcar como perdido
+                                </button>
+                                <button className="menu-item danger-text" onClick={(e) => handleDeleteLead(e, lead.id)}>
+                                    <StickyNote size={16} className="text-danger" /> Excluir lead
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+            {schedulerOpenId === lead.id && (
+                <div className="dropdown-panel" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
+                    <div className="dropdown-section">
+                        <div className="dropdown-label">Hoje</div>
+                        <div className="dropdown-times">
+                            {(isExpanded(lead.id) ? itemsForDay('today') : itemsForDay('today').slice(0, MAX_CHIPS)).map((it, idx) => (
+                                <button key={`t-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'today', it.value)}>{it.label}</button>
+                            ))}
+                            {itemsForDay('today').length > MAX_CHIPS && (
+                                <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
+                                    {isExpanded(lead.id) ? 'Menos' : `+${itemsForDay('today').length - MAX_CHIPS}`}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <div className="dropdown-section">
+                        <div className="dropdown-label">Amanhã</div>
+                        <div className="dropdown-times">
+                            {(isExpanded(lead.id) ? itemsForDay('tomorrow') : itemsForDay('tomorrow').slice(0, MAX_CHIPS)).map((it, idx) => (
+                                <button key={`m-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'tomorrow', it.value)}>{it.label}</button>
+                            ))}
+                            {itemsForDay('tomorrow').length > MAX_CHIPS && (
+                                <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
+                                    {isExpanded(lead.id) ? 'Menos' : `+${itemsForDay('tomorrow').length - MAX_CHIPS}`}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {moverOpenId === lead.id && (
+                <div className="dropdown-panel" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
+                    {stages.map(s => {
+                        const active = (mapLeadToStageId(lead) === s.id);
+                        return (
+                            <button
+                                key={`${lead.id}-${s.id}`}
+                                className={`dropdown-item${active ? ' active' : ''}`}
+                                onClick={(e) => moveToStatus(e, lead.id, s.id)}
+                            >
+                                {s.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+});
+
+const SortableLeadCard = ({ lead, ...props }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: lead.id, data: { lead } });
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+    };
+
+    if (isDragging) {
+        return (
+            <div
+                ref={setNodeRef}
+                style={style}
+                className="lead-card--placeholder"
+            />
+        );
+    }
+
+    return (
+        <LeadCard
+            ref={setNodeRef}
+            lead={lead}
+            style={style}
+            {...attributes}
+            {...listeners}
+            {...props}
+        />
+    );
+};
+
+const Column = ({ id, col, color, leads, isOver, children }) => {
+    const { setNodeRef } = useDroppable({ id });
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''}`}
+        >
+            <div className="col-header">
+                <div className="col-header-titles">
+                    <div className="flex items-center gap-2">
+                        <span className="col-dot" style={{ background: color.color }} />
+                        <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
+                    </div>
+                </div>
+                <span className="col-count" style={{ background: color.bg, color: color.color }}>
+                    {leads.length}
+                </span>
+            </div>
+            <div className="col-content">
+                {children}
+            </div>
+        </div>
+    );
+};
+
 
 /** Ordem: Novo → Experimental → Não compareceu → Aguardando decisão → Matrícula → Perdidos */
 const DEFAULT_STAGE_LABELS = [
@@ -79,7 +377,6 @@ const DEFAULT_STAGE_SLA_DAYS = 3;
 const KANBAN_SCROLL_EDGE = 36;
 const KANBAN_SCROLL_MAX_STEP = 14;
 
-const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 
 const leadMatchesProfileFilter = (lead, profileFilter) => {
     if (profileFilter === 'all') return true;
@@ -135,25 +432,23 @@ const Pipeline = () => {
     const [kanbanSearch, setKanbanSearch] = useState('');
     const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
     const [searchStageScope, setSearchStageScope] = useState('all');
-    const [openMenuId, setOpenMenuId] = useState(null);
-    const [copiedId, setCopiedId] = useState(null);
-    const [waOutbound, setWaOutbound] = useState({
-        name: '',
-        zapster_instance_id: '',
-        templates: DEFAULT_WHATSAPP_TEMPLATES
-    });
-    const [lostModalLead, setLostModalLead] = useState(null);
-    const [dragTargetLead, setDragTargetLead] = useState(null);
-    const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
-    const [searchingServer, setSearchingServer] = useState(false);
-    const [filterDateFrom, setFilterDateFrom] = useState('');
-    const [filterDateTo, setFilterDateTo] = useState('');
-    const [quickFilter, setQuickFilter] = useState(null);
-    const [confirmModal, setConfirmModal] = useState(null);
-    const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(true);
-    const [noteError, setNoteError] = useState('');
     const [waDropdownOpenId, setWaDropdownOpenId] = useState(null);
     const [missedModalLead, setMissedModalLead] = useState(null);
+    const [activeId, setActiveId] = useState(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+            // Não ativar se clicar em elementos marcadores com data-no-dnd
+            onActivation: ({ event }) => {
+                if (event.target.closest('[data-no-dnd]')) {
+                    return false;
+                }
+            }
+        })
+    );
 
     const searchStageScopeOptions = useMemo(() => [
         { value: 'all', label: 'Todas as etapas' },
@@ -682,79 +977,41 @@ const Pipeline = () => {
         return list;
     }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate]);
 
-    const onDragStart = (e, leadId) => {
-        const el = e?.target;
-        if (el && typeof el.closest === 'function') {
-            if (el.closest('button') || el.closest('a') || el.closest('input') || el.closest('select') || el.closest('textarea') || el.closest('.dropdown-panel') || el.closest('.action-menu-panel')) {
-                e.preventDefault();
-                return;
-            }
-        }
-        e.dataTransfer.setData('text/plain', leadId);
+    const handleDragStart = (event) => {
+        setActiveId(event.active.id);
     };
-    const onDragOver = (e) => {
-        e.preventDefault();
-    };
-    const onDragEnter = (status) => {
-        setDragOver(status);
-    };
-    const onDragLeave = (e) => {
-        if (e.currentTarget.contains(e.relatedTarget)) return;
+
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        setActiveId(null);
         setDragOver(null);
-    };
-    const onDrop = async (e, status) => {
-        e.preventDefault();
-        const id = e.dataTransfer.getData('text/plain');
-        if (!id) return;
+
+        if (!over) return;
+
+        // O id do 'over' é o id da coluna (status)
+        const status = over.id;
+        const leadId = active.id;
+        const lead = getLeadById(leadId);
+        
+        if (!lead || mapLeadToStageId(lead) === status) return;
 
         if (status === 'Matriculado') {
-            const lead = getLeadById(id);
             setDragTargetLead(lead);
             setMatriculaModalOpen(true);
-            setDragOver(null);
             return;
         }
 
         if (status === LEAD_STATUS.MISSED) {
-            const lead = getLeadById(id);
-            setConfirmModal({
-                title: 'Marcar como não compareceu?',
-                description: `Mover "${lead?.name || 'Sem nome'}" para "Não compareceu".`,
-                confirmLabel: 'Confirmar',
-                onConfirm: async () => {
-                    try {
-                        await addLeadEvent({
-                            academyId,
-                            leadId: id,
-                            type: 'missed',
-                            from: lead?.pipelineStage || lead?.status || '',
-                            to: LEAD_STATUS.MISSED,
-                            createdBy: userId || 'user',
-                            permissionContext: permCtx
-                        });
-                        await updateLead(id, {
-                            status: LEAD_STATUS.MISSED,
-                            pipelineStage: LEAD_STATUS.MISSED,
-                            missedAt: new Date().toISOString()
-                        });
-                        setToast('Marcado como não compareceu');
-                        setTimeout(() => setToast(''), 2000);
-                    } catch (err) {
-                        addToast({ type: 'error', message: friendlyError(err, 'action') });
-                    } finally {
-                        setDragOver(null);
-                        setConfirmModal(null);
-                    }
-                }
-            });
-            setDragOver(null);
+            setMissedModalLead(lead);
             return;
-        } else if (status === LEAD_STATUS.LOST) {
-            openLostModal(id, async (lostReason) => {
-                const cur = getLeadById(id);
+        }
+
+        if (status === LEAD_STATUS.LOST) {
+            openLostModal(leadId, async (lostReason) => {
+                const cur = getLeadById(leadId);
                 await addLeadEvent({
                     academyId,
-                    leadId: id,
+                    leadId,
                     type: 'lost',
                     from: cur?.status || '',
                     to: LEAD_STATUS.LOST,
@@ -762,7 +1019,7 @@ const Pipeline = () => {
                     createdBy: userId || 'user',
                     permissionContext: permCtx
                 });
-                await updateLead(id, {
+                await updateLead(leadId, {
                     status: LEAD_STATUS.LOST,
                     scheduledDate: '',
                     scheduledTime: '',
@@ -773,8 +1030,33 @@ const Pipeline = () => {
                 setToast('Marcado como perdido');
                 setTimeout(() => setToast(''), 2000);
             });
-            setDragOver(null);
             return;
+        }
+
+        try {
+            await addLeadEvent({
+                academyId,
+                leadId,
+                type: 'pipeline_change',
+                from: lead.pipelineStage || '',
+                to: status,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            const payload = getStageUpdatePayload(status);
+            await updateLead(leadId, payload);
+            setToast('Movido no pipeline');
+            setTimeout(() => setToast(''), 2000);
+        } catch (err) {
+            addToast({ type: 'error', message: friendlyError(err, 'action') });
+        }
+    };
+
+    const handleDragOver = (event) => {
+        const { over } = event;
+        setDragOver(over ? over.id : null);
+    };
+
     const moveToStatus = async (e, leadId, stageId) => {
         e.stopPropagation();
         const lead = getLeadById(leadId);
@@ -1081,285 +1363,112 @@ const Pipeline = () => {
                 </div>
             ) : null}
 
-            <div
-                ref={kanbanWrapperRef}
-                className="kanban-wrapper"
-                onDragOverCapture={showKanbanInitialLoading ? undefined : onKanbanWrapperDragOverCapture}
-                aria-busy={showKanbanInitialLoading || undefined}
-                aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
             >
-                {stages.map((col, idx) => {
-                    const color = STAGE_COLORS[idx % STAGE_COLORS.length];
-                    if (showKanbanInitialLoading) {
+                <div
+                    ref={kanbanWrapperRef}
+                    className="kanban-wrapper"
+                    onDragOverCapture={showKanbanInitialLoading ? undefined : onKanbanWrapperDragOverCapture}
+                    aria-busy={showKanbanInitialLoading || undefined}
+                    aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
+                >
+                    {stages.map((col, idx) => {
+                        const color = STAGE_COLORS[idx % STAGE_COLORS.length];
+                        if (showKanbanInitialLoading) {
+                            return (
+                                <div key={col.id} className="kanban-column pipeline-kanban-skeleton-col">
+                                    <div className="col-header">
+                                        <div className="col-header-titles">
+                                            <div className="flex items-center gap-2">
+                                                <span className="col-dot" style={{ background: color.color }} />
+                                                <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
+                                            </div>
+                                        </div>
+                                        <span className="pipeline-kanban-skeleton-count" aria-hidden />
+                                    </div>
+                                    <div className="col-content">
+                                        <div className="pipeline-kanban-skeleton-card" />
+                                        <div className="pipeline-kanban-skeleton-card pipeline-kanban-skeleton-card--short" />
+                                        <div className="pipeline-kanban-skeleton-card" />
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        const colLeads = leadsForBoard
+                            .filter(l => mapLeadToStageId(l) === col.id)
+                            .filter(l => originFilter === 'all' ? true : (l.origin || '') === originFilter)
+                            .sort((a, b) => {
+                                const toDateTime = (lead) => {
+                                    const base = lead.scheduledDate || lead.createdAt || '';
+                                    if (!base) return new Date(8640000000000000);
+                                    const [y, m, d] = base.split('T')[0].split('-').map(Number);
+                                    let hh = 23, mm = 59;
+                                    if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
+                                        const [h, mi] = lead.scheduledTime.split(':').map(Number);
+                                        if (Number.isFinite(h) && Number.isFinite(mi)) {
+                                            hh = h; mm = mi;
+                                        }
+                                    }
+                                    return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
+                                };
+                                return toDateTime(a) - toDateTime(b);
+                            });
+
                         return (
-                            <div key={col.id} className="kanban-column pipeline-kanban-skeleton-col">
-                                <div className="col-header">
-                                    <div className="col-header-titles">
-                                        <div className="flex items-center gap-2">
-                                            <span className="col-dot" style={{ background: color.color }} />
-                                            <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
-                                        </div>
-                                    </div>
-                                    <span className="pipeline-kanban-skeleton-count" aria-hidden />
-                                </div>
-                                <div className="col-content">
-                                    <div className="pipeline-kanban-skeleton-card" />
-                                    <div className="pipeline-kanban-skeleton-card pipeline-kanban-skeleton-card--short" />
-                                    <div className="pipeline-kanban-skeleton-card" />
-                                </div>
-                            </div>
-                        );
-                    }
-                    const colLeads = leadsForBoard
-                      .filter(l => mapLeadToStageId(l) === col.id)
-                      .filter(l => originFilter === 'all' ? true : (l.origin || '') === originFilter)
-                      .sort((a, b) => {
-                        const toDateTime = (lead) => {
-                          const base = lead.scheduledDate || lead.createdAt || '';
-                          if (!base) return new Date(8640000000000000);
-                          const [y, m, d] = base.split('T')[0].split('-').map(Number);
-                          let hh = 23, mm = 59;
-                          if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
-                            const [h, mi] = lead.scheduledTime.split(':').map(Number);
-                            if (Number.isFinite(h) && Number.isFinite(mi)) {
-                              hh = h; mm = mi;
-                            }
-                          }
-                          return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
-                        };
-                        return toDateTime(a) - toDateTime(b);
-                      });
-                    return (
-                        <div
-                            key={col.id}
-                            className={`kanban-column ${dragOver === col.id ? 'drop-target' : ''}`}
-                            onDragOver={onDragOver}
-                            onDragEnter={() => onDragEnter(col.id)}
-                            onDragLeave={onDragLeave}
-                            onDrop={(e) => onDrop(e, col.id)}
-                        >
-                            <div className="col-header">
-                                <div className="col-header-titles">
-                                    <div className="flex items-center gap-2">
-                                        <span className="col-dot" style={{ background: color.color }}></span>
-                                        <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
-                                    </div>
-                                </div>
-                                <span className="col-count" style={{ background: color.bg, color: color.color }}>
-                                    {colLeads.length}
-                                </span>
-                            </div>
+                            <Column
+                                key={col.id}
+                                id={col.id}
+                                col={col}
+                                color={color}
+                                isOver={dragOver === col.id}
+                                leads={colLeads}
+                            >
+                                <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                                    {colLeads.map((lead, i) => (
+                                        <SortableLeadCard
+                                            key={lead.id}
+                                            lead={lead}
+                                            navigate={navigate}
+                                            openMenuId={openMenuId}
+                                            schedulerOpenId={schedulerOpenId}
+                                            moverOpenId={moverOpenId}
+                                            setOpenMenuId={setOpenMenuId}
+                                            setWaDropdownOpenId={setWaDropdownOpenId}
+                                            handleSplitWaMain={handleSplitWaMain}
+                                            toggleWaDropdown={toggleWaDropdown}
+                                            waDropdownOpenId={waDropdownOpenId}
+                                            templateSendKeys={templateSendKeys}
+                                            sendTemplateFromPipeline={sendTemplateFromPipeline}
+                                            handleReschedule={handleReschedule}
+                                            itemsForDay={itemsForDay}
+                                            isExpanded={isExpanded}
+                                            toggleExpanded={toggleExpanded}
+                                            MAX_CHIPS={MAX_CHIPS}
+                                            stages={stages}
+                                            moveToStatus={moveToStatus}
+                                            handleCopyPhone={handleCopyPhone}
+                                            copiedId={copiedId}
+                                            handleMarkAsLost={handleMarkAsLost}
+                                            handleDeleteLead={handleDeleteLead}
+                                            openScheduler={openScheduler}
+                                            handleConfirmPresence={handleConfirmPresence}
+                                            setMissedModalLead={setMissedModalLead}
+                                            setMatriculaModalOpen={setMatriculaModalOpen}
+                                            openMover={openMover}
+                                            setDragTargetLead={setDragTargetLead}
+                                            mapLeadToStageId={mapLeadToStageId}
+                                            // Props extras para ícones se necessário
+                                            GraduationCap={GraduationCap}
+                                        />
+                                    ))}
+                                </SortableContext>
 
-                            <div className="col-content">
-                                {colLeads.map((lead, i) => (
-                                    <div
-                                        key={lead.id}
-                                        className="card lead-card animate-in"
-                                        style={{ 
-                                            animationDelay: `${0.03 * i}s`,
-                                            zIndex: (openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id) ? 20 : 1
-                                        }}
-                                        onClick={() => navigate(`/lead/${lead.id}`)}
-                                        draggable={!(schedulerOpenId === lead.id || moverOpenId === lead.id)}
-                                        onDragStart={(e) => onDragStart(e, lead.id)}
-                                    >
-                                        <div className="lead-card-title-row lead-card-title-row--name-only">
-                                            <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
-                                                {lead.name}
-                                            </span>
-                                        </div>
-                                        <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
-                                            <Phone size={12} /> {lead.phone}
-                                            {normalizeKanbanPhone(lead.phone) ? (
-                                                <Link
-                                                    to={`/inbox?phone=${encodeURIComponent(normalizeKanbanPhone(lead.phone))}`}
-                                                    className="lead-inbox-link"
-                                                    draggable={false}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    Atendimento
-                                                </Link>
-                                            ) : null}
-                                        </div>
-                                        <div className="lead-meta mt-1 flex items-center gap-2">
-                                            {lead.hotLead ? <span className="type-pill">🔥</span> : null}
-                                            {lead.needHuman ? <span className="type-pill">Precisa resposta</span> : null}
-                                            {lead.intention ? <span className="type-pill">{lead.intention}</span> : null}
-                                            {lead.priority ? <span className="type-pill">{lead.priority}</span> : null}
-                                        </div>
-                                        {lead.scheduledDate && (
-                                            <div className="lead-meta mt-1 flex items-center gap-2">
-                                                <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
-                                            </div>
-                                        )}
-                                        {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
-                                            <div className="lead-meta mt-1">
-                                                <span
-                                                    style={{
-                                                        fontSize: 11,
-                                                        color: 'var(--text-muted)',
-                                                        background: 'var(--surface-hover)',
-                                                        borderRadius: 4,
-                                                        padding: '2px 6px',
-                                                        display: 'inline-block',
-                                                    }}
-                                                >
-                                                    {lead.lostReason}
-                                                </span>
-                                            </div>
-                                        ) : null}
-                                        <div className="action-bar action-bar--reorganized mt-3">
-                                            <div className="wa-split-btn">
-                                                <button
-                                                    type="button"
-                                                    className="wa-main-btn"
-                                                    onClick={(e) => handleSplitWaMain(e, lead)}
-                                                    title="Conversar"
-                                                >
-                                                    <MessageCircle size={16} /> WhatsApp
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="wa-drop-toggle"
-                                                    onClick={(e) => toggleWaDropdown(e, lead.id)}
-                                                    title="Templates"
-                                                >
-                                                    <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
-                                                </button>
-                                                {waDropdownOpenId === lead.id && (
-                                                    <div className="wa-templates-dropdown" onClick={(e) => e.stopPropagation()}>
-                                                        <div className="dropdown-panel-header">Templates</div>
-                                                        {templateSendKeys.length === 0 && (
-                                                            <div className="dropdown-item disabled">Sem templates</div>
-                                                        )}
-                                                        {templateSendKeys.map((key) => (
-                                                            <button
-                                                                key={`${lead.id}-tpl-${key}`}
-                                                                type="button"
-                                                                className="dropdown-item"
-                                                                onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
-                                                            >
-                                                                {WHATSAPP_TEMPLATE_LABELS[key] || key}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div style={{ position: 'relative' }}>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenMenuId(openMenuId === lead.id ? null : lead.id);
-                                                        setWaDropdownOpenId(null);
-                                                    }}
-                                                    title="Mais ações"
-                                                    className="action-btn action-btn--menu"
-                                                    draggable={false}
-                                                >
-                                                    ⋯
-                                                </button>
-                                                {openMenuId === lead.id && (
-                                                    <div className="action-menu-panel" onClick={(e) => e.stopPropagation()}>
-                                                        {/* Grupo 1: Alta frequência */}
-                                                        <div className="menu-group">
-                                                            <button className="menu-item" onClick={(e) => openScheduler(e, lead.id)}>
-                                                                <Calendar size={16} /> Agendar aula experimental
-                                                            </button>
-                                                            {lead.pipelineStage === 'Aula experimental' && (
-                                                                <button className="menu-item success" onClick={(e) => handleConfirmPresence(e, lead)}>
-                                                                    <PlusCircle size={16} /> Confirmar presença
-                                                                </button>
-                                                            )}
-                                                            {lead.pipelineStage === 'Aula experimental' && (
-                                                                <button className="menu-item warning" onClick={(e) => { e.stopPropagation(); setMissedModalLead(lead); setOpenMenuId(null); }}>
-                                                                    <Calendar size={16} /> Não compareceu
-                                                                </button>
-                                                            )}
-                                                            {['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
-                                                                <button className="menu-item primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
-                                                                    <GraduationCap size={16} /> Matricular
-                                                                </button>
-                                                            )}
-                                                            <button className="menu-item" onClick={(e) => openMover(e, lead.id)}>
-                                                                <ChevronRight size={16} /> Mover para etapa
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Grupo 2: Secundárias */}
-                                                        <div className="menu-divider" />
-                                                        <div className="menu-group">
-                                                            <button className="menu-item" onClick={(e) => openNote(e, lead)}>
-                                                                <StickyNote size={16} /> Adicionar nota
-                                                            </button>
-                                                            <button className="menu-item" onClick={(e) => handleCopyPhone(e, lead)}>
-                                                                <Phone size={16} /> {copiedId === lead.id ? '✓ Copiado!' : 'Copiar telefone'}
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Grupo 3: Destrutivas */}
-                                                        <div className="menu-divider" />
-                                                        <div className="menu-group">
-                                                            <button className="menu-item danger-text" onClick={(e) => handleMarkAsLost(e, lead)}>
-                                                                <MessageCircle size={16} /> Marcar como perdido
-                                                            </button>
-                                                            <button className="menu-item danger-text" onClick={(e) => handleDeleteLead(e, lead.id)}>
-                                                                <StickyNote size={16} className="text-danger" /> Excluir lead
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {schedulerOpenId === lead.id && (
-                                            <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
-                                                <div className="dropdown-section">
-                                                    <div className="dropdown-label">Hoje</div>
-                                                    <div className="dropdown-times">
-                                                        {(isExpanded(lead.id) ? itemsForDay('today') : itemsForDay('today').slice(0, MAX_CHIPS)).map((it, idx) => (
-                                                            <button key={`t-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'today', it.value)}>{it.label}</button>
-                                                        ))}
-                                                        {itemsForDay('today').length > MAX_CHIPS && (
-                                                            <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
-                                                                {isExpanded(lead.id) ? 'Menos' : `+${itemsForDay('today').length - MAX_CHIPS}`}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="dropdown-section">
-                                                    <div className="dropdown-label">Amanhã</div>
-                                                    <div className="dropdown-times">
-                                                        {(isExpanded(lead.id) ? itemsForDay('tomorrow') : itemsForDay('tomorrow').slice(0, MAX_CHIPS)).map((it, idx) => (
-                                                            <button key={`m-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'tomorrow', it.value)}>{it.label}</button>
-                                                        ))}
-                                                        {itemsForDay('tomorrow').length > MAX_CHIPS && (
-                                                            <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
-                                                                {isExpanded(lead.id) ? 'Menos' : `+${itemsForDay('tomorrow').length - MAX_CHIPS}`}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {moverOpenId === lead.id && (
-                                            <div className="dropdown-panel" onClick={(e) => e.stopPropagation()}>
-                                                {stages.map(s => {
-                                                    const active = (mapLeadToStageId(lead) === s.id);
-                                                    return (
-                                                        <button
-                                                            key={`${lead.id}-${s.id}`}
-                                                            className={`dropdown-item${active ? ' active' : ''}`}
-                                                            draggable={false}
-                                                            onClick={(e) => moveToStatus(e, lead.id, s.id)}
-                                                        >
-                                                            {s.label}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
                                 {colLeads.length === 0 && (() => {
                                     const scopeLabel = searchStageScopeOptions.find((o) => o.value === searchStageScope)?.label || '';
                                     const hasSearchQuery = Boolean(String(kanbanSearch || '').trim() || normalizeKanbanPhone(kanbanSearch));
@@ -1377,11 +1486,50 @@ const Pipeline = () => {
                                         </div>
                                     );
                                 })()}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                            </Column>
+                        );
+                    })}
+                </div>
+
+                <DragOverlay dropAnimation={dropAnimationConfig}>
+                    {activeId ? (
+                        <LeadCard
+                            lead={getLeadById(activeId)}
+                            isOverlay
+                            navigate={navigate}
+                            openMenuId={openMenuId}
+                            schedulerOpenId={schedulerOpenId}
+                            moverOpenId={moverOpenId}
+                            setOpenMenuId={setOpenMenuId}
+                            setWaDropdownOpenId={setWaDropdownOpenId}
+                            handleSplitWaMain={handleSplitWaMain}
+                            toggleWaDropdown={toggleWaDropdown}
+                            waDropdownOpenId={waDropdownOpenId}
+                            templateSendKeys={templateSendKeys}
+                            sendTemplateFromPipeline={sendTemplateFromPipeline}
+                            handleReschedule={handleReschedule}
+                            itemsForDay={itemsForDay}
+                            isExpanded={isExpanded}
+                            toggleExpanded={toggleExpanded}
+                            MAX_CHIPS={MAX_CHIPS}
+                            stages={stages}
+                            moveToStatus={moveToStatus}
+                            handleCopyPhone={handleCopyPhone}
+                            copiedId={copiedId}
+                            handleMarkAsLost={handleMarkAsLost}
+                            handleDeleteLead={handleDeleteLead}
+                            openScheduler={openScheduler}
+                            handleConfirmPresence={handleConfirmPresence}
+                            setMissedModalLead={setMissedModalLead}
+                            setMatriculaModalOpen={setMatriculaModalOpen}
+                            openMover={openMover}
+                            setDragTargetLead={setDragTargetLead}
+                            mapLeadToStageId={mapLeadToStageId}
+                            GraduationCap={GraduationCap}
+                        />
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
 
             {lostModal ? (
                 <LostReasonModal
@@ -1748,7 +1896,7 @@ const Pipeline = () => {
           background: var(--surface); color: var(--text-muted);
         }
         .more-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .action-bar--reorganized { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+         .action-bar--reorganized { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
         .wa-split-btn { display: flex; align-items: stretch; border: 1px solid var(--success); border-radius: var(--radius-sm); overflow: visible; position: relative; background: var(--success); }
         .wa-main-btn { background: var(--success); color: white; border: none; padding: 6px 10px; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
         .wa-main-btn:hover { background: #2e7d32; }
@@ -1771,6 +1919,15 @@ const Pipeline = () => {
         .reason-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .reason-chip { padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; text-align: center; }
         .reason-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+        /* Estilos D&D Kit */
+        .kanban-column { transition: background 0.2s, border-color 0.2s; border: 1px solid transparent; }
+        .kanban-col--drag-over { background: rgba(91, 63, 191, 0.04); border-color: rgba(91, 63, 191, 0.3); }
+        .lead-card { cursor: grab; }
+        .lead-card:active { cursor: grabbing; }
+        .lead-card--dragging { opacity: 0.4; border: 2px dashed var(--border-secondary); background: var(--surface-hover); cursor: grabbing; }
+        .lead-card--overlay { opacity: 0.95; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2); transform: rotate(2deg) scale(1.02); cursor: grabbing; z-index: 500; pointer-events: none; }
+        .lead-card--placeholder { height: 80px; border: 2px dashed var(--border); background: var(--surface-hover); border-radius: var(--radius-sm); opacity: 0.5; margin-bottom: 8px; }
       `}} />
             {toast && <div className="toast">{toast}</div>}
             {confirmModal && (
