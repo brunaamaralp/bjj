@@ -19,5 +19,15 @@
     { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },
     { "source": "/v1/webhooks/asaas", "destination": "/api/v1/webhooks/asaas" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/reset-usage",
+      "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/check-trials",
+      "schedule": "0 9 * * *"
+    }
   ]
 }

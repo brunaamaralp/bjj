@@ -3,6 +3,7 @@
  */
 /* global process */
 import { Client, Databases, ID, Permission, Role } from 'node-appwrite';
+import { notifyAcademyOwner } from '../../lib/server/notifyAcademy.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -124,6 +125,7 @@ async function appendUsageLog(databases, { academyId, type, plan, threadsUsed, i
 
 /**
  * Zera contador e registra monthly_reset (cron).
+ * Também reseta flags de notificação para o novo ciclo.
  * @param {Record<string, unknown>} academyDoc
  */
 export async function resetAcademyMonthlyThreadUsage(academyDoc) {
@@ -132,7 +134,11 @@ export async function resetAcademyMonthlyThreadUsage(academyDoc) {
   const id = String(academyDoc?.$id || '').trim();
   if (!id) throw new Error('academy id inválido');
   const p = normalizePlan(academyDoc?.plan);
-  await databases.updateDocument(DB_ID, ACADEMIES_COL, id, { ai_threads_used: 0 });
+  await databases.updateDocument(DB_ID, ACADEMIES_COL, id, {
+    ai_threads_used: 0,
+    notified_80pct: false,
+    notified_100pct: false,
+  });
   await appendUsageLog(databases, {
     academyId: id,
     type: 'monthly_reset',
@@ -154,8 +160,39 @@ export async function incrementAiThreads(academyId, isOverage, plan) {
   const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
   const prev = Number(doc.ai_threads_used) || 0;
   const next = prev + 1;
-  await databases.updateDocument(DB_ID, ACADEMIES_COL, id, { ai_threads_used: next });
   const p = normalizePlan(plan || doc.plan);
+
+  const limit = Number(doc.ai_threads_limit) || getPlanConfig(p).threads_limit;
+  const pct = limit > 0 ? (next / limit) * 100 : 0;
+
+  // Calcular data de reset para exibir nas notificações
+  const bcd = Math.min(Math.max(parseInt(String(doc.billing_cycle_day ?? 1), 10) || 1, 1), 28);
+  const nowUtc = new Date();
+  const dom = nowUtc.getUTCDate();
+  const resetMonth = dom >= bcd ? nowUtc.getUTCMonth() + 1 : nowUtc.getUTCMonth();
+  const resetYear = resetMonth > 11 ? nowUtc.getUTCFullYear() + 1 : nowUtc.getUTCFullYear();
+  const resetDate = new Date(Date.UTC(resetYear, resetMonth % 12, bcd));
+  const resetFormatted = resetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+
+  // Montar patch para persistência
+  const patch = { ai_threads_used: next };
+
+  // Threshold 80%: notificar uma única vez por ciclo
+  if (pct >= 80 && pct < 100 && !doc.notified_80pct) {
+    patch.notified_80pct = true;
+    notifyAcademyOwner(doc, 'quota_80pct', { used: next, limit, resetDate: resetFormatted })
+      .catch((e) => console.error('[incrementAiThreads] notif 80%:', e?.message));
+  }
+
+  // Threshold 100%: notificar uma única vez por ciclo
+  if (pct >= 100 && !doc.notified_100pct) {
+    patch.notified_100pct = true;
+    notifyAcademyOwner(doc, 'quota_100pct', { used: next, limit, resetDate: resetFormatted })
+      .catch((e) => console.error('[incrementAiThreads] notif 100%:', e?.message));
+  }
+
+  await databases.updateDocument(DB_ID, ACADEMIES_COL, id, patch);
+
   await appendUsageLog(databases, {
     academyId: id,
     type: 'thread_started',
