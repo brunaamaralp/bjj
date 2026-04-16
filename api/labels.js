@@ -58,6 +58,11 @@ export default async function handler(req, res) {
     const { academyId } = access;
 
     try {
+      if (!DB_ID || !LABELS_COL) {
+        console.error('[api/labels] Erro de configuração:', { DB_ID, LABELS_COL });
+        return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite ausente no servidor (DB_ID ou LABELS_COL)' });
+      }
+
       const existing = await databases.listDocuments(DB_ID, LABELS_COL, [
         Query.equal('academy_id', [academyId]),
         Query.limit(200),
@@ -68,6 +73,7 @@ export default async function handler(req, res) {
       );
       return json(res, 200, { sucesso: true, labels: sorted });
     } catch (e) {
+      console.error('[api/labels] Erro ao listar etiquetas:', e);
       return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao listar etiquetas' });
     }
   }
