@@ -129,11 +129,35 @@ export const useLeadStore = create((set, get) => ({
 
   setAcademyList: (list) => set({ academyList: Array.isArray(list) ? list : [] }),
 
-  setAcademyId: (id) =>
-    set({
-      academyId: id,
-      ...(id ? {} : { onboardingChecklist: null, billingAccess: null, academyList: [] })
-    }),
+  setAcademyId: (id) => {
+    const current = get().academyId;
+    if (id && id !== current) {
+      // Troca de academia: reset total de dados sensíveis
+      set({
+        academyId: id,
+        leads: [],
+        leadsCursor: null,
+        leadsHasMore: false,
+        labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
+        onboardingChecklist: null,
+        billingAccess: null
+      });
+      // Notificar store de contabilidade (se existir)
+      if (typeof window !== 'undefined' && window.useAccountingStore?.getState()?.loadByAcademy) {
+        window.useAccountingStore.getState().loadByAcademy(id);
+      }
+    } else if (!id) {
+       set({
+         academyId: null,
+         leads: [],
+         leadsCursor: null,
+         leadsHasMore: false,
+         onboardingChecklist: null,
+         billingAccess: null,
+         academyList: []
+       });
+    }
+  },
   setBillingAccess: (v) => set({ billingAccess: v && typeof v === 'object' ? v : null }),
   reopenOnboardingBanner: () =>
     set((s) => ({ onboardingChecklistReopenNonce: (s.onboardingChecklistReopenNonce || 0) + 1 })),
@@ -280,27 +304,35 @@ export const useLeadStore = create((set, get) => ({
       };
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
-      await addLeadEvent({
-        academyId,
-        leadId: doc.$id,
-        type: 'lead_criado',
-        text: 'Lead criado',
-        at: doc.$createdAt,
-        createdBy: userId || 'user',
-        permissionContext: permCtx
-      });
+      try {
+        await addLeadEvent({
+          academyId,
+          leadId: doc.$id,
+          type: 'lead_criado',
+          text: 'Lead criado',
+          at: doc.$createdAt,
+          createdBy: userId || 'user',
+          permissionContext: permCtx
+        });
+      } catch (evtErr) {
+        console.warn('Failed to insert lead_criado event:', evtErr);
+      }
 
       for (const ev of lead.notes || []) {
         if (ev && ev.type === 'note' && String(ev.text || '').trim()) {
-          await addLeadEvent({
-            academyId,
-            leadId: doc.$id,
-            type: 'note',
-            text: String(ev.text).slice(0, 1000),
-            at: ev.at || nowIso,
-            createdBy: 'user',
-            permissionContext: permCtx
-          });
+          try {
+            await addLeadEvent({
+              academyId,
+              leadId: doc.$id,
+              type: 'note',
+              text: String(ev.text).slice(0, 1000),
+              at: ev.at || nowIso,
+              createdBy: 'user',
+              permissionContext: permCtx
+            });
+          } catch (evtErr) {
+            console.warn('Failed to insert lead note event:', evtErr);
+          }
         }
       }
 
@@ -468,16 +500,20 @@ export const useLeadStore = create((set, get) => ({
           perms
         );
 
-        await addLeadEvent({
-          academyId,
-          leadId: doc.$id,
-          type: 'import',
-          text: 'Importado (Planilha)',
-          at: nowIso,
-          createdBy: 'system',
-          payloadJson: { source: 'Planilha' },
-          permissionContext: permCtx
-        });
+        try {
+          await addLeadEvent({
+            academyId,
+            leadId: doc.$id,
+            type: 'import',
+            text: 'Importado (Planilha)',
+            at: nowIso,
+            createdBy: 'system',
+            payloadJson: { source: 'Planilha' },
+            permissionContext: permCtx
+          });
+        } catch (evtErr) {
+          console.warn('Failed to insert import event:', evtErr);
+        }
 
         newLeads.push({
           id: doc.$id,

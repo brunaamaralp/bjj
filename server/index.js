@@ -12,7 +12,7 @@ const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATA
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || 'academies';
 const TASKS_COL = process.env.VITE_APPWRITE_TASKS_COLLECTION_ID || process.env.APPWRITE_TASKS_COLLECTION_ID || '';
-const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
+
 
 if (!PROJECT_ID || !API_KEY || !DB_ID || !LEADS_COL || !ACADEMIES_COL) {
   console.error('Config inválida. Defina APPWRITE_ENDPOINT, APPWRITE_API_KEY, PROJECT_ID, DB_ID, LEADS_COL e ACADEMIES_COL.');
@@ -44,15 +44,16 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
     if (!telefone || !intencao || !prioridade) {
       return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
     }
-    if (!DEFAULT_ACADEMY_ID) {
-      return res.status(500).json({ sucesso: false, erro: 'DEFAULT_ACADEMY_ID não configurado' });
+    const academyId = String(req.headers['x-academy-id'] || req.query?.academyId || '').trim();
+    if (!academyId) {
+      return res.status(400).json({ sucesso: false, erro: 'academyId ausente' });
     }
 
     let existing = null;
     try {
       const list = await databases.listDocuments(DB_ID, LEADS_COL, [
         Query.equal('phone', [telefone]),
-        Query.equal('academyId', [DEFAULT_ACADEMY_ID]),
+        Query.equal('academyId', [academyId]),
         Query.limit(1),
       ]);
       existing = list.documents && list.documents[0] ? list.documents[0] : null;
@@ -82,7 +83,7 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
       if (toBoolSim(atendimento.precisa_resposta_humana)) payload.need_human = true;
       const up = await databases.updateDocument(DB_ID, LEADS_COL, existing.$id, payload);
       await addLeadEventServer({
-        academyId: DEFAULT_ACADEMY_ID,
+        academyId: academyId,
         leadId: existing.$id,
         type: 'whatsapp',
         text: String(atendimento.mensagem_original || '').slice(0, 1000),
@@ -126,14 +127,14 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
       status_changed_at: nowIso,
       pipeline_stage_changed_at: nowIso,
       last_whatsapp_activity_at: nowIso,
-      academyId: DEFAULT_ACADEMY_ID
+      academyId: academyId
     }, [
       Permission.read(Role.users()),
       Permission.update(Role.users()),
       Permission.delete(Role.users()),
     ]);
     await addLeadEventServer({
-      academyId: DEFAULT_ACADEMY_ID,
+      academyId: academyId,
       leadId: created.$id,
       type: 'whatsapp',
       text: String(atendimento.mensagem_original || '').slice(0, 1000),

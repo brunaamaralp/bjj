@@ -38,6 +38,7 @@ import Reports from './pages/Reports';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
+import AIAgentSettings from './pages/AIAgentSettings';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -98,12 +99,7 @@ const App = () => {
     );
   }, [billingAccessTop]);
 
-  const inboxTabParam = useMemo(() => {
-    const q = new URLSearchParams(location.search);
-    return String(q.get('tab') || '').trim();
-  }, [location.search]);
-
-  const isEmpresaAgenteTab = location.pathname === '/empresa' && inboxTabParam === 'agente';
+  const isAgenteIaPage = location.pathname === '/agente-ia';
   const isInboxConversasNavActive = location.pathname === '/inbox';
   const isInboxPath = location.pathname === '/inbox';
 
@@ -690,8 +686,8 @@ const App = () => {
               </Link>
               {canConfigureAgenteIa && (
                 <Link
-                  to="/empresa?tab=agente"
-                  className={`navi-side-link${isEmpresaAgenteTab ? ' active' : ''}`}
+                  to="/agente-ia"
+                  className={`navi-side-link${isAgenteIaPage ? ' active' : ''}`}
                   title={sidebarCollapsed ? 'Agente IA' : undefined}
                 >
                   <Bot size={18} strokeWidth={1.75} />
@@ -804,6 +800,7 @@ const App = () => {
               <Route path="/cadastro" element={<Navigate to="/" replace />} />
               <Route path="/pipeline" element={<Pipeline />} />
               <Route path="/inbox" element={<Inbox />} />
+              <Route path="/agente-ia" element={<AIAgentSettings />} />
               <Route path="/lead/:id" element={<LeadProfile />} />
               <Route path="/new-lead" element={<NewLead />} />
               <Route path="/reports" element={<Reports />} />

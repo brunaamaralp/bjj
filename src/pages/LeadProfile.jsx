@@ -12,6 +12,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
+import { friendlyError } from '../lib/errorMessages.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -435,7 +436,7 @@ const LeadProfile = () => {
             addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
             await refreshTimeline();
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao salvar os dados.' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setSaving(false);
         }
@@ -527,7 +528,7 @@ const LeadProfile = () => {
             }
             return true;
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Não foi possível atualizar o status.' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
             throw e;
         } finally {
             setUpdatingStatus(false);
@@ -595,7 +596,7 @@ const LeadProfile = () => {
             addToast({ type: 'success', message: 'Lead excluído com sucesso.' });
             navigate(-1);
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Não foi possível excluir o lead.' });
+            addToast({ type: 'error', message: friendlyError(e, 'delete') });
         } finally {
             setDeletingLead(false);
         }
@@ -691,7 +692,7 @@ const LeadProfile = () => {
             addToast({ type: 'success', message: 'Nota adicionada.' });
             await refreshTimeline();
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Não foi possível salvar a nota.' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setAddingNote(false);
         }
@@ -715,7 +716,7 @@ const LeadProfile = () => {
             await updateLead(id, { label_ids: newIds });
             addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
         } catch {
-            addToast({ type: 'error', message: 'Erro ao atualizar etiquetas.' });
+            addToast({ type: 'error', message: friendlyError(null, 'save') });
         }
     };
 
@@ -1409,7 +1410,7 @@ const LeadProfile = () => {
                             await confirmMarkLost(reason);
                             addToast({ type: 'success', message: 'Marcado como não fechou.' });
                         } catch (e) {
-                            addToast({ type: 'error', message: e?.message || 'Não foi possível atualizar.' });
+                            addToast({ type: 'error', message: friendlyError(e, 'save') });
                         } finally {
                             setLostModalOpen(false);
                         }

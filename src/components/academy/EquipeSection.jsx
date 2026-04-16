@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Trash2, Plus } from 'lucide-react';
+import { friendlyError } from '../../lib/errorMessages';
 import { teams } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { authService } from '../../lib/auth';
@@ -81,7 +82,7 @@ const EquipeSection = ({ academy, academyId }) => {
             setNewMember({ name: '', email: '', password: '' });
             addToast({ type: 'success', message: 'Recepcionista criado com sucesso!' });
         } catch (error) {
-            setMemberError(error.message);
+            setMemberError(friendlyError(error, 'action') || 'Não foi possível salvar o membro.');
         } finally {
             setSavingMember(false);
         }

@@ -1,4 +1,5 @@
 import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
+import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../lib/humanHandoffUntil.js';
 import { getHumanHandoffHoursForServer } from '../lib/constants.js';
 import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
@@ -36,60 +37,6 @@ function ensureConfig(res) {
   return true;
 }
 
-async function ensureAuth(req, res) {
-  const auth = String(req.headers.authorization || '');
-  if (!auth.toLowerCase().startsWith('bearer ')) {
-    res.status(401).json({ sucesso: false, erro: 'JWT ausente' });
-    return null;
-  }
-  const jwt = auth.slice(7).trim();
-  if (!jwt) {
-    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
-    return null;
-  }
-  try {
-    const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
-    const account = new Account(userClient);
-    return await account.get();
-  } catch {
-    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
-    return null;
-  }
-}
-
-function resolveAcademyHeader(req) {
-  return String(req.headers['x-academy-id'] || '').trim();
-}
-
-async function ensureAcademyAccess(req, res, me) {
-  const academyId = resolveAcademyHeader(req);
-  if (!academyId) {
-    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
-    return null;
-  }
-  try {
-    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-    const ownerId = String(doc?.ownerId || '').trim();
-    const userId = String(me?.$id || '').trim();
-    if (ownerId && userId && ownerId === userId) return { academyId, doc };
-
-    const teamId = String(doc?.teamId || '').trim();
-    if (teamId && userId) {
-      try {
-        const memberships = await teams.listMemberships(teamId, [Query.equal('userId', [userId]), Query.limit(1)]);
-        const list = Array.isArray(memberships?.memberships) ? memberships.memberships : [];
-        if (list.length > 0) return { academyId, doc };
-      } catch {
-        void 0;
-      }
-    }
-    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
-    return null;
-  } catch (e) {
-    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
-    return null;
-  }
-}
 
 function sortMessagesChrono(msgs) {
   const arr = Array.isArray(msgs) ? msgs.slice() : [];

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { friendlyError } from '../lib/errorMessages';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { createSessionJwt } from '../lib/appwrite';
 import { isBillingLive } from '../lib/billingEnabled';
@@ -15,6 +16,7 @@ const BILLING_TYPES = [
 ];
 
 const Plans = ({ user }) => {
+  const navigate = useNavigate();
   const billingLive = isBillingLive();
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
@@ -68,7 +70,11 @@ const Plans = ({ user }) => {
       return;
     }
     if (!academyId) {
-      addToast({ type: 'error', message: 'Nenhuma academia selecionada.' });
+      addToast({
+        type: 'error',
+        message: 'Sessão expirada. Faça login novamente.',
+      });
+      navigate('/login');
       return;
     }
     const jwt = await createSessionJwt();
@@ -105,7 +111,14 @@ const Plans = ({ user }) => {
         message: data.reused ? 'Retomando link de pagamento recente.' : 'Checkout criado. Conclua o pagamento no Asaas.',
       });
     } catch (err) {
-      addToast({ type: 'error', message: String(err?.message || err) });
+      addToast({
+        type: 'error',
+        message: 'Não foi possível processar o pagamento. Entre em contato pelo WhatsApp.',
+        action: {
+          label: 'Falar com suporte',
+          onClick: () => window.open('https://api.whatsapp.com/send?phone=5511999999999')
+        }
+      });
     } finally {
       setLoading(false);
     }

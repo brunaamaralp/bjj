@@ -13,6 +13,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
+import { friendlyError } from '../lib/errorMessages.js';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const normalizeDayToken = (t) => t.toLowerCase().trim().replace(/á/g, 'a').slice(0, 3);
@@ -235,7 +236,7 @@ const Pipeline = () => {
                     setToast('Lead excluído');
                     setTimeout(() => setToast(''), 2500);
                 } catch (err) {
-                    addToast({ type: 'error', message: err?.message || 'Não foi possível excluir o lead.' });
+                    addToast({ type: 'error', message: friendlyError(err, 'delete') });
                 } finally {
                     setConfirmModal(null);
                 }
@@ -539,7 +540,7 @@ const Pipeline = () => {
                         setToast('Marcado como não compareceu');
                         setTimeout(() => setToast(''), 2000);
                     } catch (err) {
-                        addToast({ type: 'error', message: err?.message || 'Não foi possível mover o lead.' });
+                        addToast({ type: 'error', message: friendlyError(err, 'action') });
                     } finally {
                         setConfirmModal(null);
                     }
@@ -587,7 +588,7 @@ const Pipeline = () => {
             const payload = getStageUpdatePayload(stageId);
             await updateLead(leadId, payload);
         } catch (err) {
-            addToast({ type: 'error', message: err?.message || 'Não foi possível mover no pipeline.' });
+            addToast({ type: 'error', message: friendlyError(err, 'action') });
             return;
         }
         setMoverOpenId(null);
@@ -771,7 +772,7 @@ const Pipeline = () => {
                         setToast('Marcado como não compareceu');
                         setTimeout(() => setToast(''), 2000);
                     } catch (err) {
-                        addToast({ type: 'error', message: err?.message || 'Não foi possível mover o lead.' });
+                        addToast({ type: 'error', message: friendlyError(err, 'action') });
                     } finally {
                         setDragOver(null);
                         setConfirmModal(null);
@@ -829,7 +830,7 @@ const Pipeline = () => {
                 const payload = getStageUpdatePayload(status);
                 await updateLead(id, payload);
             } catch (err) {
-                addToast({ type: 'error', message: err?.message || 'Não foi possível mover no pipeline.' });
+                addToast({ type: 'error', message: friendlyError(err, 'action') });
                 setDragOver(null);
                 return;
             }
@@ -1467,7 +1468,7 @@ const Pipeline = () => {
                             setTimeout(() => setToast(''), 2000);
                             setDragTargetLead(null);
                         } catch (err) {
-                            addToast({ type: 'error', message: err?.message || 'Não foi possível concluir a matrícula.' });
+                            addToast({ type: 'error', message: friendlyError(err, 'action') });
                         }
                     }
                 }}

@@ -145,9 +145,9 @@ export function onboardingStepPath(stepId) {
     case 'first_lead':
       return '/new-lead';
     case 'setup_ai':
-      return '/empresa?tab=agente';
+      return '/agente-ia';
     case 'connect_whatsapp':
-      return '/empresa?tab=agente';
+      return '/agente-ia';
     case 'company_tax':
       return '/empresa?focus=tax';
     case 'install_pwa':

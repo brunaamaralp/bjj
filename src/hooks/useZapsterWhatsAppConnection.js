@@ -428,6 +428,23 @@ export function useZapsterWhatsAppConnection(academyId) {
     setWaQrError(false);
   }, []);
 
+  useEffect(() => {
+    if (!waQrShown) return;
+    const isScanning = ['qrcode', 'scanning', 'open'].includes(String(waInfo?.status || '').toLowerCase());
+    if (!isScanning) return;
+
+    let stopped = false;
+    const pollId = setInterval(async () => {
+      if (stopped) return;
+      await fetchWaInfo({ silent: true, quiet: true });
+    }, 15000);
+
+    return () => {
+      stopped = true;
+      clearInterval(pollId);
+    };
+  }, [waInfo?.status, waQrShown, fetchWaInfo]);
+
   return {
     waInfo,
     waLoading,

@@ -59,7 +59,12 @@ export async function addLeadEvent({
     payload_json: payloadJson != null ? JSON.stringify(payloadJson).slice(0, 65535) : ''
   };
 
-  return databases.createDocument(DB_ID, LEAD_EVENTS_COL, ID.unique(), doc, perms);
+  try {
+    return await databases.createDocument(DB_ID, LEAD_EVENTS_COL, ID.unique(), doc, perms);
+  } catch (err) {
+    console.warn('[leadEvents] Falha ao gravar evento:', err?.message);
+    return null;
+  }
 }
 
 export async function getLeadEvents(leadId, academyId, opts = {}) {

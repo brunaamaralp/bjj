@@ -353,7 +353,7 @@ const Sales = () => {
     });
     const st = useSalesStore.getState();
     if (st.error) {
-      addToast({ type: 'error', message: `Erro na venda: ${st.error}` });
+      addToast({ type: 'error', message: 'Não foi possível registrar a venda. Revise as informações e tente novamente.' });
     } else {
       addToast({ type: 'success', message: 'Venda concluída' });
       const vendaId = st.lastSale?.venda_id || '';

@@ -1,19 +1,28 @@
 import { create } from 'zustand';
 
-const LS_KEY = 'bjj_accounting_v1';
+const LS_BASE_KEY = 'bjj_accounting_v1';
 
-function loadState() {
+function getLsKey(academyId) {
+  if (!academyId) return null;
+  return `${LS_BASE_KEY}_${academyId}`;
+}
+
+function loadState(academyId) {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const key = getLsKey(academyId);
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
-  } catch (e) { void e; }
+  } catch (e) { console.error('[AccountingStore] Erro no LocalStorage:', e); }
   return null;
 }
 
-function saveState(state) {
+function saveState(academyId, state) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-  } catch (e) { void e; }
+    const key = getLsKey(academyId);
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(state));
+  } catch (e) { console.error('[AccountingStore] Erro no LocalStorage:', e); }
 }
 
 function seedAccounts() {
@@ -45,32 +54,37 @@ function endOfDay(d) {
 }
 
 export const useAccountingStore = create((set, get) => {
-  const loaded = loadState();
-  const initial = loaded || {
     accounts: seedAccounts(),
     journal: [],
-  };
+    academyId: null,
 
-  return {
-    accounts: initial.accounts,
-    journal: initial.journal,
+    loadByAcademy: (id) => {
+      if (!id) return;
+      const loaded = loadState(id);
+      set({
+        academyId: id,
+        accounts: loaded?.accounts || seedAccounts(),
+        journal: loaded?.journal || []
+      });
+    },
+
     setAccounts: (list) =>
       set((state) => {
-        const next = { accounts: Array.isArray(list) ? list : [], journal: state.journal };
-        saveState(next);
+        const next = { ...state, accounts: Array.isArray(list) ? list : [] };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
     setJournal: (list) =>
       set((state) => {
-        const next = { accounts: state.accounts, journal: Array.isArray(list) ? list : [] };
-        saveState(next);
+        const next = { ...state, journal: Array.isArray(list) ? list : [] };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
 
     addAccount: (acc) =>
       set((state) => {
-        const next = { accounts: [...state.accounts, { id: crypto.randomUUID(), ...acc }], journal: state.journal };
-        saveState(next);
+        const next = { ...state, accounts: [...state.accounts, { id: crypto.randomUUID(), ...acc }] };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
 
@@ -80,8 +94,8 @@ export const useAccountingStore = create((set, get) => {
         if (idx < 0) return {};
         const nextAccounts = state.accounts.slice();
         nextAccounts[idx] = { ...nextAccounts[idx], ...updates };
-        const next = { accounts: nextAccounts, journal: state.journal };
-        saveState(next);
+        const next = { ...state, accounts: nextAccounts };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
 
@@ -91,8 +105,8 @@ export const useAccountingStore = create((set, get) => {
         if (!acc) return {};
         const hasChildren = state.accounts.some((a) => a.code.startsWith(acc.code + '.'));
         if (hasChildren) return {};
-        const next = { accounts: state.accounts.filter((a) => a.id !== id), journal: state.journal };
-        saveState(next);
+        const next = { ...state, accounts: state.accounts.filter((a) => a.id !== id) };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
 
@@ -114,15 +128,15 @@ export const useAccountingStore = create((set, get) => {
             counterCode: l.counterCode || '',
           })),
         };
-        const next = { accounts: state.accounts, journal: [doc, ...state.journal] };
-        saveState(next);
+        const next = { ...state, journal: [doc, ...state.journal] };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
 
     deleteEntry: (id) =>
       set((state) => {
-        const next = { accounts: state.accounts, journal: state.journal.filter((e) => e.id !== id) };
-        saveState(next);
+        const next = { ...state, journal: state.journal.filter((e) => e.id !== id) };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),
 

@@ -1,4 +1,5 @@
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
+import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -9,7 +10,7 @@ const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
-const DEFAULT_ACADEMY_ID = process.env.DEFAULT_ACADEMY_ID || process.env.VITE_DEFAULT_ACADEMY_ID || '';
+
 
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || 'https://api.zapsterapi.com';
 const ZAPSTER_TOKEN = process.env.ZAPSTER_TOKEN || process.env.ZAPSTER_API_TOKEN || '';
@@ -48,85 +49,6 @@ function ensureJson(req, res) {
   return true;
 }
 
-async function ensureAuth(req, res) {
-  const auth = String(req.headers.authorization || '');
-  if (!auth.toLowerCase().startsWith('bearer ')) {
-    res.status(401).json({ sucesso: false, erro: 'JWT ausente' });
-    return null;
-  }
-  const jwt = auth.slice(7).trim();
-  if (!jwt) {
-    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
-    return null;
-  }
-  try {
-    const userClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setJWT(jwt);
-    const account = new Account(userClient);
-    const me = await account.get();
-    return me;
-  } catch {
-    res.status(401).json({ sucesso: false, erro: 'JWT inválido' });
-    return null;
-  }
-}
-
-function normalizePhone(v) {
-  const raw = String(v || '').trim();
-  if (!raw) return '';
-  return raw.replace(/[^\d]/g, '');
-}
-
-/** Dígitos para wa.me (mesma regra do cliente: BR com DDI 55). */
-function digitsForWaMe(phoneDigits) {
-  const d = String(phoneDigits || '').replace(/\D/g, '');
-  if (!d) return '';
-  if (d.startsWith('55') && d.length >= 12) return d;
-  if (d.length >= 10 && d.length <= 11) return `55${d}`;
-  return d;
-}
-
-function buildWaMeUrl(phoneDigits, text) {
-  const waDigits = digitsForWaMe(phoneDigits);
-  if (!waDigits) return '';
-  return `https://wa.me/${waDigits}?text=${encodeURIComponent(String(text || ''))}`;
-}
-
-function resolveAcademyId(req) {
-  const h = String(req.headers['x-academy-id'] || '').trim();
-  if (h) return h;
-  return String(DEFAULT_ACADEMY_ID || '').trim();
-}
-
-async function ensureAcademyAccess(req, res, me) {
-  const academyId = resolveAcademyId(req);
-  if (!academyId) {
-    res.status(400).json({ sucesso: false, erro: 'x-academy-id ausente' });
-    return null;
-  }
-  try {
-    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-    const ownerId = String(doc?.ownerId || '').trim();
-    const userId = String(me?.$id || '').trim();
-    if (ownerId && userId && ownerId === userId) return doc;
-
-    const teamId = String(doc?.teamId || '').trim();
-    if (teamId && userId) {
-      try {
-        const memberships = await teams.listMemberships(teamId, [Query.equal('userId', [userId]), Query.limit(1)]);
-        const list = Array.isArray(memberships?.memberships) ? memberships.memberships : [];
-        if (list.length > 0) return doc;
-      } catch {
-        void 0;
-      }
-    }
-
-    res.status(403).json({ sucesso: false, erro: 'Acesso negado à academia' });
-    return null;
-  } catch (e) {
-    res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao validar academia' });
-    return null;
-  }
-}
 
 function safeParseMessages(raw) {
   if (!raw) return [];
@@ -560,9 +482,9 @@ export default async function handler(req, res) {
 
   const me = await ensureAuth(req, res);
   if (!me) return;
-  const academyDoc = await ensureAcademyAccess(req, res, me);
-  if (!academyDoc) return;
-  const academyId = String(academyDoc.$id || '').trim();
+  const access = await ensureAcademyAccess(req, res, me);
+  if (!access) return;
+  const { doc: academyDoc, academyId } = access;
 
   if (action === 'send') {
     if (req.method !== 'POST') {

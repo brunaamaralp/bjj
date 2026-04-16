@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Sparkles, Filter, Users, Settings } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings } from 'lucide-react';
 import EstudioSection from '../components/academy/EstudioSection';
-import AgenteIASection from '../components/academy/AgenteIASection';
 import FunilSection from '../components/academy/FunilSection';
 import EquipeSection from '../components/academy/EquipeSection';
 import AvancadoSection from '../components/academy/AvancadoSection';
@@ -15,7 +15,6 @@ import { useUserRole } from '../lib/useUserRole';
 
 const TABS = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2 },
-    { id: 'agente', label: 'Agente IA', Icon: Sparkles },
     { id: 'funil', label: 'Funil', Icon: Filter },
     { id: 'equipe', label: 'Equipe', Icon: Users },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
@@ -90,7 +89,10 @@ const AcademySettings = () => {
     const createId = () => {
         try {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-        } catch { void 0; }
+        } catch (e) {
+            console.error('[AcademySettings] erro:', e);
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        }
         const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
         return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
     };
@@ -159,7 +161,10 @@ const AcademySettings = () => {
                             mods = { ...mods, ...parsedMods };
                         }
                     }
-                } catch (e) { void e; }
+                } catch (e) {
+                    console.error('[AcademySettings] erro:', e);
+                    addToast({ type: 'error', message: friendlyError(e, 'save') });
+                }
                 const normalized = normalizeQuestions(doc.customLeadQuestions);
                 setAcademy({
                     name: doc.name || '',
@@ -178,7 +183,10 @@ const AcademySettings = () => {
                         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                             customLeadQuestions: JSON.stringify(normalized.questions)
                         });
-                    } catch (e) { void e; }
+                    } catch (e) {
+                        console.error('[AcademySettings] erro:', e);
+                        addToast({ type: 'error', message: friendlyError(e, 'save') });
+                    }
                 }
                 setAcademyLoadState('ok');
                 setAcademyDataVersion((v) => v + 1);
@@ -227,7 +235,10 @@ const AcademySettings = () => {
                 }
                 try {
                     await useLeadStore.getState().completeOnboardingStepIds(['company_tax']);
-                } catch (e) { void e; }
+                } catch (e) {
+                    console.error('[AcademySettings] erro:', e);
+                    addToast({ type: 'error', message: friendlyError(e, 'save') });
+                }
             }
 
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
@@ -242,7 +253,10 @@ const AcademySettings = () => {
             try {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
                 useLeadStore.getState().setModules(academy.modules || {});
-            } catch (e) { void e; }
+            } catch (e) {
+                console.error('[AcademySettings] erro:', e);
+                addToast({ type: 'error', message: friendlyError(e, 'save') });
+            }
             addToast({ type: 'success', message: 'Configurações da academia salvas.' });
         } catch (e) {
             if (String(e?.message) === 'tax') {
@@ -314,13 +328,6 @@ const AcademySettings = () => {
                     setTaxDocumentInput={setTaxDocumentInput}
                     taxInputRef={taxInputRef}
                     autoEditTax={autoEditTax}
-                />
-            )}
-
-            {activeTab === 'agente' && (
-                <AgenteIASection
-                    academyId={academyId}
-                    role={role}
                 />
             )}
 

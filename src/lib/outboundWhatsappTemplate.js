@@ -1,5 +1,6 @@
 import { account } from './appwrite';
 import { applyWhatsappTemplatePlaceholders } from '../../lib/whatsappTemplateDefaults.js';
+import { friendlyError } from './errorMessages.js';
 
 export function normalizePhoneForWaMe(v) {
   let d = String(v || '').replace(/\D/g, '');
@@ -75,7 +76,7 @@ export async function sendWhatsappTemplateOutbound({
       onToast?.({ type: 'success', message: 'Mensagem enviada!' });
       return { ok: true };
     } catch (e) {
-      onToast?.({ type: 'error', message: e?.message || 'Erro ao enviar' });
+      onToast?.({ type: 'error', message: friendlyError(e, 'send') || 'WhatsApp desconectado. Verifique a página Agente IA.' });
       return { ok: false };
     }
   }

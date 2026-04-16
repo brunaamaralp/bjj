@@ -5,9 +5,12 @@ import { Query } from 'appwrite';
 import { Wallet2, CreditCard, Banknote, Trash2, PlusCircle } from 'lucide-react';
 import { callFunction } from '../lib/executeFunction';
 import { useAccountingStore } from '../store/useAccountingStore';
+import { useUiStore } from '../store/useUiStore';
+import { friendlyError } from '../lib/errorMessages';
 
 const Finance = () => {
   const academyId = useLeadStore(s => s.academyId);
+  const addToast = useUiStore((s) => s.addToast);
   const [tab, setTab] = useState('transacoes'); // config | transacoes | plano | lancamentos | relatorios
   const [saving, setSaving] = useState(false);
   const [financeConfig, setFinanceConfig] = useState({
@@ -64,7 +67,10 @@ const Finance = () => {
         }
         setFinanceConfig(cfg);
       })
-      .catch((e) => { console.error(e); });
+      .catch((e) => {
+        console.error(e);
+        addToast({ type: 'error', message: friendlyError(e, 'action') });
+      });
   }, [academyId]);
 
   const save = async () => {
@@ -137,7 +143,10 @@ const Finance = () => {
         });
       }
       setTransactions((prev) => prev.map(t => t.id === id ? { ...t, status: 'settled', settledAt: new Date().toISOString() } : t));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
+    }
   };
 
   return (

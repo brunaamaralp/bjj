@@ -1,5 +1,7 @@
 import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
+import { ensureConversationBelongsToAcademy } from '../lib/server/ensureConversationInAcademy.js';
+
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -15,6 +17,11 @@ const MESSAGE_FLAGS_COL =
   process.env.APPWRITE_MESSAGE_FLAGS_COLLECTION_ID ||
   process.env.VITE_APPWRITE_MESSAGE_FLAGS_COLLECTION_ID ||
   '';
+const CONVERSATIONS_COL =
+  process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID ||
+  process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID ||
+  '';
+
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
@@ -56,6 +63,14 @@ export default async function handler(req, res) {
     const academyQ = String(req.query.academy_id || '').trim();
     if (!conversationId) return json(res, 400, { sucesso: false, erro: 'conversation_id obrigatório' });
     if (academyQ !== academyId) return json(res, 400, { sucesso: false, erro: 'academy_id inválido' });
+
+    if (CONVERSATIONS_COL) {
+      const convOk = await ensureConversationBelongsToAcademy(databases, DB_ID, CONVERSATIONS_COL, conversationId, academyId);
+      if (!convOk.ok) {
+        return json(res, 403, { sucesso: false, erro: 'Conversa não encontrada nesta academia' });
+      }
+    }
+
     try {
       const list = await databases.listDocuments(DB_ID, MESSAGE_FLAGS_COL, [
         Query.equal('academy_id', [academyId]),
@@ -85,6 +100,14 @@ export default async function handler(req, res) {
     if (!conversationId) return json(res, 400, { sucesso: false, erro: 'conversation_id obrigatório' });
     if (!messageId) return json(res, 400, { sucesso: false, erro: 'message_id obrigatório' });
     if (academyBody !== academyId) return json(res, 400, { sucesso: false, erro: 'academy_id inválido' });
+
+    if (CONVERSATIONS_COL) {
+      const convOk = await ensureConversationBelongsToAcademy(databases, DB_ID, CONVERSATIONS_COL, conversationId, academyId);
+      if (!convOk.ok) {
+        return json(res, 403, { sucesso: false, erro: 'Conversa não encontrada nesta academia' });
+      }
+    }
+
     if (type !== 'pinned' && type !== 'important') {
       return json(res, 400, { sucesso: false, erro: 'type deve ser pinned ou important' });
     }
@@ -152,6 +175,14 @@ export default async function handler(req, res) {
     }
     if (academyQ !== academyId) return json(res, 400, { sucesso: false, erro: 'academy_id inválido' });
     if (!conversationId) return json(res, 400, { sucesso: false, erro: 'conversation_id obrigatório' });
+
+    if (CONVERSATIONS_COL) {
+      const convOk = await ensureConversationBelongsToAcademy(databases, DB_ID, CONVERSATIONS_COL, conversationId, academyId);
+      if (!convOk.ok) {
+        return json(res, 403, { sucesso: false, erro: 'Conversa não encontrada nesta academia' });
+      }
+    }
+
     try {
       const list = await databases.listDocuments(DB_ID, MESSAGE_FLAGS_COL, [
         Query.equal('academy_id', [academyId]),

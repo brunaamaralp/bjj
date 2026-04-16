@@ -11,6 +11,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
+import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
 import { Bell, BellOff, Flame, Loader2, MessageSquare, Sparkles } from 'lucide-react';
@@ -493,8 +494,8 @@ export default function Inbox() {
       await navigator.clipboard.writeText(String(text || ''));
       addToast({ type: 'success', message: 'Copiado' });
       return true;
-    } catch {
-      addToast({ type: 'error', message: 'Falha ao copiar' });
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
       return false;
     }
   }
@@ -744,8 +745,8 @@ export default function Inbox() {
           addToast({ type: 'success', message: 'Importante removido' });
         }
       }
-    } catch {
-      addToast({ type: 'error', message: 'Não foi possível atualizar a mensagem.' });
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     }
   }
 
@@ -938,7 +939,7 @@ export default function Inbox() {
       }
     } catch (e) {
       try {
-        addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como lida. Tente de novo.' });
+        addToast({ type: 'error', message: friendlyError(e, 'action') });
       } catch {
         void 0;
       }
@@ -981,7 +982,7 @@ export default function Inbox() {
       addToast({ type: 'success', message: 'Marcado como não lida' });
     } catch (e) {
       try {
-        addToast({ type: 'error', message: e?.message || 'Não foi possível marcar como não lida.' });
+        addToast({ type: 'error', message: friendlyError(e, 'action') });
       } catch {
         void 0;
       }
@@ -1030,7 +1031,7 @@ export default function Inbox() {
       return true;
     } catch (e) {
       try {
-        addToast({ type: 'error', message: e?.message || 'Não foi possível desarquivar.' });
+        addToast({ type: 'error', message: friendlyError(e, 'action') });
       } catch {
         void 0;
       }
@@ -1089,7 +1090,7 @@ export default function Inbox() {
       closeMenu();
     } catch (e) {
       try {
-        addToast({ type: 'error', message: e?.message || 'Não foi possível arquivar.' });
+        addToast({ type: 'error', message: friendlyError(e, 'action') });
       } catch {
         void 0;
       }
@@ -1097,7 +1098,7 @@ export default function Inbox() {
   }
 
   function openPromptSettings() {
-    navigate('/empresa?tab=agente');
+    navigate('/agente-ia');
   }
 
 
@@ -1489,7 +1490,7 @@ export default function Inbox() {
       if (scheduleOn && sendAtIso) {
         const sendMs = new Date(sendAtIso).getTime();
         if (!Number.isFinite(sendMs) || sendMs <= Date.now()) {
-          addToast({ type: 'error', message: 'A data de agendamento deve ser no futuro' });
+          addToast({ type: 'error', message: 'Selecione um horário posterior ao atual para agendar.' });
           return;
         }
       }
@@ -1641,7 +1642,7 @@ export default function Inbox() {
       addToast({ type: 'success', message: 'Agendamento cancelado' });
       await loadList({ reset: true, silent: true });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Erro ao cancelar' });
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setCancelingMsgId('');
     }
