@@ -53,7 +53,7 @@ const cardBase = {
     boxShadow: 'none',
 };
 
-const AgenteIASection = ({ academyId, role }) => {
+const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const addToast = useUiStore((s) => s.addToast);
     const academyIdRef = useRef(academyId);
     useEffect(() => { academyIdRef.current = academyId; }, [academyId]);
@@ -83,8 +83,25 @@ const AgenteIASection = ({ academyId, role }) => {
     const [promptPreviewText, setPromptPreviewText] = useState('');
     const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
     const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
-    const [agentModalOpen, setAgentModalOpen] = useState(false);
     const [waConfirm, setWaConfirm] = useState(null);
+
+    // Fluxo do card Assistente IA (sequencial)
+    const [showWizard, setShowWizard] = useState(false);
+    const [showEditor, setShowEditor] = useState(false);
+    const [showTestChat, setShowTestChat] = useState(false);
+
+    // Editor de prompt (intro/body editáveis)
+    const [editIntro, setEditIntro] = useState('');
+    const [editBody, setEditBody] = useState('');
+    const [promptIntroBackup, setPromptIntroBackup] = useState('');
+    const [promptBodyBackup, setPromptBodyBackup] = useState('');
+    const [promptUpdatedAt, setPromptUpdatedAt] = useState('');
+
+    // Dados para o chat de teste
+    const [aiName, setAiName] = useState('');
+    const [academyName, setAcademyName] = useState(String(academyDoc?.name || '').trim());
+    const [testMessagesToday, setTestMessagesToday] = useState(0);
+    const [testMessagesResetDate, setTestMessagesResetDate] = useState('');
 
     useEffect(() => {
         if (!waConfirm) return undefined;
@@ -128,11 +145,24 @@ const AgenteIASection = ({ academyId, role }) => {
                     const intro = String(data.prompt_intro || '');
                     const body = String(data.prompt_body || '');
                     const suffix = String(data.prompt_suffix || '');
+                    const introBackup = String(data.prompt_intro_backup || '');
+                    const bodyBackup = String(data.prompt_body_backup || '');
+                    const updatedAt = String(data.prompt_updated_at || '');
                     setPromptIntro(intro);
                     setPromptBody(body);
                     setPromptSuffix(suffix);
                     setPromptSavedSnapshot({ intro, body, suffix });
                     setPromptConfigurado(isPromptConfigured(intro, body));
+
+                    setPromptIntroBackup(introBackup);
+                    setPromptBodyBackup(bodyBackup);
+                    setPromptUpdatedAt(updatedAt);
+
+                    setAiName(String(data.ai_name || '').trim());
+                    if (data.academy_name) setAcademyName(String(data.academy_name || '').trim());
+                    setTestMessagesToday(Number(data.test_messages_today) || 0);
+                    setTestMessagesResetDate(String(data.test_messages_reset_date || '').trim());
+
                     setIaAtiva(data.ia_ativa === true);
                     setBirthdayMessage(String(data.birthdayMessage || '').replaceAll('{nome}', '{primeiroNome}'));
                     setFaqItems(parseFaqItems(data.faq_data));
@@ -170,11 +200,9 @@ const AgenteIASection = ({ academyId, role }) => {
     }, [canConfigure, promptConfigurado, academyId]);
 
     useEffect(() => {
-        if (!agentModalOpen) return;
-        const onEsc = (e) => { if (e.key === 'Escape') setAgentModalOpen(false); };
-        window.addEventListener('keydown', onEsc);
-        return () => window.removeEventListener('keydown', onEsc);
-    }, [agentModalOpen]);
+        // Mantém o nome da academia sincronizado se o props vier atualizado.
+        setAcademyName(String(academyDoc?.name || '').trim());
+    }, [academyDoc?.name]);
 
     async function savePromptSettings(overrides, { successMessage } = {}) {
         const use = overrides && typeof overrides === 'object' ? overrides : null;
@@ -183,6 +211,8 @@ const AgenteIASection = ({ academyId, role }) => {
         const suffixPut = use && 'prompt_suffix' in use ? String(use.prompt_suffix) : String(promptSuffix || '');
         setSavingPrompt(true);
         try {
+            const prevIntro = String(promptIntro || '');
+            const prevBody = String(promptBody || '');
             const jwt = await getJwt();
             const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
                 method: 'PUT',
@@ -197,21 +227,34 @@ const AgenteIASection = ({ academyId, role }) => {
             const raw = await resp.text();
             if (!resp.ok) throw new Error(raw || 'Falha ao salvar');
             addToast({ type: 'success', message: successMessage ?? 'Instruções salvas' });
+
+            // Atualiza estado local para refletir o prompt salvo (e preparar a restauração).
+            setPromptIntro(intro);
+            setPromptBody(bodyPut);
+            setPromptSuffix(suffixPut);
+            setPromptIntroBackup(prevIntro);
+            setPromptBodyBackup(prevBody);
+            setPromptUpdatedAt(new Date().toISOString());
+
             setPromptSavedSnapshot({ intro, body: bodyPut, suffix: suffixPut });
             setPromptConfigurado(isPromptConfigured(intro, bodyPut));
             if (isPromptConfigured(intro, bodyPut)) {
                 const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'setup_ai')?.done;
                 if (!done) void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
             }
+            return true;
         } catch (e) {
             addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
+            return false;
         } finally {
             setSavingPrompt(false);
         }
     }
 
-    async function handleToggleIa() {
-        if (!promptConfigurado || togglingIa) return;
+    async function handleToggleIa(nextActive) {
+        if (!promptConfigurado || togglingIa) return false;
+        const target = typeof nextActive === 'boolean' ? nextActive : !iaAtiva;
+        if (target === iaAtiva) return true;
         setTogglingIa(true);
         try {
             const jwt = await getJwt();
@@ -222,14 +265,19 @@ const AgenteIASection = ({ academyId, role }) => {
                     Authorization: `Bearer ${jwt}`,
                     'x-academy-id': String(academyIdRef.current || '')
                 },
-                body: JSON.stringify({ action: 'toggle_ia', ia_ativa: !iaAtiva })
+                body: JSON.stringify({ action: 'toggle_ia', ia_ativa: target })
             });
-            if (blocked) return;
+            if (blocked) return false;
             const data = await resp.json().catch(() => ({}));
-            if (data?.sucesso) setIaAtiva(data.ia_ativa === true);
-            else addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
+            if (data?.sucesso) {
+                setIaAtiva(data.ia_ativa === true);
+                return true;
+            }
+            addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
+            return false;
         } catch (e) {
             addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
+            return false;
         } finally {
             setTogglingIa(false);
         }
@@ -314,6 +362,418 @@ const AgenteIASection = ({ academyId, role }) => {
             setLoadingPromptPreview(false);
         }
     }
+
+    function getTodayIso() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    const AdvancedOptionsAccordion = () => (
+        <details className="agent-accordion" style={{ marginTop: 20 }}>
+            <summary>Opções avançadas</summary>
+            <div className="agent-accordion-content">
+                <details className="agent-accordion agent-accordion-nested" style={{ marginBottom: 16 }}>
+                    <summary className="text-small" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        Detalhes para suporte
+                    </summary>
+                    <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
+                        O assistente também recebe dados estruturados do lead (formato JSON) junto com o texto. Use <strong>Ver como a IA recebe</strong> abaixo para inspecionar o conteúdo completo.
+                    </p>
+                </details>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <button
+                        type="button"
+                        onClick={() => void handlePreviewFullPrompt()}
+                        className="btn btn-outline"
+                        disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
+                        title="Mostra o texto completo enviado ao modelo, incluindo dados estruturados do lead"
+                    >
+                        {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
+                    </button>
+                </div>
+
+                <div className="agent-field" style={{ marginBottom: 16 }}>
+                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Mensagem de aniversário</div>
+                    <p className="agent-field-hint">
+                        Texto de referência para quando o aluno escreve no <strong>dia do aniversário</strong>. Use {'{primeiroNome}'} para personalizar.
+                    </p>
+                    <textarea
+                        className="agent-field-textarea input"
+                        value={birthdayMessage}
+                        onChange={(e) => setBirthdayMessage(e.target.value)}
+                        rows={3}
+                        disabled={loadingPrompt}
+                        placeholder="Ex: Feliz aniversário, {primeiroNome}! A equipe deseja um dia incrível…"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => void handleSaveBirthdayMessage()}
+                        className="btn btn-outline"
+                        style={{ marginTop: 8 }}
+                        disabled={savingBirthdayMessage || loadingPrompt}
+                    >
+                        {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
+                    </button>
+                </div>
+
+                <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Perguntas frequentes</div>
+                <p className="agent-field-hint">
+                    Pares pergunta/resposta entram no contexto do assistente como base factual.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {faqItems.map((item, idx) => (
+                        <div
+                            key={idx}
+                            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}
+                        >
+                            <input
+                                className="input"
+                                value={item.q}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, q: v } : p)));
+                                }}
+                                placeholder="Pergunta"
+                                disabled={loadingPrompt}
+                            />
+                            <textarea
+                                className="agent-field-textarea input"
+                                value={item.a}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, a: v } : p)));
+                                }}
+                                placeholder="Resposta"
+                                rows={3}
+                                disabled={loadingPrompt}
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ alignSelf: 'flex-start' }}
+                                onClick={() => setFaqItems((prev) => prev.filter((_, i) => i !== idx))}
+                                disabled={loadingPrompt}
+                            >
+                                Remover
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                    <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setFaqItems((prev) => [...prev, { q: '', a: '' }])}
+                        disabled={loadingPrompt}
+                    >
+                        + Adicionar pergunta
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => void handleSaveFaqData()}
+                        disabled={savingFaq || loadingPrompt}
+                    >
+                        {savingFaq ? 'Salvando…' : 'Salvar perguntas frequentes'}
+                    </button>
+                </div>
+            </div>
+        </details>
+    );
+
+    const EditorDePrompt = () => {
+        const hasBackup = Boolean(String(promptIntroBackup || '').trim() || String(promptBodyBackup || '').trim());
+
+        const handleRestoreBackup = () => {
+            if (!hasBackup) return;
+            setEditIntro(promptIntroBackup);
+            setEditBody(promptBodyBackup);
+            addToast({ type: 'info', message: 'Versão anterior restaurada. Salve para confirmar.' });
+        };
+
+        const handleCancel = () => {
+            setShowEditor(false);
+            setShowWizard(false);
+            setShowTestChat(false);
+        };
+
+        const handleSaveAndTest = async () => {
+            const ok = await savePromptSettings(
+                { prompt_intro: editIntro, prompt_body: editBody, prompt_suffix: promptSuffix },
+                { successMessage: 'Prompt atualizado com sucesso!' }
+            );
+            if (!ok) return;
+            setShowEditor(false);
+            setShowWizard(false);
+            setShowTestChat(true);
+        };
+
+        return (
+            <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                    <div>
+                        <h4 style={{ margin: 0 }}>Revisar & Editar instruções do assistente</h4>
+                        {promptUpdatedAt && (
+                            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>
+                                Atualizado em {formatInstructionsSavedAt(promptUpdatedAt)}
+                            </p>
+                        )}
+                    </div>
+                    <button type="button" className="btn btn-outline" style={{ padding: '6px 12px' }} onClick={handleCancel}>
+                        Cancelar
+                    </button>
+                </div>
+
+                <div className="agent-field" style={{ marginBottom: 16 }}>
+                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Identidade</div>
+                    <p className="agent-field-hint" style={{ marginTop: -2 }}>
+                        Quem é o assistente, nome e tom de voz
+                    </p>
+                    <textarea
+                        className="agent-field-textarea input"
+                        value={editIntro}
+                        onChange={(e) => setEditIntro(e.target.value)}
+                        rows={6}
+                        disabled={savingPrompt}
+                        placeholder="Ex: Você é Ana, assistente da academia Gracie Barra…"
+                    />
+                    <div className="text-small" style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
+                        {String(editIntro || '').length} caracteres
+                    </div>
+                </div>
+
+                <div className="agent-field" style={{ marginBottom: 16 }}>
+                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Conhecimento</div>
+                    <p className="agent-field-hint" style={{ marginTop: -2 }}>
+                        Planos, horários, preços, regras
+                    </p>
+                    <textarea
+                        className="agent-field-textarea input"
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        rows={10}
+                        disabled={savingPrompt}
+                        placeholder="Ex: A academia oferece os planos…"
+                    />
+                    <div className="text-small" style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
+                        {String(editBody || '').length} caracteres
+                    </div>
+                </div>
+
+                <div className="agent-field" style={{ marginBottom: 16 }}>
+                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>
+                        Regras do sistema <span className="badge badge-info" style={{ marginLeft: 8 }}>Fixo</span>
+                    </div>
+                    <p className="agent-field-hint" style={{ marginTop: -2 }}>
+                        Regras obrigatórias — não editáveis
+                    </p>
+                    <pre
+                        style={{
+                            whiteSpace: 'pre-wrap',
+                            fontSize: 12,
+                            margin: 0,
+                            padding: 12,
+                            borderRadius: 10,
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface)'
+                        }}
+                    >
+                        {promptSuffix}
+                    </pre>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginTop: 14 }}>
+                    <button
+                        type="button"
+                        className="btn btn-outline"
+                        disabled={!hasBackup || savingPrompt}
+                        onClick={() => void handleRestoreBackup()}
+                        title={!hasBackup ? 'Nenhuma versão anterior disponível' : 'Restaurar versão anterior'}
+                    >
+                        ↩ Restaurar versão anterior
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={savingPrompt}
+                        onClick={() => void handleSaveAndTest()}
+                    >
+                        {savingPrompt ? 'Salvando…' : 'Salvar e testar'}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    const ChatDeTeste = () => {
+        const todayIso = getTodayIso();
+        const usedToday = testMessagesResetDate === todayIso ? (Number(testMessagesToday) || 0) : 0;
+        const testsLimit = 10;
+        const initialTestsLeft = Math.max(0, testsLimit - usedToday);
+
+        const [messages, setMessages] = useState([
+            {
+                role: 'assistant',
+                content: `Olá! Sou ${aiName || 'assistente'}, assistente configurado para ${academyName || 'sua academia'}. Como posso ajudar? (Modo de teste)`
+            }
+        ]);
+        const [input, setInput] = useState('');
+        const [sending, setSending] = useState(false);
+        const [testsLeft, setTestsLeftLocal] = useState(initialTestsLeft);
+
+        const handleClose = () => {
+            setShowTestChat(false);
+            if (!iaAtiva) setShowEditor(true);
+        };
+
+        const handleActivate = async () => {
+            const ok = await handleToggleIa(true);
+            if (!ok) return;
+            setShowTestChat(false);
+            setShowEditor(false);
+            setShowWizard(false);
+        };
+
+        const handleSend = async () => {
+            if (!input.trim() || sending || testsLeft <= 0) return;
+            const userMsg = { role: 'user', content: input.trim() };
+            const historyForRequest = messages;
+
+            setMessages((prev) => [...prev, userMsg]);
+            setInput('');
+            setSending(true);
+
+            try {
+                const jwt = await getJwt();
+                const { blocked, res: resp } = await fetchWithBillingGuard('/api/agent/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${jwt}`,
+                        'x-academy-id': String(academyId || '').trim()
+                    },
+                    body: JSON.stringify({
+                        academyId,
+                        message: userMsg.content,
+                        history: historyForRequest
+                    })
+                });
+
+                if (blocked || !resp) return;
+
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    if (resp.status === 429) {
+                        addToast({ type: 'warning', message: data?.message || 'Limite diário atingido' });
+                        setTestsLeftLocal(0);
+                        return;
+                    }
+                    addToast({ type: 'error', message: data?.erro || data?.message || 'Falha ao testar assistente' });
+                    return;
+                }
+
+                setMessages((prev) => [...prev, { role: 'assistant', content: data?.response || '' }]);
+                const nextUsed = Number(data?.testsUsedToday) || (usedToday + 1);
+                const nextLeft = Math.max(0, testsLimit - nextUsed);
+                setTestsLeftLocal(nextLeft);
+                setTestMessagesToday(nextUsed);
+                setTestMessagesResetDate(todayIso);
+            } catch (e) {
+                addToast({ type: 'error', message: e?.message || 'Erro ao enviar teste' });
+            } finally {
+                setSending(false);
+            }
+        };
+
+        return (
+            <div className="agent-chat-container" style={{ marginTop: 12 }}>
+                <div className="agent-chat-header" style={{ paddingBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                        <div>
+                            <div className="agent-chat-title" style={{ fontSize: 14 }}>Modo de teste — não envia ao WhatsApp</div>
+                            <div className="agent-chat-subtitle" style={{ marginTop: 6 }}>
+                                {testsLeft} de 10 testes restantes hoje
+                            </div>
+                        </div>
+                        <button type="button" className="btn btn-outline" style={{ padding: '6px 12px', flexShrink: 0 }} onClick={handleClose} disabled={sending}>
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+
+                <div className="agent-chat-messages">
+                    {messages.map((msg, i) => (
+                        <div key={i} className={`agent-chat-bubble ${msg.role === 'assistant' ? 'nave' : 'user'}`}>
+                            <div className="agent-chat-content">
+                                <div className="agent-chat-text">{msg.content}</div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {sending && (
+                        <div className="agent-chat-bubble nave">
+                            <div className="agent-chat-typing" aria-label="Digitando…">
+                                <span />
+                                <span />
+                                <span />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
+                    {testsLeft > 0 ? (
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                            <textarea
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        void handleSend();
+                                    }
+                                }}
+                                placeholder="Simule uma mensagem de um lead…"
+                                rows={2}
+                                disabled={sending}
+                                style={{ flex: 1 }}
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => void handleSend()}
+                                disabled={!input.trim() || sending}
+                                style={{ minWidth: 108 }}
+                            >
+                                {sending ? 'Enviando…' : 'Enviar'}
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <p style={{ margin: 0, fontWeight: 700 }}>Limite de 10 testes atingido hoje.</p>
+                            <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                                Volte amanhã para continuar testando, ou ative o assistente se estiver satisfeito.
+                            </p>
+                            <button type="button" className="btn btn-primary" onClick={() => void handleActivate()} disabled={togglingIa}>
+                                Ativar assistente
+                            </button>
+                        </div>
+                    )}
+
+                    {testsLeft > 0 && messages.length > 2 && (
+                        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                            <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                Gostou das respostas?
+                            </span>
+                            <button type="button" className="btn btn-primary btn-sm" onClick={() => void handleActivate()} disabled={togglingIa}>
+                                Ativar assistente
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     const qrSrc =
         zap.waQrShown &&
@@ -705,228 +1165,215 @@ const AgenteIASection = ({ academyId, role }) => {
                     <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
                         Assistente IA
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                            {iaAtiva && promptConfigurado ? 'Ligado' : 'Desligado'}
-                        </span>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={iaAtiva && promptConfigurado}
-                            onClick={() => void handleToggleIa()}
-                            disabled={!promptConfigurado || togglingIa}
-                            className={`ai-switch${iaAtiva && promptConfigurado ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
-                            title={
-                                !promptConfigurado
-                                    ? 'Conclua a configuração do assistente antes de ativar'
-                                    : togglingIa
-                                        ? 'Atualizando…'
-                                        : iaAtiva ? 'Desativar assistente' : 'Ativar assistente'
-                            }
-                        >
-                            <span className="ai-switch-thumb" />
-                        </button>
-                    </div>
+
+                    {/* Toggle só aparece quando configurado */}
+                    {promptConfigurado && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                {iaAtiva ? 'Ligado' : 'Desligado'}
+                            </span>
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={iaAtiva}
+                                onClick={() => void handleToggleIa(!iaAtiva)}
+                                disabled={togglingIa}
+                                className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
+                                title={iaAtiva ? 'Desativar assistente' : 'Ativar assistente'}
+                            >
+                                <span className="ai-switch-thumb" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {loadingPrompt ? (
                     <div className="empresa-skeleton-block" style={{ height: 80 }} aria-busy="true" aria-label="Carregando configurações do assistente" />
                 ) : (
                     <>
-                {iaAtiva && !zap.waConnected && (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 10,
-                            padding: 12,
-                            borderRadius: 8,
-                            background: 'rgba(245, 158, 11, 0.12)',
-                            border: '1px solid rgba(245, 158, 11, 0.35)',
-                            color: 'var(--text)',
-                            marginBottom: 16,
-                        }}
-                    >
-                        <AlertTriangle size={20} style={{ flexShrink: 0, color: '#b45309' }} aria-hidden />
-                        <span className="text-small" style={{ lineHeight: 1.45 }}>
-                            WhatsApp desconectado — o assistente não consegue responder. Conecte o WhatsApp no card acima.
-                        </span>
-                    </div>
-                )}
-
-                {!promptConfigurado && !iaAtiva && (
-                    <div>
-                        <span className="text-small" style={{ display: 'inline-block', background: 'var(--border-light)', color: 'var(--text-secondary)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                            Não configurado
-                        </span>
-                        <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-                            Configure o assistente antes de ligar
-                        </p>
-                        <button type="button" className="btn btn-primary" disabled={loadingPrompt} onClick={() => setAgentModalOpen(true)}>
-                            Configurar assistente
-                        </button>
-                    </div>
-                )}
-
-                {promptConfigurado && !iaAtiva && (
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                            <div>
-                                <span className="text-small" style={{ display: 'inline-block', background: 'rgba(37, 211, 102, 0.12)', color: '#15803d', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                                    ● Configurado
-                                </span>
-                                <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                                    {instructionsSavedLabel
-                                        ? `Instruções salvas em ${instructionsSavedLabel}`
-                                        : 'Instruções salvas.'}
-                                </p>
+                        {showWizard && (
+                            <div style={{ marginTop: 12 }}>
+                                <AgenteChatSetup
+                                    academyId={String(academyId || '')}
+                                    getJwt={getJwt}
+                                    wizardInitial={wizardAgenteInitial}
+                                    loading={loadingPrompt}
+                                    onWizardReset={() => {
+                                        setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() });
+                                        setShowWizard(true);
+                                    }}
+                                    onComplete={async ({ intro, body, suffix, wizardPayload }) => {
+                                        setEditIntro(intro);
+                                        setEditBody(body);
+                                        setPromptSuffix(suffix);
+                                        setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
+                                        setShowWizard(false);
+                                        setShowEditor(true);
+                                    }}
+                                />
                             </div>
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                disabled={loadingPrompt}
-                                onClick={() => setAgentModalOpen(true)}
-                            >
-                                Reconfigurar
-                            </button>
-                        </div>
-                    </div>
-                )}
+                        )}
 
-                {promptConfigurado && iaAtiva && (
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                        {showEditor && <EditorDePrompt />}
+
+                        {showTestChat && <ChatDeTeste />}
+
+                        {!showWizard && !showEditor && !showTestChat && !promptConfigurado && (
                             <div>
-                                <span className="text-small" style={{ display: 'inline-block', background: 'rgba(91, 63, 191, 0.12)', color: 'var(--accent, #5b3fbf)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                                    ● Ativo
+                                <span className="text-small" style={{ display: 'inline-block', background: 'var(--border-light)', color: 'var(--text-secondary)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
+                                    Não configurado
                                 </span>
-                                <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                                    Respondendo automaticamente no WhatsApp
+                                <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                                    Configure o assistente para começar a atender leads automaticamente.
                                 </p>
-                            </div>
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                disabled={loadingPrompt}
-                                onClick={() => setAgentModalOpen(true)}
-                            >
-                                Reconfigurar
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {iaAtiva && aiThreadsLimit > 0 && aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled && (
-                    <p className="agent-warning" style={{ marginTop: 14, marginBottom: 0 }}>
-                        Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
-                        indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
-                    </p>
-                )}
-
-                <details className="agent-accordion" style={{ marginTop: 20 }}>
-                    <summary>Opções avançadas</summary>
-                    <div className="agent-accordion-content">
-                        <details className="agent-accordion agent-accordion-nested" style={{ marginBottom: 16 }}>
-                            <summary className="text-small" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                Detalhes para suporte
-                            </summary>
-                            <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
-                                O assistente também recebe dados estruturados do lead (formato JSON) junto com o texto. Use <strong>Ver como a IA recebe</strong> abaixo para inspecionar o conteúdo completo.
-                            </p>
-                        </details>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                            <button
-                                type="button"
-                                onClick={() => void handlePreviewFullPrompt()}
-                                className="btn btn-outline"
-                                disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                                title="Mostra o texto completo enviado ao modelo, incluindo dados estruturados do lead"
-                            >
-                                {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
-                            </button>
-                        </div>
-                        <div className="agent-field" style={{ marginBottom: 16 }}>
-                            <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Mensagem de aniversário</div>
-                            <p className="agent-field-hint">
-                                Texto de referência para quando o aluno escreve no <strong>dia do aniversário</strong>. Use {'{primeiroNome}'} para personalizar.
-                            </p>
-                            <textarea
-                                className="agent-field-textarea input"
-                                value={birthdayMessage}
-                                onChange={(e) => setBirthdayMessage(e.target.value)}
-                                rows={3}
-                                disabled={loadingPrompt}
-                                placeholder="Ex: Feliz aniversário, {primeiroNome}! A equipe deseja um dia incrível…"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => void handleSaveBirthdayMessage()}
-                                className="btn btn-outline"
-                                style={{ marginTop: 8 }}
-                                disabled={savingBirthdayMessage || loadingPrompt}
-                            >
-                                {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
-                            </button>
-                        </div>
-                        <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Perguntas frequentes</div>
-                        <p className="agent-field-hint">
-                            Pares pergunta/resposta entram no contexto do assistente como base factual.
-                        </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {faqItems.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => {
+                                        setShowWizard(true);
+                                    }}
+                                    disabled={!canConfigure}
                                 >
-                                    <input
-                                        className="input"
-                                        value={item.q}
-                                        onChange={(e) => { const v = e.target.value; setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, q: v } : p))); }}
-                                        placeholder="Pergunta"
-                                        disabled={loadingPrompt}
-                                    />
-                                    <textarea
-                                        className="agent-field-textarea input"
-                                        value={item.a}
-                                        onChange={(e) => { const v = e.target.value; setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, a: v } : p))); }}
-                                        placeholder="Resposta"
-                                        rows={3}
-                                        disabled={loadingPrompt}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline"
-                                        style={{ alignSelf: 'flex-start' }}
-                                        onClick={() => setFaqItems((prev) => prev.filter((_, i) => i !== idx))}
-                                        disabled={loadingPrompt}
-                                    >
-                                        Remover
-                                    </button>
+                                    Configurar assistente
+                                </button>
+                            </div>
+                        )}
+
+                        {!showWizard && !showEditor && !showTestChat && promptConfigurado && !iaAtiva && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                                    <div>
+                                        <span className="text-small" style={{ display: 'inline-block', background: 'rgba(37, 211, 102, 0.12)', color: '#15803d', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
+                                            ● Configurado
+                                        </span>
+                                        <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                                            {promptUpdatedAt
+                                                ? `Atualizado em ${formatInstructionsSavedAt(promptUpdatedAt)}`
+                                                : instructionsSavedLabel
+                                                    ? `Instruções salvas em ${instructionsSavedLabel}`
+                                                    : 'Instruções salvas.'}
+                                        </p>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                            disabled={loadingPrompt || savingPrompt}
+                                            onClick={() => {
+                                                setEditIntro(promptIntro);
+                                                setEditBody(promptBody);
+                                                setShowEditor(true);
+                                            }}
+                                        >
+                                            Editar prompt
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                            disabled={loadingPrompt}
+                                            onClick={() => setShowTestChat(true)}
+                                        >
+                                            Testar assistente
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                            disabled={loadingPrompt}
+                                            onClick={() => {
+                                                setShowWizard(true);
+                                            }}
+                                        >
+                                            Reconfigurar
+                                        </button>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => setFaqItems((prev) => [...prev, { q: '', a: '' }])}
-                                disabled={loadingPrompt}
-                            >
-                                + Adicionar pergunta
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => void handleSaveFaqData()}
-                                disabled={savingFaq || loadingPrompt}
-                            >
-                                {savingFaq ? 'Salvando…' : 'Salvar perguntas frequentes'}
-                            </button>
-                        </div>
-                    </div>
-                </details>
+
+                                <AdvancedOptionsAccordion />
+                            </div>
+                        )}
+
+                        {!showWizard && !showEditor && !showTestChat && promptConfigurado && iaAtiva && (
+                            <div>
+                                {(!zap.waConnected) && (
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: 10,
+                                            padding: 12,
+                                            borderRadius: 8,
+                                            background: 'rgba(245, 158, 11, 0.12)',
+                                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                                            color: 'var(--text)',
+                                            marginBottom: 16
+                                        }}
+                                    >
+                                        <AlertTriangle size={20} style={{ flexShrink: 0, color: '#b45309' }} aria-hidden />
+                                        <span className="text-small" style={{ lineHeight: 1.45 }}>
+                                            WhatsApp desconectado — o assistente não consegue responder. Conecte o WhatsApp no card acima.
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                                    <div>
+                                        <span className="text-small" style={{ display: 'inline-block', background: 'rgba(91, 63, 191, 0.12)', color: 'var(--accent, #5b3fbf)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
+                                            ● Ativo
+                                        </span>
+                                        <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                                            Respondendo automaticamente no WhatsApp
+                                        </p>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                            disabled={loadingPrompt}
+                                            onClick={() => {
+                                                setEditIntro(promptIntro);
+                                                setEditBody(promptBody);
+                                                setShowEditor(true);
+                                            }}
+                                        >
+                                            Editar prompt
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                            disabled={loadingPrompt}
+                                            onClick={() => setShowTestChat(true)}
+                                        >
+                                            Testar assistente
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                            disabled={loadingPrompt}
+                                            onClick={() => setShowWizard(true)}
+                                        >
+                                            Reconfigurar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {aiThreadsLimit > 0 && aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled && (
+                                    <p className="agent-warning" style={{ marginTop: 14, marginBottom: 0 }}>
+                                        Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
+                                        indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
+                                    </p>
+                                )}
+
+                                <AdvancedOptionsAccordion />
+                            </div>
+                        )}
                     </>
                 )}
             </div>
@@ -1001,38 +1448,7 @@ const AgenteIASection = ({ academyId, role }) => {
                 </div>
             )}
 
-            {agentModalOpen && (
-                <div
-                    className="agent-modal-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Configuração do assistente"
-                    onClick={() => setAgentModalOpen(false)}
-                >
-                    <div className="agent-modal-panel" onClick={(e) => e.stopPropagation()}>
-                        <AgenteChatSetup
-                            academyId={String(academyId || '')}
-                            getJwt={getJwt}
-                            wizardInitial={wizardAgenteInitial}
-                            loading={loadingPrompt}
-                            onWizardReset={() =>
-                                setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() })
-                            }
-                            onComplete={async ({ intro, body, suffix, wizardPayload }) => {
-                                setPromptIntro(intro);
-                                setPromptBody(body);
-                                setPromptSuffix(suffix);
-                                setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
-                                await savePromptSettings(
-                                    { prompt_intro: intro, prompt_body: body, prompt_suffix: suffix },
-                                    { successMessage: 'Assistente configurado com sucesso!' }
-                                );
-                                setAgentModalOpen(false);
-                            }}
-                        />
-                    </div>
-                </div>
-            )}
+            {/* Wizard foi migrado para inline no card (showWizard), sem overlay modal antigo. */}
         </section>
     );
 };

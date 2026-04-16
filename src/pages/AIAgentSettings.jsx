@@ -28,7 +28,7 @@ export default function AIAgentSettings() {
         <h2 className="navi-page-title">Agente IA</h2>
         <p className="navi-eyebrow" style={{ marginTop: 6 }}>Configuração dedicada do agente</p>
       </div>
-      <AgenteIASection academyId={academyId} role={role} />
+      <AgenteIASection academyId={academyId} role={role} academyDoc={academyDoc} />
     </div>
   );
 }
