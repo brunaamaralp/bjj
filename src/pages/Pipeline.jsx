@@ -88,7 +88,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, isDragging, isOverlay, onClick, navigate, openMenuId, schedulerOpenId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, handleReschedule, itemsForDay, isExpanded, toggleExpanded, MAX_CHIPS, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, openScheduler, handleConfirmPresence, setMissedModalLead, GraduationCap, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, ...props }) => {
+const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId, schedulerOpenId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, handleReschedule, itemsForDay, isExpanded, toggleExpanded, MAX_CHIPS, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, openScheduler, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
     return (
         <div
             className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} animate-in`}
@@ -435,6 +435,23 @@ const Pipeline = () => {
     const [waDropdownOpenId, setWaDropdownOpenId] = useState(null);
     const [missedModalLead, setMissedModalLead] = useState(null);
     const [activeId, setActiveId] = useState(null);
+    const [openMenuId, setOpenMenuId] = useState(null);
+    const [copiedId, setCopiedId] = useState(null);
+    const [searchingServer, setSearchingServer] = useState(false);
+    const [confirmModal, setConfirmModal] = useState(null);
+    const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
+    const [dragTargetLead, setDragTargetLead] = useState(null);
+    const [lostModalLead, setLostModalLead] = useState(null);
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
+    const [quickFilter, setQuickFilter] = useState(null);
+    const [waOutbound, setWaOutbound] = useState(() => ({
+        name: '',
+        zapster_instance_id: '',
+        templates: { ...DEFAULT_WHATSAPP_TEMPLATES },
+    }));
+    const [noteError, setNoteError] = useState('');
+    const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -1138,6 +1155,7 @@ const Pipeline = () => {
         e.stopPropagation();
         setNoteLead(lead);
         setNoteText('');
+        setNoteError('');
         setNoteOpen(true);
     };
     const saveNote = async () => {
@@ -1430,11 +1448,12 @@ const Pipeline = () => {
                                 leads={colLeads}
                             >
                                 <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                                    {colLeads.map((lead, i) => (
+                                    {colLeads.map((lead) => (
                                         <SortableLeadCard
                                             key={lead.id}
                                             lead={lead}
                                             navigate={navigate}
+                                            openNote={openNote}
                                             openMenuId={openMenuId}
                                             schedulerOpenId={schedulerOpenId}
                                             moverOpenId={moverOpenId}
@@ -1463,8 +1482,6 @@ const Pipeline = () => {
                                             openMover={openMover}
                                             setDragTargetLead={setDragTargetLead}
                                             mapLeadToStageId={mapLeadToStageId}
-                                            // Props extras para ícones se necessário
-                                            GraduationCap={GraduationCap}
                                         />
                                     ))}
                                 </SortableContext>
@@ -1497,6 +1514,7 @@ const Pipeline = () => {
                             lead={getLeadById(activeId)}
                             isOverlay
                             navigate={navigate}
+                            openNote={openNote}
                             openMenuId={openMenuId}
                             schedulerOpenId={schedulerOpenId}
                             moverOpenId={moverOpenId}
@@ -1525,7 +1543,6 @@ const Pipeline = () => {
                             openMover={openMover}
                             setDragTargetLead={setDragTargetLead}
                             mapLeadToStageId={mapLeadToStageId}
-                            GraduationCap={GraduationCap}
                         />
                     ) : null}
                 </DragOverlay>

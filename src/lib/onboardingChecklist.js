@@ -1,5 +1,7 @@
 /**
  * Checklist de onboarding gravado em academia.onboardingChecklist (JSON).
+ * No Appwrite o atributo costuma ser String(255): persistir com serializeOnboardingChecklistForDb
+ * (só { id, done }); títulos vêm de ONBOARDING_STEP_TITLES em parse/normalize.
  * Passos principais: lead, IA, WhatsApp; fiscal (company_tax) condicional ao billing;
  * install_pwa é secundário (não entra na contagem principal).
  */
@@ -81,6 +83,12 @@ export function normalizeOnboardingChecklistList(list) {
     ordered.push(byId.get(id));
   }
   return ordered;
+}
+
+/** Gravação no Appwrite: JSON curto (≤255) sem duplicar títulos longos no documento. */
+export function serializeOnboardingChecklistForDb(list) {
+  const norm = normalizeOnboardingChecklistList(Array.isArray(list) ? list : null);
+  return JSON.stringify(norm.map(({ id, done }) => ({ id, done: Boolean(done) })));
 }
 
 export function parseOnboardingChecklist(raw) {

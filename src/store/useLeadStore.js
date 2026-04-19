@@ -9,6 +9,7 @@ import {
   mergeOnboardingStepIdsDone,
   normalizeOnboardingChecklistList,
   parseOnboardingChecklist,
+  serializeOnboardingChecklistForDb,
 } from '../lib/onboardingChecklist.js';
 
 export { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
@@ -169,7 +170,7 @@ export const useLeadStore = create((set, get) => ({
     const merged = mergeOnboardingStepIdsDone(get().onboardingChecklist, ids);
     try {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        onboardingChecklist: JSON.stringify(merged)
+        onboardingChecklist: serializeOnboardingChecklistForDb(merged)
       });
     } catch (e) {
       console.warn('completeOnboardingStepIds Appwrite:', e?.message || e);
@@ -367,7 +368,7 @@ export const useLeadStore = create((set, get) => ({
           }
           const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
           await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-            onboardingChecklist: JSON.stringify(merged)
+            onboardingChecklist: serializeOnboardingChecklistForDb(merged)
           });
           get().setOnboardingChecklist(merged);
         } catch (e) {
@@ -549,7 +550,7 @@ export const useLeadStore = create((set, get) => ({
         }
         const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-          onboardingChecklist: JSON.stringify(merged)
+          onboardingChecklist: serializeOnboardingChecklistForDb(merged)
         });
         get().setOnboardingChecklist(merged);
       } catch (e) {
