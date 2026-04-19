@@ -37,27 +37,86 @@ const STEPS = [
 
 export const AGENTE_CHAT_STEP_COUNT = STEPS.length;
 
-const SEGMENT_OPTS = ['Jiu-Jitsu', 'Muay Thai', 'Yoga', 'Pilates', 'Dança', 'CrossFit', 'Musculação', 'Outro'];
+const SEGMENT_OPTS = [
+  'Musculação / academia',
+  'Estúdio (yoga, pilates, dança)',
+  'CrossFit / funcional',
+  'Artes marciais',
+  'Personal / small group',
+  'Bem-estar / recuperação ativa',
+  'Outro',
+];
 const TONE_OPTS = ['Amigável', 'Profissional', 'Neutro', 'Descontraído'];
-const PLAN_OPTS = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Experimental'];
+const PLAN_OPTS = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Avulso / experiência'];
 
-const GRADE_HORARIOS_PLACEHOLDER = `Cole ou escreva sua grade de horários aqui. Exemplo:
-Adulto
-Segunda e Quarta: 19h10 | Sexta: 20h00
-Sábado: 10h00
-Kids (5 a 9 anos)
-Terça e Quinta: 17h30
-Juniores (10 a 15 anos)
-Terça e Quinta: 18h20 | Sábado: 09h00
-Feminina
-Segunda e Quarta: 20h00`;
-const UNIFORM_OPTS = ['Kimono obrigatório', 'Roupa esportiva livre', 'Kimono ou rashguard', 'Não se aplica'];
+const GRADE_HORARIOS_PLACEHOLDER = `Cole ou escreva turmas e horários como você divulga. Exemplo:
+Turma manhã
+Segunda a sexta: 7h às 9h
+
+Turma noite
+Terça e quinta: 19h | Sábado: 10h
+
+Iniciantes
+Segunda e quarta: 18h
+
+Kids / infantil
+Terça e quinta: 17h`;
+const UNIFORM_OPTS = [
+  'Uniforme ou vestimenta específica obrigatória',
+  'Roupa esportiva livre',
+  'Uniforme específico ou roupa técnica combinada',
+  'Não se aplica',
+];
 const UNIFORM_LOAN_OPTS = ['Sim', 'Não', 'Sob consulta'];
 const AMENITY_OPTS = ['Estacionamento', 'Vestiário', 'Loja', 'Ar condicionado', 'Bebedouro', 'Wi‑Fi'];
 const TRIAL_OPTS = ['Sim, gratuita', 'Sim, valor simbólico', 'Não oferecemos'];
-const TRIAL_DETAIL_OPTS = ['Agendamento com humano', 'Walk-in permitido', 'Só horários fixos', 'Combo com avaliação'];
-const PRICE_FLOW_OPTS = ['Informar direto', 'Experimental primeiro', 'Pedir nome antes'];
+const TRIAL_DETAIL_OPTS = [
+  'Agendamento com humano',
+  'Entrada sem hora marcada (walk-in)',
+  'Só horários fixos',
+  'Combo com avaliação ou triagem',
+];
+const PRICE_FLOW_OPTS = ['Informar direto', 'Convidar para experiência antes', 'Pedir nome antes'];
 const SCHEDULING_OPTS = ['A IA pode agendar', 'Coleta dados e passa para humano'];
+
+/** Chips antigos do wizard → novos rótulos (retomada sem perder sentido). */
+const LEGACY_SEGMENT_MAP = {
+  'Jiu-Jitsu': 'Artes marciais',
+  'Muay Thai': 'Artes marciais',
+  Yoga: 'Estúdio (yoga, pilates, dança)',
+  Pilates: 'Estúdio (yoga, pilates, dança)',
+  Dança: 'Estúdio (yoga, pilates, dança)',
+  CrossFit: 'CrossFit / funcional',
+  Musculação: 'Musculação / academia',
+};
+const LEGACY_UNIFORM_MAP = {
+  'Kimono obrigatório': 'Uniforme ou vestimenta específica obrigatória',
+  'Kimono ou rashguard': 'Uniforme específico ou roupa técnica combinada',
+  'Roupa esportiva livre': 'Roupa esportiva livre',
+};
+const LEGACY_PLAN_MAP = {
+  Experimental: 'Avulso / experiência',
+};
+
+const LEGACY_TRIAL_DETAIL_MAP = {
+  'Walk-in permitido': 'Entrada sem hora marcada (walk-in)',
+  'Combo com avaliação': 'Combo com avaliação ou triagem',
+};
+
+function mapLegacyTrialDetails(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((x) => LEGACY_TRIAL_DETAIL_MAP[String(x).trim()] || x);
+}
+
+const LEGACY_PRICE_FLOW_MAP = {
+  'Experimental primeiro': 'Convidar para experiência antes',
+};
+
+function mapLegacyPriceFlow(v) {
+  const s = String(v || '').trim();
+  if (!s) return '';
+  return LEGACY_PRICE_FLOW_MAP[s] || s;
+}
 
 function legacyScheduleToGradeHorarios(a) {
   const cls = Array.isArray(a?.classes) ? a.classes : [];
@@ -135,6 +194,41 @@ function emptyAnswers() {
   };
 }
 
+function mapLegacySegmentList(segments) {
+  if (!Array.isArray(segments)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const raw of segments) {
+    const x = String(raw || '').trim();
+    if (!x) continue;
+    const mapped = LEGACY_SEGMENT_MAP[x] || x;
+    if (seen.has(mapped)) continue;
+    seen.add(mapped);
+    out.push(mapped);
+  }
+  return out;
+}
+
+function mapLegacyUniformValue(u) {
+  const s = String(u || '').trim();
+  if (!s) return '';
+  return LEGACY_UNIFORM_MAP[s] || s;
+}
+
+function mapLegacyPlanList(plans) {
+  if (!Array.isArray(plans)) return [];
+  return plans.map((p) => LEGACY_PLAN_MAP[String(p).trim()] || p);
+}
+
+function mapLegacyPlanPrices(planPrices) {
+  const p = planPrices && typeof planPrices === 'object' ? { ...planPrices } : {};
+  if (Object.prototype.hasOwnProperty.call(p, 'Experimental') && !Object.prototype.hasOwnProperty.call(p, 'Avulso / experiência')) {
+    p['Avulso / experiência'] = p.Experimental;
+    delete p.Experimental;
+  }
+  return p;
+}
+
 function mergeResumeAnswers(savedAnswers) {
   const e = emptyAnswers();
   const a = savedAnswers && typeof savedAnswers === 'object' ? savedAnswers : null;
@@ -142,13 +236,15 @@ function mergeResumeAnswers(savedAnswers) {
   const base = {
     ...e,
     ...a,
-    segment: Array.isArray(a.segment) ? a.segment : e.segment,
-    plans: Array.isArray(a.plans) ? a.plans : e.plans,
+    segment: mapLegacySegmentList(Array.isArray(a.segment) ? a.segment : e.segment),
+    plans: mapLegacyPlanList(Array.isArray(a.plans) ? a.plans : e.plans),
     amenities: Array.isArray(a.amenities) ? a.amenities : e.amenities,
-    trialDetails: Array.isArray(a.trialDetails) ? a.trialDetails : e.trialDetails,
-    planPrices: { ...e.planPrices, ...(a.planPrices && typeof a.planPrices === 'object' ? a.planPrices : {}) },
+    trialDetails: mapLegacyTrialDetails(Array.isArray(a.trialDetails) ? a.trialDetails : e.trialDetails),
+    planPrices: mapLegacyPlanPrices({ ...e.planPrices, ...(a.planPrices && typeof a.planPrices === 'object' ? a.planPrices : {}) }),
     enrollment: { ...e.enrollment, ...(a.enrollment && typeof a.enrollment === 'object' ? a.enrollment : {}) },
-    discount: { ...e.discount, ...(a.discount && typeof a.discount === 'object' ? a.discount : {}) }
+    discount: { ...e.discount, ...(a.discount && typeof a.discount === 'object' ? a.discount : {}) },
+    uniform: mapLegacyUniformValue(a.uniform != null ? a.uniform : e.uniform),
+    priceFlow: mapLegacyPriceFlow(a.priceFlow != null ? a.priceFlow : e.priceFlow),
   };
   return normalizeWizardAnswersShape(base);
 }
@@ -211,7 +307,7 @@ function summarizePatch(patch) {
 }
 
 const GEN_SYSTEM = `Você é especialista em criar prompts para
-assistentes de WhatsApp de academias e estúdios fitness.
+assistentes de WhatsApp de academias, estúdios, espaços de treino e negócios de bem-estar.
 Crie instruções claras e naturais em português brasileiro.
 O assistente deve soar humano, não robótico.
 
@@ -224,8 +320,8 @@ Retorne APENAS JSON válido neste formato, sem markdown:
 function buildUserContentForGen(answers) {
   const a = answers;
   return `
-Academia: ${a.academyName}
-Segmento: ${Array.isArray(a.segment) ? a.segment.join(', ') : a.segment}
+Estabelecimento: ${a.academyName}
+Tipo de negócio / modalidades: ${Array.isArray(a.segment) ? a.segment.join(', ') : a.segment}
 Nome do assistente: ${a.assistantName || 'não definido'}
 Tom: ${a.tone}
 Endereço: ${a.address}
@@ -240,15 +336,15 @@ ${Object.entries(a.planPrices || {})
 Matrícula: ${a.enrollment?.has ? 'R$' + a.enrollment.value : 'Não cobra'}
 Desconto: ${a.discount?.has ? a.discount.text : 'Não informado'}
 
-UNIFORME: ${a.uniform}
+VESTUÁRIO / UNIFORME: ${a.uniform}
 ${a.uniformDetails || ''}
-Empréstimo/aluguel: ${a.uniformLoan}
+Empréstimo ou aluguel de peças para primeira aula: ${a.uniformLoan}
 
 COMODIDADES: ${Array.isArray(a.amenities) ? a.amenities.join(', ') : 'não informado'}
 
-EXPERIMENTAL: ${a.trial}
+PRIMEIRA EXPERIÊNCIA / TRIAL: ${a.trial}
 ${Array.isArray(a.trialDetails) && a.trialDetails.length ? 'Detalhes: ' + a.trialDetails.join(', ') : ''}
-Fluxo de preço: ${a.priceFlow}
+Fluxo quando perguntarem preço: ${a.priceFlow}
 Agendamento: ${a.scheduling}
 
 REGRAS ESPECIAIS: ${a.neverDo || 'nenhuma'}
@@ -258,25 +354,25 @@ ESCALAR PARA HUMANO: ${a.escalate || 'não definido'}
 
 function stepPrompt(stepId) {
   const map = {
-    academyName: 'Como se chama sua academia ou estúdio?',
-    segment: 'Quais segmentos descrevem melhor o seu negócio? (pode marcar vários)',
+    academyName: 'Como se chama sua academia, estúdio ou espaço?',
+    segment: 'O que melhor descreve o seu negócio? (pode marcar vários)',
     assistantName: 'Quer dar um nome ao assistente virtual? (opcional)',
     tone: 'Qual tom de voz o assistente deve usar?',
-    address: 'Endereço e como chegar (referências, estacionamento, etc.)',
-    gradeHorarios: `Turmas e horários
+    address: 'Endereço e como chegar (referências, estacionamento, acesso)',
+    gradeHorarios: `Horários e turmas
 
-Cole ou descreva sua grade completa em um único bloco. Você pode organizar por turma, dia ou como costuma divulgar.`,
-    plans: 'Quais planos ou pacotes o cliente pode contratar?',
+Cole ou descreva tudo em um bloco: dias, horários, nomes das turmas ou níveis — do jeito que você já divulga.`,
+    plans: 'Quais planos, pacotes ou recorrências o cliente pode contratar?',
     planPrices: 'Informe o valor de cada plano (texto livre, ex.: R$ 199/mês).',
     enrollment: 'Há taxa de matrícula? Se sim, qual o valor?',
     discount: 'Oferece desconto para família, anuidade ou promoções? Descreva se houver.',
-    uniform: 'Como funciona o uniforme na academia?',
-    uniformDetails: 'Detalhes do uniforme (cores, modelos, onde comprar…)',
-    uniformLoan: 'Há empréstimo ou aluguel de kimono para experimental?',
+    uniform: 'Como funciona vestuário ou uniforme nas aulas?',
+    uniformDetails: 'Detalhes (cores, onde comprar, o que pode ou não usar…)',
+    uniformLoan: 'Há empréstimo ou aluguel de peças para a primeira experiência?',
     amenities: 'Quais comodidades você quer destacar?',
-    trial: 'Como funciona a aula experimental?',
-    trialDetails: 'Detalhes do experimental (o que marcar faz sentido para você)',
-    priceFlow: 'Quando o cliente perguntar preço, qual deve ser o fluxo?',
+    trial: 'Como funciona a primeira experiência para quem é novo? (aula avulsa, trial, degustação…)',
+    trialDetails: 'Detalhes dessa primeira experiência (o que combina com o seu processo)',
+    priceFlow: 'Quando perguntarem preço, qual fluxo você prefere?',
     scheduling: 'O assistente pode agendar ou só coleta dados?',
     neverDo: 'Algo que o assistente nunca deve fazer ou dizer? (opcional)',
     escalate: 'Em quais situações deve passar para um humano? (opcional)'
@@ -679,7 +775,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
           <label className="agent-field-label-block" htmlFor="agent-grade-horarios" style={{ margin: 0 }}>
-            Grade de horários
+            Horários e turmas
           </label>
           <textarea
             id="agent-grade-horarios"

@@ -1756,3 +1756,152 @@ button:active {
 .agent-config-btn:hover {
   background: var(--v700);
 }
+
+/* ── Editor “Revisar & Editar” (instruções do agente) ── */
+.agent-prompt-editor {
+  margin-top: 8px;
+  max-width: min(920px, 100%);
+}
+
+.agent-prompt-editor__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-prompt-editor__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: var(--ff-ui);
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.agent-prompt-field {
+  margin-bottom: 18px;
+  padding: 18px 20px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.agent-prompt-field:last-of-type {
+  margin-bottom: 0;
+}
+
+.agent-prompt-field__label {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: var(--ff-ui);
+  color: var(--text);
+}
+
+.agent-prompt-field__hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.agent-prompt-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 16px;
+  min-height: 140px;
+  font-family: var(--ff-ui);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: linear-gradient(180deg, var(--paper) 0%, #faf9ff 100%);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  -webkit-font-smoothing: antialiased;
+}
+
+.agent-prompt-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+
+.agent-prompt-textarea:hover:not(:disabled) {
+  border-color: var(--border-mid);
+}
+
+.agent-prompt-textarea:focus {
+  border-color: var(--v500);
+  box-shadow: 0 0 0 3px var(--v50);
+  background: var(--paper);
+}
+
+.agent-prompt-textarea:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  resize: none;
+}
+
+.agent-prompt-textarea--sm {
+  min-height: 104px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.agent-prompt-textarea--md {
+  min-height: 168px;
+}
+
+.agent-prompt-textarea--lg {
+  min-height: 300px;
+}
+
+.agent-prompt-meta {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: var(--ff-ui);
+}
+
+.agent-prompt-readonly {
+  margin: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 14px 16px;
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  scrollbar-gutter: stable;
+}
+
+.agent-prompt-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}

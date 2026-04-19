@@ -11,6 +11,7 @@ import EquipeSection from '../components/academy/EquipeSection';
 import AvancadoSection from '../components/academy/AvancadoSection';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
+import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
 
 const TABS = [
@@ -241,6 +242,13 @@ const AcademySettings = () => {
                 }
             }
 
+            let modulesPayload = academy.modules || {};
+            try {
+                const curDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+                modulesPayload = mergeNaviWizardIntoModulesPayload(academy.modules || {}, curDoc?.modules);
+            } catch {
+                void 0;
+            }
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 name: academy.name,
                 phone: academy.phone,
@@ -248,7 +256,7 @@ const AcademySettings = () => {
                 address: academy.address,
                 quickTimes: academy.quickTimes || '',
                 uiLabels: JSON.stringify(academy.uiLabels || {}),
-                modules: JSON.stringify(academy.modules || {}),
+                modules: JSON.stringify(modulesPayload),
             });
             try {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});

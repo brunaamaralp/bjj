@@ -397,12 +397,13 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         Texto de referência para quando o aluno escreve no <strong>dia do aniversário</strong>. Use {'{primeiroNome}'} para personalizar.
                     </p>
                     <textarea
-                        className="agent-field-textarea input"
+                        className="agent-prompt-textarea agent-prompt-textarea--sm"
                         value={birthdayMessage}
                         onChange={(e) => setBirthdayMessage(e.target.value)}
                         rows={3}
                         disabled={loadingPrompt}
                         placeholder="Ex: Feliz aniversário, {primeiroNome}! A equipe deseja um dia incrível…"
+                        spellCheck
                     />
                     <button
                         type="button"
@@ -426,7 +427,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                             style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}
                         >
                             <input
-                                className="input"
+                                className="form-input"
                                 value={item.q}
                                 onChange={(e) => {
                                     const v = e.target.value;
@@ -436,7 +437,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 disabled={loadingPrompt}
                             />
                             <textarea
-                                className="agent-field-textarea input"
+                                className="agent-prompt-textarea agent-prompt-textarea--sm"
                                 value={item.a}
                                 onChange={(e) => {
                                     const v = e.target.value;
@@ -508,80 +509,72 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         };
 
         return (
-            <div style={{ marginTop: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+            <div className="agent-prompt-editor animate-in">
+                <header className="agent-prompt-editor__header">
                     <div>
-                        <h4 style={{ margin: 0 }}>Revisar & Editar instruções do assistente</h4>
+                        <h4 className="agent-prompt-editor__title">Revisar & Editar instruções do assistente</h4>
                         {promptUpdatedAt && (
-                            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>
+                            <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>
                                 Atualizado em {formatInstructionsSavedAt(promptUpdatedAt)}
                             </p>
                         )}
                     </div>
-                    <button type="button" className="btn btn-outline" style={{ padding: '6px 12px' }} onClick={handleCancel}>
+                    <button type="button" className="btn btn-outline" style={{ padding: '8px 14px', flexShrink: 0 }} onClick={handleCancel}>
                         Cancelar
                     </button>
-                </div>
+                </header>
 
-                <div className="agent-field" style={{ marginBottom: 16 }}>
-                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Identidade</div>
-                    <p className="agent-field-hint" style={{ marginTop: -2 }}>
-                        Quem é o assistente, nome e tom de voz
-                    </p>
+                <section className="agent-prompt-field" aria-labelledby="agent-prompt-identidade">
+                    <h5 id="agent-prompt-identidade" className="agent-prompt-field__label">
+                        Identidade
+                    </h5>
+                    <p className="agent-prompt-field__hint">Quem é o assistente, nome e tom de voz</p>
                     <textarea
-                        className="agent-field-textarea input"
+                        className="agent-prompt-textarea agent-prompt-textarea--md"
                         value={editIntro}
                         onChange={(e) => setEditIntro(e.target.value)}
                         rows={6}
                         disabled={savingPrompt}
-                        placeholder="Ex: Você é Ana, assistente da academia Gracie Barra…"
+                        placeholder="Ex.: Você é a Ana, atendente do estúdio…"
+                        spellCheck
                     />
-                    <div className="text-small" style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
-                        {String(editIntro || '').length} caracteres
-                    </div>
-                </div>
+                    <div className="agent-prompt-meta">{String(editIntro || '').length} caracteres</div>
+                </section>
 
-                <div className="agent-field" style={{ marginBottom: 16 }}>
-                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Conhecimento</div>
-                    <p className="agent-field-hint" style={{ marginTop: -2 }}>
-                        Planos, horários, preços, regras
-                    </p>
+                <section className="agent-prompt-field" aria-labelledby="agent-prompt-conhecimento">
+                    <h5 id="agent-prompt-conhecimento" className="agent-prompt-field__label">
+                        Conhecimento
+                    </h5>
+                    <p className="agent-prompt-field__hint">Planos, horários, preços, regras e o que o assistente pode informar</p>
                     <textarea
-                        className="agent-field-textarea input"
+                        className="agent-prompt-textarea agent-prompt-textarea--lg"
                         value={editBody}
                         onChange={(e) => setEditBody(e.target.value)}
-                        rows={10}
+                        rows={12}
                         disabled={savingPrompt}
-                        placeholder="Ex: A academia oferece os planos…"
+                        placeholder="Ex.: Endereço, modalidades, valores, política de experimental…"
+                        spellCheck
                     />
-                    <div className="text-small" style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
-                        {String(editBody || '').length} caracteres
-                    </div>
-                </div>
+                    <div className="agent-prompt-meta">{String(editBody || '').length} caracteres</div>
+                </section>
 
-                <div className="agent-field" style={{ marginBottom: 16 }}>
-                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>
-                        Regras do sistema <span className="badge badge-info" style={{ marginLeft: 8 }}>Fixo</span>
-                    </div>
-                    <p className="agent-field-hint" style={{ marginTop: -2 }}>
-                        Regras obrigatórias — não editáveis
+                <section className="agent-prompt-field" aria-labelledby="agent-prompt-sistema">
+                    <h5 id="agent-prompt-sistema" className="agent-prompt-field__label">
+                        Regras do sistema{' '}
+                        <span className="badge badge-info" style={{ marginLeft: 6, verticalAlign: 'middle' }}>
+                            Fixo
+                        </span>
+                    </h5>
+                    <p className="agent-prompt-field__hint">
+                        Regras obrigatórias — não editáveis. Inclui respostas em texto de conversa (sem markdown nem listas) no que vai para o
+                        WhatsApp.
                     </p>
-                    <pre
-                        style={{
-                            whiteSpace: 'pre-wrap',
-                            fontSize: 12,
-                            margin: 0,
-                            padding: 12,
-                            borderRadius: 10,
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface)'
-                        }}
-                    >
+                    <pre className="agent-prompt-readonly" tabIndex={0}>
                         {promptSuffix}
                     </pre>
-                </div>
+                </section>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginTop: 14 }}>
+                <footer className="agent-prompt-footer">
                     <button
                         type="button"
                         className="btn btn-outline"
@@ -592,15 +585,10 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         ↩ Restaurar versão anterior
                     </button>
 
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={savingPrompt}
-                        onClick={() => void handleSaveAndTest()}
-                    >
+                    <button type="button" className="btn btn-primary" disabled={savingPrompt} onClick={() => void handleSaveAndTest()}>
                         {savingPrompt ? 'Salvando…' : 'Salvar e testar'}
                     </button>
-                </div>
+                </footer>
             </div>
         );
     };

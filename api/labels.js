@@ -45,12 +45,11 @@ function labelIdFromRequest(req) {
 export default async function handler(req, res) {
   const method = req.method?.toUpperCase();
 
-  if (!LABELS_COL) {
-    return json(res, 500, { sucesso: false, erro: 'LABELS_COL não configurada no servidor' });
-  }
-
   // ── GET ─────────────────────────────────────────────────────────────────────
   if (method === 'GET') {
+    if (!LABELS_COL || !DB_ID) {
+      return json(res, 200, { sucesso: true, labels: [] });
+    }
     const me = await ensureAuth(req, res);
     if (!me) return;
     const access = await ensureAcademyAccess(req, res, me);
@@ -80,6 +79,9 @@ export default async function handler(req, res) {
 
   // ── POST ─────────────────────────────────────────────────────────────────────
   if (method === 'POST') {
+    if (!LABELS_COL || !DB_ID) {
+      return json(res, 503, { sucesso: false, erro: 'Coleção de etiquetas não configurada no servidor' });
+    }
     const me = await ensureAuth(req, res);
     if (!me) return;
     const access = await ensureAcademyAccess(req, res, me);
@@ -110,6 +112,9 @@ export default async function handler(req, res) {
 
   // ── PATCH ───────────────────────────────────────────────────────────────────
   if (method === 'PATCH') {
+    if (!LABELS_COL || !DB_ID) {
+      return json(res, 503, { sucesso: false, erro: 'Coleção de etiquetas não configurada no servidor' });
+    }
     const me = await ensureAuth(req, res);
     if (!me) return;
     const access = await ensureAcademyAccess(req, res, me);
@@ -149,6 +154,9 @@ export default async function handler(req, res) {
 
   // ── DELETE ──────────────────────────────────────────────────────────────────
   if (method === 'DELETE') {
+    if (!LABELS_COL || !DB_ID) {
+      return json(res, 503, { sucesso: false, erro: 'Coleção de etiquetas não configurada no servidor' });
+    }
     const me = await ensureAuth(req, res);
     if (!me) return;
     const access = await ensureAcademyAccess(req, res, me);
