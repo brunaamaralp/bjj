@@ -3,7 +3,7 @@ import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
@@ -13,6 +13,7 @@ import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import { maskPhone } from '../lib/masks.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -82,6 +83,16 @@ function humanizeTimelineStage(s) {
     const upper = t.toUpperCase().replace(/\s+/g, '_');
     if (ENGLISH_STATUS_TOKEN_LABELS[upper]) return ENGLISH_STATUS_TOKEN_LABELS[upper];
     return t.replace(/_/g, ' ');
+}
+
+const TYPE_ICONS = {
+    'Criança': <Baby size={18} />,
+    'Juniores': <Users size={18} />,
+    'Adulto': <Dumbbell size={18} />,
+};
+
+function showLeadProfileScheduleEditSection(status) {
+    return status !== LEAD_STATUS.CONVERTED && status !== LEAD_STATUS.LOST;
 }
 
 const LeadProfile = () => {
@@ -366,7 +377,7 @@ const LeadProfile = () => {
 
         setForm({
             name: src.name || '',
-            phone: src.phone || '',
+            phone: maskPhone(src.phone || ''),
             type: src.type || 'Adulto',
             origin: src.origin || '',
             parentName: src.parentName || '',
@@ -439,9 +450,23 @@ const LeadProfile = () => {
     };
 
     const executeSaveLead = async (payload) => {
+        if (!String(payload.name || '').trim()) {
+            addToast({ type: 'error', message: 'Nome é obrigatório' });
+            return;
+        }
+        if (!String(payload.phone || '').trim()) {
+            addToast({ type: 'error', message: 'Telefone é obrigatório' });
+            return;
+        }
+        const digits = String(payload.phone || '').replace(/\D/g, '');
+        if (digits.length < 10) {
+            addToast({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
+            return;
+        }
         setSaving(true);
         try {
-            await updateLead(id, payload);
+            const digitsPhone = String(payload.phone || '').replace(/\D/g, '');
+            await updateLead(id, { ...payload, phone: digitsPhone });
             setEditing(false);
             addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
             await refreshTimeline();
@@ -454,7 +479,20 @@ const LeadProfile = () => {
 
     const handleSave = async () => {
         if (saving) return;
-        const payload = { ...form };
+        if (!form.name?.trim()) {
+            addToast({ type: 'error', message: 'Nome é obrigatório' });
+            return;
+        }
+        if (!form.phone?.trim()) {
+            addToast({ type: 'error', message: 'Telefone é obrigatório' });
+            return;
+        }
+        const digits = String(form.phone).replace(/\D/g, '');
+        if (digits.length < 10) {
+            addToast({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
+            return;
+        }
+        const payload = { ...form, phone: digits };
         const hasDate = String(payload.scheduledDate || '').trim().length > 0;
         if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
             payload.status = LEAD_STATUS.SCHEDULED;
@@ -811,10 +849,149 @@ const LeadProfile = () => {
                                 )}
                             </div>
                         ) : (
-                            <div className="flex-col gap-2 w-full mt-2">
-                                <input name="name" value={form.name} onChange={onChange} className="form-input-sm" placeholder="Nome" />
-                                <input name="phone" value={form.phone} onChange={onChange} className="form-input-sm" type="tel" placeholder="Telefone" />
-                            </div>
+                            <>
+                                <div className="flex-col gap-2 w-full mt-2 lead-profile-edit-fields">
+                                    <input name="name" value={form.name} onChange={onChange} className="form-input-sm" placeholder="Nome" />
+                                    <input
+                                        name="phone"
+                                        value={form.phone}
+                                        onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
+                                        className="form-input-sm"
+                                        type="tel"
+                                        inputMode="numeric"
+                                        placeholder="Telefone"
+                                    />
+                                </div>
+                                <div className="lead-profile-edit-sections w-full mt-3">
+                                    <h3 className="section-title lead-profile-edit-section-title">Perfil</h3>
+                                    <div className="lead-profile-type-grid">
+                                        {['Criança', 'Juniores', 'Adulto'].map((typeOption) => (
+                                            <label
+                                                key={typeOption}
+                                                className={`lead-profile-type-option ${form.type === typeOption ? 'selected' : ''}`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="lead-type"
+                                                    value={typeOption}
+                                                    checked={form.type === typeOption}
+                                                    onChange={(e) => {
+                                                        const v = e.target.value;
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            type: v,
+                                                            ...(v === 'Adulto' ? { parentName: '', age: '' } : {}),
+                                                        }));
+                                                    }}
+                                                />
+                                                <span className="lead-profile-type-icon">{TYPE_ICONS[typeOption]}</span>
+                                                <span className="lead-profile-type-name">{typeOption}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    {(form.type === 'Criança' || form.type === 'Juniores') && (
+                                        <div className="flex-col gap-2 mt-3">
+                                            <div className="flex-col gap-1">
+                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Responsável</span>
+                                                <input
+                                                    className="form-input-sm"
+                                                    type="text"
+                                                    value={form.parentName}
+                                                    onChange={(e) => setForm((f) => ({ ...f, parentName: e.target.value }))}
+                                                    placeholder="Nome do responsável"
+                                                />
+                                            </div>
+                                            <div className="flex-col gap-1">
+                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Idade</span>
+                                                <input
+                                                    className="form-input-sm"
+                                                    type="number"
+                                                    value={form.age}
+                                                    onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
+                                                    placeholder="Ex: 8"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="flex-col gap-1 mt-3">
+                                        <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Origem</span>
+                                        <select
+                                            className="form-input-sm"
+                                            value={form.origin}
+                                            onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value }))}
+                                        >
+                                            <option value="">—</option>
+                                            {LEAD_ORIGIN.map((o) => (
+                                                <option key={o} value={o}>{o}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {showLeadProfileScheduleEditSection(lead.status) && (
+                                        <>
+                                            <h3 className="section-title lead-profile-edit-section-title mt-4">Agendamento</h3>
+                                            <div className="flex-col gap-2">
+                                                <div className="flex-col gap-1">
+                                                    <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data da aula</span>
+                                                    <input
+                                                        className="form-input-sm"
+                                                        type="date"
+                                                        value={form.scheduledDate}
+                                                        onChange={(e) => setForm((f) => ({ ...f, scheduledDate: e.target.value }))}
+                                                    />
+                                                </div>
+                                                <div className="flex-col gap-1">
+                                                    <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Horário</span>
+                                                    <input
+                                                        className="form-input-sm"
+                                                        type="time"
+                                                        value={form.scheduledTime}
+                                                        onChange={(e) => setForm((f) => ({ ...f, scheduledTime: e.target.value }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <h3 className="section-title lead-profile-edit-section-title mt-4">Dados adicionais</h3>
+                                    <div className="flex-col gap-2">
+                                        <div className="flex-col gap-1">
+                                            <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data de nascimento</span>
+                                            <input
+                                                className="form-input-sm"
+                                                type="date"
+                                                value={form.birthDate}
+                                                onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div className="flex-col gap-1">
+                                            <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Primeira experiência?</span>
+                                            <div className="lead-profile-radio-row">
+                                                <label className="lead-profile-inline-radio">
+                                                    <input
+                                                        type="radio"
+                                                        name="isFirstExperience"
+                                                        value="Sim"
+                                                        checked={form.isFirstExperience === 'Sim'}
+                                                        onChange={(e) => setForm((f) => ({ ...f, isFirstExperience: e.target.value }))}
+                                                    />
+                                                    <span>Sim</span>
+                                                </label>
+                                                <label className="lead-profile-inline-radio">
+                                                    <input
+                                                        type="radio"
+                                                        name="isFirstExperience"
+                                                        value="Não"
+                                                        checked={form.isFirstExperience === 'Não'}
+                                                        onChange={(e) => setForm((f) => ({ ...f, isFirstExperience: e.target.value }))}
+                                                    />
+                                                    <span>Não</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
                         )}
                     </div>
 
@@ -1321,6 +1498,56 @@ const LeadProfile = () => {
                     border: 1px solid var(--border);
                     font-size: 13px;
                     background: var(--surface-hover);
+                }
+
+                .profile-main-header .lead-profile-edit-sections {
+                    text-align: left;
+                    align-self: stretch;
+                }
+                .lead-profile-edit-section-title {
+                    text-align: left;
+                    margin-bottom: 10px !important;
+                }
+                .lead-profile-type-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    gap: 8px;
+                }
+                .lead-profile-type-option {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 10px 6px;
+                    border: 2px solid var(--border);
+                    border-radius: var(--radius-sm);
+                    text-align: center;
+                    cursor: pointer;
+                    gap: 4px;
+                    background: var(--surface-hover);
+                }
+                .lead-profile-type-option input { display: none; }
+                .lead-profile-type-icon { color: var(--text-muted); }
+                .lead-profile-type-name { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+                .lead-profile-type-option.selected {
+                    border-color: var(--accent);
+                    background: var(--accent-light);
+                }
+                .lead-profile-type-option.selected .lead-profile-type-icon,
+                .lead-profile-type-option.selected .lead-profile-type-name { color: var(--accent); }
+                .lead-profile-radio-row {
+                    display: flex;
+                    gap: 16px;
+                    flex-wrap: wrap;
+                    padding: 4px 0;
+                }
+                .lead-profile-inline-radio {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 13px;
+                    color: var(--text);
+                    cursor: pointer;
                 }
 
                 /* Comunicação */

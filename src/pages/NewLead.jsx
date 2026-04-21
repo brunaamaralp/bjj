@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle, PlusCircle } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle } from 'lucide-react';
+import { maskPhone } from '../lib/masks.js';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -19,19 +20,6 @@ function normalizePhoneDedup(raw) {
     if (!d) return '';
     if (d.startsWith('55') && d.length >= 12) d = d.slice(2);
     return d;
-}
-
-function maskPhone(value) {
-    if (!value) return '';
-    const digits = value.replace(/\D/g, '').slice(0, 11);
-    if (digits.length <= 10) {
-        return digits
-            .replace(/(\d{2})(\d)/, '($1) $2')
-            .replace(/(\d{4})(\d)/, '$1-$2');
-    }
-    return digits
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{5})(\d)/, '$1-$2');
 }
 
 const nextQuarterTime = () => {
@@ -63,6 +51,7 @@ const NewLead = () => {
 
     const leadType = watch('type');
     const phoneValue = watch('phone');
+    const [debouncedPhone, setDebouncedPhone] = useState('');
 
     // Aviso de duplicata só com telefone completo e igualdade exata (após normalizar).
     // Não usar “últimos 8 dígitos”: gera falso positivo entre DDDs diferentes e com alunos importados com lixo/CPF no campo.
@@ -76,11 +65,40 @@ const NewLead = () => {
         });
     };
 
-    const duplicate = findDuplicate(phoneValue);
+    useEffect(() => {
+        const d = String(phoneValue || '').replace(/\D/g, '');
+        if (d.length < 8) {
+            setDebouncedPhone(String(phoneValue || ''));
+            return undefined;
+        }
+        const t = window.setTimeout(() => setDebouncedPhone(String(phoneValue || '')), 400);
+        return () => window.clearTimeout(t);
+    }, [phoneValue]);
+
+    const phoneChecking = useMemo(() => {
+        const d = String(phoneValue || '').replace(/\D/g, '');
+        if (d.length < 8) return false;
+        return debouncedPhone !== phoneValue;
+    }, [phoneValue, debouncedPhone]);
+
+    const duplicate = useMemo(() => findDuplicate(debouncedPhone), [debouncedPhone, leads]);
 
     const onSubmit = async (data) => {
         if (!academyId) {
             alert('Erro: Academia não identificada. Por favor, recarregue a página.');
+            return;
+        }
+        if (phoneChecking) {
+            addToast({ type: 'warning', message: 'Aguarde a verificação do telefone.' });
+            return;
+        }
+
+        const dupBlocking = findDuplicate(data.phone);
+        if (dupBlocking) {
+            addToast({
+                type: 'error',
+                message: `Este telefone já está cadastrado — ${dupBlocking.name}`,
+            });
             return;
         }
 
@@ -153,7 +171,7 @@ const NewLead = () => {
 
                 {/* Telefone + Duplicate Warning */}
                 <div className="form-group card animate-in" style={{ animationDelay: '0.05s' }}>
-                    <label>Telefone / WhatsApp</label>
+                    <label>Telefone / WhatsApp{phoneChecking ? ' — Verificando…' : ''}</label>
                     <input
                         {...register('phone', { required: true })}
                         onChange={(e) => {
@@ -162,24 +180,25 @@ const NewLead = () => {
                             setValue('phone', masked);
                         }}
                         placeholder="(00) 00000-0000"
-                        className={`form-input ${duplicate ? 'input-warning' : ''}`}
+                        className={`form-input ${duplicate && !phoneChecking ? 'input-error-duplicate' : ''}`}
                         type="tel"
                         inputMode="numeric"
+                        aria-busy={phoneChecking || undefined}
                     />
                     {errors.phone && <span className="error">Campo obrigatório</span>}
 
-                    {duplicate && (
-                        <div className="duplicate-alert animate-in">
+                    {duplicate && !phoneChecking && (
+                        <div className="duplicate-alert duplicate-alert--error animate-in" role="alert">
                             <AlertTriangle size={16} />
                             <div>
-                                <strong>Possível duplicado!</strong>
-                                <p>"{duplicate.name}" já está cadastrado com este telefone ({duplicate.status}).</p>
+                                <strong>Telefone já cadastrado</strong>
+                                <p>Este telefone já está cadastrado — {duplicate.name}</p>
                                 <button
                                     type="button"
                                     className="dup-link"
-                                    onClick={() => navigate(`/lead/${duplicate.id}`)}
+                                    onClick={() => navigate(`/lead/${encodeURIComponent(duplicate.id)}`)}
                                 >
-                                    Ver cadastro existente →
+                                    Ver lead existente
                                 </button>
                             </div>
                         </div>
@@ -296,7 +315,7 @@ const NewLead = () => {
                     type="submit"
                     className="btn-secondary btn-large mt-2 animate-in"
                     style={{ animationDelay: '0.25s' }}
-                    disabled={submitting}
+                    disabled={submitting || Boolean(duplicate) || phoneChecking}
                 >
                     {submitting ? (
                         <div className="flex items-center gap-2">
@@ -337,7 +356,7 @@ const NewLead = () => {
         .type-option.selected .type-icon { color: var(--accent); }
         .type-option.selected .type-name { color: var(--accent); }
         .type-option:active { transform: scale(0.96); }
-        .input-warning { border-color: var(--warning) !important; }
+        .input-error-duplicate { border-color: var(--danger) !important; }
         .duplicate-alert {
           display: flex; gap: 10px; align-items: flex-start;
           padding: 12px; border-radius: var(--radius-sm);
@@ -345,8 +364,13 @@ const NewLead = () => {
           font-size: 0.82rem; line-height: 1.4;
           margin-top: 4px;
         }
+        .duplicate-alert--error {
+          background: var(--danger-light);
+        }
         .duplicate-alert svg { color: var(--warning); flex-shrink: 0; margin-top: 2px; }
+        .duplicate-alert--error svg { color: var(--danger); }
         .duplicate-alert strong { display: block; color: var(--warning); font-size: 0.85rem; }
+        .duplicate-alert--error strong { color: var(--danger); }
         .duplicate-alert p { margin: 2px 0 6px; color: var(--text-secondary); }
         .dup-link {
           background: none; border: none; color: var(--accent); font-weight: 600;

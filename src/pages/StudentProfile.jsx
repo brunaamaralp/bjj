@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Pencil, User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
+import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
@@ -15,6 +15,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
+import { maskCPF } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 
 function formatDateBR(ymd) {
@@ -33,19 +34,6 @@ function formatPhone(raw) {
     if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
     if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
     return raw || '';
-}
-
-function calcTempoDeCasa(dateStr) {
-    if (!dateStr) return null;
-    const start = new Date(`${String(dateStr).slice(0, 10)}T12:00:00`);
-    if (Number.isNaN(start.getTime())) return null;
-    const now = new Date();
-    const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-    const years = Math.floor(months / 12);
-    const rem = months % 12;
-    if (years === 0) return `${rem} ${rem === 1 ? 'mês' : 'meses'}`;
-    if (rem === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`;
-    return `${years} ${years === 1 ? 'ano' : 'anos'} e ${rem} ${rem === 1 ? 'mês' : 'meses'}`;
 }
 
 const STATUS_CONFIG = {
@@ -96,9 +84,11 @@ function humanizeTimelineStage(s) {
 }
 
 const STUDENT_DATA_FIELDS = [
-    { key: 'plan', label: 'Plano contratado', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
-    { key: 'enrollmentDate', label: 'Data de ingresso', type: 'date', placeholder: '' },
-    { key: 'birthDate', label: 'Data de nascimento', type: 'date', placeholder: '' },
+    { key: 'plan', label: 'Plano', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
+    { key: 'enrollmentDate', label: 'Ingresso', type: 'date', placeholder: '' },
+    { key: 'birthDate', label: 'Nascimento', type: 'date', placeholder: '' },
+    { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
+    { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
 ];
 
 const EMERGENCY_FIELDS = [
@@ -167,17 +157,17 @@ export default function StudentProfile() {
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
 
-    const [form, setForm] = useState({
+    const [editingData, setEditingData] = useState(false);
+    const [dataForm, setDataForm] = useState({
         plan: '',
         enrollmentDate: '',
+        birthDate: '',
+        cpf: '',
+        responsavel: '',
         emergencyContact: '',
         emergencyPhone: '',
-        birthDate: '',
     });
-    const [editingKey, setEditingKey] = useState(null);
-    const [draft, setDraft] = useState('');
-    const [savingKey, setSavingKey] = useState(null);
-    const [listEditMode, setListEditMode] = useState(false);
+    const [savingData, setSavingData] = useState(false);
     const [timelineOpen, setTimelineOpen] = useState(true);
     const [activeTab, setActiveTab] = useState('frequency');
     const [waCtx, setWaCtx] = useState({
@@ -236,16 +226,19 @@ export default function StudentProfile() {
 
     useEffect(() => {
         if (!student) return;
-        setForm({
+        setDataForm({
             plan: student.plan || '',
             enrollmentDate: student.enrollmentDate || '',
+            birthDate: student.birthDate || '',
+            cpf: maskCPF(String(student.cpf || '')),
+            responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: student.emergencyPhone || '',
-            birthDate: student.birthDate || '',
         });
-        setEditingKey(null);
-        setDraft('');
-    }, [student]);
+        setEditingData(false);
+        // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
+    }, [student?.id]);
 
     useEffect(() => {
         setTemplateMenuOpen(false);
@@ -430,42 +423,36 @@ export default function StudentProfile() {
         [timelineEvents, eventTypeFilter]
     );
 
-    const startEdit = (key) => {
-        if (!listEditMode || savingKey) return;
-        setEditingKey(key);
-        setDraft(String(form[key] ?? ''));
-    };
+    const cancelDataEdit = useCallback(() => {
+        if (!student) return;
+        setDataForm({
+            plan: student.plan || '',
+            enrollmentDate: student.enrollmentDate || '',
+            birthDate: student.birthDate || '',
+            cpf: maskCPF(String(student.cpf || '')),
+            responsavel: student.responsavel || '',
+            emergencyContact: student.emergencyContact || '',
+            emergencyPhone: student.emergencyPhone || '',
+        });
+        setEditingData(false);
+    }, [student]);
 
-    const cancelEdit = useCallback(() => {
-        setEditingKey(null);
-        setDraft('');
-    }, []);
-
-    const commitRow = async (key) => {
-        if (savingKey || !student) return;
-        const next = { ...form, [key]: draft };
-        setSavingKey(key);
+    const handleSaveData = useCallback(async () => {
+        if (!student || savingData) return;
+        setSavingData(true);
         try {
-            await updateLead(leadId, next);
-            setForm(next);
-            setEditingKey(null);
-            setDraft('');
-            addToast({ type: 'success', message: 'Salvo com sucesso.' });
+            await updateLead(leadId, {
+                ...dataForm,
+                cpf: String(dataForm.cpf || '').replace(/\D/g, ''),
+            });
+            setEditingData(false);
+            addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
         } catch {
             addToast({ type: 'error', message: 'Erro ao salvar. Tente novamente.' });
         } finally {
-            setSavingKey(null);
+            setSavingData(false);
         }
-    };
-
-    const displayForRow = (key) => {
-        const raw = form[key];
-        if (key === 'enrollmentDate' || key === 'birthDate') {
-            const br = formatDateBR(raw);
-            return br || '';
-        }
-        return raw != null && String(raw).trim() ? String(raw).trim() : '';
-    };
+    }, [student, savingData, leadId, dataForm, updateLead, addToast]);
 
     const sendTemplateKey = async (key) => {
         if (sendingWhatsapp || !student) return;
@@ -650,14 +637,6 @@ export default function StudentProfile() {
         fontFamily: 'inherit',
     };
 
-    const rowBase = {
-        borderRadius: 10,
-        border: '1px solid var(--border)',
-        background: 'var(--surface)',
-        padding: '12px 14px',
-        marginBottom: 8,
-    };
-
     if (loading && !student) {
         return (
             <div className="container lead-profile-loading" style={{ paddingTop: 24, paddingBottom: 40, minHeight: '100vh' }}>
@@ -689,130 +668,97 @@ export default function StudentProfile() {
 
     const phoneHasDigits = Boolean(String(student.phone || '').replace(/\D/g, '').length);
     const attendanceReady = isAttendanceConfigured();
-    const enrollmentYmd = student.enrollmentDate || form.enrollmentDate;
-    const tempoCasa = enrollmentYmd ? calcTempoDeCasa(enrollmentYmd) : null;
     const showRightPanel = timelineOpen;
     const studentsPlural = uiLabels.students || 'Alunos';
     const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const currentMonthExtended = formatReferenceMonthLong(currentYm);
 
-    const renderFieldRows = (fields) =>
-        fields.map((field) => {
-            const isEditing = editingKey === field.key;
-            const isSaving = savingKey === field.key;
-            const shown = displayForRow(field.key);
+    const displayStudentFieldValue = (key, raw) => {
+        if (key === 'enrollmentDate' || key === 'birthDate') {
+            const br = formatDateBR(raw);
+            return br || '';
+        }
+        if (key === 'cpf') {
+            const s = String(raw ?? '').replace(/\D/g, '');
+            return s ? maskCPF(s) : '';
+        }
+        return raw != null && String(raw).trim() ? String(raw).trim() : '';
+    };
 
-            return (
-                <div
-                    key={field.key}
+    const dataFormInputStyle = {
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: '6px 10px',
+        fontSize: 13,
+        borderRadius: 'var(--radius-sm)',
+        border: '0.5px solid var(--border-light)',
+        background: 'var(--surface)',
+        color: 'var(--text)',
+        fontFamily: 'inherit',
+    };
+
+    const renderStudentDataViewRow = (field) => {
+        const raw = student[field.key];
+        const shown = displayStudentFieldValue(field.key, raw);
+        const empty = !shown;
+        return (
+            <div
+                key={field.key}
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '10px 0',
+                    borderBottom: '0.5px solid var(--border-light)',
+                }}
+            >
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, flexShrink: 0 }}>{field.label}</span>
+                <span
                     style={{
-                        ...rowBase,
-                        borderColor: isEditing ? 'var(--accent)' : 'var(--border)',
-                        boxShadow: isEditing ? '0 0 0 2px var(--accent-light)' : 'none',
+                        fontSize: 13,
+                        color: empty ? 'var(--text-secondary)' : 'var(--text)',
+                        fontStyle: 'normal',
+                        textAlign: 'right',
+                        maxWidth: '58%',
+                        wordBreak: 'break-word',
                     }}
                 >
-                    <div
-                        style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: 'var(--text-muted)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.06em',
-                            marginBottom: isEditing ? 8 : 6,
-                        }}
-                    >
-                        {field.label}
-                    </div>
+                    {empty ? '—' : shown}
+                </span>
+            </div>
+        );
+    };
 
-                    {isEditing ? (
-                        <>
-                            <input
-                                type={field.type}
-                                value={draft}
-                                onChange={(e) => setDraft(e.target.value)}
-                                placeholder={field.placeholder}
-                                disabled={Boolean(savingKey)}
-                                style={inputStyle}
-                                autoFocus
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Escape') cancelEdit();
-                                }}
-                            />
-                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                                <button
-                                    type="button"
-                                    disabled={Boolean(savingKey)}
-                                    onClick={() => commitRow(field.key)}
-                                    style={{
-                                        flex: 1,
-                                        padding: '8px 12px',
-                                        borderRadius: 8,
-                                        border: 'none',
-                                        background: 'var(--purple)',
-                                        color: '#fff',
-                                        fontWeight: 700,
-                                        fontSize: 13,
-                                        cursor: savingKey ? 'not-allowed' : 'pointer',
-                                        opacity: savingKey ? 0.7 : 1,
-                                    }}
-                                >
-                                    {isSaving ? 'Salvando…' : 'Salvar'}
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={Boolean(savingKey)}
-                                    onClick={cancelEdit}
-                                    style={{
-                                        padding: '8px 14px',
-                                        borderRadius: 8,
-                                        border: '1px solid var(--border)',
-                                        background: 'transparent',
-                                        color: 'var(--text-secondary)',
-                                        fontWeight: 600,
-                                        fontSize: 13,
-                                        cursor: savingKey ? 'not-allowed' : 'pointer',
-                                    }}
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => startEdit(field.key)}
-                            disabled={!listEditMode || Boolean(editingKey) || Boolean(savingKey)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 10,
-                                width: '100%',
-                                textAlign: 'left',
-                                border: 'none',
-                                background: 'none',
-                                padding: 0,
-                                cursor: listEditMode && !editingKey && !savingKey ? 'pointer' : 'default',
-                                fontFamily: 'inherit',
-                                opacity: listEditMode ? 1 : 0.85,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    color: shown ? 'var(--text)' : 'var(--text-muted)',
-                                    fontStyle: shown ? 'normal' : 'italic',
-                                }}
-                            >
-                                {shown || (listEditMode ? 'Toque para preencher' : '—')}
-                            </span>
-                            {listEditMode ? <Pencil size={16} color="var(--text-muted)" aria-hidden /> : null}
-                        </button>
-                    )}
-                </div>
-            );
-        });
+    const renderStudentDataEditRow = (field) => (
+        <div key={field.key} style={{ marginBottom: 12 }}>
+            <label
+                htmlFor={`student-data-${field.key}`}
+                style={{
+                    display: 'block',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                    marginBottom: 6,
+                }}
+            >
+                {field.label}
+            </label>
+            <input
+                id={`student-data-${field.key}`}
+                type={field.type}
+                className="student-profile-data-input"
+                placeholder={field.placeholder}
+                disabled={savingData}
+                value={dataForm[field.key] ?? ''}
+                onChange={(e) => {
+                    const v = field.key === 'cpf' ? maskCPF(e.target.value) : e.target.value;
+                    setDataForm((p) => ({ ...p, [field.key]: v }));
+                }}
+                style={dataFormInputStyle}
+            />
+        </div>
+    );
 
     const leftColumn = (
         <div
@@ -832,7 +778,7 @@ export default function StudentProfile() {
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    justifyContent: 'flex-start',
                     padding: '12px 14px',
                     borderBottom: '1px solid var(--border-light)',
                     flexShrink: 0,
@@ -853,30 +799,6 @@ export default function StudentProfile() {
                     }}
                 >
                     ← {studentsPlural}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => {
-                        setListEditMode((v) => !v);
-                        setEditingKey(null);
-                        setDraft('');
-                    }}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        background: listEditMode ? 'var(--v50)' : 'var(--surface)',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 700,
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                    }}
-                >
-                    <Pencil size={14} /> {listEditMode ? 'Concluir' : 'Editar'}
                 </button>
             </div>
 
@@ -1112,45 +1034,52 @@ export default function StudentProfile() {
                 </div>
 
                 <div style={{ marginBottom: 8 }}>
-                    <p
+                    <div
                         style={{
-                            margin: '0 0 10px',
-                            fontSize: 11,
-                            fontWeight: 800,
-                            color: 'var(--text-muted)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 10,
+                            marginBottom: 12,
                         }}
                     >
-                        Dados do aluno
-                    </p>
-                    {!listEditMode ? (
-                        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                            Toque em &quot;Editar&quot; para alterar os campos.
-                        </p>
-                    ) : (
-                        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                            Toque em uma linha para editar. Salve ou cancele antes de editar outro campo.
-                        </p>
-                    )}
-                    {renderFieldRows(STUDENT_DATA_FIELDS)}
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Dados do aluno</h3>
+                        {!editingData ? (
+                            <button type="button" className="btn-outline" style={{ minHeight: 34, fontSize: 12, padding: '6px 12px' }} onClick={() => setEditingData(true)}>
+                                Editar
+                            </button>
+                        ) : null}
+                    </div>
+                    {editingData ? STUDENT_DATA_FIELDS.map(renderStudentDataEditRow) : STUDENT_DATA_FIELDS.map(renderStudentDataViewRow)}
                 </div>
 
                 <div style={{ marginBottom: 22 }}>
-                    <p
-                        style={{
-                            margin: '0 0 10px',
-                            fontSize: 11,
-                            fontWeight: 800,
-                            color: 'var(--text-muted)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                        }}
-                    >
-                        Contato de emergência
-                    </p>
-                    {renderFieldRows(EMERGENCY_FIELDS)}
+                    <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Contato de emergência</h3>
+                    {editingData ? EMERGENCY_FIELDS.map(renderStudentDataEditRow) : EMERGENCY_FIELDS.map(renderStudentDataViewRow)}
                 </div>
+
+                {editingData ? (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
+                        <button
+                            type="button"
+                            className="btn-outline"
+                            disabled={savingData}
+                            onClick={() => cancelDataEdit()}
+                            style={{ minHeight: 40, fontSize: 13 }}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-primary"
+                            disabled={savingData}
+                            onClick={() => void handleSaveData()}
+                            style={{ minHeight: 40, fontSize: 13 }}
+                        >
+                            {savingData ? 'Salvando...' : 'Salvar'}
+                        </button>
+                    </div>
+                ) : null}
 
                 <div style={{ marginBottom: 8 }}>
                     <p
@@ -1738,6 +1667,16 @@ export default function StudentProfile() {
                 background: 'var(--surface)',
             }}
         >
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
+            .student-profile-data-input:focus {
+              outline: none;
+              border: 1px solid #5B3FBF !important;
+            }
+          `,
+                }}
+            />
             {leftColumn}
             {rightColumn}
 

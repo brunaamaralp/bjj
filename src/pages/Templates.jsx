@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Save, RotateCcw, Send, User, Search, Copy, Check, RotateCw, ChevronLeft } from 'lucide-react';
+import { Save, RotateCcw, Send, Search, Copy, Check, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -12,6 +12,11 @@ import {
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
+
+const WHATSAPP_TEMPLATE_CHAR_LIMIT = 1024;
+
+const isAutomaticTemplateId = (id) =>
+  id === 'birthday' || String(labelFor[id] || '').toLowerCase().includes('(automático)');
 
 const PLACEHOLDERS = [
   { key: '{primeiroNome}', label: 'Primeiro nome' },
@@ -35,7 +40,8 @@ const Templates = () => {
   const [academyName, setAcademyName] = useState('');
   const [filter, setFilter] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
-  const [expanded, setExpanded] = useState({});
+  /** Um template expandido por vez; null = todos colapsados */
+  const [expandedId, setExpandedId] = useState(null);
 
   const templateIds = useMemo(() => Object.keys(DEFAULT_TEMPLATES), []);
 
@@ -127,6 +133,10 @@ const Templates = () => {
   };
 
   const handleResetDefaults = () => {
+    const ok = window.confirm(
+      'Restaurar todos os templates para o padrão? Esta ação não pode ser desfeita.'
+    );
+    if (!ok) return;
     setTemplates(DEFAULT_TEMPLATES);
   };
 
@@ -204,24 +214,22 @@ const Templates = () => {
               style={{ minWidth: 220 }}
             />
           </div>
-          <button className="btn-outline" onClick={handleResetDefaults} disabled={saving}>
+          <button type="button" className="btn-ghost" onClick={handleResetDefaults} disabled={saving}>
             <RotateCcw size={16} /> Restaurar padrão
           </button>
-          <button className="btn-secondary" onClick={handleSave} disabled={!changed || saving}>
+          <button type="button" className="btn-primary" onClick={handleSave} disabled={!changed || saving}>
             <Save size={16} /> {saving ? 'Salvando…' : 'Salvar'}
           </button>
         </div>
       </div>
 
       <div className="card mt-3 animate-in">
-        <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <User size={18} />
-          <span className="navi-subtitle" style={{ margin: 0 }}>Lead de exemplo para preview</span>
+        <div className="flex tpl-preview-lead-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <span className="tpl-preview-lead-label">Pré-visualizar com:</span>
           <select
-            className="form-input"
+            className="form-input tpl-preview-lead-select"
             value={sampleLeadId}
             onChange={(e) => setSampleLeadId(e.target.value)}
-            style={{ marginLeft: 'auto', maxWidth: 260 }}
           >
             <option value="">(Primeiro da lista)</option>
             {leads.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -262,76 +270,118 @@ const Templates = () => {
         )}
       </div>
 
-      <div className="flex-col gap-3 mt-3">
+      <div className="flex-col tpl-template-list mt-3">
         {filteredIds.map((id, i) => {
           const raw = String(templates[id] || '');
           const preview = renderTemplate(raw);
           const isChanged = String(templates[id] || '') !== String(original[id] || '');
-          const isExpanded = expanded[id] !== false;
+          const isOpen = expandedId === id;
           const copyKeyRaw = `raw:${id}`;
           const copyKeyPreview = `preview:${id}`;
           const canTest = Boolean(String(sampleData?.phone || '').replace(/\D/g, ''));
+          const isAuto = isAutomaticTemplateId(id);
+          const charNearLimit = raw.length >= WHATSAPP_TEMPLATE_CHAR_LIMIT - 74;
           return (
-          <div key={id} className="card animate-in" style={{ animationDelay: `${0.02 * i}s` }}>
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
-                <button
-                  className="tpl-collapse"
-                  onClick={() => setExpanded((p) => ({ ...p, [id]: !isExpanded }))}
-                  title={isExpanded ? 'Recolher' : 'Expandir'}
-                >
-                  <RotateCw size={16} />
-                </button>
-                <MessageCircle size={18} color="#25D366" />
-                <strong>{labelFor[id] || id}</strong>
+          <div
+            key={id}
+            className="tpl-card animate-in"
+            style={{ animationDelay: `${0.02 * i}s` }}
+          >
+            <div
+              role="button"
+              tabIndex={0}
+              className="tpl-card-header"
+              style={{
+                borderBottom: isOpen ? '0.5px solid var(--border-light)' : '0.5px solid transparent',
+              }}
+              onClick={() => setExpandedId(isOpen ? null : id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setExpandedId(isOpen ? null : id);
+                }
+              }}
+            >
+              <div className="tpl-card-header-left">
+                <strong className="tpl-card-title">{labelFor[id] || id}</strong>
+                {isAuto && <span className="tpl-badge-auto">Automático</span>}
                 {isChanged && <span className="tpl-badge">Não salvo</span>}
-                <span className="navi-mono-num">{raw.length} chars</span>
+                <span className={`tpl-char-count${charNearLimit ? ' tpl-char-count--warn' : ''}`}>
+                  {raw.length} chars
+                </span>
               </div>
-              <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button className="btn-outline" onClick={() => copyText(raw, copyKeyRaw)} title="Copiar template (com variáveis)">
+              <div className="tpl-card-header-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => copyText(raw, copyKeyRaw)}
+                  title="Copiar template (com variáveis)"
+                >
                   {copiedKey === copyKeyRaw ? <Check size={16} /> : <Copy size={16} />} Copiar
                 </button>
-                <button className="btn-outline" onClick={() => copyText(preview, copyKeyPreview)} title="Copiar preview (renderizado)">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => copyText(preview, copyKeyPreview)}
+                  title="Copiar preview (renderizado)"
+                >
                   {copiedKey === copyKeyPreview ? <Check size={16} /> : <Copy size={16} />} Copiar preview
                 </button>
-                <button className="btn-outline" onClick={() => handleResetOne(id)} disabled={saving}>
-                  <RotateCcw size={16} /> Restaurar este
-                </button>
+                <span className="tpl-chevron" aria-hidden>
+                  {isOpen ? <ChevronUp size={20} strokeWidth={2} /> : <ChevronDown size={20} strokeWidth={2} />}
+                </span>
               </div>
             </div>
-            {isExpanded && (
-              <>
-                {id === 'birthday' && (
-                  <p className="text-xs" style={{ marginBottom: 8, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                    Enviada automaticamente no aniversário do aluno (cron Zapster). Use {'{primeiroNome}'} e {'{nomeAcademia}'} — {'{nome}'} também é aceito (legado).
-                  </p>
-                )}
-                <div className="tpl-vars">
-                  <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Variáveis</div>
-                  <div className="tpl-vars-scroll">
-                    {PLACEHOLDERS.map((ph) => (
-                      <button key={ph.key} className="tpl-chip" onClick={() => handleInsertPlaceholder(ph.key, id)} title={ph.label}>
-                        {ph.key}
+            <div className={`tpl-accordion-panel${isOpen ? ' is-open' : ''}`}>
+              <div className="tpl-accordion-inner" inert={!isOpen ? true : undefined}>
+                <div className="tpl-card-body">
+                  {id === 'birthday' && (
+                    <p className="text-xs" style={{ marginBottom: 8, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                      Enviada automaticamente no aniversário do aluno (cron Zapster). Use {'{primeiroNome}'} e {'{nomeAcademia}'} — {'{nome}'} também é aceito (legado).
+                    </p>
+                  )}
+                  <div className="tpl-vars">
+                    <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Variáveis</div>
+                    <div className="tpl-vars-scroll">
+                      {PLACEHOLDERS.map((ph) => (
+                        <button
+                          key={ph.key}
+                          type="button"
+                          className="tpl-chip"
+                          onClick={() => handleInsertPlaceholder(ph.key, id)}
+                          title={ph.label}
+                        >
+                          {ph.key}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    id={`tpl-${id}`}
+                    className="form-input tpl-template-textarea"
+                    rows={4}
+                    value={templates[id] || ''}
+                    onChange={(e) => setTemplates((prev) => ({ ...prev, [id]: e.target.value }))}
+                  />
+                  <div className="tpl-preview">
+                    <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Preview</div>
+                    <div className="tpl-preview-box text-small">{preview || '—'}</div>
+                    <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={() => openWhatsAppTest(preview)}
+                        disabled={!canTest}
+                        title="Abrir no WhatsApp com o lead de exemplo"
+                      >
+                        <Send size={16} /> Testar no WhatsApp
                       </button>
-                    ))}
+                      <button type="button" className="btn-outline" onClick={() => handleResetOne(id)} disabled={saving}>
+                        <RotateCcw size={16} /> Restaurar este
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <textarea
-                  id={`tpl-${id}`}
-                  className="form-input"
-                  rows={4}
-                  value={templates[id] || ''}
-                  onChange={(e) => setTemplates((prev) => ({ ...prev, [id]: e.target.value }))}
-                />
-              </>
-            )}
-            <div className="tpl-preview">
-              <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Preview</div>
-              <div className="tpl-preview-box text-small">{preview || '—'}</div>
-              <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn-outline" onClick={() => openWhatsAppTest(preview)} disabled={!canTest} title="Abrir no WhatsApp com o lead de exemplo">
-                  <Send size={16} /> Testar no WhatsApp
-                </button>
               </div>
             </div>
           </div>
@@ -347,18 +397,113 @@ const Templates = () => {
         __html: `
         .tpl-search { display: flex; align-items: center; gap: 8px; }
         .tpl-search .form-input { padding-left: 12px; }
+        .tpl-preview-lead-label {
+          font-size: 12px;
+          color: var(--text-secondary);
+          flex-shrink: 0;
+        }
+        .tpl-preview-lead-select { max-width: 260px; flex: 1; min-width: 160px; }
+        .tpl-template-list { gap: 0; }
+        .tpl-card {
+          background: var(--surface);
+          border: 0.5px solid var(--border-light);
+          border-radius: var(--radius-sm);
+          margin-bottom: 8px;
+          overflow: hidden;
+        }
+        .tpl-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 14px 16px;
+          background: var(--surface);
+          cursor: pointer;
+          border-bottom: 0.5px solid transparent;
+          box-sizing: border-box;
+        }
+        .tpl-card-header:focus-visible {
+          outline: 2px solid var(--v500, #5B3FBF);
+          outline-offset: -2px;
+        }
+        .tpl-card-header-left {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px 8px;
+          min-width: 0;
+        }
+        .tpl-card-title { font-size: 0.95rem; }
+        .tpl-card-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .tpl-chevron {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-secondary);
+          margin-left: 2px;
+        }
+        .tpl-accordion-panel {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition: grid-template-rows 0.2s ease;
+        }
+        .tpl-accordion-panel.is-open {
+          grid-template-rows: 1fr;
+        }
+        .tpl-accordion-inner {
+          min-height: 0;
+          overflow: hidden;
+        }
+        .tpl-card-body {
+          padding: 16px;
+          background: var(--surface-hover);
+          box-sizing: border-box;
+        }
         .tpl-badge {
           font-size: 0.7rem; font-weight: 800;
           background: var(--warning-light); color: var(--warning);
           padding: 3px 10px; border-radius: var(--radius-full);
         }
-        .tpl-collapse {
-          width: 32px; height: 32px; border-radius: 50%;
-          background: var(--border-light); border: 1px solid var(--border);
-          display: flex; align-items: center; justify-content: center;
-          padding: 0; min-height: auto; color: var(--text-secondary);
+        .tpl-badge-auto {
+          font-size: 10px;
+          font-weight: 600;
+          padding: 2px 7px;
+          border-radius: 20px;
+          background: #EEEDFE;
+          color: #3C3489;
         }
-        .tpl-collapse:hover { background: var(--border); }
+        .tpl-char-count {
+          font-size: 10px;
+          color: var(--text-secondary);
+          margin-left: 8px;
+          vertical-align: middle;
+          font-variant-numeric: tabular-nums;
+        }
+        .tpl-char-count--warn {
+          color: var(--danger, #A32D2D);
+          font-weight: 600;
+        }
+        .tpl-template-textarea {
+          width: 100%;
+          box-sizing: border-box;
+          border: 0.5px solid var(--border-light) !important;
+          background: var(--surface);
+        }
+        .tpl-template-textarea:hover {
+          border-color: var(--border-violet) !important;
+        }
+        .tpl-template-textarea:focus {
+          border: 1px solid #5B3FBF !important;
+          outline: none;
+          background: var(--surface);
+        }
         .tpl-vars { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
         .tpl-vars-scroll { display: flex; gap: 6px; overflow: auto; padding-bottom: 2px; }
         .tpl-chip {

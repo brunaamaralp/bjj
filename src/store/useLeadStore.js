@@ -75,6 +75,8 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
   if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);
   if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
+  if (u.cpf !== undefined) patch.cpf = u.cpf || '';
+  if (u.responsavel !== undefined) patch.responsavel = u.responsavel || '';
 
   if (u.pipelineStage !== undefined) copyIf('pipeline_stage', u.pipelineStage);
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));

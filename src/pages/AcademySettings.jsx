@@ -251,7 +251,7 @@ const AcademySettings = () => {
             }
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 name: academy.name,
-                phone: academy.phone,
+                phone: String(academy.phone || '').replace(/\D/g, ''),
                 email: academy.email,
                 address: academy.address,
                 quickTimes: academy.quickTimes || '',

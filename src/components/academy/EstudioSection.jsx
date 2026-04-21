@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Phone, Mail, MapPin } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
-import { formatCpfCnpjMask } from '../../../lib/billing/validation.js';
+import { maskPhone, maskCPFOrCNPJ } from '../../lib/masks.js';
 
 const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
 
@@ -130,8 +130,10 @@ const EstudioSection = ({
                         <div className="form-group">
                             <label>Telefone</label>
                             <input className="form-input" value={academy.phone}
-                                onChange={e => setAcademy({ ...academy, phone: e.target.value })}
-                                placeholder="(00) 00000-0000" />
+                                onChange={e => setAcademy({ ...academy, phone: maskPhone(e.target.value) })}
+                                placeholder="(00) 00000-0000"
+                                type="tel"
+                                inputMode="numeric" />
                             {fieldErrors.phone ? <p className="field-error">{fieldErrors.phone}</p> : null}
                         </div>
                         <div className="form-group">
@@ -155,10 +157,10 @@ const EstudioSection = ({
                                     type="text"
                                     inputMode="numeric"
                                     value={taxDocumentInput}
-                                    onChange={(e) => setTaxDocumentInput(formatCpfCnpjMask(e.target.value))}
+                                    onChange={(e) => setTaxDocumentInput(maskCPFOrCNPJ(e.target.value))}
                                     placeholder="000.000.000-00 ou 00.000.000/0000-00"
                                     autoComplete="off"
-                                    maxLength={18}
+                                    maxLength={20}
                                     aria-label="CPF ou CNPJ"
                                 />
                                 <p className="text-xs text-light" style={{ marginTop: 6 }}>
@@ -192,7 +194,7 @@ const EstudioSection = ({
                         <InfoRow
                             icon={<Phone size={16} />}
                             label="Telefone"
-                            value={academy.phone}
+                            value={academy.phone ? maskPhone(String(academy.phone)) : ''}
                             showAddInline={role === 'owner'}
                             onAdd={() => setEditing(true)}
                         />

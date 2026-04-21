@@ -66,6 +66,8 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     enrollmentDate: doc.enrollmentDate || '',
     emergencyContact: doc.emergencyContact || '',
     emergencyPhone: doc.emergencyPhone || '',
+    cpf: doc.cpf || '',
+    responsavel: doc.responsavel || '',
     labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : []
   };
 }

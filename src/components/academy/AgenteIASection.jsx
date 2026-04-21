@@ -63,6 +63,15 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
     const zap = useZapsterWhatsAppConnection(academyId);
 
+    useEffect(() => {
+        if (!academyId) return;
+        const connected = String(zap.waInfo?.status || '').trim() === 'connected';
+        if (!connected) return;
+        const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
+        if (done) return;
+        void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
+    }, [zap.waInfo?.status, academyId]);
+
     const [promptIntro, setPromptIntro] = useState('');
     const [promptBody, setPromptBody] = useState('');
     const [promptSuffix, setPromptSuffix] = useState('');
