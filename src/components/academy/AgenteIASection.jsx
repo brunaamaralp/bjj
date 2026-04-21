@@ -63,6 +63,54 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
     const zap = useZapsterWhatsAppConnection(academyId);
 
+    const shouldLoadWaQr =
+        zap.waQrShown &&
+        zap.waInfo?.status !== 'connected' &&
+        !!zap.waInfo?.instance_id &&
+        !zap.waTokenMissing &&
+        !zap.waQrError;
+
+    useEffect(() => {
+        if (!shouldLoadWaQr) {
+            if (waQrBlobUrlRef.current) {
+                URL.revokeObjectURL(waQrBlobUrlRef.current);
+                waQrBlobUrlRef.current = null;
+            }
+            setWaQrBlobUrl(null);
+            return;
+        }
+        let cancelled = false;
+        const instanceId = String(zap.waInfo.instance_id);
+        (async () => {
+            const prev = waQrBlobUrlRef.current;
+            if (prev) {
+                URL.revokeObjectURL(prev);
+                waQrBlobUrlRef.current = null;
+            }
+            setWaQrBlobUrl(null);
+            const url = await zap.fetchQrCode(instanceId);
+            if (cancelled) {
+                if (url) URL.revokeObjectURL(url);
+                return;
+            }
+            if (!url) {
+                zap.onQrImageError();
+                return;
+            }
+            waQrBlobUrlRef.current = url;
+            setWaQrBlobUrl(url);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        shouldLoadWaQr,
+        zap.waInfo?.instance_id,
+        zap.waQrTick,
+        zap.fetchQrCode,
+        zap.onQrImageError,
+    ]);
+
     useEffect(() => {
         if (!academyId) return;
         const connected = String(zap.waInfo?.status || '').trim() === 'connected';
@@ -93,6 +141,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
     const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
     const [waConfirm, setWaConfirm] = useState(null);
+    const [waQrBlobUrl, setWaQrBlobUrl] = useState(null);
+    const waQrBlobUrlRef = useRef(null);
 
     // Fluxo do card Assistente IA (sequencial)
     const [showWizard, setShowWizard] = useState(false);
@@ -772,15 +822,6 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         );
     };
 
-    const qrSrc =
-        zap.waQrShown &&
-        zap.waInfo?.status !== 'connected' &&
-        zap.waInfo?.instance_id &&
-        !zap.waTokenMissing &&
-        !zap.waQrError
-            ? `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(String(zap.waInfo.instance_id))}&ts=${zap.waQrTick}`
-            : null;
-
     const waStatusVisual = useMemo(() => waAgentStatusVisual(zap.waInfo?.status), [zap.waInfo?.status]);
     const WaStatusIcon = waStatusVisual.Icon;
 
@@ -998,9 +1039,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 {zap.waQrShown && (
                                     <>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-                                            {qrSrc ? (
+                                            {waQrBlobUrl ? (
                                                 <img
-                                                    src={qrSrc}
+                                                    src={waQrBlobUrl}
                                                     alt="QR Code WhatsApp"
                                                     onLoad={() => zap.onQrImageLoad()}
                                                     onError={() => zap.onQrImageError()}

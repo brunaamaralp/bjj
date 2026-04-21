@@ -17,7 +17,8 @@ import {
   Bot,
   FileText,
   Wallet,
-  CreditCard
+  Users,
+  BookOpen
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -39,7 +40,8 @@ import Welcome from './pages/Welcome';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
-import Finance from './pages/Finance';
+import Caixa from './pages/Caixa';
+import RequireFinanceOwner from './components/finance/RequireFinanceOwner.jsx';
 import Mensalidades from './pages/Mensalidades';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
@@ -683,27 +685,43 @@ const App = () => {
                 <BarChart3 size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Relatórios</span>
               </NavLink>
-              {modules.finance === true && (
-                <>
-                  <NavLink
-                    to="/finance"
-                    className={sideLinkClass}
-                    title={sidebarCollapsed ? 'Financeiro' : undefined}
-                  >
-                    <Wallet size={18} strokeWidth={1.75} />
-                    <span className="navi-side-link-label">Financeiro</span>
-                  </NavLink>
-                  <NavLink
-                    to="/mensalidades"
-                    className={sideLinkClass}
-                    title={sidebarCollapsed ? 'Mensalidades' : undefined}
-                  >
-                    <CreditCard size={18} strokeWidth={1.75} />
-                    <span className="navi-side-link-label">Mensalidades</span>
-                  </NavLink>
-                </>
-              )}
             </div>
+
+            {modules.finance === true && (
+              <div className="navi-side-section">
+                <span className="navi-side-section-title">Financeiro</span>
+                <NavLink
+                  to="/mensalidades"
+                  className={sideLinkClass}
+                  title={sidebarCollapsed ? 'Mensalidades' : undefined}
+                >
+                  <Users size={18} strokeWidth={1.75} />
+                  <span className="navi-side-link-label">Mensalidades</span>
+                </NavLink>
+                <NavLink
+                  to="/caixa"
+                  className={sideLinkClass}
+                  title={sidebarCollapsed ? 'Caixa' : undefined}
+                >
+                  <Wallet size={18} strokeWidth={1.75} />
+                  <span className="navi-side-link-label">Caixa</span>
+                </NavLink>
+              </div>
+            )}
+
+            {modules.finance === true && navRole === 'owner' && (
+              <div className="navi-side-section">
+                <span className="navi-side-section-title">Contabilidade</span>
+                <NavLink
+                  to="/finance"
+                  className={sideLinkClass}
+                  title={sidebarCollapsed ? 'Contabilidade' : undefined}
+                >
+                  <BookOpen size={18} strokeWidth={1.75} />
+                  <span className="navi-side-link-label">Contabilidade</span>
+                </NavLink>
+              </div>
+            )}
 
             <div className="navi-side-section">
               <span className="navi-side-section-title">Atendimento</span>
@@ -840,7 +858,8 @@ const App = () => {
               <Route path="/student/:id" element={<StudentProfile />} />
               <Route path="/new-lead" element={<NewLead />} />
               <Route path="/reports" element={<Reports />} />
-              {modules.finance === true && <Route path="/finance" element={<Finance />} />}
+              {modules.finance === true && <Route path="/caixa" element={<Caixa />} />}
+              {modules.finance === true && <Route path="/finance" element={<RequireFinanceOwner />} />}
               {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}

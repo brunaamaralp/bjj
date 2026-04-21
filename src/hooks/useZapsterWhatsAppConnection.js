@@ -186,6 +186,29 @@ export function useZapsterWhatsAppConnection(academyId) {
     setWaQrTick((v) => v + 1);
   }, []);
 
+  /**
+   * Obtém o PNG do QR via API autenticada (JWT + x-academy-id). Retorna object URL ou null.
+   * Quem consome deve revogar a URL anterior com URL.revokeObjectURL antes de substituir.
+   * @param {string} instanceId
+   * @returns {Promise<string | null>}
+   */
+  const fetchQrCode = useCallback(async (instanceId) => {
+    const id = String(instanceId || '').trim();
+    if (!id || !academyIdRef.current) return null;
+    try {
+      const jwt = await getJwt();
+      const { blocked, res: resp } = await fetchWithBillingGuard(
+        `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
+        { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') } }
+      );
+      if (blocked || !resp || !resp.ok) return null;
+      const blob = await resp.blob();
+      return URL.createObjectURL(blob);
+    } catch {
+      return null;
+    }
+  }, []);
+
   const recoverZapsterInstance = useCallback(async () => {
     if (!academyIdRef.current) return;
     setConnectionError('');
@@ -468,6 +491,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     onQrImageError,
     onQrImageLoad,
     revealWaQrCode,
-    refreshWaQrCode
+    refreshWaQrCode,
+    fetchQrCode
   };
 }

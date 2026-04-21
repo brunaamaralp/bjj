@@ -1,27 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2 } from 'lucide-react';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
 import EquipeSection from '../components/academy/EquipeSection';
 import AvancadoSection from '../components/academy/AvancadoSection';
+import ConfigTab from '../components/finance/ConfigTab.jsx';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
 
-const TABS = [
+const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2 },
     { id: 'funil', label: 'Funil', Icon: Filter },
+    { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
     { id: 'equipe', label: 'Equipe', Icon: Users },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
 ];
-
-const VALID_TABS = new Set(TABS.map((t) => t.id));
 
 const AcademySettings = () => {
     const { leads } = useLeadStore();
@@ -32,8 +32,6 @@ const AcademySettings = () => {
     const [taxDocumentInput, setTaxDocumentInput] = useState('');
 
     const [searchParams, setSearchParams] = useSearchParams();
-    const rawTab = searchParams.get('tab') || '';
-    const activeTab = VALID_TABS.has(rawTab) ? rawTab : 'estudio';
 
     const [academyLoadState, setAcademyLoadState] = useState('idle');
     const [academyReloadNonce, setAcademyReloadNonce] = useState(0);
@@ -57,6 +55,12 @@ const AcademySettings = () => {
 
     const role = useUserRole(academy);
 
+    const TABS = useMemo(() => TABS_ALL.filter((t) => t.id !== 'financeiro' || role === 'owner'), [role]);
+    const VALID_TABS = useMemo(() => new Set(TABS.map((t) => t.id)), [TABS]);
+
+    const rawTab = searchParams.get('tab') || '';
+    const activeTab = VALID_TABS.has(rawTab) ? rawTab : 'estudio';
+
     const taxUpdateNeeded = Boolean(
         isBillingLive() &&
             billingAccess &&
@@ -75,7 +79,7 @@ const AcademySettings = () => {
         if (autoEditTax && activeTab !== 'estudio') {
             setSearchParams((prev) => { prev.set('tab', 'estudio'); return prev; }, { replace: true });
         }
-    }, [rawTab, autoEditTax]);
+    }, [rawTab, autoEditTax, VALID_TABS, activeTab, setSearchParams]);
 
     useEffect(() => {
         if (autoEditTax && activeTab === 'estudio') {
@@ -346,6 +350,12 @@ const AcademySettings = () => {
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
                 />
+            )}
+
+            {activeTab === 'financeiro' && academyId && (
+                <div className="empresa-section" style={{ marginTop: 8 }}>
+                    <ConfigTab academyId={academyId} />
+                </div>
             )}
 
             {activeTab === 'equipe' && (
