@@ -3,9 +3,9 @@ import { databases, DB_ID, ACADEMIES_COL, FINANCIAL_TX_COL, FINANCE_TX_FN_ID, AC
 import { useLeadStore } from '../store/useLeadStore';
 import { Query, ID } from 'appwrite';
 import { LEAD_STATUS } from '../lib/leadStatus';
-import { Wallet2, CreditCard, Banknote, Trash2, PlusCircle } from 'lucide-react';
+import { Wallet2, CreditCard, Banknote, Trash2, PlusCircle, Receipt } from 'lucide-react';
 import { callFunction } from '../lib/executeFunction';
-import { useAccountingStore } from '../store/useAccountingStore';
+import { useAccountingStore, seedAccounts } from '../store/useAccountingStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages';
 
@@ -252,18 +252,19 @@ const Finance = () => {
   };
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
+    <div className="finance-page-root">
+      <div className="finance-page-inner">
       <div className="animate-in">
         <h1 className="navi-page-title">Financeiro</h1>
         <p className="navi-eyebrow" style={{ marginTop: 6 }}>Academia {academyName ? `• ${academyName}` : ''}</p>
       </div>
 
-      <div className="filter-strip fill mt-3">
-        <button type="button" className={`filter-pill ${tab === 'config' ? 'active' : ''}`} onClick={() => setTab('config')}>Configurações</button>
-        <button type="button" className={`filter-pill ${tab === 'transacoes' ? 'active' : ''}`} onClick={() => setTab('transacoes')}>Transações</button>
-        <button type="button" className={`filter-pill ${tab === 'plano' ? 'active' : ''}`} onClick={() => setTab('plano')}>Plano de Contas</button>
-        <button type="button" className={`filter-pill ${tab === 'lancamentos' ? 'active' : ''}`} onClick={() => setTab('lancamentos')}>Lançamentos Contábeis</button>
-        <button type="button" className={`filter-pill ${tab === 'relatorios' ? 'active' : ''}`} onClick={() => setTab('relatorios')}>Relatórios (DRE/DFC)</button>
+      <div className="finance-tabs" role="tablist" aria-label="Seções financeiras">
+        <button type="button" role="tab" aria-selected={tab === 'config'} className={`finance-tab ${tab === 'config' ? 'finance-tab--active' : ''}`} onClick={() => setTab('config')}>Configurações</button>
+        <button type="button" role="tab" aria-selected={tab === 'transacoes'} className={`finance-tab ${tab === 'transacoes' ? 'finance-tab--active' : ''}`} onClick={() => setTab('transacoes')}>Transações</button>
+        <button type="button" role="tab" aria-selected={tab === 'plano'} className={`finance-tab ${tab === 'plano' ? 'finance-tab--active' : ''}`} onClick={() => setTab('plano')}>Plano de Contas</button>
+        <button type="button" role="tab" aria-selected={tab === 'lancamentos'} className={`finance-tab ${tab === 'lancamentos' ? 'finance-tab--active' : ''}`} onClick={() => setTab('lancamentos')}>Lançamentos Contábeis</button>
+        <button type="button" role="tab" aria-selected={tab === 'relatorios'} className={`finance-tab ${tab === 'relatorios' ? 'finance-tab--active' : ''}`} onClick={() => setTab('relatorios')}>Relatórios (DRE/DFC)</button>
       </div>
 
       {tab === 'config' && (
@@ -456,8 +457,8 @@ const Finance = () => {
       <section className="mt-4 animate-in" style={{ animationDelay: '0.2s' }}>
         <h3 className="navi-section-heading mb-2">Lançamentos</h3>
         <div className="card">
-          <div className="flex gap-2" style={{ alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+          <div className="finance-tx-toolbar">
+            <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div className="form-group" style={{ width: 180 }}>
                 <label>De</label>
                 <input className="form-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
@@ -490,59 +491,83 @@ const Finance = () => {
               + Nova transação
             </button>
           </div>
-          <div className="table" style={{ marginTop: 10 }}>
-            <div className="row header">
-              <div style={{ flex: 2 }}>Data</div>
-              <div style={{ flex: 2 }}>Venda</div>
-              <div style={{ flex: 2 }}>Aluno</div>
-              <div style={{ flex: 2 }}>Tipo</div>
-              <div style={{ flex: 2 }}>Método</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>Bruto</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>Taxa</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>Líquido</div>
-              <div style={{ flex: 1 }}>Status</div>
-              <div style={{ width: 120 }}></div>
-            </div>
-            {txLoading ? (
-              <div className="row"><div>Carregando...</div></div>
-            ) : transactions.length === 0 ? (
-              <div className="row"><div>Nenhum lançamento</div></div>
-            ) : transactions.map(tx => {
-              const dt = new Date(tx.createdAt);
-              const dateStr = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth()+1).padStart(2, '0')}/${dt.getFullYear()}`;
-              const grossFmt = (() => { try { return Number(tx.gross).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.gross); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
-              const feeFmt = (() => { try { return Number(tx.fee).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.fee); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
-              const netFmt = (() => { try { return Number(tx.net).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.net); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
-              let typeLabel = '—';
-              if (tx.type === 'plan') typeLabel = `Plano${tx.planName ? ' • ' + tx.planName : ''}`;
-              else if (tx.type === 'product') typeLabel = 'Produto';
-              else if (tx.type === 'other') typeLabel = 'Outro';
-              else if (tx.type) typeLabel = String(tx.type);
-              const creditLike = tx.method === 'credito' || tx.method === 'cartão_crédito';
-              const methodLabel = creditLike && tx.installments > 1 ? `${tx.method} ${tx.installments}x` : tx.method;
-              const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
-              const alumStr = rawName ? (rawName.length > 20 ? `${rawName.slice(0, 20)}…` : rawName) : '—';
-              return (
-                <div className="row" key={tx.id}>
-                  <div style={{ flex: 2 }}>{dateStr}</div>
-                  <div style={{ flex: 2 }}>{tx.saleId || '-'}</div>
-                  <div style={{ flex: 2 }} title={rawName || undefined}>{alumStr}</div>
-                  <div style={{ flex: 2 }}>{typeLabel}</div>
-                  <div style={{ flex: 2 }}>{methodLabel}</div>
-                  <div style={{ flex: 1, textAlign: 'right' }}>{grossFmt}</div>
-                  <div style={{ flex: 1, textAlign: 'right' }}>{feeFmt}</div>
-                  <div style={{ flex: 1, textAlign: 'right' }}>{netFmt}</div>
-                  <div style={{ flex: 1 }}>{tx.status}</div>
-                  <div style={{ width: 120, textAlign: 'right' }}>
-                    {tx.status !== 'settled' ? (
-                      <button type="button" className="btn-outline" onClick={() => settle(tx.id)}>Liquidar</button>
-                    ) : (
-                      <span className="text-small" style={{ opacity: 0.8 }}>Liquidado</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="finance-table-wrap">
+            <table className="finance-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Venda</th>
+                  <th>Aluno</th>
+                  <th>Tipo</th>
+                  <th>Método</th>
+                  <th className="finance-num">Bruto</th>
+                  <th className="finance-num">Taxa</th>
+                  <th className="finance-num">Líquido</th>
+                  <th>Status</th>
+                  <th className="finance-num" style={{ width: 112 }}>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {txLoading ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 12px' }}>Carregando...</td>
+                  </tr>
+                ) : transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={10}>
+                      <div className="finance-tx-empty">
+                        <Receipt size={40} strokeWidth={1.5} style={{ opacity: 0.5, marginBottom: 4 }} aria-hidden />
+                        <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 15 }}>Nenhuma transação encontrada</div>
+                        <p>{`Use '+ Nova transação' para registrar um lançamento`}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : transactions.map((tx) => {
+                  const dt = new Date(tx.createdAt);
+                  const dateStr = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth()+1).padStart(2, '0')}/${dt.getFullYear()}`;
+                  const grossFmt = (() => { try { return Number(tx.gross).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.gross); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
+                  const feeFmt = (() => { try { return Number(tx.fee).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.fee); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
+                  const netFmt = (() => { try { return Number(tx.net).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.net); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
+                  let typeLabel = '—';
+                  if (tx.type === 'plan') typeLabel = `Plano${tx.planName ? ' • ' + tx.planName : ''}`;
+                  else if (tx.type === 'product') typeLabel = 'Produto';
+                  else if (tx.type === 'other') typeLabel = 'Outro';
+                  else if (tx.type) typeLabel = String(tx.type);
+                  const creditLike = tx.method === 'credito' || tx.method === 'cartão_crédito';
+                  const methodLabel = creditLike && tx.installments > 1 ? `${tx.method} ${tx.installments}x` : tx.method;
+                  const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
+                  const alumStr = rawName ? (rawName.length > 20 ? `${rawName.slice(0, 20)}…` : rawName) : '—';
+                  const st = String(tx.status || '').toLowerCase();
+                  const statusBadge = st === 'pending' ? (
+                    <span className="badge badge-warning">Pendente</span>
+                  ) : st === 'settled' ? (
+                    <span className="badge badge-success">Liquidado</span>
+                  ) : (
+                    <span className="badge badge-secondary">{tx.status || '—'}</span>
+                  );
+                  return (
+                    <tr key={tx.id}>
+                      <td>{dateStr}</td>
+                      <td>{tx.saleId || '-'}</td>
+                      <td title={rawName || undefined}>{alumStr}</td>
+                      <td>{typeLabel}</td>
+                      <td>{methodLabel}</td>
+                      <td className="finance-num">{grossFmt}</td>
+                      <td className="finance-num">{feeFmt}</td>
+                      <td className="finance-num">{netFmt}</td>
+                      <td>{statusBadge}</td>
+                      <td className="finance-num">
+                        {tx.status !== 'settled' ? (
+                          <button type="button" className="btn-outline" onClick={() => settle(tx.id)}>Liquidar</button>
+                        ) : (
+                          <span className="text-small" style={{ opacity: 0.75, color: 'var(--text-secondary)' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -750,6 +775,44 @@ const Finance = () => {
       {tab === 'plano' && <AccountsTab />}
       {tab === 'lancamentos' && <JournalTab />}
       {tab === 'relatorios' && <ReportsTab />}
+      </div>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .finance-page-root { width: 100%; box-sizing: border-box; }
+          .finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 24px; box-sizing: border-box; padding-bottom: 40px; }
+          .finance-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; margin-bottom: 6px; }
+          .finance-tab { border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); font-family: inherit; transition: background 0.15s ease, color 0.15s ease; }
+          .finance-tab--active { background: #5B3FBF; color: #fff; }
+          .finance-tx-toolbar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+          .finance-table-wrap { width: 100%; overflow-x: auto; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
+          .finance-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          .finance-table thead th { text-align: left; padding: 10px 12px; background: var(--surface-hover); border-bottom: 1px solid var(--border-light); font-weight: 600; color: var(--mid); white-space: nowrap; }
+          .finance-table thead th.finance-num { text-align: right; }
+          .finance-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--border-light); vertical-align: middle; }
+          .finance-table tbody tr:hover { background: var(--surface-hover); }
+          .finance-table .finance-num { text-align: right; font-variant-numeric: tabular-nums; }
+          .finance-tx-empty { padding: 56px 20px; text-align: center; color: var(--text-secondary); }
+          .finance-tx-empty p { margin: 8px 0 0; font-size: 13px; }
+          .finance-accounts-form-card { background: var(--surface-hover); border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; }
+          .finance-accounts-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: end; }
+          @media (min-width: 720px) {
+            .finance-accounts-form-grid--row2 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .finance-accounts-form-grid--row3 { grid-template-columns: 1fr 160px auto; align-items: end; }
+          }
+          @media (max-width: 719px) {
+            .finance-accounts-form-grid { grid-template-columns: 1fr 1fr; }
+            .finance-accounts-form-grid--row2, .finance-accounts-form-grid--row3 { grid-template-columns: 1fr 1fr; }
+          }
+          .finance-accounts-row .finance-accounts-delete { opacity: 0.35; transition: opacity 0.15s ease; }
+          .finance-accounts-row:hover .finance-accounts-delete { opacity: 1; }
+          .finance-reports-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 20px; }
+          .finance-reports-block { background: var(--surface); border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 16px; }
+          .finance-reports-block h4 { font-size: 15px; font-weight: 500; margin: 0 0 14px; color: var(--ink); }
+          .finance-reports-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--border-light); gap: 12px; }
+          .finance-reports-row:last-child { border-bottom: none; }
+          .finance-reports-row--total { font-weight: 600; background: var(--surface-hover); padding: 8px 10px; border-radius: var(--radius-sm); margin-top: 4px; border-bottom: none; }
+        `
+      }} />
     </div>
   );
 };
@@ -777,6 +840,17 @@ const AccountsTab = () => {
   }, [accounts]);
   useEffect(() => {
     let active = true;
+    const mapDoc = (d) => ({
+      id: d.$id,
+      code: d.code || '',
+      name: d.name || '',
+      type: d.type || 'ativo',
+      nature: d.nature || 'devedora',
+      dreGrupo: d.dreGrupo || '',
+      dfcClasse: d.dfcClasse || '',
+      dfcSubclasse: d.dfcSubclasse || '',
+      cash: Boolean(d.cash),
+    });
     const run = async () => {
       if (!academyId || !ACCOUNTS_COL) return;
       try {
@@ -786,23 +860,53 @@ const AccountsTab = () => {
           Query.orderAsc('code')
         ]);
         if (!active) return;
-        const list = res.documents.map((d) => ({
-          id: d.$id,
-          code: d.code || '',
-          name: d.name || '',
-          type: d.type || 'ativo',
-          nature: d.nature || 'devedora',
-          dreGrupo: d.dreGrupo || '',
-          dfcClasse: d.dfcClasse || '',
-          dfcSubclasse: d.dfcSubclasse || '',
-          cash: Boolean(d.cash),
-        }));
-        setAccounts(list);
+        const docs = res.documents || [];
+        if (docs.length === 0) {
+          const seeds = seedAccounts();
+          const payloads = seeds.map((s) => ({
+            academyId,
+            code: s.code,
+            name: s.name,
+            type: s.type,
+            nature: s.nature,
+            dreGrupo: s.dreGrupo || '',
+            dfcClasse: s.dfcClasse || '',
+            dfcSubclasse: s.dfcSubclasse || '',
+            cash: Boolean(s.cash),
+          }));
+          const results = await Promise.allSettled(
+            payloads.map((payload) =>
+              databases.createDocument(DB_ID, ACCOUNTS_COL, ID.unique(), payload)
+            )
+          );
+          const created = results
+            .filter((r) => r.status === 'fulfilled')
+            .map((r) => mapDoc(r.value));
+          if (!active) return;
+          if (created.length > 0) {
+            setAccounts(created);
+          } else {
+            seeds.forEach((s) => {
+              addAccount({
+                code: s.code,
+                name: s.name,
+                type: s.type,
+                nature: s.nature,
+                dreGrupo: s.dreGrupo || '',
+                dfcClasse: s.dfcClasse || '',
+                dfcSubclasse: s.dfcSubclasse || '',
+                cash: Boolean(s.cash),
+              });
+            });
+          }
+        } else {
+          if (active) setAccounts(docs.map(mapDoc));
+        }
       } catch (e) { const _ = e; }
     };
     run();
     return () => { active = false; };
-  }, [academyId, setAccounts]);
+  }, [academyId, setAccounts, addAccount]);
   const onAdd = () => {
     if (!draft.code || !draft.name) return;
     if (academyId && ACCOUNTS_COL) {
@@ -829,17 +933,20 @@ const AccountsTab = () => {
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
       <h3 className="navi-section-heading mb-2">Plano de Contas</h3>
-      <div className="card">
-        <div className="flex gap-2">
-          <div className="form-group" style={{ width: 120 }}>
+      <div className="finance-accounts-form-card">
+        <div className="ctx-label" style={{ marginBottom: 10 }}>Nova conta</div>
+        <div className="finance-accounts-form-grid">
+          <div className="form-group">
             <label>Código</label>
             <input className="form-input" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} placeholder="1.1.1" />
           </div>
-          <div className="form-group" style={{ flex: 2 }}>
+          <div className="form-group">
             <label>Nome</label>
             <input className="form-input" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </div>
-          <div className="form-group" style={{ width: 140 }}>
+        </div>
+        <div className="finance-accounts-form-grid finance-accounts-form-grid--row2 mt-2">
+          <div className="form-group">
             <label>Tipo</label>
             <select className="form-input" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
               <option value="ativo">Ativo</option>
@@ -850,20 +957,18 @@ const AccountsTab = () => {
               <option value="despesa">Despesa</option>
             </select>
           </div>
-          <div className="form-group" style={{ width: 140 }}>
+          <div className="form-group">
             <label>Natureza</label>
             <select className="form-input" value={draft.nature} onChange={(e) => setDraft({ ...draft, nature: e.target.value })}>
               <option value="devedora">Devedora</option>
               <option value="credora">Credora</option>
             </select>
           </div>
-        </div>
-        <div className="flex gap-2 mt-2">
-          <div className="form-group" style={{ flex: 1 }}>
+          <div className="form-group">
             <label>Grupo DRE</label>
-            <input className="form-input" value={draft.dreGrupo} onChange={(e) => setDraft({ ...draft, dreGrupo: e.target.value })} placeholder="Receita Bruta, Deduções, CMV/CPV..." />
+            <input className="form-input" value={draft.dreGrupo} onChange={(e) => setDraft({ ...draft, dreGrupo: e.target.value })} placeholder="Receita Bruta, Deduções…" />
           </div>
-          <div className="form-group" style={{ width: 160 }}>
+          <div className="form-group">
             <label>Classe DFC</label>
             <select className="form-input" value={draft.dfcClasse} onChange={(e) => setDraft({ ...draft, dfcClasse: e.target.value })}>
               <option value="">—</option>
@@ -873,107 +978,125 @@ const AccountsTab = () => {
               <option value="Caixa">Caixa</option>
             </select>
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
+        </div>
+        <div className="finance-accounts-form-grid finance-accounts-form-grid--row3 mt-2">
+          <div className="form-group">
             <label>Subclasse DFC</label>
-            <input className="form-input" value={draft.dfcSubclasse} onChange={(e) => setDraft({ ...draft, dfcSubclasse: e.target.value })} placeholder="clientes, fornecedores, juros, capex..." />
+            <input className="form-input" value={draft.dfcSubclasse} onChange={(e) => setDraft({ ...draft, dfcSubclasse: e.target.value })} placeholder="clientes, fornecedores…" />
           </div>
-          <div className="form-group" style={{ width: 160 }}>
+          <div className="form-group">
             <label>Afeta Caixa</label>
             <select className="form-input" value={draft.cash ? 'sim' : 'nao'} onChange={(e) => setDraft({ ...draft, cash: e.target.value === 'sim' })}>
               <option value="nao">Não</option>
               <option value="sim">Sim</option>
             </select>
           </div>
-          <button className="btn-secondary" onClick={onAdd}><PlusCircle size={18} />Adicionar</button>
-        </div>
-        <div className="table mt-3">
-          <div className="row header">
-            <div style={{ width: 110 }}>Código</div>
-            <div style={{ flex: 2 }}>Nome</div>
-            <div style={{ width: 120 }}>Tipo</div>
-            <div style={{ width: 120 }}>Natureza</div>
-            <div style={{ flex: 1 }}>DRE</div>
-            <div style={{ width: 140 }}>DFC</div>
-            <div style={{ width: 80, textAlign: 'center' }}>Caixa</div>
-            <div style={{ width: 80 }}></div>
+          <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+            <label style={{ visibility: 'hidden' }} aria-hidden>Adicionar</label>
+            <button type="button" className="btn-secondary" style={{ width: '100%' }} onClick={onAdd}><PlusCircle size={18} /> Adicionar</button>
           </div>
-          {sortedAccounts.map((a) => (
-            <div key={a.id} className="row" style={{ alignItems: 'center' }}>
-              <div style={{ width: 110 }}>
-              <input className="form-input" value={a.code} onChange={(e) => {
-                const val = e.target.value;
-                updateAccount(a.id, { code: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { code: val }).catch(() => {});
-              }} />
-              </div>
-              <div style={{ flex: 2 }}>
-              <input className="form-input" value={a.name} onChange={(e) => {
-                const val = e.target.value;
-                updateAccount(a.id, { name: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { name: val }).catch(() => {});
-              }} />
-              </div>
-              <div style={{ width: 120 }}>
-              <select className="form-input" value={a.type} onChange={(e) => {
-                const val = e.target.value;
-                updateAccount(a.id, { type: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { type: val }).catch(() => {});
-              }}>
-                  <option value="ativo">Ativo</option>
-                  <option value="passivo">Passivo</option>
-                  <option value="pl">PL</option>
-                  <option value="receita">Receita</option>
-                  <option value="custo">Custo</option>
-                  <option value="despesa">Despesa</option>
-                </select>
-              </div>
-              <div style={{ width: 120 }}>
-              <select className="form-input" value={a.nature} onChange={(e) => {
-                const val = e.target.value;
-                updateAccount(a.id, { nature: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { nature: val }).catch(() => {});
-              }}>
-                  <option value="devedora">Devedora</option>
-                  <option value="credora">Credora</option>
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-              <input className="form-input" value={a.dreGrupo || ''} onChange={(e) => {
-                const val = e.target.value;
-                updateAccount(a.id, { dreGrupo: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { dreGrupo: val }).catch(() => {});
-              }} />
-              </div>
-              <div style={{ width: 140 }}>
-              <select className="form-input" value={a.dfcClasse || ''} onChange={(e) => {
-                const val = e.target.value;
-                updateAccount(a.id, { dfcClasse: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { dfcClasse: val }).catch(() => {});
-              }}>
-                  <option value="">—</option>
-                  <option value="Operacional">Operacional</option>
-                  <option value="Investimento">Investimento</option>
-                  <option value="Financiamento">Financiamento</option>
-                  <option value="Caixa">Caixa</option>
-                </select>
-              </div>
-              <div style={{ width: 80, textAlign: 'center' }}>
-              <input type="checkbox" checked={!!a.cash} onChange={(e) => {
-                const val = e.target.checked;
-                updateAccount(a.id, { cash: val });
-                if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { cash: val }).catch(() => {});
-              }} />
-              </div>
-              <div style={{ width: 80, textAlign: 'right' }}>
-              <button className="btn-outline" onClick={() => {
-                const id = a.id;
-                if (academyId && ACCOUNTS_COL) databases.deleteDocument(DB_ID, ACCOUNTS_COL, id).catch(() => {});
-                deleteAccount(id);
-              }}><Trash2 size={16} /></button>
-              </div>
-            </div>
-          ))}
         </div>
+      </div>
+      <div className="finance-table-wrap mt-3">
+        <table className="finance-table">
+          <thead>
+            <tr>
+              <th style={{ minWidth: 100 }}>Código</th>
+              <th style={{ minWidth: 140 }}>Nome</th>
+              <th>Tipo</th>
+              <th>Natureza</th>
+              <th>DRE</th>
+              <th>DFC</th>
+              <th style={{ textAlign: 'center', width: 72 }}>Caixa</th>
+              <th className="finance-num" style={{ width: 56 }} aria-label="Excluir" />
+            </tr>
+          </thead>
+          <tbody>
+            {sortedAccounts.map((a) => (
+              <tr key={a.id} className="finance-accounts-row">
+                <td>
+                  <input className="form-input" value={a.code} onChange={(e) => {
+                    const val = e.target.value;
+                    updateAccount(a.id, { code: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { code: val }).catch(() => {});
+                  }} />
+                </td>
+                <td>
+                  <input className="form-input" value={a.name} onChange={(e) => {
+                    const val = e.target.value;
+                    updateAccount(a.id, { name: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { name: val }).catch(() => {});
+                  }} />
+                </td>
+                <td>
+                  <select className="form-input" value={a.type} onChange={(e) => {
+                    const val = e.target.value;
+                    updateAccount(a.id, { type: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { type: val }).catch(() => {});
+                  }}>
+                    <option value="ativo">Ativo</option>
+                    <option value="passivo">Passivo</option>
+                    <option value="pl">PL</option>
+                    <option value="receita">Receita</option>
+                    <option value="custo">Custo</option>
+                    <option value="despesa">Despesa</option>
+                  </select>
+                </td>
+                <td>
+                  <select className="form-input" value={a.nature} onChange={(e) => {
+                    const val = e.target.value;
+                    updateAccount(a.id, { nature: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { nature: val }).catch(() => {});
+                  }}>
+                    <option value="devedora">Devedora</option>
+                    <option value="credora">Credora</option>
+                  </select>
+                </td>
+                <td>
+                  <input className="form-input" value={a.dreGrupo || ''} onChange={(e) => {
+                    const val = e.target.value;
+                    updateAccount(a.id, { dreGrupo: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { dreGrupo: val }).catch(() => {});
+                  }} />
+                </td>
+                <td>
+                  <select className="form-input" value={a.dfcClasse || ''} onChange={(e) => {
+                    const val = e.target.value;
+                    updateAccount(a.id, { dfcClasse: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { dfcClasse: val }).catch(() => {});
+                  }}>
+                    <option value="">—</option>
+                    <option value="Operacional">Operacional</option>
+                    <option value="Investimento">Investimento</option>
+                    <option value="Financiamento">Financiamento</option>
+                    <option value="Caixa">Caixa</option>
+                  </select>
+                </td>
+                <td style={{ textAlign: 'center' }}>
+                  <input type="checkbox" checked={!!a.cash} onChange={(e) => {
+                    const val = e.target.checked;
+                    updateAccount(a.id, { cash: val });
+                    if (academyId && ACCOUNTS_COL) databases.updateDocument(DB_ID, ACCOUNTS_COL, a.id, { cash: val }).catch(() => {});
+                  }} />
+                </td>
+                <td className="finance-num">
+                  <button
+                    type="button"
+                    className="btn-ghost finance-accounts-delete"
+                    title="Remover conta"
+                    onClick={() => {
+                      const id = a.id;
+                      if (academyId && ACCOUNTS_COL) databases.deleteDocument(DB_ID, ACCOUNTS_COL, id).catch(() => {});
+                      deleteAccount(id);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -1168,71 +1291,71 @@ const ReportsTab = () => {
   const [method, setMethod] = useState('indireto');
   const dreData = useMemo(() => dre(from, to), [from, to, dre]);
   const dfcData = useMemo(() => (method === 'indireto' ? dfcIndireto(from, to) : dfcDireto(from, to)), [method, from, to, dfcIndireto, dfcDireto]);
+  const dreTotals = new Set(['Receita Líquida', 'Lucro Bruto', 'Resultado Operacional', 'Resultado Líquido']);
+  const dreRows = [
+    ['Receita Bruta', dreData['Receita Bruta'] || 0],
+    ['Deduções', -(Math.abs(dreData['Deduções'] || 0))],
+    ['Receita Líquida', dreData['Receita Líquida'] || 0],
+    ['CMV/CPV', -(Math.abs(dreData['CMV/CPV'] || 0))],
+    ['Lucro Bruto', dreData['Lucro Bruto'] || 0],
+    ['Despesas Operacionais', -(Math.abs(dreData['Despesas Operacionais'] || 0))],
+    ['Resultado Financeiro', (dreData['Resultado Financeiro'] || 0)],
+    ['Resultado Operacional', dreData['Resultado Operacional'] || 0],
+    ['Imposto s/ Lucro', -(Math.abs(dreData['Imposto s/ Lucro'] || 0))],
+    ['Resultado Líquido', dreData['Resultado Líquido'] || 0],
+  ];
+  const variacaoCaixa = (dfcData.operacional || 0) + (dfcData.investimento || 0) + (dfcData.financiamento || 0);
+  const dfcRows = [
+    ['Operacional', dfcData.operacional || 0],
+    ['Investimento', dfcData.investimento || 0],
+    ['Financiamento', dfcData.financiamento || 0],
+    ['Variação de Caixa', variacaoCaixa],
+  ];
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
       <h3 className="navi-section-heading mb-2">Relatórios</h3>
-      <div className="card">
-        <div className="flex gap-2">
-          <div className="form-group" style={{ width: 180 }}>
-            <label>De</label>
-            <input className="form-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ width: 180 }}>
-            <label>Até</label>
-            <input className="form-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ width: 200 }}>
-            <label>Método DFC</label>
-            <select className="form-input" value={method} onChange={(e) => setMethod(e.target.value)}>
-              <option value="indireto">Indireto</option>
-              <option value="direto">Direto</option>
-            </select>
-          </div>
+      <div className="finance-reports-filters">
+        <div className="form-group" style={{ width: 180 }}>
+          <label>De</label>
+          <input className="form-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div className="form-group" style={{ width: 180 }}>
+          <label>Até</label>
+          <input className="form-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <div className="form-group" style={{ width: 200 }}>
+          <label>Método DFC</label>
+          <select className="form-input" value={method} onChange={(e) => setMethod(e.target.value)}>
+            <option value="indireto">Indireto</option>
+            <option value="direto">Direto</option>
+          </select>
         </div>
       </div>
-      <section className="card mt-3">
-        <h3 className="navi-section-heading mb-2">Demonstração do Resultado (DRE)</h3>
-        <div className="table">
-          {[
-            ['Receita Bruta', dreData['Receita Bruta'] || 0],
-            ['Deduções', -(Math.abs(dreData['Deduções'] || 0))],
-            ['Receita Líquida', dreData['Receita Líquida'] || 0],
-            ['CMV/CPV', -(Math.abs(dreData['CMV/CPV'] || 0))],
-            ['Lucro Bruto', dreData['Lucro Bruto'] || 0],
-            ['Despesas Operacionais', -(Math.abs(dreData['Despesas Operacionais'] || 0))],
-            ['Resultado Financeiro', (dreData['Resultado Financeiro'] || 0)],
-            ['Resultado Operacional', dreData['Resultado Operacional'] || 0],
-            ['Imposto s/ Lucro', -(Math.abs(dreData['Imposto s/ Lucro'] || 0))],
-            ['Resultado Líquido', dreData['Resultado Líquido'] || 0],
-          ].map(([k, v]) => (
-            <div key={k} className="row">
-              <div style={{ flex: 1 }}>{k}</div>
-              <div style={{ width: 160, textAlign: 'right' }}>{fmt(v)}</div>
+      <div className="finance-reports-block">
+        <h4>Demonstração do Resultado (DRE)</h4>
+        <div>
+          {dreRows.map(([k, v]) => (
+            <div key={k} className={`finance-reports-row${dreTotals.has(k) ? ' finance-reports-row--total' : ''}`}>
+              <span>{k}</span>
+              <span style={{ fontWeight: dreTotals.has(k) ? 600 : 500 }}>{fmt(v)}</span>
             </div>
           ))}
         </div>
-      </section>
-      <section className="card mt-3">
-        <h3 className="navi-section-heading mb-2">Demonstração do Fluxo de Caixa (DFC)</h3>
-        <div className="table">
-          <div className="row">
-            <div style={{ flex: 1 }}>Operacional</div>
-            <div style={{ width: 160, textAlign: 'right' }}>{fmt(dfcData.operacional || 0)}</div>
-          </div>
-          <div className="row">
-            <div style={{ flex: 1 }}>Investimento</div>
-            <div style={{ width: 160, textAlign: 'right' }}>{fmt(dfcData.investimento || 0)}</div>
-          </div>
-          <div className="row">
-            <div style={{ flex: 1 }}>Financiamento</div>
-            <div style={{ width: 160, textAlign: 'right' }}>{fmt(dfcData.financiamento || 0)}</div>
-          </div>
-          <div className="row header">
-            <div style={{ flex: 1 }}>Variação de Caixa</div>
-            <div style={{ width: 160, textAlign: 'right' }}>{fmt((dfcData.operacional || 0) + (dfcData.investimento || 0) + (dfcData.financiamento || 0))}</div>
-          </div>
+      </div>
+      <div className="finance-reports-block">
+        <h4>Demonstração do Fluxo de Caixa (DFC)</h4>
+        <div>
+          {dfcRows.map(([k, v], idx) => (
+            <div
+              key={k}
+              className={`finance-reports-row${idx === dfcRows.length - 1 ? ' finance-reports-row--total' : ''}`}
+            >
+              <span>{k}</span>
+              <span style={{ fontWeight: idx === dfcRows.length - 1 ? 600 : 500 }}>{fmt(v)}</span>
+            </div>
+          ))}
         </div>
-      </section>
+      </div>
     </section>
   );
 };

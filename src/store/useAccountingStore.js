@@ -25,7 +25,7 @@ function saveState(academyId, state) {
   } catch (e) { console.error('[AccountingStore] Erro no LocalStorage:', e); }
 }
 
-function seedAccounts() {
+export function seedAccounts() {
   const rows = [
     { id: crypto.randomUUID(), code: '1.1.1', name: 'Caixa', type: 'ativo', nature: 'devedora', dreGrupo: '', dfcClasse: 'Caixa', dfcSubclasse: '', cash: true, parentCode: '1.1' },
     { id: crypto.randomUUID(), code: '1.1.2', name: 'Clientes', type: 'ativo', nature: 'devedora', dreGrupo: '', dfcClasse: 'Operacional', dfcSubclasse: 'clientes', cash: false, parentCode: '1.1' },
