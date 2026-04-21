@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Phone, Mail, MapPin } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
+import { formatCpfCnpjMask } from '../../../lib/billing/validation.js';
 
 const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
 
@@ -141,10 +142,14 @@ const EstudioSection = ({
                                 <label>CPF ou CNPJ (nota fiscal)</label>
                                 <input
                                     className="form-input"
+                                    type="text"
+                                    inputMode="numeric"
                                     value={taxDocumentInput}
-                                    onChange={(e) => setTaxDocumentInput(e.target.value)}
-                                    placeholder="Somente números ou com máscara"
+                                    onChange={(e) => setTaxDocumentInput(formatCpfCnpjMask(e.target.value))}
+                                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
                                     autoComplete="off"
+                                    maxLength={18}
+                                    aria-label="CPF ou CNPJ"
                                 />
                                 <p className="text-xs text-light" style={{ marginTop: 6 }}>
                                     Usado na cobrança. Se já informou ao assinar, pode ignorar.

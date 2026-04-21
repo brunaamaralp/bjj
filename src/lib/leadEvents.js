@@ -80,3 +80,8 @@ export async function getLeadEvents(leadId, academyId, opts = {}) {
   ]);
   return res;
 }
+
+export async function updateLeadEvent(eventId, data) {
+  if (!LEAD_EVENTS_COL || !eventId) return null;
+  return await databases.updateDocument(DB_ID, LEAD_EVENTS_COL, eventId, data);
+}

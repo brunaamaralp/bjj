@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { account } from '../../lib/appwrite';
-import { Loader2, Trash2 } from 'lucide-react';
+import { useLeadStore } from '../../store/useLeadStore';
+import { useNoteNotifications } from '../../hooks/useNoteNotifications';
+import { Loader2, Trash2, Pencil, Check, X } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const MAX_LEN = 4000;
 
@@ -17,17 +21,31 @@ function formatNoteWhen(iso) {
   return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-export default function ConversationNotesPanel({ academyId, conversationId, addToast }) {
+export default function ConversationNotesPanel({ conversationId, addToast }) {
+  const academyId = useLeadStore((s) => s.academyId);
+  const userId = useLeadStore((s) => s.userId);
+  const { notifications, markAsRead } = useNoteNotifications(academyId, userId);
+
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState('');
   const [deletingId, setDeletingId] = useState('');
   const [featureOn, setFeatureOn] = useState(true);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [editingBusy, setEditingBusy] = useState(false);
 
   useEffect(() => {
     const aid = String(academyId || '').trim();
     const cid = String(conversationId || '').trim();
+    
+    // Marcar como lida ao abrir conversa
+    const currentConvNotifications = notifications.filter(n => n.conversation_id === cid);
+    if (currentConvNotifications.length > 0) {
+      markAsRead(currentConvNotifications.map(n => n.id));
+    }
+
     if (!aid || !cid) {
       setNotes([]);
       setFeatureOn(true);
@@ -66,7 +84,7 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
     return () => {
       cancelled = true;
     };
-  }, [academyId, conversationId, addToast]);
+  }, [academyId, conversationId, addToast, notifications, markAsRead]);
 
   async function postNoteBody(text) {
     const aid = String(academyId || '').trim();
@@ -155,6 +173,41 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
       setDeletingId('');
     }
   }
+  async function handleEditNote(noteId, content) {
+    if (!String(content || '').trim()) return;
+    const aid = String(academyId || '').trim();
+    setEditingBusy(true);
+
+    try {
+      const jwt = await getJwt();
+      const res = await fetch(`/api/conversation-notes/${noteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${jwt}`,
+          'Content-Type': 'application/json',
+          'x-academy-id': aid
+        },
+        body: JSON.stringify({ body: content.trim() })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.sucesso) {
+        throw new Error(data?.erro || 'Erro ao salvar edição');
+      }
+
+      setNotes(prev => prev.map(n => 
+        n.$id === noteId 
+          ? { ...n, body: data.note.body, edited_at: data.note.edited_at, edited_by_name: data.note.edited_by_name } 
+          : n
+      ));
+      setEditingNoteId(null);
+      setEditingContent('');
+    } catch (e) {
+      addToast?.({ type: 'error', message: e?.message || 'Erro ao editar nota' });
+    } finally {
+      setEditingBusy(false);
+    }
+  }
 
   if (!String(conversationId || '').trim()) {
     return (
@@ -232,20 +285,91 @@ export default function ConversationNotesPanel({ academyId, conversationId, addT
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
-                <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', color: 'var(--ink)', flex: 1, minWidth: 0 }}>
-                  {n.body}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {editingNoteId === n.$id ? (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <textarea
+                        className="form-input"
+                        rows={3}
+                        autoFocus
+                        value={editingContent}
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        disabled={editingBusy}
+                        style={{ width: '100%', minHeight: 80, fontSize: '0.92rem', resize: 'vertical' }}
+                      />
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button 
+                          className="btn btn-ghost" 
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          onClick={() => { setEditingNoteId(null); setEditingContent(''); }}
+                          disabled={editingBusy}
+                        >
+                          <X size={14} style={{ marginRight: 4 }} /> Cancelar
+                        </button>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                          onClick={() => handleEditNote(n.$id, editingContent)}
+                          disabled={editingBusy || !editingContent.trim()}
+                        >
+                          <Check size={14} style={{ marginRight: 4 }} /> {editingBusy ? 'Salvando...' : 'Salvar'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', color: 'var(--ink)', lineHeight: 1.5 }}>
+                        {n.body}
+                      </div>
+                      {n.edited_at && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: 4 }}>
+                          editado · {formatDistanceToNow(new Date(n.edited_at), { addSuffix: true, locale: ptBR })}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-outline inbox-note-delete-btn"
-                  style={{ padding: '4px 10px', flexShrink: 0 }}
-                  onClick={() => handleDelete(n.$id)}
-                  disabled={deletingId === n.$id}
-                  title="Excluir nota"
-                  aria-label="Excluir nota"
-                >
-                  {deletingId === n.$id ? <Loader2 size={16} className="inbox-improve-spin" aria-hidden /> : <Trash2 size={16} aria-hidden />}
-                </button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                    <button
+                      type="button"
+                      disabled={deletingId || editingBusy}
+                      onClick={() => {
+                        setEditingNoteId(n.$id);
+                        setEditingContent(n.body);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 4,
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        transition: 'color 0.2s',
+                      }}
+                      title="Editar"
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingId || editingBusy}
+                      onClick={() => handleDelete(n.$id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 4,
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        transition: 'color 0.2s',
+                      }}
+                      title="Excluir"
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                    >
+                      {deletingId === n.$id ? <Loader2 size={15} className="inbox-improve-spin" /> : <Trash2 size={15} />}
+                    </button>
+                  </div>
               </div>
               <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 8 }}>
                 {formatNoteWhen(n.created_at)}

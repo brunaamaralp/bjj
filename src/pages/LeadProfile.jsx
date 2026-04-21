@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
+import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
@@ -53,11 +53,13 @@ const TIMELINE_EVENT_LABELS = {
     stage_change: 'Mudança de etapa',
     pipeline_change: 'Movido no funil',
     note: 'Nota',
+    lead_created: 'Cadastro',
     import: 'Importação',
     attended: 'Compareceu à aula',
     missed: 'Não compareceu',
     converted: 'Matriculado',
-    lost: 'Não fechou',
+    lost: 'Perda',
+    inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
 };
 
@@ -141,7 +143,7 @@ const LeadProfile = () => {
         if (t === 'missed') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.MISSED, at, text: d.text };
         if (t === 'converted') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.CONVERTED, at, text: d.text };
         if (t === 'lost') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.LOST, at, text: d.text };
-        if (t === 'lead_criado') return { type: 'import', source: 'CRM', at, text: d.text || 'Lead criado' };
+        if (t === 'lead_criado') return { type: 'lead_created', at, text: d.text || 'Lead cadastrado no CRM' };
         return { type: t, ...base };
     }, []);
 
@@ -163,8 +165,15 @@ const LeadProfile = () => {
     const filteredTimelineEvents = useMemo(
         () =>
             [...(timelineEvents || [])]
-                .filter((ev) => (eventTypeFilter === 'all' ? true : (ev.type || 'note') === eventTypeFilter))
+                .filter((ev) => {
+                    if (eventTypeFilter === 'all') return true;
+                    const t = ev.type || 'note';
+                    if (eventTypeFilter === 'note') return t === 'note' || t === 'inbox_note';
+                    return t === eventTypeFilter;
+                })
                 .sort((a, b) => {
+                    if (a.is_pinned && !b.is_pinned) return -1;
+                    if (!a.is_pinned && b.is_pinned) return 1;
                     const ta = new Date(a.at || a.date || 0).getTime();
                     const tb = new Date(b.at || b.date || 0).getTime();
                     return tb - ta;
@@ -709,6 +718,31 @@ const LeadProfile = () => {
         });
         await updateLead(id, { lastNoteAt: new Date().toISOString() });
         await refreshTimeline();
+    };
+
+    const handleTogglePin = async (ev) => {
+        const isCurrentlyPinned = Boolean(ev.is_pinned);
+        // Se for fixar, validar limite de 3
+        if (!isCurrentlyPinned) {
+            const pinnedCount = timelineEvents.filter(e => e.is_pinned).length;
+            if (pinnedCount >= 3) {
+                addToast({ type: 'warning', message: 'Limite de 3 notas fixadas atingido.' });
+                return;
+            }
+        }
+
+        // Atualização otimista
+        const oldEvents = [...timelineEvents];
+        setTimelineEvents(prev => prev.map(e => 
+            e.$id === ev.$id ? { ...e, is_pinned: !isCurrentlyPinned } : e
+        ));
+
+        try {
+            await updateLeadEvent(ev.$id, { is_pinned: !isCurrentlyPinned });
+        } catch (e) {
+            setTimelineEvents(oldEvents); // Rollback
+            addToast({ type: 'error', message: 'Erro ao pinar nota.' });
+        }
     };
 
     const handleLabelsChange = async (newIds) => {
@@ -1290,6 +1324,7 @@ const LeadProfile = () => {
                     <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
                     <button type="button" className={`filter-pill${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
                     <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
+                    <button type="button" className={`filter-pill${eventTypeFilter === 'lead_created' ? ' active' : ''}`} onClick={() => setEventTypeFilter('lead_created')}>Cadastros</button>
                     <button type="button" className={`filter-pill${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
                 </div>
 
@@ -1340,22 +1375,63 @@ const LeadProfile = () => {
                             } else if (type === 'pipeline_change') {
                                 icon = <ChevronRight size={16} color="var(--text-secondary)" />;
                                 label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
+                            } else if (type === 'lead_created') {
+                                icon = <UserCheck size={16} color="var(--accent)" />;
+                                label = n.text || 'Lead cadastrado no CRM';
                             } else if (type === 'import') {
                                 icon = <Copy size={16} color="var(--text-secondary)" />;
-                                label = `Importado (${n.source || 'Import'})`;
+                                label = n.text || `Importado (${n.source || 'planilha'})`;
+                            } else if (type === 'inbox_note') {
+                                icon = <StickyNote size={16} color="var(--text-secondary)" />;
+                                label = (
+                                    <span>
+                                        {n.text}
+                                        <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 6 }}>· Inbox</span>
+                                    </span>
+                                );
                             } else {
                                 icon = <Check size={16} color="var(--text-secondary)" />;
                                 label = n.text || TIMELINE_EVENT_LABELS.note;
                             }
+                            const isPinned = Boolean(n.is_pinned);
+                            const canPin = type === 'note' || type === 'inbox_note';
+
                             return (
-                                <div key={i} className="card note-item event-row">
+                                <div 
+                                    key={i} 
+                                    className={`card note-item event-row${isPinned ? ' pinned-event' : ''}`}
+                                    style={isPinned ? { borderLeft: '3px solid var(--accent)', background: 'var(--accent-light-bg, rgba(var(--accent-rgb), 0.05))' } : {}}
+                                >
                                     <div className="event-icon">{icon}</div>
-                                    <div className="event-content">
-                                        <div className="event-head">
+                                    <div className="event-content" style={{ position: 'relative' }}>
+                                        <div className="event-head" style={{ paddingRight: canPin ? 24 : 0 }}>
                                             <span className="event-tag">{tag}</span>
                                             <span className="event-time navi-mono-date">{when}</span>
                                         </div>
                                         <p className="event-text">{label}</p>
+                                        
+                                        {canPin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleTogglePin(n)}
+                                                className="pin-btn"
+                                                title={isPinned ? 'Desafixar nota' : 'Fixar nota'}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: -2,
+                                                    right: -4,
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    padding: 4,
+                                                    cursor: 'pointer',
+                                                    color: isPinned ? 'var(--accent)' : 'var(--text-secondary)',
+                                                    transition: 'all 0.2s',
+                                                    zIndex: 2
+                                                }}
+                                            >
+                                                <Pin size={14} fill={isPinned ? 'currentColor' : 'none'} style={{ transform: isPinned ? 'none' : 'rotate(45deg)' }} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

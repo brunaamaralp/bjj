@@ -222,7 +222,7 @@ const AcademySettings = () => {
                         Authorization: `Bearer ${jwt}`,
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ storeId: academyId, cpfCnpj: taxTrim }),
+                    body: JSON.stringify({ storeId: academyId, cpfCnpj: v.digits }),
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.sucesso) {

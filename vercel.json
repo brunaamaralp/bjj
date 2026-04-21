@@ -18,6 +18,9 @@
     { "source": "/api/labels/:id", "destination": "/api/labels.js?id=:id" },
     { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },
     { "source": "/v1/webhooks/asaas", "destination": "/api/v1/webhooks/asaas" },
+    { "source": "/api/notifications/:action(.*)", "destination": "/api/conversations.js?route=notifications/$1" },
+    { "source": "/api/notifications", "destination": "/api/conversations.js?route=notifications" },
+
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [

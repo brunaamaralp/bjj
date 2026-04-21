@@ -45,6 +45,8 @@ import NaviToasts from './components/NaviToasts.jsx';
 import OnboardingBanner from './components/OnboardingBanner.jsx';
 import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
+import NotificationBell from './components/layout/NotificationBell.jsx';
+
 
 function defaultAiNameFromUser(user) {
   const raw = String(user?.name || '').trim();
@@ -762,6 +764,7 @@ const App = () => {
             <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {topbarTrialChip}
               {academySelect}
+              <NotificationBell academyId={academyIdStore} userId={user?.$id} />
               <button type="button" className="navi-topbar-logout" onClick={handleLogout}>
                 Sair
               </button>

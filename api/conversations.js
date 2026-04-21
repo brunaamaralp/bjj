@@ -5,6 +5,8 @@ import { getHumanHandoffHoursForServer } from '../lib/constants.js';
 import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
+import notificationsHandler from '../lib/server/notificationsHandler.js';
+
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -14,6 +16,7 @@ const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const NOTE_NOTIFICATIONS_COL = process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || '';
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
@@ -142,6 +145,8 @@ function ensureJsonBody(req, res) {
 
 export default async function handler(req, res) {
   if (req.query.route === 'notes') return conversationNotesHandler(req, res);
+  if (req.query.route?.startsWith('notifications')) return notificationsHandler(req, res);
+
 
   if (!ensureConfig(res)) return;
 
