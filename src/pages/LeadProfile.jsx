@@ -110,6 +110,7 @@ const LeadProfile = () => {
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
+    const [timelineOpen, setTimelineOpen] = useState(true);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -774,226 +775,78 @@ const LeadProfile = () => {
     };
 
     return (
-        <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-            <div className="lead-profile-inner">
-                <div className="flex items-center gap-4">
-                <button type="button" className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <span className="navi-page-title" style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.35rem)', margin: 0 }}>{profilePageTitle}</span>
-                {!editing ? (
-                    <button className="btn-outline" style={{ marginLeft: 'auto' }} onClick={startEdit}>
-                        <Pencil size={16} color="var(--text-secondary)" /> Editar
+        <div className={`lead-profile-container ${timelineOpen ? 'timeline-open' : 'timeline-closed'}`}>
+            <div className="lead-profile-left-col">
+                <div className="left-col-header">
+                    <button type="button" className="icon-btn" onClick={() => navigate(-1)}>
+                        <ArrowLeft size={20} />
                     </button>
-                ) : (
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                        <button type="button" className="btn-outline" onClick={cancelEdit}><X size={16} /> Cancelar</button>
-                        <button type="button" className="btn-secondary" onClick={() => void handleSave()} disabled={saving}>
-                            <Save size={16} /> {saving ? 'Salvando…' : 'Salvar'}
-                        </button>
-                    </div>
-                )}
-                </div>
-
-            {statusPipelineMismatch && !editing ? (
-                <div
-                    className="mt-4 animate-in"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 8,
-                        padding: '8px 12px',
-                        borderRadius: 8,
-                        background: 'var(--surface)',
-                        border: '1px solid #F59E0B33',
-                        marginBottom: 12,
-                    }}
-                >
-                    <span style={{ color: '#F59E0B', fontSize: 14 }} aria-hidden>⚠️</span>
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                        Status e etapa inconsistentes. Ajuste com os botões abaixo ou use <strong>Mover de etapa</strong> no Pipeline.
-                    </p>
-                </div>
-            ) : null}
-
-            {/* Header Card */}
-            <div className="card mt-4 animate-in profile-header">
-                <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex gap-2" style={{ marginLeft: 'auto' }}>
                         {!editing ? (
-                            <>
-                                <h1 className="navi-page-title" style={{ fontSize: 'clamp(1.2rem, 2.6vw, 1.5rem)', margin: 0 }}>{lead.name}</h1>
-                                <p className="navi-subtitle" style={{ marginTop: 4 }}>
-                                    {[
-                                        lead.type,
-                                        lead.origin,
-                                        lead.age ? `${lead.age} anos` : null,
-                                        lead.birthDate ? `Nasc. ${lead.birthDate}` : null,
-                                    ]
-                                        .filter((p) => p != null && String(p).trim())
-                                        .join(' • ') || '—'}
-                                </p>
-                            </>
+                            <button className="btn-edit-header" onClick={startEdit}>
+                                <Pencil size={14} /> Editar
+                            </button>
                         ) : (
-                            <div className="flex-col gap-3">
-                                <div className="form-group">
-                                    <label>Nome</label>
-                                    <input name="name" value={form.name} onChange={onChange} className="form-input" />
-                                </div>
-                                <div className="form-group mt-2">
-                                    <label>Telefone</label>
-                                    <input name="phone" value={form.phone} onChange={onChange} className="form-input" type="tel" />
-                                </div>
-                                <div className="flex gap-2 mt-2">
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>Perfil</label>
-                                        <select name="type" value={form.type} onChange={onChange} className="form-input">
-                                            <option value="Criança">Criança</option>
-                                            <option value="Juniores">Juniores</option>
-                                            <option value="Adulto">Adulto</option>
-                                        </select>
-                                    </div>
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>Origem</label>
-                                        <select name="origin" value={form.origin} onChange={onChange} className="form-input">
-                                            {LEAD_ORIGIN.map(o => <option key={o} value={o}>{o}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                                {(form.type === 'Criança' || form.type === 'Juniores') && (
-                                    <div className="flex gap-2 mt-2">
-                                        <div className="form-group" style={{ flex: 1 }}>
-                                            <label>Responsável</label>
-                                            <input name="parentName" value={form.parentName} onChange={onChange} className="form-input" />
-                                        </div>
-                                        <div className="form-group" style={{ flex: 1 }}>
-                                            <label>Idade</label>
-                                            <input name="age" value={form.age} onChange={onChange} type="number" className="form-input" />
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="flex gap-4 mt-2">
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>Primeira experiência?</label>
-                                        <select name="isFirstExperience" value={form.isFirstExperience} onChange={onChange} className="form-input">
-                                            <option value="Sim">Sim</option>
-                                            <option value="Não">Não</option>
-                                        </select>
-                                    </div>
-                                    {/* Campo de faixa removido; pode ser configurado como pergunta personalizada */}
-                                </div>
-                                <div className="form-group mt-2">
-                                    <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Data de nascimento</label>
-                                    <input
-                                        type="date"
-                                        name="birthDate"
-                                        value={form.birthDate || ''}
-                                        onChange={onChange}
-                                        className="form-input"
-                                        style={{ padding: '8px 12px', borderRadius: 8 }}
-                                    />
-                                </div>
-                                {lead.status === LEAD_STATUS.CONVERTED && (
-                                    <div className="lead-student-fields mt-3">
-                                        <p className="lead-student-fields-title">Dados do aluno</p>
-                                        <div className="form-group">
-                                            <label>Plano contratado</label>
-                                            <input name="plan" value={form.plan} onChange={onChange} className="form-input" placeholder="Ex.: Mensal, Anual" />
-                                        </div>
-                                        <div className="form-group mt-2">
-                                            <label>Data de ingresso</label>
-                                            <input name="enrollmentDate" value={form.enrollmentDate} onChange={onChange} type="date" className="form-input" />
-                                        </div>
-                                        <div className="form-group mt-2">
-                                            <label>Contato de emergência</label>
-                                            <input name="emergencyContact" value={form.emergencyContact} onChange={onChange} className="form-input" placeholder="Nome do contato" />
-                                        </div>
-                                        <div className="form-group mt-2">
-                                            <label>Telefone de emergência</label>
-                                            <input name="emergencyPhone" value={form.emergencyPhone} onChange={onChange} type="tel" className="form-input" placeholder="Celular" />
-                                        </div>
-                                    </div>
-                                )}
-                                {customQuestions.length > 0 && (
-                                    <div className="flex-col gap-2 mt-2">
-                                        {customQuestions.map((q) => {
-                                            const val = (form.customAnswers || {})[q?.id] ?? (form.customAnswers || {})[q?.label] ?? '';
-                                            if ((q?.type || 'text') === 'boolean') {
-                                                return (
-                                                    <div key={q?.id || q?.label} className="form-group">
-                                                        <label>{q?.label || '-'}</label>
-                                                        <select
-                                                            className="form-input"
-                                                            value={String(val || '')}
-                                                            onChange={(e) => onChangeCustom(q, e.target.value)}
-                                                        >
-                                                            <option value="">-</option>
-                                                            <option value="Sim">Sim</option>
-                                                            <option value="Não">Não</option>
-                                                        </select>
-                                                    </div>
-                                                );
-                                            }
-                                            if ((q?.type || 'text') === 'number') {
-                                                return (
-                                                    <div key={q?.id || q?.label} className="form-group">
-                                                        <label>{q?.label || '-'}</label>
-                                                        <input
-                                                            className="form-input"
-                                                            type="number"
-                                                            value={val || ''}
-                                                            onChange={(e) => onChangeCustom(q, e.target.value)}
-                                                        />
-                                                    </div>
-                                                );
-                                            }
-                                            if ((q?.type || 'text') === 'select') {
-                                                const opts = Array.isArray(q?.options) ? q.options : [];
-                                                return (
-                                                    <div key={q?.id || q?.label} className="form-group">
-                                                        <label>{q?.label || '-'}</label>
-                                                        <select
-                                                            className="form-input"
-                                                            value={val || ''}
-                                                            onChange={(e) => onChangeCustom(q, e.target.value)}
-                                                        >
-                                                            <option value="">-</option>
-                                                            {opts.map((o, i) => <option key={`${q?.id || q?.label}-${i}`} value={o}>{o}</option>)}
-                                                        </select>
-                                                    </div>
-                                                );
-                                            }
-                                            return (
-                                                <div key={q?.id || q?.label} className="form-group">
-                                                    <label>{q?.label || '-'}</label>
-                                                    <input
-                                                        className="form-input"
-                                                        value={val || ''}
-                                                        onChange={(e) => onChangeCustom(q, e.target.value)}
-                                                    />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
+                            <>
+                                <button type="button" className="btn-edit-header cancel" onClick={cancelEdit}><X size={14} /></button>
+                                <button type="button" className="btn-edit-header save" onClick={() => void handleSave()} disabled={saving}>
+                                    {saving ? '...' : <Save size={14} />}
+                                </button>
+                            </>
                         )}
+                    </div>
+                </div>
 
-                        {(lead.parentName) && (
-                            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                Responsável: <strong>{lead.parentName}</strong>
-                            </p>
-                        )}
-
+                <div className="left-col-content">
+                    {/* Lead Header */}
+                    <div className="profile-main-header">
+                        <div className="profile-avatar">
+                            {lead.name ? lead.name.charAt(0).toUpperCase() : 'L'}
+                        </div>
                         {!editing ? (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                <span className="info-badge">
-                                    {lead.isFirstExperience === 'Sim' ? 'Iniciante' : 'Já treina'}
-                                </span>
+                            <div className="profile-id-info">
+                                <h1 className="profile-name">{lead.name}</h1>
+                                {lead.phone && (
+                                    <div className="profile-phone">
+                                        <Phone size={12} />
+                                        <span>{lead.phone}</span>
+                                    </div>
+                                )}
                             </div>
-                        ) : null}
+                        ) : (
+                            <div className="flex-col gap-2 w-full mt-2">
+                                <input name="name" value={form.name} onChange={onChange} className="form-input-sm" placeholder="Nome" />
+                                <input name="phone" value={form.phone} onChange={onChange} className="form-input-sm" type="tel" placeholder="Telefone" />
+                            </div>
+                        )}
+                    </div>
 
-                        {/* Labels */}
+                    {/* Status e Tags */}
+                    <div className="profile-section">
+                        <div className="flex items-center gap-2 flex-wrap mb-3">
+                            <span className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}>
+                                {contactType === 'student' ? 'Aluno' : 'Lead'}
+                            </span>
+                            <span className="status-tag" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                                {lead.status}
+                            </span>
+                        </div>
+                        
                         {!editing && (
-                            <div className="flex flex-wrap gap-2 mt-2" style={{ alignItems: 'center' }}>
+                            <div className="flex flex-col gap-2">
+                                <div className="info-mini-row">
+                                    <span className="info-mini-label">Etapa:</span>
+                                    <span className="info-mini-value">{lead.pipelineStage || '—'}</span>
+                                </div>
+                                <div className="info-mini-row">
+                                    <span className="info-mini-label">Origem:</span>
+                                    <span className="info-mini-value">{lead.origin || '—'}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {!editing && (
+                            <div className="flex flex-wrap gap-1 mt-3">
                                 {(lead.labelIds || []).map((labelId) => {
                                     const label = allLabels.find((l) => l.$id === labelId);
                                     if (!label) return null;
@@ -1012,464 +865,301 @@ const LeadProfile = () => {
                                 />
                             </div>
                         )}
-                        {!editing && customQuestions.length > 0 && (
-                            <div className="custom-questions-section flex-col gap-2 mt-3">
-                                <h4 className="lead-student-fields-title" style={{ marginBottom: 4 }}>Respostas do formulário de captação</h4>
-                                {customQuestions.every((q) => {
-                                    const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
-                                    return !hasLeadDisplayValue(ans);
-                                }) ? (
-                                    <p className="text-small" style={{ color: 'var(--text-muted)', margin: 0 }}>Ainda sem respostas.</p>
-                                ) : (
-                                    <div className="flex-col gap-2">
-                                        {customQuestions.map((q) => {
-                                            const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
-                                            if (!hasLeadDisplayValue(ans)) return null;
-                                            return (
-                                                <div key={q?.id || q?.label} className="info-row">
-                                                    <span className="info-row-label">{q?.label || '-'}</span>
-                                                    <span className="info-row-value">{String(ans).trim()}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                    </div>
 
-                        {!editing && lead.status === LEAD_STATUS.CONVERTED && (
-                            <div className="lead-student-view mt-3">
-                                <p className="lead-student-fields-title">Dados do aluno</p>
-                                <div className="flex-col gap-2">
-                                    {hasLeadDisplayValue(lead.plan) ? (
-                                        <div className="info-row">
-                                            <span className="info-row-label">Plano</span>
-                                            <span className="info-row-value">{lead.plan}</span>
-                                        </div>
-                                    ) : null}
-                                    {formatYmdLocal(lead.enrollmentDate) ? (
-                                        <div className="info-row">
-                                            <span className="info-row-label">Ingresso</span>
-                                            <span className="info-row-value">{formatYmdLocal(lead.enrollmentDate)}</span>
-                                        </div>
-                                    ) : null}
-                                    {hasLeadDisplayValue(lead.emergencyContact) ? (
-                                        <div className="info-row">
-                                            <span className="info-row-label">Emergência</span>
-                                            <span className="info-row-value">{lead.emergencyContact}</span>
-                                        </div>
-                                    ) : null}
-                                    {hasLeadDisplayValue(lead.emergencyPhone) ? (
-                                        <div className="info-row">
-                                            <span className="info-row-label">Tel. emergência</span>
-                                            <span className="info-row-value">{lead.emergencyPhone}</span>
-                                        </div>
-                                    ) : null}
-                                    {!hasLeadDisplayValue(lead.plan) &&
-                                    !formatYmdLocal(lead.enrollmentDate) &&
-                                    !hasLeadDisplayValue(lead.emergencyContact) &&
-                                    !hasLeadDisplayValue(lead.emergencyPhone) ? (
-                                        <p className="text-small" style={{ color: 'var(--text-muted)', margin: 0 }}>
-                                            Nenhum dado extra cadastrado. Toque em <strong>Editar</strong> para incluir plano, ingresso e contato de emergência.
-                                        </p>
-                                    ) : null}
-                                </div>
-                            </div>
-                        )}
+                    {/* Comunicação */}
+                    <div className="profile-section">
+                        <h3 className="section-title">Comunicação</h3>
+                        <div className="flex gap-2 items-center" style={{ position: 'relative' }}>
+                            <button
+                                type="button"
+                                className="comm-btn-primary"
+                                disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
+                                onClick={() => handleWhatsAppPrimary()}
+                            >
+                                <MessageCircle size={16} /> {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
+                            </button>
+                            <button
+                                type="button"
+                                className="comm-btn-dropdown"
+                                disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTemplateMenuOpen((o) => !o);
+                                }}
+                            >
+                                <ChevronRight size={16} style={{ transform: templateMenuOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                            </button>
 
-                        {!editing ? (
-                            (lead.scheduledDate || lead.status === LEAD_STATUS.SCHEDULED) && (
-                                <div className="flex flex-wrap items-center gap-2 mt-3">
-                                    {lead.scheduledDate ? (
-                                        <>
-                                            <Clock size={14} color="var(--v500)" />
-                                            <span>
-                                                <span className="navi-mono-time" style={{ fontWeight: 600 }}>{lead.scheduledTime || '--:--'}</span>
-                                                <span className="navi-mono-date" style={{ marginLeft: 6 }}>
-                                                    {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                                                </span>
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Calendar size={14} color="var(--warning)" />
-                                            <span className="text-small" style={{ color: 'var(--text-secondary)', flex: '1 1 200px' }}>
-                                                Experimental marcada no funil — defina <strong>data e horário</strong> (botão Editar ou abaixo).
-                                            </span>
-                                            <button type="button" className="btn-outline" style={{ fontSize: '0.75rem', padding: '6px 12px', minHeight: 34 }} onClick={startEdit}>
-                                                Definir data
+                            {templateMenuOpen && (
+                                <div className="comm-dropdown-menu">
+                                    {Object.entries(waCtx.templates)
+                                        .filter(([, text]) => typeof text === 'string' && String(text).trim())
+                                        .map(([key]) => (
+                                            <button
+                                                key={key}
+                                                type="button"
+                                                className="comm-dropdown-item"
+                                                onClick={() => void sendTemplateKey(key)}
+                                            >
+                                                {WHATSAPP_TEMPLATE_LABELS[key] || key}
                                             </button>
-                                        </>
-                                    )}
+                                        ))}
                                 </div>
-                            )
-                        ) : (
-                            <div className="flex gap-2 mt-3">
-                                <div className="form-group" style={{ flex: 1 }}>
-                                    <label>Data</label>
-                                    <input name="scheduledDate" value={form.scheduledDate} onChange={onChange} type="date" className="form-input" />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Agendamento */}
+                    <div className="profile-section">
+                        <h3 className="section-title">Agendamento</h3>
+                        {lead.scheduledDate ? (
+                            <div className="schedule-card">
+                                <div className="schedule-info">
+                                    <Calendar size={14} />
+                                    <span>{new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} às {lead.scheduledTime || '--:--'}</span>
                                 </div>
-                                <div className="form-group" style={{ flex: 1 }}>
-                                    <label>Horário</label>
-                                    <input name="scheduledTime" value={form.scheduledTime} onChange={onChange} type="time" className="form-input" />
+                                <div className="flex gap-2 mt-3">
+                                    <button 
+                                        className="btn-state-attended" 
+                                        onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}
+                                        disabled={updatingStatus}
+                                    >
+                                        Compareceu
+                                    </button>
+                                    <button 
+                                        className="btn-state-missed" 
+                                        onClick={() => void handleUpdateStatus(LEAD_STATUS.MISSED)}
+                                        disabled={updatingStatus}
+                                    >
+                                        Não compareceu
+                                    </button>
                                 </div>
                             </div>
+                        ) : (
+                            <p className="text-muted text-xs">Sem aula experimental agendada.</p>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}>
-                            {contactType === 'student' ? 'Aluno' : 'Lead'}
-                        </span>
-                        <span className="status-tag" style={{ background: statusStyle.bg, color: statusStyle.color }}>
-                            {lead.status}
-                        </span>
-                    </div>
-                </div>
-                {!editing && lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
-                    <p className="text-xs mt-2" style={{ color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                        <strong style={{ color: 'var(--text-secondary)' }}>Motivo da perda:</strong> {lead.lostReason}
-                    </p>
-                ) : null}
 
-                {/* Contact */}
-                <div className="flex flex-col gap-2 mt-4" style={{ position: 'relative' }}>
-                    <div className="flex gap-0" style={{ alignItems: 'stretch' }}>
-                        <button
-                            type="button"
-                            className="contact-btn whatsapp contact-btn-full"
-                            style={{ borderRadius: '8px 0 0 8px', flex: 1 }}
-                            disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                            title={!lead.phone ? 'Cadastre um telefone' : 'Enviar template “Contato (Dashboard)” ou abrir no WhatsApp'}
-                            onClick={() => handleWhatsAppPrimary()}
-                        >
-                            <MessageCircle size={18} color="currentColor" /> {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
-                        </button>
-                        <button
-                            type="button"
-                            className="contact-btn whatsapp"
-                            style={{
-                                borderRadius: '0 8px 8px 0',
-                                minWidth: 44,
-                                paddingLeft: 10,
-                                paddingRight: 10,
-                                borderLeft: '1px solid rgba(255,255,255,0.35)',
-                                flexShrink: 0
-                            }}
-                            disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                            aria-expanded={templateMenuOpen}
-                            aria-label="Escolher outro template"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setTemplateMenuOpen((o) => !o);
-                            }}
-                        >
-                            ▾
-                        </button>
-                    </div>
-                    {templateMenuOpen && (
-                        <div
-                            style={{
-                                border: '1px solid var(--border)',
-                                borderRadius: 8,
-                                background: 'var(--surface)',
-                                boxShadow: 'var(--shadow)',
-                                maxHeight: 260,
-                                overflowY: 'auto',
-                                zIndex: 20
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {Object.entries(waCtx.templates)
-                                .filter(([, text]) => typeof text === 'string' && String(text).trim())
-                                .map(([key]) => (
-                                    <button
-                                        key={key}
-                                        type="button"
-                                        style={{
-                                            display: 'block',
-                                            width: '100%',
-                                            textAlign: 'left',
-                                            padding: '10px 14px',
-                                            border: 'none',
-                                            background: 'none',
-                                            font: 'inherit',
-                                            cursor: 'pointer',
-                                            color: 'var(--text)'
-                                        }}
-                                        disabled={sendingWhatsapp}
-                                        onClick={() => void sendTemplateKey(key)}
+                    {/* Próximos Passos */}
+                    <div className="profile-section">
+                        <h3 className="section-title">Próximos Passos</h3>
+                        <div className="flex-col gap-2">
+                            <button 
+                                type="button" 
+                                className="btn-next-step" 
+                                onClick={() => void handleUpdateStatus(LEAD_STATUS.SCHEDULED)}
+                                disabled={updatingStatus}
+                            >
+                                <Calendar size={14} /> Agendar nova data
+                            </button>
+                            
+                            {lead.status !== LEAD_STATUS.CONVERTED && (
+                                <>
+                                    <button 
+                                        type="button" 
+                                        className="btn-next-step highlight" 
+                                        onClick={handleMatricularClick}
+                                        disabled={updatingStatus}
                                     >
-                                        {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                        <UserCheck size={14} /> Matricular
                                     </button>
-                                ))}
+                                    <button 
+                                        type="button" 
+                                        className="btn-next-step danger" 
+                                        onClick={handleMarkLost}
+                                        disabled={updatingStatus}
+                                    >
+                                        <AlertTriangle size={14} /> Marcar como perdido
+                                    </button>
+                                </>
+                            )}
                         </div>
-                    )}
-                    <button
-                        type="button"
-                        className="btn-outline"
-                        style={{ fontSize: '0.8rem', alignSelf: 'flex-start' }}
-                        disabled={!String(lead.phone || '').replace(/\D/g, '').length}
-                        onClick={() => handleWhatsAppBlank()}
-                    >
-                        Abrir WhatsApp em branco
-                    </button>
-                </div>
-            </div>
+                    </div>
 
-            {/* Action Buttons */}
-            <div className="mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
-                <h3 className="navi-section-heading mb-2">Próximos Passos</h3>
-                <div className="action-grid">
-                    {lead.status !== LEAD_STATUS.CONVERTED && (
-                        <>
-                            <button type="button" className="action-btn" disabled={updatingStatus} onClick={() => void handleUpdateStatus(LEAD_STATUS.SCHEDULED)}>
-                                <Calendar size={22} color="var(--warning)" />
-                                <span>Agendar</span>
-                            </button>
-                            <button type="button" className="action-btn" disabled={updatingStatus} onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}>
-                                <UserCheck size={22} color="var(--success)" />
-                                <span>Compareceu</span>
-                            </button>
-                            <button type="button" className="action-btn action-highlight" disabled={updatingStatus} onClick={handleMatricularClick}>
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                </svg>
-                                <span>Matricular</span>
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {!editing && (
-                <div className="mt-4 animate-in" style={{ animationDelay: '0.12s' }}>
-                    <h3 className="navi-section-heading mb-2">Mais Ações</h3>
-                    <div className="more-actions">
-                        <button
-                            type="button"
-                            onClick={handleMarkLost}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: 8,
-                                border: 'none',
-                                background: '#FEE2E2',
-                                color: '#991B1B',
-                                fontSize: 13,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 6,
-                                flex: 1,
-                                fontFamily: 'inherit',
-                                fontWeight: 600,
-                            }}
-                        >
-                            <AlertTriangle size={16} strokeWidth={2} /> Não fechou
-                        </button>
-                        <button
-                            type="button"
+                    {/* Mais Ações */}
+                    <div className="profile-section">
+                        <h3 className="section-title">Mais Ações</h3>
+                        <button 
+                            type="button" 
+                            className="btn-delete-lead" 
                             onClick={openDeleteLeadConfirm}
                             disabled={deletingLead}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: 8,
-                                border: 'none',
-                                background: '#FEE2E2',
-                                color: '#991B1B',
-                                fontSize: 13,
-                                cursor: deletingLead ? 'not-allowed' : 'pointer',
-                                opacity: deletingLead ? 0.65 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 6,
-                                flex: 1,
-                                fontFamily: 'inherit',
-                                fontWeight: 600,
-                            }}
                         >
-                            <Trash2 size={16} strokeWidth={2} /> {deletingLead ? 'Excluindo...' : 'Excluir lead'}
+                            <Trash2 size={14} /> Excluir lead
                         </button>
                     </div>
-                </div>
-            )}
 
-            {/* Timeline */}
-            <div className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
-                <h3 className="navi-section-heading mb-2">Linha do tempo</h3>
-                <div className="note-input-group">
-                    <textarea
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Ex: Pai liga depois das 18h..."
-                        className="note-area"
-                        rows={3}
-                    />
-                    <button type="button" className="btn-primary note-send-btn" onClick={() => void addNote()} disabled={!note.trim() || addingNote}>
-                        <Send size={16} /> {addingNote ? 'Adicionando…' : 'Salvar'}
+                    {/* Dados Adicionais (Preservados do original, mas agora em lista) */}
+                    {!editing && (
+                        <div className="profile-section extra-info">
+                            <h3 className="section-title">Outros detalhes</h3>
+                            <div className="flex-col gap-2">
+                                {lead.parentName && (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Responsável:</span>
+                                        <span className="info-mini-value">{lead.parentName}</span>
+                                    </div>
+                                )}
+                                {lead.age && (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Idade:</span>
+                                        <span className="info-mini-value">{lead.age} anos</span>
+                                    </div>
+                                )}
+                                {customQuestions.map((q) => {
+                                    const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
+                                    if (!hasLeadDisplayValue(ans)) return null;
+                                    return (
+                                        <div key={q?.id || q?.label} className="info-mini-row">
+                                            <span className="info-mini-label">{q?.label}:</span>
+                                            <span className="info-mini-value">{String(ans)}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="left-col-footer">
+                    <button className="btn-toggle-timeline" onClick={() => setTimelineOpen(prev => !prev)}>
+                        {timelineOpen ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
+                        {timelineOpen ? 'Fechar linha do tempo' : 'Ver linha do tempo'}
                     </button>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                    <button type="button" className="tpl-chip" onClick={() => void addNoteQuick('WhatsApp enviado')}>WhatsApp enviado</button>
-                    <button type="button" className="tpl-chip" onClick={() => void addNoteQuick('Proposta enviada')}>Proposta enviada</button>
-                </div>
-                <div className="filter-strip mt-3" style={{ maxWidth: '100%' }}>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'call' ? ' active' : ''}`} onClick={() => setEventTypeFilter('call')}>Ligações</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'lead_created' ? ' active' : ''}`} onClick={() => setEventTypeFilter('lead_created')}>Cadastros</button>
-                    <button type="button" className={`filter-pill${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
-                </div>
-
-                {timelineError ? (
-                    <div className="timeline-error-banner mt-3" role="alert">
-                        <span>Não foi possível carregar o histórico.</span>
-                        <button type="button" className="btn-outline timeline-error-retry" onClick={() => void refreshTimeline()}>
-                            Tentar novamente
-                        </button>
-                    </div>
-                ) : null}
-
-                {!timelineError && filteredTimelineEvents.length === 0 ? (
-                    <div className="timeline-empty-state mt-3">
-                        <p style={{ margin: 0 }}>
-                            {eventTypeFilter === 'all'
-                                ? 'Nenhum evento registrado ainda.'
-                                : 'Nenhum evento neste filtro.'}
-                        </p>
-                        {eventTypeFilter !== 'all' ? (
-                            <button type="button" className="btn-outline timeline-empty-clear" onClick={() => setEventTypeFilter('all')}>
-                                Limpar filtro
-                            </button>
-                        ) : null}
-                    </div>
-                ) : null}
-
-                {!timelineError && filteredTimelineEvents.length > 0 ? (
-                    <div className="flex-col gap-2 mt-3">
-                        {filteredTimelineEvents.map((n, i) => {
-                            const when = new Date(n.at || n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                            const type = n.type || 'note';
-                            const tag = TIMELINE_EVENT_LABELS[type] ?? type;
-                            let icon = null;
-                            let label = n.text || '';
-                            if (type === 'message') {
-                                icon = <MessageCircle size={16} color="#25D366" />;
-                                label = n.text || TIMELINE_EVENT_LABELS.message;
-                            } else if (type === 'call') {
-                                icon = <Phone size={16} color="var(--accent)" />;
-                                label = n.text || TIMELINE_EVENT_LABELS.call;
-                            } else if (type === 'schedule') {
-                                icon = <Calendar size={16} color="var(--warning)" />;
-                                label = `Agendado para ${n.date} ${n.time || ''}`.trim();
-                            } else if (type === 'stage_change') {
-                                icon = <ArrowRight size={16} color="var(--text-secondary)" />;
-                                label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
-                            } else if (type === 'pipeline_change') {
-                                icon = <ChevronRight size={16} color="var(--text-secondary)" />;
-                                label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
-                            } else if (type === 'lead_created') {
-                                icon = <UserCheck size={16} color="var(--accent)" />;
-                                label = n.text || 'Lead cadastrado no CRM';
-                            } else if (type === 'import') {
-                                icon = <Copy size={16} color="var(--text-secondary)" />;
-                                label = n.text || `Importado (${n.source || 'planilha'})`;
-                            } else if (type === 'inbox_note') {
-                                icon = <StickyNote size={16} color="var(--text-secondary)" />;
-                                label = (
-                                    <span>
-                                        {n.text}
-                                        <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 6 }}>· Inbox</span>
-                                    </span>
-                                );
-                            } else {
-                                icon = <Check size={16} color="var(--text-secondary)" />;
-                                label = n.text || TIMELINE_EVENT_LABELS.note;
-                            }
-                            const isPinned = Boolean(n.is_pinned);
-                            const canPin = type === 'note' || type === 'inbox_note';
-
-                            return (
-                                <div 
-                                    key={i} 
-                                    className={`card note-item event-row${isPinned ? ' pinned-event' : ''}`}
-                                    style={isPinned ? { borderLeft: '3px solid var(--accent)', background: 'var(--accent-light-bg, rgba(var(--accent-rgb), 0.05))' } : {}}
-                                >
-                                    <div className="event-icon">{icon}</div>
-                                    <div className="event-content" style={{ position: 'relative' }}>
-                                        <div className="event-head" style={{ paddingRight: canPin ? 24 : 0 }}>
-                                            <span className="event-tag">{tag}</span>
-                                            <span className="event-time navi-mono-date">{when}</span>
-                                        </div>
-                                        <p className="event-text">{label}</p>
-                                        
-                                        {canPin && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleTogglePin(n)}
-                                                className="pin-btn"
-                                                title={isPinned ? 'Desafixar nota' : 'Fixar nota'}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: -2,
-                                                    right: -4,
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    padding: 4,
-                                                    cursor: 'pointer',
-                                                    color: isPinned ? 'var(--accent)' : 'var(--text-secondary)',
-                                                    transition: 'all 0.2s',
-                                                    zIndex: 2
-                                                }}
-                                            >
-                                                <Pin size={14} fill={isPinned ? 'currentColor' : 'none'} style={{ transform: isPinned ? 'none' : 'rotate(45deg)' }} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : null}
             </div>
 
-            {confirmModal ? (
-                <div
-                    className="dashboard-confirm-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="lead-profile-confirm-title"
-                    onClick={() => (confirmBusy ? undefined : setConfirmModal(null))}
-                >
+            <div className={`lead-profile-right-panel ${timelineOpen ? 'open' : 'closed'}`}>
+                <div className="timeline-header">
+                    <h2 className="timeline-title">Linha do tempo</h2>
+                    <div className="filter-strip">
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'lead_created' ? ' active' : ''}`} onClick={() => setEventTypeFilter('lead_created')}>Cadastros</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
+                    </div>
+                </div>
+
+                <div className="timeline-input-zone">
+                    <div className="note-container">
+                        <textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder="Adicione uma observação sobre este lead..."
+                            className="timeline-textarea"
+                            rows={3}
+                        />
+                        <button 
+                            type="button" 
+                            className="btn-send-note" 
+                            onClick={() => void addNote()} 
+                            disabled={!note.trim() || addingNote}
+                        >
+                            <Send size={16} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="timeline-content">
+                    {timelineError && (
+                        <div className="timeline-error-banner">
+                            <span>Não foi possível carregar o histórico.</span>
+                            <button type="button" className="btn-outline" onClick={() => void refreshTimeline()}>Tentar novamente</button>
+                        </div>
+                    )}
+
+                    {!timelineError && filteredTimelineEvents.length === 0 && (
+                        <div className="timeline-empty">Nenhum evento registrado.</div>
+                    )}
+
+                    {!timelineError && filteredTimelineEvents.length > 0 && (
+                        <div className="timeline-events-list">
+                            <div className="timeline-vertical-line"></div>
+                            {filteredTimelineEvents.map((n, i) => {
+                                const when = new Date(n.at || n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                                const type = n.type || 'note';
+                                const tag = TIMELINE_EVENT_LABELS[type] ?? type;
+                                
+                                let dotColor = '#8E8E8E';
+                                if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
+                                else if (type === 'message') dotColor = '#25D366';
+                                else if (type === 'schedule') dotColor = '#0088CC';
+                                else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
+                                else if (type === 'pipeline_change') dotColor = '#F5A623';
+
+                                let label = n.text || '';
+                                if (type === 'schedule') {
+                                    label = `Agendado para ${n.date} ${n.time || ''}`.trim();
+                                } else if (type === 'stage_change' || type === 'pipeline_change') {
+                                    label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
+                                } else if (type === 'inbox_note') {
+                                    label = (
+                                        <span>
+                                            {n.text}
+                                            <span className="inbox-tag">· Inbox</span>
+                                        </span>
+                                    );
+                                }
+
+                                const isPinned = Boolean(n.is_pinned);
+                                const canPin = type === 'note' || type === 'inbox_note';
+
+                                return (
+                                    <div key={i} className={`timeline-event-item ${isPinned ? 'pinned' : ''}`}>
+                                        <div className="event-dot" style={{ backgroundColor: dotColor }}></div>
+                                        <div className="event-body">
+                                            <div className="event-header">
+                                                <span className="event-type-label">{tag}</span>
+                                                <span className="event-date">{when}</span>
+                                                {canPin && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleTogglePin(n)}
+                                                        className="event-pin-btn"
+                                                        title={isPinned ? 'Desafixar' : 'Fixar'}
+                                                    >
+                                                        <Pin size={12} fill={isPinned ? 'currentColor' : 'none'} style={{ transform: isPinned ? 'none' : 'rotate(45deg)' }} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="event-message">{label}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {confirmModal && (
+                <div className="dashboard-confirm-overlay" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))}>
                     <div className="dashboard-confirm-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="dashboard-confirm-icon-wrap">
-                            <AlertTriangle size={28} color="var(--danger)" aria-hidden />
+                            <AlertTriangle size={24} color="var(--danger)" />
                         </div>
-                        <h3 id="lead-profile-confirm-title" className="navi-section-heading">{confirmModal.title}</h3>
-                        <p className="navi-subtitle" style={{ marginTop: 10, lineHeight: 1.45 }}>{confirmModal.description}</p>
+                        <h3 className="confirm-title">{confirmModal.title}</h3>
+                        <p className="confirm-desc">{confirmModal.description}</p>
                         <div className="dashboard-confirm-actions">
-                            <button type="button" className="btn-outline" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))} disabled={confirmBusy}>
-                                Cancelar
-                            </button>
+                            <button type="button" className="btn-outline" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))} disabled={confirmBusy}>Cancelar</button>
                             <button
                                 type="button"
                                 className={confirmModal.danger ? 'btn-danger' : 'btn-secondary'}
                                 onClick={() => void runConfirmModalAction()}
                                 disabled={confirmBusy}
                             >
-                                {confirmBusy ? 'Aguarde…' : confirmModal.confirmLabel}
+                                {confirmBusy ? '...' : confirmModal.confirmLabel}
                             </button>
                         </div>
                     </div>
                 </div>
-            ) : null}
+            )}
 
             <MatriculaModal
                 isOpen={matriculaModalOpen}
@@ -1477,7 +1167,7 @@ const LeadProfile = () => {
                 onConfirmSimple={handleConfirmSimple}
                 onConfirmFull={handleConfirmFull}
             />
-            {lostModalOpen ? (
+            {lostModalOpen && (
                 <LostReasonModal
                     leadName={lead.name || 'Lead'}
                     onCancel={() => setLostModalOpen(false)}
@@ -1492,196 +1182,569 @@ const LeadProfile = () => {
                         }
                     }}
                 />
-            ) : null}
-            </div>
+            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-        @keyframes leadProfileSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-        .lead-profile-skeleton-bar {
-          border-radius: 10px;
-          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
-          background-size: 200% 100%;
-          animation: leadProfileSk 1.2s ease-in-out infinite;
-        }
-        .lead-profile-skeleton-bar--title { width: 55%; max-width: 240px; height: 22px; }
-        .lead-profile-skeleton-bar--line { margin-top: 14px; width: 100%; height: 14px; }
-        .lead-profile-skeleton-bar--line.short { width: 72%; }
-        .lead-profile-skeleton-card {
-          border-radius: var(--radius);
-          border: 1px solid var(--border);
-          background: var(--surface);
-          padding: 20px 18px;
-        }
-        .timeline-error-banner {
-          display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
-          padding: 12px 14px; border-radius: 10px;
-          background: rgba(220, 38, 38, 0.08);
-          border: 1px solid rgba(220, 38, 38, 0.35);
-          color: var(--text);
-          font-size: 0.9rem;
-        }
-        .timeline-error-retry { font-size: 0.85rem; padding: 8px 14px; min-height: 40px; }
-        .timeline-empty-state {
-          padding: 16px 14px; border-radius: 10px;
-          border: 1px dashed var(--border);
-          background: var(--surface-hover);
-          color: var(--text-secondary);
-          font-size: 0.9rem;
-          display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
-        }
-        .timeline-empty-clear { font-size: 0.85rem; padding: 8px 14px; min-height: 40px; }
-        .dashboard-confirm-overlay {
-          position: fixed; inset: 0; z-index: 400;
-          background: rgba(18, 16, 42, 0.5);
-          backdrop-filter: blur(4px);
-          display: flex; align-items: center; justify-content: center;
-          padding: 20px;
-        }
-        .dashboard-confirm-modal {
-          background: var(--surface);
-          border-radius: var(--radius);
-          padding: 24px;
-          width: 100%;
-          max-width: 380px;
-          text-align: center;
-          border: 0.5px solid var(--border-violet);
-          box-shadow: var(--shadow-lg);
-        }
-        .dashboard-confirm-icon-wrap {
-          width: 56px; height: 56px; border-radius: 50%;
-          background: var(--danger-light);
-          margin: 0 auto 16px;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .dashboard-confirm-actions {
-          display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;
-        }
-        .dashboard-confirm-actions .btn-outline,
-        .dashboard-confirm-actions .btn-danger,
-        .dashboard-confirm-actions .btn-secondary {
-          flex: 1;
-          min-width: 120px;
-        }
-        .dashboard-confirm-overlay .btn-danger {
-          background: var(--danger);
-          color: #fff;
-          border: none;
-          border-radius: var(--radius-sm);
-          font-weight: 700;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .dashboard-confirm-overlay .btn-danger:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-        .lead-profile-inner {
-          max-width: min(100%, 42rem);
-          margin-left: auto;
-          margin-right: auto;
-        }
-        .profile-header { border-top: 4px solid var(--accent); }
-        .status-tag { 
-          padding: 5px 12px; border-radius: var(--radius-full); 
-          font-size: 0.72rem; font-weight: 700; text-transform: uppercase; 
-          letter-spacing: 0.03em; white-space: nowrap;
-        }
-        .contact-type-badge {
-          padding: 5px 12px; border-radius: var(--radius-full);
-          font-size: 0.72rem; font-weight: 800; white-space: nowrap;
-        }
-        .contact-type-badge.lead {
-          background: rgba(245, 158, 11, 0.16);
-          color: #b45309;
-        }
-        .contact-type-badge.student {
-          background: rgba(34, 197, 94, 0.14);
-          color: #15803d;
-        }
-        .info-badge {
-          font-size: 0.7rem; font-weight: 700; background: var(--border-light);
-          padding: 3px 10px; border-radius: var(--radius-full); color: var(--text-secondary);
-        }
-        .lead-student-fields-title {
-          font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
-          letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 10px;
-        }
-        .lead-student-fields {
-          padding: 14px 16px;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--border);
-          background: var(--purple-light);
-          border-left: 3px solid var(--purple);
-        }
-        .lead-student-view {
-          padding: 14px 16px;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--border);
-          background: var(--surface-hover);
-        }
-        .profile-header .info-row {
-          display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-          padding: 6px 0; border-bottom: 1px solid var(--border-light);
-        }
-        .profile-header .info-row:last-child { border-bottom: none; }
-        .profile-header .info-row-label {
-          font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;
-          letter-spacing: 0.04em; flex-shrink: 0;
-        }
-        .profile-header .info-row-value {
-          font-size: 0.9rem; color: var(--text); font-weight: 500; text-align: right;
-        }
-        .contact-btn { 
-          flex: 1; height: 48px; border-radius: var(--radius-sm); 
-          font-weight: 700; font-size: 0.85rem; gap: 6px;
-        }
-        .contact-btn.whatsapp { background: var(--purple); color: #fff; border-radius: 12px; }
-        .contact-btn.whatsapp:hover { filter: brightness(1.06); }
-        .contact-btn.whatsapp:disabled { opacity: 0.5; cursor: not-allowed; }
-        .contact-btn-full { width: 100%; max-width: 100%; flex: 1 1 100%; justify-content: center; }
+                @keyframes leadProfileSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+                .lead-profile-skeleton-bar {
+                    border-radius: 10px;
+                    background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
+                    background-size: 200% 100%;
+                    animation: leadProfileSk 1.2s ease-in-out infinite;
+                }
+                .lead-profile-skeleton-bar--title { width: 55%; max-width: 240px; height: 22px; }
+                .lead-profile-skeleton-bar--line { margin-top: 14px; width: 100%; height: 14px; }
+                .lead-profile-skeleton-bar--line.short { width: 72%; }
+                .lead-profile-skeleton-card {
+                    border-radius: var(--radius);
+                    border: 1px solid var(--border);
+                    background: var(--surface);
+                    padding: 20px 18px;
+                }
+                .lead-profile-inner {
+                    max-width: min(100%, 42rem);
+                    margin-left: auto;
+                    margin-right: auto;
+                }
 
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        .action-btn { 
-          background: var(--surface); border: 2px solid var(--border-light);
-          flex-direction: column; padding: 16px 8px; height: auto;
-          min-height: 85px; gap: 8px; border-radius: var(--radius);
-        }
-        .action-btn span { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
-        .action-btn:active { transform: scale(0.95); }
-        .action-btn:disabled { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
-        .action-highlight { border-color: var(--accent); background: var(--accent-light); }
-        .action-highlight span { color: var(--accent); }
+                .lead-profile-container {
+                    display: flex;
+                    height: 100%;
+                    overflow: hidden;
+                    background: var(--surface-hover);
+                }
 
-        .more-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .more-actions button { flex: 1; min-width: min(100%, 140px); }
-        
-        .note-input-group { display: flex; flex-direction: column; gap: 8px; }
-        .note-area { 
-          width: 100%; border-radius: var(--radius-sm); border: 1.5px solid var(--border); 
-          padding: 14px; font-family: inherit; font-size: 0.9rem; resize: none;
-          outline: none; transition: var(--transition); background: var(--surface); color: var(--text);
-        }
-        .note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
-        .note-send-btn { min-height: 42px; align-self: flex-end; padding: 0 20px; }
-        .note-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .note-item { border-left: 3px solid var(--border); padding: 12px 16px; }
-        .tpl-chip {
-          min-height: 44px; padding-inline: 12px; padding-block: 6px; border-radius: var(--radius-full);
-          background: var(--surface); border: 1px solid var(--border);
-          font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
-          display: flex; align-items: center;
-        }
-        .tpl-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .event-row { display: flex; gap: 10px; align-items: flex-start; }
-        .event-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
-        .event-content { flex: 1; }
-        .event-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-        .event-tag { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
-        .event-time { font-size: 11px; color: var(--faint); }
-        .event-text { font-size: 0.9rem; color: var(--text); margin-top: 2px; }
-      `}} />
+                /* Coluna Esquerda */
+                .lead-profile-left-col {
+                    width: 340px;
+                    flex-shrink: 0;
+                    display: flex;
+                    flex-direction: column;
+                    background: var(--surface);
+                    border-right: 1px solid var(--border);
+                    height: 100%;
+                    z-index: 10;
+                }
+
+                .left-col-header {
+                    padding: 16px;
+                    display: flex;
+                    align-items: center;
+                    border-bottom: 1px solid var(--border-light);
+                }
+
+                .left-col-content {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 24px;
+                }
+
+                .left-col-footer {
+                    padding: 16px;
+                    border-top: 1px solid var(--border-light);
+                    background: var(--surface);
+                }
+
+                /* Seções do Perfil */
+                .profile-main-header {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                    gap: 12px;
+                }
+
+                .profile-avatar {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 20px;
+                    background: var(--accent-light);
+                    color: var(--accent);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 24px;
+                    font-weight: 800;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                }
+
+                .profile-name {
+                    font-size: 1.25rem;
+                    font-weight: 800;
+                    color: var(--text);
+                    margin: 0;
+                }
+
+                .profile-phone {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    font-size: 13px;
+                    color: var(--text-secondary);
+                }
+
+                .section-title {
+                    font-size: 11px;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    color: var(--text-muted);
+                    margin: 0 0 12px;
+                }
+
+                .profile-section {
+                    padding-bottom: 4px;
+                }
+
+                /* Mini Rows */
+                .info-mini-row {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                    padding: 4px 0;
+                }
+
+                .info-mini-label { color: var(--text-muted); }
+                .info-mini-value { color: var(--text); font-weight: 600; }
+
+                /* Botões de Perfil */
+                .btn-edit-header {
+                    padding: 6px 12px;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    border: 1px solid var(--border);
+                    background: var(--surface);
+                    color: var(--text-secondary);
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    cursor: pointer;
+                }
+                .btn-edit-header.save { background: var(--accent); color: white; border: none; }
+                .btn-edit-header.cancel { color: var(--danger); }
+
+                .form-input-sm {
+                    width: 100%;
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    border: 1px solid var(--border);
+                    font-size: 13px;
+                    background: var(--surface-hover);
+                }
+
+                /* Comunicação */
+                .comm-btn-primary {
+                    flex: 1;
+                    height: 40px;
+                    background: #25D366;
+                    color: white;
+                    border: none;
+                    border-radius: 10px 0 0 10px;
+                    font-weight: 700;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    cursor: pointer;
+                }
+
+                .comm-btn-dropdown {
+                    width: 36px;
+                    height: 40px;
+                    background: #25D366;
+                    color: white;
+                    border: none;
+                    border-left: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 0 10px 10px 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                }
+
+                .comm-dropdown-menu {
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    right: 0;
+                    background: var(--surface);
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    box-shadow: var(--shadow-lg);
+                    margin-top: 8px;
+                    z-index: 100;
+                    max-height: 200px;
+                    overflow-y: auto;
+                }
+
+                .comm-dropdown-item {
+                    width: 100%;
+                    padding: 10px 16px;
+                    text-align: left;
+                    border: none;
+                    background: none;
+                    font-size: 13px;
+                    color: var(--text);
+                    cursor: pointer;
+                }
+                .comm-dropdown-item:hover { background: var(--surface-hover); }
+
+                /* Agendamento Card */
+                .schedule-card {
+                    background: var(--surface-hover);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    padding: 12px;
+                }
+
+                .schedule-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: var(--text);
+                }
+
+                .btn-state-attended {
+                    flex: 1;
+                    padding: 8px;
+                    background: #22C55E;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+
+                .btn-state-missed {
+                    flex: 1;
+                    padding: 8px;
+                    background: #EF4444;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+
+                /* Próximos Passos */
+                .btn-next-step {
+                    width: 100%;
+                    padding: 10px 16px;
+                    border-radius: 10px;
+                    border: 1.5px solid var(--border);
+                    background: var(--surface);
+                    color: var(--text-secondary);
+                    font-weight: 700;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    cursor: pointer;
+                    margin-bottom: 8px;
+                }
+
+                .btn-next-step.highlight { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+                .btn-next-step.danger { border-color: #FEE2E2; background: #FFF5F5; color: #991B1B; }
+
+                .btn-delete-lead {
+                    width: 100%;
+                    padding: 10px;
+                    border-radius: 10px;
+                    background: #FEE2E2;
+                    color: #991B1B;
+                    border: none;
+                    font-size: 13px;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    cursor: pointer;
+                }
+
+                .btn-toggle-timeline {
+                    width: 100%;
+                    padding: 12px;
+                    border-radius: 12px;
+                    background: #EEEDFE;
+                    color: #534AB7;
+                    border: none;
+                    font-weight: 700;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    cursor: pointer;
+                }
+
+                /* Painel Timeline */
+                .lead-profile-right-panel {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden;
+                    background: var(--surface-hover);
+                    transition: all 0.3s ease;
+                }
+
+                .timeline-header {
+                    padding: 24px 24px 12px;
+                }
+
+                .timeline-title {
+                    font-size: 1.25rem;
+                    font-weight: 800;
+                    color: var(--text);
+                    margin: 0 0 16px;
+                }
+
+                .timeline-input-zone {
+                    padding: 0 24px 24px;
+                }
+
+                .note-container {
+                    position: relative;
+                    background: var(--surface);
+                    border: 1px solid var(--border);
+                    border-radius: 16px;
+                    padding: 4px;
+                    box-shadow: var(--shadow-sm);
+                }
+
+                .timeline-textarea {
+                    width: 100%;
+                    border: none;
+                    padding: 12px 48px 12px 12px;
+                    font-family: inherit;
+                    font-size: 14px;
+                    color: var(--text);
+                    background: transparent;
+                    resize: none;
+                    outline: none;
+                }
+
+                .btn-send-note {
+                    position: absolute;
+                    bottom: 8px;
+                    right: 8px;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    background: var(--accent);
+                    color: white;
+                    border: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    box-shadow: var(--shadow);
+                }
+
+                .timeline-content {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 0 24px 40px;
+                }
+
+                .timeline-events-list {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    padding-left: 24px;
+                }
+
+                .timeline-vertical-line {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    left: 4px;
+                    width: 1px;
+                    background: var(--border-light);
+                    z-index: 0;
+                }
+
+                .timeline-event-item {
+                    position: relative;
+                    margin-bottom: 24px;
+                    padding-left: 12px;
+                    z-index: 1;
+                }
+
+                .event-dot {
+                    position: absolute;
+                    left: -24px;
+                    top: 4px;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    border: 2px solid var(--surface);
+                    box-shadow: 0 0 0 1px var(--border-light);
+                }
+
+                .event-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 4px;
+                }
+
+                .event-type-label {
+                    font-size: 10px;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    color: var(--text-muted);
+                    letter-spacing: 0.02em;
+                }
+
+                .event-date {
+                    font-size: 11px;
+                    color: var(--faint);
+                }
+
+                .event-message {
+                    font-size: 14px;
+                    color: var(--text);
+                    line-height: 1.5;
+                }
+
+                .inbox-tag {
+                    font-size: 10px;
+                    color: var(--text-muted);
+                    margin-left: 6px;
+                }
+
+                .event-pin-btn {
+                    background: none;
+                    border: none;
+                    padding: 4px;
+                    margin-left: auto;
+                    cursor: pointer;
+                    color: var(--text-muted);
+                    opacity: 0.4;
+                    transition: all 0.2s;
+                }
+                .timeline-event-item:hover .event-pin-btn, .timeline-event-item.pinned .event-pin-btn {
+                    opacity: 1;
+                }
+                .timeline-event-item.pinned .event-pin-btn { color: var(--accent); }
+
+                .timeline-event-item.pinned {
+                    background: rgba(var(--accent-rgb), 0.03);
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    margin-left: -12px;
+                    border: 1px solid var(--accent-light);
+                }
+
+                /* Responsividade */
+                @media (max-width: 1024px) {
+                    .lead-profile-left-col {
+                        width: 100%;
+                    }
+                    .lead-profile-right-panel {
+                        position: fixed;
+                        inset: 0;
+                        z-index: 200;
+                        transform: translateX(100%);
+                    }
+
+                    .timeline-open .lead-profile-left-col { display: none; }
+                    .timeline-open .lead-profile-right-panel { transform: translateX(0); }
+                }
+
+                .filter-strip {
+                    display: flex;
+                    gap: 6px;
+                    overflow-x: auto;
+                    padding-bottom: 8px;
+                    scrollbar-width: none;
+                }
+                .filter-strip::-webkit-scrollbar { display: none; }
+
+                .filter-pill {
+                    padding: 6px 12px;
+                    border-radius: 100px;
+                    border: 1px solid var(--border);
+                    background: var(--surface);
+                    color: var(--text-secondary);
+                    font-size: 12px;
+                    font-weight: 700;
+                    white-space: nowrap;
+                    cursor: pointer;
+                }
+                .filter-pill.active {
+                    background: var(--accent);
+                    color: white;
+                    border-color: var(--accent);
+                }
+
+                /* Confirm Modal Tweaks */
+                .dashboard-confirm-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 1000;
+                    background: rgba(0,0,0,0.5);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }
+                .dashboard-confirm-modal {
+                    background: var(--surface);
+                    border-radius: 20px;
+                    padding: 32px;
+                    width: 100%;
+                    max-width: 400px;
+                    text-align: center;
+                    box-shadow: var(--shadow-2xl);
+                }
+                .confirm-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 8px; }
+                .confirm-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; }
+                .dashboard-confirm-icon-wrap {
+                  width: 56px; height: 56px; border-radius: 50%;
+                  background: var(--danger-light);
+                  margin: 0 auto 16px;
+                  display: flex; align-items: center; justify-content: center;
+                }
+                .dashboard-confirm-actions {
+                  display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;
+                }
+                .dashboard-confirm-actions .btn-outline,
+                .dashboard-confirm-actions .btn-danger,
+                .dashboard-confirm-actions .btn-secondary {
+                  flex: 1;
+                  min-width: 120px;
+                }
+                .dashboard-confirm-overlay .btn-danger {
+                  background: var(--danger);
+                  color: #fff;
+                  border: none;
+                  border-radius: var(--radius-sm);
+                  font-weight: 700;
+                  padding: 10px 16px;
+                  cursor: pointer;
+                  font-family: inherit;
+                }
+                .dashboard-confirm-overlay .btn-danger:disabled {
+                  opacity: 0.55;
+                  cursor: not-allowed;
+                }
+                `
+            }} />
         </div>
     );
 };
