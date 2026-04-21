@@ -15,7 +15,8 @@ import {
   Kanban,
   GraduationCap,
   Bot,
-  FileText
+  FileText,
+  Wallet
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -37,6 +38,7 @@ import Welcome from './pages/Welcome';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
+import Finance from './pages/Finance';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
@@ -679,6 +681,16 @@ const App = () => {
                 <BarChart3 size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Relatórios</span>
               </NavLink>
+              {modules.finance === true && (
+                <NavLink
+                  to="/finance"
+                  className={sideLinkClass}
+                  title={sidebarCollapsed ? 'Financeiro' : undefined}
+                >
+                  <Wallet size={18} strokeWidth={1.75} />
+                  <span className="navi-side-link-label">Financeiro</span>
+                </NavLink>
+              )}
             </div>
 
             <div className="navi-side-section">
@@ -816,6 +828,7 @@ const App = () => {
               <Route path="/student/:id" element={<StudentProfile />} />
               <Route path="/new-lead" element={<NewLead />} />
               <Route path="/reports" element={<Reports />} />
+              {modules.finance === true && <Route path="/finance" element={<Finance />} />}
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />

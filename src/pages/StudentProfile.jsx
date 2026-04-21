@@ -161,6 +161,8 @@ export default function StudentProfile() {
     const [freqStats, setFreqStats] = useState(null);
     const [loadingFreq, setLoadingFreq] = useState(true);
     const [freqError, setFreqError] = useState(false);
+    /** Código HTTP do Appwrite (ex.: 401 permissão). */
+    const [freqErrorCode, setFreqErrorCode] = useState(null);
     const [viewportStacked, setViewportStacked] = useState(
         () => typeof window !== 'undefined' && window.innerWidth < 1024
     );
@@ -219,6 +221,7 @@ export default function StudentProfile() {
         }
         setLoadingFreq(true);
         setFreqError(false);
+        setFreqErrorCode(null);
         try {
             const [docs, stats] = await Promise.all([
                 getAttendance(leadId, academyId, { limit: 50 }),
@@ -226,8 +229,9 @@ export default function StudentProfile() {
             ]);
             setCheckins(docs);
             setFreqStats(stats);
-        } catch {
+        } catch (e) {
             setFreqError(true);
+            setFreqErrorCode(e?.code != null && !Number.isNaN(Number(e.code)) ? Number(e.code) : null);
             setCheckins([]);
             setFreqStats(null);
         } finally {
@@ -1096,7 +1100,16 @@ export default function StudentProfile() {
                                     lineHeight: 1.5,
                                 }}
                             >
-                                Erro ao carregar presenças ·{' '}
+                                {Number(freqErrorCode) === 401 ? (
+                                    <>
+                                        Sem permissão para ler a coleção de presenças no Appwrite (401). Abra a coleção
+                                        configurada em <code style={{ fontSize: 12 }}>VITE_APPWRITE_ATTENDANCE_COL_ID</code> e
+                                        conceda <strong>Read</strong> ao papel adequado (usuários autenticados ou equipe da
+                                        academia), como na coleção de leads.
+                                    </>
+                                ) : (
+                                    <>Erro ao carregar presenças.</>
+                                )}{' '}
                                 <button
                                     type="button"
                                     onClick={() => void loadFrequency()}

@@ -53,7 +53,7 @@ function endOfDay(d) {
   return dt.toISOString();
 }
 
-export const useAccountingStore = create((set, get) => {
+export const useAccountingStore = create((set, get) => ({
     accounts: seedAccounts(),
     journal: [],
     academyId: null,
@@ -237,8 +237,8 @@ export const useAccountingStore = create((set, get) => {
       });
       return tot;
     },
-  };
-});
+}));
+
 
 if (typeof window !== 'undefined') {
   window.useAccountingStore = useAccountingStore;

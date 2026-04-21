@@ -8,6 +8,15 @@ import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 
 const ATTENDANCE_COL = String(import.meta.env.VITE_APPWRITE_ATTENDANCE_COL_ID || '').trim();
 
+/** Ordenação por `checked_in_at` no servidor exige índice na coleção; ordenamos no cliente. */
+function sortByCheckedInDesc(docs) {
+    return [...(docs || [])].sort((a, b) => {
+        const ta = new Date(a.checked_in_at || 0).getTime();
+        const tb = new Date(b.checked_in_at || 0).getTime();
+        return tb - ta;
+    });
+}
+
 /** Coleção configurada no build (.env). */
 export function isAttendanceConfigured() {
     return Boolean(ATTENDANCE_COL);
@@ -17,6 +26,28 @@ function ymFromDate(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
+}
+
+/**
+ * Lista presenças com fallback: ordenar por `checked_in_at` exige índice; tentamos `$createdAt`;
+ * por fim buscamos sem ordenação e ordenamos no cliente (até 500 linhas).
+ * @param {string} lid
+ * @param {string} aid
+ * @param {number} limit
+ */
+async function listAttendanceDocuments(lid, aid, limit) {
+    const eq = [Query.equal('lead_id', lid), Query.equal('academy_id', aid)];
+    try {
+        return await databases.listDocuments(DB_ID, ATTENDANCE_COL, [...eq, Query.orderDesc('checked_in_at'), Query.limit(limit)]);
+    } catch {
+        try {
+            return await databases.listDocuments(DB_ID, ATTENDANCE_COL, [...eq, Query.orderDesc('$createdAt'), Query.limit(limit)]);
+        } catch {
+            const res = await databases.listDocuments(DB_ID, ATTENDANCE_COL, [...eq, Query.limit(500)]);
+            const sorted = sortByCheckedInDesc(res.documents || []);
+            return { ...res, documents: sorted.slice(0, limit) };
+        }
+    }
 }
 
 /**
@@ -31,12 +62,7 @@ export async function getAttendance(leadId, academyId, opts = {}) {
     const aid = String(academyId || '').trim();
     if (!lid || !aid) return [];
     const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 500);
-    const res = await databases.listDocuments(DB_ID, ATTENDANCE_COL, [
-        Query.equal('lead_id', lid),
-        Query.equal('academy_id', aid),
-        Query.orderDesc('checked_in_at'),
-        Query.limit(limit),
-    ]);
+    const res = await listAttendanceDocuments(lid, aid, limit);
     return res.documents || [];
 }
 
@@ -87,13 +113,9 @@ export async function getAttendanceStats(leadId, academyId) {
     const aid = String(academyId || '').trim();
     if (!lid || !aid) return empty;
 
-    const res = await databases.listDocuments(DB_ID, ATTENDANCE_COL, [
-        Query.equal('lead_id', lid),
-        Query.equal('academy_id', aid),
-        Query.orderDesc('checked_in_at'),
-        Query.limit(500),
-    ]);
+    const res = await listAttendanceDocuments(lid, aid, 500);
     const docs = res.documents || [];
+    const totalFromApi = typeof res.total === 'number' ? res.total : docs.length;
     const now = new Date();
     const thisYm = ymFromDate(now);
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -110,7 +132,7 @@ export async function getAttendanceStats(leadId, academyId) {
         if (rowYm === thisYm) thisMonth += 1;
         if (rowYm === lastYm) lastMonth += 1;
     }
-    const total = docs.length;
+    const total = totalFromApi;
     const monthlyRate = ((thisMonth / DIAS_UTEIS_MES_REF) * 100).toFixed(0) + '%';
     return { thisMonth, lastMonth, total, monthlyRate };
 }

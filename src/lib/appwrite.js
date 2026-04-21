@@ -30,6 +30,18 @@ export const SALES_CREATE_FN_ID = import.meta.env.VITE_APPWRITE_SALES_CREATE_FN_
 export const SALES_CANCEL_FN_ID = import.meta.env.VITE_APPWRITE_SALES_CANCEL_FN_ID || "";
 export const INVENTORY_SEED_KIMONOS_FN_ID = import.meta.env.VITE_APPWRITE_INVENTORY_SEED_KIMONOS_FN_ID || "";
 
+export const FINANCIAL_TX_COL =
+  import.meta.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID || '';
+
+export const ACCOUNTS_COL =
+  import.meta.env.VITE_APPWRITE_ACCOUNTS_COLLECTION_ID || '';
+
+export const JOURNAL_COL =
+  import.meta.env.VITE_APPWRITE_JOURNAL_COLLECTION_ID || '';
+
+export const FINANCE_TX_FN_ID =
+  import.meta.env.VITE_APPWRITE_FINANCE_TX_FN_ID || '';
+
 // Tamanhos padrão de kimono
 export const KIMONO_SIZES = {
     adulto_unissex: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6'],
