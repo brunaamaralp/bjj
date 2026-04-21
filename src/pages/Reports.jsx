@@ -56,6 +56,36 @@ const parseYMD = (s) => {
     return new Date(Y, (M || 1) - 1, D || 1);
 };
 
+const formatLongPtDate = (dateInput) => {
+    const d = typeof dateInput === 'string' ? parseYMD(dateInput) : dateInput;
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
+const formatRangeLongPt = (fromInput, toInput) => {
+    const fromLabel = formatLongPtDate(fromInput);
+    const toDate = typeof toInput === 'string' ? parseYMD(toInput) : toInput;
+    if (!fromLabel || !(toDate instanceof Date) || Number.isNaN(toDate.getTime())) return `${fromInput} — ${toInput}`;
+    const toDayMonth = toDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+    const toYear = toDate.getFullYear();
+    return `${fromLabel} — ${toDayMonth} de ${toYear}`;
+};
+
+const formatChartTickPt = (rawLabel) => {
+    const raw = String(rawLabel || '').trim();
+    if (!raw) return raw;
+    let d = null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) d = parseYMD(raw);
+    else if (/^\d{2}\/\d{2}$/.test(raw)) {
+        const [day, month] = raw.split('/').map(Number);
+        d = new Date(new Date().getFullYear(), (month || 1) - 1, day || 1);
+    }
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return raw;
+    return d
+        .toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+        .replace('.', '');
+};
+
 
 function downloadCsv(rows, filename) {
     const header = Object.keys(rows[0] || {});
@@ -125,7 +155,7 @@ const Card = ({ title, value, variation, icon, color, onClick, disabled, trendHi
                     </span>
                 </div>
             )}
-            {clickable ? <span className="reports-kpi-cta">Ver lista</span> : null}
+            {clickable ? <span className="reports-kpi-cta">Ver detalhes →</span> : null}
         </div>
     );
 };
@@ -328,6 +358,7 @@ const Reports = () => {
     }, [range, originFilter, profileFilter, chartMode, academyId, preset]);
 
     const rangeSlug = `${range.from}_${range.to}`;
+    const prettyRange = useMemo(() => formatRangeLongPt(range.from, range.to), [range.from, range.to]);
 
     const exportList = (listKey, slug) => {
         if (!reportData || !reportData.metrics[listKey]) return;
@@ -367,7 +398,7 @@ const Reports = () => {
                     <h1 className="navi-page-title">Relatórios</h1>
                     <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6 }}>
                         <span>
-                            Indicadores por período · {range.from} — {range.to}
+                            Indicadores por período · {prettyRange}
                         </span>
                         {leadsHasMore ? (
                             <>
@@ -547,7 +578,7 @@ const Reports = () => {
                     value={reportData.metrics.scheduled.current}
                     variation={reportData.metrics.scheduled.var || reportData.metrics.scheduled.variation || pctVar(reportData.metrics.scheduled.current, reportData.metrics.scheduled.previous)}
                     icon={<Calendar size={18} color="var(--warn-text)" strokeWidth={2} />}
-                    color="warning"
+                    color="accent"
                     trendHint={trendHintFor('scheduled', preset)}
                     onClick={() => setDrillKey('scheduled')}
                 />
@@ -573,11 +604,12 @@ const Reports = () => {
                     title="Matrículas"
                     value={reportData.metrics.converted.current}
                     variation={reportData.metrics.converted.var || reportData.metrics.converted.variation || pctVar(reportData.metrics.converted.current, reportData.metrics.converted.previous)}
-                    icon={<Users size={18} color="var(--v700)" strokeWidth={2} />}
-                    color="purple"
+                    icon={<Users size={18} color="var(--success-text)" strokeWidth={2} />}
+                    color="success"
                     trendHint={trendHintFor('converted', preset)}
                     onClick={() => setDrillKey('converted')}
                 />
+                {/* Taxa de conversão não aponta para lista de leads individual; manter sem CTA para não sugerir navegação inexistente. */}
                 <Card
                     title="Taxa de conversão"
                     value={`${reportData.metrics.conversionRate.current}%`}
@@ -638,7 +670,7 @@ const Reports = () => {
                 ) : (
                     <ResponsiveContainer width="100%" height={chartHeight}>
                         <BarChart data={reportData.chart}>
-                            <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
+                            <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} tickFormatter={formatChartTickPt} />
                             <YAxis fontSize={11} tickLine={false} axisLine={false} />
                             <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                             {chartMetric === 'new' && <Bar dataKey="newLeads" name="Novos leads" fill="var(--v500)" radius={[4, 4, 0, 0]} />}
@@ -817,12 +849,12 @@ const Reports = () => {
         }
         .reports-kpi-cta {
           display: block;
-          font-size: 0.65rem;
+          font-size: 0.76rem;
           font-weight: 700;
-          color: var(--text-muted);
+          color: var(--accent);
           margin-top: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
+          text-transform: none;
+          letter-spacing: 0;
         }
         .reports-kpi-card--clickable { cursor: pointer; }
         .reports-kpi-card--clickable:hover {
@@ -907,7 +939,17 @@ const Reports = () => {
           box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 24px rgba(91, 63, 191, 0.06);
         }
         .reports-export-wrap { position: relative; }
-        .reports-export-btn { display: inline-flex; align-items: center; gap: 6px; }
+        .reports-export-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: transparent;
+          border: 1px solid var(--accent);
+          color: var(--accent);
+        }
+        .reports-export-btn:hover {
+          background: var(--accent-light);
+          border-color: var(--accent);
+          color: var(--accent);
+        }
         .reports-export-btn:disabled { opacity: 0.55; cursor: not-allowed; }
         .reports-chevron-open { transform: rotate(180deg); transition: transform 0.15s ease; }
         .reports-export-menu {

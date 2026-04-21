@@ -3,7 +3,7 @@ import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { ArrowLeft, ArrowRight, ChevronRight, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
@@ -110,7 +110,7 @@ const LeadProfile = () => {
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
-    const [timelineOpen, setTimelineOpen] = useState(true);
+    const [timelineOpen, setTimelineOpen] = useState(false);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -800,9 +800,6 @@ const LeadProfile = () => {
                 <div className="left-col-content">
                     {/* Lead Header */}
                     <div className="profile-main-header">
-                        <div className="profile-avatar">
-                            {lead.name ? lead.name.charAt(0).toUpperCase() : 'L'}
-                        </div>
                         {!editing ? (
                             <div className="profile-id-info">
                                 <h1 className="profile-name">{lead.name}</h1>
@@ -889,7 +886,7 @@ const LeadProfile = () => {
                                     setTemplateMenuOpen((o) => !o);
                                 }}
                             >
-                                <ChevronRight size={16} style={{ transform: templateMenuOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                                <ChevronDown size={18} />
                             </button>
 
                             {templateMenuOpen && (
@@ -1025,8 +1022,8 @@ const LeadProfile = () => {
 
                 <div className="left-col-footer">
                     <button className="btn-toggle-timeline" onClick={() => setTimelineOpen(prev => !prev)}>
-                        {timelineOpen ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
-                        {timelineOpen ? 'Fechar linha do tempo' : 'Ver linha do tempo'}
+                        {timelineOpen ? <ArrowLeft size={16} /> : <span style={{ order: 2 }}><ArrowRight size={16} /></span>}
+                        {timelineOpen ? '← Fechar linha do tempo' : 'Ver linha do tempo →'}
                     </button>
                 </div>
             </div>
@@ -1219,6 +1216,7 @@ const LeadProfile = () => {
                 .lead-profile-left-col {
                     width: 340px;
                     flex-shrink: 0;
+                    flex-grow: 0;
                     display: flex;
                     flex-direction: column;
                     background: var(--surface);
@@ -1258,19 +1256,6 @@ const LeadProfile = () => {
                     gap: 12px;
                 }
 
-                .profile-avatar {
-                    width: 64px;
-                    height: 64px;
-                    border-radius: 20px;
-                    background: var(--accent-light);
-                    color: var(--accent);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 24px;
-                    font-weight: 800;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-                }
 
                 .profile-name {
                     font-size: 1.25rem;
@@ -1497,7 +1482,15 @@ const LeadProfile = () => {
                     height: 100%;
                     overflow: hidden;
                     background: var(--surface-hover);
-                    transition: all 0.3s ease;
+                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                    max-width: 480px;
+                }
+
+                .timeline-closed .lead-profile-right-panel {
+                    flex: 0;
+                    max-width: 0;
+                    opacity: 0;
+                    pointer-events: none;
                 }
 
                 .timeline-header {
@@ -1568,7 +1561,7 @@ const LeadProfile = () => {
 
                 .timeline-vertical-line {
                     position: absolute;
-                    top: 0;
+                    top: 12px;
                     bottom: 0;
                     left: 4px;
                     width: 1px;
@@ -1662,7 +1655,8 @@ const LeadProfile = () => {
                     }
 
                     .timeline-open .lead-profile-left-col { display: none; }
-                    .timeline-open .lead-profile-right-panel { transform: translateX(0); }
+                    .timeline-open .lead-profile-right-panel { transform: translateX(0); max-width: 100%; }
+                    .timeline-closed .lead-profile-right-panel { display: none; }
                 }
 
                 .filter-strip {

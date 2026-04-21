@@ -114,7 +114,7 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
                         onClick={(e) => e.stopPropagation()}
                         data-no-dnd="true"
                     >
-                        Atendimento
+                        Ver conversa
                     </Link>
                 ) : null}
             </div>
@@ -1188,7 +1188,6 @@ const Pipeline = () => {
                     <div className="header-left">
                         <div className="pipeline-title-block">
                             <h2 className="navi-page-title">{labels.pipeline || 'Funil'}</h2>
-                            <p className="navi-eyebrow" style={{ marginTop: 6, maxWidth: '42ch' }}>Fluxo de matrícula até a conversão</p>
                         </div>
                         <div className="filters-mobile-toggle-wrap">
                             <button
@@ -1298,10 +1297,10 @@ const Pipeline = () => {
                             </button>
                         ) : null}
                         <ExportButton leads={leads} fileName={`${slug(labels.leads)}-pipeline`} label="Exportar" />
-                        <button className="import-btn-pipe" onClick={() => setShowImport(true)}>
+                        <button className="pipeline-btn-secondary" onClick={() => setShowImport(true)}>
                             <Upload size={16} /> {`Importar ${labels.leads}`}
                         </button>
-                        <button className="import-btn-pipe" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
+                        <button className="pipeline-btn-outline" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
                             <SlidersHorizontal size={16} /> Etapas
                         </button>
                     </div>
@@ -1725,23 +1724,25 @@ const Pipeline = () => {
           min-height: 0;
           align-items: stretch;
           scroll-snap-type: x mandatory;
-          scrollbar-width: thin;
-          scrollbar-gutter: stable both-edges;
+          scrollbar-width: none;
+          scrollbar-gutter: stable;
         }
         .kanban-wrapper::-webkit-scrollbar {
-          height: 12px;
+          height: 0;
         }
         .kanban-wrapper::-webkit-scrollbar-track {
-          background: var(--surface);
-          border-top: 1px solid var(--border-light);
+          background: transparent;
         }
         .kanban-wrapper::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, var(--border) 0%, var(--accent) 100%);
-          border-radius: 999px;
-          border: 2px solid var(--surface);
+          background: var(--border-secondary);
+          border-radius: 4px;
         }
-        .kanban-wrapper::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, var(--accent) 0%, var(--accent) 100%);
+        .kanban-wrapper:hover { scrollbar-width: thin; }
+        .kanban-wrapper:hover::-webkit-scrollbar { height: 4px; }
+        .kanban-wrapper:hover::-webkit-scrollbar-track { background: transparent; }
+        .kanban-wrapper:hover::-webkit-scrollbar-thumb {
+          background: var(--border-secondary);
+          border-radius: 4px;
         }
         .kanban-column { 
           --kanban-col-w: min(236px, calc(100vw - 40px));
@@ -1875,6 +1876,44 @@ const Pipeline = () => {
           gap: 6px; white-space: nowrap;
         }
         .import-btn-pipe:hover { filter: brightness(1.1); }
+        .pipeline-btn-secondary,
+        .pipeline-btn-outline {
+          min-height: 38px;
+          padding: 0 14px;
+          border-radius: var(--radius-sm);
+          font-size: 0.8rem;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+        }
+        .pipeline-btn-secondary {
+          background: var(--surface-hover);
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+        }
+        .pipeline-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+        .pipeline-btn-outline {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+        }
+        .pipeline-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+        .header-right .export-btn {
+          min-height: 34px;
+          padding: 0 10px;
+          border: 1px solid var(--border);
+          background: transparent;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .header-right .export-btn:hover {
+          background: var(--surface-hover);
+          border-color: var(--border-secondary);
+          color: var(--text-secondary);
+        }
         .origin-group { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 8px; background: var(--surface); }
         .origin-select { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 700; }
         .stage-editor { margin-top: 10px; padding-bottom: 10px; }

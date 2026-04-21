@@ -8,6 +8,7 @@ import {
   Boxes,
   BarChart3,
   MessageCircle,
+  LogOut,
   ChevronLeft,
   ChevronRight,
   Building2,
@@ -75,6 +76,12 @@ const App = () => {
   const isActive = (path) => location.pathname === path;
   const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
   const academyIdStore = useLeadStore((s) => s.academyId);
+  const academyName = useMemo(() => {
+    if (!academyIdStore) return '';
+    const current = (academyList || []).find((a) => a.id === academyIdStore);
+    return String(current?.name || '').trim();
+  }, [academyList, academyIdStore]);
+
   const billingAccessTop = useLeadStore((s) => s.billingAccess);
 
   const topbarTrialChip = useMemo(() => {
@@ -760,13 +767,18 @@ const App = () => {
                 <NaviLogo size={22} variant="white" />
                 <NaviWordmark fontSize={18} variant="light" />
               </button>
+              {academyName ? (
+                <span className="navi-topbar-academy-name" title={academyName}>
+                  {academyName}
+                </span>
+              ) : null}
             </div>
             <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {topbarTrialChip}
               {academySelect}
               <NotificationBell academyId={academyIdStore} userId={user?.$id} />
-              <button type="button" className="navi-topbar-logout" onClick={handleLogout}>
-                Sair
+              <button type="button" className="navi-topbar-logout" onClick={handleLogout} title="Sair">
+                <LogOut size={16} aria-hidden />
               </button>
             </div>
           </header>
@@ -874,21 +886,39 @@ const App = () => {
             font-size: 13px;
           }
           .navi-topbar-select option { color: var(--ink); background: var(--white); }
+          .navi-topbar-brand-slot {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+          }
+          .navi-topbar-academy-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 34vw;
+          }
           .navi-topbar-logout {
             background: transparent;
-            color: rgba(255,255,255,0.85);
-            border: 0.5px solid rgba(255,255,255,0.35);
-            border-radius: 9px;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 500;
+            color: rgba(255,255,255,0.75);
+            border: none;
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
             cursor: pointer;
-            min-height: auto;
-            transition: background 0.15s ease, border-color 0.15s ease;
+            min-height: 32px;
+            transition: background 0.15s ease, color 0.15s ease;
           }
           .navi-topbar-logout:hover {
             background: rgba(255,255,255,0.1);
-            border-color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.95);
           }
         `}} />
     </div>

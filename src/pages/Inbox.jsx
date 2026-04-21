@@ -27,6 +27,14 @@ function normalizePhone(v) {
   return raw.replace(/[^\d]/g, '');
 }
 
+function formatPhone(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  const local = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  return raw;
+}
+
 async function getJwt() {
   const jwt = await account.createJWT();
   return String(jwt?.jwt || '').trim();
@@ -1940,7 +1948,7 @@ export default function Inbox() {
       const leadFromPhone = phone ? leadByPhone.get(normalizePhone(phone)) : null;
       const lead = leadFromId || leadFromPhone;
       const name = String(lead?.name || '').trim() || String(it?.lead_name || '').trim() || String(it?.contact_name || '').trim();
-      const displayTitle = name || phone || '-';
+      const displayTitle = name || formatPhone(phone) || '-';
       const lastRole = String(it?.last_message_role || '').trim() || '';
       const lastSender = String(it?.last_message_sender || '').trim() || '';
       const unreadCount = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
@@ -2530,7 +2538,25 @@ export default function Inbox() {
   );
 
   const threadPanel = !selectedPhone ? (
-    <ThreadState type="none-selected" />
+    <div
+      style={{
+        minHeight: '62vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <div style={{ textAlign: 'center', color: 'var(--text-secondary)', maxWidth: 420 }}>
+        <MessageSquare size={44} strokeWidth={1.35} style={{ margin: '0 auto 14px', opacity: 0.55, color: 'var(--text-muted)' }} aria-hidden />
+        <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          Nenhuma conversa selecionada
+        </p>
+        <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>
+          Escolha uma conversa à esquerda para ver o histórico e responder o contato.
+        </p>
+      </div>
+    </div>
   ) : (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
       <div className="inbox-thread-header" style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -3858,7 +3884,7 @@ export default function Inbox() {
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
           <h2 className="navi-page-title" style={{ margin: 0 }}>Atendimento</h2>
-          <div className="navi-eyebrow" style={{ marginTop: 6 }}>
+          <div className="navi-eyebrow" style={{ marginTop: 6, whiteSpace: 'nowrap', textTransform: 'none' }}>
             {loading ? (
               'Carregando…'
             ) : (
@@ -3867,7 +3893,10 @@ export default function Inbox() {
                 {lastUpdatedAt ? (
                   <>
                     {' '}
-                    • atualizado <span className="navi-ui-date">{formatWhen(lastUpdatedAt)}</span>
+                    · atualizado às{' '}
+                    <span className="navi-ui-date">
+                      {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </>
                 ) : null}
               </>
@@ -3880,35 +3909,43 @@ export default function Inbox() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por telefone ou nome…"
               className="form-input"
-              style={{ flex: '1 1 320px', minWidth: 260, maxWidth: 520 }}
+              style={{ flex: '1 1 300px', minWidth: 240, maxWidth: 420 }}
             />
-            <button className="btn btn-secondary" onClick={() => loadList({ reset: true })} disabled={loading}>
-              Atualizar
-            </button>
-            <button
-              className={autoRefresh ? 'btn btn-secondary' : 'btn btn-outline'}
-              onClick={() => setAutoRefresh((v) => !v)}
-              title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
-              style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-              type="button"
-            >
-              <span style={{ fontSize: 14 }}>↻</span>
-              {autoRefresh ? 'Ao vivo' : 'Pausado'}
-            </button>
-            <button
-              className={desktopNotify ? 'btn btn-secondary' : 'btn btn-outline'}
-              onClick={() => void toggleDesktopNotifyPreference()}
-              title={
-                desktopNotify
-                  ? 'Alertas do sistema ativos (notificação do Windows/macOS)'
-                  : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
-              }
-              style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-              type="button"
-            >
-              {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-              Alertas
-            </button>
+            <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+              <button
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', minHeight: 34 }}
+                onClick={() => loadList({ reset: true })}
+                disabled={loading}
+                type="button"
+              >
+                Atualizar
+              </button>
+              <button
+                className={autoRefresh ? 'btn btn-primary' : 'btn btn-outline'}
+                onClick={() => setAutoRefresh((v) => !v)}
+                title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
+                style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                type="button"
+              >
+                <span style={{ fontSize: 14 }}>↻</span>
+                Ao vivo
+              </button>
+              <button
+                className={desktopNotify ? 'btn btn-secondary' : 'btn btn-outline'}
+                onClick={() => void toggleDesktopNotifyPreference()}
+                title={
+                  desktopNotify
+                    ? 'Alertas do sistema ativos (notificação do Windows/macOS)'
+                    : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
+                }
+                style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                type="button"
+              >
+                {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+                Alertas
+              </button>
+            </div>
           </div>
       </div>
 

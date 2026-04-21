@@ -137,11 +137,11 @@ export default function ConversationItem({
               <span
                 className="text-small"
                 style={{
-                  background: contactType === 'student' ? 'rgba(34, 197, 94, 0.14)' : 'rgba(245, 158, 11, 0.16)',
-                  color: contactType === 'student' ? '#15803d' : '#b45309',
-                  padding: '1px 8px',
-                  borderRadius: 999,
-                  fontWeight: 800,
+                  color: 'var(--text-secondary)',
+                  fontSize: 10,
+                  padding: 0,
+                  borderRadius: 0,
+                  fontWeight: 600,
                   flexShrink: 0
                 }}
               >
