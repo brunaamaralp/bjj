@@ -658,17 +658,24 @@ const Students = () => {
                 <div
                     style={{
                         flex: '0 0 45%',
-                        overflowY: 'auto',
+                        overflow: 'hidden',
                         background: 'var(--surface)',
                         padding: 24,
                         minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                        boxSizing: 'border-box',
                     }}
                 >
-                    <StudentPanel
-                        student={selectedStudent}
-                        onClose={() => setSelectedStudent(null)}
-                        onSave={handlePanelSave}
-                    />
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                        <StudentPanel
+                            student={selectedStudent}
+                            onClose={() => setSelectedStudent(null)}
+                            onSave={handlePanelSave}
+                            isNarrow={isNarrow}
+                        />
+                    </div>
                 </div>
             ) : null}
             </div>
@@ -680,16 +687,23 @@ const Students = () => {
                         inset: 0,
                         zIndex: 50,
                         background: 'var(--surface)',
-                        overflowY: 'auto',
+                        overflow: 'hidden',
                         padding: 24,
                         paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                        boxSizing: 'border-box',
                     }}
                 >
-                    <StudentPanel
-                        student={selectedStudent}
-                        onClose={() => setSelectedStudent(null)}
-                        onSave={handlePanelSave}
-                    />
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                        <StudentPanel
+                            student={selectedStudent}
+                            onClose={() => setSelectedStudent(null)}
+                            onSave={handlePanelSave}
+                            isNarrow={isNarrow}
+                        />
+                    </div>
                 </div>
             ) : null}
 

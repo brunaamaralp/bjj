@@ -762,20 +762,15 @@ const App = () => {
 
         <div className="navi-main-stack">
           <header className="navi-topbar">
-            <div className="navi-topbar-brand-slot">
-              <button type="button" className="navi-topbar-brand" onClick={() => navigate('/')}>
-                <NaviLogo size={22} variant="white" />
-                <NaviWordmark fontSize={18} variant="light" />
-              </button>
+            <div className="navi-topbar-spacer" aria-hidden="true" />
+            <div className="navi-topbar-actions">
+              {topbarTrialChip}
+              {academySelect}
               {academyName ? (
                 <span className="navi-topbar-academy-name" title={academyName}>
                   {academyName}
                 </span>
               ) : null}
-            </div>
-            <div className="flex items-center gap-4" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {topbarTrialChip}
-              {academySelect}
               <NotificationBell academyId={academyIdStore} userId={user?.$id} />
               <button type="button" className="navi-topbar-logout" onClick={handleLogout} title="Sair">
                 <LogOut size={16} aria-hidden />
@@ -886,9 +881,15 @@ const App = () => {
             font-size: 13px;
           }
           .navi-topbar-select option { color: var(--ink); background: var(--white); }
-          .navi-topbar-brand-slot {
-            display: inline-flex;
+          .navi-topbar-spacer {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .navi-topbar-actions {
+            display: flex;
             align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
             gap: 10px;
             min-width: 0;
           }

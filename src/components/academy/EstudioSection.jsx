@@ -6,14 +6,24 @@ import { formatCpfCnpjMask } from '../../../lib/billing/validation.js';
 
 const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
 
-const InfoRow = ({ icon, label, value }) => (
+const InfoRow = ({ icon, label, value, showAddInline, onAdd }) => (
     <div className="info-row">
         <span className="info-row-icon">{icon}</span>
         <span className="info-row-label">{label}</span>
         {value ? (
             <span className="info-row-value">{value}</span>
         ) : (
-            <span className="info-row-empty">Não informado</span>
+            <span className="info-row-empty">
+                Não informado
+                {showAddInline && typeof onAdd === 'function' ? (
+                    <>
+                        {' '}
+                        <button type="button" className="academy-field-add-link" onClick={onAdd}>
+                            Adicionar →
+                        </button>
+                    </>
+                ) : null}
+            </span>
         )}
     </div>
 );
@@ -179,9 +189,21 @@ const EstudioSection = ({
                 ) : (
                     <div className="flex-col gap-2">
                         <InfoRow icon={<Building2 size={16} />} label="Nome" value={academy.name} />
-                        <InfoRow icon={<Phone size={16} />} label="Telefone" value={academy.phone} />
+                        <InfoRow
+                            icon={<Phone size={16} />}
+                            label="Telefone"
+                            value={academy.phone}
+                            showAddInline={role === 'owner'}
+                            onAdd={() => setEditing(true)}
+                        />
                         <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
-                        <InfoRow icon={<MapPin size={16} />} label="Endereço" value={academy.address} />
+                        <InfoRow
+                            icon={<MapPin size={16} />}
+                            label="Endereço"
+                            value={academy.address}
+                            showAddInline={role === 'owner'}
+                            onAdd={() => setEditing(true)}
+                        />
                         {billingLive && role === 'owner' && taxUpdateNeeded ? (
                             <div
                                 className="info-row"
@@ -198,10 +220,35 @@ const EstudioSection = ({
                         {billingLive && role === 'owner' && companyTaxRegistered && !taxUpdateNeeded ? (
                             <InfoRow icon={<Building2 size={16} />} label="Fiscal" value="CPF/CNPJ cadastrado" />
                         ) : null}
-                        <InfoRow icon={<ClockIcon />} label="Horários rápidos" value={academy.quickTimes} />
+                        <InfoRow
+                            icon={<ClockIcon />}
+                            label="Horários rápidos"
+                            value={academy.quickTimes}
+                            showAddInline={role === 'owner'}
+                            onAdd={() => setEditing(true)}
+                        />
                     </div>
                 )}
             </div>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+        .academy-field-add-link {
+          margin: 0;
+          padding: 0;
+          border: none;
+          background: transparent;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--accent);
+          cursor: pointer;
+          text-decoration: none;
+          font-family: inherit;
+        }
+        .academy-field-add-link:hover {
+          text-decoration: underline;
+        }
+      `,
+            }} />
         </section>
     );
 };

@@ -466,20 +466,18 @@ button:active {
   box-shadow: 0 1px 4px rgba(91, 63, 191, 0.08);
 }
 
-/* Marca só na topbar em mobile: no desktop o sidebar já traz ícone + wordmark Nave */
-.navi-topbar-brand-slot {
+.navi-topbar-spacer {
+  flex: 1 1 auto;
   min-width: 0;
-  flex: 0 1 auto;
 }
 
-@media (min-width: 1024px) {
-  .navi-topbar-brand-slot {
-    display: none;
-  }
-
-  .navi-topbar {
-    justify-content: flex-end;
-  }
+.navi-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
 }
 
 .navi-topbar-brand {

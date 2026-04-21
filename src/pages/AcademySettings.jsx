@@ -292,7 +292,7 @@ const AcademySettings = () => {
                     Voltar à conta
                 </Link>
                 <h2 className="navi-page-title">{academy.name || 'Minha academia'}</h2>
-                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Configurações da academia</p>
+                <p className="academy-settings-page-subtitle">Configurações da academia</p>
             </div>
 
             {academyLoadState === 'error' && (
@@ -438,7 +438,16 @@ const AcademySettings = () => {
         }
         .info-row:last-child { border-bottom: none; }
         .info-row-icon { color: var(--text-muted); flex-shrink: 0; }
-        .info-row-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; min-width: 70px; }
+        .academy-settings-page-subtitle {
+          margin: 8px 0 0;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          letter-spacing: 0.01em;
+          text-transform: none;
+          font-family: var(--ff-ui, inherit);
+        }
+        .info-row-label { font-size: 0.75rem; color: var(--text-muted); text-transform: none; letter-spacing: 0.02em; min-width: 70px; font-weight: 600; }
         .info-row-value { font-size: 0.9rem; color: var(--text); font-weight: 500; }
         .info-row-empty { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
         .action-row {
