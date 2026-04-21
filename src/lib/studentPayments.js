@@ -1,58 +1,84 @@
-import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite';
-import { ID } from 'appwrite';
+import { Query, ID } from 'appwrite';
+import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
 
-const STUDENT_PAYMENTS_COL = String(import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '').trim();
+const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
-/**
- * Registra pagamento do aluno e espelha em FINANCIAL_TX (fire-and-forget).
- * @param {object} data
- * @param {string} data.academy_id
- * @param {string} [data.lead_id]
- * @param {string} [data.method]
- * @param {string} [data.plan_name]
- * @param {number} data.amount
- * @param {string} [data.status] — ex.: 'paid' | 'pending'
- * @param {string} [data.paid_at]
- * @param {string} [data.note]
- * @param {string} [data.reference_month]
- */
+export async function getStudentPayments(leadId, academyId) {
+  if (!PAYMENTS_COL || !leadId || !academyId) return [];
+  const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
+    Query.equal('lead_id', leadId),
+    Query.equal('academy_id', academyId),
+    Query.orderDesc('reference_month'),
+    Query.limit(24),
+  ]);
+  return res.documents;
+}
+
 export async function createPayment(data) {
-  if (!STUDENT_PAYMENTS_COL) {
+  if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');
   }
-  const doc = await databases.createDocument(DB_ID, STUDENT_PAYMENTS_COL, ID.unique(), {
+  const payload = {
+    lead_id: data.lead_id,
     academy_id: data.academy_id,
-    lead_id: data.lead_id || '',
-    method: data.method || 'pix',
-    plan_name: data.plan_name || '',
-    amount: Number(data.amount) || 0,
-    status: data.status || 'pending',
-    paid_at: data.paid_at || '',
-    note: data.note || '',
-    reference_month: data.reference_month || '',
-  });
+    amount: data.amount,
+    method: data.method,
+    account: data.account ?? '',
+    plan_name: data.plan_name ?? '',
+    status: data.status,
+    reference_month: data.reference_month,
+    due_date: data.due_date ?? null,
+    paid_at: data.paid_at ?? null,
+    registered_by: data.registered_by ?? '',
+    registered_by_name: data.registered_by_name ?? '',
+    note: data.note ?? '',
+  };
+  const doc = await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload);
 
   if (FINANCIAL_TX_COL) {
-    const settled = data.status === 'paid';
-    const settledAt = settled ? (data.paid_at || new Date().toISOString()) : '';
     databases
       .createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), {
         academyId: data.academy_id,
         saleId: '',
-        lead_id: data.lead_id || '',
-        method: data.method || 'pix',
+        lead_id: data.lead_id,
+        method: data.method,
         installments: 1,
         type: 'plan',
         planName: data.plan_name || '',
-        gross: Number(data.amount) || 0,
+        gross: data.amount,
         fee: 0,
-        net: Number(data.amount) || 0,
-        status: settled ? 'settled' : 'pending',
-        settledAt,
-        note: data.note || `Mensalidade ${data.reference_month || ''}`.trim(),
+        net: data.amount,
+        status: data.status === 'paid' ? 'settled' : 'pending',
+        settledAt: data.status === 'paid' ? data.paid_at || new Date().toISOString() : '',
+        note: data.note || `Mensalidade ${data.reference_month}`,
       })
       .catch((err) => console.error('financial_tx mirror failed:', err));
   }
 
   return doc;
+}
+
+export async function updatePayment(paymentId, data) {
+  if (!PAYMENTS_COL) {
+    throw new Error('student_payments_collection_not_configured');
+  }
+  return databases.updateDocument(DB_ID, PAYMENTS_COL, paymentId, data);
+}
+
+export async function getPaymentStatus(leadId, academyId) {
+  if (!PAYMENTS_COL || !leadId || !academyId) {
+    return { status: 'none', payment: null };
+  }
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
+    Query.equal('lead_id', leadId),
+    Query.equal('academy_id', academyId),
+    Query.equal('reference_month', currentMonth),
+    Query.limit(1),
+  ]);
+  const doc = res.documents[0] || null;
+  if (!doc) return { status: 'none', payment: null };
+  if (doc.status === 'paid') return { status: 'paid', payment: doc };
+  return { status: 'pending', payment: doc };
 }

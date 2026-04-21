@@ -9,6 +9,42 @@ import { useAccountingStore, seedAccounts } from '../store/useAccountingStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages';
 
+function montarLancamento(tx, accounts, academyId) {
+  const findId = (code) => accounts.find((a) => a.code === code)?.id;
+
+  const caixaId = findId('1.1.1');
+  const receitaId = findId('4.1.1');
+  const despFinId = findId('7.1.1');
+
+  if (!caixaId || !receitaId) return null;
+
+  const gross = Number(tx.gross) || 0;
+  const fee = Number(tx.fee) || 0;
+  const net = Number(tx.net) || gross;
+
+  const lines = [];
+
+  if (fee > 0 && despFinId) {
+    lines.push(
+      { accountId: caixaId, debit: net, credit: 0, cash: true, counterCode: '4.1.1' },
+      { accountId: despFinId, debit: fee, credit: 0, cash: false, counterCode: '4.1.1' },
+      { accountId: receitaId, debit: 0, credit: gross, cash: false, counterCode: '1.1.1' }
+    );
+  } else {
+    lines.push(
+      { accountId: caixaId, debit: gross, credit: 0, cash: true, counterCode: '4.1.1' },
+      { accountId: receitaId, debit: 0, credit: gross, cash: false, counterCode: '1.1.1' }
+    );
+  }
+
+  return {
+    date: new Date().toISOString().split('T')[0],
+    memo: `Liquidação: ${tx.planName || tx.type || 'transação'} · ${tx.id}`,
+    lines,
+    academyId
+  };
+}
+
 const Finance = () => {
   const academyId = useLeadStore(s => s.academyId);
   const leads = useLeadStore((s) => s.leads);
@@ -187,6 +223,23 @@ const Finance = () => {
       }
       const nowIso = new Date().toISOString();
       setTransactions((prev) => prev.map(t => t.id === id ? { ...t, status: 'settled', settledAt: nowIso } : t));
+      addToast({ type: 'success', message: 'Transação liquidada com sucesso' });
+      const tx = transactions.find((t) => t.id === id);
+      const { accounts: storeAccounts, addEntry: storeAddEntry } = useAccountingStore.getState();
+      if (tx && academyId) {
+        const lancamento = montarLancamento(tx, storeAccounts, academyId);
+        if (lancamento) {
+          storeAddEntry(lancamento);
+          if (JOURNAL_COL) {
+            databases.createDocument(DB_ID, JOURNAL_COL, ID.unique(), {
+              academyId,
+              date: lancamento.date,
+              memo: lancamento.memo,
+              lines: JSON.stringify(lancamento.lines)
+            }).catch((err) => console.error('journal entry failed:', err));
+          }
+        }
+      }
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', message: friendlyError(e, 'action') });

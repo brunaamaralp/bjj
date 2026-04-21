@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Pencil, User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
+import { getStudentPayments, createPayment, getPaymentStatus } from '../lib/studentPayments.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -110,6 +111,39 @@ function formatCheckinAt(iso) {
     return `${date} · ${time}`;
 }
 
+function capitalizePtBrMonthYear(s) {
+    if (!s) return '';
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** reference_month YYYY-MM → "Abril 2026" (usa dia 02 para evitar timezone) */
+function formatReferenceMonthLong(ym) {
+    if (!ym || String(ym).length < 7) return '';
+    try {
+        const raw = new Date(`${String(ym).slice(0, 7)}-02`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        return capitalizePtBrMonthYear(raw);
+    } catch {
+        return '';
+    }
+}
+
+function formatDdMmYyyyFromIso(iso) {
+    if (!iso) return '';
+    try {
+        return new Date(`${String(iso).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR');
+    } catch {
+        return '';
+    }
+}
+
+const METHOD_PAYMENT_LABELS = {
+    pix: 'PIX',
+    dinheiro: 'Dinheiro',
+    cartão_débito: 'Cartão débito',
+    cartão_crédito: 'Cartão crédito',
+    transferência: 'Transferência',
+};
+
 export default function StudentProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -163,6 +197,23 @@ export default function StudentProfile() {
     const [freqError, setFreqError] = useState(false);
     /** Código HTTP do Appwrite (ex.: 401 permissão). */
     const [freqErrorCode, setFreqErrorCode] = useState(null);
+    const [payments, setPayments] = useState([]);
+    const [loadingPayments, setLoadingPayments] = useState(true);
+    const [paymentsError, setPaymentsError] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentStatus, setPaymentStatus] = useState(null);
+    const [payForm, setPayForm] = useState({
+        reference_month: new Date().toISOString().slice(0, 7),
+        amount: '',
+        method: 'pix',
+        account: '',
+        status: 'paid',
+        paid_at: new Date().toISOString().slice(0, 10),
+        due_date: '',
+        plan_name: '',
+        note: '',
+    });
+    const [savingPayment, setSavingPayment] = useState(false);
     const [viewportStacked, setViewportStacked] = useState(
         () => typeof window !== 'undefined' && window.innerWidth < 1024
     );
@@ -242,6 +293,37 @@ export default function StudentProfile() {
     useEffect(() => {
         void loadFrequency();
     }, [loadFrequency]);
+
+    const loadPayments = useCallback(async () => {
+        if (!leadId || !academyId) {
+            setPayments([]);
+            setPaymentStatus({ status: 'none', payment: null });
+            setLoadingPayments(false);
+            setPaymentsError(false);
+            return;
+        }
+        setLoadingPayments(true);
+        setPaymentsError(false);
+        try {
+            const [docs, status] = await Promise.all([
+                getStudentPayments(leadId, academyId),
+                getPaymentStatus(leadId, academyId),
+            ]);
+            setPayments(docs);
+            setPaymentStatus(status);
+        } catch (e) {
+            console.error(e);
+            setPaymentsError(true);
+            setPayments([]);
+            setPaymentStatus({ status: 'none', payment: null });
+        } finally {
+            setLoadingPayments(false);
+        }
+    }, [leadId, academyId]);
+
+    useEffect(() => {
+        void loadPayments();
+    }, [loadPayments]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -495,6 +577,62 @@ export default function StudentProfile() {
         }
     };
 
+    const openPaymentModal = useCallback(() => {
+        if (!student) return;
+        setPayForm({
+            reference_month: new Date().toISOString().slice(0, 7),
+            amount: student.plan_price != null && student.plan_price !== '' ? String(student.plan_price) : '',
+            method: 'pix',
+            account: '',
+            status: 'paid',
+            paid_at: new Date().toISOString().slice(0, 10),
+            due_date: '',
+            plan_name: student.plan || '',
+            note: '',
+        });
+        setShowPaymentModal(true);
+    }, [student]);
+
+    const saveStudentPayment = useCallback(async () => {
+        if (!student || !academyId || savingPayment) return;
+        const amountNum = parseFloat(String(payForm.amount || '').replace(',', '.'));
+        if (!Number.isFinite(amountNum) || amountNum <= 0) {
+            addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
+            return;
+        }
+        const data = {
+            lead_id: student.id,
+            academy_id: academyId,
+            amount: amountNum,
+            method: payForm.method,
+            account: payForm.account || '',
+            plan_name: payForm.plan_name || student.plan || '',
+            status: payForm.status,
+            reference_month: payForm.reference_month,
+            due_date: payForm.status === 'pending' && payForm.due_date ? new Date(payForm.due_date).toISOString() : null,
+            paid_at: payForm.status === 'paid' && payForm.paid_at ? new Date(payForm.paid_at).toISOString() : null,
+            registered_by: userId || '',
+            registered_by_name: sessionUserName,
+            note: payForm.note || '',
+        };
+        setSavingPayment(true);
+        try {
+            const doc = await createPayment(data);
+            setPayments((prev) => [doc, ...prev]);
+            const localYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            if (doc.reference_month === localYm) {
+                if (doc.status === 'paid') setPaymentStatus({ status: 'paid', payment: doc });
+                else setPaymentStatus({ status: 'pending', payment: doc });
+            }
+            setShowPaymentModal(false);
+            addToast({ type: 'success', message: 'Pagamento registrado.' });
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setSavingPayment(false);
+        }
+    }, [student, academyId, savingPayment, payForm, userId, sessionUserName, addToast]);
+
     const inputStyle = {
         padding: '9px 12px',
         borderRadius: 8,
@@ -550,6 +688,8 @@ export default function StudentProfile() {
     const tempoCasa = enrollmentYmd ? calcTempoDeCasa(enrollmentYmd) : null;
     const showRightPanel = timelineOpen;
     const studentsPlural = uiLabels.students || 'Alunos';
+    const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthExtended = formatReferenceMonthLong(currentYm);
 
     const renderFieldRows = (fields) =>
         fields.map((field) => {
@@ -770,24 +910,72 @@ export default function StudentProfile() {
                     style={{
                         borderRadius: 10,
                         padding: '12px 14px',
-                        background: BG_SECONDARY,
                         marginBottom: 8,
                         textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                        background:
+                            paymentStatus === null && loadingPayments
+                                ? BG_SECONDARY
+                                : paymentStatus?.status === 'paid'
+                                  ? '#EAF3DE'
+                                  : paymentStatus?.status === 'pending'
+                                    ? '#FCEBEB'
+                                    : 'var(--surface-hover)',
                     }}
                 >
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                        Plano: {student.plan || form.plan || 'Não informado'}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
-                        {!loadingFreq && freqStats != null ? (
+                    <div style={{ minWidth: 0 }}>
+                        {paymentStatus === null && loadingPayments ? (
                             <>
-                                {freqStats.thisMonth} presenças este mês
-                                {tempoCasa ? ` · ${tempoCasa} de casa` : ''}
+                                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Carregando...</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Status do mês</div>
                             </>
-                        ) : tempoCasa ? (
-                            <>{tempoCasa} de casa</>
-                        ) : null}
+                        ) : paymentStatus?.status === 'paid' ? (
+                            <>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Pagamento em dia</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
+                                    {currentMonthExtended} · pago em{' '}
+                                    {formatDateBR(String(paymentStatus.payment?.paid_at || '').slice(0, 10)) || '—'}
+                                </div>
+                            </>
+                        ) : paymentStatus?.status === 'pending' ? (
+                            <>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Pagamento pendente</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
+                                    {currentMonthExtended} ·{' '}
+                                    {paymentStatus.payment?.due_date
+                                        ? `vence ${formatDateBR(String(paymentStatus.payment.due_date).slice(0, 10))}`
+                                        : 'vencimento não definido'}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Sem registro este mês</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
+                                    Registre o pagamento na aba Pagamentos
+                                </div>
+                            </>
+                        )}
                     </div>
+                    {paymentStatus === null && loadingPayments ? (
+                        <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
+                            …
+                        </span>
+                    ) : paymentStatus?.status === 'paid' ? (
+                        <span className="badge-success" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
+                            Em dia
+                        </span>
+                    ) : paymentStatus?.status === 'pending' ? (
+                        <span className="badge-danger" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
+                            Inadimplente
+                        </span>
+                    ) : (
+                        <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
+                            Não registrado
+                        </span>
+                    )}
                 </div>
 
                 <button
@@ -1209,18 +1397,151 @@ export default function StudentProfile() {
                 ) : null}
 
                 {activeTab === 'payments' ? (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minHeight: 200,
-                            color: 'var(--text-secondary)',
-                            fontSize: 14,
-                            textAlign: 'center',
-                        }}
-                    >
-                        Histórico de pagamentos disponível em breve
+                    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 120 }}>
+                        <button
+                            type="button"
+                            onClick={() => openPaymentModal()}
+                            style={{
+                                width: '100%',
+                                marginBottom: 12,
+                                padding: '12px 14px',
+                                borderRadius: 10,
+                                border: 'none',
+                                background: '#5B3FBF',
+                                color: '#fff',
+                                fontSize: 13,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                            }}
+                        >
+                            + Registrar pagamento
+                        </button>
+                        {loadingPayments ? (
+                            <div
+                                style={{
+                                    textAlign: 'center',
+                                    color: 'var(--text-secondary)',
+                                    padding: 24,
+                                    fontSize: 14,
+                                }}
+                            >
+                                Carregando pagamentos...
+                            </div>
+                        ) : paymentsError ? (
+                            <div
+                                style={{
+                                    textAlign: 'center',
+                                    color: 'var(--text-secondary)',
+                                    padding: 24,
+                                    fontSize: 14,
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Erro ao carregar ·{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => void loadPayments()}
+                                    style={{
+                                        border: 'none',
+                                        background: 'none',
+                                        color: 'var(--accent)',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline',
+                                        fontFamily: 'inherit',
+                                        fontSize: 14,
+                                        padding: 0,
+                                    }}
+                                >
+                                    Tentar novamente
+                                </button>
+                            </div>
+                        ) : payments.length === 0 ? (
+                            <div
+                                style={{
+                                    textAlign: 'center',
+                                    color: 'var(--text-secondary)',
+                                    fontSize: 14,
+                                    padding: '16px 8px',
+                                }}
+                            >
+                                Nenhum pagamento registrado
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {payments.map((payment) => {
+                                    const st = String(payment.status || '');
+                                    const leftBorder =
+                                        st === 'pending'
+                                            ? '2px solid var(--danger)'
+                                            : st === 'paid'
+                                              ? '2px solid var(--success)'
+                                              : '2px solid var(--border)';
+                                    const amountColor =
+                                        st === 'paid'
+                                            ? 'var(--success)'
+                                            : st === 'pending'
+                                              ? 'var(--danger)'
+                                              : 'var(--text-muted)';
+                                    const monthTitle = formatReferenceMonthLong(payment.reference_month);
+                                    const subLine =
+                                        st === 'paid'
+                                            ? `${METHOD_PAYMENT_LABELS[payment.method] || payment.method} · pago em ${formatDdMmYyyyFromIso(payment.paid_at)}`
+                                            : st === 'pending'
+                                              ? `Pendente · ${
+                                                    payment.due_date
+                                                        ? `vence ${formatDdMmYyyyFromIso(payment.due_date)}`
+                                                        : 'sem vencimento'
+                                                }`
+                                              : '';
+                                    return (
+                                        <div
+                                            key={payment.$id}
+                                            style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                gap: 12,
+                                                padding: '8px 12px',
+                                                background: 'var(--surface)',
+                                                border: '0.5px solid var(--border-light)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                borderLeft: leftBorder,
+                                            }}
+                                        >
+                                            <div style={{ minWidth: 0, textAlign: 'left' }}>
+                                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{monthTitle}</div>
+                                                {subLine ? (
+                                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                                        {subLine}
+                                                    </div>
+                                                ) : null}
+                                                {payment.account ? (
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                                                        {payment.account}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                            <div
+                                                style={{
+                                                    fontSize: 14,
+                                                    fontWeight: 800,
+                                                    color: amountColor,
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                R${' '}
+                                                {Number(payment.amount || 0).toLocaleString('pt-BR', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 ) : null}
 
@@ -1482,6 +1803,279 @@ export default function StudentProfile() {
                                 }}
                             >
                                 {deleteBusy ? '…' : 'Excluir'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {showPaymentModal && student ? (
+                <div
+                    className="navi-modal-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="student-payment-modal-title"
+                    onClick={() => (savingPayment ? undefined : setShowPaymentModal(false))}
+                >
+                    <div
+                        className="card"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ maxWidth: 480, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 20 }}
+                    >
+                        <h3 id="student-payment-modal-title" style={{ margin: '0 0 14px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
+                            Registrar pagamento
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Mês de referência
+                                </label>
+                                <input
+                                    type="month"
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%' }}
+                                    value={payForm.reference_month}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, reference_month: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Status
+                                </label>
+                                <select
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%' }}
+                                    value={payForm.status}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, status: e.target.value }))}
+                                >
+                                    <option value="paid">Pago</option>
+                                    <option value="pending">Pendente</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Valor (R$)
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    placeholder="0,00"
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%' }}
+                                    value={payForm.amount}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+                                />
+                            </div>
+                            {payForm.status === 'paid' ? (
+                                <div>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            color: 'var(--text-muted)',
+                                            marginBottom: 6,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.06em',
+                                        }}
+                                    >
+                                        Data do pagamento
+                                    </label>
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        style={{ ...inputStyle, width: '100%' }}
+                                        value={payForm.paid_at}
+                                        onChange={(e) => setPayForm((p) => ({ ...p, paid_at: e.target.value }))}
+                                    />
+                                </div>
+                            ) : null}
+                            {payForm.status === 'pending' ? (
+                                <div>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            color: 'var(--text-muted)',
+                                            marginBottom: 6,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.06em',
+                                        }}
+                                    >
+                                        Data de vencimento
+                                    </label>
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        style={{ ...inputStyle, width: '100%' }}
+                                        value={payForm.due_date}
+                                        onChange={(e) => setPayForm((p) => ({ ...p, due_date: e.target.value }))}
+                                    />
+                                </div>
+                            ) : null}
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Forma de pagamento
+                                </label>
+                                <select
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%' }}
+                                    value={payForm.method}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, method: e.target.value }))}
+                                >
+                                    <option value="pix">PIX</option>
+                                    <option value="dinheiro">Dinheiro</option>
+                                    <option value="cartão_débito">Cartão débito</option>
+                                    <option value="cartão_crédito">Cartão crédito</option>
+                                    <option value="transferência">Transferência</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Conta (opcional)
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%' }}
+                                    placeholder="Ex: Caixa físico, Banco Inter"
+                                    value={payForm.account}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, account: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Plano
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%' }}
+                                    value={payForm.plan_name}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, plan_name: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--text-muted)',
+                                        marginBottom: 6,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                    }}
+                                >
+                                    Observação
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    className="form-input"
+                                    style={{ ...inputStyle, width: '100%', resize: 'vertical', minHeight: 64 }}
+                                    value={payForm.note}
+                                    onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+                            <button
+                                type="button"
+                                disabled={savingPayment}
+                                onClick={() => setShowPaymentModal(false)}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px 12px',
+                                    borderRadius: 10,
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface)',
+                                    fontWeight: 700,
+                                    cursor: savingPayment ? 'not-allowed' : 'pointer',
+                                    fontFamily: 'inherit',
+                                    color: 'var(--text-secondary)',
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                disabled={savingPayment}
+                                onClick={() => void saveStudentPayment()}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px 12px',
+                                    borderRadius: 10,
+                                    border: 'none',
+                                    background: '#5B3FBF',
+                                    color: '#fff',
+                                    fontWeight: 700,
+                                    cursor: savingPayment ? 'not-allowed' : 'pointer',
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                {savingPayment ? 'Salvando...' : 'Registrar'}
                             </button>
                         </div>
                     </div>
