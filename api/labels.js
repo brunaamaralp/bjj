@@ -101,7 +101,7 @@ export default async function handler(req, res) {
         DB_ID,
         LABELS_COL,
         ID.unique(),
-        { academy_id: academyId, name, color },
+        { academy_id: academyId, name, color, is_system: false },
         [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]
       );
       return json(res, 201, { sucesso: true, label: doc });
