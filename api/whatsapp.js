@@ -14,7 +14,6 @@ const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || proce
 
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || 'https://api.zapsterapi.com';
 const ZAPSTER_TOKEN = process.env.ZAPSTER_TOKEN || process.env.ZAPSTER_API_TOKEN || '';
-const ZAPSTER_INSTANCE_ID = process.env.ZAPSTER_INSTANCE_ID || '';
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
@@ -125,17 +124,19 @@ async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
 }
 
 async function getZapsterInstanceIdForAcademy(academyDoc, academyId) {
-  const fallback = String(ZAPSTER_INSTANCE_ID || '').trim();
   const id = String(academyId || '').trim();
-  if (!id || !ACADEMIES_COL) return fallback;
+  if (!id || !ACADEMIES_COL) return '';
   const direct = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
   if (direct) return direct;
   try {
     const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
+    if (!doc || String(doc.status || '').trim().toLowerCase() === 'inactive') {
+      return null;
+    }
     const v = String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
-    return v || fallback;
+    return v || '';
   } catch {
-    return fallback;
+    return '';
   }
 }
 
@@ -314,7 +315,7 @@ async function sendZapsterText({ recipient, text, instanceId, sendAt }) {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
   const url = `${urlBase}/v1/wa/messages`;
   const inst = String(instanceId || '').trim();
-  if (!inst) throw new Error('ZAPSTER_INSTANCE_ID ausente');
+  if (!inst) throw new Error('Instância Zapster (instance_id) ausente');
   const body = { recipient, text, instance_id: inst, ...(sendAt ? { send_at: sendAt } : {}) };
   const resp = await fetch(url, {
     method: 'POST',
@@ -578,8 +579,7 @@ export default async function handler(req, res) {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
     }
-    const academyInst = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
-    const instanceId = academyInst || String(ZAPSTER_INSTANCE_ID || '').trim();
+    const instanceId = String((await getZapsterInstanceIdForAcademy(academyDoc, academyId)) ?? '').trim();
     if (!instanceId) return res.status(400).json({ sucesso: false, erro: 'Instância Zapster não configurada' });
 
     const now = Date.now();
