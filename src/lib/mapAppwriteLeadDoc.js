@@ -68,6 +68,8 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     emergencyPhone: doc.emergencyPhone || '',
     cpf: doc.cpf || '',
     responsavel: doc.responsavel || '',
+    preferredPaymentMethod: doc.preferred_payment_method || '',
+    preferredPaymentAccount: doc.preferred_payment_account || '',
     labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : []
   };
 }

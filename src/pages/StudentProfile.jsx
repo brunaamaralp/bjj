@@ -96,6 +96,29 @@ const EMERGENCY_FIELDS = [
     { key: 'emergencyPhone', label: 'Telefone de emergência', type: 'tel', placeholder: 'Celular' },
 ];
 
+const PREFERRED_PAYMENT_SELECT_OPTIONS = [
+    { value: 'pix', label: 'PIX' },
+    { value: 'dinheiro', label: 'Dinheiro' },
+    { value: 'cartão_débito', label: 'Cartão débito' },
+    { value: 'cartão_crédito', label: 'Cartão crédito' },
+    { value: 'transferência', label: 'Transferência' },
+];
+
+const PAYMENT_HABIT_FIELDS = [
+    {
+        key: 'preferredPaymentMethod',
+        label: 'Forma de pagamento habitual',
+        type: 'select',
+        options: PREFERRED_PAYMENT_SELECT_OPTIONS,
+    },
+    {
+        key: 'preferredPaymentAccount',
+        label: 'Conta habitual',
+        type: 'text',
+        placeholder: 'Ex: Sicoob, Nubank, Caixa físico',
+    },
+];
+
 const BG_SECONDARY = 'var(--surface-hover)';
 
 function formatCheckinAt(iso) {
@@ -166,6 +189,8 @@ export default function StudentProfile() {
         responsavel: '',
         emergencyContact: '',
         emergencyPhone: '',
+        preferredPaymentMethod: '',
+        preferredPaymentAccount: '',
     });
     const [savingData, setSavingData] = useState(false);
     const [timelineOpen, setTimelineOpen] = useState(true);
@@ -234,6 +259,8 @@ export default function StudentProfile() {
             responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: student.emergencyPhone || '',
+            preferredPaymentMethod: student.preferredPaymentMethod || '',
+            preferredPaymentAccount: student.preferredPaymentAccount || '',
         });
         setEditingData(false);
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
@@ -433,6 +460,8 @@ export default function StudentProfile() {
             responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: student.emergencyPhone || '',
+            preferredPaymentMethod: student.preferredPaymentMethod || '',
+            preferredPaymentAccount: student.preferredPaymentAccount || '',
         });
         setEditingData(false);
     }, [student]);
@@ -682,6 +711,10 @@ export default function StudentProfile() {
             const s = String(raw ?? '').replace(/\D/g, '');
             return s ? maskCPF(s) : '';
         }
+        if (key === 'preferredPaymentMethod') {
+            const v = String(raw ?? '').trim();
+            return v ? METHOD_PAYMENT_LABELS[v] || v : '';
+        }
         return raw != null && String(raw).trim() ? String(raw).trim() : '';
     };
 
@@ -744,19 +777,37 @@ export default function StudentProfile() {
             >
                 {field.label}
             </label>
-            <input
-                id={`student-data-${field.key}`}
-                type={field.type}
-                className="student-profile-data-input"
-                placeholder={field.placeholder}
-                disabled={savingData}
-                value={dataForm[field.key] ?? ''}
-                onChange={(e) => {
-                    const v = field.key === 'cpf' ? maskCPF(e.target.value) : e.target.value;
-                    setDataForm((p) => ({ ...p, [field.key]: v }));
-                }}
-                style={dataFormInputStyle}
-            />
+            {field.type === 'select' && Array.isArray(field.options) ? (
+                <select
+                    id={`student-data-${field.key}`}
+                    className="student-profile-data-input"
+                    disabled={savingData}
+                    value={dataForm[field.key] ?? ''}
+                    onChange={(e) => setDataForm((p) => ({ ...p, [field.key]: e.target.value }))}
+                    style={{ ...dataFormInputStyle, cursor: 'pointer' }}
+                >
+                    <option value="">Selecione…</option>
+                    {field.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                            {o.label}
+                        </option>
+                    ))}
+                </select>
+            ) : (
+                <input
+                    id={`student-data-${field.key}`}
+                    type={field.type}
+                    className="student-profile-data-input"
+                    placeholder={field.placeholder}
+                    disabled={savingData}
+                    value={dataForm[field.key] ?? ''}
+                    onChange={(e) => {
+                        const v = field.key === 'cpf' ? maskCPF(e.target.value) : e.target.value;
+                        setDataForm((p) => ({ ...p, [field.key]: v }));
+                    }}
+                    style={dataFormInputStyle}
+                />
+            )}
         </div>
     );
 
@@ -1056,6 +1107,11 @@ export default function StudentProfile() {
                 <div style={{ marginBottom: 22 }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Contato de emergência</h3>
                     {editingData ? EMERGENCY_FIELDS.map(renderStudentDataEditRow) : EMERGENCY_FIELDS.map(renderStudentDataViewRow)}
+                </div>
+
+                <div style={{ marginBottom: 22 }}>
+                    <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Pagamento habitual</h3>
+                    {editingData ? PAYMENT_HABIT_FIELDS.map(renderStudentDataEditRow) : PAYMENT_HABIT_FIELDS.map(renderStudentDataViewRow)}
                 </div>
 
                 {editingData ? (

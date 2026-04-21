@@ -16,7 +16,8 @@ import {
   GraduationCap,
   Bot,
   FileText,
-  Wallet
+  Wallet,
+  CreditCard
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -39,6 +40,7 @@ import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Finance from './pages/Finance';
+import Mensalidades from './pages/Mensalidades';
 import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
@@ -682,14 +684,24 @@ const App = () => {
                 <span className="navi-side-link-label">Relatórios</span>
               </NavLink>
               {modules.finance === true && (
-                <NavLink
-                  to="/finance"
-                  className={sideLinkClass}
-                  title={sidebarCollapsed ? 'Financeiro' : undefined}
-                >
-                  <Wallet size={18} strokeWidth={1.75} />
-                  <span className="navi-side-link-label">Financeiro</span>
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/finance"
+                    className={sideLinkClass}
+                    title={sidebarCollapsed ? 'Financeiro' : undefined}
+                  >
+                    <Wallet size={18} strokeWidth={1.75} />
+                    <span className="navi-side-link-label">Financeiro</span>
+                  </NavLink>
+                  <NavLink
+                    to="/mensalidades"
+                    className={sideLinkClass}
+                    title={sidebarCollapsed ? 'Mensalidades' : undefined}
+                  >
+                    <CreditCard size={18} strokeWidth={1.75} />
+                    <span className="navi-side-link-label">Mensalidades</span>
+                  </NavLink>
+                </>
               )}
             </div>
 
@@ -829,6 +841,7 @@ const App = () => {
               <Route path="/new-lead" element={<NewLead />} />
               <Route path="/reports" element={<Reports />} />
               {modules.finance === true && <Route path="/finance" element={<Finance />} />}
+              {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />

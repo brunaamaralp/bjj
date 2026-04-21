@@ -14,6 +14,26 @@ export async function getStudentPayments(leadId, academyId) {
   return res.documents;
 }
 
+/**
+ * Lista pagamentos de todos os alunos da academia em um mês (YYYY-MM).
+ * Requer permissão de leitura na coleção filtrando por `academy_id` (não só por `lead_id`).
+ */
+export async function getMonthlyPayments(academyId, referenceMonth) {
+  const ym = String(referenceMonth || '').trim();
+  if (!PAYMENTS_COL || !academyId || !ym) return [];
+  try {
+    const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
+      Query.equal('academy_id', academyId),
+      Query.equal('reference_month', ym),
+      Query.limit(200),
+    ]);
+    return res.documents || [];
+  } catch (e) {
+    console.error('[studentPayments] getMonthlyPayments:', e);
+    return [];
+  }
+}
+
 export async function createPayment(data) {
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');

@@ -74,6 +74,12 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.enrollmentDate !== undefined) copyIf('enrollmentDate', u.enrollmentDate);
   if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
   if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);
+  if (u.preferredPaymentMethod !== undefined) {
+    patch.preferred_payment_method = u.preferredPaymentMethod || '';
+  }
+  if (u.preferredPaymentAccount !== undefined) {
+    patch.preferred_payment_account = u.preferredPaymentAccount || '';
+  }
   if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
   if (u.cpf !== undefined) patch.cpf = u.cpf || '';
   if (u.responsavel !== undefined) patch.responsavel = u.responsavel || '';
