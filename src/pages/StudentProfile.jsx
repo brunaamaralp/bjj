@@ -2,7 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Pencil, User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
-import { getStudentPayments, createPayment, getPaymentStatus } from '../lib/studentPayments.js';
+import {
+    getStudentPayments,
+    createPayment,
+    getPaymentStatus,
+    updatePayment as _updatePayment,
+} from '../lib/studentPayments.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';

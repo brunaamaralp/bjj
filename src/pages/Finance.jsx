@@ -864,6 +864,52 @@ const Finance = () => {
           .finance-reports-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--border-light); gap: 12px; }
           .finance-reports-row:last-child { border-bottom: none; }
           .finance-reports-row--total { font-weight: 600; background: var(--surface-hover); padding: 8px 10px; border-radius: var(--radius-sm); margin-top: 4px; border-bottom: none; }
+          .finance-journal-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+          .finance-journal-head-icon { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, rgba(91, 63, 191, 0.12), rgba(91, 63, 191, 0.04)); border: 0.5px solid var(--border-violet); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--v500, #5B3FBF); }
+          .finance-journal-lead { font-size: 13px; color: var(--text-secondary); line-height: 1.45; margin: 0; max-width: 640px; }
+          .finance-journal-panel { background: var(--surface-hover); border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); padding: 18px 18px 16px; margin-bottom: 20px; }
+          .finance-journal-panel-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px; }
+          .finance-journal-meta { display: grid; gap: 12px; margin-bottom: 18px; }
+          @media (min-width: 640px) {
+            .finance-journal-meta { grid-template-columns: 200px 1fr; align-items: end; }
+          }
+          .finance-journal-lines { display: flex; flex-direction: column; gap: 0; }
+          .finance-journal-line { display: grid; gap: 12px; padding: 14px 14px; margin-bottom: 10px; background: var(--surface); border: 0.5px solid var(--border-light); border-radius: var(--radius-sm); align-items: end; box-sizing: border-box; }
+          .finance-journal-line:last-of-type { margin-bottom: 0; }
+          @media (min-width: 1024px) {
+            .finance-journal-line {
+              grid-template-columns: minmax(200px, 2.2fr) minmax(96px, 1fr) minmax(96px, 1fr) minmax(100px, 0.9fr) minmax(120px, 1.1fr) 44px;
+            }
+          }
+          @media (min-width: 640px) and (max-width: 1023px) {
+            .finance-journal-line {
+              grid-template-columns: 1fr 1fr;
+            }
+            .finance-journal-line-col--account { grid-column: 1 / -1; }
+            .finance-journal-line-col--counter { grid-column: 1 / -1; }
+            .finance-journal-line-col--remove { grid-column: 1 / -1; justify-self: end; }
+          }
+          @media (max-width: 639px) {
+            .finance-journal-line { grid-template-columns: 1fr; }
+            .finance-journal-line-col--remove { justify-self: end; }
+          }
+          .finance-journal-line .form-group { margin-bottom: 0; }
+          .finance-journal-line .form-group label { font-size: 11px; }
+          .finance-journal-line-remove { display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px; }
+          .finance-journal-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 0.5px solid var(--border-light); }
+          .finance-journal-pills { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+          .finance-journal-pill { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 0.5px solid var(--border-light); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+          .finance-journal-pill--ok { background: var(--success-light); border-color: transparent; color: var(--success); }
+          .finance-journal-pill--warn { background: var(--danger-light); border-color: transparent; color: var(--danger); }
+          .finance-journal-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+          .finance-journal-btn-primary { border: none; border-radius: 10px; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; background: #5B3FBF; color: #fff; transition: opacity 0.15s ease, transform 0.1s ease; }
+          .finance-journal-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+          .finance-journal-btn-primary:not(:disabled):hover { filter: brightness(1.05); }
+          .finance-journal-btn-ghost { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); }
+          .finance-journal-btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+          .finance-journal-history { margin-top: 8px; }
+          .finance-journal-history-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px; }
+          .finance-journal-memo { font-weight: 500; color: var(--text); max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         `
       }} />
     </div>
@@ -1170,6 +1216,11 @@ const JournalTab = () => {
     copy.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
     return copy;
   }, [accounts]);
+  const accountById = useMemo(() => {
+    const m = new Map();
+    (sortedAccounts || []).forEach((a) => m.set(a.id, a));
+    return m;
+  }, [sortedAccounts]);
   useEffect(() => {
     let active = true;
     const run = async () => {
@@ -1219,116 +1270,224 @@ const JournalTab = () => {
     setMemo('');
     setLines([{ accountId: '', debit: '', credit: '', cash: false, counterCode: '' }]);
   };
+
+  const formatJournalListDate = (ymd) => {
+    const s = String(ymd || '').slice(0, 10);
+    if (s.length < 10) return '—';
+    const d = new Date(`${s}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return s;
+    return d.toLocaleDateString('pt-BR');
+  };
+
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="navi-section-heading mb-2">Lançamentos Contábeis</h3>
-      <div className="card">
-        <div className="flex gap-2">
-          <div className="form-group" style={{ width: 180 }}>
+      <div className="finance-journal-head">
+        <div className="finance-journal-head-icon" aria-hidden>
+          <Receipt size={20} strokeWidth={1.75} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <h3 className="navi-section-heading mb-1" style={{ marginBottom: 6 }}>Lançamentos contábeis</h3>
+          <p className="finance-journal-lead">
+            Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
+          </p>
+        </div>
+      </div>
+
+      <div className="finance-journal-panel">
+        <p className="finance-journal-panel-title">Novo lançamento</p>
+        <div className="finance-journal-meta">
+          <div className="form-group">
             <label>Data</label>
             <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
+          <div className="form-group">
             <label>Histórico</label>
-            <input className="form-input" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Descrição" />
+            <input className="form-input" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Ex.: Venda de kimonos, pagamento fornecedor…" />
           </div>
         </div>
-        <div className="mt-2">
+
+        <div className="finance-journal-lines">
           {lines.map((l, idx) => (
-            <div key={idx} className="flex" style={{ gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
-              <div className="form-group" style={{ flex: 2 }}>
+            <div key={idx} className="finance-journal-line">
+              <div className="form-group finance-journal-line-col--account">
                 <label>Conta</label>
-                <select className="form-input" value={l.accountId} onChange={(e) => {
-                  const arr = [...lines];
-                  arr[idx] = { ...arr[idx], accountId: e.target.value };
-                  setLines(arr);
-                }}>
-                  <option value="">Selecione...</option>
+                <select
+                  className="form-input"
+                  value={l.accountId}
+                  onChange={(e) => {
+                    const arr = [...lines];
+                    arr[idx] = { ...arr[idx], accountId: e.target.value };
+                    setLines(arr);
+                  }}
+                >
+                  <option value="">Selecione a conta…</option>
                   {sortedAccounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.code} • {a.name}</option>
+                    <option key={a.id} value={a.id}>{a.code} · {a.name}</option>
                   ))}
                 </select>
               </div>
-              <div className="form-group" style={{ width: 140 }}>
-                <label>Débito</label>
-                <input className="form-input" type="number" step="0.01" value={l.debit} onChange={(e) => {
-                  const arr = [...lines];
-                  arr[idx] = { ...arr[idx], debit: e.target.value, credit: '' };
-                  setLines(arr);
-                }} />
+              <div className="form-group">
+                <label>Débito (R$)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  value={l.debit}
+                  onChange={(e) => {
+                    const arr = [...lines];
+                    arr[idx] = { ...arr[idx], debit: e.target.value, credit: '' };
+                    setLines(arr);
+                  }}
+                />
               </div>
-              <div className="form-group" style={{ width: 140 }}>
-                <label>Crédito</label>
-                <input className="form-input" type="number" step="0.01" value={l.credit} onChange={(e) => {
-                  const arr = [...lines];
-                  arr[idx] = { ...arr[idx], credit: e.target.value, debit: '' };
-                  setLines(arr);
-                }} />
+              <div className="form-group">
+                <label>Crédito (R$)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  value={l.credit}
+                  onChange={(e) => {
+                    const arr = [...lines];
+                    arr[idx] = { ...arr[idx], credit: e.target.value, debit: '' };
+                    setLines(arr);
+                  }}
+                />
               </div>
-              <div className="form-group" style={{ width: 160 }}>
-                <label>Afeta Caixa</label>
-                <select className="form-input" value={l.cash ? 'sim' : 'nao'} onChange={(e) => {
-                  const arr = [...lines];
-                  arr[idx] = { ...arr[idx], cash: e.target.value === 'sim' };
-                  setLines(arr);
-                }}>
+              <div className="form-group">
+                <label>Caixa (DFC)</label>
+                <select
+                  className="form-input"
+                  value={l.cash ? 'sim' : 'nao'}
+                  onChange={(e) => {
+                    const arr = [...lines];
+                    arr[idx] = { ...arr[idx], cash: e.target.value === 'sim' };
+                    setLines(arr);
+                  }}
+                >
                   <option value="nao">Não</option>
                   <option value="sim">Sim</option>
                 </select>
               </div>
-              <div className="form-group" style={{ width: 180 }}>
-                <label>Contrapartida (prefixo)</label>
-                <input className="form-input" placeholder="ex.: 4.* ou 2.1.*" value={l.counterCode} onChange={(e) => {
-                  const arr = [...lines];
-                  arr[idx] = { ...arr[idx], counterCode: e.target.value };
-                  setLines(arr);
-                }} />
+              <div className="form-group finance-journal-line-col--counter">
+                <label>Contrapartida</label>
+                <input
+                  className="form-input"
+                  placeholder="Prefixo ex. 4.1 ou 2.1"
+                  value={l.counterCode}
+                  onChange={(e) => {
+                    const arr = [...lines];
+                    arr[idx] = { ...arr[idx], counterCode: e.target.value };
+                    setLines(arr);
+                  }}
+                />
               </div>
-              <button className="btn-outline" onClick={() => removeLine(idx)}><Trash2 size={16} /></button>
+              <div className="finance-journal-line-remove finance-journal-line-col--remove">
+                <button
+                  type="button"
+                  className="btn-ghost finance-accounts-delete"
+                  title={lines.length <= 1 ? 'Mínimo de uma linha' : 'Remover linha'}
+                  disabled={lines.length <= 1}
+                  onClick={() => removeLine(idx)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
-          <button className="btn-outline" onClick={addLine}><PlusCircle size={18} />Adicionar linha</button>
         </div>
-        <div className="flex gap-2 mt-2">
-          <div className="badge badge-secondary">Débitos: {fmt(totalD)}</div>
-          <div className="badge badge-secondary">Créditos: {fmt(totalC)}</div>
-          <div className="badge" style={{ background: balanced ? 'var(--success-light)' : 'var(--danger-light)', color: balanced ? 'var(--success)' : 'var(--danger)' }}>
-            {balanced ? 'Lançamento balanceado' : 'Lançamento não balanceado'}
+
+        <div className="finance-journal-toolbar">
+          <div className="finance-journal-pills">
+            <span className="finance-journal-pill">Débitos: {fmt(totalD)}</span>
+            <span className="finance-journal-pill">Créditos: {fmt(totalC)}</span>
+            <span className={`finance-journal-pill ${balanced ? 'finance-journal-pill--ok' : 'finance-journal-pill--warn'}`}>
+              {balanced ? 'Balanceado' : 'Desbalanceado'}
+            </span>
+          </div>
+          <div className="finance-journal-actions">
+            <button type="button" className="finance-journal-btn-ghost" onClick={addLine}>
+              <PlusCircle size={18} aria-hidden />
+              Adicionar linha
+            </button>
+            <button type="button" className="finance-journal-btn-primary" disabled={!balanced || !date} onClick={submit}>
+              Lançar
+            </button>
           </div>
         </div>
-        <div className="mt-3">
-          <button className="btn-secondary" disabled={!balanced || !date} onClick={submit}>Lançar</button>
-        </div>
-        <div className="table mt-3">
-          <div className="row header">
-            <div style={{ width: 110 }}>Data</div>
-            <div style={{ flex: 1 }}>Histórico</div>
-            <div style={{ width: 120, textAlign: 'right' }}>Débitos</div>
-            <div style={{ width: 120, textAlign: 'right' }}>Créditos</div>
-            <div style={{ width: 80 }}></div>
-          </div>
-          {journal.length === 0 ? (
-            <div className="empty-state">Nenhum lançamento</div>
-          ) : journal.map((e) => {
-            const d = new Date(e.date);
-            const dd = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-            const sd = e.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
-            const sc = e.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
-            return (
-              <div className="row" key={e.id}>
-                <div style={{ width: 110 }}>{dd}</div>
-                <div style={{ flex: 1 }}>{e.memo || '-'}</div>
-                <div style={{ width: 120, textAlign: 'right' }}>{fmt(sd)}</div>
-                <div style={{ width: 120, textAlign: 'right' }}>{fmt(sc)}</div>
-                <div style={{ width: 80, textAlign: 'right' }}>
-                  <button className="btn-outline" onClick={() => {
-                    if (academyId && JOURNAL_COL) databases.deleteDocument(DB_ID, JOURNAL_COL, e.id).catch(() => {});
-                    deleteEntry(e.id);
-                  }}><Trash2 size={16} /></button>
-                </div>
-              </div>
-            );
-          })}
+      </div>
+
+      <div className="finance-journal-history">
+        <p className="finance-journal-history-title">Histórico</p>
+        <div className="finance-table-wrap">
+          <table className="finance-table">
+            <thead>
+              <tr>
+                <th style={{ width: 112 }}>Data</th>
+                <th>Histórico</th>
+                <th className="finance-num" style={{ width: 120 }}>Débitos</th>
+                <th className="finance-num" style={{ width: 120 }}>Créditos</th>
+                <th className="finance-num" style={{ width: 72 }} aria-label="Excluir" />
+              </tr>
+            </thead>
+            <tbody>
+              {journal.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="finance-tx-empty">
+                      <p style={{ margin: 0, fontWeight: 600, color: 'var(--text)' }}>Nenhum lançamento ainda</p>
+                      <p>Quando você gravar um lançamento balanceado, ele aparecerá aqui.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                journal.map((e) => {
+                  const sd = e.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
+                  const sc = e.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+                  const detail = (e.lines || [])
+                    .map((ln) => {
+                      const acc = accountById.get(ln.accountId);
+                      const label = acc ? `${acc.code} ${acc.name}` : 'Conta';
+                      const v = Number(ln.debit || 0) > 0 ? `D ${fmt(ln.debit)}` : `C ${fmt(ln.credit)}`;
+                      return `${label}: ${v}`;
+                    })
+                    .join(' · ');
+                  return (
+                    <tr key={e.id}>
+                      <td>{formatJournalListDate(e.date)}</td>
+                      <td>
+                        <div className="finance-journal-memo" title={e.memo || '—'}>{e.memo || '—'}</div>
+                        {detail ? (
+                          <div className="text-small" style={{ marginTop: 4, color: 'var(--text-secondary)', lineHeight: 1.35, whiteSpace: 'normal' }}>
+                            {detail}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="finance-num">{fmt(sd)}</td>
+                      <td className="finance-num">{fmt(sc)}</td>
+                      <td className="finance-num">
+                        <button
+                          type="button"
+                          className="btn-ghost finance-accounts-delete"
+                          title="Excluir lançamento"
+                          onClick={() => {
+                            if (academyId && JOURNAL_COL) databases.deleteDocument(DB_ID, JOURNAL_COL, e.id).catch(() => {});
+                            deleteEntry(e.id);
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
