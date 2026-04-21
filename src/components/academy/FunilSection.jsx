@@ -11,13 +11,12 @@ function LabelColorSwatch({ color, selected, onSelect }) {
     return (
         <button
             type="button"
-            className="icon-only"
             aria-label={`Selecionar cor ${color}`}
             aria-pressed={selected}
             onClick={() => onSelect(color)}
             style={{
-                width: 24,
-                height: 24,
+                width: 28,
+                height: 28,
                 borderRadius: '50%',
                 padding: 0,
                 cursor: 'pointer',
@@ -25,9 +24,11 @@ function LabelColorSwatch({ color, selected, onSelect }) {
                 background: color,
                 border: 'none',
                 boxSizing: 'border-box',
-                ...(selected
-                    ? { boxShadow: `0 0 0 2px var(--surface), 0 0 0 4px ${color}` }
-                    : { boxShadow: '0 0 0 1px var(--border)' }),
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                transform: selected ? 'scale(1.18)' : 'scale(1)',
+                boxShadow: selected
+                    ? `0 0 0 2.5px var(--surface), 0 0 0 4px ${color}, 0 2px 6px ${color}55`
+                    : '0 1px 3px rgba(0,0,0,0.18)',
             }}
         />
     );
@@ -517,7 +518,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                             />
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                                 <span className="text-small" style={{ color: 'var(--text-secondary)' }}>Cor:</span>
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                                                     {PRESET_COLORS.map((c) => (
                                                         <LabelColorSwatch
                                                             key={c}
@@ -641,7 +642,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>Cor:</span>
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                                         {PRESET_COLORS.map((c) => (
                                             <LabelColorSwatch
                                                 key={c}
