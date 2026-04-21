@@ -8,7 +8,6 @@ import * as XLSX from 'xlsx';
 import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
-import { StudentPanel } from '../components/StudentPanel';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -39,7 +38,6 @@ function formatDate(dateStr) {
 const Students = () => {
     const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
-    const updateLead = useLeadStore((s) => s.updateLead);
     const addToast = useUiStore((s) => s.addToast);
     const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
@@ -54,29 +52,6 @@ const Students = () => {
     const [listRefreshing, setListRefreshing] = useState(false);
     const [importing, setImporting] = useState(false);
     const [exporting, setExporting] = useState(false);
-    const [selectedStudent, setSelectedStudent] = useState(null);
-    const [isNarrow, setIsNarrow] = useState(
-        () => typeof window !== 'undefined' && window.innerWidth < 768
-    );
-
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 767px)');
-        const onChange = () => setIsNarrow(mq.matches);
-        mq.addEventListener('change', onChange);
-        setIsNarrow(mq.matches);
-        return () => mq.removeEventListener('change', onChange);
-    }, []);
-
-    const handlePanelSave = async (studentId, form) => {
-        try {
-            await updateLead(studentId, form);
-            setSelectedStudent((prev) => (prev && prev.id === studentId ? { ...prev, ...form } : prev));
-            addToast({ type: 'success', message: 'Salvo com sucesso.' });
-        } catch {
-            addToast({ type: 'error', message: 'Erro ao salvar. Tente novamente.' });
-            throw new Error('SAVE_FAILED');
-        }
-    };
 
     const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student');
 
@@ -295,10 +270,9 @@ const Students = () => {
             >
             <div
                 style={{
-                    flex: selectedStudent && !isNarrow ? '0 0 55%' : '1',
+                    flex: 1,
                     transition: 'flex 0.2s ease',
                     overflowY: 'auto',
-                    borderRight: selectedStudent && !isNarrow ? '1px solid var(--border)' : 'none',
                     minWidth: 0,
                 }}
             >
@@ -462,10 +436,10 @@ const Students = () => {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
                                         e.preventDefault();
-                                        setSelectedStudent(s);
+                                        navigate(`/student/${s.id}`);
                                     }
                                 }}
-                                onClick={() => setSelectedStudent(s)}
+                                onClick={() => navigate(`/student/${s.id}`)}
                                 style={{
                                     fontSize: 13,
                                     color: '#7C2D12',
@@ -577,10 +551,10 @@ const Students = () => {
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' || e.key === ' ') {
                                                 e.preventDefault();
-                                                setSelectedStudent(student);
+                                                navigate(`/student/${student.id}`);
                                             }
                                         }}
-                                        onClick={() => setSelectedStudent(student)}
+                                        onClick={() => navigate(`/student/${student.id}`)}
                                         style={{
                                             flex: 1,
                                             minWidth: 0,
@@ -636,11 +610,11 @@ const Students = () => {
                                             <MessageCircle size={16} color="#25D366" />
                                         </button>
                                         <Link
-                                            to={`/lead/${student.id}`}
+                                            to={`/student/${student.id}`}
                                             className="student-profile-chevron students-touch-hit"
                                             onClick={(e) => e.stopPropagation()}
-                                            title="Perfil completo"
-                                            aria-label="Abrir perfil completo"
+                                            title="Perfil do aluno"
+                                            aria-label="Abrir perfil do aluno"
                                         >
                                             <ChevronRight size={16} color="var(--text-muted)" />
                                         </Link>
@@ -653,59 +627,7 @@ const Students = () => {
             </div>
 
             </div>
-
-            {selectedStudent && !isNarrow ? (
-                <div
-                    style={{
-                        flex: '0 0 45%',
-                        overflow: 'hidden',
-                        background: 'var(--surface)',
-                        padding: 24,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        minHeight: 0,
-                        boxSizing: 'border-box',
-                    }}
-                >
-                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                        <StudentPanel
-                            student={selectedStudent}
-                            onClose={() => setSelectedStudent(null)}
-                            onSave={handlePanelSave}
-                            isNarrow={isNarrow}
-                        />
-                    </div>
-                </div>
-            ) : null}
             </div>
-
-            {selectedStudent && isNarrow ? (
-                <div
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        zIndex: 50,
-                        background: 'var(--surface)',
-                        overflow: 'hidden',
-                        padding: 24,
-                        paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        minHeight: 0,
-                        boxSizing: 'border-box',
-                    }}
-                >
-                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                        <StudentPanel
-                            student={selectedStudent}
-                            onClose={() => setSelectedStudent(null)}
-                            onSave={handlePanelSave}
-                            isNarrow={isNarrow}
-                        />
-                    </div>
-                </div>
-            ) : null}
 
             <ImportSheet
                 isOpen={showImport}

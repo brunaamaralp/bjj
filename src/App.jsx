@@ -26,6 +26,7 @@ import { useUiStore } from './store/useUiStore';
 import Dashboard from './pages/Dashboard';
 import Pipeline from './pages/Pipeline';
 import LeadProfile from './pages/LeadProfile';
+import StudentProfile from './pages/StudentProfile';
 import NewLead from './pages/NewLead';
 import Students from './pages/Students';
 import UserAccount from './pages/UserAccount';
@@ -812,6 +813,7 @@ const App = () => {
               <Route path="/inbox" element={<Inbox />} />
               <Route path="/agente-ia" element={<AIAgentSettings />} />
               <Route path="/lead/:id" element={<LeadProfile />} />
+              <Route path="/student/:id" element={<StudentProfile />} />
               <Route path="/new-lead" element={<NewLead />} />
               <Route path="/reports" element={<Reports />} />
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
