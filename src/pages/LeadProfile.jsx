@@ -75,9 +75,11 @@ const ENGLISH_STATUS_TOKEN_LABELS = {
     PIPELINE_CHANGE: 'Movido no funil',
 };
 
-function humanizeTimelineStage(s) {
+function humanizeTimelineStage(s, stages = []) {
     const t = String(s || '').trim();
     if (!t) return '—';
+    const dynamicStage = (stages || []).find((stage) => stage?.id === t || stage?.label === t);
+    if (dynamicStage?.label) return dynamicStage.label;
     if (STATUS_CONFIG[t]) return t;
     if (PIPELINE_STAGES.includes(t)) return t;
     const upper = t.toUpperCase().replace(/\s+/g, '_');
@@ -112,6 +114,28 @@ const LeadProfile = () => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
+    const stages = useMemo(() => {
+        const fixed = PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage }));
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        let conf = acad?.stagesConfig;
+        if (!conf) return fixed;
+        try {
+            if (typeof conf === 'string') conf = JSON.parse(conf);
+            if (!Array.isArray(conf)) return fixed;
+            const normalized = conf
+                .filter(Boolean)
+                .map((s) => {
+                    if (typeof s === 'string') return { id: String(s).trim(), label: String(s).trim() };
+                    const id = String(s?.id || '').trim();
+                    const label = String(s?.label || s?.id || '').trim();
+                    return id ? { id, label: label || id } : null;
+                })
+                .filter(Boolean);
+            return normalized.length > 0 ? normalized : fixed;
+        } catch {
+            return fixed;
+        }
+    }, [academyList, academyId]);
 
     const [timelineEvents, setTimelineEvents] = useState([]);
     const [timelineError, setTimelineError] = useState(false);
@@ -178,6 +202,9 @@ const LeadProfile = () => {
         () =>
             [...(timelineEvents || [])]
                 .filter((ev) => {
+                    if (ev?.type === 'pipeline_change' && String(ev?.from || '') === String(ev?.to || '')) {
+                        return false;
+                    }
                     if (eventTypeFilter === 'all') return true;
                     const t = ev.type || 'note';
                     if (eventTypeFilter === 'note') return t === 'note' || t === 'inbox_note';
@@ -1277,7 +1304,7 @@ const LeadProfile = () => {
                                 if (type === 'schedule') {
                                     label = `Agendado para ${n.date} ${n.time || ''}`.trim();
                                 } else if (type === 'stage_change' || type === 'pipeline_change') {
-                                    label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
+                                    label = `De ${humanizeTimelineStage(n.from, stages)} para ${humanizeTimelineStage(n.to, stages)}`;
                                 } else if (type === 'inbox_note') {
                                     label = (
                                         <span>

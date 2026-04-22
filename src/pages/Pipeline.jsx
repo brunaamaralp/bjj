@@ -90,11 +90,12 @@ const dropAnimationConfig = {
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
 const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId, schedulerOpenId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, handleReschedule, itemsForDay, isExpanded, toggleExpanded, MAX_CHIPS, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, openScheduler, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
+    const isCardOverlayOpen = openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id;
     return (
         <div
-            className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} animate-in`}
+            className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
             style={{
-                zIndex: (openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id) ? 2200 : 1,
+                zIndex: isCardOverlayOpen ? 5000 : 1,
                 ...props.style
             }}
             onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
@@ -184,7 +185,7 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
                     )}
                 </div>
 
-                <div style={{ position: 'relative', zIndex: openMenuId === lead.id ? 2300 : 1 }} data-no-dnd="true">
+                <div style={{ position: 'relative', zIndex: openMenuId === lead.id ? 5100 : 1 }} data-no-dnd="true">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
@@ -330,13 +331,13 @@ const SortableLeadCard = ({ lead, ...props }) => {
     );
 };
 
-const Column = ({ id, col, color, leads, isOver, children }) => {
+const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => {
     const { setNodeRef } = useDroppable({ id });
 
     return (
         <div
             ref={setNodeRef}
-            className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''}`}
+            className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
         >
             <div className="col-header">
                 <div className="col-header-titles">
@@ -1101,6 +1102,8 @@ const Pipeline = () => {
         e.stopPropagation();
         const lead = getLeadById(leadId);
         if (!lead) return;
+        const fromStage = mapLeadToStageId(lead) || lead.pipelineStage || '';
+        const toStage = stageId;
 
         if (stageId === 'Matriculado') {
             setDragTargetLead(lead);
@@ -1144,16 +1147,18 @@ const Pipeline = () => {
         }
 
         try {
-            await addLeadEvent({
-                academyId,
-                leadId,
-                type: 'pipeline_change',
-                from: lead.pipelineStage || '',
-                to: stageId,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
-            });
-            const payload = getStageUpdatePayload(stageId);
+            if (fromStage !== toStage) {
+                await addLeadEvent({
+                    academyId,
+                    leadId,
+                    type: 'pipeline_change',
+                    from: fromStage,
+                    to: toStage,
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx
+                });
+            }
+            const payload = getStageUpdatePayload(toStage);
             await updateLead(leadId, payload);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
@@ -1427,6 +1432,7 @@ const Pipeline = () => {
                                 col={col}
                                 color={color}
                                 isOver={dragOver === col.id}
+                                hasOverlayOpen={colLeads.some((l) => l.id === openMenuId || l.id === schedulerOpenId || l.id === moverOpenId)}
                                 leads={colLeads}
                             >
                                 <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
@@ -1747,6 +1753,8 @@ const Pipeline = () => {
         }
         .kanban-column { 
           --kanban-col-w: min(236px, calc(100vw - 40px));
+          position: relative;
+          z-index: 1;
           flex: 0 0 var(--kanban-col-w);
           width: var(--kanban-col-w);
           max-width: var(--kanban-col-w);
@@ -1759,6 +1767,9 @@ const Pipeline = () => {
           padding-bottom: 12px;
           border-radius: var(--radius-sm);
           transition: background 0.12s ease, outline 0.12s ease;
+        }
+        .kanban-column--overlay-open {
+          z-index: 6000;
         }
         .pipeline-kanban-skeleton-col {
           pointer-events: none;
@@ -1819,6 +1830,9 @@ const Pipeline = () => {
           min-width: 0;
           overflow-wrap: anywhere;
           word-break: break-word;
+        }
+        .lead-card--menu-open {
+          z-index: 7000 !important;
         }
         .lead-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow); }
         .lead-card-title-row {
@@ -1964,7 +1978,7 @@ const Pipeline = () => {
         .wa-templates-dropdown { position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 180px; z-index: 100; overflow: hidden; }
         .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
         .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
-        .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 4000; overflow: hidden; padding: 6px 0; }
+        .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 9000; overflow: hidden; padding: 6px 0; }
         .menu-group { display: flex; flex-direction: column; }
         .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; text-align: left; cursor: pointer; transition: background 0.15s; }
         .menu-item:hover { background: var(--surface-hover); color: var(--accent); }
