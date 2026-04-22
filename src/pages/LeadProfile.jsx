@@ -1433,7 +1433,7 @@ const LeadProfile = () => {
 
                 /* Coluna Esquerda */
                 .lead-profile-left-col {
-                    width: 340px;
+                    width: 360px;
                     flex-shrink: 0;
                     flex-grow: 0;
                     display: flex;
@@ -1752,7 +1752,7 @@ const LeadProfile = () => {
                     overflow: hidden;
                     background: var(--surface-hover);
                     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                    max-width: 480px;
+                    max-width: 420px;
                 }
 
                 .timeline-closed .lead-profile-right-panel {
@@ -1911,6 +1911,26 @@ const LeadProfile = () => {
                     border: 1px solid var(--accent-light);
                 }
 
+                @media (min-width: 1025px) {
+                    .lead-profile-container {
+                        max-width: 780px;
+                        margin-left: auto;
+                        margin-right: auto;
+                    }
+                }
+
+                @media (min-width: 1025px) and (max-width: 1200px) {
+                    .lead-profile-container {
+                        max-width: 700px;
+                    }
+                    .lead-profile-left-col {
+                        width: 320px;
+                    }
+                    .lead-profile-right-panel {
+                        max-width: 380px;
+                    }
+                }
+
                 /* Responsividade */
                 @media (max-width: 1024px) {
                     .lead-profile-left-col {
@@ -1932,9 +1952,11 @@ const LeadProfile = () => {
 
                 .filter-strip {
                     display: flex;
+                    flex-wrap: nowrap;
                     gap: 6px;
                     overflow-x: auto;
-                    padding-bottom: 8px;
+                    padding-bottom: 4px;
+                    -webkit-overflow-scrolling: touch;
                     scrollbar-width: none;
                 }
                 .filter-strip::-webkit-scrollbar { display: none; }
