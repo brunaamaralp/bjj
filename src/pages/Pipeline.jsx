@@ -1002,12 +1002,24 @@ const Pipeline = () => {
 
     const resolveDropStageId = useCallback((over) => {
         if (!over) return null;
+
+        const hasStageId = (val) => stages.some((s) => String(s.id) === String(val));
+
         const overId = String(over.id || '');
-        if (stages.some((s) => s.id === overId)) return overId;
+        if (hasStageId(overId)) return overId;
+
+        // Quando "over.id" é de um card, converte pelo estágio atual desse lead.
+        const overLead = leadsForBoard.find((l) => String(l.id) === overId);
+        if (overLead) {
+            const leadStage = mapLeadToStageId(overLead);
+            if (hasStageId(leadStage)) return String(leadStage);
+        }
+
         const containerId = String(over?.data?.current?.sortable?.containerId || '');
-        if (stages.some((s) => s.id === containerId)) return containerId;
+        if (hasStageId(containerId)) return containerId;
+
         return null;
-    }, [stages]);
+    }, [stages, leadsForBoard, mapLeadToStageId]);
 
     const handleDragEnd = async (event) => {
         const { active, over } = event;

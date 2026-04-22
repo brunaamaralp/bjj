@@ -121,7 +121,7 @@ const LeadProfile = () => {
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
-    const [timelineOpen, setTimelineOpen] = useState(false);
+    const [timelineOpen, setTimelineOpen] = useState(true);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -1137,24 +1137,23 @@ const LeadProfile = () => {
                             </button>
                             
                             {lead.status !== LEAD_STATUS.CONVERTED && (
-                                <>
-                                    <button 
-                                        type="button" 
-                                        className="btn-next-step highlight" 
-                                        onClick={handleMatricularClick}
-                                        disabled={updatingStatus}
-                                    >
-                                        <UserCheck size={14} /> Matricular
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        className="btn-next-step danger" 
-                                        onClick={handleMarkLost}
-                                        disabled={updatingStatus}
-                                    >
-                                        <AlertTriangle size={14} /> Marcar como perdido
-                                    </button>
-                                </>
+                                <button
+                                    type="button"
+                                    className="btn-next-step highlight"
+                                    onClick={handleMatricularClick}
+                                    disabled={updatingStatus}
+                                >
+                                    <UserCheck size={14} /> Matricular
+                                </button>
+                            )}
+                            {lead.status !== LEAD_STATUS.LOST && (
+                                <button
+                                    type="button"
+                                    className="btn-next-step danger"
+                                    onClick={handleMarkLost}
+                                >
+                                    <AlertTriangle size={14} /> Marcar como perdido
+                                </button>
                             )}
                         </div>
                     </div>
