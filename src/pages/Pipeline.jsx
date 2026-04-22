@@ -1744,6 +1744,24 @@ const Pipeline = () => {
           background: var(--border-secondary);
           border-radius: 4px;
         }
+        @media (max-width: 1023px) {
+          .kanban-wrapper {
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
+          }
+          .kanban-wrapper::-webkit-scrollbar {
+            height: 3px;
+          }
+          .kanban-wrapper::after {
+            content: '';
+            position: sticky;
+            right: 0;
+            width: 24px;
+            background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.06));
+            pointer-events: none;
+            flex-shrink: 0;
+          }
+        }
         .kanban-column { 
           --kanban-col-w: min(236px, calc(100vw - 40px));
           flex: 0 0 var(--kanban-col-w);

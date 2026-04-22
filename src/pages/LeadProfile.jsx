@@ -1881,6 +1881,8 @@ const LeadProfile = () => {
                         inset: 0;
                         z-index: 200;
                         transform: translateX(100%);
+                        padding-top: env(safe-area-inset-top, 0px);
+                        box-sizing: border-box;
                     }
 
                     .timeline-open .lead-profile-left-col { display: none; }
@@ -1907,6 +1909,10 @@ const LeadProfile = () => {
                     font-weight: 700;
                     white-space: nowrap;
                     cursor: pointer;
+                    min-height: 44px;
+                    display: inline-flex;
+                    align-items: center;
+                    box-sizing: border-box;
                 }
                 .filter-pill.active {
                     background: var(--accent);

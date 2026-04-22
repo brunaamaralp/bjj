@@ -4,6 +4,7 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages';
 import TransacoesTab from '../components/finance/TransacoesTab.jsx';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { FINANCE_PAGE_CSS } from '../components/finance/financePageStyles.js';
 
 const defaultFinanceConfig = () => ({
@@ -22,6 +23,7 @@ export default function Caixa() {
   const academyList = useLeadStore((s) => s.academyList);
   const addToast = useUiStore((s) => s.addToast);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
+  const [nlOpen, setNlOpen] = useState(false);
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -66,14 +68,28 @@ export default function Caixa() {
     <div className="finance-page-root">
       <div className="finance-page-inner">
         <div className="animate-in">
-          <h1 className="navi-page-title">Caixa</h1>
-          <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-            Lançamentos e movimentações financeiras{academyName ? ` · ${academyName}` : ''}
-          </p>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <h1 className="navi-page-title">Caixa</h1>
+              <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+                Lançamentos e movimentações financeiras{academyName ? ` · ${academyName}` : ''}
+              </p>
+            </div>
+            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+          </div>
         </div>
         {academyId ? <TransacoesTab academyId={academyId} financeConfig={financeConfig} /> : null}
       </div>
       <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
+      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} />
     </div>
   );
 }

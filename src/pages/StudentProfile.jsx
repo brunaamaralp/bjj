@@ -1096,7 +1096,7 @@ export default function StudentProfile() {
                     >
                         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Dados do aluno</h3>
                         {!editingData ? (
-                            <button type="button" className="btn-outline" style={{ minHeight: 34, fontSize: 12, padding: '6px 12px' }} onClick={() => setEditingData(true)}>
+                            <button type="button" className="btn-outline" style={{ minHeight: 44, fontSize: 12, padding: '6px 12px' }} onClick={() => setEditingData(true)}>
                                 Editar
                             </button>
                         ) : null}
@@ -1121,7 +1121,7 @@ export default function StudentProfile() {
                             className="btn-outline"
                             disabled={savingData}
                             onClick={() => cancelDataEdit()}
-                            style={{ minHeight: 40, fontSize: 13 }}
+                            style={{ minHeight: 44, fontSize: 13 }}
                         >
                             Cancelar
                         </button>
@@ -1130,7 +1130,7 @@ export default function StudentProfile() {
                             className="btn-primary"
                             disabled={savingData}
                             onClick={() => void handleSaveData()}
-                            style={{ minHeight: 40, fontSize: 13 }}
+                            style={{ minHeight: 44, fontSize: 13 }}
                         >
                             {savingData ? 'Salvando...' : 'Salvar'}
                         </button>
@@ -1714,11 +1714,11 @@ export default function StudentProfile() {
 
     return (
         <div
+            className="student-profile-page-root"
             style={{
                 display: 'flex',
-                minHeight: '100vh',
                 height: '100%',
-                overflow: 'hidden',
+                overflow: 'auto',
                 width: '100%',
                 background: 'var(--surface)',
             }}
@@ -1726,6 +1726,14 @@ export default function StudentProfile() {
             <style
                 dangerouslySetInnerHTML={{
                     __html: `
+            .student-profile-page-root {
+              min-height: calc(100vh - env(safe-area-inset-bottom, 0px));
+            }
+            @supports (min-height: 100dvh) {
+              .student-profile-page-root {
+                min-height: 100dvh;
+              }
+            }
             .student-profile-data-input:focus {
               outline: none;
               border: 1px solid #5B3FBF !important;
@@ -1747,6 +1755,7 @@ export default function StudentProfile() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         padding: 20,
+                        paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
                     }}
                     onClick={() => (deleteBusy ? undefined : setConfirmDeleteOpen(false))}
                 >

@@ -6,6 +6,7 @@ import { getMonthlyPayments, createPayment, updatePayment } from '../lib/student
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -117,6 +118,7 @@ export default function Mensalidades() {
   const [savingPayment, setSavingPayment] = useState(false);
   const [payForm, setPayForm] = useState({});
   const [sessionUserName, setSessionUserName] = useState('Usuário');
+  const [nlOpen, setNlOpen] = useState(false);
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -337,7 +339,13 @@ export default function Mensalidades() {
     >
       <style>
         {`
-          .mensalidades-page .mensal-table-wrap { background: var(--surface, #fff); border: 0.5px solid var(--border-light, #e8e8ef); border-radius: 10px; overflow: hidden; }
+          .mensalidades-page .mensal-table-wrap {
+            background: var(--surface, #fff);
+            border: 0.5px solid var(--border-light, #e8e8ef);
+            border-radius: 10px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
           .mensalidades-page .mensal-table { width: 100%; border-collapse: collapse; min-width: 720px; }
           .mensalidades-page .mensal-table thead { background: var(--surface-hover, #f4f4f8); }
           .mensalidades-page .mensal-table th {
@@ -349,7 +357,19 @@ export default function Mensalidades() {
             border-top: 0.5px solid var(--border-light, #e8e8ef); vertical-align: middle;
           }
           .mensalidades-page .mensal-table tbody tr:hover td { background: var(--surface-hover, #f4f4f8); }
-          .mensalidades-page .mensal-chip { font-size: 11px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border-light, #e8e8ef); background: var(--surface, #fff); color: var(--text-secondary); cursor: pointer; }
+          .mensalidades-page .mensal-chip {
+            font-size: 11px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 0.5px solid var(--border-light, #e8e8ef);
+            background: var(--surface, #fff);
+            color: var(--text-secondary);
+            cursor: pointer;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            box-sizing: border-box;
+          }
           .mensalidades-page .mensal-chip--active { background: #5B3FBF; color: #fff; border-color: #5B3FBF; }
           .mensalidades-page .mensal-search:focus { border-color: #5B3FBF !important; outline: none; }
           .mensalidades-page .mensal-btn-pay { background: #5B3FBF; color: #fff; border: none; font-size: 11px; font-weight: 500; padding: 6px 14px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
@@ -360,6 +380,11 @@ export default function Mensalidades() {
           .mensalidades-page .mensal-modal-in:focus { border-color: #5B3FBF; outline: none; }
           @media (max-width: 900px) {
             .mensalidades-page .mensal-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          }
+          @media (max-width: 720px) {
+            .mensalidades-page .mensal-table-wrap { border-radius: 0; }
+            .mensalidades-page .mensal-table th,
+            .mensalidades-page .mensal-table td { padding: 10px 10px; }
           }
           @media (max-width: 480px) {
             .mensalidades-page .mensal-summary-grid { grid-template-columns: 1fr !important; }
@@ -385,15 +410,24 @@ export default function Mensalidades() {
         </div>
         <div
           style={{
-            background: 'var(--surface, #fff)',
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            borderRadius: 8,
-            padding: '6px 12px',
             display: 'flex',
+            flexWrap: 'wrap',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
           }}
         >
+          <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+          <div
+            style={{
+              background: 'var(--surface, #fff)',
+              border: '0.5px solid var(--border-light, #e8e8ef)',
+              borderRadius: 8,
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
           <button
             type="button"
             onClick={prevMonth}
@@ -435,6 +469,7 @@ export default function Mensalidades() {
           >
             <ChevronRight size={18} strokeWidth={2} />
           </button>
+          </div>
         </div>
       </header>
 
@@ -823,6 +858,7 @@ export default function Mensalidades() {
           </div>
         </div>
       )}
+      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} />
     </div>
   );
 }

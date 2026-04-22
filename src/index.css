@@ -125,6 +125,30 @@ body {
   min-width: 0;
 }
 
+/* PWA / mobile: evita zoom automático do iOS em inputs com fonte menor que 16px */
+@media (max-width: 1023px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/*
+ * Overlays fullscreen: respeitar notch / Dynamic Island.
+ * O seletor [style*='inset: 0'] pode aplicar em nós com atributo style no DOM (menos comum com React puro).
+ */
+.navi-modal-overlay,
+[style*='position: fixed'][style*='inset: 0'],
+.dashboard-confirm-overlay {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Modais de confirmação usam padding: 20px nos componentes — somar safe-area sem perder o respiro */
+.dashboard-confirm-overlay {
+  padding-top: calc(20px + env(safe-area-inset-top, 0px)) !important;
+}
+
 ::-webkit-scrollbar {
   width: 3px;
   height: 3px;
@@ -1358,6 +1382,7 @@ button:active {
   align-items: center;
   justify-content: center;
   padding: 12px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
 }
 
 /* Funil (/pipeline): largura das colunas + flex min-width:auto do conteúdo */
