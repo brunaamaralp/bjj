@@ -195,29 +195,25 @@ const Templates = () => {
         <ChevronLeft size={18} strokeWidth={2} aria-hidden />
         Voltar à empresa
       </Link>
-      <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h2 className="navi-page-title" style={{ margin: 0 }}>Templates de Mensagens</h2>
-          <div className="navi-eyebrow" style={{ marginTop: 6 }}>
-            {changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
-          </div>
-        </div>
-
-        <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="tpl-search">
-            <Search size={16} color="var(--text-secondary)" />
+      <h1 className="navi-page-title">Templates de Mensagens</h1>
+      <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
+        {changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
+      </p>
+      <div className="page-header-card">
+        <div className="page-header-row">
+          <div className="page-header-search">
+            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
             <input
-              className="form-input"
-              placeholder="Buscar template…"
+              placeholder="Buscar template..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              style={{ minWidth: 220 }}
             />
           </div>
-          <button type="button" className="btn-ghost" onClick={handleResetDefaults} disabled={saving}>
+          <div style={{ flex: 1 }} />
+          <button type="button" className="btn-action-ghost" onClick={handleResetDefaults} disabled={saving}>
             <RotateCcw size={16} /> Restaurar padrão
           </button>
-          <button type="button" className="btn-primary" onClick={handleSave} disabled={!changed || saving}>
+          <button type="button" className="btn-action-primary" onClick={handleSave} disabled={!changed || saving}>
             <Save size={16} /> {saving ? 'Salvando…' : 'Salvar'}
           </button>
         </div>

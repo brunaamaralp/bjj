@@ -392,83 +392,61 @@ export default function Mensalidades() {
         `}
       </style>
 
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--text-primary, var(--text, #1a1a1a))' }}>Mensalidades</h1>
-          <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-            Controle de pagamentos{academyName ? ` · ${academyName}` : ''}
-          </p>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-          <div
-            style={{
-              background: 'var(--surface, #fff)',
-              border: '0.5px solid var(--border-light, #e8e8ef)',
-              borderRadius: 8,
-              padding: '6px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-          <button
-            type="button"
-            onClick={prevMonth}
-            aria-label="Mês anterior"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#5B3FBF',
-              fontSize: 16,
-              cursor: 'pointer',
-              padding: 4,
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <ChevronLeft size={18} strokeWidth={2} />
-          </button>
-          <span style={{ fontSize: 14, fontWeight: 500, minWidth: 130, textAlign: 'center', color: 'var(--text-primary, var(--text))' }}>
-            {formatMonthTitleCapitalized(currentMonth)}
-          </span>
-          <button
-            type="button"
-            onClick={nextMonth}
-            disabled={isCurrentMonth}
-            aria-label="Próximo mês"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#5B3FBF',
-              fontSize: 16,
-              cursor: isCurrentMonth ? 'not-allowed' : 'pointer',
-              padding: 4,
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              opacity: isCurrentMonth ? 0.4 : 1,
-            }}
-          >
-            <ChevronRight size={18} strokeWidth={2} />
-          </button>
+      <header>
+        <h1 className="navi-page-title">Mensalidades</h1>
+        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
+          Controle de pagamentos{academyName ? ` · ${academyName}` : ''}
+        </p>
+        <div className="page-header-card">
+          <div className="page-header-row">
+            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+            <div className="page-header-sep" />
+            <div className="page-header-search">
+              <input
+                type="search"
+                placeholder="Buscar aluno..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div style={{ flex: 1 }} />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'var(--surface-hover)',
+                borderRadius: 8,
+                padding: '4px 10px'
+              }}
+            >
+              <button type="button" className="btn-action-ghost" onClick={prevMonth} style={{ padding: '2px 6px' }} aria-label="Mês anterior">
+                <ChevronLeft size={16} strokeWidth={2} />
+              </button>
+              <span style={{ fontSize: 14, fontWeight: 500, minWidth: 130, textAlign: 'center' }}>
+                {formatMonthTitleCapitalized(currentMonth)}
+              </span>
+              <button type="button" className="btn-action-ghost" onClick={nextMonth} style={{ padding: '2px 6px' }} disabled={isCurrentMonth} aria-label="Próximo mês">
+                <ChevronRight size={16} strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+          <div className="page-header-row">
+            {[
+              { id: 'all', label: 'Todos', count: filterCounts.all },
+              { id: 'paid', label: 'Pagos', count: filterCounts.paid },
+              { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
+              { id: 'soon', label: 'A vencer', count: filterCounts.soon },
+              { id: 'none', label: 'Sem registro', count: filterCounts.none },
+            ].map((c) => (
+              <span
+                key={c.id}
+                className={`date-chip${filter === c.id ? ' active' : ''}`}
+                onClick={() => setFilter(c.id)}
+              >
+                {c.label} ({c.count})
+              </span>
+            ))}
           </div>
         </div>
       </header>
@@ -526,42 +504,6 @@ export default function Mensalidades() {
           <div style={{ fontSize: 24, fontWeight: 600, color: '#5B3FBF' }}>{fmtMoney(summary.totalReceived)}</div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Recebido</div>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
-        {[
-          { id: 'all', label: 'Todos', count: filterCounts.all },
-          { id: 'paid', label: 'Pagos', count: filterCounts.paid },
-          { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
-          { id: 'soon', label: 'A vencer', count: filterCounts.soon },
-          { id: 'none', label: 'Sem registro', count: filterCounts.none },
-        ].map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className={`mensal-chip${filter === c.id ? ' mensal-chip--active' : ''}`}
-            onClick={() => setFilter(c.id)}
-          >
-            {c.label} ({c.count})
-          </button>
-        ))}
-        <input
-          className="mensal-search"
-          type="search"
-          style={{
-            flex: 1,
-            minWidth: 180,
-            fontSize: 12,
-            padding: '6px 12px',
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            borderRadius: 20,
-            background: 'var(--surface, #fff)',
-            color: 'var(--text-primary, inherit)',
-          }}
-          placeholder="Buscar aluno..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
       </div>
 
       <div className="mensal-table-wrap">

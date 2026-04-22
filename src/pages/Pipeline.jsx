@@ -1186,126 +1186,85 @@ const Pipeline = () => {
     return (
         <div className="pipeline-container">
             <div className="pipeline-header">
-                <div className="container header-layout">
-                    <div className="header-left">
-                        <div className="pipeline-title-block">
-                            <h2 className="navi-page-title">{labels.pipeline || 'Funil'}</h2>
-                        </div>
-                        <div className="filters-mobile-toggle-wrap">
+                <div className="container">
+                    <h1 className="navi-page-title">{labels.pipeline || 'Funil'}</h1>
+                    <div className="page-header-card">
+                        <div className="page-header-row">
+                            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                            <div className="page-header-sep" />
+                            <div className="page-header-search" title="Filtra por nome ou telefone">
+                                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} aria-hidden />
+                                <input
+                                    type="search"
+                                    value={kanbanSearch}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    placeholder="Buscar nome ou telefone..."
+                                    aria-label="Buscar no funil"
+                                />
+                            </div>
+                            {searchingServer ? (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>Buscando...</span>
+                            ) : null}
+                            <div style={{ flex: 1 }} />
+                            {leadsHasMore ? (
+                                <button
+                                    type="button"
+                                    className="btn-action-ghost"
+                                    onClick={handleLoadMoreLeads}
+                                    disabled={loadingMore || leadsLoading}
+                                    title="Carregar próximos leads do servidor"
+                                >
+                                    {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                                </button>
+                            ) : null}
+                            <button type="button" className="btn-action-ghost" onClick={() => setShowImport(true)}>
+                                <Upload size={14} /> {`Importar ${labels.leads}`}
+                            </button>
+                            <button type="button" className="btn-action-ghost" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
+                                <SlidersHorizontal size={14} /> Etapas
+                            </button>
                             <button
                                 type="button"
-                                className="btn-outline filters-mobile-toggle"
-                                onClick={() => setFiltersCollapsedMobile((v) => !v)}
+                                className="btn-action-primary"
+                                onClick={() => navigate('/new-lead')}
                             >
-                                {filtersCollapsedMobile ? 'Mostrar filtros' : 'Ocultar filtros'}
+                                <PlusCircle size={14} /> Novo lead
                             </button>
                         </div>
-                        <div className={`filters${filtersCollapsedMobile ? ' filters-collapsed-mobile' : ''}`}>
-                            <div className="pipeline-search-row">
-                                <div className="pipeline-search-wrap" title="Filtra por nome ou telefone">
-                                    <Search size={14} className="pipeline-search-icon" aria-hidden />
-                                    <input
-                                        type="search"
-                                        className="pipeline-search-input"
-                                        value={kanbanSearch}
-                                        onChange={(e) => handleSearch(e.target.value)}
-                                        placeholder="Buscar nome ou telefone…"
-                                        aria-label="Buscar no funil"
-                                    />
-                                    {searchingServer && (
-                                        <div style={{ fontSize: '0.65rem', color: 'var(--accent)', marginLeft: '4px', whiteSpace: 'nowrap' }}>
-                                            Buscando...
-                                        </div>
-                                    )}
-                                </div>
-                                <div
-                                    className="origin-group pipeline-search-scope-group"
-                                    title="Restringe resultados da busca a uma coluna do funil. Com “Todas as etapas”, a busca vale em todas as colunas."
-                                >
-                                    <span className="pipeline-search-scope-label">Buscar em:</span>
-                                    <select
-                                        className="origin-select pipeline-search-scope-select"
-                                        value={searchStageScope}
-                                        onChange={(e) => setSearchStageScope(e.target.value)}
-                                        aria-label="Etapa para busca"
-                                    >
-                                        {searchStageScopeOptions.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="origin-group" title="Filtra por perfil do lead em todas as colunas">
-                                <select
-                                    className="origin-select"
-                                    value={profileFilter}
-                                    onChange={(e) => setProfileFilter(e.target.value)}
-                                    aria-label="Filtrar por perfil"
-                                >
+                        <div className="page-header-row">
+                            <span className={`date-chip${quickFilter === 'today' ? ' active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</span>
+                            <span className={`date-chip${quickFilter === 'week' ? ' active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</span>
+                            <span className={`date-chip${quickFilter === 'month' ? ' active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</span>
+                            <span className={`date-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</span>
+                            <input
+                                type="date"
+                                value={filterDateFrom}
+                                onChange={(e) => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
+                                style={{ fontSize: 12, padding: '5px 8px', border: '0.5px solid var(--border-light)', borderRadius: 8 }}
+                            />
+                            <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
+                            <input
+                                type="date"
+                                value={filterDateTo}
+                                onChange={(e) => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
+                                style={{ fontSize: 12, padding: '5px 8px', border: '0.5px solid var(--border-light)', borderRadius: 8 }}
+                            />
+                            <div className="page-header-sep" />
+                            <div className="filter-group">
+                                <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
                                     <option value="all">Todos os perfis</option>
                                     <option value="Adulto">Adulto</option>
                                     <option value="Criança">Criança</option>
                                     <option value="Juniores">Juniores</option>
                                 </select>
-                            </div>
-                            <div className="origin-group">
-                                <SlidersHorizontal size={14} />
-                                <select className="origin-select" value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
-                                    <option value="all">Todas origens</option>
-                                    {LEAD_ORIGIN.map(o => <option key={o} value={o}>{o}</option>)}
+                                <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
+                                    <option value="all">Todas as origens</option>
+                                    {LEAD_ORIGIN.map((o) => (
+                                        <option key={o} value={o}>{o}</option>
+                                    ))}
                                 </select>
                             </div>
-                            <div className="origin-group" style={{ gap: '4px' }}>
-                                <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '4px' }}>Data:</label>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    <button className={`time-chip-mini ${quickFilter === 'today' ? 'active' : ''}`} style={quickFilter === 'today' ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
-                                    <button className={`time-chip-mini ${quickFilter === 'week' ? 'active' : ''}`} style={quickFilter === 'week' ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
-                                    <button className={`time-chip-mini ${quickFilter === 'month' ? 'active' : ''}`} style={quickFilter === 'month' ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
-                                    <button className={`time-chip-mini ${quickFilter === null && !filterDateFrom && !filterDateTo ? 'active' : ''}`} style={quickFilter === null && !filterDateFrom && !filterDateTo ? { background: 'var(--accent-light)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
-                                </div>
-                                <input
-                                    type="date"
-                                    value={filterDateFrom}
-                                    onChange={e => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
-                                    style={{ border: 'none', background: 'transparent', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, padding: '0 4px', maxWidth: '100px' }}
-                                />
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>a</span>
-                                <input
-                                    type="date"
-                                    value={filterDateTo}
-                                    onChange={e => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
-                                    style={{ border: 'none', background: 'transparent', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, padding: '0 4px', maxWidth: '100px' }}
-                                />
-                            </div>
                         </div>
-                    </div>
-                    <div className="header-right">
-                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                        <button 
-                            className="btn-primary" 
-                            onClick={() => navigate('/new-lead')}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                            <PlusCircle size={16} /> Novo lead
-                        </button>
-                        {leadsHasMore ? (
-                            <button
-                                type="button"
-                                className="import-btn-pipe pipeline-load-more"
-                                onClick={handleLoadMoreLeads}
-                                disabled={loadingMore || leadsLoading}
-                                title="Carregar próximos leads do servidor"
-                            >
-                                {loadingMore ? 'Carregando…' : 'Carregar mais'}
-                            </button>
-                        ) : null}
-                        <ExportButton leads={leads} fileName={`${slug(labels.leads)}-pipeline`} label="Exportar" />
-                        <button className="pipeline-btn-secondary" onClick={() => setShowImport(true)}>
-                            <Upload size={16} /> {`Importar ${labels.leads}`}
-                        </button>
-                        <button className="pipeline-btn-outline" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
-                            <SlidersHorizontal size={16} /> Etapas
-                        </button>
                     </div>
                 </div>
                 {editStages && (
@@ -1833,6 +1792,7 @@ const Pipeline = () => {
           cursor: pointer; padding: 10px 11px; 
           border-left: 3px solid var(--border); 
           transition: var(--transition);
+          position: relative;
           min-width: 0;
           overflow-wrap: anywhere;
           word-break: break-word;

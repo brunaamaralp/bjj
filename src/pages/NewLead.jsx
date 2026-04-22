@@ -151,12 +151,16 @@ const NewLead = () => {
     const leadLabelSingular = singular(useLeadStore.getState().labels?.leads || 'Leads');
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-            <div className="flex items-center gap-4">
-                <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={22} /></button>
-                <h2 className="navi-page-title">{`Novo ${leadLabelSingular}`}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <button className="btn-action-ghost icon-btn" onClick={() => navigate(-1)}>
+                    <ArrowLeft size={20} />
+                </button>
+                <h1 className="navi-page-title" style={{ margin: 0 }}>
+                    {`Novo ${leadLabelSingular}`}
+                </h1>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="flex-col gap-4 mt-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="flex-col gap-4">
                 {/* Nome */}
                 <div className="form-group card animate-in">
                     <label>Nome</label>

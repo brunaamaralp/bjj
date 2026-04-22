@@ -35,7 +35,7 @@ const Finance = () => {
       <div className="finance-page-inner">
         <div className="animate-in">
           <h1 className="navi-page-title">Contabilidade</h1>
-          <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+          <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
             Plano de contas, lançamentos e demonstrações{academyName ? ` · ${academyName}` : ''}
           </p>
         </div>

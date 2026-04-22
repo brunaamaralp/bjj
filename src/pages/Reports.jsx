@@ -393,79 +393,32 @@ const Reports = () => {
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
-            <div className="flex justify-between items-center flex-wrap gap-3">
-                <div>
-                    <h1 className="navi-page-title">Relatórios</h1>
-                    <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6 }}>
-                        <span>
-                            Indicadores por período · {prettyRange}
-                        </span>
-                        {leadsHasMore ? (
-                            <>
-                                <span
-                                    className="reports-partial-badge"
-                                    title="Relatório pode refletir só os registros já carregados no app. Atualize a lista ou carregue mais na base de leads para aproximar o total."
-                                >
-                                    Parcial
-                                </span>
-                                <span className="reports-partial-inline-actions">
-                                    <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleRefreshList()} disabled={listRefreshing || leadsLoading}>
-                                        <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'reports-spin' : ''} aria-hidden />
-                                        Atualizar lista
-                                    </button>
-                                    <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleLoadMore()} disabled={loadingMore || leadsLoading}>
-                                        {loadingMore ? 'Carregando…' : 'Carregar mais'}
-                                    </button>
-                                </span>
-                            </>
-                        ) : null}
-                    </p>
-                </div>
-                <div className="reports-export-wrap" ref={exportWrapRef}>
-                    <button
-                        type="button"
-                        className="btn-secondary reports-export-btn"
-                        onClick={() => !showInitialLoad && reportHasActivity && !error && setExportOpen((o) => !o)}
-                        aria-expanded={exportOpen}
-                        disabled={!reportData || loading || !reportHasActivity || Boolean(error)}
-                        title={
-                            error
-                                ? 'Corrija o carregamento do relatório antes de exportar.'
-                                : !reportData || loading
-                                    ? 'Aguarde o carregamento dos dados'
-                                    : !reportHasActivity
-                                        ? 'Sem dados para exportar neste período'
-                                        : 'Exportar relatório em CSV'
-                        }
-                    >
-                        {loading ? 'Carregando...' : (
-                            <>
-                                <Download size={16} aria-hidden />
-                                Exportar CSV
-                                <ChevronDown size={16} className={exportOpen ? 'reports-chevron-open' : ''} aria-hidden />
-                            </>
-                        )}
-                    </button>
-                    {exportOpen ? (
-                        <div className="reports-export-menu" role="menu">
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('newLeads', 'novos-leads')}>
-                                Novos no período
-                            </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('scheduled', 'agendados')}>
-                                Agendados
-                            </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('completed', 'compareceram')}>
-                                Compareceram
-                            </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('missed', 'nao-compareceram')}>
-                                Não compareceram
-                            </button>
-                            <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('converted', 'matriculas')}>
-                                Matrículas
-                            </button>
-                        </div>
+            <div>
+                <h1 className="navi-page-title">Relatórios</h1>
+                <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
+                    <span>
+                        Indicadores por período · {prettyRange}
+                    </span>
+                    {leadsHasMore ? (
+                        <>
+                            <span
+                                className="reports-partial-badge"
+                                title="Relatório pode refletir só os registros já carregados no app. Atualize a lista ou carregue mais na base de leads para aproximar o total."
+                            >
+                                Parcial
+                            </span>
+                            <span className="reports-partial-inline-actions">
+                                <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleRefreshList()} disabled={listRefreshing || leadsLoading}>
+                                    <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'reports-spin' : ''} aria-hidden />
+                                    Atualizar lista
+                                </button>
+                                <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleLoadMore()} disabled={loadingMore || leadsLoading}>
+                                    {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                                </button>
+                            </span>
+                        </>
                     ) : null}
-                </div>
+                </p>
             </div>
 
             {showRefreshing ? (
@@ -492,36 +445,75 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            <div className="card reports-filters-card mt-4" style={{ padding: 16 }}>
-                <div className="filters-row">
-                    <Calendar size={16} aria-hidden />
-                    <div className="filter-strip">
-                        {presets.map((p) => (
-                            <button
-                                key={p.key}
-                                type="button"
-                                className={`filter-pill ${preset === p.key ? 'active' : ''}`}
-                                onClick={() => setPreset(p.key)}
-                            >
-                                {p.label}
-                            </button>
-                        ))}
-                    </div>
+            <div className="page-header-card">
+                <div className="page-header-row">
+                    {presets.map((p) => (
+                        <span
+                            key={p.key}
+                            className={`date-chip${preset === p.key ? ' active' : ''}`}
+                            onClick={() => setPreset(p.key)}
+                        >
+                            {p.label}
+                        </span>
+                    ))}
                     {preset === 'custom' && (
-                        <div className="custom-range-wrap">
-                            <div className="custom-range">
-                                <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" />
-                                <span>até</span>
-                                <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
-                            </div>
-                            {dateError ? <span className="reports-field-error">{dateError}</span> : null}
-                        </div>
+                        <>
+                            <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
+                            <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
+                            <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
+                        </>
                     )}
+                    {dateError ? <span className="reports-field-error">{dateError}</span> : null}
+                    <div style={{ flex: 1 }} />
+                    <div className="reports-export-wrap" ref={exportWrapRef}>
+                        <button
+                            type="button"
+                            className="btn-secondary reports-export-btn"
+                            onClick={() => !showInitialLoad && reportHasActivity && !error && setExportOpen((o) => !o)}
+                            aria-expanded={exportOpen}
+                            disabled={!reportData || loading || !reportHasActivity || Boolean(error)}
+                            title={
+                                error
+                                    ? 'Corrija o carregamento do relatório antes de exportar.'
+                                    : !reportData || loading
+                                        ? 'Aguarde o carregamento dos dados'
+                                        : !reportHasActivity
+                                            ? 'Sem dados para exportar neste período'
+                                            : 'Exportar relatório em CSV'
+                            }
+                        >
+                            {loading ? 'Carregando...' : (
+                                <>
+                                    <Download size={16} aria-hidden />
+                                    Exportar CSV
+                                    <ChevronDown size={16} className={exportOpen ? 'reports-chevron-open' : ''} aria-hidden />
+                                </>
+                            )}
+                        </button>
+                        {exportOpen ? (
+                            <div className="reports-export-menu" role="menu">
+                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('newLeads', 'novos-leads')}>
+                                    Novos no período
+                                </button>
+                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('scheduled', 'agendados')}>
+                                    Agendados
+                                </button>
+                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('completed', 'compareceram')}>
+                                    Compareceram
+                                </button>
+                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('missed', 'nao-compareceram')}>
+                                    Não compareceram
+                                </button>
+                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('converted', 'matriculas')}>
+                                    Matrículas
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
-                <div className="reports-secondary-filters">
-                    <label className="reports-select-label">
-                        <span>Origem</span>
-                        <select className="form-input reports-select" value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} aria-label="Filtrar por origem">
+                <div className="page-header-row">
+                    <div className="filter-group">
+                        <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} aria-label="Filtrar por origem">
                             <option value="all">Todas</option>
                             {LEAD_ORIGIN.map((o) => (
                                 <option key={o} value={o}>
@@ -529,16 +521,13 @@ const Reports = () => {
                                 </option>
                             ))}
                         </select>
-                    </label>
-                    <label className="reports-select-label">
-                        <span>Perfil</span>
-                        <select className="form-input reports-select" value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)} aria-label="Filtrar por perfil">
+                        <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)} aria-label="Filtrar por perfil">
                             <option value="all">Todos</option>
                             <option value="Adulto">Adulto</option>
                             <option value="Criança">Criança</option>
                             <option value="Juniores">Juniores</option>
                         </select>
-                    </label>
+                    </div>
                 </div>
             </div>
 

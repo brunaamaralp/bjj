@@ -211,41 +211,79 @@ const Students = () => {
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <header className="animate-in">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                    <div>
-                        <h2 className="navi-page-title">{studentLabel}</h2>
-                        <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-                            Total nesta lista:{' '}
-                            <span className="navi-ui-count">{filteredStudents.length}</span>
-                            {filtrosAtivos && students.length !== filteredStudents.length
-                                ? ` (de ${students.length})`
-                                : ''}
-                            {leadsHasMore ? ' (parcial — há mais alunos no servidor)' : ''}
-                        </p>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
+                <h1 className="navi-page-title">{studentLabel}</h1>
+                <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
+                    <span className="navi-ui-count">{filteredStudents.length}</span> alunos cadastrados
+                    {filtrosAtivos && students.length !== filteredStudents.length
+                        ? ` (de ${students.length})`
+                        : ''}
+                    {leadsHasMore ? ' (parcial — há mais alunos no servidor)' : ''}
+                </p>
+                <div className="page-header-card">
+                    <div className="page-header-row">
+                        <div className="page-header-search">
+                            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                            <input
+                                type="text"
+                                placeholder="Buscar nome ou telefone..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div style={{ flex: 1 }} />
                         <button
                             type="button"
-                            className="students-refresh-btn"
+                            className="btn-action-ghost"
                             onClick={handleRefreshList}
                             disabled={listRefreshing || leadsLoading}
                             title="Recarregar lista do servidor"
                         >
-                            <RefreshCw size={16} className={listRefreshing || leadsLoading ? 'spin-students' : ''} />
+                            <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'spin-students' : ''} />
                             Atualizar
                         </button>
                         <button
                             type="button"
-                            className="export-btn"
+                            className="btn-action-ghost"
                             onClick={handleExportAll}
                             disabled={!academyId || exporting}
                             title={exportTooltip}
                         >
-                            <Download size={16} /> {exporting ? 'Exportando...' : 'Exportar'}
+                            <Download size={14} /> {exporting ? 'Exportando...' : 'Exportar'}
                         </button>
-                        <button type="button" className="import-btn" onClick={() => setShowImport(true)}>
-                            <Upload size={16} /> Importar
+                        <button type="button" className="btn-action-primary" onClick={() => setShowImport(true)}>
+                            <Upload size={14} /> Importar
                         </button>
+                    </div>
+                    <div className="page-header-row">
+                        <div className="filter-group">
+                            <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+                                <option value="Todos">Todos os perfis</option>
+                                <option value="Adulto">Adulto</option>
+                                <option value="Criança">Criança</option>
+                                <option value="Juniores">Juniores</option>
+                                <option value="Kids">Kids</option>
+                            </select>
+                            <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
+                                <option value="Todas">Todas as origens</option>
+                                {LEAD_ORIGIN.map((o) => (
+                                    <option key={o} value={o}>{o}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <select
+                            value={ordenacao}
+                            onChange={(e) => setOrdenacao(e.target.value)}
+                            style={{ padding: '6px 10px', fontSize: 12, border: '0.5px solid var(--border-light)', borderRadius: 8, color: 'var(--text-secondary)' }}
+                        >
+                            <option value="az">Nome A-Z</option>
+                            <option value="za">Nome Z-A</option>
+                            <option value="recentes">Mais recente</option>
+                        </select>
+                        {filtrosAtivos ? (
+                            <button type="button" className="btn-action-ghost" onClick={limparFiltros} style={{ color: 'var(--accent)', marginLeft: 'auto' }}>
+                                Limpar filtros
+                            </button>
+                        ) : null}
                     </div>
                 </div>
             </header>
@@ -276,109 +314,6 @@ const Students = () => {
                     minWidth: 0,
                 }}
             >
-
-            <div className="students-filters-card mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-                <div className="students-filters-card-head">
-                    <div className="students-filters-card-title">
-                        <SlidersHorizontal size={17} strokeWidth={2} className="students-filters-card-icon" aria-hidden />
-                        <span>Busca e filtros</span>
-                    </div>
-                    {filtrosAtivos ? (
-                        <button type="button" className="students-filters-clear" onClick={limparFiltros}>
-                            <X size={15} strokeWidth={2.25} aria-hidden />
-                            Limpar tudo
-                        </button>
-                    ) : null}
-                </div>
-
-                <div className="search-wrapper students-filters-search">
-                    <Search size={18} className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nome, celular ou perfil..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="search-input"
-                    />
-                </div>
-
-                <div className="students-filters-grid">
-                    {tiposUnicos.length > 2 && (
-                        <label className="students-filter-field">
-                            <span className="students-filter-label">Perfil</span>
-                            <select
-                                value={filtroTipo}
-                                onChange={(e) => setFiltroTipo(e.target.value)}
-                                className="students-filter-select"
-                            >
-                                {tiposUnicos.map((t) => (
-                                    <option key={t} value={t}>
-                                        {t}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
-
-                    {origensUnicas.length > 2 && (
-                        <label className="students-filter-field">
-                            <span className="students-filter-label">Origem</span>
-                            <select
-                                value={filtroOrigem}
-                                onChange={(e) => setFiltroOrigem(e.target.value)}
-                                className="students-filter-select"
-                            >
-                                {origensUnicas.map((o) => (
-                                    <option key={o} value={o}>
-                                        {o}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
-
-                    <label className="students-filter-field">
-                        <span className="students-filter-label">
-                            <ArrowUpDown size={12} strokeWidth={2.5} className="students-filter-label-icon" aria-hidden />
-                            Ordenar
-                        </span>
-                        <select
-                            value={ordenacao}
-                            onChange={(e) => setOrdenacao(e.target.value)}
-                            className="students-filter-select"
-                        >
-                            <option value="az">Nome A → Z</option>
-                            <option value="za">Nome Z → A</option>
-                            <option value="recentes">Mais recentes</option>
-                            <option value="antigos">Mais antigos</option>
-                        </select>
-                    </label>
-                </div>
-
-                {filtroTipo === 'Todos' && tiposUnicos.length > 2 && (
-                    <div className="students-tipo-chips-wrap">
-                        <span className="students-tipo-chips-hint">Atalho por perfil</span>
-                        <div className="students-tipo-chips" role="group" aria-label="Filtrar por perfil">
-                            {tiposUnicos
-                                .filter((t) => t !== 'Todos')
-                                .map((tipo) => {
-                                    const count = students.filter((s) => s.type === tipo).length;
-                                    return (
-                                        <button
-                                            key={tipo}
-                                            type="button"
-                                            className={`students-tipo-chip${filtroTipo === tipo ? ' students-tipo-chip--active' : ''}`}
-                                            onClick={() => setFiltroTipo(tipo)}
-                                        >
-                                            <span>{tipo}</span>
-                                            <span className="students-tipo-chip-count">{count}</span>
-                                        </button>
-                                    );
-                                })}
-                        </div>
-                    </div>
-                )}
-            </div>
 
             {leadsHasMore ? (
                 <div className="mt-3 animate-in">

@@ -68,22 +68,15 @@ export default function Caixa() {
     <div className="finance-page-root">
       <div className="finance-page-inner">
         <div className="animate-in">
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <h1 className="navi-page-title">Caixa</h1>
-              <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-                Lançamentos e movimentações financeiras{academyName ? ` · ${academyName}` : ''}
-              </p>
+          <h1 className="navi-page-title">Caixa</h1>
+          <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
+            Lançamentos e movimentações financeiras{academyName ? ` · ${academyName}` : ''}
+          </p>
+          <div className="page-header-card">
+            <div className="page-header-row">
+              <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+              <div style={{ flex: 1 }} />
             </div>
-            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
           </div>
         </div>
         {academyId ? <TransacoesTab academyId={academyId} financeConfig={financeConfig} /> : null}
