@@ -75,15 +75,22 @@ const ENGLISH_STATUS_TOKEN_LABELS = {
     PIPELINE_CHANGE: 'Movido no funil',
 };
 
-function humanizeTimelineStage(s, stages = []) {
-    const t = String(s || '').trim();
+function humanizeTimelineStage(value, stages = []) {
+    const t = String(value || '').trim();
     if (!t) return '—';
-    const dynamicStage = (stages || []).find((stage) => stage?.id === t || stage?.label === t);
-    if (dynamicStage?.label) return dynamicStage.label;
+
+    const dynamic = (stages || []).find((s) => String(s?.id || '') === t || String(s?.label || '') === t);
+    if (dynamic?.label) return String(dynamic.label);
+
+    // STATUS_CONFIG mapeia status canônicos → objeto de estilo; o rótulo exibido é a própria chave (string).
     if (STATUS_CONFIG[t]) return t;
-    if (PIPELINE_STAGES.includes(t)) return t;
+
+    const fixedPipeline = PIPELINE_STAGES.find((s) => s === t);
+    if (fixedPipeline) return fixedPipeline;
+
     const upper = t.toUpperCase().replace(/\s+/g, '_');
     if (ENGLISH_STATUS_TOKEN_LABELS[upper]) return ENGLISH_STATUS_TOKEN_LABELS[upper];
+
     return t.replace(/_/g, ' ');
 }
 
@@ -1042,7 +1049,9 @@ const LeadProfile = () => {
                             <div className="flex flex-col gap-2">
                                 <div className="info-mini-row">
                                     <span className="info-mini-label">Etapa:</span>
-                                    <span className="info-mini-value">{lead.pipelineStage || '—'}</span>
+                                    <span className="info-mini-value">
+                                        {humanizeTimelineStage(lead.pipelineStage, stages) || '—'}
+                                    </span>
                                 </div>
                                 <div className="info-mini-row">
                                     <span className="info-mini-label">Origem:</span>
@@ -1821,9 +1830,9 @@ const LeadProfile = () => {
 
                 .timeline-vertical-line {
                     position: absolute;
+                    left: 7px;
                     top: 12px;
                     bottom: 0;
-                    left: 4px;
                     width: 1px;
                     background: var(--border-light);
                     z-index: 0;
