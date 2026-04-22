@@ -340,7 +340,12 @@ export function useZapsterWhatsAppConnection(academyId) {
       const jwt = await getJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-off&id=${encodeURIComponent(id)}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
       });
       if (blocked) return;
       if (!(resp.ok || resp.status === 204)) {
@@ -367,7 +372,12 @@ export function useZapsterWhatsAppConnection(academyId) {
       const jwt = await getJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=restart&id=${encodeURIComponent(id)}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
       });
       if (blocked) return;
       if (!(resp.ok || resp.status === 204)) {
