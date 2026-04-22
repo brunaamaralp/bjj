@@ -62,21 +62,27 @@ export async function createPayment(data) {
 
   if (FINANCIAL_TX_COL) {
     databases
-      .createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), {
-        academyId: data.academy_id,
-        saleId: '',
-        lead_id: data.lead_id,
-        method: data.method,
-        installments: 1,
-        type: 'plan',
-        planName: data.plan_name || '',
-        gross: data.amount,
-        fee: 0,
-        net: data.amount,
-        status: data.status === 'paid' ? 'settled' : 'pending',
-        settledAt: data.status === 'paid' ? data.paid_at || new Date().toISOString() : '',
-        note: data.note || `Mensalidade ${data.reference_month}`,
-      })
+      .createDocument(
+        DB_ID,
+        FINANCIAL_TX_COL,
+        ID.unique(),
+        {
+          academyId: data.academy_id,
+          saleId: '',
+          lead_id: data.lead_id,
+          method: data.method,
+          installments: 1,
+          type: 'plan',
+          planName: data.plan_name || '',
+          gross: data.amount,
+          fee: 0,
+          net: data.amount,
+          status: data.status === 'paid' ? 'settled' : 'pending',
+          settledAt: data.status === 'paid' ? data.paid_at || new Date().toISOString() : '',
+          note: data.note || `Mensalidade ${data.reference_month}`,
+        },
+        permissions
+      )
       .catch((err) => console.error('financial_tx mirror failed:', err));
   }
 

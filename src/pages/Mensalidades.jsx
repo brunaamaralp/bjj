@@ -104,6 +104,7 @@ export default function Mensalidades() {
   const leads = useLeadStore((s) => s.leads);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
+  const storeTeamId = useLeadStore((s) => s.teamId);
   const userId = useLeadStore((s) => s.userId);
   const updateLead = useLeadStore((s) => s.updateLead);
   const addToast = useUiStore((s) => s.addToast);
@@ -124,6 +125,11 @@ export default function Mensalidades() {
     const cur = (academyList || []).find((a) => a.id === academyId);
     return String(cur?.name || '').trim();
   }, [academyList, academyId]);
+
+  const teamIdForPayments = useMemo(() => {
+    const cur = (academyList || []).find((a) => a.id === academyId);
+    return String(cur?.teamId || storeTeamId || '').trim();
+  }, [academyList, academyId, storeTeamId]);
 
   const students = useMemo(
     () => leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student'),
@@ -275,6 +281,7 @@ export default function Mensalidades() {
       const doc = await createPayment({
         lead_id: selectedStudent.id,
         academy_id: academyId,
+        team_id: teamIdForPayments,
         amount: amountNum,
         method: payForm.method,
         account: payForm.account || '',

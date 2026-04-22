@@ -33,6 +33,7 @@ export function useNlAction() {
   const academyId = useLeadStore((s) => s.academyId);
   const userId = useLeadStore((s) => s.userId);
   const academyList = useLeadStore((s) => s.academyList);
+  const storeTeamId = useLeadStore((s) => s.teamId);
   const updateLead = useLeadStore((s) => s.updateLead);
 
   const academyName = useMemo(() => {
@@ -43,10 +44,10 @@ export function useNlAction() {
   const permissionContext = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId) || {};
     return {
-      teamId: String(cur.teamId || '').trim(),
+      teamId: String(cur.teamId || storeTeamId || '').trim(),
       userId: String(userId || '').trim()
     };
-  }, [academyList, academyId, userId]);
+  }, [academyList, academyId, userId, storeTeamId]);
 
   const [sessionUserName, setSessionUserName] = useState('');
 
@@ -129,7 +130,7 @@ export function useNlAction() {
           registered_by: userId || '',
           registered_by_name: sessionUserName,
           note: d.note != null && String(d.note).trim() ? String(d.note).trim() : 'Registrado via assistente',
-          team_id: permissionContext.teamId || ''
+          team_id: permissionContext.teamId
         });
       }
 
