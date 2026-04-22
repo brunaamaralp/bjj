@@ -94,7 +94,7 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
         <div
             className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} animate-in`}
             style={{
-                zIndex: (openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id) ? 20 : 1,
+                zIndex: (openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id) ? 2200 : 1,
                 ...props.style
             }}
             onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
@@ -184,7 +184,7 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
                     )}
                 </div>
 
-                <div style={{ position: 'relative' }} data-no-dnd="true">
+                <div style={{ position: 'relative', zIndex: openMenuId === lead.id ? 2300 : 1 }} data-no-dnd="true">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
@@ -1000,6 +1000,15 @@ const Pipeline = () => {
         setActiveId(event.active.id);
     };
 
+    const resolveDropStageId = useCallback((over) => {
+        if (!over) return null;
+        const overId = String(over.id || '');
+        if (stages.some((s) => s.id === overId)) return overId;
+        const containerId = String(over?.data?.current?.sortable?.containerId || '');
+        if (stages.some((s) => s.id === containerId)) return containerId;
+        return null;
+    }, [stages]);
+
     const handleDragEnd = async (event) => {
         const { active, over } = event;
         setActiveId(null);
@@ -1007,8 +1016,8 @@ const Pipeline = () => {
 
         if (!over) return;
 
-        // O id do 'over' é o id da coluna (status)
-        const status = over.id;
+        const status = resolveDropStageId(over);
+        if (!status) return;
         const leadId = active.id;
         const lead = getLeadById(leadId);
         
@@ -1073,7 +1082,7 @@ const Pipeline = () => {
 
     const handleDragOver = (event) => {
         const { over } = event;
-        setDragOver(over ? over.id : null);
+        setDragOver(resolveDropStageId(over));
     };
 
     const moveToStatus = async (e, leadId, stageId) => {
@@ -1734,6 +1743,7 @@ const Pipeline = () => {
           display: flex; flex-direction: column;
           gap: 8px; scroll-snap-align: start;
           overflow-y: auto;
+          overflow-x: visible;
           padding-bottom: 12px;
           border-radius: var(--radius-sm);
           transition: background 0.12s ease, outline 0.12s ease;
@@ -1779,6 +1789,7 @@ const Pipeline = () => {
         .col-content {
           flex: 1 1 auto; min-width: 0; min-height: 40px;
           display: flex; flex-direction: column; gap: 8px;
+          overflow: visible;
         }
         .drop-target { background: var(--accent-light) !important; outline: 2px dashed var(--accent); outline-offset: -2px; }
         .col-header .pipeline-col-heading { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
@@ -1941,7 +1952,7 @@ const Pipeline = () => {
         .wa-templates-dropdown { position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 180px; z-index: 100; overflow: hidden; }
         .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
         .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
-        .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 100; overflow: hidden; padding: 6px 0; }
+        .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 4000; overflow: hidden; padding: 6px 0; }
         .menu-group { display: flex; flex-direction: column; }
         .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; text-align: left; cursor: pointer; transition: background 0.15s; }
         .menu-item:hover { background: var(--surface-hover); color: var(--accent); }

@@ -1,6 +1,6 @@
 /** Backlog: aluno inativo/trancado; filtros (turma/plano); virtualização para listas muito longas. */
 import React, { useState, useMemo, useEffect } from 'react';
-import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Download } from 'lucide-react';

@@ -616,16 +616,21 @@ const LeadProfile = () => {
     };
 
     const confirmMarkLost = async (lostReason) => {
-        await addLeadEvent({
-            academyId,
-            leadId: id,
-            type: 'lost',
-            from: lead.status || '',
-            to: LEAD_STATUS.LOST,
-            text: String(lostReason || '').slice(0, 1000),
-            createdBy: userId || 'user',
-            permissionContext: permCtx
-        });
+        try {
+            await addLeadEvent({
+                academyId,
+                leadId: id,
+                type: 'lost',
+                from: lead.status || '',
+                to: LEAD_STATUS.LOST,
+                text: String(lostReason || '').slice(0, 1000),
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+        } catch (eventErr) {
+            // O update de status não deve depender do log da timeline.
+            console.warn('Falha ao registrar evento de perda no timeline:', eventErr);
+        }
         await updateLead(id, {
             status: LEAD_STATUS.LOST,
             scheduledDate: '',
