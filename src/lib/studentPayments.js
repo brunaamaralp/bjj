@@ -1,5 +1,6 @@
 import { Query, ID } from 'appwrite';
 import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
+import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
@@ -53,7 +54,11 @@ export async function createPayment(data) {
     registered_by_name: data.registered_by_name ?? '',
     note: data.note ?? '',
   };
-  const doc = await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload);
+  const permissions = buildClientDocumentPermissions({
+    teamId: data.team_id ?? '',
+    userId: data.registered_by ?? '',
+  });
+  const doc = await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload, permissions);
 
   if (FINANCIAL_TX_COL) {
     databases
