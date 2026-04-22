@@ -40,34 +40,42 @@ const Finance = () => {
           </p>
         </div>
 
-        <div className="finance-tabs" role="tablist" aria-label="Contabilidade">
-          <button type="button" role="tab" aria-selected={tab === 'plano'} className={`finance-tab ${tab === 'plano' ? 'finance-tab--active' : ''}`} onClick={() => setTab('plano')}>Plano de Contas</button>
-          <button type="button" role="tab" aria-selected={tab === 'lancamentos'} className={`finance-tab ${tab === 'lancamentos' ? 'finance-tab--active' : ''}`} onClick={() => setTab('lancamentos')}>Lançamentos</button>
-          <button type="button" role="tab" aria-selected={tab === 'relatorios'} className={`finance-tab ${tab === 'relatorios' ? 'finance-tab--active' : ''}`} onClick={() => setTab('relatorios')}>DRE / DFC</button>
-        </div>
+        {!String(academyId || '').trim() ? (
+          <div style={{ padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>
+            Selecione uma academia para visualizar os dados.
+          </div>
+        ) : (
+          <>
+            <div className="finance-tabs" role="tablist" aria-label="Contabilidade">
+              <button type="button" role="tab" aria-selected={tab === 'plano'} className={`finance-tab ${tab === 'plano' ? 'finance-tab--active' : ''}`} onClick={() => setTab('plano')}>Plano de Contas</button>
+              <button type="button" role="tab" aria-selected={tab === 'lancamentos'} className={`finance-tab ${tab === 'lancamentos' ? 'finance-tab--active' : ''}`} onClick={() => setTab('lancamentos')}>Lançamentos</button>
+              <button type="button" role="tab" aria-selected={tab === 'relatorios'} className={`finance-tab ${tab === 'relatorios' ? 'finance-tab--active' : ''}`} onClick={() => setTab('relatorios')}>DRE / DFC</button>
+            </div>
 
-        {tab === 'plano' && (
-          <AccountsTab
-            academyId={academyId}
-            accounts={accounts}
-            setAccounts={setAccounts}
-            addAccount={addAccount}
-            updateAccount={updateAccount}
-            deleteAccount={deleteAccount}
-          />
-        )}
-        {tab === 'lancamentos' && (
-          <JournalTab
-            academyId={academyId}
-            accounts={accounts}
-            journal={journal}
-            setJournal={setJournal}
-            addEntry={addEntry}
-            deleteEntry={deleteEntry}
-          />
-        )}
-        {tab === 'relatorios' && (
-          <ReportsTab academyId={academyId} onGoToLancamentos={() => setTab('lancamentos')} />
+            {tab === 'plano' && (
+              <AccountsTab
+                academyId={academyId}
+                accounts={accounts}
+                setAccounts={setAccounts}
+                addAccount={addAccount}
+                updateAccount={updateAccount}
+                deleteAccount={deleteAccount}
+              />
+            )}
+            {tab === 'lancamentos' && (
+              <JournalTab
+                academyId={academyId}
+                accounts={accounts}
+                journal={journal}
+                setJournal={setJournal}
+                addEntry={addEntry}
+                deleteEntry={deleteEntry}
+              />
+            )}
+            {tab === 'relatorios' && (
+              <ReportsTab academyId={academyId} onGoToLancamentos={() => setTab('lancamentos')} />
+            )}
+          </>
         )}
       </div>
       <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />

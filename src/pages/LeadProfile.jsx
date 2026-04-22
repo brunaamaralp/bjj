@@ -821,7 +821,7 @@ const LeadProfile = () => {
                     </button>
                     <div className="flex gap-2" style={{ marginLeft: 'auto' }}>
                         {!editing ? (
-                            <button className="btn-edit-header" onClick={startEdit}>
+                            <button type="button" className="btn-edit-header" onClick={startEdit}>
                                 <Pencil size={14} /> Editar
                             </button>
                         ) : (
@@ -1095,15 +1095,17 @@ const LeadProfile = () => {
                                     <span>{new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} às {lead.scheduledTime || '--:--'}</span>
                                 </div>
                                 <div className="flex gap-2 mt-3">
-                                    <button 
-                                        className="btn-state-attended" 
+                                    <button
+                                        type="button"
+                                        className="btn-state-attended"
                                         onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}
                                         disabled={updatingStatus}
                                     >
                                         Compareceu
                                     </button>
-                                    <button 
-                                        className="btn-state-missed" 
+                                    <button
+                                        type="button"
+                                        className="btn-state-missed"
                                         onClick={() => void handleUpdateStatus(LEAD_STATUS.MISSED)}
                                         disabled={updatingStatus}
                                     >
@@ -1198,7 +1200,7 @@ const LeadProfile = () => {
                 </div>
 
                 <div className="left-col-footer">
-                    <button className="btn-toggle-timeline" onClick={() => setTimelineOpen(prev => !prev)}>
+                    <button type="button" className="btn-toggle-timeline" onClick={() => setTimelineOpen(prev => !prev)}>
                         {timelineOpen ? <ArrowLeft size={16} /> : <span style={{ order: 2 }}><ArrowRight size={16} /></span>}
                         {timelineOpen ? '← Fechar linha do tempo' : 'Ver linha do tempo →'}
                     </button>

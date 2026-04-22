@@ -238,7 +238,7 @@ const Students = () => {
                             type="button"
                             className="export-btn"
                             onClick={handleExportAll}
-                            disabled={exporting}
+                            disabled={!academyId || exporting}
                             title={exportTooltip}
                         >
                             <Download size={16} /> {exporting ? 'Exportando...' : 'Exportar'}

@@ -176,6 +176,7 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
   async function handleEditNote(noteId, content) {
     if (!String(content || '').trim()) return;
     const aid = String(academyId || '').trim();
+    if (!aid) return;
     setEditingBusy(true);
 
     try {
