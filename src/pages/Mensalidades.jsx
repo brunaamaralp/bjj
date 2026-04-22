@@ -5,7 +5,7 @@ import { account } from '../lib/appwrite';
 import { getMonthlyPayments, createPayment, updatePayment } from '../lib/studentPayments';
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -90,6 +90,13 @@ function formatMonthTitle(ym) {
   } catch {
     return ym;
   }
+}
+
+function formatMonthTitleCapitalized(ym) {
+  const raw = formatMonthTitle(ym);
+  const s = String(raw || '').trim();
+  if (!s) return ym;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function Mensalidades() {
@@ -223,6 +230,18 @@ export default function Mensalidades() {
     return { paid, pending, soon, totalReceived };
   }, [students, payments, getStatus]);
 
+  const filterCounts = useMemo(() => {
+    const c = { all: students.length, paid: 0, pending: 0, soon: 0, none: 0 };
+    for (const s of students) {
+      const st = getStatus(s);
+      if (st === 'paid') c.paid += 1;
+      else if (st === 'pending') c.pending += 1;
+      else if (st === 'soon') c.soon += 1;
+      else if (st === 'none') c.none += 1;
+    }
+    return c;
+  }, [students, getStatus]);
+
   const openPaymentModal = (student, payment) => {
     const day = enrollmentDay(student);
     const dueDate = dueDateInMonth(currentMonth, day);
@@ -305,286 +324,420 @@ export default function Mensalidades() {
   };
 
   return (
-    <div className="finance-page-root">
-      <div className="finance-page-inner">
-        <div className="animate-in">
-          <h1 className="navi-page-title">Mensalidades</h1>
-          <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+    <div
+      className="mensalidades-page animate-in"
+      style={{
+        padding: 24,
+        maxWidth: 1040,
+        margin: '0 auto',
+        boxSizing: 'border-box',
+        background: 'var(--surface, #fff)',
+        width: '100%',
+      }}
+    >
+      <style>
+        {`
+          .mensalidades-page .mensal-table-wrap { background: var(--surface, #fff); border: 0.5px solid var(--border-light, #e8e8ef); border-radius: 10px; overflow: hidden; }
+          .mensalidades-page .mensal-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+          .mensalidades-page .mensal-table thead { background: var(--surface-hover, #f4f4f8); }
+          .mensalidades-page .mensal-table th {
+            font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em;
+            padding: 10px 16px; text-align: left;
+          }
+          .mensalidades-page .mensal-table td {
+            padding: 12px 16px; font-size: 12px; color: var(--text-primary, var(--text, #1a1a1a));
+            border-top: 0.5px solid var(--border-light, #e8e8ef); vertical-align: middle;
+          }
+          .mensalidades-page .mensal-table tbody tr:hover td { background: var(--surface-hover, #f4f4f8); }
+          .mensalidades-page .mensal-chip { font-size: 11px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border-light, #e8e8ef); background: var(--surface, #fff); color: var(--text-secondary); cursor: pointer; }
+          .mensalidades-page .mensal-chip--active { background: #5B3FBF; color: #fff; border-color: #5B3FBF; }
+          .mensalidades-page .mensal-search:focus { border-color: #5B3FBF !important; outline: none; }
+          .mensalidades-page .mensal-btn-pay { background: #5B3FBF; color: #fff; border: none; font-size: 11px; font-weight: 500; padding: 6px 14px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+          .mensalidades-page .mensal-btn-pay:hover { background: #4a31a0; }
+          .mensalidades-page .mensal-btn-estornar { background: var(--surface, #fff); color: var(--text-secondary); border: 0.5px solid var(--border-light, #e8e8ef); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+          .mensalidades-page .mensal-btn-estornar:hover { background: #fef2f2; color: #A32D2D; border-color: #F7C1C1; }
+          .mensalidades-page .mensal-modal-in { border: 0.5px solid var(--border-light, #e8e8ef); border-radius: 7px; padding: 8px 10px; font-size: 13px; width: 100%; box-sizing: border-box; background: var(--surface, #fff); color: var(--text-primary, inherit); }
+          .mensalidades-page .mensal-modal-in:focus { border-color: #5B3FBF; outline: none; }
+          @media (max-width: 900px) {
+            .mensalidades-page .mensal-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          }
+          @media (max-width: 480px) {
+            .mensalidades-page .mensal-summary-grid { grid-template-columns: 1fr !important; }
+          }
+        `}
+      </style>
+
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 16,
+          marginBottom: 20,
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--text-primary, var(--text, #1a1a1a))' }}>Mensalidades</h1>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
             Controle de pagamentos{academyName ? ` · ${academyName}` : ''}
           </p>
         </div>
-
-        <div
-          className="flex items-center justify-between gap-3 mt-4 mb-4"
-          style={{ flexWrap: 'wrap' }}
-        >
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn-outline" style={{ padding: '8px 12px' }} onClick={prevMonth} aria-label="Mês anterior">
-              <ChevronLeft size={18} />
-            </button>
-            <span style={{ fontWeight: 700, fontSize: 15, textTransform: 'capitalize', minWidth: 180, textAlign: 'center' }}>
-              {formatMonthTitle(currentMonth)}
-            </span>
-            <button
-              type="button"
-              className="btn-outline"
-              style={{ padding: '8px 12px' }}
-              onClick={nextMonth}
-              disabled={isCurrentMonth}
-              aria-label="Próximo mês"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
-
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-            gap: 12,
-            marginBottom: 20,
+            background: 'var(--surface, #fff)',
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            borderRadius: 8,
+            padding: '6px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
           }}
         >
-          <div className="card" style={{ padding: 14 }}>
-            <div className="text-small" style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-              Pagos
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)', marginTop: 4 }}>{summary.paid}</div>
-          </div>
-          <div className="card" style={{ padding: 14 }}>
-            <div className="text-small" style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-              Inadimplentes
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--danger)', marginTop: 4 }}>{summary.pending}</div>
-          </div>
-          <div className="card" style={{ padding: 14 }}>
-            <div className="text-small" style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-              A vencer (7 dias)
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', marginTop: 4 }}>{summary.soon}</div>
-          </div>
-          <div className="card" style={{ padding: 14 }}>
-            <div className="text-small" style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-              Recebido este mês
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>{fmtMoney(summary.totalReceived)}</div>
-          </div>
+          <button
+            type="button"
+            onClick={prevMonth}
+            aria-label="Mês anterior"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#5B3FBF',
+              fontSize: 16,
+              cursor: 'pointer',
+              padding: 4,
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <ChevronLeft size={18} strokeWidth={2} />
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 500, minWidth: 130, textAlign: 'center', color: 'var(--text-primary, var(--text))' }}>
+            {formatMonthTitleCapitalized(currentMonth)}
+          </span>
+          <button
+            type="button"
+            onClick={nextMonth}
+            disabled={isCurrentMonth}
+            aria-label="Próximo mês"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#5B3FBF',
+              fontSize: 16,
+              cursor: isCurrentMonth ? 'not-allowed' : 'pointer',
+              padding: 4,
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              opacity: isCurrentMonth ? 0.4 : 1,
+            }}
+          >
+            <ChevronRight size={18} strokeWidth={2} />
+          </button>
         </div>
+      </header>
 
-        <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-          {[
-            { id: 'all', label: 'Todos' },
-            { id: 'paid', label: 'Pagos' },
-            { id: 'pending', label: 'Inadimplentes' },
-            { id: 'soon', label: 'A vencer' },
-            { id: 'none', label: 'Sem registro' },
-          ].map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={filter === c.id ? 'btn-secondary' : 'btn-outline'}
-              style={{ fontSize: 12, padding: '6px 12px', minHeight: 34 }}
-              onClick={() => setFilter(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
-          <input
-            className="form-input"
-            style={{ flex: 1, minWidth: 160, maxWidth: 320 }}
-            placeholder="Buscar por nome…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div
+        className="mensal-summary-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            background: 'var(--surface, #fff)',
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            borderRadius: 10,
+            padding: '14px 16px',
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 600, color: '#3B6D11' }}>{summary.paid}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Pagos</div>
         </div>
+        <div
+          style={{
+            background: 'var(--surface, #fff)',
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            borderRadius: 10,
+            padding: '14px 16px',
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 600, color: '#A32D2D' }}>{summary.pending}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Inadimplentes</div>
+        </div>
+        <div
+          style={{
+            background: 'var(--surface, #fff)',
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            borderRadius: 10,
+            padding: '14px 16px',
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 600, color: '#B45309' }}>{summary.soon}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>A vencer</div>
+        </div>
+        <div
+          style={{
+            background: 'var(--surface, #fff)',
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            borderRadius: 10,
+            padding: '14px 16px',
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 600, color: '#5B3FBF' }}>{fmtMoney(summary.totalReceived)}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Recebido</div>
+        </div>
+      </div>
 
-        <div className="card" style={{ overflowX: 'auto' }}>
-          {loading ? (
-            <p className="text-small" style={{ padding: 20, color: 'var(--text-muted)' }}>
-              Carregando…
-            </p>
-          ) : (
-            <table className="finance-table" style={{ minWidth: 720 }}>
-              <thead>
-                <tr>
-                  <th>Aluno</th>
-                  <th>Vencimento</th>
-                  <th>Valor</th>
-                  <th>Pagamento habitual</th>
-                  <th>Status</th>
-                  <th className="finance-num" style={{ width: 160 }}>
-                    Ação
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      Nenhum aluno neste filtro.
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+        {[
+          { id: 'all', label: 'Todos', count: filterCounts.all },
+          { id: 'paid', label: 'Pagos', count: filterCounts.paid },
+          { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
+          { id: 'soon', label: 'A vencer', count: filterCounts.soon },
+          { id: 'none', label: 'Sem registro', count: filterCounts.none },
+        ].map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className={`mensal-chip${filter === c.id ? ' mensal-chip--active' : ''}`}
+            onClick={() => setFilter(c.id)}
+          >
+            {c.label} ({c.count})
+          </button>
+        ))}
+        <input
+          className="mensal-search"
+          type="search"
+          style={{
+            flex: 1,
+            minWidth: 180,
+            fontSize: 12,
+            padding: '6px 12px',
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            borderRadius: 20,
+            background: 'var(--surface, #fff)',
+            color: 'var(--text-primary, inherit)',
+          }}
+          placeholder="Buscar aluno..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      <div className="mensal-table-wrap">
+        <table className="mensal-table">
+          <thead>
+            <tr>
+              <th>Aluno</th>
+              <th>Vencimento</th>
+              <th>Valor</th>
+              <th>Pagamento habitual</th>
+              <th>Status</th>
+              <th style={{ minWidth: 140 }}>Ação</th>
+            </tr>
+          </thead>
+          <tbody className="mensal-tbody">
+            {loading ? (
+              <tr>
+                <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+                  Carregando…
+                </td>
+              </tr>
+            ) : filteredStudents.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ padding: 48, textAlign: 'center', verticalAlign: 'middle' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--text-secondary)' }}>
+                    <Users size={32} strokeWidth={1.5} aria-hidden />
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Nenhum aluno encontrado</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Tente ajustar os filtros ou a busca</span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filteredStudents.map((student) => {
+                const payment = paymentMap[student.id];
+                const row = getRowStatus(student, payment, currentMonth);
+                const today0 = startOfLocalDay(new Date());
+                const venc = row.dueDate;
+                let vencCell = '—';
+                let vencStyle = { color: 'var(--text-secondary)', fontWeight: 400 };
+                if (row.status === 'paid' && row.paidAt) {
+                  vencCell = `Pago em ${formatDdMm(row.paidAt)}`;
+                  vencStyle = { color: 'var(--text-secondary)', fontWeight: 500 };
+                } else if (venc && !Number.isNaN(venc.getTime())) {
+                  const diff = Math.ceil((today0 - startOfLocalDay(venc)) / 86400000);
+                  if (diff > 0) {
+                    vencCell = `${formatDdMm(venc)} · ${diff} dias em atraso`;
+                    vencStyle = { color: '#A32D2D', fontWeight: 500 };
+                  } else if (diff <= 0 && diff >= -7) {
+                    const until = Math.abs(diff);
+                    vencCell = `${formatDdMm(venc)} · vence em ${until} dias`;
+                    vencStyle = { color: '#B45309', fontWeight: 500 };
+                  } else {
+                    vencCell = formatDdMm(venc);
+                    vencStyle = { color: 'var(--text-secondary)', fontWeight: 400 };
+                  }
+                }
+
+                const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
+                const valorCell =
+                  amountNum != null && Number.isFinite(amountNum) && amountNum > 0 ? fmtMoney(amountNum) : '—';
+
+                const prefM = student.preferredPaymentMethod;
+                const prefA = student.preferredPaymentAccount;
+
+                const badgeBase = {
+                  fontSize: 10,
+                  padding: '3px 9px',
+                  borderRadius: 20,
+                  whiteSpace: 'nowrap',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                };
+
+                let badge = null;
+                if (row.status === 'paid' && payment) {
+                  const m = METHOD_LABELS[payment.method] || payment.method;
+                  const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
+                  badge = (
+                    <span style={{ ...badgeBase, background: '#EAF3DE', color: '#3B6D11' }}>
+                      ✓ Pago · {m}
+                      {pd ? ` · ${pd}` : ''}
+                    </span>
+                  );
+                } else if (row.status === 'pending') {
+                  badge = (
+                    <span style={{ ...badgeBase, background: '#FCEBEB', color: '#A32D2D' }}>
+                      ● Inadimplente
+                    </span>
+                  );
+                } else if (row.status === 'soon') {
+                  badge = (
+                    <span style={{ ...badgeBase, background: '#FEF3C7', color: '#B45309' }}>
+                      ⚠ A vencer
+                    </span>
+                  );
+                } else {
+                  badge = (
+                    <span style={{ ...badgeBase, background: '#f0f0f8', color: 'var(--text-secondary)' }}>Sem registro</span>
+                  );
+                }
+
+                return (
+                  <tr key={student.id}>
+                    <td>
+                      <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-primary, var(--text))' }}>{student.name || '—'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{student.plan || '—'}</div>
+                    </td>
+                    <td style={vencStyle}>{vencCell}</td>
+                    <td style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary, var(--text))' }}>{valorCell}</td>
+                    <td>
+                      {prefM ? (
+                        <>
+                          <div style={{ fontWeight: 500, fontSize: 12 }}>{METHOD_LABELS[prefM] || prefM}</div>
+                          {prefA ? <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{prefA}</div> : null}
+                        </>
+                      ) : (
+                        <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: 11 }}>Não definido</span>
+                      )}
+                    </td>
+                    <td>{badge}</td>
+                    <td>
+                      {row.status === 'paid' && payment?.status === 'paid' ? (
+                        <button type="button" className="mensal-btn-estornar" onClick={() => handleEstornar(payment)}>
+                          Estornar
+                        </button>
+                      ) : (
+                        <button type="button" className="mensal-btn-pay" onClick={() => openPaymentModal(student, payment)}>
+                          Registrar pagamento
+                        </button>
+                      )}
                     </td>
                   </tr>
-                ) : (
-                  filteredStudents.map((student) => {
-                    const payment = paymentMap[student.id];
-                    const row = getRowStatus(student, payment, currentMonth);
-                    const today0 = startOfLocalDay(new Date());
-                    const venc = row.dueDate;
-                    let vencCell = '—';
-                    if (row.status === 'paid' && row.paidAt) {
-                      vencCell = `Pago em ${formatDdMm(row.paidAt)}`;
-                    } else if (venc && !Number.isNaN(venc.getTime())) {
-                      const diff = Math.ceil((today0 - startOfLocalDay(venc)) / 86400000);
-                      if (diff > 0) {
-                        vencCell = `${formatDdMm(venc)} · ${diff} dia(s) em atraso`;
-                      } else if (diff <= 0 && diff >= -7) {
-                        const until = Math.abs(diff);
-                        vencCell = `${formatDdMm(venc)} · vence em ${until} dia(s)`;
-                      } else {
-                        vencCell = formatDdMm(venc);
-                      }
-                    }
-
-                    const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
-                    const valorCell =
-                      amountNum != null && Number.isFinite(amountNum) && amountNum > 0
-                        ? fmtMoney(amountNum)
-                        : student.plan
-                          ? String(student.plan)
-                          : '—';
-
-                    const prefM = student.preferredPaymentMethod;
-                    const prefA = student.preferredPaymentAccount;
-
-                    let badge = null;
-                    if (row.status === 'paid' && payment) {
-                      const m = METHOD_LABELS[payment.method] || payment.method;
-                      const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
-                      badge = (
-                        <span className="badge badge-success" style={{ whiteSpace: 'normal', textAlign: 'left' }}>
-                          ✓ Pago · {m}
-                          {pd ? ` · ${pd}` : ''}
-                        </span>
-                      );
-                    } else if (row.status === 'pending') {
-                      badge = (
-                        <span className="badge" style={{ background: '#FEE2E2', color: '#991B1B' }}>
-                          ● Inadimplente
-                        </span>
-                      );
-                    } else if (row.status === 'soon') {
-                      badge = (
-                        <span className="badge badge-warning" style={{ whiteSpace: 'normal' }}>
-                          ⚠ A vencer
-                        </span>
-                      );
-                    } else {
-                      badge = (
-                        <span className="badge badge-secondary" style={{ opacity: 0.9 }}>
-                          Sem registro
-                        </span>
-                      );
-                    }
-
-                    const vencStyle =
-                      row.status === 'pending' && venc
-                        ? { color: 'var(--danger)', fontWeight: 600 }
-                        : row.status === 'soon'
-                          ? { color: '#d97706', fontWeight: 600 }
-                          : {};
-
-                    return (
-                      <tr key={student.id}>
-                        <td>
-                          <div style={{ fontWeight: 500 }}>{student.name || '—'}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{student.plan || '—'}</div>
-                        </td>
-                        <td style={vencStyle}>{vencCell}</td>
-                        <td>{valorCell}</td>
-                        <td>
-                          {prefM ? (
-                            <>
-                              <div style={{ fontWeight: 500 }}>{METHOD_LABELS[prefM] || prefM}</div>
-                              {prefA ? (
-                                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{prefA}</div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: 12 }}>Não definido</span>
-                          )}
-                        </td>
-                        <td>{badge}</td>
-                        <td className="finance-num">
-                          {row.status === 'paid' && payment?.status === 'paid' ? (
-                            <button
-                              type="button"
-                              className="btn-outline"
-                              style={{ fontSize: 11, padding: '4px 8px', minHeight: 30 }}
-                              onClick={() => handleEstornar(payment)}
-                            >
-                              Estornar
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              style={{ fontSize: 12, padding: '6px 10px', minHeight: 34 }}
-                              onClick={() => openPaymentModal(student, payment)}
-                            >
-                              Registrar pagamento
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
       {showModal && selectedStudent && (
         <div
-          className="navi-modal-overlay"
           role="dialog"
           aria-modal="true"
           aria-labelledby="mensalidades-modal-title"
           onClick={() => {
             if (!savingPayment) setShowModal(false);
           }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: 16,
+          }}
         >
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, width: '100%', padding: 20 }}>
-            <h3 id="mensalidades-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>
-              Registrar pagamento — {selectedStudent.name}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--surface, #fff)',
+              borderRadius: 14,
+              padding: 24,
+              width: '100%',
+              maxWidth: 400,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
+              boxSizing: 'border-box',
+            }}
+          >
+            <h3
+              id="mensalidades-modal-title"
+              style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: 'var(--text-primary, var(--text))' }}
+            >
+              {selectedStudent.name}
             </h3>
-            <div className="flex-col gap-3">
-              <div className="form-group">
-                <label>Valor (R$)</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  inputMode="decimal"
-                  value={payForm.amount}
-                  onChange={(e) => setPayForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
-                  placeholder="0,00"
-                />
+            <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--text-secondary)' }}>{formatMonthTitleCapitalized(currentMonth)}</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
+                    Valor (R$)
+                  </label>
+                  <input
+                    className="mensal-modal-in"
+                    type="text"
+                    inputMode="decimal"
+                    value={payForm.amount}
+                    onChange={(e) => setPayForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
+                    Data do pagamento
+                  </label>
+                  <input
+                    className="mensal-modal-in"
+                    type="date"
+                    value={payForm.paid_at}
+                    onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Data do pagamento</label>
-                <input
-                  className="form-input"
-                  type="date"
-                  value={payForm.paid_at}
-                  onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label>Forma de pagamento</label>
+              <div>
+                <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
+                  Forma de pagamento
+                </label>
                 <select
-                  className="form-input"
+                  className="mensal-modal-in"
                   value={payForm.method}
                   onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
                 >
@@ -595,39 +748,76 @@ export default function Mensalidades() {
                   ))}
                 </select>
               </div>
-              <div className="form-group">
-                <label>Conta</label>
+              <div>
+                <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
+                  Conta
+                </label>
                 <input
-                  className="form-input"
+                  className="mensal-modal-in"
                   value={payForm.account}
                   onChange={(e) => setPayForm((f) => ({ ...f, account: e.target.value }))}
                   placeholder="Ex: Sicoob, Nubank"
                 />
               </div>
-              <label className="flex items-center gap-2" style={{ fontSize: 13, cursor: 'pointer' }}>
+              <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={Boolean(payForm.saveAsPreferred)}
                   onChange={(e) => setPayForm((f) => ({ ...f, saveAsPreferred: e.target.checked }))}
+                  style={{ accentColor: '#5B3FBF' }}
                 />
                 Salvar como pagamento habitual deste aluno
               </label>
-              <div className="form-group">
-                <label>Observação (opcional)</label>
+              <div>
+                <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
+                  Observação (opcional)
+                </label>
                 <textarea
-                  className="form-input"
+                  className="mensal-modal-in"
                   rows={2}
                   value={payForm.note}
                   onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))}
+                  style={{ resize: 'vertical', minHeight: 56 }}
                 />
               </div>
             </div>
-            <div className="flex gap-2 mt-3" style={{ justifyContent: 'flex-end' }}>
-              <button type="button" className="btn-outline" disabled={savingPayment} onClick={() => setShowModal(false)}>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                disabled={savingPayment}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 7,
+                  border: '0.5px solid var(--border-light, #e8e8ef)',
+                  background: 'var(--surface, #fff)',
+                  color: 'var(--text-secondary)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: savingPayment ? 'not-allowed' : 'pointer',
+                }}
+              >
                 Cancelar
               </button>
-              <button type="button" className="btn-secondary" disabled={savingPayment} onClick={() => void handleSavePayment()}>
-                {savingPayment ? 'Salvando…' : 'Salvar'}
+              <button
+                type="button"
+                disabled={savingPayment}
+                onClick={() => void handleSavePayment()}
+                style={{
+                  flex: 2,
+                  padding: '10px 12px',
+                  borderRadius: 7,
+                  border: 'none',
+                  background: '#5B3FBF',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: savingPayment ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}
               </button>
             </div>
           </div>

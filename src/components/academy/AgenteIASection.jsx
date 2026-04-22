@@ -1150,7 +1150,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     </button>
                                     {!!zap.waInfo?.instance_id && zap.waInfo?.status === 'offline' && (
                                         <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.powerOnInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                            Ligar conexão
+                                            Ligar instância
                                         </button>
                                     )}
                                     {!!zap.waInfo?.instance_id && (

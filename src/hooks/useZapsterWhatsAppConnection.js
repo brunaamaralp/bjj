@@ -300,7 +300,12 @@ export function useZapsterWhatsAppConnection(academyId) {
       const jwt = await getJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-on&id=${encodeURIComponent(id)}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
       });
       if (blocked) return;
       if (!(resp.ok || resp.status === 204)) {
@@ -311,12 +316,20 @@ export function useZapsterWhatsAppConnection(academyId) {
       }
       useUiStore.getState().addToast({ type: 'success', message: 'Instância ligada' });
       await fetchWaInfo({ silent: true });
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const qrUrl = await fetchQrCode(id);
+        if (qrUrl) URL.revokeObjectURL(qrUrl);
+      } catch {
+        void 0;
+      }
+      refreshWaQrCode();
     } catch (e) {
       setConnectionError(String(e?.message || '') || 'Erro');
     } finally {
       setWaLoading(false);
     }
-  }, [waInfo?.instance_id, fetchWaInfo]);
+  }, [waInfo?.instance_id, fetchWaInfo, fetchQrCode, refreshWaQrCode]);
 
   const powerOffInstance = useCallback(async () => {
     const id = String(waInfo?.instance_id || '').trim();

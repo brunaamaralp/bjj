@@ -687,6 +687,39 @@ const App = () => {
               </NavLink>
             </div>
 
+            <div className="navi-side-section">
+              <span className="navi-side-section-title">Atendimento</span>
+              <Link
+                to="/inbox"
+                className={`navi-side-link${isInboxConversasNavActive ? ' active' : ''}`}
+                title={sidebarCollapsed ? 'Conversas' : undefined}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Conversas</span>
+                {inboxUnread > 0 && (
+                  <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
+                )}
+              </Link>
+              {canConfigureAgenteIa && (
+                <Link
+                  to="/agente-ia"
+                  className={`navi-side-link${isAgenteIaPage ? ' active' : ''}`}
+                  title={sidebarCollapsed ? 'Agente IA' : undefined}
+                >
+                  <Bot size={18} strokeWidth={1.75} />
+                  <span className="navi-side-link-label">Agente IA</span>
+                </Link>
+              )}
+              <NavLink
+                to="/templates"
+                className={sideLinkClass}
+                title={sidebarCollapsed ? 'Templates' : undefined}
+              >
+                <FileText size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Templates</span>
+              </NavLink>
+            </div>
+
             {modules.finance === true && (
               <div className="navi-side-section">
                 <span className="navi-side-section-title">Financeiro</span>
@@ -722,39 +755,6 @@ const App = () => {
                 </NavLink>
               </div>
             )}
-
-            <div className="navi-side-section">
-              <span className="navi-side-section-title">Atendimento</span>
-              <Link
-                to="/inbox"
-                className={`navi-side-link${isInboxConversasNavActive ? ' active' : ''}`}
-                title={sidebarCollapsed ? 'Conversas' : undefined}
-              >
-                <MessageCircle size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Conversas</span>
-                {inboxUnread > 0 && (
-                  <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
-                )}
-              </Link>
-              {canConfigureAgenteIa && (
-                <Link
-                  to="/agente-ia"
-                  className={`navi-side-link${isAgenteIaPage ? ' active' : ''}`}
-                  title={sidebarCollapsed ? 'Agente IA' : undefined}
-                >
-                  <Bot size={18} strokeWidth={1.75} />
-                  <span className="navi-side-link-label">Agente IA</span>
-                </Link>
-              )}
-              <NavLink
-                to="/templates"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? 'Templates' : undefined}
-              >
-                <FileText size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Templates</span>
-              </NavLink>
-            </div>
 
             {((modules.inventory === true) || (modules.sales === true)) && (
               <div className="navi-side-section">
