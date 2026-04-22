@@ -14,6 +14,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 
 const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const normalizeDayToken = (t) => t.toLowerCase().trim().replace(/á/g, 'a').slice(0, 3);
@@ -452,6 +453,7 @@ const Pipeline = () => {
     }));
     const [noteError, setNoteError] = useState('');
     const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(false);
+    const [nlOpen, setNlOpen] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -1278,6 +1280,7 @@ const Pipeline = () => {
                         </div>
                     </div>
                     <div className="header-right">
+                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                         <button 
                             className="btn-primary" 
                             onClick={() => navigate('/new-lead')}
@@ -2034,6 +2037,7 @@ const Pipeline = () => {
                     </div>
                 </div>
             )}
+            <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} context="funil" />
         </div>
     );
 };

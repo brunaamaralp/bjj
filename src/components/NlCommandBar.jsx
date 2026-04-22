@@ -51,15 +51,10 @@ export function NlCommandBarTrigger({ onClick }) {
   );
 }
 
-const SUGGESTIONS = [
-  'Registrar pagamento de abril da [nome do aluno]',
-  'Adicionar nota sobre [nome do lead/aluno]'
-];
-
 /**
- * @param {{ open: boolean, onOpenChange: (open: boolean) => void, academyName?: string }} props
+ * @param {{ open: boolean, onOpenChange: (open: boolean) => void, academyName?: string, context?: 'financeiro'|'funil' }} props
  */
-export default function NlCommandBar({ open, onOpenChange, academyName: academyNameProp }) {
+export default function NlCommandBar({ open, onOpenChange, academyName: academyNameProp, context = 'financeiro' }) {
   const [state, setState] = useState('idle');
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState(null);
@@ -119,14 +114,14 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
     setState('loading');
     setErrorMsg('');
     try {
-      const result = await interpret(text.trim());
+      const result = await interpret(text.trim(), context);
       setParsed(result);
       setState('confirm');
     } catch (err) {
       setErrorMsg(err?.message || 'Erro ao conectar. Tente novamente.');
       setState('error');
     }
-  }, [text, interpret]);
+  }, [text, interpret, context]);
 
   const handleExecute = useCallback(async () => {
     if (!parsed || parsed.action == null) return;
@@ -148,7 +143,23 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
     parsed &&
     parsed.action != null &&
     !missingBlock &&
-    (parsed.action === 'register_payment' || parsed.action === 'add_note');
+    (
+      parsed.action === 'register_payment' ||
+      parsed.action === 'add_note' ||
+      parsed.action === 'mark_attended' ||
+      parsed.action === 'mark_missed' ||
+      parsed.action === 'register_whatsapp'
+    );
+  const suggestions = context === 'funil'
+    ? [
+        'Marcar [nome] como compareceu',
+        'Registrar que enviei WhatsApp para [nome]',
+        'Adicionar nota sobre [nome]'
+      ]
+    : [
+        'Registrar pagamento de [mês] da [nome]',
+        'Adicionar nota sobre [nome]'
+      ];
 
   return (
     <>
@@ -248,7 +259,7 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
                 SUGESTÕES
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {SUGGESTIONS.map((s) => (
+                {suggestions.map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -388,14 +399,46 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
                         )}
                       </li>
                     </>
-                  ) : (
+                  ) : parsed.action === 'add_note' ? (
                     <>
                       <li>
                         <strong style={{ color: 'var(--text)' }}>Lead/Aluno:</strong>{' '}
-                        {parsed.data?.student_name || parsed.data?.student_id || '—'}
+                        {parsed.data?.lead_name || parsed.data?.student_name || parsed.data?.lead_id || parsed.data?.student_id || '—'}
                       </li>
                       <li>
                         <strong style={{ color: 'var(--text)' }}>Nota:</strong> {parsed.data?.note_text || '—'}
+                      </li>
+                    </>
+                  ) : parsed.action === 'mark_attended' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Nova etapa:</strong> Aguardando decisão
+                      </li>
+                    </>
+                  ) : parsed.action === 'mark_missed' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Motivo:</strong>{' '}
+                        {parsed.data?.reason ? String(parsed.data.reason) : 'não informado'}
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Mensagem:</strong>{' '}
+                        {parsed.data?.message_description ? String(parsed.data.message_description) : 'não especificada'}
                       </li>
                     </>
                   )}
@@ -516,7 +559,7 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
               color: '#bbb'
             }}
           >
-            <span>Módulo Financeiro{academyName ? ` · ${academyName}` : ''}</span>
+            <span>{context === 'funil' ? 'Funil de Vendas' : 'Módulo Financeiro'}{academyName ? ` · ${academyName}` : ''}</span>
             <kbd
               style={{
                 fontSize: 10,
