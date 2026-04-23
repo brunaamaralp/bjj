@@ -2034,7 +2034,7 @@ const Pipeline = () => {
                     </div>
                 </div>
             )}
-            <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} context="funil" />
+            <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} context="funil" pipelineStages={stages} />
         </div>
     );
 };

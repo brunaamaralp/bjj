@@ -17,6 +17,8 @@ import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -179,6 +181,29 @@ export default function StudentProfile() {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
+
+    const pipelineStagesNl = useMemo(() => {
+        const fixed = PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage }));
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        let conf = acad?.stagesConfig;
+        if (!conf) return fixed;
+        try {
+            if (typeof conf === 'string') conf = JSON.parse(conf);
+            if (!Array.isArray(conf)) return fixed;
+            const normalized = conf
+                .filter(Boolean)
+                .map((s) => {
+                    if (typeof s === 'string') return { id: String(s).trim(), label: String(s).trim() };
+                    const sid = String(s?.id || '').trim();
+                    const label = String(s?.label || s?.id || '').trim();
+                    return sid ? { id: sid, label: label || sid } : null;
+                })
+                .filter(Boolean);
+            return normalized.length > 0 ? normalized : fixed;
+        } catch {
+            return fixed;
+        }
+    }, [academyList, academyId]);
 
     const [editingData, setEditingData] = useState(false);
     const [dataForm, setDataForm] = useState({
@@ -350,6 +375,43 @@ export default function StudentProfile() {
         void loadPayments();
     }, [loadPayments]);
 
+    const academyNameDisplay = useMemo(() => {
+        const cur = (academyList || []).find((a) => a.id === academyId);
+        return String(cur?.name || '').trim();
+    }, [academyList, academyId]);
+
+    const [nlOpen, setNlOpen] = useState(false);
+
+    const recentPaymentsForNl = useMemo(() => {
+        if (!student) return [];
+        const nm = String(student.name || '').trim();
+        const sid = String(student.id || leadId).trim();
+        return (payments || [])
+            .filter((p) => String(p.status || '').toLowerCase() !== 'cancelled')
+            .map((p) => ({
+                id: p.$id,
+                lead_id: String(p.lead_id || sid).trim(),
+                student_id: String(p.lead_id || sid).trim(),
+                student_name: nm,
+                reference_month: String(p.reference_month || '').trim(),
+                amount: Number(p.amount),
+                status: String(p.status || ''),
+                method: String(p.method || ''),
+                note: String(p.note || ''),
+                plan_name: String(p.plan_name || ''),
+                account: String(p.account || '')
+            }));
+    }, [payments, student, leadId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        function onPaymentUpdated() {
+            void loadPayments();
+        }
+        window.addEventListener('navi-student-payment-updated', onPaymentUpdated);
+        return () => window.removeEventListener('navi-student-payment-updated', onPaymentUpdated);
+    }, [loadPayments]);
+
     useEffect(() => {
         if (!academyId) return;
         databases
@@ -431,6 +493,26 @@ export default function StudentProfile() {
         if (activeTab === 'timeline') void refreshTimeline();
     }, [activeTab, refreshTimeline]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        function onTimelineChanged(e) {
+            const evId = String(e?.detail?.leadId || '').trim();
+            if (evId && evId === String(leadId || '').trim()) void refreshTimeline();
+        }
+        window.addEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
+        return () => window.removeEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
+    }, [leadId, refreshTimeline]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        function onAttendanceChanged(e) {
+            const evId = String(e?.detail?.leadId || '').trim();
+            if (evId && evId === String(leadId || '').trim()) void loadFrequency();
+        }
+        window.addEventListener(LEAD_ATTENDANCE_CHANGED, onAttendanceChanged);
+        return () => window.removeEventListener(LEAD_ATTENDANCE_CHANGED, onAttendanceChanged);
+    }, [leadId, loadFrequency]);
+
     const filteredTimelineEvents = useMemo(
         () =>
             [...(timelineEvents || [])]
@@ -509,7 +591,6 @@ export default function StudentProfile() {
                     permissionContext: permCtx,
                 });
                 await updateLead(leadId, { lastWhatsappActivityAt: new Date().toISOString() });
-                await refreshTimeline();
             } catch (err) {
                 console.error('Erro ao registrar evento WhatsApp', err);
             }
@@ -535,7 +616,6 @@ export default function StudentProfile() {
             await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
             setNote('');
             addToast({ type: 'success', message: 'Nota adicionada.' });
-            await refreshTimeline();
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
@@ -591,6 +671,7 @@ export default function StudentProfile() {
                     monthlyRate: ((newThis / 26) * 100).toFixed(0) + '%',
                 };
             });
+            emitLeadAttendanceChanged(leadId);
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') || 'Não foi possível registrar a presença.' });
         } finally {
@@ -829,7 +910,8 @@ export default function StudentProfile() {
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 8,
                     padding: '12px 14px',
                     borderBottom: '1px solid var(--border-light)',
                     flexShrink: 0,
@@ -851,6 +933,7 @@ export default function StudentProfile() {
                 >
                     ← {studentsPlural}
                 </button>
+                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
             </div>
 
             <div style={{ padding: '16px 14px', flex: 1 }}>
@@ -1743,6 +1826,15 @@ export default function StudentProfile() {
             />
             {leftColumn}
             {rightColumn}
+
+            <NlCommandBar
+                open={nlOpen}
+                onOpenChange={setNlOpen}
+                academyName={academyNameDisplay}
+                context="perfil"
+                pipelineStages={pipelineStagesNl}
+                recentPayments={recentPaymentsForNl}
+            />
 
             {confirmDeleteOpen ? (
                 <div

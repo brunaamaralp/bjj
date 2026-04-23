@@ -1,17 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { databases, DB_ID, FINANCIAL_TX_COL, FINANCE_TX_FN_ID, JOURNAL_COL } from '../../lib/appwrite';
+import { databases, DB_ID, FINANCIAL_TX_COL } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
-import { useAccountingStore } from '../../store/useAccountingStore';
 import { Query, ID } from 'appwrite';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { Receipt } from 'lucide-react';
-import { callFunction } from '../../lib/executeFunction';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
-import { montarLancamento } from './montarLancamento.js';
+import { settleFinancialTransactionById, applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
 
-export default function TransacoesTab({ academyId, financeConfig }) {
+export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
   const leads = useLeadStore((s) => s.leads);
   const addToast = useUiStore((s) => s.addToast);
   const [fromDate, setFromDate] = useState('');
@@ -105,36 +103,34 @@ export default function TransacoesTab({ academyId, financeConfig }) {
     return () => { active = false; };
   }, [academyId, fromDate, toDate]);
 
+  useEffect(() => {
+    if (typeof onTransactionsChange === 'function') {
+      onTransactionsChange(transactions);
+    }
+  }, [transactions, onTransactionsChange]);
+
+  useEffect(() => {
+    const onSettled = (e) => {
+      const id = e?.detail?.id;
+      if (!id) return;
+      const nowIso = new Date().toISOString();
+      setTransactions((prev) =>
+        prev.map((t) => (String(t.id) === String(id) ? { ...t, status: 'settled', settledAt: nowIso } : t))
+      );
+    };
+    window.addEventListener('navi-financial-tx-settled', onSettled);
+    return () => window.removeEventListener('navi-financial-tx-settled', onSettled);
+  }, []);
+
   const settle = async (id) => {
     try {
-      if (FINANCE_TX_FN_ID) {
-        await callFunction(FINANCE_TX_FN_ID, { action: 'settle', id });
-      } else if (FINANCIAL_TX_COL) {
-        await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, id, {
-          status: 'settled',
-          settledAt: new Date().toISOString()
-        });
-      } else {
-        return;
-      }
+      await settleFinancialTransactionById(id);
       const nowIso = new Date().toISOString();
-      setTransactions((prev) => prev.map(t => t.id === id ? { ...t, status: 'settled', settledAt: nowIso } : t));
-      addToast({ type: 'success', message: 'Transação liquidada com sucesso' });
       const tx = transactions.find((t) => t.id === id);
-      const { accounts: storeAccounts, addEntry: storeAddEntry } = useAccountingStore.getState();
+      setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'settled', settledAt: nowIso } : t)));
+      addToast({ type: 'success', message: 'Transação liquidada com sucesso' });
       if (tx && academyId) {
-        const lancamento = montarLancamento(tx, storeAccounts, academyId);
-        if (lancamento) {
-          storeAddEntry(lancamento);
-          if (JOURNAL_COL) {
-            databases.createDocument(DB_ID, JOURNAL_COL, ID.unique(), {
-              academyId,
-              date: lancamento.date,
-              memo: lancamento.memo,
-              lines: JSON.stringify(lancamento.lines)
-            }).catch((err) => console.error('journal entry failed:', err));
-          }
-        }
+        applySettleAccountingSideEffects(tx, academyId);
       }
     } catch (e) {
       console.error(e);
@@ -283,6 +279,7 @@ export default function TransacoesTab({ academyId, financeConfig }) {
                   if (tx.type === 'plan') typeLabel = `Plano${tx.planName ? ' • ' + tx.planName : ''}`;
                   else if (tx.type === 'product') typeLabel = 'Produto';
                   else if (tx.type === 'other') typeLabel = 'Outro';
+                  else if (tx.type === 'expense') typeLabel = 'Despesa';
                   else if (tx.type) typeLabel = String(tx.type);
                   const creditLike = tx.method === 'credito' || tx.method === 'cartão_crédito';
                   const methodLabel = creditLike && tx.installments > 1 ? `${tx.method} ${tx.installments}x` : tx.method;

@@ -24,6 +24,7 @@ export default function Caixa() {
   const addToast = useUiStore((s) => s.addToast);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
   const [nlOpen, setNlOpen] = useState(false);
+  const [transactionsForNl, setTransactionsForNl] = useState([]);
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -79,10 +80,21 @@ export default function Caixa() {
             </div>
           </div>
         </div>
-        {academyId ? <TransacoesTab academyId={academyId} financeConfig={financeConfig} /> : null}
+        {academyId ? (
+          <TransacoesTab
+            academyId={academyId}
+            financeConfig={financeConfig}
+            onTransactionsChange={setTransactionsForNl}
+          />
+        ) : null}
       </div>
       <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
-      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} />
+      <NlCommandBar
+        open={nlOpen}
+        onOpenChange={setNlOpen}
+        academyName={academyName}
+        pendingTransactions={transactionsForNl}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@
 import { databases, DB_ID, LEAD_EVENTS_COL } from './appwrite';
 import { ID, Query } from 'appwrite';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
+import { emitLeadTimelineChanged } from './leadTimelineEvents.js';
 
 /** @param {{ ownerId?: string, teamId?: string, userId?: string }} ctx — ownerId ignorado no cliente (regra Appwrite). */
 function eventPermissions(ctx = {}) {
@@ -60,7 +61,9 @@ export async function addLeadEvent({
   };
 
   try {
-    return await databases.createDocument(DB_ID, LEAD_EVENTS_COL, ID.unique(), doc, perms);
+    const created = await databases.createDocument(DB_ID, LEAD_EVENTS_COL, ID.unique(), doc, perms);
+    emitLeadTimelineChanged(lid, { eventType: doc.type });
+    return created;
   } catch (err) {
     console.warn('[leadEvents] Falha ao gravar evento:', err?.message);
     return null;

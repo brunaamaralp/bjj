@@ -11,6 +11,9 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { getStudentPayments } from '../lib/studentPayments';
+import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskPhone } from '../lib/masks.js';
@@ -144,6 +147,77 @@ const LeadProfile = () => {
         }
     }, [academyList, academyId]);
 
+    const academyNameDisplay = useMemo(() => {
+        const cur = (academyList || []).find((a) => a.id === academyId);
+        return String(cur?.name || '').trim();
+    }, [academyList, academyId]);
+
+    const [nlOpen, setNlOpen] = useState(false);
+    const [studentPayments, setStudentPayments] = useState([]);
+
+    useEffect(() => {
+        if (!id || !academyId || !lead) {
+            setStudentPayments([]);
+            return;
+        }
+        const isStudent =
+            lead.status === LEAD_STATUS.CONVERTED || String(lead.contact_type || '').trim() === 'student';
+        if (!isStudent) {
+            setStudentPayments([]);
+            return;
+        }
+        let cancelled = false;
+        getStudentPayments(id, academyId)
+            .then((docs) => {
+                if (!cancelled) setStudentPayments(Array.isArray(docs) ? docs : []);
+            })
+            .catch(() => {
+                if (!cancelled) setStudentPayments([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [id, academyId, lead?.id, lead?.status, lead?.contact_type]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        function onPaymentUpdated() {
+            if (!id || !academyId || !lead) return;
+            const isStudent =
+                lead.status === LEAD_STATUS.CONVERTED || String(lead.contact_type || '').trim() === 'student';
+            if (!isStudent) return;
+            getStudentPayments(id, academyId).then(setStudentPayments).catch(() => {});
+        }
+        window.addEventListener('navi-student-payment-updated', onPaymentUpdated);
+        return () => window.removeEventListener('navi-student-payment-updated', onPaymentUpdated);
+    }, [id, academyId, lead?.id, lead?.status, lead?.contact_type]);
+
+    const recentPaymentsForNl = useMemo(() => {
+        if (!lead) return [];
+        const nm = String(lead.name || '').trim();
+        return (studentPayments || [])
+            .filter((p) => String(p.status || '').toLowerCase() !== 'cancelled')
+            .map((p) => {
+                const lid = String(p.lead_id || '').trim();
+                return {
+                    id: p.$id,
+                    lead_id: lid,
+                    student_id: lid,
+                    student_name: nm,
+                    reference_month: String(p.reference_month || '').trim(),
+                    amount: Number(p.amount),
+                    status: String(p.status || ''),
+                    method: String(p.method || ''),
+                    note: String(p.note || ''),
+                    plan_name: String(p.plan_name || ''),
+                    account: String(p.account || '')
+                };
+            });
+    }, [studentPayments, lead]);
+
+    /** Financeiro + funil no mesmo assistente (validação no servidor só bloqueia em contextos exclusivos). */
+    const nlCommandContext = 'perfil';
+
     const [timelineEvents, setTimelineEvents] = useState([]);
     const [timelineError, setTimelineError] = useState(false);
     const [confirmModal, setConfirmModal] = useState(null);
@@ -230,6 +304,16 @@ const LeadProfile = () => {
     useEffect(() => {
         void refreshTimeline();
     }, [refreshTimeline]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        function onTimelineChanged(e) {
+            const evId = String(e?.detail?.leadId || '').trim();
+            if (evId && evId === String(id || '').trim()) void refreshTimeline();
+        }
+        window.addEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
+        return () => window.removeEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
+    }, [id, refreshTimeline]);
 
     // Academy-level labels list (for the selector dropdown)
     const [allLabels, setAllLabels] = useState([]);
@@ -592,7 +676,6 @@ const LeadProfile = () => {
             if (newStatus === LEAD_STATUS.MISSED) patch.missedAt = nowIso;
             if (newStatus === LEAD_STATUS.CONVERTED) patch.convertedAt = nowIso;
             await updateLead(id, patch);
-            await refreshTimeline();
             if (newStatus === LEAD_STATUS.SCHEDULED) {
                 const fresh = useLeadStore.getState().leads.find((l) => l.id === id);
                 if (fresh) {
@@ -650,6 +733,7 @@ const LeadProfile = () => {
     };
 
     const confirmMarkLost = async (lostReason) => {
+        let eventLogged = false;
         try {
             await addLeadEvent({
                 academyId,
@@ -661,6 +745,7 @@ const LeadProfile = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
+            eventLogged = true;
         } catch (eventErr) {
             // O update de status não deve depender do log da timeline.
             console.warn('Falha ao registrar evento de perda no timeline:', eventErr);
@@ -673,7 +758,7 @@ const LeadProfile = () => {
             lostReason,
             lostAt: new Date().toISOString()
         });
-        await refreshTimeline();
+        if (!eventLogged) await refreshTimeline();
     };
     const deleteLeadExecute = async () => {
         if (deletingLead) return;
@@ -732,7 +817,6 @@ const LeadProfile = () => {
                     permissionContext: permCtx
                 });
                 await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
-                await refreshTimeline();
             } catch (err) {
                 console.error('Erro ao registrar evento WhatsApp', err);
             }
@@ -756,7 +840,6 @@ const LeadProfile = () => {
                 permissionContext: permCtx
             });
             await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
-            await refreshTimeline();
         } catch (err) {
             console.error('Erro ao registrar evento WhatsApp', err);
         }
@@ -777,7 +860,6 @@ const LeadProfile = () => {
             await updateLead(id, { lastNoteAt: new Date().toISOString() });
             setNote('');
             addToast({ type: 'success', message: 'Nota adicionada.' });
-            await refreshTimeline();
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
@@ -795,7 +877,6 @@ const LeadProfile = () => {
             permissionContext: permCtx
         });
         await updateLead(id, { lastNoteAt: new Date().toISOString() });
-        await refreshTimeline();
     };
 
     const handleTogglePin = async (ev) => {
@@ -817,6 +898,7 @@ const LeadProfile = () => {
 
         try {
             await updateLeadEvent(ev.$id, { is_pinned: !isCurrentlyPinned });
+            emitLeadTimelineChanged(id, { eventType: 'event_updated' });
         } catch (e) {
             setTimelineEvents(oldEvents); // Rollback
             addToast({ type: 'error', message: 'Erro ao pinar nota.' });
@@ -858,7 +940,8 @@ const LeadProfile = () => {
                     <button type="button" className="icon-btn" onClick={() => navigate(-1)}>
                         <ArrowLeft size={20} />
                     </button>
-                    <div className="flex gap-2" style={{ marginLeft: 'auto' }}>
+                    <div className="flex gap-2" style={{ marginLeft: 'auto', alignItems: 'center' }}>
+                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                         {!editing ? (
                             <button type="button" className="btn-edit-header" onClick={startEdit}>
                                 <Pencil size={14} /> Editar
@@ -1399,6 +1482,15 @@ const LeadProfile = () => {
                     }}
                 />
             )}
+
+            <NlCommandBar
+                open={nlOpen}
+                onOpenChange={setNlOpen}
+                academyName={academyNameDisplay}
+                context={nlCommandContext}
+                pipelineStages={stages}
+                recentPayments={recentPaymentsForNl}
+            />
 
             <style dangerouslySetInnerHTML={{
                 __html: `

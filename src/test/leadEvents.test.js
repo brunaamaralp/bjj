@@ -35,12 +35,14 @@ vi.mock('../lib/appwrite.js', () => ({
 
 import { ID } from 'appwrite';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
+import { LEAD_TIMELINE_CHANGED } from '../lib/leadTimelineEvents.js';
 import { mapAppwriteDocToLead } from '../lib/mapAppwriteLeadDoc.js';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
 
 describe('addLeadEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   const createDocument = () => leadEventsMocks.createDocument;
@@ -71,6 +73,23 @@ describe('addLeadEvent', () => {
     expect(payload.at).toBe('2026-01-15T12:00:00.000Z');
     expect(payload.created_by).toBe('user-99');
     expect(payload.payload_json).toBe('');
+  });
+
+  it('emite timeline changed após criar documento', async () => {
+    const dispatch = vi.fn();
+    vi.stubGlobal('window', { dispatchEvent: dispatch });
+    await addLeadEvent({
+      academyId: 'acad-1',
+      leadId: 'lead-zz',
+      type: 'note',
+      text: 'hello',
+      permissionContext: {}
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    const [evt] = dispatch.mock.calls[0];
+    expect(evt.type).toBe(LEAD_TIMELINE_CHANGED);
+    expect(evt.detail.leadId).toBe('lead-zz');
+    expect(evt.detail.eventType).toBe('note');
   });
 
   it('usa ID.unique() como document ID', async () => {

@@ -174,6 +174,18 @@ export default function Mensalidades() {
     };
   }, [academyId, currentMonth]);
 
+  useEffect(() => {
+    function onStudentPaymentUpdated(e) {
+      const ym = String(e?.detail?.referenceMonth || '').trim();
+      if (ym && ym !== currentMonth) return;
+      if (!academyId) return;
+      getMonthlyPayments(academyId, currentMonth).then(setPayments).catch(() => {});
+    }
+    if (typeof window === 'undefined') return undefined;
+    window.addEventListener('navi-student-payment-updated', onStudentPaymentUpdated);
+    return () => window.removeEventListener('navi-student-payment-updated', onStudentPaymentUpdated);
+  }, [academyId, currentMonth]);
+
   const paymentMap = useMemo(() => {
     const map = {};
     const list = (payments || []).filter((p) => String(p.status || '').toLowerCase() !== 'cancelled');
@@ -190,6 +202,31 @@ export default function Mensalidades() {
     }
     return map;
   }, [payments]);
+
+  const recentPaymentsForNl = useMemo(() => {
+    const nameByLead = {};
+    for (const s of students) {
+      nameByLead[String(s.id || '').trim()] = String(s.name || '').trim();
+    }
+    return (payments || [])
+      .filter((p) => String(p.status || '').toLowerCase() !== 'cancelled')
+      .map((p) => {
+        const lid = String(p.lead_id || '').trim();
+        return {
+          id: p.$id,
+          lead_id: lid,
+          student_id: lid,
+          student_name: nameByLead[lid] || '',
+          reference_month: String(p.reference_month || '').trim(),
+          amount: Number(p.amount),
+          status: String(p.status || ''),
+          method: String(p.method || ''),
+          note: String(p.note || ''),
+          plan_name: String(p.plan_name || ''),
+          account: String(p.account || '')
+        };
+      });
+  }, [payments, students]);
 
   const prevMonth = useCallback(() => {
     const d = new Date(`${currentMonth}-02T12:00:00`);
@@ -807,7 +844,7 @@ export default function Mensalidades() {
           </div>
         </div>
       )}
-      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} />
+      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} recentPayments={recentPaymentsForNl} />
     </div>
   );
 }

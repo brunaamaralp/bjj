@@ -52,9 +52,17 @@ export function NlCommandBarTrigger({ onClick }) {
 }
 
 /**
- * @param {{ open: boolean, onOpenChange: (open: boolean) => void, academyName?: string, context?: 'financeiro'|'funil' }} props
+ * @param {{ open: boolean, onOpenChange: (open: boolean) => void, academyName?: string, context?: 'financeiro'|'funil'|'perfil', pipelineStages?: { id: string, label?: string }[], pendingTransactions?: object[], recentPayments?: object[] }} props
  */
-export default function NlCommandBar({ open, onOpenChange, academyName: academyNameProp, context = 'financeiro' }) {
+export default function NlCommandBar({
+  open,
+  onOpenChange,
+  academyName: academyNameProp,
+  context = 'financeiro',
+  pipelineStages = [],
+  pendingTransactions = [],
+  recentPayments = []
+}) {
   const [state, setState] = useState('idle');
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState(null);
@@ -114,14 +122,14 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
     setState('loading');
     setErrorMsg('');
     try {
-      const result = await interpret(text.trim(), context);
+      const result = await interpret(text.trim(), context, { pipelineStages, pendingTransactions, recentPayments });
       setParsed(result);
       setState('confirm');
     } catch (err) {
       setErrorMsg(err?.message || 'Erro ao conectar. Tente novamente.');
       setState('error');
     }
-  }, [text, interpret, context]);
+  }, [text, interpret, context, pipelineStages, pendingTransactions, recentPayments]);
 
   const handleExecute = useCallback(async () => {
     if (!parsed || parsed.action == null) return;
@@ -145,21 +153,46 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
     !missingBlock &&
     (
       parsed.action === 'register_payment' ||
+      parsed.action === 'register_expense' ||
       parsed.action === 'add_note' ||
       parsed.action === 'mark_attended' ||
       parsed.action === 'mark_missed' ||
-      parsed.action === 'register_whatsapp'
+      parsed.action === 'register_whatsapp' ||
+      parsed.action === 'mark_enrolled' ||
+      parsed.action === 'mark_lost' ||
+      parsed.action === 'schedule_experimental' ||
+      parsed.action === 'move_pipeline_stage' ||
+      parsed.action === 'register_checkin' ||
+      parsed.action === 'update_student' ||
+      parsed.action === 'create_lead' ||
+      parsed.action === 'settle_transaction' ||
+      parsed.action === 'update_payment'
     );
-  const suggestions = context === 'funil'
-    ? [
-        'Marcar [nome] como compareceu',
-        'Registrar que enviei WhatsApp para [nome]',
-        'Adicionar nota sobre [nome]'
-      ]
-    : [
-        'Registrar pagamento de [mês] da [nome]',
-        'Adicionar nota sobre [nome]'
-      ];
+  const suggestionsFunil = [
+    'Marcar [nome] como compareceu',
+    'Mover [nome] para aguardando decisão',
+    'Cadastrar lead [nome] telefone 11999990000',
+    'Agendar experimental do [nome] amanhã às 19h',
+    'Matricular [nome] como aluno',
+    'Marcar [nome] como perdido — preço alto',
+    'Registrar que enviei WhatsApp para [nome]',
+    'Adicionar nota sobre [nome]'
+  ];
+  const suggestionsFinance = [
+    'Registrar pagamento de [mês] da [nome]',
+    'Registrar presença do aluno [nome]',
+    'Atualiza telefone de emergência do aluno [nome] para 11999990000',
+    'Liquidar transação pendente (use o id listado no Caixa)',
+    'Atualizar observação do pagamento de [nome] — [texto da nota]',
+    'Registrar despesa de R$ 150 com compra de frutas',
+    'Adicionar nota sobre [nome]'
+  ];
+  const suggestions =
+    context === 'funil'
+      ? suggestionsFunil
+      : context === 'perfil'
+        ? [...suggestionsFinance.slice(0, 4), ...suggestionsFunil.slice(0, 4)]
+        : suggestionsFinance;
 
   return (
     <>
@@ -409,6 +442,135 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
                         <strong style={{ color: 'var(--text)' }}>Nota:</strong> {parsed.data?.note_text || '—'}
                       </li>
                     </>
+                  ) : parsed.action === 'register_expense' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Descrição:</strong>{' '}
+                        {parsed.data?.expense_description || parsed.data?.description || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Valor (R$):</strong>{' '}
+                        {parsed.data?.amount != null && parsed.data?.amount !== '' ? String(parsed.data.amount) : '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Método:</strong>{' '}
+                        {parsed.data?.method ? String(parsed.data.method) : 'dinheiro (padrão)'}
+                      </li>
+                    </>
+                  ) : parsed.action === 'register_checkin' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Aluno(a):</strong>{' '}
+                        {parsed.data?.student_name || parsed.data?.student_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Registro:</strong> Check-in agora (presença)
+                      </li>
+                    </>
+                  ) : parsed.action === 'update_student' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Aluno(a):</strong>{' '}
+                        {parsed.data?.student_name || parsed.data?.student_id || '—'}
+                      </li>
+                      {Object.entries(parsed.data?.updates || {}).map(([k, v]) => (
+                        <li key={k}>
+                          <strong style={{ color: 'var(--text)' }}>{k}:</strong> {String(v)}
+                        </li>
+                      ))}
+                    </>
+                  ) : parsed.action === 'settle_transaction' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Transação:</strong>{' '}
+                        {parsed.data?.transaction_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Nota:</strong>{' '}
+                        {String(parsed.data?.tx_snapshot?.note || '').slice(0, 120) || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Bruto:</strong>{' '}
+                        {parsed.data?.tx_snapshot?.gross != null ? String(parsed.data.tx_snapshot.gross) : '—'}
+                      </li>
+                    </>
+                  ) : parsed.action === 'update_payment' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Registro:</strong>{' '}
+                        {parsed.data?.payment_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Aluno(a):</strong>{' '}
+                        {parsed.data?.student_name || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Mês:</strong> {formatRefMonth(parsed.data?.reference_month)}
+                      </li>
+                      {Object.entries(parsed.data?.updates || {}).map(([k, v]) => (
+                        <li key={k}>
+                          <strong style={{ color: 'var(--text)' }}>{k}:</strong> {String(v)}
+                        </li>
+                      ))}
+                    </>
+                  ) : parsed.action === 'create_lead' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Nome:</strong>{' '}
+                        {parsed.data?.name || parsed.data?.lead_name || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Telefone:</strong>{' '}
+                        {parsed.data?.phone || parsed.data?.lead_phone || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Origem:</strong>{' '}
+                        {parsed.data?.origin ? String(parsed.data.origin) : '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Tipo:</strong> {parsed.data?.type || 'Adulto'}
+                      </li>
+                    </>
+                  ) : parsed.action === 'mark_enrolled' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Resultado:</strong> Status matriculado · tipo aluno
+                      </li>
+                    </>
+                  ) : parsed.action === 'schedule_experimental' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Data:</strong>{' '}
+                        {parsed.data?.scheduled_date || parsed.data?.date || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Horário:</strong>{' '}
+                        {parsed.data?.scheduled_time || parsed.data?.time || '—'}
+                      </li>
+                    </>
+                  ) : parsed.action === 'move_pipeline_stage' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Nova etapa:</strong>{' '}
+                        {(() => {
+                          const tid = String(parsed.data?.target_stage_id || parsed.data?.stage_id || '').trim();
+                          const st = (pipelineStages || []).find((x) => String(x.id) === tid);
+                          return st?.label ? `${st.label} (${tid})` : tid || '—';
+                        })()}
+                      </li>
+                    </>
                   ) : parsed.action === 'mark_attended' ? (
                     <>
                       <li>
@@ -430,7 +592,18 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
                         {parsed.data?.reason ? String(parsed.data.reason) : 'não informado'}
                       </li>
                     </>
-                  ) : (
+                  ) : parsed.action === 'mark_lost' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
+                        {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Motivo da perda:</strong>{' '}
+                        {parsed.data?.lost_reason ? String(parsed.data.lost_reason) : '—'}
+                      </li>
+                    </>
+                  ) : parsed.action === 'register_whatsapp' ? (
                     <>
                       <li>
                         <strong style={{ color: 'var(--text)' }}>Lead:</strong>{' '}
@@ -441,6 +614,8 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
                         {parsed.data?.message_description ? String(parsed.data.message_description) : 'não especificada'}
                       </li>
                     </>
+                  ) : (
+                    <li style={{ color: 'var(--text-muted)' }}>Revise o resumo acima antes de confirmar.</li>
                   )}
                 </ul>
               </div>
@@ -559,7 +734,10 @@ export default function NlCommandBar({ open, onOpenChange, academyName: academyN
               color: '#bbb'
             }}
           >
-            <span>{context === 'funil' ? 'Funil de Vendas' : 'Módulo Financeiro'}{academyName ? ` · ${academyName}` : ''}</span>
+            <span>
+              {context === 'funil' ? 'Funil de Vendas' : context === 'perfil' ? 'Perfil (finanças + funil)' : 'Módulo Financeiro'}
+              {academyName ? ` · ${academyName}` : ''}
+            </span>
             <kbd
               style={{
                 fontSize: 10,
