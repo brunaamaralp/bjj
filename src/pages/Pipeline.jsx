@@ -15,49 +15,9 @@ import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import ScheduleModal from '../components/ScheduleModal.jsx';
+import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 
-const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-const normalizeDayToken = (t) => t.toLowerCase().trim().replace(/á/g, 'a').slice(0, 3);
-const dayTokenToIndex = (tok) => {
-    const n = normalizeDayToken(tok);
-    return WEEK.findIndex(x => x === n);
-};
-const parseQuickItems = (arr) => {
-    return arr.map(entry => {
-        const raw = String(entry).trim();
-        if (!raw) return { days: null, label: '', value: '' };
-        const firstSpace = raw.indexOf(' ');
-        let days = null;
-        let timePart = raw;
-        if (firstSpace > 0) {
-            const possibleDays = raw.slice(0, firstSpace);
-            const rest = raw.slice(firstSpace + 1).trim();
-            const looksLikeDays = /^[A-Za-zçÇáÁéÉíÍóÓúÚãÃõÕêÊôÔàÀ,\s]+$/.test(possibleDays);
-            if (looksLikeDays && rest) {
-                const tokens = possibleDays.split(',').map(t => t.trim()).filter(Boolean);
-                const idxs = tokens.map(dayTokenToIndex).filter(i => i >= 0);
-                if (idxs.length > 0) {
-                    days = Array.from(new Set(idxs));
-                    timePart = rest;
-                }
-            }
-        }
-        const label = timePart;
-        return { days, label, value: timePart };
-    }).filter(it => it.label);
-};
-const parseTimeToMinutes = (t) => {
-    const parts = t.split(':');
-    const hh = parseInt(parts[0], 10);
-    const mm = parseInt(parts[1], 10) || 0;
-    if (Number.isFinite(hh) && Number.isFinite(mm)) return hh * 60 + mm;
-    return Number.MAX_SAFE_INTEGER;
-};
-const timeStartMinutes = (timePart) => {
-    const norm = timePart.replace('–', '-');
-    const start = norm.split('-')[0].trim();
-    return parseTimeToMinutes(start);
-};
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
     DndContext,
@@ -89,8 +49,8 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId, schedulerOpenId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, handleReschedule, itemsForDay, isExpanded, toggleExpanded, MAX_CHIPS, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, openScheduler, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
-    const isCardOverlayOpen = openMenuId === lead.id || schedulerOpenId === lead.id || moverOpenId === lead.id;
+const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
+    const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     return (
         <div
             className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
@@ -200,7 +160,15 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
                     {openMenuId === lead.id && (
                         <div className="action-menu-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="menu-group">
-                                <button className="menu-item" onClick={(e) => openScheduler(e, lead.id)}>
+                                <button
+                                    className="menu-item"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuId(null);
+                                        setWaDropdownOpenId(null);
+                                        onOpenScheduleModal(lead);
+                                    }}
+                                >
                                     <Calendar size={16} /> Agendar aula experimental
                                 </button>
                                 {lead.pipelineStage === 'Aula experimental' && (
@@ -244,36 +212,6 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
                     )}
                 </div>
             </div>
-            {schedulerOpenId === lead.id && (
-                <div className="dropdown-panel" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
-                    <div className="dropdown-section">
-                        <div className="dropdown-label">Hoje</div>
-                        <div className="dropdown-times">
-                            {(isExpanded(lead.id) ? itemsForDay('today') : itemsForDay('today').slice(0, MAX_CHIPS)).map((it, idx) => (
-                                <button key={`t-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'today', it.value)}>{it.label}</button>
-                            ))}
-                            {itemsForDay('today').length > MAX_CHIPS && (
-                                <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
-                                    {isExpanded(lead.id) ? 'Menos' : `+${itemsForDay('today').length - MAX_CHIPS}`}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    <div className="dropdown-section">
-                        <div className="dropdown-label">Amanhã</div>
-                        <div className="dropdown-times">
-                            {(isExpanded(lead.id) ? itemsForDay('tomorrow') : itemsForDay('tomorrow').slice(0, MAX_CHIPS)).map((it, idx) => (
-                                <button key={`m-${lead.id}-${idx}`} className="time-chip-mini" onClick={(e) => handleReschedule(e, lead, 'tomorrow', it.value)}>{it.label}</button>
-                            ))}
-                            {itemsForDay('tomorrow').length > MAX_CHIPS && (
-                                <button className="more-btn" onClick={(e) => toggleExpanded(e, lead.id)}>
-                                    {isExpanded(lead.id) ? 'Menos' : `+${itemsForDay('tomorrow').length - MAX_CHIPS}`}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
             {moverOpenId === lead.id && (
                 <div className="dropdown-panel" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
                     {stages.map(s => {
@@ -417,14 +355,13 @@ const Pipeline = () => {
     const dragScrollRafRef = useRef(null);
     const lastDragClientXRef = useRef(null);
     const [showImport, setShowImport] = useState(false);
-    const [quickItems, setQuickItems] = useState([]);
+    const [pipelineQuickTimes, setPipelineQuickTimes] = useState([]);
     const [toast, setToast] = useState('');
-    const [expanded, setExpanded] = useState({});
+    const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const [noteOpen, setNoteOpen] = useState(false);
     const [noteLead, setNoteLead] = useState(null);
     const [noteText, setNoteText] = useState('');
-    const [schedulerOpenId, setSchedulerOpenId] = useState(null);
     const [moverOpenId, setMoverOpenId] = useState(null);
     const [lostModal, setLostModal] = useState(null);
     const [stages, setStages] = useState(DEFAULT_STAGE_LABELS);
@@ -706,12 +643,7 @@ const Pipeline = () => {
                     zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
                 });
-                let raw = [];
-                if (Array.isArray(doc.quickTimes)) raw = doc.quickTimes;
-                else if (typeof doc.quickTimes === 'string' && doc.quickTimes.trim()) raw = doc.quickTimes.split(',').map(s => s.trim()).filter(Boolean);
-                const parsed = parseQuickItems(raw);
-                if (parsed.length > 0) setQuickItems(parsed);
-                else setQuickItems(parseQuickItems(['18:00', '19:00']));
+                setPipelineQuickTimes(getAcademyQuickTimeChipValues(doc));
                 try {
                     if (doc.stagesConfig) {
                         const conf = typeof doc.stagesConfig === 'string' ? JSON.parse(doc.stagesConfig) : doc.stagesConfig;
@@ -736,26 +668,10 @@ const Pipeline = () => {
                 }
             })
             .catch(() => {
+                setPipelineQuickTimes(getAcademyQuickTimeChipValues(null));
                 addToast({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
             });
     }, [academyId, addToast]);
-
-    const getDayIndex = (date) => date.getDay();
-    const itemsForDay = (key) => {
-        const base = new Date();
-        if (key === 'tomorrow') base.setDate(base.getDate() + 1);
-        const idx = getDayIndex(base);
-        const list = quickItems.filter(it => !it.days || it.days.includes(idx));
-        list.sort((a, b) => timeStartMinutes(a.value) - timeStartMinutes(b.value));
-        return list;
-    };
-
-    const toYMD = (date) => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    };
 
     const templateSendKeys = useMemo(
         () =>
@@ -792,18 +708,15 @@ const Pipeline = () => {
         navigate(`/inbox?phone=${encodeURIComponent(lead.phone)}`);
     };
 
-    const handleReschedule = async (e, lead, day, time) => {
-        e.stopPropagation();
-        const base = new Date();
-        if (day === 'tomorrow') base.setDate(base.getDate() + 1);
-        const ymd = toYMD(base);
+    const handleReschedule = async (lead, ymd, time, note) => {
+        const textBody = String(note || '').trim() || 'Aula experimental agendada';
         try {
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
                 type: 'schedule',
                 to: ymd,
-                text: 'Aula experimental agendada',
+                text: textBody,
                 createdBy: userId || 'user',
                 permissionContext: permCtx,
                 payloadJson: { date: ymd, time }
@@ -812,25 +725,18 @@ const Pipeline = () => {
         } catch {
             await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental' });
         }
-        const label = day === 'tomorrow' ? 'amanhã' : 'hoje';
-        setToast(`Reagendado para ${label} ${time}`);
+        setToast(`Reagendado para ${ymd} ${time}`);
         setTimeout(() => setToast(''), 2500);
     };
-    const MAX_CHIPS = 4;
-    const isExpanded = (leadId) => !!expanded[leadId];
-    const toggleExpanded = (e, leadId) => {
-        e.stopPropagation();
-        setExpanded(prev => ({ ...prev, [leadId]: !prev[leadId] }));
+
+    const onConfirmSchedulePipeline = async ({ date, time, note }) => {
+        if (!scheduleModalLead) return;
+        await handleReschedule(scheduleModalLead, date, time, note);
     };
-    const openScheduler = (e, leadId) => {
-        e.stopPropagation();
-        setSchedulerOpenId(prev => prev === leadId ? null : leadId);
-        setMoverOpenId(null);
-    };
+
     const openMover = (e, leadId) => {
         e.stopPropagation();
         setMoverOpenId(prev => prev === leadId ? null : leadId);
-        setSchedulerOpenId(null);
     };
     const openLostModal = (leadId, onConfirm) => {
         const lead = getLeadById(leadId);
@@ -1276,16 +1182,16 @@ const Pipeline = () => {
                             <span className={`date-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</span>
                             <input
                                 type="date"
+                                className="navi-date-filter"
                                 value={filterDateFrom}
                                 onChange={(e) => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
-                                style={{ fontSize: 12, padding: '5px 8px', border: '0.5px solid var(--border-light)', borderRadius: 8 }}
                             />
                             <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
                             <input
                                 type="date"
+                                className="navi-date-filter"
                                 value={filterDateTo}
                                 onChange={(e) => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
-                                style={{ fontSize: 12, padding: '5px 8px', border: '0.5px solid var(--border-light)', borderRadius: 8 }}
                             />
                             <div className="page-header-sep" />
                             <div className="filter-group">
@@ -1444,7 +1350,7 @@ const Pipeline = () => {
                                 col={col}
                                 color={color}
                                 isOver={dragOver === col.id}
-                                hasOverlayOpen={colLeads.some((l) => l.id === openMenuId || l.id === schedulerOpenId || l.id === moverOpenId)}
+                                hasOverlayOpen={colLeads.some((l) => l.id === openMenuId || l.id === scheduleModalLead?.id || l.id === moverOpenId)}
                                 leads={colLeads}
                             >
                                 <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
@@ -1455,7 +1361,7 @@ const Pipeline = () => {
                                             navigate={navigate}
                                             openNote={openNote}
                                             openMenuId={openMenuId}
-                                            schedulerOpenId={schedulerOpenId}
+                                            scheduleModalLeadId={scheduleModalLead?.id ?? null}
                                             moverOpenId={moverOpenId}
                                             setOpenMenuId={setOpenMenuId}
                                             setWaDropdownOpenId={setWaDropdownOpenId}
@@ -1464,18 +1370,13 @@ const Pipeline = () => {
                                             waDropdownOpenId={waDropdownOpenId}
                                             templateSendKeys={templateSendKeys}
                                             sendTemplateFromPipeline={sendTemplateFromPipeline}
-                                            handleReschedule={handleReschedule}
-                                            itemsForDay={itemsForDay}
-                                            isExpanded={isExpanded}
-                                            toggleExpanded={toggleExpanded}
-                                            MAX_CHIPS={MAX_CHIPS}
                                             stages={stages}
                                             moveToStatus={moveToStatus}
                                             handleCopyPhone={handleCopyPhone}
                                             copiedId={copiedId}
                                             handleMarkAsLost={handleMarkAsLost}
                                             handleDeleteLead={handleDeleteLead}
-                                            openScheduler={openScheduler}
+                                            onOpenScheduleModal={setScheduleModalLead}
                                             handleConfirmPresence={handleConfirmPresence}
                                             setMissedModalLead={setMissedModalLead}
                                             setMatriculaModalOpen={setMatriculaModalOpen}
@@ -1516,7 +1417,7 @@ const Pipeline = () => {
                             navigate={navigate}
                             openNote={openNote}
                             openMenuId={openMenuId}
-                            schedulerOpenId={schedulerOpenId}
+                            scheduleModalLeadId={scheduleModalLead?.id ?? null}
                             moverOpenId={moverOpenId}
                             setOpenMenuId={setOpenMenuId}
                             setWaDropdownOpenId={setWaDropdownOpenId}
@@ -1525,18 +1426,13 @@ const Pipeline = () => {
                             waDropdownOpenId={waDropdownOpenId}
                             templateSendKeys={templateSendKeys}
                             sendTemplateFromPipeline={sendTemplateFromPipeline}
-                            handleReschedule={handleReschedule}
-                            itemsForDay={itemsForDay}
-                            isExpanded={isExpanded}
-                            toggleExpanded={toggleExpanded}
-                            MAX_CHIPS={MAX_CHIPS}
                             stages={stages}
                             moveToStatus={moveToStatus}
                             handleCopyPhone={handleCopyPhone}
                             copiedId={copiedId}
                             handleMarkAsLost={handleMarkAsLost}
                             handleDeleteLead={handleDeleteLead}
-                            openScheduler={openScheduler}
+                            onOpenScheduleModal={setScheduleModalLead}
                             handleConfirmPresence={handleConfirmPresence}
                             setMissedModalLead={setMissedModalLead}
                             setMatriculaModalOpen={setMatriculaModalOpen}
@@ -1547,6 +1443,16 @@ const Pipeline = () => {
                     ) : null}
                 </DragOverlay>
             </DndContext>
+
+            <ScheduleModal
+                open={scheduleModalLead !== null}
+                onClose={() => setScheduleModalLead(null)}
+                onConfirm={onConfirmSchedulePipeline}
+                lead={scheduleModalLead}
+                quickTimes={pipelineQuickTimes}
+                initialDate={scheduleModalLead?.scheduledDate || ''}
+                initialTime={scheduleModalLead?.scheduledTime || ''}
+            />
 
             {lostModal ? (
                 <LostReasonModal

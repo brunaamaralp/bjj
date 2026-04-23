@@ -46,6 +46,6 @@ export function maskCurrency(value) {
 export function parseCurrencyBRL(value) {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     const s = String(value ?? '').trim();
-    if (!s) return NaN;
+    if (!s) return 0;
     return parseFloat(s.replace(/\./g, '').replace(',', '.'));
 }

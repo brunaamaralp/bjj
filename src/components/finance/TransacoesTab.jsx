@@ -206,13 +206,13 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
         <div className="card">
           <div className="finance-tx-toolbar">
             <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div className="form-group" style={{ width: 180 }}>
+              <div className="form-group" style={{ width: 138 }}>
                 <label>De</label>
-                <input className="form-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                <input className="form-input navi-date-filter" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
               </div>
-              <div className="form-group" style={{ width: 180 }}>
+              <div className="form-group" style={{ width: 138 }}>
                 <label>Até</label>
-                <input className="form-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                <input className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </div>
             </div>
             <button

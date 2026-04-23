@@ -7,6 +7,7 @@ import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { DateInput } from '../components/DateInput';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -742,14 +743,12 @@ export default function Mensalidades() {
                   />
                 </div>
                 <div>
-                  <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
-                    Data do pagamento
-                  </label>
-                  <input
-                    className="mensal-modal-in"
+                  <DateInput
+                    label="Data do pagamento"
                     type="date"
                     value={payForm.paid_at}
                     onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
+                    required
                   />
                 </div>
               </div>

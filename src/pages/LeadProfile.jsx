@@ -17,6 +17,8 @@ import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimel
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskPhone } from '../lib/masks.js';
+import ScheduleModal from '../components/ScheduleModal.jsx';
+import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -330,10 +332,28 @@ const LeadProfile = () => {
         templates: DEFAULT_WHATSAPP_TEMPLATES
     });
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [profileQuickTimes, setProfileQuickTimes] = useState([]);
 
     useEffect(() => {
         setTemplateMenuOpen(false);
     }, [id]);
+
+    useEffect(() => {
+        if (!academyId) return undefined;
+        let cancelled = false;
+        databases
+            .getDocument(DB_ID, ACADEMIES_COL, academyId)
+            .then((doc) => {
+                if (!cancelled) setProfileQuickTimes(getAcademyQuickTimeChipValues(doc));
+            })
+            .catch(() => {
+                if (!cancelled) setProfileQuickTimes(getAcademyQuickTimeChipValues(null));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [academyId]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -676,17 +696,7 @@ const LeadProfile = () => {
             if (newStatus === LEAD_STATUS.MISSED) patch.missedAt = nowIso;
             if (newStatus === LEAD_STATUS.CONVERTED) patch.convertedAt = nowIso;
             await updateLead(id, patch);
-            if (newStatus === LEAD_STATUS.SCHEDULED) {
-                const fresh = useLeadStore.getState().leads.find((l) => l.id === id);
-                if (fresh) {
-                    fillFormFromLead(fresh);
-                    setEditing(true);
-                }
-                addToast({
-                    type: 'success',
-                    message: 'Status: Agendado. Defina data e horário nos campos abaixo e toque em Salvar.',
-                });
-            } else if (newStatus === LEAD_STATUS.COMPLETED) {
+            if (newStatus === LEAD_STATUS.COMPLETED) {
                 addToast({ type: 'success', message: 'Comparecimento registrado.' });
             } else if (newStatus === LEAD_STATUS.CONVERTED) {
                 addToast({ type: 'success', message: 'Lead marcado como matriculado.' });
@@ -699,6 +709,43 @@ const LeadProfile = () => {
             setUpdatingStatus(false);
         }
     };
+
+    const onConfirmScheduleFromModal = async ({ date, time, note }) => {
+        const textBody = String(note || '').trim() || 'Aula experimental agendada';
+        try {
+            try {
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
+                    type: 'schedule',
+                    to: date,
+                    text: textBody,
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: { date, time },
+                });
+                await updateLead(id, {
+                    status: LEAD_STATUS.SCHEDULED,
+                    pipelineStage: 'Aula experimental',
+                    scheduledDate: date,
+                    scheduledTime: time,
+                });
+            } catch {
+                await updateLead(id, {
+                    status: LEAD_STATUS.SCHEDULED,
+                    pipelineStage: 'Aula experimental',
+                    scheduledDate: date,
+                    scheduledTime: time,
+                });
+            }
+            await refreshTimeline();
+            addToast({ type: 'success', message: 'Aula agendada com sucesso.' });
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            throw e;
+        }
+    };
+
     const handleMarkLost = () => {
         setLostModalOpen(true);
     };
@@ -1246,10 +1293,10 @@ const LeadProfile = () => {
                     <div className="profile-section">
                         <h3 className="section-title">Próximos Passos</h3>
                         <div className="flex-col gap-2">
-                            <button 
-                                type="button" 
-                                className="btn-next-step" 
-                                onClick={() => void handleUpdateStatus(LEAD_STATUS.SCHEDULED)}
+                            <button
+                                type="button"
+                                className="btn-next-step"
+                                onClick={() => setScheduleModalOpen(true)}
                                 disabled={updatingStatus}
                             >
                                 <Calendar size={14} /> Agendar nova data
@@ -1482,6 +1529,16 @@ const LeadProfile = () => {
                     }}
                 />
             )}
+
+            <ScheduleModal
+                open={scheduleModalOpen}
+                onClose={() => setScheduleModalOpen(false)}
+                onConfirm={onConfirmScheduleFromModal}
+                lead={lead}
+                quickTimes={profileQuickTimes}
+                initialDate={lead?.scheduledDate || ''}
+                initialTime={lead?.scheduledTime || ''}
+            />
 
             <NlCommandBar
                 open={nlOpen}

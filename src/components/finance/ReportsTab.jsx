@@ -83,13 +83,13 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
         </div>
       ) : null}
       <div className="finance-reports-filters">
-        <div className="form-group" style={{ width: 180 }}>
+        <div className="form-group" style={{ width: 138 }}>
           <label>De</label>
-          <input className="form-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input className="form-input navi-date-filter" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
-        <div className="form-group" style={{ width: 180 }}>
+        <div className="form-group" style={{ width: 138 }}>
           <label>Até</label>
-          <input className="form-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input className="form-input navi-date-filter" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         <div className="form-group" style={{ width: 200 }}>
           <label>Método DFC</label>

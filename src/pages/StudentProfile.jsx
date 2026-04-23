@@ -18,6 +18,7 @@ import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 
 function formatDateBR(ymd) {
@@ -1928,25 +1929,14 @@ export default function StudentProfile() {
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Mês de referência
-                                </label>
-                                <input
+                                <DateInput
+                                    label="Mês de referência"
                                     type="month"
                                     className="form-input"
-                                    style={{ ...inputStyle, width: '100%' }}
+                                    style={{ width: '100%' }}
                                     value={payForm.reference_month}
                                     onChange={(e) => setPayForm((p) => ({ ...p, reference_month: e.target.value }))}
+                                    required
                                 />
                             </div>
                             <div>
@@ -2000,49 +1990,27 @@ export default function StudentProfile() {
                             </div>
                             {payForm.status === 'paid' ? (
                                 <div>
-                                    <label
-                                        style={{
-                                            display: 'block',
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                            color: 'var(--text-muted)',
-                                            marginBottom: 6,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.06em',
-                                        }}
-                                    >
-                                        Data do pagamento
-                                    </label>
-                                    <input
+                                    <DateInput
+                                        label="Data do pagamento"
                                         type="date"
                                         className="form-input"
-                                        style={{ ...inputStyle, width: '100%' }}
+                                        style={{ width: '100%' }}
                                         value={payForm.paid_at}
                                         onChange={(e) => setPayForm((p) => ({ ...p, paid_at: e.target.value }))}
+                                        required
                                     />
                                 </div>
                             ) : null}
                             {payForm.status === 'pending' ? (
                                 <div>
-                                    <label
-                                        style={{
-                                            display: 'block',
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                            color: 'var(--text-muted)',
-                                            marginBottom: 6,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.06em',
-                                        }}
-                                    >
-                                        Data de vencimento
-                                    </label>
-                                    <input
+                                    <DateInput
+                                        label="Data de vencimento"
                                         type="date"
                                         className="form-input"
-                                        style={{ ...inputStyle, width: '100%' }}
+                                        style={{ width: '100%' }}
                                         value={payForm.due_date}
                                         onChange={(e) => setPayForm((p) => ({ ...p, due_date: e.target.value }))}
+                                        required
                                     />
                                 </div>
                             ) : null}

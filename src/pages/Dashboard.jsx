@@ -5,12 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
+import ScheduleModal from '../components/ScheduleModal.jsx';
+import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -23,28 +25,14 @@ const DAY_FILTERS = [
 ];
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
-const COMMON_TIMES = ['07:00', '08:00', '12:00', '18:00', '19:00', '20:00'];
-const nextQuarterTime = () => {
-    const d = new Date();
-    let m = d.getMinutes();
-    const add = 15 - (m % 15 || 15);
-    d.setMinutes(m + add, 0, 0);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-};
-
 const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
     const addToast = useUiStore((s) => s.addToast);
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [editOpen, setEditOpen] = useState(false);
-    const [editLead, setEditLead] = useState(null);
-    const [editDate, setEditDate] = useState('');
-    const [editTime, setEditTime] = useState('');
-    const [editStatus, setEditStatus] = useState(LEAD_STATUS.SCHEDULED);
+    const [scheduleModalLead, setScheduleModalLead] = useState(null);
+    const [dashboardQuickTimes, setDashboardQuickTimes] = useState([]);
 
     const [academyWa, setAcademyWa] = useState({
         name: '',
@@ -52,8 +40,6 @@ const Dashboard = () => {
         templates: DEFAULT_WHATSAPP_TEMPLATES
     });
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
-    const [confirmModal, setConfirmModal] = useState(null);
-    const [confirmBusy, setConfirmBusy] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
     const [nlOpen, setNlOpen] = useState(false);
     const hiddenAtRef = useRef(null);
@@ -141,11 +127,13 @@ const Dashboard = () => {
                     zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...parsed }
                 });
+                setDashboardQuickTimes(getAcademyQuickTimeChipValues(doc));
             })
             .catch(() => {
                 if (!cancelled) {
                     setAcademyWaLoadFailed(true);
                     setAcademyWa({ name: '', zapster_instance_id: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
+                    setDashboardQuickTimes(getAcademyQuickTimeChipValues(null));
                 }
             });
         return () => {
@@ -163,23 +151,15 @@ const Dashboard = () => {
         }
     };
 
-    const openEdit = (lead) => {
-        setEditLead(lead);
-        setEditDate(lead.scheduledDate || '');
-        setEditTime(lead.scheduledTime || '');
-        setEditStatus(lead.status || LEAD_STATUS.SCHEDULED);
-        setEditOpen(true);
+    const openScheduleModal = (lead) => {
+        setScheduleModalLead(lead);
     };
 
-    const closeEdit = () => {
-        setEditOpen(false);
-        setEditLead(null);
-        setEditDate('');
-        setEditTime('');
-    };
-
-    const saveEdit = async () => {
-        if (!editLead) return;
+    const onConfirmScheduleDashboard = async ({ date, time, note }) => {
+        if (!scheduleModalLead) return;
+        const st = useLeadStore.getState();
+        const modalLead = scheduleModalLead;
+        const editStatus = modalLead.status;
         const pipelineStage =
             editStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
                 : editStatus === LEAD_STATUS.COMPLETED ? PIPELINE_WAITING_DECISION_STAGE
@@ -188,77 +168,29 @@ const Dashboard = () => {
                             : editStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
                                 : undefined;
         try {
-            await useLeadStore.getState().updateLead(editLead.id, {
-                scheduledDate: editDate,
-                scheduledTime: editTime,
+            await st.updateLead(modalLead.id, {
+                scheduledDate: date,
+                scheduledTime: time,
                 status: editStatus,
-                ...(pipelineStage ? { pipelineStage } : {})
+                ...(pipelineStage ? { pipelineStage } : {}),
             });
+            const noteTrim = String(note || '').trim();
+            if (noteTrim) {
+                const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+                const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+                await addLeadEvent({
+                    academyId: st.academyId,
+                    leadId: modalLead.id,
+                    type: 'note',
+                    text: noteTrim,
+                    createdBy: st.userId || 'user',
+                    permissionContext: permCtx,
+                });
+            }
             addToast({ type: 'success', message: 'Agendamento atualizado com sucesso.' });
         } catch (e) {
             addToast({ type: 'error', message: 'Erro ao atualizar agendamento.' });
-        }
-        closeEdit();
-    };
-
-    const removeSchedule = async () => {
-        if (!editLead) return;
-        try {
-            await useLeadStore.getState().updateLead(editLead.id, {
-                scheduledDate: '',
-                scheduledTime: '',
-                status: LEAD_STATUS.NEW,
-                pipelineStage: 'Novo'
-            });
-            addToast({ type: 'success', message: 'Agendamento excluído.' });
-        } catch (e) {
-            addToast({ type: 'error', message: 'Erro ao excluir agendamento.' });
-        }
-        closeEdit();
-    };
-
-    const openRemoveScheduleConfirm = () => {
-        if (!editLead) return;
-        setConfirmModal({
-            title: 'Excluir agendamento?',
-            description: `O agendamento de ${editLead.name || 'este lead'} será removido e o lead voltará para o funil.`,
-            confirmLabel: 'Excluir',
-            danger: true,
-            onConfirm: removeSchedule,
-        });
-    };
-
-    const deleteLeadConfirmed = async () => {
-        if (!editLead) return;
-        try {
-            await useLeadStore.getState().deleteLead(editLead.id);
-            addToast({ type: 'success', message: 'Lead excluído.' });
-        } catch (e) {
-            addToast({ type: 'error', message: 'Erro ao excluir lead.' });
-        }
-        closeEdit();
-    };
-
-    const openDeleteLeadConfirm = () => {
-        if (!editLead) return;
-        const nm = editLead.name || 'Sem nome';
-        setConfirmModal({
-            title: 'Excluir lead?',
-            description: `Excluir o lead "${nm}"? Essa ação não pode ser desfeita.`,
-            confirmLabel: 'Excluir lead',
-            danger: true,
-            onConfirm: deleteLeadConfirmed,
-        });
-    };
-
-    const runConfirmModalAction = async () => {
-        if (!confirmModal?.onConfirm || confirmBusy) return;
-        setConfirmBusy(true);
-        try {
-            await confirmModal.onConfirm();
-        } finally {
-            setConfirmBusy(false);
-            setConfirmModal(null);
+            throw e;
         }
     };
 
@@ -629,7 +561,7 @@ const Dashboard = () => {
                                         <strong className="navi-ui-time">{lead.scheduledTime || '--:--'}</strong>
                                         <button
                                             className="edit-time-btn"
-                                            onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
+                                            onClick={(e) => { e.stopPropagation(); openScheduleModal(lead); }}
                                             title="Editar agendamento"
                                             aria-label="Editar agendamento"
                                         >
@@ -667,7 +599,7 @@ const Dashboard = () => {
                                     className="followup-action-btn flex-1"
                                     style={{ minWidth: '120px' }}
                                     title="Alterar data, horário ou status"
-                                    onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
+                                    onClick={(e) => { e.stopPropagation(); openScheduleModal(lead); }}
                                 >
                                     <Calendar size={14} color="var(--accent)" /> Remarcar
                                 </button>
@@ -809,88 +741,16 @@ const Dashboard = () => {
             </section>
             </div>
 
-            {confirmModal && (
-                <div
-                    className="dashboard-confirm-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="dashboard-confirm-title"
-                    onClick={() => (confirmBusy ? undefined : setConfirmModal(null))}
-                >
-                    <div className="dashboard-confirm-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="dashboard-confirm-icon-wrap">
-                            <AlertTriangle size={28} color="var(--danger)" aria-hidden />
-                        </div>
-                        <h3 id="dashboard-confirm-title" className="navi-section-heading">{confirmModal.title}</h3>
-                        <p className="navi-subtitle" style={{ marginTop: 10, lineHeight: 1.45 }}>{confirmModal.description}</p>
-                        <div className="dashboard-confirm-actions">
-                            <button type="button" className="btn-outline" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))} disabled={confirmBusy}>
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-danger"
-                                onClick={() => void runConfirmModalAction()}
-                                disabled={confirmBusy}
-                            >
-                                {confirmBusy ? 'Aguarde…' : confirmModal.confirmLabel}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {editOpen && (
-                <div className="navi-modal-overlay" onClick={closeEdit}>
-                    <div className="edit-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="navi-section-heading" style={{ marginBottom: 8 }}>Editar Agendamento</h3>
-                        <div className="flex gap-2">
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>Data</label>
-                                <input type="date" className="form-input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
-                            </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>Horário</label>
-                                <input type="time" step="300" className="form-input" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
-                                <div className="time-chips mt-2">
-                                    <button type="button" className="time-chip" onClick={() => setEditTime(nextQuarterTime())}>
-                                        Próximo
-                                    </button>
-                                    {COMMON_TIMES.map(t => (
-                                        <button
-                                            key={t}
-                                            type="button"
-                                            className={`time-chip ${editTime === t ? 'active' : ''}`}
-                                            onClick={() => setEditTime(t)}
-                                        >
-                                            {t}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="form-group mt-2">
-                            <label>Status</label>
-                            <select className="form-input" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                                <option value={LEAD_STATUS.NEW}>Novo</option>
-                                <option value={LEAD_STATUS.SCHEDULED}>Agendado</option>
-                                <option value={LEAD_STATUS.COMPLETED}>Compareceu</option>
-                                <option value={LEAD_STATUS.MISSED}>Não compareceu</option>
-                                <option value={LEAD_STATUS.CONVERTED}>Matriculado</option>
-                                <option value={LEAD_STATUS.LOST}>Não fechou</option>
-                            </select>
-                        </div>
-                        <div className="edit-actions">
-                            <button type="button" className="btn-outline danger-outline" onClick={openRemoveScheduleConfirm} title="Excluir agendamento e voltar para Novo">Excluir agendamento</button>
-                            <button type="button" className="btn-outline danger-outline" onClick={openDeleteLeadConfirm} title="Excluir lead">
-                                <Trash2 size={14} /> Excluir lead
-                            </button>
-                            <button type="button" className="btn-outline" onClick={closeEdit}>Cancelar</button>
-                            <button type="button" className="btn-secondary" onClick={saveEdit}>Salvar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ScheduleModal
+                open={scheduleModalLead !== null}
+                onClose={() => setScheduleModalLead(null)}
+                onConfirm={onConfirmScheduleDashboard}
+                lead={scheduleModalLead}
+                quickTimes={dashboardQuickTimes}
+                initialDate={scheduleModalLead?.scheduledDate || ''}
+                initialTime={scheduleModalLead?.scheduledTime || ''}
+                title="Editar agendamento"
+            />
 
             <style dangerouslySetInnerHTML={{
                 __html: `

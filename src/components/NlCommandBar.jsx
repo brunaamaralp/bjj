@@ -168,31 +168,6 @@ export default function NlCommandBar({
       parsed.action === 'settle_transaction' ||
       parsed.action === 'update_payment'
     );
-  const suggestionsFunil = [
-    'Marcar [nome] como compareceu',
-    'Mover [nome] para aguardando decisão',
-    'Cadastrar lead [nome] telefone 11999990000',
-    'Agendar experimental do [nome] amanhã às 19h',
-    'Matricular [nome] como aluno',
-    'Marcar [nome] como perdido — preço alto',
-    'Registrar que enviei WhatsApp para [nome]',
-    'Adicionar nota sobre [nome]'
-  ];
-  const suggestionsFinance = [
-    'Registrar pagamento de [mês] da [nome]',
-    'Registrar presença do aluno [nome]',
-    'Atualiza telefone de emergência do aluno [nome] para 11999990000',
-    'Liquidar transação pendente (use o id listado no Caixa)',
-    'Atualizar observação do pagamento de [nome] — [texto da nota]',
-    'Registrar despesa de R$ 150 com compra de frutas',
-    'Adicionar nota sobre [nome]'
-  ];
-  const suggestions =
-    context === 'funil'
-      ? suggestionsFunil
-      : context === 'perfil'
-        ? [...suggestionsFinance.slice(0, 4), ...suggestionsFunil.slice(0, 4)]
-        : suggestionsFinance;
 
   return (
     <>
@@ -285,39 +260,6 @@ export default function NlCommandBar({
               </button>
             ) : null}
           </div>
-
-          {state === 'idle' ? (
-            <div style={{ padding: '12px 20px', borderBottom: '0.5px solid var(--border-light)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: 8 }}>
-                SUGESTÕES
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {suggestions.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => {
-                      setText(s);
-                      requestAnimationFrame(() => inputRef.current?.focus());
-                    }}
-                    style={{
-                      textAlign: 'left',
-                      fontSize: 12,
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      border: '0.5px solid var(--border-light)',
-                      background: 'var(--surface-hover)',
-                      cursor: 'pointer',
-                      color: 'var(--text-secondary)',
-                      fontFamily: 'inherit'
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           {state === 'idle' ? (
             <div style={{ padding: 20 }}>

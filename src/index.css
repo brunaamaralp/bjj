@@ -77,6 +77,8 @@
   /* Badges tipo “Transferido” / info azul no Inbox (--info global continua violeta para texto UI). */
   --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
   --inbox-info-badge-fg: #1d4ed8;
+  /* Filtro opcional no ícone nativo do calendário (WebKit) */
+  --date-icon-filter: none;
   --transition: all 0.15s ease;
 
   --warning-bg: var(--warn-bg);
@@ -2068,4 +2070,137 @@ button:active {
   margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid var(--border);
+}
+
+/* ===== DATE / TIME / MONTH INPUTS ===== */
+
+input[type='date'],
+input[type='time'],
+input[type='month'],
+input[type='datetime-local'] {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 0.5px solid var(--border-light);
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+input[type='date']:hover,
+input[type='time']:hover,
+input[type='month']:hover,
+input[type='datetime-local']:hover {
+  border-color: var(--border-mid);
+}
+
+input[type='date']:focus,
+input[type='time']:focus,
+input[type='month']:focus,
+input[type='datetime-local']:focus {
+  border-color: var(--v500);
+  box-shadow: 0 0 0 3px rgba(91, 63, 191, 0.08);
+}
+
+input[type='date']:disabled,
+input[type='time']:disabled,
+input[type='month']:disabled,
+input[type='datetime-local']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--surface-hover);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='month']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+  filter: var(--date-icon-filter, none);
+}
+
+input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+input[type='date']:not([value]),
+input[type='date'][value=''] {
+  color: var(--text-muted);
+}
+
+/* Filtros compactos (toolbar) — largura fixa para não estourar com padding */
+input[type='date'].navi-date-filter,
+input[type='time'].navi-date-filter,
+input[type='month'].navi-date-filter,
+input[type='datetime-local'].navi-date-filter {
+  width: 130px;
+  max-width: 100%;
+  flex-shrink: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1023px) {
+
+  input[type='date'],
+  input[type='time'],
+  input[type='month'],
+  input[type='datetime-local'] {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  input[type='date'].navi-date-filter,
+  input[type='time'].navi-date-filter,
+  input[type='month'].navi-date-filter,
+  input[type='datetime-local'].navi-date-filter {
+    width: 130px;
+  }
+}
+
+/* Com .form-input — mesma linguagem visual dos outros campos */
+input[type='date'].form-input,
+input[type='time'].form-input,
+input[type='month'].form-input,
+input[type='datetime-local'].form-input {
+  font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--v100);
+  color: var(--ink);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type='date'].form-input:hover,
+input[type='time'].form-input:hover,
+input[type='month'].form-input:hover,
+input[type='datetime-local'].form-input:hover {
+  border-color: var(--v200);
+}
+
+input[type='date'].form-input:focus,
+input[type='time'].form-input:focus,
+input[type='month'].form-input:focus,
+input[type='datetime-local'].form-input:focus {
+  border: 1.5px solid var(--v500);
+  box-shadow: 0 0 0 3px var(--v50);
+}
+
+@media (max-width: 1023px) {
+
+  input[type='date'].form-input,
+  input[type='time'].form-input,
+  input[type='month'].form-input,
+  input[type='datetime-local'].form-input {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
 }
