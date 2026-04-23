@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query } from 'appwrite';
 import { addLeadEvent } from '../lib/leadEvents.js';
@@ -119,7 +120,8 @@ function updatesToAppwritePatch(updates, currentLead) {
   return patch;
 }
 
-export const useLeadStore = create((set, get) => ({
+export const useLeadStore = create(
+  persist((set, get) => ({
   leads: [],
   loading: false,
   leadsError: false,
@@ -568,7 +570,21 @@ export const useLeadStore = create((set, get) => ({
   },
 
   getLeadById: (id) => get().leads.find((l) => l.id === id)
-}));
+}),
+{
+  name: 'nave-lead-store',
+  storage: createJSONStorage(() => localStorage),
+  partialize: (state) => ({
+    academyId: state.academyId,
+    academyList: state.academyList,
+    userId: state.userId,
+    teamId: state.teamId,
+    modules: state.modules,
+    labels: state.labels
+  })
+}
+)
+);
 
 if (typeof window !== 'undefined') {
   window.useLeadStore = useLeadStore;

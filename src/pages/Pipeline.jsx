@@ -455,6 +455,7 @@ const Pipeline = () => {
     const [noteError, setNoteError] = useState('');
     const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(false);
     const [nlOpen, setNlOpen] = useState(false);
+    const hiddenAtRef = useRef(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -497,9 +498,20 @@ const Pipeline = () => {
 
     useEffect(() => {
         if (!academyId) return;
+        const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
         const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                hiddenAtRef.current = Date.now();
+                return;
+            }
             if (document.visibilityState === 'visible') {
-                void fetchLeads({ reset: true });
+                const hiddenAt = hiddenAtRef.current;
+                if (!hiddenAt) return;
+                const elapsed = Date.now() - hiddenAt;
+                hiddenAtRef.current = null;
+                if (elapsed > REFRESH_THRESHOLD_MS) {
+                    void fetchLeads({ reset: false });
+                }
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);

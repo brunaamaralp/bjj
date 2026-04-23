@@ -3,6 +3,7 @@ export const LEAD_TIMELINE_CHANGED = 'navi-lead-timeline-changed';
 
 /** Disparado após check-in NL (coleção attendance, não lead_events). */
 export const LEAD_ATTENDANCE_CHANGED = 'navi-lead-attendance-changed';
+export const LEADS_REFRESH = 'navi-leads-refresh';
 
 /**
  * @param {string} leadId
@@ -23,4 +24,12 @@ export function emitLeadAttendanceChanged(leadId) {
   const id = String(leadId || '').trim();
   if (!id) return;
   window.dispatchEvent(new CustomEvent(LEAD_ATTENDANCE_CHANGED, { detail: { leadId: id } }));
+}
+
+/**
+ * @param {{ reason?: string }} [detail]
+ */
+export function emitLeadsRefresh(detail = {}) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(LEADS_REFRESH, { detail }));
 }

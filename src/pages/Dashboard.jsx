@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
@@ -6,9 +6,11 @@ import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, Trash2, AlertTriangle } from 'lucide-react';
-import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -34,7 +36,7 @@ const nextQuarterTime = () => {
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { leads, loading, fetchLeads, academyId, leadsError } = useLeadStore();
+    const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
     const addToast = useUiStore((s) => s.addToast);
     const [dateFilter, setDateFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -53,6 +55,31 @@ const Dashboard = () => {
     const [confirmModal, setConfirmModal] = useState(null);
     const [confirmBusy, setConfirmBusy] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
+    const [nlOpen, setNlOpen] = useState(false);
+    const hiddenAtRef = useRef(null);
+
+    const pipelineStagesNl = useMemo(() => {
+        const fixed = PIPELINE_STAGES.map((s) => ({ id: s, label: s }));
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        let conf = acad?.stagesConfig;
+        if (!conf) return fixed;
+        try {
+            if (typeof conf === 'string') conf = JSON.parse(conf);
+            if (!Array.isArray(conf)) return fixed;
+            const normalized = conf
+                .filter(Boolean)
+                .map((s) => {
+                    if (typeof s === 'string') return { id: String(s).trim(), label: String(s).trim() };
+                    const id = String(s?.id || '').trim();
+                    const label = String(s?.label || s?.id || '').trim();
+                    return id ? { id, label: label || id } : null;
+                })
+                .filter(Boolean);
+            return normalized.length > 0 ? normalized : fixed;
+        } catch {
+            return fixed;
+        }
+    }, [academyList, academyId]);
 
     useEffect(() => {
         if (academyId) {
@@ -62,13 +89,34 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (!academyId) return;
+        const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
         const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                hiddenAtRef.current = Date.now();
+                return;
+            }
             if (document.visibilityState === 'visible') {
-                void fetchLeads({ reset: true });
+                const hiddenAt = hiddenAtRef.current;
+                if (!hiddenAt) return;
+                const elapsed = Date.now() - hiddenAt;
+                hiddenAtRef.current = null;
+                if (elapsed > REFRESH_THRESHOLD_MS) {
+                    void fetchLeads({ reset: false });
+                }
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [academyId, fetchLeads]);
+
+    useEffect(() => {
+        function onLeadsRefresh() {
+            if (!academyId) return;
+            void fetchLeads({ reset: true });
+        }
+        if (typeof window === 'undefined') return undefined;
+        window.addEventListener(LEADS_REFRESH, onLeadsRefresh);
+        return () => window.removeEventListener(LEADS_REFRESH, onLeadsRefresh);
     }, [academyId, fetchLeads]);
 
     useEffect(() => {
@@ -516,13 +564,16 @@ const Dashboard = () => {
                     <h3 className="navi-section-heading">
                         <Calendar size={18} color="var(--v500)" /> Aulas Experimentais
                     </h3>
-                    <button
-                        className="refresh-btn"
-                        onClick={handleRefresh}
-                        disabled={loading || isRefreshing}
-                    >
-                        <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                        <button
+                            className="refresh-btn"
+                            onClick={handleRefresh}
+                            disabled={loading || isRefreshing}
+                        >
+                            <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="filter-strip agenda-experimental-filter-strip">
@@ -1169,6 +1220,14 @@ const Dashboard = () => {
         }
         .time-chip.active, .time-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
       `}} />
+            <NlCommandBar
+                open={nlOpen}
+                onOpenChange={setNlOpen}
+                academyName={academyWa.name}
+                context="perfil"
+                pipelineStages={pipelineStagesNl}
+                recentPayments={[]}
+            />
         </div>
     );
 };

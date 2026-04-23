@@ -15,11 +15,21 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         workbox: {
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true
+          clientsClaim: false,
+          skipWaiting: false,
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts',
+                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
+              }
+            }
+          ]
         },
         includeAssets: ['navi-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {

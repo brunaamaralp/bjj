@@ -12,7 +12,7 @@ import { addLeadEvent } from '../lib/leadEvents';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
-import { emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
+import { emitLeadAttendanceChanged, emitLeadsRefresh } from '../lib/leadTimelineEvents.js';
 
 /** Etapas que exigem fluxo próprio (matrícula, perda, não compareceu, agenda experimental). */
 const MOVE_PIPELINE_FORBIDDEN_TARGETS = new Set([
@@ -175,6 +175,7 @@ export function useNlAction() {
   const execute = useCallback(
     async (parsed) => {
       if (!parsed || typeof parsed !== 'object') throw new Error('Resposta inválida');
+      const notifyLeadsRefresh = () => emitLeadsRefresh({ reason: String(parsed?.action || '').trim() });
 
       if (parsed.action === 'register_payment') {
         const d = parsed.data || {};
@@ -238,7 +239,7 @@ export function useNlAction() {
           attendedAt: now,
           statusChangedAt: now
         });
-        return addLeadEvent({
+        const out = await addLeadEvent({
           academyId,
           leadId,
           type: 'attended',
@@ -247,6 +248,8 @@ export function useNlAction() {
           createdBy: userId || 'user',
           permissionContext
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'mark_missed') {
@@ -263,7 +266,7 @@ export function useNlAction() {
           missed_reason: reason,
           statusChangedAt: now
         });
-        return addLeadEvent({
+        const out = await addLeadEvent({
           academyId,
           leadId,
           type: 'missed',
@@ -273,6 +276,8 @@ export function useNlAction() {
           createdBy: userId || 'user',
           permissionContext
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'mark_lost') {
@@ -292,7 +297,7 @@ export function useNlAction() {
           createdBy: userId || 'user',
           permissionContext
         });
-        return updateLead(leadId, {
+        const out = await updateLead(leadId, {
           status: LEAD_STATUS.LOST,
           scheduledDate: '',
           scheduledTime: '',
@@ -301,6 +306,8 @@ export function useNlAction() {
           lostAt: now,
           statusChangedAt: now
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'register_whatsapp') {
@@ -317,9 +324,11 @@ export function useNlAction() {
           createdBy: userId || 'user',
           permissionContext
         });
-        return updateLead(leadId, {
+        const out = await updateLead(leadId, {
           lastWhatsappActivityAt: now
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'mark_enrolled') {
@@ -337,13 +346,15 @@ export function useNlAction() {
           createdBy: userId || 'user',
           permissionContext
         });
-        return updateLead(leadId, {
+        const out = await updateLead(leadId, {
           status: LEAD_STATUS.CONVERTED,
           contact_type: 'student',
           pipelineStage: 'Matriculado',
           convertedAt: nowIso,
           statusChangedAt: nowIso
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'schedule_experimental') {
@@ -369,13 +380,15 @@ export function useNlAction() {
         } catch {
           void 0;
         }
-        return updateLead(leadId, {
+        const out = await updateLead(leadId, {
           status: LEAD_STATUS.SCHEDULED,
           scheduledDate: ymd,
           scheduledTime: timeNorm,
           pipelineStage: 'Aula experimental',
           statusChangedAt: nowIso
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'move_pipeline_stage') {
@@ -403,7 +416,9 @@ export function useNlAction() {
           permissionContext
         });
         const payload = getStageUpdatePayload(toStage);
-        return updateLead(leadId, { ...payload, statusChangedAt: nowIso });
+        const out = await updateLead(leadId, { ...payload, statusChangedAt: nowIso });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'register_expense') {
@@ -451,7 +466,9 @@ export function useNlAction() {
         if (!leadId) throw new Error('Aluno não identificado');
         const patch = sanitizeStudentUpdatesForNl(d);
         if (Object.keys(patch).length === 0) throw new Error('Nenhum campo válido para atualizar.');
-        return updateLead(leadId, patch);
+        const out = await updateLead(leadId, patch);
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'create_lead') {
@@ -462,7 +479,7 @@ export function useNlAction() {
         if (!phone || phone.length < 10) throw new Error('Telefone inválido.');
         const typ = String(d.type || '').trim();
         const typeFinal = CREATE_LEAD_TYPES.has(typ) ? typ : 'Adulto';
-        return addLead({
+        const out = await addLead({
           name,
           phone,
           type: typeFinal,
@@ -479,6 +496,8 @@ export function useNlAction() {
           customAnswers: {},
           birthDate: ''
         });
+        notifyLeadsRefresh();
+        return out;
       }
 
       if (parsed.action === 'settle_transaction') {
