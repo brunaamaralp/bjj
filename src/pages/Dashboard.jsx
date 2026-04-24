@@ -8,6 +8,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
+import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
@@ -159,35 +160,27 @@ const Dashboard = () => {
         if (!scheduleModalLead) return;
         const st = useLeadStore.getState();
         const modalLead = scheduleModalLead;
-        const editStatus = modalLead.status;
-        const pipelineStage =
-            editStatus === LEAD_STATUS.SCHEDULED ? 'Aula experimental'
-                : editStatus === LEAD_STATUS.COMPLETED ? PIPELINE_WAITING_DECISION_STAGE
-                    : editStatus === LEAD_STATUS.CONVERTED ? 'Matriculado'
-                        : editStatus === LEAD_STATUS.MISSED ? 'Não compareceu'
-                            : editStatus === LEAD_STATUS.LOST ? LEAD_STATUS.LOST
-                                : undefined;
+        const patch = buildSchedulePatch(modalLead, { date, time });
+        const textBody = String(note || '').trim() || 'Aula experimental agendada';
+        const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+        const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
         try {
-            await st.updateLead(modalLead.id, {
-                scheduledDate: date,
-                scheduledTime: time,
-                status: editStatus,
-                ...(pipelineStage ? { pipelineStage } : {}),
-            });
-            const noteTrim = String(note || '').trim();
-            if (noteTrim) {
-                const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
-                const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+            try {
                 await addLeadEvent({
                     academyId: st.academyId,
                     leadId: modalLead.id,
-                    type: 'note',
-                    text: noteTrim,
+                    type: 'schedule',
+                    to: date,
+                    text: textBody,
                     createdBy: st.userId || 'user',
                     permissionContext: permCtx,
+                    payloadJson: { date, time },
                 });
+                await st.updateLead(modalLead.id, patch);
+            } catch {
+                await st.updateLead(modalLead.id, patch);
             }
-            addToast({ type: 'success', message: 'Agendamento atualizado com sucesso.' });
+            addToast({ type: 'success', message: 'Aula agendada com sucesso.' });
         } catch (e) {
             addToast({ type: 'error', message: 'Erro ao atualizar agendamento.' });
             throw e;

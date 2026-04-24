@@ -17,6 +17,7 @@ import { friendlyError } from '../lib/errorMessages.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
+import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -329,7 +330,9 @@ const leadMatchesProfileFilter = (lead, profileFilter) => {
 
 const leadMatchesContactType = (lead) => {
     const contactType = String(lead?.contact_type || '').trim();
-    return !contactType || contactType === 'lead';
+    if (!contactType || contactType === 'lead') return true;
+    if (contactType === 'student' && lead?.status === LEAD_STATUS.CONVERTED) return true;
+    return false;
 };
 
 const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Planilha';
@@ -709,6 +712,7 @@ const Pipeline = () => {
     };
 
     const handleReschedule = async (lead, ymd, time, note) => {
+        const patch = buildSchedulePatch(lead, { date: ymd, time });
         const textBody = String(note || '').trim() || 'Aula experimental agendada';
         try {
             await addLeadEvent({
@@ -719,11 +723,11 @@ const Pipeline = () => {
                 text: textBody,
                 createdBy: userId || 'user',
                 permissionContext: permCtx,
-                payloadJson: { date: ymd, time }
+                payloadJson: { date: ymd, time },
             });
-            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental' });
+            await updateLead(lead.id, patch);
         } catch {
-            await updateLead(lead.id, { status: LEAD_STATUS.SCHEDULED, scheduledDate: ymd, scheduledTime: time, pipelineStage: 'Aula experimental' });
+            await updateLead(lead.id, patch);
         }
         setToast(`Reagendado para ${ymd} ${time}`);
         setTimeout(() => setToast(''), 2500);

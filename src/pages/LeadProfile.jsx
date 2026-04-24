@@ -19,6 +19,7 @@ import { friendlyError } from '../lib/errorMessages.js';
 import { maskPhone } from '../lib/masks.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
+import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -711,6 +712,7 @@ const LeadProfile = () => {
     };
 
     const onConfirmScheduleFromModal = async ({ date, time, note }) => {
+        const patch = buildSchedulePatch(lead, { date, time });
         const textBody = String(note || '').trim() || 'Aula experimental agendada';
         try {
             try {
@@ -724,19 +726,9 @@ const LeadProfile = () => {
                     permissionContext: permCtx,
                     payloadJson: { date, time },
                 });
-                await updateLead(id, {
-                    status: LEAD_STATUS.SCHEDULED,
-                    pipelineStage: 'Aula experimental',
-                    scheduledDate: date,
-                    scheduledTime: time,
-                });
+                await updateLead(id, patch);
             } catch {
-                await updateLead(id, {
-                    status: LEAD_STATUS.SCHEDULED,
-                    pipelineStage: 'Aula experimental',
-                    scheduledDate: date,
-                    scheduledTime: time,
-                });
+                await updateLead(id, patch);
             }
             await refreshTimeline();
             addToast({ type: 'success', message: 'Aula agendada com sucesso.' });
@@ -1372,7 +1364,7 @@ const LeadProfile = () => {
                 <div className="left-col-footer">
                     <button type="button" className="btn-toggle-timeline" onClick={() => setTimelineOpen(prev => !prev)}>
                         {timelineOpen ? <ArrowLeft size={16} /> : <span style={{ order: 2 }}><ArrowRight size={16} /></span>}
-                        {timelineOpen ? '← Fechar linha do tempo' : 'Ver linha do tempo →'}
+                        {timelineOpen ? '← Fechar linha do tempo' : 'Abrir histórico →'}
                     </button>
                 </div>
             </div>
@@ -1578,19 +1570,33 @@ const LeadProfile = () => {
                     height: 100%;
                     overflow: hidden;
                     background: var(--surface-hover);
+                    transition: all 0.3s ease;
                 }
 
                 /* Coluna Esquerda */
                 .lead-profile-left-col {
-                    width: 360px;
-                    flex-shrink: 0;
-                    flex-grow: 0;
                     display: flex;
                     flex-direction: column;
                     background: var(--surface);
                     border-right: 1px solid var(--border);
                     height: 100%;
                     z-index: 10;
+                    min-width: 0;
+                    transition: width 0.25s ease, flex 0.25s ease, max-width 0.25s ease;
+                }
+
+                .timeline-open .lead-profile-left-col {
+                    width: 360px;
+                    flex: 0 0 auto;
+                    flex-shrink: 0;
+                    flex-grow: 0;
+                    max-width: 100%;
+                }
+
+                .timeline-closed .lead-profile-left-col {
+                    flex: 1;
+                    max-width: 560px;
+                    width: auto;
                 }
 
                 .left-col-header {
@@ -1613,6 +1619,11 @@ const LeadProfile = () => {
                     padding: 16px;
                     border-top: 1px solid var(--border-light);
                     background: var(--surface);
+                }
+
+                .timeline-closed .left-col-footer {
+                    display: flex;
+                    justify-content: flex-end;
                 }
 
                 /* Seções do Perfil */
@@ -1892,6 +1903,11 @@ const LeadProfile = () => {
                     cursor: pointer;
                 }
 
+                .timeline-closed .btn-toggle-timeline {
+                    width: auto;
+                    margin-left: auto;
+                }
+
                 /* Painel Timeline */
                 .lead-profile-right-panel {
                     flex: 1;
@@ -2072,10 +2088,10 @@ const LeadProfile = () => {
                     .lead-profile-container {
                         max-width: 700px;
                     }
-                    .lead-profile-left-col {
+                    .timeline-open .lead-profile-left-col {
                         width: 320px;
                     }
-                    .lead-profile-right-panel {
+                    .timeline-open .lead-profile-right-panel {
                         max-width: 380px;
                     }
                 }
@@ -2084,6 +2100,11 @@ const LeadProfile = () => {
                 @media (max-width: 1024px) {
                     .lead-profile-left-col {
                         width: 100%;
+                    }
+                    .timeline-closed .lead-profile-left-col {
+                        width: 100%;
+                        max-width: 100%;
+                        flex: 1 1 auto;
                     }
                     .lead-profile-right-panel {
                         position: fixed;

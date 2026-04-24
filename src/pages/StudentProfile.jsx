@@ -779,7 +779,6 @@ export default function StudentProfile() {
 
     const phoneHasDigits = Boolean(String(student.phone || '').replace(/\D/g, '').length);
     const attendanceReady = isAttendanceConfigured();
-    const showRightPanel = timelineOpen;
     const studentsPlural = uiLabels.students || 'Alunos';
     const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const currentMonthExtended = formatReferenceMonthLong(currentYm);
@@ -897,14 +896,32 @@ export default function StudentProfile() {
         <div
             className="student-panel-left-col"
             style={{
-                width: stackedLayout && showRightPanel ? '100%' : 360,
-                flexShrink: 0,
+                display: stackedLayout && timelineOpen ? 'none' : 'flex',
+                width:
+                    stackedLayout && timelineOpen
+                        ? 0
+                        : stackedLayout
+                          ? '100%'
+                          : timelineOpen
+                            ? '360px'
+                            : 'auto',
+                flex:
+                    stackedLayout && timelineOpen
+                        ? '0 0 0'
+                        : stackedLayout && !timelineOpen
+                          ? '1 1 0%'
+                          : !stackedLayout && !timelineOpen
+                            ? '1 1 0%'
+                            : '0 0 auto',
+                maxWidth: !stackedLayout && !timelineOpen ? 560 : undefined,
+                flexShrink: !stackedLayout && timelineOpen ? 0 : 0,
                 overflowY: 'auto',
-                display: stackedLayout && showRightPanel ? 'none' : 'flex',
                 flexDirection: 'column',
                 borderRight: stackedLayout ? 'none' : '1px solid var(--border)',
                 background: 'var(--surface)',
                 minHeight: 0,
+                minWidth: 0,
+                transition: 'width 0.25s ease, flex 0.25s ease, max-width 0.25s ease',
             }}
         >
             <div
@@ -1259,12 +1276,20 @@ export default function StudentProfile() {
                 </div>
             </div>
 
-            <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-light)', flexShrink: 0 }}>
+            <div
+                style={{
+                    padding: '12px 14px',
+                    borderTop: '1px solid var(--border-light)',
+                    flexShrink: 0,
+                    display: 'flex',
+                    justifyContent: timelineOpen ? 'stretch' : 'flex-end',
+                }}
+            >
                 <button
                     type="button"
                     onClick={() => setTimelineOpen((o) => !o)}
                     style={{
-                        width: '100%',
+                        width: timelineOpen ? '100%' : 'auto',
                         padding: '12px 14px',
                         borderRadius: 10,
                         border: 'none',
@@ -1280,7 +1305,7 @@ export default function StudentProfile() {
                         gap: 8,
                     }}
                 >
-                    {timelineOpen ? <>← Fechar painel</> : <>Ver frequência e histórico →</>}
+                    {timelineOpen ? <>← Fechar painel</> : <>Abrir histórico →</>}
                 </button>
             </div>
         </div>
@@ -1313,14 +1338,18 @@ export default function StudentProfile() {
         <div
             className="student-panel-right-col"
             style={{
-                flex: 1,
-                maxWidth: stackedLayout ? 'none' : 560,
-                minWidth: 0,
-                background: BG_SECONDARY,
-                display: stackedLayout && !showRightPanel ? 'none' : 'flex',
+                display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                width: stackedLayout ? '100%' : undefined,
+                minWidth: 0,
+                flex: timelineOpen ? 1 : 0,
+                flexBasis: timelineOpen ? undefined : 0,
+                maxWidth: timelineOpen ? (stackedLayout ? '100%' : 560) : 0,
+                opacity: timelineOpen ? 1 : 0,
+                pointerEvents: timelineOpen ? 'auto' : 'none',
+                width: stackedLayout && timelineOpen ? '100%' : undefined,
+                transition: 'max-width 0.25s ease, flex 0.25s ease, opacity 0.25s ease',
+                background: BG_SECONDARY,
             }}
         >
             <div
