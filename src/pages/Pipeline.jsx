@@ -3,7 +3,7 @@ import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
@@ -337,6 +337,279 @@ const leadMatchesContactType = (lead) => {
 
 const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Planilha';
 
+function mobileListToDateTime(lead) {
+    const base = lead.scheduledDate || lead.createdAt || '';
+    if (!base) return new Date(8640000000000000);
+    const [y, m, d] = base.split('T')[0].split('-').map(Number);
+    let hh = 23;
+    let mm = 59;
+    if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
+        const [h, mi] = lead.scheduledTime.split(':').map(Number);
+        if (Number.isFinite(h) && Number.isFinite(mi)) {
+            hh = h;
+            mm = mi;
+        }
+    }
+    return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
+}
+
+function formatMobileListScheduleDate(ymd) {
+    if (!ymd || String(ymd).length < 10) return '';
+    try {
+        return new Date(`${String(ymd).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR');
+    } catch {
+        return '';
+    }
+}
+
+/**
+ * Vista lista agrupada por etapa (mobile). Não altera filtros nem store.
+ */
+const MobileLeadList = React.memo(function MobileLeadList({
+    stages,
+    leadsForBoard,
+    originFilter,
+    STAGE_COLORS,
+    navigate,
+    mapLeadToStageId,
+    handleSplitWaMain,
+    emptyStageHint,
+    showLoading,
+}) {
+    const [expanded, setExpanded] = useState({});
+    const expandedInitRef = useRef(false);
+
+    useEffect(() => {
+        if (!Array.isArray(stages) || stages.length === 0 || expandedInitRef.current) return;
+        expandedInitRef.current = true;
+        const exp = stages.find((s) => s.id === 'Aula experimental' || s.label === 'Experimental');
+        if (exp) setExpanded({ [exp.id]: true });
+    }, [stages]);
+
+    const toggleStage = useCallback((stageId) => {
+        setExpanded((prev) => ({ ...prev, [stageId]: !prev[stageId] }));
+    }, []);
+
+    return (
+        <div
+            className="pipeline-mobile-list-root"
+            style={{
+                padding: '0 16px 80px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                flex: '1 1 0',
+                minHeight: 0,
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+            }}
+        >
+            {showLoading ? (
+                <div className="pipeline-kanban-loading-hint" role="status" style={{ padding: '8px 0 0' }}>
+                    Carregando leads do funil…
+                </div>
+            ) : null}
+            {stages.map((stage, idx) => {
+                const stageLeads = leadsForBoard
+                    .filter((l) => mapLeadToStageId(l) === stage.id)
+                    .filter((l) => (originFilter === 'all' ? true : (l.origin || '') === originFilter))
+                    .sort((a, b) => mobileListToDateTime(a) - mobileListToDateTime(b));
+                const color = STAGE_COLORS[idx % STAGE_COLORS.length];
+                const isOpen = Boolean(expanded[stage.id]);
+
+                return (
+                    <div
+                        key={stage.id}
+                        style={{
+                            background: 'var(--surface)',
+                            border: '0.5px solid var(--border-light)',
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => toggleStage(stage.id)}
+                            style={{
+                                width: '100%',
+                                padding: '12px 14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                                minHeight: 44,
+                                border: 'none',
+                                background: 'transparent',
+                                fontFamily: 'inherit',
+                                textAlign: 'left',
+                            }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                <span
+                                    style={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        background: color.color,
+                                        flexShrink: 0,
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        fontSize: 13,
+                                        fontWeight: 500,
+                                        color: 'var(--text)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {stage.label}
+                                </span>
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                <span
+                                    style={{
+                                        background: 'var(--surface-hover)',
+                                        fontSize: 11,
+                                        padding: '2px 8px',
+                                        borderRadius: 20,
+                                        fontWeight: 700,
+                                        color: 'var(--text-secondary)',
+                                    }}
+                                >
+                                    {stageLeads.length}
+                                </span>
+                                <ChevronDown
+                                    size={18}
+                                    color="var(--text-muted)"
+                                    style={{
+                                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.15s ease',
+                                    }}
+                                />
+                            </span>
+                        </button>
+
+                        {isOpen ? (
+                            <div style={{ borderTop: '0.5px solid var(--border-light)' }}>
+                                {stageLeads.length === 0 ? (
+                                    <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)' }}>
+                                        {emptyStageHint}
+                                    </div>
+                                ) : (
+                                    stageLeads.map((lead, li) => (
+                                        <div
+                                            key={lead.id}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => navigate(`/lead/${lead.id}`)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    navigate(`/lead/${lead.id}`);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '12px 14px',
+                                                borderBottom: li < stageLeads.length - 1 ? '0.5px solid var(--border-light)' : 'none',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                cursor: 'pointer',
+                                                minHeight: 44,
+                                            }}
+                                        >
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div
+                                                    style={{
+                                                        fontSize: 13,
+                                                        fontWeight: 500,
+                                                        color: 'var(--text)',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {lead.name}
+                                                </div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                                    {lead.phone || '—'}
+                                                </div>
+                                                {lead.scheduledDate ? (
+                                                    <span
+                                                        style={{
+                                                            fontSize: 10,
+                                                            background: '#FAEEDA',
+                                                            color: '#854F0B',
+                                                            padding: '2px 6px',
+                                                            borderRadius: 6,
+                                                            marginTop: 3,
+                                                            display: 'inline-block',
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        {`${formatMobileListScheduleDate(lead.scheduledDate)}${lead.scheduledTime ? ` às ${lead.scheduledTime}` : ''}`}
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <div style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                <button
+                                                    type="button"
+                                                    title="WhatsApp"
+                                                    onClick={(e) => handleSplitWaMain(e, lead)}
+                                                    style={{
+                                                        width: 32,
+                                                        height: 32,
+                                                        background: '#25D366',
+                                                        border: 'none',
+                                                        borderRadius: 8,
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    <MessageCircle size={16} color="#fff" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    title="Abrir perfil"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/lead/${lead.id}`);
+                                                    }}
+                                                    style={{
+                                                        width: 32,
+                                                        height: 32,
+                                                        background: 'var(--surface-hover)',
+                                                        border: '0.5px solid var(--border-light)',
+                                                        borderRadius: 8,
+                                                        cursor: 'pointer',
+                                                        fontSize: 16,
+                                                        color: 'var(--text-secondary)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    ›
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        ) : null}
+                    </div>
+                );
+            })}
+        </div>
+    );
+});
+
 const Pipeline = () => {
     const navigate = useNavigate();
     const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead, fetchLeads } = useLeadStore();
@@ -394,6 +667,7 @@ const Pipeline = () => {
     }));
     const [noteError, setNoteError] = useState('');
     const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(false);
+    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
     const [nlOpen, setNlOpen] = useState(false);
     const hiddenAtRef = useRef(null);
 
@@ -434,6 +708,12 @@ const Pipeline = () => {
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const handler = () => setIsMobile(window.innerWidth <= 1023);
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
     }, []);
 
     useEffect(() => {
@@ -1134,87 +1414,140 @@ const Pipeline = () => {
     return (
         <div className="pipeline-container">
             <div className="pipeline-header">
-                <div className="container">
-                    <h1 className="navi-page-title">{labels.pipeline || 'Funil'}</h1>
-                    <div className="page-header-card">
-                        <div className="page-header-row">
-                            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                            <div className="page-header-sep" />
-                            <div className="page-header-search" title="Filtra por nome ou telefone">
-                                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} aria-hidden />
-                                <input
-                                    type="search"
-                                    value={kanbanSearch}
-                                    onChange={(e) => handleSearch(e.target.value)}
-                                    placeholder="Buscar nome ou telefone..."
-                                    aria-label="Buscar no funil"
-                                />
-                            </div>
-                            {searchingServer ? (
-                                <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>Buscando...</span>
-                            ) : null}
-                            <div style={{ flex: 1 }} />
-                            {leadsHasMore ? (
+                {!isMobile ? (
+                    <div className="container">
+                        <h1 className="navi-page-title">{labels.pipeline || 'Funil'}</h1>
+                        <div className="page-header-card">
+                            <div className="page-header-row">
+                                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                                <div className="page-header-sep" />
+                                <div className="page-header-search" title="Filtra por nome ou telefone">
+                                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} aria-hidden />
+                                    <input
+                                        type="search"
+                                        value={kanbanSearch}
+                                        onChange={(e) => handleSearch(e.target.value)}
+                                        placeholder="Buscar nome ou telefone..."
+                                        aria-label="Buscar no funil"
+                                    />
+                                </div>
+                                {searchingServer ? (
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>Buscando...</span>
+                                ) : null}
+                                <div style={{ flex: 1 }} />
+                                {leadsHasMore ? (
+                                    <button
+                                        type="button"
+                                        className="btn-action-ghost"
+                                        onClick={handleLoadMoreLeads}
+                                        disabled={loadingMore || leadsLoading}
+                                        title="Carregar próximos leads do servidor"
+                                    >
+                                        {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                                    </button>
+                                ) : null}
+                                <button type="button" className="btn-action-ghost" onClick={() => setShowImport(true)}>
+                                    <Upload size={14} /> {`Importar ${labels.leads}`}
+                                </button>
+                                <button type="button" className="btn-action-ghost" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
+                                    <SlidersHorizontal size={14} /> Etapas
+                                </button>
                                 <button
                                     type="button"
-                                    className="btn-action-ghost"
-                                    onClick={handleLoadMoreLeads}
-                                    disabled={loadingMore || leadsLoading}
-                                    title="Carregar próximos leads do servidor"
+                                    className="btn-action-primary"
+                                    onClick={() => navigate('/new-lead')}
                                 >
-                                    {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                                    <PlusCircle size={14} /> Novo lead
                                 </button>
-                            ) : null}
-                            <button type="button" className="btn-action-ghost" onClick={() => setShowImport(true)}>
-                                <Upload size={14} /> {`Importar ${labels.leads}`}
-                            </button>
-                            <button type="button" className="btn-action-ghost" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
-                                <SlidersHorizontal size={14} /> Etapas
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-action-primary"
-                                onClick={() => navigate('/new-lead')}
-                            >
-                                <PlusCircle size={14} /> Novo lead
-                            </button>
-                        </div>
-                        <div className="page-header-row">
-                            <span className={`date-chip${quickFilter === 'today' ? ' active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</span>
-                            <span className={`date-chip${quickFilter === 'week' ? ' active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</span>
-                            <span className={`date-chip${quickFilter === 'month' ? ' active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</span>
-                            <span className={`date-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</span>
-                            <input
-                                type="date"
-                                className="navi-date-filter"
-                                value={filterDateFrom}
-                                onChange={(e) => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
-                            />
-                            <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
-                            <input
-                                type="date"
-                                className="navi-date-filter"
-                                value={filterDateTo}
-                                onChange={(e) => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
-                            />
-                            <div className="page-header-sep" />
-                            <div className="filter-group">
-                                <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
-                                    <option value="all">Todos os perfis</option>
-                                    <option value="Adulto">Adulto</option>
-                                    <option value="Criança">Criança</option>
-                                    <option value="Juniores">Juniores</option>
-                                </select>
-                                <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
-                                    <option value="all">Todas as origens</option>
-                                    {LEAD_ORIGIN.map((o) => (
-                                        <option key={o} value={o}>{o}</option>
-                                    ))}
-                                </select>
+                            </div>
+                            <div className="page-header-row">
+                                <span className={`date-chip${quickFilter === 'today' ? ' active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</span>
+                                <span className={`date-chip${quickFilter === 'week' ? ' active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</span>
+                                <span className={`date-chip${quickFilter === 'month' ? ' active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</span>
+                                <span className={`date-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</span>
+                                <input
+                                    type="date"
+                                    className="navi-date-filter"
+                                    value={filterDateFrom}
+                                    onChange={(e) => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
+                                />
+                                <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
+                                <input
+                                    type="date"
+                                    className="navi-date-filter"
+                                    value={filterDateTo}
+                                    onChange={(e) => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
+                                />
+                                <div className="page-header-sep" />
+                                <div className="filter-group">
+                                    <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
+                                        <option value="all">Todos os perfis</option>
+                                        <option value="Adulto">Adulto</option>
+                                        <option value="Criança">Criança</option>
+                                        <option value="Juniores">Juniores</option>
+                                    </select>
+                                    <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
+                                        <option value="all">Todas as origens</option>
+                                        {LEAD_ORIGIN.map((o) => (
+                                            <option key={o} value={o}>{o}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="container">
+                        <h1 className="navi-page-title" style={{ marginBottom: 8 }}>{labels.pipeline || 'Funil'}</h1>
+                        <div
+                            style={{
+                                display: 'flex',
+                                gap: 8,
+                                padding: '12px 0',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <input
+                                type="search"
+                                value={kanbanSearch}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                placeholder="Buscar nome ou telefone..."
+                                aria-label="Buscar no funil"
+                                style={{
+                                    flex: 1,
+                                    padding: '10px 12px',
+                                    fontSize: 16,
+                                    border: '0.5px solid var(--border-light)',
+                                    borderRadius: 8,
+                                    minHeight: 44,
+                                    boxSizing: 'border-box',
+                                    fontFamily: 'inherit',
+                                    background: 'var(--surface)',
+                                    color: 'var(--text)',
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => navigate('/new-lead')}
+                                style={{
+                                    padding: '10px 14px',
+                                    background: '#5B3FBF',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 8,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                    minHeight: 44,
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                + Novo lead
+                            </button>
+                        </div>
+                    </div>
+                )}
                 {editStages && (
                     <div className="container stage-editor">
                         <div className="stage-editor-head">
@@ -1284,12 +1617,26 @@ const Pipeline = () => {
                 </div>
             ) : null}
 
-            {showKanbanInitialLoading ? (
+            {!isMobile && showKanbanInitialLoading ? (
                 <div className="pipeline-kanban-loading-hint" role="status">
                     Carregando leads do funil…
                 </div>
             ) : null}
 
+            {isMobile ? (
+                <MobileLeadList
+                    stages={stages}
+                    leadsForBoard={leadsForBoard}
+                    originFilter={originFilter}
+                    STAGE_COLORS={STAGE_COLORS}
+                    navigate={navigate}
+                    mapLeadToStageId={mapLeadToStageId}
+                    handleSplitWaMain={handleSplitWaMain}
+                    emptyStageHint={`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}
+                    showLoading={showKanbanInitialLoading}
+                />
+            ) : (
+            <div className="pipeline-desktop-kanban-host">
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCorners}
@@ -1447,6 +1794,8 @@ const Pipeline = () => {
                     ) : null}
                 </DragOverlay>
             </DndContext>
+            </div>
+            )}
 
             <ScheduleModal
                 open={scheduleModalLead !== null}
