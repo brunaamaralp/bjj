@@ -1,6 +1,7 @@
 import { Query, ID } from 'appwrite';
 import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
+import { useLeadStore } from '../store/useLeadStore.js';
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
@@ -18,26 +19,52 @@ export async function getStudentPayments(leadId, academyId) {
 /**
  * Lista pagamentos de todos os alunos da academia em um mês (YYYY-MM).
  * Requer permissão de leitura na coleção filtrando por `academy_id` (não só por `lead_id`).
+ * Pagina com cursor até trazer todos os documentos (mesmo padrão de useLeadStore / api/leads).
  */
 export async function getMonthlyPayments(academyId, referenceMonth) {
   const ym = String(referenceMonth || '').trim();
   if (!PAYMENTS_COL || !academyId || !ym) return [];
-  try {
-    const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
+
+  const PAGE_SIZE = 100;
+  let allDocs = [];
+  let cursor = null;
+  let hasMore = true;
+
+  while (hasMore) {
+    const queries = [
       Query.equal('academy_id', academyId),
       Query.equal('reference_month', ym),
-      Query.limit(200),
-    ]);
-    return res.documents || [];
-  } catch (e) {
-    console.error('[studentPayments] getMonthlyPayments:', e);
-    return [];
+      Query.orderDesc('$createdAt'),
+      Query.limit(PAGE_SIZE),
+    ];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+
+    const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, queries);
+    const batch = res.documents || [];
+    allDocs = [...allDocs, ...batch];
+
+    if (batch.length < PAGE_SIZE) {
+      hasMore = false;
+    } else {
+      cursor = batch[batch.length - 1].$id;
+    }
   }
+
+  return allDocs;
 }
 
 export async function createPayment(data) {
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');
+  }
+  if (!data.lead_id || !data.academy_id) {
+    throw new Error('lead_id e academy_id são obrigatórios');
+  }
+  const { leads } = useLeadStore.getState();
+  const leadExists = Array.isArray(leads) && leads.some((l) => l.id === data.lead_id);
+  if (!leadExists) {
+    console.error('createPayment: lead_id não encontrado', data.lead_id);
+    throw new Error('Lead não encontrado nesta academia');
   }
   const payload = {
     lead_id: data.lead_id,
@@ -61,8 +88,8 @@ export async function createPayment(data) {
   const doc = await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload, permissions);
 
   if (FINANCIAL_TX_COL) {
-    databases
-      .createDocument(
+    try {
+      const mirror = await databases.createDocument(
         DB_ID,
         FINANCIAL_TX_COL,
         ID.unique(),
@@ -82,8 +109,16 @@ export async function createPayment(data) {
           note: data.note || `Mensalidade ${data.reference_month}`,
         },
         permissions
-      )
-      .catch((err) => console.error('financial_tx mirror failed:', err));
+      );
+      const mirrorId = String(mirror?.$id || '').trim();
+      if (mirrorId) {
+        databases
+          .updateDocument(DB_ID, PAYMENTS_COL, doc.$id, { financial_tx_id: mirrorId })
+          .catch((err) => console.error('financial_tx_id update failed:', err));
+      }
+    } catch (err) {
+      console.error('financial_tx mirror failed:', err);
+    }
   }
 
   return doc;

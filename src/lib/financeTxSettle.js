@@ -34,15 +34,23 @@ export function applySettleAccountingSideEffects(tx, academyId) {
   const { accounts: storeAccounts, addEntry: storeAddEntry } = useAccountingStore.getState();
   const lancamento = montarLancamento(tx, storeAccounts, aid);
   if (!lancamento) return;
-  storeAddEntry(lancamento);
-  if (JOURNAL_COL) {
-    databases
-      .createDocument(DB_ID, JOURNAL_COL, ID.unique(), {
+  const localId = crypto.randomUUID();
+  storeAddEntry({ ...lancamento, id: localId });
+  if (!JOURNAL_COL) return;
+  void (async () => {
+    try {
+      const journalDoc = await databases.createDocument(DB_ID, JOURNAL_COL, ID.unique(), {
         academyId: aid,
         date: lancamento.date,
         memo: lancamento.memo,
-        lines: JSON.stringify(lancamento.lines)
-      })
-      .catch((err) => console.error('journal entry failed:', err));
-  }
+        lines: JSON.stringify(lancamento.lines),
+      });
+      const newId = String(journalDoc?.$id || '').trim();
+      if (newId) {
+        useAccountingStore.getState().updateEntryId(localId, newId);
+      }
+    } catch (err) {
+      console.error('journal entry failed:', err);
+    }
+  })();
 }

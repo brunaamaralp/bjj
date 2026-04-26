@@ -1,8 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { databases, DB_ID, JOURNAL_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import { fmt } from './financeFmt.js';
+
+function downloadCSV(prefix, headers, rows) {
+  const csv = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')
+    )
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function ReportsTab({ academyId, onGoToLancamentos }) {
   const dre = useAccountingStore((s) => s.dre);
@@ -71,6 +86,30 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
     ['Variação de Caixa', variacaoCaixa],
   ];
 
+  const hasMovement =
+    dreRows.some(([, v]) => Number(v) !== 0) ||
+    dfcRows.some(([, v]) => Number(v) !== 0);
+
+  const exportDRE_CSV = useCallback(() => {
+    const headers = ['Grupo', 'Valor (R$)'];
+    const rows = dreRows.map(([label, value]) => [
+      label,
+      Number(value || 0).toFixed(2).replace('.', ','),
+    ]);
+    downloadCSV('dre', headers, rows);
+  }, [dreRows]);
+
+  const exportDFC_CSV = useCallback(() => {
+    const headers = ['Classificação', 'Valor (R$)'];
+    const rows = dfcRows.map(([label, value]) => [
+      label,
+      Number(value || 0).toFixed(2).replace('.', ','),
+    ]);
+    downloadCSV('dfc', headers, rows);
+  }, [dfcRows]);
+
+  const showPeriodEmpty = journal.length > 0 && !hasMovement;
+
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
       <h3 className="navi-section-heading mb-2">Relatórios</h3>
@@ -98,32 +137,60 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
             <option value="direto">Direto</option>
           </select>
         </div>
-      </div>
-      <div className="finance-reports-block">
-        <h4>Demonstração do Resultado (DRE)</h4>
-        <div>
-          {dreRows.map(([k, v]) => (
-            <div key={k} className={`finance-reports-row${dreTotals.has(k) ? ' finance-reports-row--total' : ''}`}>
-              <span>{k}</span>
-              <span style={{ fontWeight: dreTotals.has(k) ? 600 : 500 }}>{fmt(v)}</span>
-            </div>
-          ))}
+        <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end', marginLeft: 'auto' }}>
+          <button type="button" className="btn-action-ghost" onClick={exportDRE_CSV}>
+            ↓ Exportar DRE
+          </button>
+          <button type="button" className="btn-action-ghost" onClick={exportDFC_CSV}>
+            ↓ Exportar DFC
+          </button>
         </div>
       </div>
-      <div className="finance-reports-block">
-        <h4>Demonstração do Fluxo de Caixa (DFC)</h4>
-        <div>
-          {dfcRows.map(([k, v], idx) => (
-            <div
-              key={k}
-              className={`finance-reports-row${idx === dfcRows.length - 1 ? ' finance-reports-row--total' : ''}`}
-            >
-              <span>{k}</span>
-              <span style={{ fontWeight: idx === dfcRows.length - 1 ? 600 : 500 }}>{fmt(v)}</span>
-            </div>
-          ))}
+      {showPeriodEmpty ? (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '32px 20px',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+            Nenhum movimento no período
+          </div>
+          <div style={{ fontSize: 12 }}>
+            Selecione um período com lançamentos registrados.
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="finance-reports-block">
+            <h4>Demonstração do Resultado (DRE)</h4>
+            <div>
+              {dreRows.map(([k, v]) => (
+                <div key={k} className={`finance-reports-row${dreTotals.has(k) ? ' finance-reports-row--total' : ''}`}>
+                  <span>{k}</span>
+                  <span style={{ fontWeight: dreTotals.has(k) ? 600 : 500 }}>{fmt(v)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="finance-reports-block">
+            <h4>Demonstração do Fluxo de Caixa (DFC)</h4>
+            <div>
+              {dfcRows.map(([k, v], idx) => (
+                <div
+                  key={k}
+                  className={`finance-reports-row${idx === dfcRows.length - 1 ? ' finance-reports-row--total' : ''}`}
+                >
+                  <span>{k}</span>
+                  <span style={{ fontWeight: idx === dfcRows.length - 1 ? 600 : 500 }}>{fmt(v)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }

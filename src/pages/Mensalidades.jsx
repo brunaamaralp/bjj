@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { account } from '../lib/appwrite';
+import { account, databases, DB_ID, FINANCIAL_TX_COL } from '../lib/appwrite';
 import { getMonthlyPayments, createPayment, updatePayment } from '../lib/studentPayments';
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
@@ -113,6 +113,7 @@ export default function Mensalidades() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -139,6 +140,22 @@ export default function Mensalidades() {
 
   const isCurrentMonth = currentMonth === new Date().toISOString().slice(0, 7);
 
+  const recarregarMes = useCallback(async () => {
+    if (!academyId) return;
+    setLoading(true);
+    setLoadingError(false);
+    try {
+      const docs = await getMonthlyPayments(academyId, currentMonth);
+      setPayments(docs);
+    } catch (err) {
+      console.error('getMonthlyPayments error:', err);
+      setLoadingError(true);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [academyId, currentMonth]);
+
   useEffect(() => {
     let c = false;
     account
@@ -159,17 +176,26 @@ export default function Mensalidades() {
     if (!academyId) {
       setPayments([]);
       setLoading(false);
+      setLoadingError(false);
       return;
     }
     let active = true;
     setLoading(true);
-    getMonthlyPayments(academyId, currentMonth)
-      .then((docs) => {
-        if (active) setPayments(docs);
-      })
-      .finally(() => {
+    setLoadingError(false);
+    (async () => {
+      try {
+        const docs = await getMonthlyPayments(academyId, currentMonth);
+        if (!active) return;
+        setPayments(docs);
+      } catch (err) {
+        if (!active) return;
+        console.error('getMonthlyPayments error:', err);
+        setLoadingError(true);
+        setPayments([]);
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
@@ -180,12 +206,12 @@ export default function Mensalidades() {
       const ym = String(e?.detail?.referenceMonth || '').trim();
       if (ym && ym !== currentMonth) return;
       if (!academyId) return;
-      getMonthlyPayments(academyId, currentMonth).then(setPayments).catch(() => {});
+      void recarregarMes();
     }
     if (typeof window === 'undefined') return undefined;
     window.addEventListener('navi-student-payment-updated', onStudentPaymentUpdated);
     return () => window.removeEventListener('navi-student-payment-updated', onStudentPaymentUpdated);
-  }, [academyId, currentMonth]);
+  }, [academyId, currentMonth, recarregarMes]);
 
   const paymentMap = useMemo(() => {
     const map = {};
@@ -355,6 +381,12 @@ export default function Mensalidades() {
     if (!window.confirm('Estornar este pagamento? O status será alterado para cancelado.')) return;
     try {
       await updatePayment(id, { status: 'cancelled' });
+      const txId = String(payment?.financial_tx_id || '').trim();
+      if (txId && FINANCIAL_TX_COL) {
+        databases
+          .updateDocument(DB_ID, FINANCIAL_TX_COL, txId, { status: 'cancelled' })
+          .catch((err) => console.error('financial_tx estorno sync failed:', err));
+      }
       setPayments((prev) => prev.map((p) => (p.$id === id ? { ...p, status: 'cancelled' } : p)));
       addToast({ type: 'success', message: 'Pagamento estornado.' });
     } catch (e) {
@@ -550,6 +582,41 @@ export default function Mensalidades() {
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Recebido</div>
         </div>
       </div>
+
+      {loadingError ? (
+        <div
+          style={{
+            background: '#FCEBEB',
+            border: '0.5px solid #F7C1C1',
+            borderRadius: 8,
+            padding: '10px 14px',
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: 13,
+            color: '#A32D2D',
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
+          <span>Erro ao carregar pagamentos do mês.</span>
+          <button
+            type="button"
+            onClick={() => void recarregarMes()}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#A32D2D',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: 13,
+            }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : null}
 
       <div className="mensal-table-wrap">
         <table className="mensal-table">

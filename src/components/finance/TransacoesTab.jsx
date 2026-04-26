@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { databases, DB_ID, FINANCIAL_TX_COL } from '../../lib/appwrite';
+import { databases, DB_ID, FINANCIAL_TX_COL, createSessionJwt } from '../../lib/appwrite';
+import { buildClientDocumentPermissions } from '../../lib/clientDocumentPermissions.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { Query, ID } from 'appwrite';
 import { LEAD_STATUS } from '../../lib/leadStatus';
@@ -7,10 +8,12 @@ import { Receipt } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
-import { settleFinancialTransactionById, applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
+import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
 
 export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
   const leads = useLeadStore((s) => s.leads);
+  const userId = useLeadStore((s) => s.userId);
+  const teamId = useLeadStore((s) => s.teamId);
   const addToast = useUiStore((s) => s.addToast);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -124,8 +127,28 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
 
   const settle = async (id) => {
     try {
-      await settleFinancialTransactionById(id);
-      const nowIso = new Date().toISOString();
+      const jwt = await createSessionJwt();
+      const response = await fetch('/api/agent?route=settle-finance-tx', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': academyId,
+        },
+        body: JSON.stringify({ transactionId: id }),
+      });
+      if (!response.ok) {
+        let errMsg = 'Erro ao liquidar';
+        try {
+          const errBody = await response.json();
+          errMsg = errBody.error || errMsg;
+        } catch {
+          void 0;
+        }
+        throw new Error(errMsg);
+      }
+      const { settledAt: settledAtServer } = await response.json();
+      const nowIso = settledAtServer || new Date().toISOString();
       const tx = transactions.find((t) => t.id === id);
       setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'settled', settledAt: nowIso } : t)));
       addToast({ type: 'success', message: 'Transação liquidada com sucesso' });
@@ -154,21 +177,31 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     const installments = txForm.method === 'cartão_crédito' ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
     setSavingTx(true);
     try {
-      const doc = await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), {
-        academyId,
-        saleId: '',
-        lead_id: txForm.lead_id || '',
-        method: txForm.method,
-        installments,
-        type: txForm.type,
-        planName: txForm.planName || '',
-        gross: grossNum,
-        fee: feeVal,
-        net: netVal,
-        status: 'pending',
-        note: txForm.note || '',
-        settledAt: ''
+      const permissions = buildClientDocumentPermissions({
+        userId: userId || '',
+        teamId: teamId || '',
       });
+      const doc = await databases.createDocument(
+        DB_ID,
+        FINANCIAL_TX_COL,
+        ID.unique(),
+        {
+          academyId,
+          saleId: '',
+          lead_id: txForm.lead_id || '',
+          method: txForm.method,
+          installments,
+          type: txForm.type,
+          planName: txForm.planName || '',
+          gross: grossNum,
+          fee: feeVal,
+          net: netVal,
+          status: 'pending',
+          note: txForm.note || '',
+          settledAt: '',
+        },
+        permissions
+      );
       const row = {
         id: doc.$id,
         saleId: doc.saleId || '',

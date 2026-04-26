@@ -25,6 +25,7 @@ import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID,
 import { isBillingLive } from './lib/billingEnabled';
 import { Query } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
+import { cleanOldAccountingCache } from './store/useAccountingStore';
 import { useUiStore } from './store/useUiStore';
 import Dashboard from './pages/Dashboard';
 import Pipeline from './pages/Pipeline';
@@ -313,6 +314,11 @@ const App = () => {
       } catch (e) {
         void e;
       }
+      try {
+        void cleanOldAccountingCache(mappedAcademies.map((a) => a.id));
+      } catch (e) {
+        void e;
+      }
       const saved = localStorage.getItem('activeAcademyId');
       if (saved && list.find(d => d.$id === saved)) {
         academyId = saved;
@@ -454,6 +460,11 @@ const App = () => {
             useLeadStore.getState().setAcademyList(single);
           } catch (e2) {
             void e2;
+          }
+          try {
+            void cleanOldAccountingCache(single.map((a) => a.id));
+          } catch (e3) {
+            void e3;
           }
         }
       } catch (e) {

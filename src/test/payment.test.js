@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const paymentMocks = vi.hoisted(() => ({
   createDocument: vi.fn(),
   listDocuments: vi.fn(),
+  updateDocument: vi.fn(),
   permissions: vi.fn(() => ['perm-a'])
 }));
 
@@ -11,12 +12,19 @@ vi.mock('appwrite', () => ({
   Query: {
     equal: (k, v) => ({ op: 'eq', k, v }),
     limit: (n) => ({ op: 'limit', n }),
-    orderDesc: (k) => ({ op: 'desc', k })
+    orderDesc: (k) => ({ op: 'desc', k }),
+    cursorAfter: (id) => ({ op: 'cursorAfter', id })
   }
 }));
 
 vi.mock('../lib/clientDocumentPermissions.js', () => ({
   buildClientDocumentPermissions: paymentMocks.permissions
+}));
+
+vi.mock('../store/useLeadStore.js', () => ({
+  useLeadStore: {
+    getState: () => ({ leads: [{ id: 'lead-1' }] }),
+  },
 }));
 
 describe('Pagamentos de mensalidade', () => {
@@ -25,6 +33,8 @@ describe('Pagamentos de mensalidade', () => {
     vi.clearAllMocks();
     paymentMocks.createDocument.mockReset();
     paymentMocks.listDocuments.mockReset();
+    paymentMocks.updateDocument.mockReset();
+    paymentMocks.updateDocument.mockResolvedValue({});
     process.env.VITE_APPWRITE_DATABASE_ID = 'db-pay';
     process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'payments-col';
     process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = '';
@@ -36,7 +46,8 @@ describe('Pagamentos de mensalidade', () => {
       vi.doMock('../lib/appwrite.js', () => ({
         databases: {
           createDocument: paymentMocks.createDocument,
-          listDocuments: paymentMocks.listDocuments
+          listDocuments: paymentMocks.listDocuments,
+          updateDocument: paymentMocks.updateDocument
         },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
@@ -61,7 +72,7 @@ describe('Pagamentos de mensalidade', () => {
     it('status paid define paid_at e não define due_date', async () => {
       paymentMocks.createDocument.mockResolvedValueOnce({ $id: 'pay-2' });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -84,7 +95,7 @@ describe('Pagamentos de mensalidade', () => {
     it('status pending define due_date e não define paid_at', async () => {
       paymentMocks.createDocument.mockResolvedValueOnce({ $id: 'pay-3' });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -107,7 +118,7 @@ describe('Pagamentos de mensalidade', () => {
     it('lança erro se PAYMENTS_COL não estiver configurado', async () => {
       process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = '';
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -115,12 +126,12 @@ describe('Pagamentos de mensalidade', () => {
       await expect(createPayment({})).rejects.toThrow('student_payments_collection_not_configured');
     });
 
-    it('espelho FINANCIAL_TX é fire-and-forget — erro não propaga', async () => {
+    it('espelho FINANCIAL_TX — erro no espelho não propaga para createPayment', async () => {
       paymentMocks.createDocument
         .mockResolvedValueOnce({ $id: 'pay-10' })
         .mockRejectedValueOnce(new Error('mirror-fail'));
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: 'tx-col'
       }));
@@ -135,12 +146,39 @@ describe('Pagamentos de mensalidade', () => {
           reference_month: '2026-04'
         })
       ).resolves.toEqual({ $id: 'pay-10' });
+      expect(paymentMocks.updateDocument).not.toHaveBeenCalled();
+    });
+
+    it('após espelho FINANCIAL_TX com sucesso, atualiza student_payment com financial_tx_id', async () => {
+      paymentMocks.createDocument
+        .mockResolvedValueOnce({ $id: 'pay-11' })
+        .mockResolvedValueOnce({ $id: 'tx-99' });
+      vi.doMock('../lib/appwrite.js', () => ({
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
+        DB_ID: 'db-pay',
+        FINANCIAL_TX_COL: 'tx-col'
+      }));
+      const { createPayment } = await import('../lib/studentPayments.js');
+      await createPayment({
+        lead_id: 'lead-1',
+        academy_id: 'acad-1',
+        amount: 150,
+        method: 'pix',
+        status: 'paid',
+        reference_month: '2026-04'
+      });
+      expect(paymentMocks.updateDocument).toHaveBeenCalledWith(
+        'db-pay',
+        'payments-col',
+        'pay-11',
+        { financial_tx_id: 'tx-99' }
+      );
     });
 
     it('permissions são passadas no createDocument', async () => {
       paymentMocks.createDocument.mockResolvedValueOnce({ $id: 'pay-4' });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -164,7 +202,7 @@ describe('Pagamentos de mensalidade', () => {
     it('retorna paid quando existe pagamento do mês com status paid', async () => {
       paymentMocks.listDocuments.mockResolvedValueOnce({ documents: [{ status: 'paid', amount: 10 }] });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -176,7 +214,7 @@ describe('Pagamentos de mensalidade', () => {
     it('retorna pending quando existe pagamento do mês com status pending', async () => {
       paymentMocks.listDocuments.mockResolvedValueOnce({ documents: [{ status: 'pending', amount: 10 }] });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -188,7 +226,7 @@ describe('Pagamentos de mensalidade', () => {
     it('retorna none quando não existe pagamento do mês', async () => {
       paymentMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -200,7 +238,7 @@ describe('Pagamentos de mensalidade', () => {
     it('usa o mês atual (YYYY-MM) na query', async () => {
       paymentMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -216,7 +254,7 @@ describe('Pagamentos de mensalidade', () => {
     it('retorna array vazio se PAYMENTS_COL não configurado', async () => {
       process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = '';
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -227,7 +265,7 @@ describe('Pagamentos de mensalidade', () => {
     it('filtra por academy_id e reference_month', async () => {
       paymentMocks.listDocuments.mockResolvedValueOnce({ documents: [{ $id: 'p1' }] });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
@@ -238,17 +276,25 @@ describe('Pagamentos de mensalidade', () => {
       expect(q.some((x) => x?.op === 'eq' && x.k === 'reference_month' && x.v === '2026-04')).toBe(true);
     });
 
-    it('retorna máximo 200 documentos', async () => {
-      paymentMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    it('usa limite 100 por página e agrega todas as páginas', async () => {
+      const batch1 = Array.from({ length: 100 }, (_, i) => ({ $id: `p-${i}` }));
+      const batch2 = [{ $id: 'p-end' }];
+      paymentMocks.listDocuments
+        .mockResolvedValueOnce({ documents: batch1 })
+        .mockResolvedValueOnce({ documents: batch2 });
       vi.doMock('../lib/appwrite.js', () => ({
-        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments },
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
         DB_ID: 'db-pay',
         FINANCIAL_TX_COL: ''
       }));
       const { getMonthlyPayments } = await import('../lib/studentPayments.js');
-      await getMonthlyPayments('acad-1', '2026-04');
-      const q = paymentMocks.listDocuments.mock.calls[0][2];
-      expect(q.some((x) => x?.op === 'limit' && x.n === 200)).toBe(true);
+      const out = await getMonthlyPayments('acad-1', '2026-04');
+      expect(out.length).toBe(101);
+      expect(paymentMocks.listDocuments).toHaveBeenCalledTimes(2);
+      const q1 = paymentMocks.listDocuments.mock.calls[0][2];
+      expect(q1.some((x) => x?.op === 'limit' && x.n === 100)).toBe(true);
+      const q2 = paymentMocks.listDocuments.mock.calls[1][2];
+      expect(q2.some((x) => x?.op === 'cursorAfter' && x.id === 'p-99')).toBe(true);
     });
   });
 });

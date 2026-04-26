@@ -2,6 +2,32 @@ import { create } from 'zustand';
 
 const LS_BASE_KEY = 'bjj_accounting_v1';
 
+/**
+ * Remove caches de contabilidade (localStorage) de academias que o usuário não acessa mais.
+ * @param {string[]} activeAcademyIds
+ */
+export function cleanOldAccountingCache(activeAcademyIds) {
+  try {
+    const list = Array.isArray(activeAcademyIds) ? activeAcademyIds : [];
+    if (list.length === 0) return;
+    const ids = new Set(list.map(String));
+    const PREFIX = `${LS_BASE_KEY}_`;
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(PREFIX)) continue;
+      const aid = key.slice(PREFIX.length);
+      if (!ids.has(aid)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    if (keysToRemove.length > 0) {
+      console.log(`[accounting] Limpou ${keysToRemove.length} caches de academias inativas`);
+    }
+  } catch (e) {
+    console.error('[accounting] cleanOldAccountingCache:', e);
+  }
+}
+
 function getLsKey(academyId) {
   if (!academyId) return null;
   return `${LS_BASE_KEY}_${academyId}`;
@@ -116,8 +142,9 @@ export const useAccountingStore = create((set, get) => ({
         const sumD = lines.reduce((s, l) => s + Number(l.debit || 0), 0);
         const sumC = lines.reduce((s, l) => s + Number(l.credit || 0), 0);
         if (Number(sumD.toFixed(2)) !== Number(sumC.toFixed(2))) return {};
+        const entryId = entry.id && String(entry.id).trim() ? String(entry.id).trim() : crypto.randomUUID();
         const doc = {
-          id: crypto.randomUUID(),
+          id: entryId,
           date: entry.date,
           memo: entry.memo || '',
           lines: lines.map((l) => ({
@@ -129,6 +156,17 @@ export const useAccountingStore = create((set, get) => ({
           })),
         };
         const next = { ...state, journal: [doc, ...state.journal] };
+        if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
+        return next;
+      }),
+
+    updateEntryId: (oldId, newId) =>
+      set((state) => {
+        const o = String(oldId || '').trim();
+        const n = String(newId || '').trim();
+        if (!o || !n || o === n) return {};
+        const nextJournal = state.journal.map((e) => (e.id === o ? { ...e, id: n } : e));
+        const next = { ...state, journal: nextJournal };
         if (state.academyId) saveState(state.academyId, { accounts: next.accounts, journal: next.journal });
         return next;
       }),

@@ -10,7 +10,9 @@ export default function AccountsTab({
   addAccount,
   updateAccount,
   deleteAccount,
+  headingActions,
 }) {
+  const [storageWarning, setStorageWarning] = useState(false);
   const [draft, setDraft] = useState({ code: '', name: '', type: 'ativo', nature: 'devedora', dreGrupo: '', dfcClasse: '', dfcSubclasse: '', cash: false });
   const sortedAccounts = useMemo(() => {
     const copy = Array.isArray(accounts) ? [...accounts] : [];
@@ -18,6 +20,15 @@ export default function AccountsTab({
     return copy;
   }, [accounts]);
   useEffect(() => {
+    if (!academyId) {
+      setStorageWarning(false);
+      return;
+    }
+    if (!ACCOUNTS_COL) {
+      setStorageWarning(true);
+      return;
+    }
+    setStorageWarning(false);
     let active = true;
     const mapDoc = (d) => ({
       id: d.$id,
@@ -31,7 +42,6 @@ export default function AccountsTab({
       cash: Boolean(d.cash),
     });
     const run = async () => {
-      if (!academyId || !ACCOUNTS_COL) return;
       try {
         const res = await databases.listDocuments(DB_ID, ACCOUNTS_COL, [
           Query.equal('academyId', academyId),
@@ -111,7 +121,26 @@ export default function AccountsTab({
   };
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="navi-section-heading mb-2">Plano de Contas</h3>
+      <div className="flex items-center justify-between gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
+        <h3 className="navi-section-heading" style={{ marginBottom: 0 }}>Plano de Contas</h3>
+        {headingActions ? <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>{headingActions}</div> : null}
+      </div>
+      {storageWarning ? (
+        <div
+          style={{
+            background: '#FEF3C7',
+            border: '0.5px solid #F5A623',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: 12,
+            color: '#B45309',
+            marginBottom: 12,
+          }}
+        >
+          Plano de contas não está sendo salvo no servidor.
+          Configure ACCOUNTS_COL nas variáveis de ambiente.
+        </div>
+      ) : null}
       <div className="finance-accounts-form-card">
         <div className="ctx-label" style={{ marginBottom: 10 }}>Nova conta</div>
         <div className="finance-accounts-form-grid">
