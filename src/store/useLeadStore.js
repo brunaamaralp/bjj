@@ -103,6 +103,8 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.pipelineStageChangedAt !== undefined) copyIf('pipeline_stage_changed_at', u.pipelineStageChangedAt);
   if (u.lastNoteAt !== undefined) copyIf('last_note_at', u.lastNoteAt);
   if (u.lastWhatsappActivityAt !== undefined) copyIf('last_whatsapp_activity_at', u.lastWhatsappActivityAt);
+  if (u.pendingAutomations !== undefined) copyIf('pending_automations', JSON.stringify(u.pendingAutomations || []));
+  if (u.hasPendingAutomations !== undefined) copyIf('has_pending_automations', u.hasPendingAutomations);
 
   if (u.whatsappIntention !== undefined) copyIf('whatsapp_intention', u.whatsappIntention);
   if (u.whatsappPriority !== undefined) copyIf('whatsapp_priority', u.whatsappPriority);
@@ -138,8 +140,17 @@ export const useLeadStore = create(
   billingAccess: null,
   academyList: [],
   onboardingChecklistReopenNonce: 0,
+  /** Cache de financeConfig (documento academia); invalidar ao trocar academia. */
+  financeConfig: null,
+  financeConfigAcademyId: null,
 
   setAcademyList: (list) => set({ academyList: Array.isArray(list) ? list : [] }),
+
+  setFinanceConfig: (config) =>
+    set({
+      financeConfig: config,
+      financeConfigAcademyId: config == null ? null : get().academyId,
+    }),
 
   setAcademyId: (id) => {
     const current = get().academyId;
@@ -152,7 +163,9 @@ export const useLeadStore = create(
         leadsHasMore: false,
         labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
         onboardingChecklist: null,
-        billingAccess: null
+        billingAccess: null,
+        financeConfig: null,
+        financeConfigAcademyId: null,
       });
       // Notificar store de contabilidade (se existir)
       if (typeof window !== 'undefined' && window.useAccountingStore?.getState()?.loadByAcademy) {
@@ -166,7 +179,9 @@ export const useLeadStore = create(
          leadsHasMore: false,
          onboardingChecklist: null,
          billingAccess: null,
-         academyList: []
+         academyList: [],
+         financeConfig: null,
+         financeConfigAcademyId: null,
        });
     }
   },

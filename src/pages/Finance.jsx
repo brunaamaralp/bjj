@@ -68,25 +68,32 @@ const Finance = () => {
       return;
     }
     let active = true;
-
-    databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-      .then((doc) => {
-        if (!active) return;
-        let cfg = defaultFinanceConfig();
-        try {
-          const parsed = doc.financeConfig
-            ? (typeof doc.financeConfig === 'string' ? JSON.parse(doc.financeConfig) : doc.financeConfig)
-            : null;
-          if (parsed && typeof parsed === 'object') cfg = { ...cfg, ...parsed };
-        } catch {
-          void 0;
-        }
-        setFinanceConfig(cfg);
-      })
-      .catch(() => {
-        if (!active) return;
-        setFinanceConfig(defaultFinanceConfig());
-      });
+    const st = useLeadStore.getState();
+    if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
+      setFinanceConfig(st.financeConfig);
+    } else {
+      const loadAid = academyId;
+      databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
+        .then((doc) => {
+          if (!active || loadAid !== useLeadStore.getState().academyId) return;
+          let cfg = defaultFinanceConfig();
+          try {
+            const parsed = doc.financeConfig
+              ? (typeof doc.financeConfig === 'string' ? JSON.parse(doc.financeConfig) : doc.financeConfig)
+              : null;
+            if (parsed && typeof parsed === 'object') cfg = { ...cfg, ...parsed };
+          } catch {
+            void 0;
+          }
+          setFinanceConfig(cfg);
+          useLeadStore.getState().setFinanceConfig(cfg);
+        })
+        .catch(() => {
+          if (!active || loadAid !== useLeadStore.getState().academyId) return;
+          const fallback = defaultFinanceConfig();
+          setFinanceConfig(fallback);
+        });
+    }
 
     if (ACCOUNTS_COL) {
       databases.listDocuments(DB_ID, ACCOUNTS_COL, [Query.equal('academyId', academyId), Query.limit(1)])
@@ -172,6 +179,7 @@ const Finance = () => {
         financeConfig: JSON.stringify(updatedConfig),
       });
       setFinanceConfig(updatedConfig);
+      useLeadStore.getState().setFinanceConfig(updatedConfig);
     }
 
     addToast({ type: 'success', message: 'Dados importados com sucesso.' });

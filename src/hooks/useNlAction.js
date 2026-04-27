@@ -7,7 +7,7 @@ import { createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js';
 import { sanitizeStudentUpdatesForNl } from '../../lib/studentNlUpdates.js';
 import { sanitizePaymentUpdatesForNl } from '../../lib/paymentNlUpdates.js';
-import { settleFinancialTransactionById, applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
+import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 import { addLeadEvent } from '../lib/leadEvents';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
@@ -505,7 +505,25 @@ export function useNlAction() {
         const tid = String(d.transaction_id || '').trim();
         if (!tid) throw new Error('Transação não identificada.');
         if (!academyId) throw new Error('Academia não selecionada.');
-        await settleFinancialTransactionById(tid);
+        const jwt = await createSessionJwt();
+        const response = await fetch('/api/agent?route=settle-finance-tx', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
+            'x-academy-id': academyId,
+          },
+          body: JSON.stringify({ transactionId: tid }),
+        });
+        let body = {};
+        try {
+          body = await response.json();
+        } catch {
+          void 0;
+        }
+        if (!response.ok) {
+          throw new Error(body.error || 'Erro ao liquidar transação');
+        }
         const snap = d.tx_snapshot;
         if (snap && typeof snap === 'object') {
           applySettleAccountingSideEffects(snap, academyId);
@@ -513,7 +531,7 @@ export function useNlAction() {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('navi-financial-tx-settled', { detail: { id: tid } }));
         }
-        return { ok: true, transaction_id: tid };
+        return { ok: true, transaction_id: tid, ...body };
       }
 
       if (parsed.action === 'update_payment') {

@@ -239,24 +239,44 @@ function friendlyZapsterSendError(raw, httpStatus) {
   return httpStatus ? `Falha ao enviar (HTTP ${httpStatus})` : 'Falha ao enviar';
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientZapsterSendError(err) {
+  const status = Number(err?.zapsterHttpStatus || 0);
+  if (status === 408 || status === 425 || status === 429) return true;
+  if (status >= 500 && status <= 599) return true;
+  if (!status) {
+    const msg = String(err?.message || '').toLowerCase();
+    if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('network')) return true;
+  }
+  return false;
+}
+
 /**
  * Envia na Zapster; se o ID salvo na academia estiver morto, tenta achar instância
  * pela listagem (metadata.academy_id) e persiste antes de um segundo envio.
  */
 async function sendZapsterTextWithOptionalRecover({ recipient, text, academyId, initialInstanceId, sendAt }) {
   let instanceId = String(initialInstanceId || '').trim();
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const transientRetryMs = [350, 900];
+  for (let attempt = 0; attempt < transientRetryMs.length + 1; attempt++) {
     try {
       return await sendZapsterText({ recipient, text, instanceId, sendAt });
     } catch (e) {
       const raw = String(e?.zapsterRaw || '');
-      if (attempt === 0 && isZapsterInstanceNotFound(raw)) {
+      if (isZapsterInstanceNotFound(raw)) {
         const recovered = await recoverZapsterInstanceIdFromList(academyId);
         if (recovered && recovered !== instanceId) {
           await persistAcademyZapsterInstanceId(academyId, recovered);
           instanceId = recovered;
           continue;
         }
+      }
+      if (attempt < transientRetryMs.length && isTransientZapsterSendError(e)) {
+        await sleep(transientRetryMs[attempt]);
+        continue;
       }
       throw e;
     }

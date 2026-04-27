@@ -10,10 +10,12 @@ import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/p
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
+import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
+const DEFAULT_STAGE_SLA_DAYS = 3;
 const DAY_FILTERS = [
     { key: 'today', label: 'Hoje' },
     { key: 'tomorrow', label: 'Amanhã' },
@@ -46,7 +48,7 @@ const Dashboard = () => {
     const hiddenAtRef = useRef(null);
 
     const pipelineStagesNl = useMemo(() => {
-        const fixed = PIPELINE_STAGES.map((s) => ({ id: s, label: s }));
+        const fixed = PIPELINE_STAGES.map((s) => ({ id: s, label: s, slaDays: DEFAULT_STAGE_SLA_DAYS }));
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         let conf = acad?.stagesConfig;
         if (!conf) return fixed;
@@ -56,10 +58,11 @@ const Dashboard = () => {
             const normalized = conf
                 .filter(Boolean)
                 .map((s) => {
-                    if (typeof s === 'string') return { id: String(s).trim(), label: String(s).trim() };
+                    if (typeof s === 'string') return { id: String(s).trim(), label: String(s).trim(), slaDays: DEFAULT_STAGE_SLA_DAYS };
                     const id = String(s?.id || '').trim();
                     const label = String(s?.label || s?.id || '').trim();
-                    return id ? { id, label: label || id } : null;
+                    const slaDays = Number.isFinite(Number(s?.slaDays)) ? Number(s.slaDays) : DEFAULT_STAGE_SLA_DAYS;
+                    return id ? { id, label: label || id, slaDays } : null;
                 })
                 .filter(Boolean);
             return normalized.length > 0 ? normalized : fixed;
@@ -248,6 +251,19 @@ const Dashboard = () => {
             const tb = new Date(b.statusChangedAt || b.pipelineStageChangedAt || b.createdAt || 0).getTime();
             return tb - ta;
         });
+    const slaAlerts = useSlaAlerts(leads, pipelineStagesNl);
+    const stalledLeads = useMemo(
+        () =>
+            (leads || [])
+                .filter((lead) => Boolean(slaAlerts[lead.id]))
+                .map((lead) => ({ ...lead, slaAlert: slaAlerts[lead.id] }))
+                .sort((a, b) => {
+                    const d = (b.slaAlert?.daysInStage || 0) - (a.slaAlert?.daysInStage || 0);
+                    if (d !== 0) return d;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+                }),
+        [leads, slaAlerts]
+    );
 
     const getUrgency = (days) => {
         if (days >= 5) return { level: 'critical', label: 'Urgente', color: 'var(--danger)' };
@@ -731,6 +747,58 @@ const Dashboard = () => {
                         + {followUpsKanbanOnlyCount} no Kanban (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a aula).
                     </p>
                 )}
+
+                <div className="mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>Parados no funil</h4>
+                        <span className="badge badge-secondary">{stalledLeads.length}</span>
+                    </div>
+                    <div className="flex-col gap-2">
+                        {stalledLeads.length > 0 ? stalledLeads.map((lead, i) => {
+                            const alert = lead.slaAlert;
+                            const isCritical = alert?.urgency === 'critical';
+                            return (
+                                <div
+                                    key={`sla-${lead.id}`}
+                                    className={`card follow-card sla-follow-card animate-in${isCritical ? ' sla-follow-card--critical' : ''}`}
+                                    style={{ animationDelay: `${0.03 * i}s` }}
+                                >
+                                    <div className="flex justify-between items-center" onClick={() => navigate(`/lead/${lead.id}`)} style={{ cursor: 'pointer' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div className="flex items-center gap-2">
+                                                <strong>{lead.name}</strong>
+                                                <span
+                                                    className="urgency-tag"
+                                                    style={{ background: isCritical ? 'var(--danger-light)' : 'var(--warning-light)', color: isCritical ? 'var(--danger)' : '#b45309' }}
+                                                    title={`Há ${alert.daysInStage} dia(s) na etapa. SLA configurado: ${alert.slaDays} dia(s).`}
+                                                >
+                                                    {`${alert.daysInStage}d`}
+                                                </span>
+                                            </div>
+                                            <p className="text-small">
+                                                {lead.phone}
+                                                {lead.pipelineStage ? ` • ${lead.pipelineStage}` : ''}
+                                                {' • '}
+                                                SLA {alert.slaDays}d
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="followup-action-btn"
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/lead/${lead.id}`); }}
+                                        >
+                                            <ChevronRight size={14} /> Ver Perfil
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="empty-state">
+                                <p>Nenhum lead acima do SLA no momento.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </section>
             </div>
 
@@ -977,6 +1045,8 @@ const Dashboard = () => {
           background: var(--warning-light); color: #b45309; text-transform: uppercase; letter-spacing: 0.02em;
         }
         .follow-card { border-left: 4px solid var(--warning); }
+        .sla-follow-card { border-left-color: #d97706; }
+        .sla-follow-card--critical { border-left-color: var(--danger); }
         .status-pill { 
           font-size: 0.7rem; padding: 4px 10px; border-radius: var(--radius-full); 
           font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;

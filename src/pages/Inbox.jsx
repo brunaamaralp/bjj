@@ -123,6 +123,7 @@ export default function Inbox() {
   const [hasMore, setHasMore] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       ? window.matchMedia('(max-width: 1023px)').matches
@@ -253,6 +254,7 @@ export default function Inbox() {
 
   const draftRef = useRef('');
   const selectedPhoneRef = useRef('');
+  const handoffExpiryToastRef = useRef('');
   const textareaRef = useRef(null);
   const slashPopupRef = useRef(null);
   const slashActiveItemRef = useRef(null);
@@ -284,6 +286,30 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  useEffect(() => {
+    const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
+    if (!selected?.need_human || untilMs <= 0) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [selected?.need_human, selected?.human_handoff_until]);
+
+  useEffect(() => {
+    const phone = String(selectedPhone || '').trim();
+    const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
+    if (!phone || !selected?.need_human || untilMs <= 0) {
+      handoffExpiryToastRef.current = '';
+      return;
+    }
+    if (untilMs > nowMs) return;
+    const key = `${phone}:${untilMs}`;
+    if (handoffExpiryToastRef.current === key) return;
+    handoffExpiryToastRef.current = key;
+    addToast({
+      type: 'warning',
+      message: 'Tempo de handoff expirou. A IA pode retomar neste atendimento.'
+    });
+  }, [addToast, nowMs, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
 
   useEffect(() => {
     setSlashOpen(false);
@@ -2615,8 +2641,10 @@ export default function Inbox() {
                 const untilIso = untilMs > 0 ? new Date(untilMs).toISOString() : '';
                 const untilLabel = untilIso ? formatTimeOnly(untilIso) || formatWhen(untilIso) : '';
                 let rem = null;
+                const expired = Boolean(untilMs > 0 && untilMs <= nowMs);
+                const blinkOn = Math.floor(nowMs / 500) % 2 === 0;
                 if (untilMs > 0) {
-                  const remaining = untilMs - Date.now();
+                  const remaining = untilMs - nowMs;
                   if (remaining > 0) {
                     const hours = Math.floor(remaining / 3600000);
                     const minutes = Math.floor((remaining % 3600000) / 60000);
@@ -2643,6 +2671,20 @@ export default function Inbox() {
                       {rem && (
                         <span className="text-small handoff-timer" style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '2px 8px', borderRadius: 999 }}>
                           IA retoma em {rem}
+                        </span>
+                      )}
+                      {expired && (
+                        <span
+                          className="text-small handoff-timer"
+                          style={{
+                            background: blinkOn ? 'rgba(239, 68, 68, 0.18)' : 'rgba(239, 68, 68, 0.32)',
+                            color: 'var(--danger)',
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            transition: 'background-color 160ms ease'
+                          }}
+                        >
+                          Handoff expirado
                         </span>
                       )}
                     </>

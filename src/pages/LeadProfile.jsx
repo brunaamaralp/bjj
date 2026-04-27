@@ -690,6 +690,7 @@ const LeadProfile = () => {
             });
             const patch = {
                 status: newStatus,
+                // Mantém alinhamento com o fluxo de matrícula do Pipeline.
                 ...(newStatus === LEAD_STATUS.CONVERTED ? { contact_type: 'student' } : {}),
                 ...(pipelineStage ? { pipelineStage } : {})
             };

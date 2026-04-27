@@ -33,8 +33,15 @@ export default function Caixa() {
 
   useEffect(() => {
     if (!academyId) return;
+    const st = useLeadStore.getState();
+    if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
+      setFinanceConfig(st.financeConfig);
+      return;
+    }
+    const loadAid = academyId;
     databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
       .then((doc) => {
+        if (loadAid !== useLeadStore.getState().academyId) return;
         let cfg = null;
         try {
           cfg = doc.financeConfig ? (typeof doc.financeConfig === 'string' ? JSON.parse(doc.financeConfig) : doc.financeConfig) : null;
@@ -57,7 +64,9 @@ export default function Caixa() {
             };
           }
         }
+        if (loadAid !== useLeadStore.getState().academyId) return;
         setFinanceConfig(cfg);
+        useLeadStore.getState().setFinanceConfig(cfg);
       })
       .catch((e) => {
         console.error(e);

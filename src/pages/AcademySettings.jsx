@@ -14,10 +14,13 @@ import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
+import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
+import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations.js';
 
 const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2 },
     { id: 'funil', label: 'Funil', Icon: Filter },
+    { id: 'automacoes', label: 'Automações', Icon: Settings },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
     { id: 'equipe', label: 'Equipe', Icon: Users },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
@@ -46,9 +49,13 @@ const AcademySettings = () => {
         uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
         modules: { sales: false, inventory: false, finance: false },
         customLeadQuestions: [],
+        automationsConfigRaw: '',
+        whatsappTemplates: '',
         teamId: '',
         ownerId: '',
     });
+    const [automationsConfig, setAutomationsConfig] = useState(() => parseAutomationsConfig(null));
+    const [savingAutomations, setSavingAutomations] = useState(false);
 
     const focus = searchParams.get('focus');
     const autoEditTax = focus === 'tax';
@@ -179,10 +186,13 @@ const AcademySettings = () => {
                     quickTimes: doc.quickTimes || '',
                     uiLabels: labels,
                     modules: mods,
+                    automationsConfigRaw: doc.automations_config || '',
+                    whatsappTemplates: doc.whatsappTemplates || '',
                     teamId: doc.teamId || '',
                     ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
                 });
+                setAutomationsConfig(parseAutomationsConfig(doc.automations_config || ''));
                 if (normalized.migrated) {
                     try {
                         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
@@ -204,6 +214,26 @@ const AcademySettings = () => {
         })();
         return () => { cancelled = true; };
     }, [academyId, academyReloadNonce]);
+
+    const templatesMap = useMemo(() => {
+        let parsed = {};
+        try {
+            const raw = academy.whatsappTemplates;
+            const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p;
+        } catch {
+            parsed = {};
+        }
+        return { ...DEFAULT_WHATSAPP_TEMPLATES, ...parsed };
+    }, [academy.whatsappTemplates]);
+
+    const templateOptions = useMemo(
+        () =>
+            Object.keys(templatesMap)
+                .filter((k) => String(templatesMap[k] || '').trim())
+                .map((k) => ({ id: k, label: WHATSAPP_TEMPLATE_LABELS[k] || k })),
+        [templatesMap]
+    );
 
     const handleSave = async () => {
         if (!academyId) return;
@@ -284,6 +314,26 @@ const AcademySettings = () => {
         setSearchParams({ tab: id });
     };
 
+    const saveAutomations = async () => {
+        if (!academyId) return;
+        setSavingAutomations(true);
+        try {
+            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+                automations_config: JSON.stringify(automationsConfig || {}),
+            });
+            setAcademy((prev) => ({
+                ...prev,
+                automationsConfigRaw: JSON.stringify(automationsConfig || {}),
+            }));
+            addToast({ type: 'success', message: 'Automações salvas.' });
+        } catch (e) {
+            console.error('save automations:', e);
+            addToast({ type: 'error', message: 'Não foi possível salvar as automações.' });
+        } finally {
+            setSavingAutomations(false);
+        }
+    };
+
     return (
         <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="animate-in">
@@ -350,6 +400,87 @@ const AcademySettings = () => {
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
                 />
+            )}
+
+            {activeTab === 'automacoes' && (
+                <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
+                    <div className="card">
+                        <div className="mb-3">
+                            <h3 className="navi-section-heading">Mensagens automáticas</h3>
+                            <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
+                                Enviadas automaticamente quando um evento ocorre no funil. Os templates são configurados em Modelos de mensagem.
+                            </p>
+                        </div>
+                        <div className="flex-col gap-3">
+                            {Object.entries(AUTOMATION_LABELS).map(([key, meta]) => {
+                                const cfg = automationsConfig?.[key] || {};
+                                return (
+                                    <div key={key} className="card" style={{ padding: 12, border: '1px solid var(--border-light)' }}>
+                                        <div className="flex justify-between items-center gap-2">
+                                            <div>
+                                                <strong>{meta.label}</strong>
+                                                <p className="text-xs text-light" style={{ marginTop: 4 }}>{meta.description}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={cfg.active === true}
+                                                className={`ai-switch${cfg.active ? ' ai-switch--on' : ''}`}
+                                                onClick={() =>
+                                                    setAutomationsConfig((prev) => ({
+                                                        ...prev,
+                                                        [key]: { ...(prev?.[key] || {}), active: !(prev?.[key]?.active === true) },
+                                                    }))
+                                                }
+                                            >
+                                                <span className="ai-switch-thumb" />
+                                            </button>
+                                        </div>
+                                        <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
+                                            <select
+                                                className="form-input"
+                                                value={cfg.templateKey || ''}
+                                                onChange={(e) =>
+                                                    setAutomationsConfig((prev) => ({
+                                                        ...prev,
+                                                        [key]: { ...(prev?.[key] || {}), templateKey: e.target.value },
+                                                    }))
+                                                }
+                                                style={{ flex: '1 1 220px' }}
+                                            >
+                                                {templateOptions.map((opt) => (
+                                                    <option key={`${key}-${opt.id}`} value={opt.id}>{opt.label}</option>
+                                                ))}
+                                            </select>
+                                            {key === 'schedule_reminder' ? (
+                                                <select
+                                                    className="form-input"
+                                                    value={Number(cfg.delayMinutes || 120)}
+                                                    onChange={(e) =>
+                                                        setAutomationsConfig((prev) => ({
+                                                            ...prev,
+                                                            [key]: { ...(prev?.[key] || {}), delayMinutes: Number(e.target.value) || 120 },
+                                                        }))
+                                                    }
+                                                    style={{ flex: '0 1 180px' }}
+                                                >
+                                                    <option value={120}>2 horas antes</option>
+                                                    <option value={240}>4 horas antes</option>
+                                                    <option value={1440}>24 horas antes</option>
+                                                </select>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="flex justify-end mt-3">
+                            <button type="button" className="btn-secondary" onClick={() => void saveAutomations()} disabled={savingAutomations}>
+                                {savingAutomations ? 'Salvando...' : 'Salvar'}
+                            </button>
+                        </div>
+                    </div>
+                </section>
             )}
 
             {activeTab === 'financeiro' && academyId && (

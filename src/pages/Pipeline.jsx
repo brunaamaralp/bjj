@@ -18,6 +18,9 @@ import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
+import { useSlaAlerts } from '../lib/useSlaAlerts.js';
+import { parseAutomationsConfig } from '../lib/useAutomations.js';
+import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -50,11 +53,17 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
+    const slaClass =
+        slaAlert?.urgency === 'critical'
+            ? 'lead-card--sla-critical'
+            : slaAlert?.urgency === 'warning'
+              ? 'lead-card--sla-warning'
+              : '';
     return (
         <div
-            className={`card lead-card ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
+            className={`card lead-card ${slaClass} ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
             style={{
                 zIndex: isCardOverlayOpen ? 5000 : 1,
                 ...props.style
@@ -62,6 +71,18 @@ const LeadCard = React.memo(({ lead, isDragging, isOverlay, navigate, openMenuId
             onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
             {...props}
         >
+            {slaAlert ? (
+                <span
+                    className="lead-sla-badge"
+                    style={{
+                        background: slaAlert.urgency === 'critical' ? 'var(--danger-light)' : 'var(--warning-light)',
+                        color: slaAlert.urgency === 'critical' ? 'var(--danger)' : '#b45309',
+                    }}
+                    title={`Há ${slaAlert.daysInStage} dia(s) nesta etapa (SLA ${slaAlert.slaDays}d)`}
+                >
+                    {`${slaAlert.daysInStage}d`}
+                </span>
+            ) : null}
             <div className="lead-card-title-row lead-card-title-row--name-only">
                 <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
                     {lead.name}
@@ -665,6 +686,7 @@ const Pipeline = () => {
         zapster_instance_id: '',
         templates: { ...DEFAULT_WHATSAPP_TEMPLATES },
     }));
+    const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
     const [noteError, setNoteError] = useState('');
     const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(false);
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
@@ -926,6 +948,7 @@ const Pipeline = () => {
                     zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
                 });
+                setAcademyAutomationsRaw(String(doc?.automations_config || ''));
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(doc));
                 try {
                     if (doc.stagesConfig) {
@@ -951,6 +974,7 @@ const Pipeline = () => {
                 }
             })
             .catch(() => {
+                setAcademyAutomationsRaw('');
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(null));
                 addToast({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
             });
@@ -981,6 +1005,34 @@ const Pipeline = () => {
         });
     };
 
+    const automationConfig = useMemo(
+        () => parseAutomationsConfig(academyAutomationsRaw),
+        [academyAutomationsRaw]
+    );
+
+    const upsertPendingEntry = useCallback((lead, key, sendAtIso) => {
+        const existing = Array.isArray(lead?.pendingAutomations) ? lead.pendingAutomations : [];
+        const kept = existing.filter((item) => !(item?.key === key && item?.sent === false));
+        return [...kept, { key, sendAt: sendAtIso, sent: false }];
+    }, []);
+
+    const buildReminderSendAtIso = useCallback((ymd, hhmm, delayMinutes) => {
+        if (!ymd) return '';
+        const [y, m, d] = String(ymd).split('-').map(Number);
+        const [h, mi] = String(hhmm || '').split(':').map(Number);
+        const date = new Date(
+            y || 1970,
+            (m || 1) - 1,
+            d || 1,
+            Number.isFinite(h) ? h : 0,
+            Number.isFinite(mi) ? mi : 0,
+            0,
+            0
+        );
+        date.setMinutes(date.getMinutes() - (Number(delayMinutes) || 0));
+        return date.toISOString();
+    }, []);
+
     const handleWhatsApp = (e, lead) => {
         e.stopPropagation();
         if (!lead?.phone) {
@@ -1009,6 +1061,21 @@ const Pipeline = () => {
         } catch {
             await updateLead(lead.id, patch);
         }
+        void triggerImmediateAutomation('schedule_confirm', {
+            lead: { ...lead, ...patch },
+            academyId,
+            waOutbound,
+            academyRaw: academyAutomationsRaw,
+        }).catch(console.error);
+        const reminderCfg = automationConfig?.schedule_reminder;
+        if (reminderCfg?.active && Number(reminderCfg.delayMinutes || 0) > 0) {
+            const sendAt = buildReminderSendAtIso(ymd, time, reminderCfg.delayMinutes);
+            if (sendAt) {
+                const refreshed = getLeadById(lead.id) || lead;
+                const nextPending = upsertPendingEntry(refreshed, 'schedule_reminder', sendAt);
+                await updateLead(lead.id, { pendingAutomations: nextPending, hasPendingAutomations: true });
+            }
+        }
         setToast(`Reagendado para ${ymd} ${time}`);
         setTimeout(() => setToast(''), 2500);
     };
@@ -1035,6 +1102,12 @@ const Pipeline = () => {
                 attendedAt: new Date().toISOString(),
                 statusChangedAt: new Date().toISOString()
             });
+            void triggerImmediateAutomation('presence_confirmed', {
+                lead: { ...lead, status: LEAD_STATUS.COMPLETED, pipelineStage: PIPELINE_WAITING_DECISION_STAGE },
+                academyId,
+                waOutbound,
+                academyRaw: academyAutomationsRaw,
+            }).catch(console.error);
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
@@ -1062,6 +1135,12 @@ const Pipeline = () => {
                 missed_reason: reason,
                 statusChangedAt: now
             });
+            void triggerImmediateAutomation('missed', {
+                lead: { ...lead, status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED },
+                academyId,
+                waOutbound,
+                academyRaw: academyAutomationsRaw,
+            }).catch(console.error);
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
@@ -1080,6 +1159,38 @@ const Pipeline = () => {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
         }
     };
+
+    const executeMatricula = async (lead) => {
+        try {
+            await addLeadEvent({
+                academyId,
+                leadId: lead.id,
+                type: 'converted',
+                from: lead.pipelineStage || '',
+                to: LEAD_STATUS.CONVERTED,
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            await updateLead(lead.id, {
+                status: LEAD_STATUS.CONVERTED,
+                contact_type: 'student',
+                pipelineStage: 'Matriculado',
+                convertedAt: new Date().toISOString()
+            });
+            void triggerImmediateAutomation('converted', {
+                lead: { ...lead, status: LEAD_STATUS.CONVERTED, contact_type: 'student', pipelineStage: 'Matriculado' },
+                academyId,
+                waOutbound,
+                academyRaw: academyAutomationsRaw,
+            }).catch(console.error);
+            setToast('Lead matriculado com sucesso!');
+            setTimeout(() => setToast(''), 2000);
+        } catch (err) {
+            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            throw err;
+        }
+    };
+
     const saveStages = async () => {
         try {
             const cleaned = tempStages
@@ -1198,6 +1309,7 @@ const Pipeline = () => {
 
         return list;
     }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate]);
+    const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
     const handleDragStart = (event) => {
         setActiveId(event.active.id);
@@ -1288,6 +1400,15 @@ const Pipeline = () => {
             });
             const payload = getStageUpdatePayload(status);
             await updateLead(leadId, payload);
+            if (status === PIPELINE_WAITING_DECISION_STAGE) {
+                const cfg = automationConfig?.waiting_decision;
+                if (cfg?.active && Number(cfg.delayMinutes || 0) > 0) {
+                    const refreshed = getLeadById(leadId) || lead;
+                    const sendAt = new Date(Date.now() + Number(cfg.delayMinutes) * 60000).toISOString();
+                    const nextPending = upsertPendingEntry(refreshed, 'waiting_decision', sendAt);
+                    await updateLead(leadId, { pendingAutomations: nextPending, hasPendingAutomations: true });
+                }
+            }
             setToast('Movido no pipeline');
             setTimeout(() => setToast(''), 2000);
         } catch (err) {
@@ -1362,6 +1483,15 @@ const Pipeline = () => {
             }
             const payload = getStageUpdatePayload(toStage);
             await updateLead(leadId, payload);
+            if (toStage === PIPELINE_WAITING_DECISION_STAGE) {
+                const cfg = automationConfig?.waiting_decision;
+                if (cfg?.active && Number(cfg.delayMinutes || 0) > 0) {
+                    const refreshed = getLeadById(leadId) || lead;
+                    const sendAt = new Date(Date.now() + Number(cfg.delayMinutes) * 60000).toISOString();
+                    const nextPending = upsertPendingEntry(refreshed, 'waiting_decision', sendAt);
+                    await updateLead(leadId, { pendingAutomations: nextPending, hasPendingAutomations: true });
+                }
+            }
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
             return;
@@ -1709,6 +1839,7 @@ const Pipeline = () => {
                                         <SortableLeadCard
                                             key={lead.id}
                                             lead={lead}
+                                            slaAlert={slaAlerts[lead.id]}
                                             navigate={navigate}
                                             openNote={openNote}
                                             openMenuId={openMenuId}
@@ -1764,6 +1895,7 @@ const Pipeline = () => {
                     {activeId ? (
                         <LeadCard
                             lead={getLeadById(activeId)}
+                            slaAlert={slaAlerts[activeId]}
                             isOverlay
                             navigate={navigate}
                             openNote={openNote}
@@ -1840,37 +1972,24 @@ const Pipeline = () => {
                 }}
                 onConfirmSimple={async () => {
                     setMatriculaModalOpen(false);
-                    if (dragTargetLead) {
-                        try {
-                            await addLeadEvent({
-                                academyId,
-                                leadId: dragTargetLead.id,
-                                type: 'converted',
-                                from: dragTargetLead.pipelineStage || '',
-                                to: LEAD_STATUS.CONVERTED,
-                                createdBy: userId || 'user',
-                                permissionContext: permCtx
-                            });
-                            await updateLead(dragTargetLead.id, {
-                                status: LEAD_STATUS.CONVERTED,
-                                contact_type: 'student',
-                                pipelineStage: 'Matriculado',
-                                convertedAt: new Date().toISOString()
-                            });
-                            setToast('Lead matriculado com sucesso!');
-                            setTimeout(() => setToast(''), 2000);
-                            setDragTargetLead(null);
-                        } catch (err) {
-                            addToast({ type: 'error', message: friendlyError(err, 'action') });
-                        }
+                    if (!dragTargetLead) return;
+                    try {
+                        await executeMatricula(dragTargetLead);
+                        setDragTargetLead(null);
+                    } catch {
+                        // Mantém o comportamento atual: modal já fechado no fluxo "Só matricular".
                     }
                 }}
-                onConfirmFull={() => {
-                    setMatriculaModalOpen(false);
-                    if (dragTargetLead) {
+                onConfirmFull={async () => {
+                    if (!dragTargetLead) return;
+                    try {
+                        await executeMatricula(dragTargetLead);
                         navigate(`/lead/${dragTargetLead.id}`);
+                        setMatriculaModalOpen(false);
+                        setDragTargetLead(null);
+                    } catch {
+                        // Em erro, não navega e mantém modal aberto para nova tentativa.
                     }
-                    setDragTargetLead(null);
                 }}
             />
 
@@ -2106,6 +2225,22 @@ const Pipeline = () => {
           z-index: 7000 !important;
         }
         .lead-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow); }
+        .lead-card--sla-warning {
+          border-left: 3px solid var(--color-background-warning, #f59e0b);
+        }
+        .lead-card--sla-critical {
+          border-left: 3px solid var(--color-background-danger, #ef4444);
+        }
+        .lead-sla-badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 11px;
+          font-weight: 500;
+          padding: 2px 6px;
+          border-radius: 4px;
+          line-height: 1.2;
+        }
         .lead-card-title-row {
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;

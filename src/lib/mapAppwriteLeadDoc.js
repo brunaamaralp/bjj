@@ -10,6 +10,24 @@ function parseCustomAnswersJson(raw) {
   }
 }
 
+function parsePendingAutomations(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((x) => x && typeof x === 'object')
+      .map((x) => ({
+        key: String(x.key || '').trim(),
+        sendAt: String(x.sendAt || '').trim(),
+        sent: x.sent === true,
+      }))
+      .filter((x) => x.key && x.sendAt);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Mapeia documento Appwrite (leads) → objeto usado na UI (camelCase).
  * @param {object} doc
@@ -60,6 +78,8 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     lastNoteAt: doc.last_note_at || null,
     lastWhatsappActivityAt: doc.last_whatsapp_activity_at || null,
     whatsappClassifiedAt: doc.whatsapp_classified_at || null,
+    pendingAutomations: parsePendingAutomations(doc.pending_automations),
+    hasPendingAutomations: doc.has_pending_automations === true,
     createdAt: doc.$createdAt,
     lostReason: doc.lostReason || '',
     plan: doc.plan || '',

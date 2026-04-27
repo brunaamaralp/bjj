@@ -55,7 +55,6 @@ vi.mock('../lib/attendance.js', () => ({
 }));
 
 vi.mock('../lib/financeTxSettle.js', () => ({
-  settleFinancialTransactionById: vi.fn(),
   applySettleAccountingSideEffects: vi.fn()
 }));
 
@@ -70,6 +69,7 @@ vi.mock('../../lib/server/academyAccess.js', () => ({
 }));
 
 import { useNlAction } from '../hooks/useNlAction.js';
+import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 
 function makeMockRes() {
   return {
@@ -184,6 +184,25 @@ describe('Assistente de linguagem natural', () => {
     it('lança erro para action não suportada', async () => {
       const { result } = renderHook(() => useNlAction());
       await expect(result.current.execute({ action: 'unknown', data: {} })).rejects.toThrow('Ação não suportada');
+    });
+
+    it('settle_transaction chama settle-finance-tx com transactionId', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, settledAt: '2026-04-26T12:00:00.000Z' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { result } = renderHook(() => useNlAction());
+      const out = await result.current.execute({
+        action: 'settle_transaction',
+        data: { transaction_id: 'tx-1', tx_snapshot: { id: 'tx-1', gross: 100, net: 100, fee: 0, method: 'pix' } },
+      });
+      expect(out.ok).toBe(true);
+      expect(out.transaction_id).toBe('tx-1');
+      const settleCall = fetchMock.mock.calls.find((c) => String(c[0] || '').includes('settle-finance-tx'));
+      expect(settleCall).toBeTruthy();
+      expect(JSON.parse(settleCall[1].body).transactionId).toBe('tx-1');
+      expect(applySettleAccountingSideEffects).toHaveBeenCalled();
     });
   });
 

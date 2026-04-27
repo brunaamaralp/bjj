@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { Wallet2, CreditCard, Banknote, Trash2 } from 'lucide-react';
@@ -23,8 +24,16 @@ export default function ConfigTab({ academyId }) {
 
   useEffect(() => {
     if (!academyId) return;
+    const st = useLeadStore.getState();
+    if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
+      setFinanceConfig(st.financeConfig);
+      setConfigDirty(false);
+      return;
+    }
+    const loadAid = academyId;
     databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
       .then((doc) => {
+        if (loadAid !== useLeadStore.getState().academyId) return;
         let cfg = null;
         try {
           cfg = doc.financeConfig ? (typeof doc.financeConfig === 'string' ? JSON.parse(doc.financeConfig) : doc.financeConfig) : null;
@@ -49,6 +58,7 @@ export default function ConfigTab({ academyId }) {
         }
         setFinanceConfig(cfg);
         setConfigDirty(false);
+        useLeadStore.getState().setFinanceConfig(cfg);
       })
       .catch((e) => {
         console.error(e);
@@ -63,6 +73,7 @@ export default function ConfigTab({ academyId }) {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         financeConfig: JSON.stringify(financeConfig || {})
       });
+      useLeadStore.getState().setFinanceConfig(financeConfig || {});
       setConfigDirty(false);
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
     } catch (e) {
