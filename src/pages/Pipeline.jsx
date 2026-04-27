@@ -885,6 +885,13 @@ const Pipeline = () => {
         if (mainEl) {
             mainEl.classList.add('pipeline-active');
             mainEl.scrollTop = 0;
+            requestAnimationFrame(() => {
+                try {
+                    mainEl.scrollTop = 0;
+                } catch {
+                    void 0;
+                }
+            });
         }
         return () => {
             if (mainEl) mainEl.classList.remove('pipeline-active');
@@ -2067,7 +2074,15 @@ const Pipeline = () => {
                 __html: `
         .main-content.pipeline-active { overflow-x: hidden !important; overflow-y: auto !important; padding: 0 !important; }
         .pipeline-container { width: 100%; display: flex; flex-direction: column; flex: 1 1 0 !important; min-height: 0; overflow: hidden; }
-        .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); overflow-x: hidden; }
+        .pipeline-header {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          padding: 12px 0 8px;
+          background: var(--surface);
+          border-bottom: 1px solid var(--border-light);
+          overflow-x: hidden;
+        }
         .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
         .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -2101,13 +2116,18 @@ const Pipeline = () => {
           font-weight: 700;
           color: var(--text-secondary);
         }
-        .kanban-wrapper { 
-          display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 10px 12px 0; flex: 1 1 0;
+        .pipeline-desktop-kanban-host {
+          min-height: 0;
+          flex: 1 1 0;
+          display: flex;
+        }
+        .kanban-wrapper {
+          display: flex; gap: 10px; overflow-x: scroll; overflow-y: hidden; padding: 10px 12px 8px; flex: 1 1 0;
           min-height: 0;
           align-items: stretch;
           scroll-snap-type: x mandatory;
           scrollbar-width: thin;
-          scrollbar-gutter: stable;
+          scrollbar-gutter: stable both-edges;
         }
         .kanban-wrapper::-webkit-scrollbar {
           height: 6px;

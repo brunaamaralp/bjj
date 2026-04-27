@@ -81,35 +81,39 @@ export async function createPayment(data) {
     registered_by_name: data.registered_by_name ?? '',
     note: data.note ?? '',
   };
-  const permissions = buildClientDocumentPermissions({
-    teamId: data.team_id ?? '',
-    userId: data.registered_by ?? '',
-  });
-  const doc = await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload, permissions);
+  const teamId = String(data.team_id ?? '').trim();
+  const userId = String(data.registered_by ?? '').trim();
+  const permissions =
+    teamId || userId
+      ? buildClientDocumentPermissions({
+          teamId,
+          userId,
+        })
+      : null;
+  const doc = permissions
+    ? await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload, permissions)
+    : await databases.createDocument(DB_ID, PAYMENTS_COL, ID.unique(), payload);
 
   if (FINANCIAL_TX_COL) {
     try {
-      const mirror = await databases.createDocument(
-        DB_ID,
-        FINANCIAL_TX_COL,
-        ID.unique(),
-        {
-          academyId: data.academy_id,
-          saleId: '',
-          lead_id: data.lead_id,
-          method: data.method,
-          installments: 1,
-          type: 'plan',
-          planName: data.plan_name || '',
-          gross: data.amount,
-          fee: 0,
-          net: data.amount,
-          status: data.status === 'paid' ? 'settled' : 'pending',
-          settledAt: data.status === 'paid' ? data.paid_at || new Date().toISOString() : '',
-          note: data.note || `Mensalidade ${data.reference_month}`,
-        },
-        permissions
-      );
+      const mirrorPayload = {
+        academyId: data.academy_id,
+        saleId: '',
+        lead_id: data.lead_id,
+        method: data.method,
+        installments: 1,
+        type: 'plan',
+        planName: data.plan_name || '',
+        gross: data.amount,
+        fee: 0,
+        net: data.amount,
+        status: data.status === 'paid' ? 'settled' : 'pending',
+        settledAt: data.status === 'paid' ? data.paid_at || new Date().toISOString() : '',
+        note: data.note || `Mensalidade ${data.reference_month}`,
+      };
+      const mirror = permissions
+        ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload, permissions)
+        : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload);
       const mirrorId = String(mirror?.$id || '').trim();
       if (mirrorId) {
         databases

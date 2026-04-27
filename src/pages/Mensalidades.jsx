@@ -340,6 +340,11 @@ export default function Mensalidades() {
       addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
       return;
     }
+    const paidAtMs = new Date(String(payForm.paid_at || '').trim()).getTime();
+    if (!Number.isFinite(paidAtMs)) {
+      addToast({ type: 'error', message: 'Informe uma data de pagamento válida.' });
+      return;
+    }
     setSavingPayment(true);
     try {
       const doc = await createPayment({
@@ -351,7 +356,7 @@ export default function Mensalidades() {
         account: payForm.account || '',
         status: 'paid',
         reference_month: currentMonth,
-        paid_at: new Date(payForm.paid_at).toISOString(),
+        paid_at: new Date(paidAtMs).toISOString(),
         due_date: null,
         registered_by: userId || '',
         registered_by_name: sessionUserName,

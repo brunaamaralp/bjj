@@ -170,38 +170,43 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
       addToast({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
       return;
     }
-    const feeVal = txForm.fee
-      ? grossNum * (parseFloat(String(txForm.fee).replace(',', '.')) / 100)
-      : 0;
+    const feeVal =
+      txForm.type === 'expense'
+        ? 0
+        : txForm.fee
+          ? grossNum * (parseFloat(String(txForm.fee).replace(',', '.')) / 100)
+          : 0;
     const netVal = grossNum - feeVal;
     const installments = txForm.method === 'cartão_crédito' ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
     setSavingTx(true);
     try {
-      const permissions = buildClientDocumentPermissions({
-        userId: userId || '',
-        teamId: teamId || '',
-      });
-      const doc = await databases.createDocument(
-        DB_ID,
-        FINANCIAL_TX_COL,
-        ID.unique(),
-        {
-          academyId,
-          saleId: '',
-          lead_id: txForm.lead_id || '',
-          method: txForm.method,
-          installments,
-          type: txForm.type,
-          planName: txForm.planName || '',
-          gross: grossNum,
-          fee: feeVal,
-          net: netVal,
-          status: 'pending',
-          note: txForm.note || '',
-          settledAt: '',
-        },
-        permissions
-      );
+      const scopedUserId = String(userId || '').trim();
+      const scopedTeamId = String(teamId || '').trim();
+      const permissions =
+        scopedUserId || scopedTeamId
+          ? buildClientDocumentPermissions({
+              userId: scopedUserId,
+              teamId: scopedTeamId,
+            })
+          : null;
+      const payload = {
+        academyId,
+        saleId: '',
+        lead_id: txForm.lead_id || '',
+        method: txForm.method,
+        installments,
+        type: txForm.type,
+        planName: txForm.planName || '',
+        gross: grossNum,
+        fee: feeVal,
+        net: netVal,
+        status: 'pending',
+        note: txForm.note || '',
+        settledAt: '',
+      };
+      const doc = permissions
+        ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), payload, permissions)
+        : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), payload);
       const row = {
         id: doc.$id,
         saleId: doc.saleId || '',
@@ -375,11 +380,20 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                 <select
                   className="form-input"
                   value={txForm.type}
-                  onChange={(e) => setTxForm({ ...txForm, type: e.target.value })}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    setTxForm((prev) => ({
+                      ...prev,
+                      type: nextType,
+                      fee: nextType === 'expense' ? '' : prev.fee,
+                      installments: nextType === 'expense' ? 1 : prev.installments,
+                    }));
+                  }}
                 >
                   <option value="plan">Plano/Mensalidade</option>
                   <option value="product">Produto</option>
                   <option value="other">Outro</option>
+                  <option value="expense">Despesa</option>
                 </select>
               </div>
               {txForm.type === 'plan' && (
@@ -429,18 +443,20 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   }}
                 />
               </div>
-              <div className="form-group">
-                <label>Taxa (%)</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="0"
-                  value={txForm.fee}
-                  onChange={(e) => setTxForm({ ...txForm, fee: e.target.value })}
-                />
-              </div>
+              {txForm.type !== 'expense' ? (
+                <div className="form-group">
+                  <label>Taxa (%)</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0"
+                    value={txForm.fee}
+                    onChange={(e) => setTxForm({ ...txForm, fee: e.target.value })}
+                  />
+                </div>
+              ) : null}
               <div className="form-group">
                 <label>Método</label>
                 <select
@@ -472,63 +488,65 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   </select>
                 </div>
               )}
-              <div className="form-group" style={{ position: 'relative' }}>
-                <label>Aluno (opcional)</label>
-                <input
-                  className="form-input"
-                  placeholder="Buscar por nome..."
-                  value={studentQuery}
-                  onChange={(e) => {
-                    setStudentQuery(e.target.value);
-                    setStudentPickerOpen(true);
-                    if (!e.target.value.trim()) setTxForm((f) => ({ ...f, lead_id: '' }));
-                  }}
-                  onFocus={() => setStudentPickerOpen(true)}
-                  onBlur={() => { window.setTimeout(() => setStudentPickerOpen(false), 180); }}
-                />
-                {studentPickerOpen && studentMatches.length > 0 ? (
-                  <div
-                    className="card"
-                    style={{
-                      position: 'absolute',
-                      zIndex: 2,
-                      left: 0,
-                      right: 0,
-                      top: '100%',
-                      marginTop: 4,
-                      maxHeight: 220,
-                      overflowY: 'auto',
-                      padding: 0,
-                      boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
+              {txForm.type !== 'expense' ? (
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <label>Aluno (opcional)</label>
+                  <input
+                    className="form-input"
+                    placeholder="Buscar por nome..."
+                    value={studentQuery}
+                    onChange={(e) => {
+                      setStudentQuery(e.target.value);
+                      setStudentPickerOpen(true);
+                      if (!e.target.value.trim()) setTxForm((f) => ({ ...f, lead_id: '' }));
                     }}
-                  >
-                    {studentMatches.map((l) => (
-                      <button
-                        key={l.id}
-                        type="button"
-                        className="btn-ghost"
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          borderRadius: 0,
-                          borderBottom: '0.5px solid var(--border-light)',
-                          padding: '10px 12px',
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setTxForm((f) => ({ ...f, lead_id: l.id }));
-                          setStudentQuery(String(l.name || ''));
-                          setStudentPickerOpen(false);
-                        }}
-                      >
-                        <div style={{ fontWeight: 600 }}>{l.name || '—'}</div>
-                        <div className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || '—'}</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+                    onFocus={() => setStudentPickerOpen(true)}
+                    onBlur={() => { window.setTimeout(() => setStudentPickerOpen(false), 180); }}
+                  />
+                  {studentPickerOpen && studentMatches.length > 0 ? (
+                    <div
+                      className="card"
+                      style={{
+                        position: 'absolute',
+                        zIndex: 2,
+                        left: 0,
+                        right: 0,
+                        top: '100%',
+                        marginTop: 4,
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                        padding: 0,
+                        boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
+                      }}
+                    >
+                      {studentMatches.map((l) => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          className="btn-ghost"
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            textAlign: 'left',
+                            borderRadius: 0,
+                            borderBottom: '0.5px solid var(--border-light)',
+                            padding: '10px 12px',
+                          }}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setTxForm((f) => ({ ...f, lead_id: l.id }));
+                            setStudentQuery(String(l.name || ''));
+                            setStudentPickerOpen(false);
+                          }}
+                        >
+                          <div style={{ fontWeight: 600 }}>{l.name || '—'}</div>
+                          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || '—'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="form-group">
                 <label>Observação</label>
                 <textarea

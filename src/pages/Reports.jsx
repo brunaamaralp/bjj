@@ -2,8 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { hasAnyActivity } from '../lib/reportActivity.js';
-import { Query } from 'appwrite';
-import { account, databases, DB_ID } from '../lib/appwrite';
+import { account } from '../lib/appwrite';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
     Calendar,
@@ -19,11 +18,7 @@ import {
     Info,
     X,
     Loader2,
-    Wallet,
-    Clock,
 } from 'lucide-react';
-
-const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
 const presets = [
     { key: 'today', label: 'Hoje' },
@@ -233,7 +228,6 @@ const Reports = () => {
         typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 260
     );
     const academyId = useLeadStore((s) => s.academyId);
-    const [financialKPIs, setFinancialKPIs] = useState(null);
 
     const showInitialLoad = loading && !reportData;
     const showRefreshing = loading && reportData;
@@ -363,41 +357,6 @@ const Reports = () => {
         void fetchReport();
     }, [range, originFilter, profileFilter, chartMode, academyId, preset]);
 
-    useEffect(() => {
-        if (!academyId || !PAYMENTS_COL) {
-            setFinancialKPIs(null);
-            return;
-        }
-        void (async () => {
-            try {
-                const currentMonth = new Date().toISOString().slice(0, 7);
-                const paid = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
-                    Query.equal('academy_id', academyId),
-                    Query.equal('reference_month', currentMonth),
-                    Query.equal('status', 'paid'),
-                    Query.limit(500),
-                ]);
-                const pending = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
-                    Query.equal('academy_id', academyId),
-                    Query.equal('reference_month', currentMonth),
-                    Query.equal('status', 'pending'),
-                    Query.limit(100),
-                ]);
-                const totalPaid = (paid.documents || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-                setFinancialKPIs({
-                    totalPaid,
-                    pendingCount: (pending.documents || []).length,
-                });
-            } catch {
-                try {
-                    setFinancialKPIs(null);
-                } catch {
-                    void 0;
-                }
-            }
-        })();
-    }, [academyId]);
-
     const rangeSlug = `${range.from}_${range.to}`;
     const prettyRange = useMemo(() => formatRangeLongPt(range.from, range.to), [range.from, range.to]);
 
@@ -461,26 +420,6 @@ const Reports = () => {
                     ) : null}
                 </p>
             </div>
-
-            {PAYMENTS_COL && financialKPIs !== null ? (
-                <div className="reports-kpi-grid mt-4 animate-in">
-                    <Card
-                        title="Recebido este mês"
-                        value={Number(financialKPIs.totalPaid || 0).toLocaleString('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                        })}
-                        icon={<Wallet size={18} color="var(--success-dot)" strokeWidth={2} />}
-                        color="success"
-                    />
-                    <Card
-                        title="Pagamentos pendentes"
-                        value={String(financialKPIs.pendingCount ?? 0)}
-                        icon={<Clock size={18} color="var(--warn-text)" strokeWidth={2} />}
-                        color={financialKPIs.pendingCount > 0 ? 'warning' : 'accent'}
-                    />
-                </div>
-            ) : null}
 
             {showRefreshing ? (
                 <div className="reports-sync-bar mt-3" role="status" aria-live="polite">
