@@ -882,7 +882,10 @@ const Pipeline = () => {
 
     useEffect(() => {
         const mainEl = document.querySelector('.main-content');
-        if (mainEl) mainEl.classList.add('pipeline-active');
+        if (mainEl) {
+            mainEl.classList.add('pipeline-active');
+            mainEl.scrollTop = 0;
+        }
         return () => {
             if (mainEl) mainEl.classList.remove('pipeline-active');
         };
@@ -2062,7 +2065,7 @@ const Pipeline = () => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-        .main-content.pipeline-active { overflow: hidden !important; padding: 0 !important; }
+        .main-content.pipeline-active { overflow-x: hidden !important; overflow-y: auto !important; padding: 0 !important; }
         .pipeline-container { width: 100%; display: flex; flex-direction: column; flex: 1 1 0 !important; min-height: 0; overflow: hidden; }
         .pipeline-header { padding: 12px 0 8px; background: var(--surface); border-bottom: 1px solid var(--border-light); overflow-x: hidden; }
         .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
@@ -2103,11 +2106,11 @@ const Pipeline = () => {
           min-height: 0;
           align-items: stretch;
           scroll-snap-type: x mandatory;
-          scrollbar-width: none;
+          scrollbar-width: thin;
           scrollbar-gutter: stable;
         }
         .kanban-wrapper::-webkit-scrollbar {
-          height: 0;
+          height: 6px;
         }
         .kanban-wrapper::-webkit-scrollbar-track {
           background: transparent;
@@ -2117,7 +2120,7 @@ const Pipeline = () => {
           border-radius: 4px;
         }
         .kanban-wrapper:hover { scrollbar-width: thin; }
-        .kanban-wrapper:hover::-webkit-scrollbar { height: 4px; }
+        .kanban-wrapper:hover::-webkit-scrollbar { height: 6px; }
         .kanban-wrapper:hover::-webkit-scrollbar-track { background: transparent; }
         .kanban-wrapper:hover::-webkit-scrollbar-thumb {
           background: var(--border-secondary);

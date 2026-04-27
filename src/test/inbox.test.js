@@ -17,6 +17,12 @@ describe('inbox — unread / read (estado local)', () => {
   it('marca conversa como não lida via action unread', () => {
     const next = mapConversationItemsAfterUnread(items, '5511999990001');
     const row = next.find((x) => x.phone_number === '5511999990001');
+    expect(row.unread_count).toBe(2);
+  });
+
+  it('garante mínimo 1 quando estava zerada', () => {
+    const next = mapConversationItemsAfterUnread(items, '5511888880002');
+    const row = next.find((x) => x.phone_number === '5511888880002');
     expect(row.unread_count).toBe(1);
   });
 

@@ -283,6 +283,17 @@ export const useLeadStore = create(
           };
         });
       }
+
+      if (leads.length > 0) {
+        const firstLeadDone = Boolean(get().onboardingChecklist?.find((x) => x.id === 'first_lead')?.done);
+        if (!firstLeadDone) {
+          try {
+            await get().completeOnboardingStepIds(['first_lead']);
+          } catch (e) {
+            console.warn('first_lead onboarding sync failed:', e?.message || e);
+          }
+        }
+      }
     } catch (e) {
       console.error('fetchLeads error:', e);
       set({ loading: false, loadingMore: false, leadsError: true });

@@ -224,6 +224,56 @@ const App = () => {
     };
   }, [user, academyIdStore, location.pathname, applyBillingNeedsPlanNudge]);
 
+  useEffect(() => {
+    if (!user || !academyIdStore) {
+      useLeadStore.getState().setInboxUnreadConversations(0);
+      return undefined;
+    }
+    let cancelled = false;
+    let timer = null;
+
+    const syncInboxUnreadBadge = async () => {
+      try {
+        const jwt = await createSessionJwt();
+        if (!jwt || cancelled) return;
+        const resp = await fetch('/api/conversations?stats=1', {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            'x-academy-id': String(academyIdStore || '')
+          }
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!resp.ok) return;
+        const n = Number(data?.unread_conversations);
+        if (Number.isFinite(n)) {
+          useLeadStore.getState().setInboxUnreadConversations(Math.max(0, Math.floor(n)));
+        }
+      } catch {
+        void 0;
+      }
+    };
+
+    const onFocus = () => {
+      void syncInboxUnreadBadge();
+    };
+
+    void syncInboxUnreadBadge();
+    timer = setInterval(() => {
+      void syncInboxUnreadBadge();
+    }, 20000);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+    }
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+      }
+    };
+  }, [user, academyIdStore]);
+
   const toggleSidebar = () => {
     setSidebarCollapsed((c) => {
       const next = !c;

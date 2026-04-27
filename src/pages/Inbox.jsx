@@ -307,7 +307,7 @@ export default function Inbox() {
     handoffExpiryToastRef.current = key;
     addToast({
       type: 'warning',
-      message: 'Tempo de handoff expirou. A IA pode retomar neste atendimento.'
+      message: 'Tempo do atendimento manual acabou. A IA pode retomar neste atendimento.'
     });
   }, [addToast, nowMs, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
 
@@ -1003,7 +1003,8 @@ export default function Inbox() {
         return arr.map((it) => {
           const ph = String(it?.phone_number || '').trim();
           if (ph !== p) return it;
-          return { ...it, unread_count: 1 };
+          const cur = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
+          return { ...it, unread_count: Math.max(1, cur) };
         });
       });
       setSelected((prev) => {
@@ -2684,7 +2685,7 @@ export default function Inbox() {
                             transition: 'background-color 160ms ease'
                           }}
                         >
-                          Handoff expirado
+                          Tempo manual encerrado
                         </span>
                       )}
                     </>

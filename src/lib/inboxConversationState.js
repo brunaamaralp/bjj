@@ -18,7 +18,8 @@ export function mapConversationItemsAfterUnread(items, phone) {
   return arr.map((it) => {
     const ph = String(it?.phone_number || '').trim();
     if (ph !== p) return it;
-    return { ...it, unread_count: 1 };
+    const cur = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
+    return { ...it, unread_count: Math.max(1, cur) };
   });
 }
 

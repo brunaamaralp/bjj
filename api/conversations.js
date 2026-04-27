@@ -181,6 +181,21 @@ export default async function handler(req, res) {
     const searchDigits = normalizePhone(search);
     const archivedOnly =
       String(req.query.archived || '').trim() === '1' || String(req.query.archived || '').trim().toLowerCase() === 'true';
+    const statsOnly = String(req.query.stats || '').trim() === '1';
+
+    if (statsOnly) {
+      try {
+        const unreadList = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
+          Query.equal('academy_id', [academyId]),
+          archivedOnly ? Query.equal('archived', [true]) : Query.notEqual('archived', [true]),
+          Query.greaterThan('unread_count', 0),
+          Query.limit(1)
+        ]);
+        return json(res, 200, { unread_conversations: Number(unreadList?.total || 0) });
+      } catch (e) {
+        return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar estatísticas' });
+      }
+    }
 
     const queries = [Query.equal('academy_id', [academyId])];
     if (archivedOnly) {
@@ -317,8 +332,10 @@ export default async function handler(req, res) {
 
     if (action === 'unread') {
       if (!doc) return json(res, 404, { success: false, sucesso: false, erro: 'Conversa não encontrada' });
-      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: 1 });
-      return json(res, 200, { success: true });
+      const curUnread = Number.isFinite(Number(doc.unread_count)) ? Number(doc.unread_count) : 0;
+      const nextUnread = Math.max(1, curUnread);
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, { unread_count: nextUnread });
+      return json(res, 200, { success: true, unread_count: nextUnread });
     }
 
     if (action === 'archive') {
