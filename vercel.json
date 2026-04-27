@@ -34,7 +34,7 @@
     },
     {
       "path": "/api/cron/automations",
-      "schedule": "*/30 * * * *"
+      "schedule": "30 9 * * *"
     }
   ]
 }
