@@ -20,6 +20,7 @@
     { "source": "/v1/webhooks/asaas", "destination": "/api/v1/webhooks/asaas" },
     { "source": "/api/notifications/:action(.*)", "destination": "/api/conversations.js?route=notifications/$1" },
     { "source": "/api/notifications", "destination": "/api/conversations.js?route=notifications" },
+    { "source": "/api/cron/automations", "destination": "/api/cron/reset-usage.js?action=automations" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
