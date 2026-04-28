@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, List, LayoutGrid } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, MessageCircle, RefreshCcw, TrendingUp, TrendingDown, List, LayoutGrid } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -54,6 +54,7 @@ const Dashboard = () => {
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
     const [nlOpen, setNlOpen] = useState(false);
+    const [expandedExperimentalId, setExpandedExperimentalId] = useState(null);
     const hiddenAtRef = useRef(null);
 
     const pipelineStagesNl = useMemo(() => {
@@ -274,14 +275,6 @@ const Dashboard = () => {
         if (days >= 3) return { level: 'high', label: 'Atenção', color: 'var(--warning)' };
         if (days >= 1) return { level: 'medium', label: 'Acompanhar', color: 'var(--accent)' };
         return { level: 'low', label: 'Recente', color: 'var(--success)' };
-    };
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        const d = new Date(dateStr + 'T00:00:00');
-        if (d.toDateString() === today.toDateString()) return 'Hoje';
-        if (d.toDateString() === tomorrow.toDateString()) return 'Amanhã';
-        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
     };
 
     // Count per filter
@@ -535,111 +528,157 @@ const Dashboard = () => {
                             <p className="text-xs text-light mt-1">Abaixo você encontra a visão completa da semana.</p>
                         </div>
                     ) : (
-                        allScheduled.filter((lead) => {
-                            if (!lead.scheduledDate) return false;
-                            const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-                            const leadDate = new Date(y, m - 1, d);
-                            return leadDate.toDateString() === today.toDateString();
-                        }).map((lead, i) => {
-                        const noScheduleDate = !String(lead.scheduledDate || '').trim();
-                        const showNoDateWarning = noScheduleDate;
-                        const hasPhone = String(lead.phone || '').replace(/\D/g, '').length >= 8;
-                        return (
-                        <div
-                            key={lead.id}
-                            className={`card agenda-card animate-in${showNoDateWarning ? ' agenda-card--no-date' : ''}`}
-                            style={{ animationDelay: `${0.04 * i}s` }}
-                        >
-                            <div className="flex justify-between items-center" onClick={() => navigate(`/lead/${lead.id}`)} style={{ cursor: 'pointer' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <strong style={{ fontSize: '1rem' }}>{lead.name}</strong>
-                                        {showNoDateWarning && (
-                                            <span className="agenda-no-date-badge">Sem data — defina no Remarcar</span>
-                                        )}
-                                    </div>
-                                    <p className="text-small" style={{ marginTop: 2 }}>
-                                        {lead.type || 'Adulto'} • {lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <div className="flex items-center gap-2" style={{ justifyContent: 'flex-end' }}>
-                                        <Clock size={14} color="var(--v500)" />
-                                        <strong className="navi-ui-time">{lead.scheduledTime || '--:--'}</strong>
-                                        <button
-                                            className="edit-time-btn"
-                                            onClick={(e) => { e.stopPropagation(); openScheduleModal(lead); }}
-                                            title="Editar agendamento"
-                                            aria-label="Editar agendamento"
-                                        >
-                                            <Edit3 size={18} strokeWidth={2.6} />
-                                        </button>
-                                    </div>
-                                    <span className="navi-ui-date">{noScheduleDate ? 'Definir data' : formatDate(lead.scheduledDate)}</span>
-                                </div>
-                            </div>
+                        (() => {
+                            const todayLeads = allScheduled.filter((lead) => {
+                                if (!lead.scheduledDate) return false;
+                                const [y, m, d] = lead.scheduledDate.split('-').map(Number);
+                                const leadDate = new Date(y, m - 1, d);
+                                return leadDate.toDateString() === today.toDateString();
+                            });
 
-                            <div className="flex gap-2 mt-3 pt-3 border-t flex-wrap">
-                                <button
-                                    type="button"
-                                    className="followup-action-btn flex-1"
-                                    style={{ minWidth: '120px' }}
-                                    disabled={!hasPhone}
-                                    title={!hasPhone ? 'Cadastre um telefone válido no perfil' : 'Abrir WhatsApp com mensagem de confirmação'}
-                                    onClick={(e) => { e.stopPropagation(); handleWhatsAppScheduled(lead); }}
-                                >
-                                    <span className="dashboard-wa-btn-inner">
-                                        {academyWaLoadFailed && (
-                                            <span
-                                                className="dashboard-wa-warning-badge"
-                                                title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
-                                                aria-hidden
-                                            >
-                                                ⚠️
-                                            </span>
-                                        )}
-                                        <MessageCircle size={14} color="#25D366" /> WhatsApp
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="followup-action-btn flex-1"
-                                    style={{ minWidth: '120px' }}
-                                    title="Alterar data, horário ou status"
-                                    onClick={(e) => { e.stopPropagation(); openScheduleModal(lead); }}
-                                >
-                                    <Calendar size={14} color="var(--accent)" /> Remarcar
-                                </button>
-                            </div>
-                            <div className="flex gap-2 mt-2">
-                                <button
-                                    type="button"
-                                    className="btn-success flex-1"
-                                    disabled={Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`])}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        void markLeadAttended(lead);
-                                    }}
-                                >
-                                    <CheckCircle size={16} />{' '}
-                                    {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn-outline flex-1"
-                                    disabled={Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`])}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        void markLeadMissed(lead);
-                                    }}
-                                >
-                                    <XCircle size={16} />{' '}
-                                    {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
-                                </button>
-                            </div>
-                        </div>
-                        );
-                    })
+                            const groups = [];
+                            const groupByTime = new Map();
+                            for (const lead of todayLeads) {
+                                const t = String(lead.scheduledTime || '').trim() || '--:--';
+                                let g = groupByTime.get(t);
+                                if (!g) {
+                                    g = { time: t, leads: [] };
+                                    groupByTime.set(t, g);
+                                    groups.push(g);
+                                }
+                                g.leads.push(lead);
+                            }
+
+                            let rowIndex = 0;
+                            return groups.map((g) => (
+                                <div key={g.time} className="agenda-time-group">
+                                    <div className="agenda-time-sep">
+                                        <span className="agenda-time-label">{g.time}</span>
+                                        <span className="agenda-time-line" aria-hidden />
+                                    </div>
+                                    <div className="agenda-time-group-list">
+                                        {g.leads.map((lead) => {
+                                            rowIndex += 1;
+                                            const hasPhone = String(lead.phone || '').replace(/\D/g, '').length >= 8;
+                                            const isExpanded = expandedExperimentalId === lead.id;
+                                            const isAttended = lead.status === LEAD_STATUS.COMPLETED;
+                                            const isMissed = lead.status === LEAD_STATUS.MISSED;
+                                            const noScheduleDate = !String(lead.scheduledDate || '').trim();
+                                            const showNoDateWarning = noScheduleDate;
+                                            const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
+                                            const category = lead.type || 'Adulto';
+                                            const phone = String(lead.phone || '').trim();
+
+                                            return (
+                                                <div
+                                                    key={lead.id}
+                                                    className={`card agenda-card agenda-experimental-card animate-in${
+                                                        showNoDateWarning ? ' agenda-card--no-date' : ''
+                                                    }${isAttended ? ' agenda-card--attended' : ''}`}
+                                                    style={{ animationDelay: `${0.02 * rowIndex}s` }}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className="agenda-card-more-btn"
+                                                        aria-label="Mais ações"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setExpandedExperimentalId((cur) => (cur === lead.id ? null : lead.id));
+                                                        }}
+                                                    >
+                                                        ⋯
+                                                    </button>
+
+                                                    <div
+                                                        className="agenda-experimental-main"
+                                                        onClick={() => navigate(`/lead/${lead.id}`)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <div className="agenda-experimental-name-row">
+                                                            <strong className="agenda-experimental-name">{lead.name}</strong>
+                                                            {showNoDateWarning && (
+                                                                <span className="agenda-no-date-badge">Sem data</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="agenda-experimental-meta">
+                                                            <span>{category}</span>
+                                                            {phone ? (
+                                                                <>
+                                                                    <span aria-hidden>·</span>
+                                                                    <span>{phone}</span>
+                                                                </>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="agenda-experimental-primary-actions">
+                                                        <button
+                                                            type="button"
+                                                            className={`agenda-presence-btn agenda-presence-btn--attended${
+                                                                isAttended ? ' is-active' : ''
+                                                            }${isMissed ? ' is-faded' : ''}`}
+                                                            disabled={busy}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                void markLeadAttended(lead);
+                                                            }}
+                                                        >
+                                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`agenda-presence-btn agenda-presence-btn--missed${
+                                                                isMissed ? ' is-active' : ''
+                                                            }${isAttended ? ' is-faded' : ''}`}
+                                                            disabled={busy}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                void markLeadMissed(lead);
+                                                            }}
+                                                        >
+                                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
+                                                        </button>
+                                                    </div>
+
+                                                    {isExpanded ? (
+                                                        <div className="agenda-experimental-more-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="followup-action-btn flex-1"
+                                                                disabled={!hasPhone}
+                                                                title={!hasPhone ? 'Cadastre um telefone válido no perfil' : 'Abrir WhatsApp com mensagem de confirmação'}
+                                                                onClick={(e) => { e.stopPropagation(); handleWhatsAppScheduled(lead); }}
+                                                            >
+                                                                <span className="dashboard-wa-btn-inner">
+                                                                    {academyWaLoadFailed && (
+                                                                        <span
+                                                                            className="dashboard-wa-warning-badge"
+                                                                            title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
+                                                                            aria-hidden
+                                                                        >
+                                                                            ⚠️
+                                                                        </span>
+                                                                    )}
+                                                                    <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                                                </span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="followup-action-btn flex-1"
+                                                                title="Alterar data, horário ou status"
+                                                                onClick={(e) => { e.stopPropagation(); openScheduleModal(lead); }}
+                                                            >
+                                                                <Calendar size={14} color="var(--accent)" /> Remarcar
+                                                            </button>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ));
+                        })()
                     )}
                 </div>
 
@@ -991,6 +1030,148 @@ const Dashboard = () => {
         }
         .agenda-experimental-cards {
           margin-top: 2px;
+        }
+        .agenda-time-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .agenda-time-group-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .agenda-time-sep {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 2px 2px;
+        }
+        .agenda-time-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--v500);
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 0.01em;
+          flex: 0 0 auto;
+        }
+        .agenda-time-line {
+          height: 1px;
+          background: rgba(91, 63, 191, 0.22);
+          flex: 1 1 auto;
+        }
+        .reception-agenda-inner .agenda-experimental-cards .agenda-card.card {
+          padding: 10px 14px;
+        }
+        .agenda-experimental-card {
+          position: relative;
+        }
+        .agenda-card-more-btn {
+          position: absolute;
+          top: 8px;
+          right: 10px;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          border: 1px solid rgba(18, 16, 42, 0.12);
+          background: var(--surface);
+          color: var(--text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 18px;
+          line-height: 1;
+          padding: 0;
+        }
+        .agenda-card-more-btn:hover {
+          border-color: rgba(91, 63, 191, 0.22);
+          color: var(--v500);
+        }
+        .agenda-experimental-main {
+          padding-right: 34px;
+        }
+        .agenda-experimental-name-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+        .agenda-experimental-name {
+          font-size: 14px;
+          font-weight: 500;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .agenda-experimental-meta {
+          margin-top: 2px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          color: var(--text-secondary);
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .agenda-experimental-primary-actions {
+          display: flex;
+          gap: 8px;
+          margin-top: 10px;
+        }
+        .agenda-presence-btn {
+          flex: 1;
+          min-width: 0;
+          min-height: 34px;
+          border-radius: 12px;
+          border: 1px solid rgba(18, 16, 42, 0.16);
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 8px 10px;
+          transition: var(--transition);
+          white-space: nowrap;
+        }
+        .agenda-presence-btn:hover {
+          border-color: rgba(18, 16, 42, 0.26);
+          color: var(--text);
+        }
+        .agenda-presence-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .agenda-presence-btn.is-faded {
+          opacity: 0.5;
+        }
+        .agenda-presence-btn--attended.is-active {
+          background: #1a6b3a;
+          color: #fff;
+          border-color: #1a6b3a;
+        }
+        .agenda-presence-btn--missed.is-active {
+          background: #fef2f2;
+          color: #b91c1c;
+          border-color: #fca5a5;
+        }
+        .agenda-experimental-more-actions {
+          display: flex;
+          gap: 8px;
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid rgba(91, 63, 191, 0.09);
+        }
+        .agenda-card--attended {
+          opacity: 0.5;
+          background: rgba(18, 16, 42, 0.02);
+        }
+        .agenda-card--attended .agenda-experimental-name {
+          text-decoration: line-through;
+          text-decoration-color: rgba(18, 16, 42, 0.22);
         }
         .reception-agenda-inner .agenda-card.card {
           position: relative;
