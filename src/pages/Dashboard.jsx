@@ -1278,6 +1278,7 @@ const Dashboard = () => {
                 recentPayments={[]}
             />
         </div>
+        </div>
     );
 };
 
