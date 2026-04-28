@@ -1,5 +1,4 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
 
 const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
@@ -112,7 +111,7 @@ export default function AgendaCalendarWeek({
         <div className="agenda-week-root">
             <div className="flex items-center justify-between flex-wrap agenda-week-nav" style={{ gap: 10, marginBottom: 14 }}>
                 <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o - 1)}>
-                    &lt; Semana anterior
+                    &lt; Anterior
                 </button>
                 <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
                     <button
@@ -137,7 +136,7 @@ export default function AgendaCalendarWeek({
                     </button>
                 </div>
                 <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o + 1)}>
-                    Próxima semana &gt;
+                    Próxima &gt;
                 </button>
             </div>
 
@@ -157,16 +156,19 @@ export default function AgendaCalendarWeek({
                             >
                                 <div className="agenda-week-col-head">
                                     <span className="agenda-week-col-head-label">{formatDayHeader(dayDate)}</span>
-                                    {isToday ? <span className="agenda-week-today-badge">Hoje</span> : null}
                                 </div>
                                 <div className="agenda-week-col-body">
                                     {colLeads.length === 0 ? (
-                                        <p className="text-xs text-light agenda-week-empty">Sem agendamentos</p>
+                                        <div className="agenda-week-empty-wrap">
+                                            <p className="agenda-week-empty">Sem agendamentos</p>
+                                        </div>
                                     ) : (
                                         colLeads.map((lead) => {
                                             const busy =
                                                 Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
                                             const modality = String(lead?.type || '').trim();
+                                            const attendedSelected = lead?.status === 'Compareceu';
+                                            const missedSelected = lead?.status === 'Não Compareceu';
                                             return (
                                                 <div key={lead.id} className="agenda-week-card card">
                                                     <button
@@ -181,32 +183,34 @@ export default function AgendaCalendarWeek({
                                                         </span>
                                                         <span className="agenda-week-name">{lead.name}</span>
                                                         {modality ? (
-                                                            <span className="text-xs text-light agenda-week-mod">{modality}</span>
+                                                            <span className="agenda-week-mod">{modality}</span>
                                                         ) : null}
                                                     </button>
                                                     <div className="agenda-week-actions">
                                                         <button
                                                             type="button"
-                                                            className="btn-success agenda-week-action-btn"
+                                                            className={`agenda-week-action-btn agenda-week-action-btn--attended${
+                                                                attendedSelected ? ' agenda-week-action-btn--active' : ''
+                                                            }${missedSelected ? ' agenda-week-action-btn--faded' : ''}`}
                                                             disabled={busy}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 onCompareceu?.(lead);
                                                             }}
                                                         >
-                                                            <CheckCircle size={16} aria-hidden />
                                                             {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className="btn-outline agenda-week-action-btn"
+                                                            className={`agenda-week-action-btn agenda-week-action-btn--missed${
+                                                                missedSelected ? ' agenda-week-action-btn--active' : ''
+                                                            }${attendedSelected ? ' agenda-week-action-btn--faded' : ''}`}
                                                             disabled={busy}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 onNaoCompareceu?.(lead);
                                                             }}
                                                         >
-                                                            <XCircle size={16} aria-hidden />
                                                             {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
                                                         </button>
                                                     </div>
@@ -224,9 +228,9 @@ export default function AgendaCalendarWeek({
             <style>{`
         .agenda-week-root { width: 100%; max-width: 100%; }
         .agenda-week-nav-btn {
-          font-size: 0.8rem;
-          padding: 10px 14px;
-          min-height: 44px;
+          font-size: 13px;
+          padding: 8px 16px;
+          min-height: 40px;
         }
         .agenda-week-nav {
           position: sticky;
@@ -247,40 +251,43 @@ export default function AgendaCalendarWeek({
           touch-action: pan-x pan-y;
           overscroll-behavior-x: contain;
           margin-bottom: 4px;
+          scroll-snap-type: x mandatory;
+          scroll-padding-inline: 16px;
+          scroll-behavior: smooth;
         }
         .agenda-week-grid {
-          display: grid;
-          grid-template-columns: repeat(7, minmax(154px, 1fr));
-          gap: 12px;
-          min-width: 1120px;
-          align-items: start;
+          display: flex;
+          gap: 8px;
+          padding-inline: 16px;
+          align-items: stretch;
         }
         .agenda-week-col {
+          flex: 0 0 160px;
+          width: 160px;
           border-radius: 16px;
           border: 1px solid var(--border);
           background: var(--surface);
           min-height: 120px;
           overflow: hidden;
           box-shadow: 0 2px 8px rgba(18, 16, 42, 0.04);
+          scroll-snap-align: start;
         }
         .agenda-week-col--today {
           background: rgba(91, 63, 191, 0.06);
           border-color: rgba(91, 63, 191, 0.22);
-          box-shadow: 0 0 0 1px rgba(91, 63, 191, 0.2), 0 10px 24px rgba(91, 63, 191, 0.1);
+          border-top: 2px solid var(--v500);
         }
         .agenda-week-col-head {
-          font-size: 0.74rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: var(--v500);
-          padding: 12px 12px;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          padding: 10px 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          border-bottom: 1px solid rgba(91, 63, 191, 0.12);
-          background: rgba(91, 63, 191, 0.04);
+          border-bottom: 1px solid rgba(18, 16, 42, 0.08);
+          background: transparent;
           position: sticky;
           top: 0;
           z-index: 2;
@@ -291,38 +298,34 @@ export default function AgendaCalendarWeek({
           white-space: nowrap;
           overflow: hidden;
         }
-        .agenda-week-today-badge {
-          font-size: 0.62rem;
-          line-height: 1;
-          padding: 4px 7px;
-          border-radius: 999px;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          background: var(--v500);
-          color: #fff;
-          flex: 0 0 auto;
-        }
         .agenda-week-col--today .agenda-week-col-head {
-          background: rgba(91, 63, 191, 0.12);
+          background: rgba(91, 63, 191, 0.06);
         }
         .agenda-week-col-body {
-          padding: 12px 10px 14px;
+          padding: 12px 12px 14px;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
+        }
+        .agenda-week-empty-wrap {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 120px;
         }
         .agenda-week-empty {
           text-align: center;
-          padding: 12px 4px;
           margin: 0;
-          opacity: 0.85;
+          font-size: 12px;
+          color: var(--text-muted);
+          opacity: 0.9;
         }
         .agenda-week-card {
-          padding: 12px 12px 14px !important;
+          padding: 10px 12px !important;
           border-radius: 14px !important;
           border: 1px solid var(--border) !important;
-          border-left: 3px solid var(--accent) !important;
-          box-shadow: 0 1px 4px rgba(18, 16, 42, 0.04), 0 8px 22px rgba(91, 63, 191, 0.08);
+          box-shadow: 0 1px 4px rgba(18, 16, 42, 0.04);
           transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
         .agenda-week-card:hover {
@@ -361,41 +364,47 @@ export default function AgendaCalendarWeek({
           width: 100%;
           background: none;
           border: none;
-          padding: 4px 2px 12px;
-          min-height: 44px;
+          padding: 0;
+          min-height: 0;
           box-sizing: border-box;
           cursor: pointer;
           text-align: left;
           font: inherit;
           color: inherit;
           -webkit-tap-highlight-color: transparent;
+          min-width: 0;
         }
         .agenda-week-card-head:hover .agenda-week-name {
           color: var(--accent);
         }
         .agenda-week-time {
-          font-size: 0.8rem;
-          font-weight: 800;
+          font-size: 12px;
+          font-weight: 600;
           font-variant-numeric: tabular-nums;
           color: var(--v500);
           letter-spacing: 0.01em;
         }
         .agenda-week-name {
-          font-size: 0.88rem;
-          font-weight: 700;
-          line-height: 1.35;
-          word-break: break-word;
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.3;
+          width: 100%;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .agenda-week-mod {
           margin-top: 1px;
-          font-size: 0.74rem;
-          line-height: 1.3;
+          font-size: 11px;
+          line-height: 1.2;
+          font-weight: 400;
+          color: var(--text-secondary);
         }
         .agenda-week-actions {
-          padding-top: 8px;
-          border-top: 1px solid rgba(91, 63, 191, 0.09);
+          padding-top: 10px;
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
           gap: 6px;
         }
         .agenda-week-action-btn {
@@ -403,66 +412,44 @@ export default function AgendaCalendarWeek({
           align-items: center;
           justify-content: center;
           gap: 6px;
-          width: 100%;
-          min-height: 30px;
+          width: auto;
+          flex: 1;
+          min-height: 0;
           min-width: 0;
-          padding: 5px 8px;
-          font-size: 0.68rem;
-          font-weight: 700;
+          padding: 4px 10px;
+          font-size: 11px;
+          font-weight: 600;
           line-height: 1.1;
           white-space: nowrap;
-          border-radius: 7px;
+          border-radius: 99px;
+          border: 1px solid transparent;
+          background: transparent;
+          cursor: pointer;
         }
-        .agenda-week-action-btn svg {
-          flex: 0 0 auto;
-          width: 12px;
-          height: 12px;
+        .agenda-week-action-btn--attended {
+          background: var(--success-light);
+          border-color: rgba(16, 185, 129, 0.35);
+          color: var(--success);
         }
-        @media (max-width: 1280px) {
-          .agenda-week-grid {
-            grid-template-columns: repeat(7, minmax(136px, 1fr));
-            min-width: 980px;
-            gap: 10px;
-          }
+        .agenda-week-action-btn--missed {
+          background: transparent;
+          border-color: rgba(18, 16, 42, 0.18);
+          color: var(--text-secondary);
+        }
+        .agenda-week-action-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .agenda-week-action-btn--active {
+          filter: saturate(1.05);
+          box-shadow: 0 0 0 2px rgba(91, 63, 191, 0.12);
+        }
+        .agenda-week-action-btn--faded {
+          opacity: 0.4;
         }
         @media (max-width: 980px) {
-          .agenda-week-grid {
-            grid-template-columns: repeat(7, minmax(120px, 1fr));
-            min-width: 840px;
-            gap: 8px;
-          }
-          .agenda-week-col-body {
-            padding: 10px 8px 12px;
-          }
-          .agenda-week-card {
-            padding: 10px 10px 12px !important;
-          }
-          .agenda-week-col-head {
-            position: static;
-          }
-          .agenda-week-nav {
-            position: static;
-          }
-        }
-        @media (max-width: 640px) {
-          .agenda-week-nav {
-            position: static;
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .agenda-week-nav > .btn-secondary { width: 100%; }
-          .agenda-week-grid {
-            grid-template-columns: repeat(7, minmax(108px, 1fr));
-            min-width: 760px;
-          }
-          .agenda-week-col-body {
-            padding: 8px 6px 10px;
-            gap: 8px;
-          }
-          .agenda-week-card {
-            padding: 8px 8px 10px !important;
-            border-radius: 10px !important;
-          }
+          .agenda-week-col-head { position: static; }
+          .agenda-week-nav { position: static; }
         }
       `}</style>
         </div>
