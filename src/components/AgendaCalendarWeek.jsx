@@ -392,11 +392,11 @@ export default function AgendaCalendarWeek({
           line-height: 1.3;
         }
         .agenda-week-actions {
-          padding-top: 10px;
+          padding-top: 8px;
           border-top: 1px solid rgba(91, 63, 191, 0.09);
           display: flex;
           flex-direction: column;
-          gap: 9px;
+          gap: 6px;
         }
         .agenda-week-action-btn {
           display: inline-flex;
@@ -404,19 +404,19 @@ export default function AgendaCalendarWeek({
           justify-content: center;
           gap: 6px;
           width: 100%;
-          min-height: 36px;
+          min-height: 30px;
           min-width: 0;
-          padding: 7px 9px;
-          font-size: 0.72rem;
+          padding: 5px 8px;
+          font-size: 0.68rem;
           font-weight: 700;
-          line-height: 1.2;
+          line-height: 1.1;
           white-space: nowrap;
-          border-radius: 8px;
+          border-radius: 7px;
         }
         .agenda-week-action-btn svg {
           flex: 0 0 auto;
-          width: 14px;
-          height: 14px;
+          width: 12px;
+          height: 12px;
         }
         @media (max-width: 1280px) {
           .agenda-week-grid {
