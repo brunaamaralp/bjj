@@ -47,10 +47,7 @@ function timeSortMinutes(lead) {
  */
 export default function AgendaCalendarWeek({
     leads,
-    onCompareceu,
-    onNaoCompareceu,
     onOpenLead,
-    savingPresence = {},
 }) {
     const [weekOffset, setWeekOffset] = useState(0);
     const weekScrollRef = useRef(null);
@@ -164,13 +161,16 @@ export default function AgendaCalendarWeek({
                                         </div>
                                     ) : (
                                         colLeads.map((lead) => {
-                                            const busy =
-                                                Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
                                             const modality = String(lead?.type || '').trim();
                                             const attendedSelected = lead?.status === 'Compareceu';
                                             const missedSelected = lead?.status === 'Não Compareceu';
                                             return (
-                                                <div key={lead.id} className="agenda-week-card card">
+                                                <div
+                                                    key={lead.id}
+                                                    className={`agenda-week-card card${attendedSelected ? ' agenda-week-card--attended' : ''}${
+                                                        missedSelected ? ' agenda-week-card--missed' : ''
+                                                    }`}
+                                                >
                                                     <button
                                                         type="button"
                                                         className="agenda-week-card-head"
@@ -186,34 +186,6 @@ export default function AgendaCalendarWeek({
                                                             <span className="agenda-week-mod">{modality}</span>
                                                         ) : null}
                                                     </button>
-                                                    <div className="agenda-week-actions">
-                                                        <button
-                                                            type="button"
-                                                            className={`agenda-week-action-btn agenda-week-action-btn--attended${
-                                                                attendedSelected ? ' agenda-week-action-btn--active' : ''
-                                                            }${missedSelected ? ' agenda-week-action-btn--faded' : ''}`}
-                                                            disabled={busy}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onCompareceu?.(lead);
-                                                            }}
-                                                        >
-                                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={`agenda-week-action-btn agenda-week-action-btn--missed${
-                                                                missedSelected ? ' agenda-week-action-btn--active' : ''
-                                                            }${attendedSelected ? ' agenda-week-action-btn--faded' : ''}`}
-                                                            disabled={busy}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onNaoCompareceu?.(lead);
-                                                            }}
-                                                        >
-                                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
-                                                        </button>
-                                                    </div>
                                                 </div>
                                             );
                                         })
@@ -333,6 +305,20 @@ export default function AgendaCalendarWeek({
           border-color: rgba(91, 63, 191, 0.22) !important;
           box-shadow: 0 4px 12px rgba(18, 16, 42, 0.08), 0 14px 34px rgba(91, 63, 191, 0.12);
         }
+        .agenda-week-card--attended {
+          background: rgba(16, 185, 129, 0.08);
+          border-color: rgba(16, 185, 129, 0.22) !important;
+        }
+        .agenda-week-card--attended:hover {
+          border-color: rgba(16, 185, 129, 0.32) !important;
+        }
+        .agenda-week-card--missed {
+          background: rgba(239, 68, 68, 0.06);
+          border-color: rgba(239, 68, 68, 0.22) !important;
+        }
+        .agenda-week-card--missed:hover {
+          border-color: rgba(239, 68, 68, 0.32) !important;
+        }
         .agenda-week-col--dense .agenda-week-col-body {
           gap: 10px;
         }
@@ -349,11 +335,6 @@ export default function AgendaCalendarWeek({
           line-height: 1.28;
         }
         .agenda-week-col--dense .agenda-week-mod {
-          font-size: 0.7rem;
-        }
-        .agenda-week-col--dense .agenda-week-action-btn {
-          min-height: 34px;
-          padding: 6px 8px;
           font-size: 0.7rem;
         }
         .agenda-week-card-head {
@@ -400,52 +381,6 @@ export default function AgendaCalendarWeek({
           line-height: 1.2;
           font-weight: 400;
           color: var(--text-secondary);
-        }
-        .agenda-week-actions {
-          padding-top: 10px;
-          display: flex;
-          flex-direction: row;
-          gap: 6px;
-        }
-        .agenda-week-action-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          width: auto;
-          flex: 1;
-          min-height: 0;
-          min-width: 0;
-          padding: 4px 10px;
-          font-size: 11px;
-          font-weight: 600;
-          line-height: 1.1;
-          white-space: nowrap;
-          border-radius: 99px;
-          border: 1px solid transparent;
-          background: transparent;
-          cursor: pointer;
-        }
-        .agenda-week-action-btn--attended {
-          background: var(--success-light);
-          border-color: rgba(16, 185, 129, 0.35);
-          color: var(--success);
-        }
-        .agenda-week-action-btn--missed {
-          background: transparent;
-          border-color: rgba(18, 16, 42, 0.18);
-          color: var(--text-secondary);
-        }
-        .agenda-week-action-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-        .agenda-week-action-btn--active {
-          filter: saturate(1.05);
-          box-shadow: 0 0 0 2px rgba(91, 63, 191, 0.12);
-        }
-        .agenda-week-action-btn--faded {
-          opacity: 0.4;
         }
         @media (max-width: 980px) {
           .agenda-week-col-head { position: static; }
