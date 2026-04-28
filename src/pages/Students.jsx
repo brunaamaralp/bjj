@@ -1,5 +1,5 @@
 /** Backlog: aluno inativo/trancado; filtros (turma/plano); virtualização para listas muito longas. */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
@@ -54,16 +54,6 @@ const Students = () => {
     const [exporting, setExporting] = useState(false);
 
     const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student');
-
-    const tiposUnicos = useMemo(() => {
-        const tipos = students.map((s) => s.type).filter(Boolean);
-        return ['Todos', ...new Set(tipos)].sort();
-    }, [students]);
-
-    const origensUnicas = useMemo(() => {
-        const origens = students.map((s) => s.origin).filter(Boolean);
-        return ['Todas', ...new Set(origens)].sort();
-    }, [students]);
 
     const filteredStudents = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
@@ -121,7 +111,7 @@ const Students = () => {
             if (skippedCount > 0) {
                 addToast({ type: 'warning', message: `${skippedCount} linha(s) ignorada(s) por não ter nome preenchido.` });
             }
-        } catch (e) {
+        } catch {
             addToast({ type: 'error', message: 'Erro ao importar alunos.' });
         } finally {
             setImporting(false);
