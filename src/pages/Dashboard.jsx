@@ -517,8 +517,8 @@ const Dashboard = () => {
                 })()}`}
             </button>
 
-            {/* Date Filter Tabs */}
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.1s' }}>
+            <div className="agenda-main-layout">
+            <section className="mt-6 animate-in agenda-main-layout__primary" style={{ animationDelay: '0.1s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">
                         <Calendar size={18} color="var(--v500)" /> Aulas Experimentais
@@ -714,8 +714,8 @@ const Dashboard = () => {
                 </div>
             </section>
 
-            {/* Follow-ups with urgency ruler */}
-            <section className="mt-6 animate-in" style={{ animationDelay: '0.2s' }}>
+            <aside className="mt-6 animate-in agenda-main-layout__sidebar" style={{ animationDelay: '0.2s' }}>
+            <section className="agenda-sidebar-panel">
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">Follow-ups Pendentes</h3>
                     <span className="badge badge-secondary">{followUps.length}</span>
@@ -849,6 +849,8 @@ const Dashboard = () => {
                     </div>
                 </div>
             </section>
+            </aside>
+            </div>
             </div>
 
             <ScheduleModal
@@ -872,6 +874,35 @@ const Dashboard = () => {
         }
         .reception-agenda-inner--week {
           max-width: 1180px;
+        }
+        .agenda-main-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 22px;
+          align-items: start;
+        }
+        .agenda-main-layout__primary {
+          margin-top: 0 !important;
+        }
+        .agenda-main-layout__sidebar {
+          margin-top: 0 !important;
+        }
+        .agenda-sidebar-panel {
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 14px 14px 12px;
+          background: var(--surface);
+          box-shadow: 0 1px 3px rgba(18, 16, 42, 0.04);
+        }
+        @media (min-width: 1024px) {
+          .agenda-main-layout {
+            grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+            gap: 18px;
+          }
+          .agenda-main-layout__sidebar {
+            position: sticky;
+            top: 16px;
+          }
         }
         .agenda-kpi-grid {
           display: grid;
