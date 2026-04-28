@@ -517,6 +517,8 @@ const Dashboard = () => {
                 })()}`}
             </button>
 
+            <div className="agenda-page-stack">
+            <div className="agenda-top-row">
             <section className="mt-6 animate-in agenda-today-week-section" style={{ animationDelay: '0.1s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">
@@ -661,24 +663,6 @@ const Dashboard = () => {
                     )}
                 </div>
 
-                <div className="agenda-block-head" style={{ marginTop: 18 }}>
-                    <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
-                        Semana
-                    </h4>
-                    <span className="badge badge-secondary">{allScheduled.length}</span>
-                </div>
-                <p className="text-xs text-light agenda-week-hint">
-                    Visual completo da semana civil (segunda a domingo) em largura total.
-                </p>
-                <div className="agenda-week-fullwidth">
-                    <AgendaCalendarWeek
-                        leads={allScheduled}
-                        onCompareceu={markLeadAttended}
-                        onNaoCompareceu={markLeadMissed}
-                        onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
-                        savingPresence={savingPresence}
-                    />
-                </div>
             </section>
 
             <section className="mt-6 animate-in agenda-followups-section" style={{ animationDelay: '0.2s' }}>
@@ -816,6 +800,27 @@ const Dashboard = () => {
                 </div>
             </section>
             </div>
+            <section className="mt-6 animate-in agenda-week-section" style={{ animationDelay: '0.23s' }}>
+                <div className="agenda-block-head">
+                    <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
+                        Semana
+                    </h4>
+                    <span className="badge badge-secondary">{allScheduled.length}</span>
+                </div>
+                <p className="text-xs text-light agenda-week-hint">
+                    Visual completo da semana civil (segunda a domingo) em largura total.
+                </p>
+                <div className="agenda-week-fullwidth">
+                    <AgendaCalendarWeek
+                        leads={allScheduled}
+                        onCompareceu={markLeadAttended}
+                        onNaoCompareceu={markLeadMissed}
+                        onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
+                        savingPresence={savingPresence}
+                    />
+                </div>
+            </section>
+            </div>
 
             <ScheduleModal
                 open={scheduleModalLead !== null}
@@ -843,10 +848,34 @@ const Dashboard = () => {
           max-width: 1180px;
         }
         .agenda-today-week-section,
-        .agenda-followups-section {
+        .agenda-followups-section,
+        .agenda-week-section {
           width: 100%;
           display: block;
           clear: both;
+          float: none !important;
+          position: static !important;
+          max-width: 100%;
+          flex: 0 0 auto;
+        }
+        .agenda-page-stack {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0;
+          width: 100%;
+        }
+        .agenda-top-row {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 14px;
+          align-items: start;
+        }
+        @media (max-width: 980px) {
+          .agenda-top-row {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0;
+          }
         }
         .agenda-kpi-grid {
           display: grid;
