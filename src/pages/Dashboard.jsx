@@ -686,7 +686,9 @@ const Dashboard = () => {
 
             <section className="mt-6 animate-in agenda-followups-section" style={{ animationDelay: '0.2s' }}>
                 <div className="flex justify-between items-center mb-2">
-                    <h3 className="navi-section-heading">Follow-ups Pendentes</h3>
+                    <h3 className="navi-section-heading">
+                        <List size={18} color="var(--v500)" /> Follow-ups Pendentes
+                    </h3>
                     <span className="badge badge-secondary">{followUps.length}</span>
                 </div>
                 <p className="text-xs text-light" style={{ marginBottom: 10, lineHeight: 1.4 }}>
@@ -774,9 +776,6 @@ const Dashboard = () => {
                     </h4>
                     <span className="badge badge-secondary">{allScheduled.length}</span>
                 </div>
-                <p className="text-xs text-light agenda-week-hint">
-                    Visual completo da semana civil (segunda a domingo) em largura total.
-                </p>
                 <div className="agenda-week-fullwidth">
                     <AgendaCalendarWeek
                         leads={allScheduled}
@@ -1127,9 +1126,9 @@ const Dashboard = () => {
           min-width: 0;
           min-height: 34px;
           border-radius: 12px;
-          border: 1px solid rgba(18, 16, 42, 0.16);
-          background: transparent;
-          color: var(--text-secondary);
+          border: 1px solid #d1d5db;
+          background: #fff;
+          color: #374151;
           font-size: 12px;
           font-weight: 600;
           cursor: pointer;
@@ -1138,25 +1137,25 @@ const Dashboard = () => {
           white-space: nowrap;
         }
         .agenda-presence-btn:hover {
-          border-color: rgba(18, 16, 42, 0.26);
-          color: var(--text);
+          border-color: #9ca3af;
+          color: #111827;
         }
         .agenda-presence-btn:disabled {
           opacity: 0.55;
           cursor: not-allowed;
         }
         .agenda-presence-btn.is-faded {
-          opacity: 0.5;
+          opacity: 0.4;
         }
         .agenda-presence-btn--attended.is-active {
-          background: #1a6b3a;
+          background: #16a34a;
           color: #fff;
-          border-color: #1a6b3a;
+          border-color: transparent;
         }
         .agenda-presence-btn--missed.is-active {
-          background: #fef2f2;
-          color: #b91c1c;
-          border-color: #fca5a5;
+          background: #dc2626;
+          color: #fff;
+          border-color: transparent;
         }
         .agenda-experimental-more-actions {
           display: flex;
@@ -1177,8 +1176,9 @@ const Dashboard = () => {
           position: relative;
           border-radius: 16px;
           padding: 18px 18px 16px;
-          border: 1px solid var(--border);
-          border-left: 4px solid var(--accent);
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-left: 3px solid #5B3FBF;
           box-shadow:
             0 1px 2px rgba(18, 16, 42, 0.05),
             0 10px 32px rgba(91, 63, 191, 0.08);

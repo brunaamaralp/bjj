@@ -110,28 +110,6 @@ export default function AgendaCalendarWeek({
                 <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o - 1)}>
                     &lt; Anterior
                 </button>
-                <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
-                    <button
-                        type="button"
-                        className="btn-secondary agenda-week-nav-btn"
-                        onClick={() => {
-                            setWeekOffset(0);
-                            requestAnimationFrame(() => {
-                                if (todayColRef.current) {
-                                    todayColRef.current.scrollIntoView({
-                                        behavior: 'smooth',
-                                        inline: 'center',
-                                        block: 'nearest',
-                                    });
-                                } else if (weekScrollRef.current) {
-                                    weekScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-                                }
-                            });
-                        }}
-                    >
-                        Hoje
-                    </button>
-                </div>
                 <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o + 1)}>
                     Próxima &gt;
                 </button>
