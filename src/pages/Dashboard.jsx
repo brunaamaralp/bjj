@@ -407,7 +407,7 @@ const Dashboard = () => {
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
-            <div className={`reception-agenda-inner${agendaView === 'week' ? ' reception-agenda-inner--week' : ''}`}>
+            <div className={`reception-agenda-inner${agendaView === 'week' ? ' reception-agenda-inner--week' : ''} reception-agenda-inner--wide`}>
             <div className="animate-in">
                 <h1 className="navi-page-title">Agenda da Recepção</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
@@ -875,6 +875,9 @@ const Dashboard = () => {
         .reception-agenda-inner--week {
           max-width: 1180px;
         }
+        .reception-agenda-inner--wide {
+          max-width: 1180px;
+        }
         .agenda-main-layout {
           display: grid;
           grid-template-columns: minmax(0, 1fr);
@@ -894,7 +897,7 @@ const Dashboard = () => {
           background: var(--surface);
           box-shadow: 0 1px 3px rgba(18, 16, 42, 0.04);
         }
-        @media (min-width: 1024px) {
+        @media (min-width: 900px) {
           .agenda-main-layout {
             grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
             gap: 18px;
