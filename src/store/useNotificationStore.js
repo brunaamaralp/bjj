@@ -33,13 +33,23 @@ export const useNotificationStore = create((set, get) => ({
         }
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
       if (data?.sucesso) {
         set({
           notifications: data.notifications || [],
           unreadCount: data.unreadCount || 0,
           loading: false
         });
+      } else {
+        if (!res.ok && !silent) {
+          console.warn('[useNotificationStore] API notificações:', res.status, data?.erro || data?.codigo || '');
+        }
+        set({ loading: false });
       }
     } catch (err) {
       console.error('[useNotificationStore] Erro ao buscar:', err);

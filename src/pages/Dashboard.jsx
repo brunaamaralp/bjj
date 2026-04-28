@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Calendar, Clock, ChevronRight, MessageCircle, RefreshCcw, Edit3, TrendingUp, TrendingDown, List, LayoutGrid } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -14,6 +14,7 @@ import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
+import AgendaCalendarWeek from '../components/AgendaCalendarWeek.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const DAY_FILTERS = [
@@ -33,6 +34,15 @@ const Dashboard = () => {
     const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
     const addToast = useUiStore((s) => s.addToast);
     const [dateFilter, setDateFilter] = useState('all');
+    const [agendaView, setAgendaView] = useState(() => {
+        try {
+            if (typeof window === 'undefined') return 'list';
+            const v = localStorage.getItem('nave_agenda_view');
+            return v === 'week' ? 'week' : 'list';
+        } catch {
+            return 'list';
+        }
+    });
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dashboardQuickTimes, setDashboardQuickTimes] = useState([]);
@@ -70,6 +80,14 @@ const Dashboard = () => {
             return fixed;
         }
     }, [academyList, academyId]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('nave_agenda_view', agendaView);
+        } catch {
+            /* ignore quota / private mode */
+        }
+    }, [agendaView]);
 
     useEffect(() => {
         if (academyId) {
@@ -343,7 +361,7 @@ const Dashboard = () => {
                 attendedAt: new Date().toISOString()
             });
             addToast({ type: 'success', message: 'Comparecimento registrado.' });
-        } catch (err) {
+        } catch {
             addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
         } finally {
             setSavingPresence((p) => {
@@ -376,7 +394,7 @@ const Dashboard = () => {
                 missedAt: new Date().toISOString()
             });
             addToast({ type: 'success', message: 'Não compareceu registrado.' });
-        } catch (err) {
+        } catch {
             addToast({ type: 'error', message: 'Erro ao registrar não compareceu.' });
         } finally {
             setSavingPresence((p) => {
@@ -537,12 +555,54 @@ const Dashboard = () => {
                     </p>
                 )}
 
+                <div className="flex gap-2 agenda-view-toggle" style={{ flexWrap: 'wrap', marginTop: 10, marginBottom: 4 }}>
+                    <button
+                        type="button"
+                        className={`filter-pill ${agendaView === 'list' ? 'active' : ''}`}
+                        onClick={() => setAgendaView('list')}
+                        aria-pressed={agendaView === 'list'}
+                    >
+                        <List size={16} strokeWidth={2.25} aria-hidden />
+                        Lista
+                    </button>
+                    <button
+                        type="button"
+                        className={`filter-pill ${agendaView === 'week' ? 'active' : ''}`}
+                        onClick={() => setAgendaView('week')}
+                        aria-pressed={agendaView === 'week'}
+                    >
+                        <LayoutGrid size={16} strokeWidth={2.25} aria-hidden />
+                        Semana
+                    </button>
+                </div>
+
                 <div className="flex-col gap-3 agenda-experimental-cards">
                     {loading ? (
                         <div className="flex justify-center p-8">
                             <div className="spinner" />
                         </div>
-                    ) : agendaLeads.length > 0 ? agendaLeads.map((lead, i) => {
+                    ) : agendaLeads.length === 0 ? (
+                        <div className="empty-state">
+                            <Calendar size={32} color="var(--text-muted)" style={{ marginBottom: 10, opacity: 0.5 }} />
+                            {scheduledOutsideFilter ? (
+                                <>
+                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
+                                    <p className="text-xs text-light mt-2" style={{ lineHeight: 1.4 }}>
+                                        Existem {allScheduled.length} agendamento{allScheduled.length === 1 ? '' : 's'} em outras datas.
+                                    </p>
+                                    <button type="button" className="btn-secondary mt-3" onClick={() => setDateFilter('all')}>
+                                        Ver todos os agendados
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
+                                    <p className="text-xs text-light mt-1">Cadastre um novo interessado para começar!</p>
+                                </>
+                            )}
+                        </div>
+                    ) : agendaView === 'list' ? (
+                        agendaLeads.map((lead, i) => {
                         const noScheduleDate = !String(lead.scheduledDate || '').trim();
                         const showNoDateWarning = noScheduleDate && dateFilter === 'all';
                         const hasPhone = String(lead.phone || '').replace(/\D/g, '').length >= 8;
@@ -641,26 +701,15 @@ const Dashboard = () => {
                             </div>
                         </div>
                         );
-                    }) : (
-                        <div className="empty-state">
-                            <Calendar size={32} color="var(--text-muted)" style={{ marginBottom: 10, opacity: 0.5 }} />
-                            {scheduledOutsideFilter ? (
-                                <>
-                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
-                                    <p className="text-xs text-light mt-2" style={{ lineHeight: 1.4 }}>
-                                        Existem {allScheduled.length} agendamento{allScheduled.length === 1 ? '' : 's'} em outras datas.
-                                    </p>
-                                    <button type="button" className="btn-secondary mt-3" onClick={() => setDateFilter('all')}>
-                                        Ver todos os agendados
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
-                                    <p className="text-xs text-light mt-1">Cadastre um novo interessado para começar!</p>
-                                </>
-                            )}
-                        </div>
+                    })
+                    ) : (
+                        <AgendaCalendarWeek
+                            leads={agendaLeads}
+                            onCompareceu={markLeadAttended}
+                            onNaoCompareceu={markLeadMissed}
+                            onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
+                            savingPresence={savingPresence}
+                        />
                     )}
                 </div>
             </section>
