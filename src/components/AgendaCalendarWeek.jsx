@@ -250,9 +250,9 @@ export default function AgendaCalendarWeek({
         }
         .agenda-week-grid {
           display: grid;
-          grid-template-columns: repeat(7, minmax(170px, 1fr));
-          gap: 14px;
-          min-width: 1260px;
+          grid-template-columns: repeat(7, minmax(154px, 1fr));
+          gap: 12px;
+          min-width: 1120px;
           align-items: start;
         }
         .agenda-week-col {
@@ -420,16 +420,16 @@ export default function AgendaCalendarWeek({
         }
         @media (max-width: 1280px) {
           .agenda-week-grid {
-            grid-template-columns: repeat(7, minmax(152px, 1fr));
-            min-width: 1120px;
-            gap: 12px;
+            grid-template-columns: repeat(7, minmax(136px, 1fr));
+            min-width: 980px;
+            gap: 10px;
           }
         }
         @media (max-width: 980px) {
           .agenda-week-grid {
-            grid-template-columns: repeat(7, minmax(142px, 1fr));
-            min-width: 1020px;
-            gap: 10px;
+            grid-template-columns: repeat(7, minmax(120px, 1fr));
+            min-width: 840px;
+            gap: 8px;
           }
           .agenda-week-col-body {
             padding: 10px 8px 12px;
@@ -438,6 +438,9 @@ export default function AgendaCalendarWeek({
             padding: 10px 10px 12px !important;
           }
           .agenda-week-col-head {
+            position: static;
+          }
+          .agenda-week-nav {
             position: static;
           }
         }
@@ -449,7 +452,16 @@ export default function AgendaCalendarWeek({
           }
           .agenda-week-nav > .btn-secondary { width: 100%; }
           .agenda-week-grid {
-            min-width: 980px;
+            grid-template-columns: repeat(7, minmax(108px, 1fr));
+            min-width: 760px;
+          }
+          .agenda-week-col-body {
+            padding: 8px 6px 10px;
+            gap: 8px;
+          }
+          .agenda-week-card {
+            padding: 8px 8px 10px !important;
+            border-radius: 10px !important;
           }
         }
       `}</style>

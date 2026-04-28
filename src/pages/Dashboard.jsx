@@ -517,8 +517,7 @@ const Dashboard = () => {
                 })()}`}
             </button>
 
-            <div className="agenda-main-layout">
-            <section className="mt-6 animate-in agenda-main-layout__primary" style={{ animationDelay: '0.1s' }}>
+            <section className="mt-6 animate-in agenda-today-week-section" style={{ animationDelay: '0.1s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">
                         <Calendar size={18} color="var(--v500)" /> Aulas Experimentais
@@ -535,45 +534,11 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="filter-strip agenda-experimental-filter-strip">
-                    {DAY_FILTERS.map(f => (
-                        <button
-                            key={f.key}
-                            type="button"
-                            className={`filter-pill ${dateFilter === f.key ? 'active' : ''}`}
-                            onClick={() => setDateFilter(f.key)}
-                            title={f.title || undefined}
-                        >
-                            {f.label}
-                            {countFor(f.key) > 0 && <span className="tab-count">{countFor(f.key)}</span>}
-                        </button>
-                    ))}
-                </div>
-                {dateFilter === 'week' && (
-                    <p className="text-xs text-light agenda-week-hint">
-                        Filtro &quot;Semana&quot;: próximos 7 dias corridos a partir de hoje (não é segunda a domingo).
-                    </p>
-                )}
-
-                <div className="flex gap-2 agenda-view-toggle" style={{ flexWrap: 'wrap', marginTop: 10, marginBottom: 4 }}>
-                    <button
-                        type="button"
-                        className={`filter-pill ${agendaView === 'list' ? 'active' : ''}`}
-                        onClick={() => setAgendaView('list')}
-                        aria-pressed={agendaView === 'list'}
-                    >
-                        <List size={16} strokeWidth={2.25} aria-hidden />
-                        Lista
-                    </button>
-                    <button
-                        type="button"
-                        className={`filter-pill ${agendaView === 'week' ? 'active' : ''}`}
-                        onClick={() => setAgendaView('week')}
-                        aria-pressed={agendaView === 'week'}
-                    >
-                        <LayoutGrid size={16} strokeWidth={2.25} aria-hidden />
-                        Semana
-                    </button>
+                <div className="agenda-block-head">
+                    <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
+                        Hoje
+                    </h4>
+                    <span className="badge badge-secondary">{countFor('today')}</span>
                 </div>
 
                 <div className="flex-col gap-3 agenda-experimental-cards">
@@ -581,30 +546,21 @@ const Dashboard = () => {
                         <div className="flex justify-center p-8">
                             <div className="spinner" />
                         </div>
-                    ) : agendaLeads.length === 0 ? (
+                    ) : countFor('today') === 0 ? (
                         <div className="empty-state">
-                            <Calendar size={32} color="var(--text-muted)" style={{ marginBottom: 10, opacity: 0.5 }} />
-                            {scheduledOutsideFilter ? (
-                                <>
-                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
-                                    <p className="text-xs text-light mt-2" style={{ lineHeight: 1.4 }}>
-                                        Existem {allScheduled.length} agendamento{allScheduled.length === 1 ? '' : 's'} em outras datas.
-                                    </p>
-                                    <button type="button" className="btn-secondary mt-3" onClick={() => setDateFilter('all')}>
-                                        Ver todos os agendados
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <p>Nenhuma aula para {DAY_FILTERS.find(f => f.key === dateFilter)?.label.toLowerCase() || 'o período'}.</p>
-                                    <p className="text-xs text-light mt-1">Cadastre um novo interessado para começar!</p>
-                                </>
-                            )}
+                            <Calendar size={28} color="var(--text-muted)" style={{ marginBottom: 10, opacity: 0.5 }} />
+                            <p>Nenhuma aula para hoje.</p>
+                            <p className="text-xs text-light mt-1">Abaixo você encontra a visão completa da semana.</p>
                         </div>
-                    ) : agendaView === 'list' ? (
-                        agendaLeads.map((lead, i) => {
+                    ) : (
+                        allScheduled.filter((lead) => {
+                            if (!lead.scheduledDate) return false;
+                            const [y, m, d] = lead.scheduledDate.split('-').map(Number);
+                            const leadDate = new Date(y, m - 1, d);
+                            return leadDate.toDateString() === today.toDateString();
+                        }).map((lead, i) => {
                         const noScheduleDate = !String(lead.scheduledDate || '').trim();
-                        const showNoDateWarning = noScheduleDate && dateFilter === 'all';
+                        const showNoDateWarning = noScheduleDate;
                         const hasPhone = String(lead.phone || '').replace(/\D/g, '').length >= 8;
                         return (
                         <div
@@ -702,20 +658,30 @@ const Dashboard = () => {
                         </div>
                         );
                     })
-                    ) : (
-                        <AgendaCalendarWeek
-                            leads={agendaLeads}
-                            onCompareceu={markLeadAttended}
-                            onNaoCompareceu={markLeadMissed}
-                            onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
-                            savingPresence={savingPresence}
-                        />
                     )}
+                </div>
+
+                <div className="agenda-block-head" style={{ marginTop: 18 }}>
+                    <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
+                        Semana
+                    </h4>
+                    <span className="badge badge-secondary">{allScheduled.length}</span>
+                </div>
+                <p className="text-xs text-light agenda-week-hint">
+                    Visual completo da semana civil (segunda a domingo) em largura total.
+                </p>
+                <div className="agenda-week-fullwidth">
+                    <AgendaCalendarWeek
+                        leads={allScheduled}
+                        onCompareceu={markLeadAttended}
+                        onNaoCompareceu={markLeadMissed}
+                        onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
+                        savingPresence={savingPresence}
+                    />
                 </div>
             </section>
 
-            <aside className="mt-6 animate-in agenda-main-layout__sidebar" style={{ animationDelay: '0.2s' }}>
-            <section className="agenda-sidebar-panel">
+            <section className="mt-6 animate-in agenda-followups-section" style={{ animationDelay: '0.2s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">Follow-ups Pendentes</h3>
                     <span className="badge badge-secondary">{followUps.length}</span>
@@ -849,8 +815,6 @@ const Dashboard = () => {
                     </div>
                 </div>
             </section>
-            </aside>
-            </div>
             </div>
 
             <ScheduleModal
@@ -878,34 +842,11 @@ const Dashboard = () => {
         .reception-agenda-inner--wide {
           max-width: 1180px;
         }
-        .agenda-main-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 22px;
-          align-items: start;
-        }
-        .agenda-main-layout__primary {
-          margin-top: 0 !important;
-        }
-        .agenda-main-layout__sidebar {
-          margin-top: 0 !important;
-        }
-        .agenda-sidebar-panel {
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          padding: 14px 14px 12px;
-          background: var(--surface);
-          box-shadow: 0 1px 3px rgba(18, 16, 42, 0.04);
-        }
-        @media (min-width: 900px) {
-          .agenda-main-layout {
-            grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
-            gap: 18px;
-          }
-          .agenda-main-layout__sidebar {
-            position: sticky;
-            top: 16px;
-          }
+        .agenda-today-week-section,
+        .agenda-followups-section {
+          width: 100%;
+          display: block;
+          clear: both;
         }
         .agenda-kpi-grid {
           display: grid;
@@ -1081,6 +1022,16 @@ const Dashboard = () => {
           line-height: 1.35;
           color: var(--text-secondary);
         }
+        .agenda-block-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin: 8px 0 10px;
+        }
+        .agenda-week-fullwidth {
+          width: 100%;
+        }
         .agenda-experimental-cards {
           margin-top: 2px;
         }
@@ -1161,6 +1112,66 @@ const Dashboard = () => {
           min-height: 44px;
           padding-inline: 12px;
           font-weight: 700;
+        }
+        @media (max-width: 900px) {
+          .reception-agenda-inner {
+            max-width: 100%;
+          }
+          .reception-agenda-inner .agenda-card.card,
+          .reception-agenda-inner .follow-card.card {
+            padding: 14px 14px 12px;
+            border-radius: 14px;
+          }
+          .agenda-today-week-section > .flex.justify-between.items-center.mb-2,
+          .agenda-followups-section > .flex.justify-between.items-center.mb-2 {
+            align-items: flex-start;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+        }
+        @media (max-width: 760px) {
+          .agenda-block-head {
+            margin-top: 10px;
+          }
+          .reception-agenda-inner .agenda-card.card > .flex.justify-between.items-center,
+          .reception-agenda-inner .follow-card.card > .flex.justify-between.items-center {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+          }
+          .reception-agenda-inner .agenda-card.card .text-right {
+            width: 100%;
+            text-align: left;
+          }
+          .reception-agenda-inner .agenda-card.card .text-right .flex.items-center.gap-2 {
+            justify-content: flex-start !important;
+          }
+          .reception-agenda-inner .agenda-card.card .mt-2,
+          .reception-agenda-inner .agenda-card.card .mt-3.pt-3.border-t,
+          .reception-agenda-inner .follow-card.card .mt-3.pt-3.border-t {
+            width: 100%;
+          }
+          .reception-agenda-inner .agenda-card.card .mt-2,
+          .reception-agenda-inner .agenda-card.card .mt-3.pt-3.border-t,
+          .reception-agenda-inner .follow-card.card .mt-3.pt-3.border-t {
+            flex-direction: column;
+          }
+          .reception-agenda-inner .agenda-card.card .mt-2 > button,
+          .reception-agenda-inner .agenda-card.card .mt-3.pt-3.border-t > button,
+          .reception-agenda-inner .follow-card.card .mt-3.pt-3.border-t > button {
+            width: 100%;
+            min-width: 100% !important;
+          }
+          .reception-agenda-inner .followup-action-btn {
+            min-height: 40px;
+          }
+          .edit-time-btn {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            min-height: 40px;
+            flex-basis: 40px;
+          }
         }
         .refresh-btn {
           background: none; border: none; color: var(--text-muted);
