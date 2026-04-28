@@ -695,7 +695,7 @@ const Dashboard = () => {
                     Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da aula, o follow-up sai desta lista e fica só no Kanban.
                 </p>
 
-                <div className="flex-col gap-2">
+                <div className="flex-col agenda-followups-list">
                     {followUps.length > 0 ? followUps.map((lead, i) => {
                         const urgency = getUrgency(lead.daysAgo);
                         return (
@@ -703,7 +703,7 @@ const Dashboard = () => {
                                 <div className="flex justify-between items-center" onClick={() => navigate(`/lead/${lead.id}`)} style={{ cursor: 'pointer' }}>
                                     <div style={{ flex: 1 }}>
                                         <div className="flex items-center gap-2">
-                                            <strong>{lead.name}</strong>
+                                            <strong className="agenda-followup-name">{lead.name}</strong>
                                             <span
                                                 className="urgency-tag"
                                                 style={{ background: urgency.color + '18', color: urgency.color }}
@@ -712,7 +712,9 @@ const Dashboard = () => {
                                                 {lead.daysAgo === 0 ? 'Hoje' : `há ${lead.daysAgo} dias`}
                                             </span>
                                         </div>
-                                        <p className="text-small">{lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''} • {urgency.label}</p>
+                                        <p className="agenda-followup-sub">
+                                            {lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''} • {urgency.label}
+                                        </p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
@@ -722,7 +724,7 @@ const Dashboard = () => {
                                 </div>
 
                                 {/* Quick actions */}
-                                <div className="flex gap-2 mt-3 pt-3 border-t">
+                                <div className="flex gap-2 agenda-followup-actions border-t">
                                     <button
                                         type="button"
                                         className="followup-action-btn flex-1"
@@ -1030,6 +1032,11 @@ const Dashboard = () => {
         .agenda-experimental-cards {
           margin-top: 2px;
         }
+        .agenda-followups-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
         .agenda-time-group {
           display: flex;
           flex-direction: column;
@@ -1060,7 +1067,16 @@ const Dashboard = () => {
           flex: 1 1 auto;
         }
         .reception-agenda-inner .agenda-experimental-cards .agenda-card.card {
-          padding: 10px 14px;
+          padding: 10px 12px;
+        }
+        .reception-agenda-inner .follow-card.card {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 16px;
+          padding: 10px 12px;
+          box-shadow:
+            0 1px 2px rgba(18, 16, 42, 0.05),
+            0 10px 32px rgba(91, 63, 191, 0.08);
         }
         .agenda-experimental-card {
           position: relative;
@@ -1097,12 +1113,21 @@ const Dashboard = () => {
           min-width: 0;
         }
         .agenda-experimental-name {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
           min-width: 0;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        .agenda-followup-name {
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .agenda-followup-sub {
+          margin-top: 2px;
+          font-size: 11px;
+          color: var(--text-secondary);
         }
         .agenda-experimental-meta {
           margin-top: 2px;
@@ -1121,10 +1146,15 @@ const Dashboard = () => {
           gap: 8px;
           margin-top: 10px;
         }
+        .agenda-followup-actions {
+          margin-top: 8px;
+          padding-top: 8px;
+        }
         .agenda-presence-btn {
           flex: 1;
           min-width: 0;
-          min-height: 34px;
+          height: 28px;
+          min-height: 28px;
           border-radius: 12px;
           border: 1px solid #d1d5db;
           background: #fff;
@@ -1132,7 +1162,7 @@ const Dashboard = () => {
           font-size: 12px;
           font-weight: 600;
           cursor: pointer;
-          padding: 8px 10px;
+          padding: 0 10px;
           transition: var(--transition);
           white-space: nowrap;
         }
@@ -1156,6 +1186,20 @@ const Dashboard = () => {
           background: #dc2626;
           color: #fff;
           border-color: transparent;
+        }
+        .reception-agenda-inner .agenda-followups-section .status-pill {
+          font-size: 10px;
+          padding: 2px 8px;
+          border-radius: 99px;
+        }
+        .reception-agenda-inner .agenda-followups-section .urgency-tag {
+          font-size: 11px;
+        }
+        .reception-agenda-inner .agenda-followups-section .followup-action-btn {
+          min-height: 28px;
+          height: 28px;
+          font-size: 12px;
+          padding: 0 10px;
         }
         .agenda-experimental-more-actions {
           display: flex;
