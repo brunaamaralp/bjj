@@ -201,7 +201,26 @@ export function useZapsterWhatsAppConnection(academyId) {
         `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
         { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') } }
       );
-      if (blocked || !resp || !resp.ok) return null;
+      if (blocked || !resp || !resp.ok) {
+        if (resp && !resp.ok) {
+          const ct = String(resp.headers.get('content-type') || '');
+          if (ct.includes('application/json')) {
+            try {
+              const j = await resp.json();
+              const msg = String(j?.detalhe || j?.erro || j?.codigo || '').trim();
+              if (msg) {
+                useUiStore.getState().addToast({
+                  type: 'error',
+                  message: msg.length > 220 ? `${msg.slice(0, 220)}…` : msg
+                });
+              }
+            } catch {
+              void 0;
+            }
+          }
+        }
+        return null;
+      }
       const blob = await resp.blob();
       return URL.createObjectURL(blob);
     } catch {

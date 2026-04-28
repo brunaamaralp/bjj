@@ -407,7 +407,7 @@ const Dashboard = () => {
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
-            <div className="reception-agenda-inner">
+            <div className={`reception-agenda-inner${agendaView === 'week' ? ' reception-agenda-inner--week' : ''}`}>
             <div className="animate-in">
                 <h1 className="navi-page-title">Agenda da Recepção</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
@@ -869,6 +869,9 @@ const Dashboard = () => {
           max-width: 720px;
           margin-left: auto;
           margin-right: auto;
+        }
+        .reception-agenda-inner--week {
+          max-width: 1180px;
         }
         .agenda-kpi-grid {
           display: grid;
