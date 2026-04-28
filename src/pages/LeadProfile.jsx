@@ -121,7 +121,6 @@ const LeadProfile = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
-    const uiLabels = useLeadStore((s) => s.labels);
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -483,15 +482,6 @@ const LeadProfile = () => {
             });
     }, [academyId]);
 
-    const statusPipelineMismatch = useMemo(() => {
-        if (!lead) return null;
-        const exp = expectedPipelineStageForStatus(lead.status);
-        if (exp == null) return null;
-        const cur = String(lead.pipelineStage || '').trim();
-        if (!cur || cur === exp) return null;
-        return { expected: exp, current: cur };
-    }, [lead]);
-
     const fillFormFromLead = (src) => {
         const existing = (src.customAnswers && typeof src.customAnswers === 'object') ? src.customAnswers : {};
         const preserved = Object.fromEntries(Object.entries(existing).filter(([k]) => isUuidLike(k)));
@@ -581,11 +571,6 @@ const LeadProfile = () => {
     const onChange = (e) => {
         const { name, value } = e.target;
         setForm((f) => ({ ...f, [name]: value }));
-    };
-    const onChangeCustom = (q, value) => {
-        const qid = String(q?.id || q || '').trim();
-        if (!qid) return;
-        setForm((f) => ({ ...f, customAnswers: { ...(f.customAnswers || {}), [qid]: value } }));
     };
 
     const executeSaveLead = async (payload) => {
@@ -767,7 +752,7 @@ const LeadProfile = () => {
                 });
             }
             setEditing(true);
-        } catch (e) {
+        } catch {
             // erro já tratado com toast no handleUpdateStatus
         }
     };
@@ -824,13 +809,6 @@ const LeadProfile = () => {
         });
     };
 
-    function formatWhatsAppNumber(phone) {
-        const digits = String(phone || '').replace(/\D/g, '');
-        if (digits.startsWith('55') && digits.length >= 12) return digits;
-        if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
-        return digits;
-    }
-
     const sendTemplateKey = async (key) => {
         if (sendingWhatsapp) return;
         setSendingWhatsapp(true);
@@ -867,24 +845,6 @@ const LeadProfile = () => {
 
     const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
 
-    const handleWhatsAppBlank = async () => {
-        const cleanPhone = formatWhatsAppNumber(lead.phone);
-        window.open(`https://wa.me/${cleanPhone}`, '_blank');
-        try {
-            await addLeadEvent({
-                academyId,
-                leadId: id,
-                type: 'message',
-                text: 'Mensagem WhatsApp iniciada (sem template)',
-                createdBy: userId || 'user',
-                permissionContext: permCtx
-            });
-            await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
-        } catch (err) {
-            console.error('Erro ao registrar evento WhatsApp', err);
-        }
-    };
-
     const addNote = async () => {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
@@ -905,18 +865,6 @@ const LeadProfile = () => {
         } finally {
             setAddingNote(false);
         }
-    };
-    const addNoteQuick = async (text) => {
-        if (!text) return;
-        await addLeadEvent({
-            academyId,
-            leadId: id,
-            type: 'note',
-            text: String(text).slice(0, 1000),
-            createdBy: userId || 'user',
-            permissionContext: permCtx
-        });
-        await updateLead(id, { lastNoteAt: new Date().toISOString() });
     };
 
     const handleTogglePin = async (ev) => {
@@ -939,7 +887,7 @@ const LeadProfile = () => {
         try {
             await updateLeadEvent(ev.$id, { is_pinned: !isCurrentlyPinned });
             emitLeadTimelineChanged(id, { eventType: 'event_updated' });
-        } catch (e) {
+        } catch {
             setTimelineEvents(oldEvents); // Rollback
             addToast({ type: 'error', message: 'Erro ao pinar nota.' });
         }
@@ -956,22 +904,6 @@ const LeadProfile = () => {
 
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
     const contactType = String(lead.contact_type || '').trim() || (lead.status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
-
-    const studentsPlural = uiLabels.students || 'Alunos';
-    const studentSingularLabel =
-        studentsPlural.toLowerCase().endsWith('s') && studentsPlural.length > 1
-            ? studentsPlural.slice(0, -1)
-            : studentsPlural;
-    const profilePageTitle = lead.status === LEAD_STATUS.CONVERTED ? studentSingularLabel : 'Perfil';
-
-    const formatYmdLocal = (ymd) => {
-        if (!ymd || String(ymd).length < 10) return null;
-        try {
-            return new Date(`${String(ymd).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR');
-        } catch {
-            return null;
-        }
-    };
 
     return (
         <div className={`lead-profile-container ${timelineOpen ? 'timeline-open' : 'timeline-closed'}`}>

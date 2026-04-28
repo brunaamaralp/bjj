@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 
@@ -54,8 +54,6 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
     const [skippedCount, setSkippedCount] = useState(0);
     const [mappedKeys, setMappedKeys] = useState([]);
     const fileRef = useRef(null);
-
-    if (!isOpen) return null;
 
     const handleFile = (e) => {
         const file = e.target.files[0];
@@ -130,16 +128,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
         onClose();
     };
 
-    // Auto-clear state when closed from outside
-    useEffect(() => {
-        if (!isOpen) {
-            setRows([]);
-            setFileName('');
-            setError('');
-            setSkippedCount(0);
-            setMappedKeys([]);
-        }
-    }, [isOpen]);
+    if (!isOpen) return null;
 
     return (
         <div className="import-overlay">

@@ -35,7 +35,8 @@ export function useSlaAlerts(leads, stages) {
       const refMs = new Date(ref).getTime();
       if (!Number.isFinite(refMs)) return;
 
-      const daysInStage = Math.floor((Date.now() - refMs) / 86400000);
+      const nowMs = new Date().getTime();
+      const daysInStage = Math.floor((nowMs - refMs) / 86400000);
       if (daysInStage >= slaDays) {
         alerts[lead.id] = {
           daysInStage,

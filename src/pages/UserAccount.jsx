@@ -16,7 +16,7 @@ function userInitial(email) {
     return s[0].toUpperCase();
 }
 
-const UserAccount = ({ user, onLogout }) => {
+const UserAccount = ({ user }) => {
     const academyId = useLeadStore((s) => s.academyId);
     const reopenOnboardingBanner = useLeadStore((s) => s.reopenOnboardingBanner);
     const addToast = useUiStore((s) => s.addToast);

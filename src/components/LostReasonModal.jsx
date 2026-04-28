@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export const LOST_REASONS = [
+const LOST_REASONS = [
   'Preço',
   'Sem tempo',
   'Não responde',

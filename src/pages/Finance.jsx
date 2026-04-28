@@ -62,15 +62,14 @@ const Finance = () => {
   }, [academyId]);
 
   useEffect(() => {
-    if (!academyId) {
-      setFinanceConfig(defaultFinanceConfig());
-      setHasAccountsInDb(false);
-      return;
-    }
+    if (!academyId) return;
     let active = true;
     const st = useLeadStore.getState();
     if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
-      setFinanceConfig(st.financeConfig);
+      const cached = st.financeConfig;
+      Promise.resolve().then(() => {
+        if (active) setFinanceConfig(cached);
+      });
     } else {
       const loadAid = academyId;
       databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
@@ -106,7 +105,9 @@ const Finance = () => {
           setHasAccountsInDb(false);
         });
     } else {
-      setHasAccountsInDb(false);
+      Promise.resolve().then(() => {
+        if (active) setHasAccountsInDb(false);
+      });
     }
 
     return () => { active = false; };

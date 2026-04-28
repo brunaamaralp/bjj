@@ -33,8 +33,8 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
     const addToast = useUiStore((s) => s.addToast);
-    const [dateFilter, setDateFilter] = useState('all');
-    const [agendaView, setAgendaView] = useState(() => {
+    const [dateFilter, _setDateFilter] = useState('all');
+    const [agendaView, _setAgendaView] = useState(() => {
         try {
             if (typeof window === 'undefined') return 'list';
             const v = localStorage.getItem('nave_agenda_view');
@@ -236,7 +236,7 @@ const Dashboard = () => {
         .filter(isLeadScheduledForExperimental)
         .sort((a, b) => toDateTime(a) - toDateTime(b));
 
-    const agendaLeads = allScheduled
+    const _agendaLeads = allScheduled
         .filter((lead) => {
             if (dateFilter === 'all') return true;
             if (!lead.scheduledDate) return false;
@@ -273,7 +273,7 @@ const Dashboard = () => {
     const stalledLeads = useMemo(
         () =>
             (leads || [])
-                .filter((lead) => Boolean(slaAlerts[lead.id]))
+                .filter((lead) => lead?.contact_type !== 'student' && lead?.status !== LEAD_STATUS.CONVERTED && Boolean(slaAlerts[lead.id]))
                 .map((lead) => ({ ...lead, slaAlert: slaAlerts[lead.id] }))
                 .sort((a, b) => {
                     const d = (b.slaAlert?.daysInStage || 0) - (a.slaAlert?.daysInStage || 0);
@@ -311,12 +311,6 @@ const Dashboard = () => {
             return false;
         }).length;
     };
-
-    const scheduledOutsideFilter =
-        !loading &&
-        agendaLeads.length === 0 &&
-        allScheduled.length > 0 &&
-        dateFilter !== 'all';
 
     const sendDashboardTemplate = async (lead, templateKey) => {
         await sendWhatsappTemplateOutbound({
@@ -867,11 +861,11 @@ const Dashboard = () => {
         }
         .agenda-top-row {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
           gap: 14px;
           align-items: start;
         }
-        @media (max-width: 980px) {
+        @media (max-width: 760px) {
           .agenda-top-row {
             grid-template-columns: minmax(0, 1fr);
             gap: 0;

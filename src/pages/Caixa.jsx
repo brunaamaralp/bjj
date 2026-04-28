@@ -35,7 +35,8 @@ export default function Caixa() {
     if (!academyId) return;
     const st = useLeadStore.getState();
     if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
-      setFinanceConfig(st.financeConfig);
+      const cached = st.financeConfig;
+      Promise.resolve().then(() => setFinanceConfig(cached));
       return;
     }
     const loadAid = academyId;

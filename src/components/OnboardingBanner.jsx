@@ -41,14 +41,12 @@ export default function OnboardingBanner() {
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
 
   useEffect(() => {
-    if (!academyId) {
-      setDismissed(false);
-      return;
-    }
+    if (!academyId) return;
     try {
-      setDismissed(localStorage.getItem(onboardingDismissStorageKey(academyId)) === '1');
+      const nextDismissed = localStorage.getItem(onboardingDismissStorageKey(academyId)) === '1';
+      setTimeout(() => setDismissed(nextDismissed), 0);
     } catch {
-      setDismissed(false);
+      setTimeout(() => setDismissed(false), 0);
     }
   }, [academyId, reopenNonce]);
 

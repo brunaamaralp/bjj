@@ -398,18 +398,19 @@ const MobileLeadList = React.memo(function MobileLeadList({
     showLoading,
 }) {
     const [expanded, setExpanded] = useState({});
-    const expandedInitRef = useRef(false);
-
-    useEffect(() => {
-        if (!Array.isArray(stages) || stages.length === 0 || expandedInitRef.current) return;
-        expandedInitRef.current = true;
+    const defaultOpenStageId = useMemo(() => {
+        if (!Array.isArray(stages) || stages.length === 0) return '';
         const exp = stages.find((s) => s.id === 'Aula experimental' || s.label === 'Experimental');
-        if (exp) setExpanded({ [exp.id]: true });
+        return exp ? exp.id : '';
     }, [stages]);
 
     const toggleStage = useCallback((stageId) => {
-        setExpanded((prev) => ({ ...prev, [stageId]: !prev[stageId] }));
-    }, []);
+        setExpanded((prev) => {
+            const has = Object.prototype.hasOwnProperty.call(prev, stageId);
+            const currentOpen = has ? Boolean(prev[stageId]) : stageId === defaultOpenStageId;
+            return { ...prev, [stageId]: !currentOpen };
+        });
+    }, [defaultOpenStageId]);
 
     return (
         <div
@@ -436,7 +437,9 @@ const MobileLeadList = React.memo(function MobileLeadList({
                     .filter((l) => (originFilter === 'all' ? true : (l.origin || '') === originFilter))
                     .sort((a, b) => mobileListToDateTime(a) - mobileListToDateTime(b));
                 const color = STAGE_COLORS[idx % STAGE_COLORS.length];
-                const isOpen = Boolean(expanded[stage.id]);
+                const isOpen = Object.prototype.hasOwnProperty.call(expanded, stage.id)
+                    ? Boolean(expanded[stage.id])
+                    : stage.id === defaultOpenStageId;
 
                 return (
                     <div
@@ -688,7 +691,6 @@ const Pipeline = () => {
     }));
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
     const [noteError, setNoteError] = useState('');
-    const [filtersCollapsedMobile, setFiltersCollapsedMobile] = useState(false);
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
     const [nlOpen, setNlOpen] = useState(false);
     const hiddenAtRef = useRef(null);
@@ -912,12 +914,6 @@ const Pipeline = () => {
         if (p.toLowerCase().endsWith('s') && p.length > 1) return p.slice(0, -1);
         return p;
     };
-    const slug = (txt) => String(txt || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
 
     useEffect(() => {
         if (!academyId) return;

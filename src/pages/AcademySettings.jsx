@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -364,15 +364,15 @@ const AcademySettings = () => {
 
             <nav className="empresa-subnav" aria-label="Seções da academia">
                 <div className="empresa-subnav-scroll">
-                    {TABS.map(({ id, label, Icon }) => (
+                    {TABS.map((tab) => (
                         <button
-                            key={id}
+                            key={tab.id}
                             type="button"
-                            className={`empresa-subnav-tab ${activeTab === id ? 'empresa-subnav-tab--active' : ''}`}
-                            onClick={() => setActiveTab(id)}
+                            className={`empresa-subnav-tab ${activeTab === tab.id ? 'empresa-subnav-tab--active' : ''}`}
+                            onClick={() => setActiveTab(tab.id)}
                         >
-                            <Icon size={15} className="empresa-tab-icon" aria-hidden />
-                            {label}
+                            <tab.Icon size={15} className="empresa-tab-icon" aria-hidden />
+                            {tab.label}
                         </button>
                     ))}
                 </div>

@@ -12,7 +12,7 @@ export default function AccountsTab({
   deleteAccount,
   headingActions,
 }) {
-  const [storageWarning, setStorageWarning] = useState(false);
+  const storageWarning = Boolean(academyId) && !ACCOUNTS_COL;
   const [draft, setDraft] = useState({ code: '', name: '', type: 'ativo', nature: 'devedora', dreGrupo: '', dfcClasse: '', dfcSubclasse: '', cash: false });
   const sortedAccounts = useMemo(() => {
     const copy = Array.isArray(accounts) ? [...accounts] : [];
@@ -20,15 +20,7 @@ export default function AccountsTab({
     return copy;
   }, [accounts]);
   useEffect(() => {
-    if (!academyId) {
-      setStorageWarning(false);
-      return;
-    }
-    if (!ACCOUNTS_COL) {
-      setStorageWarning(true);
-      return;
-    }
-    setStorageWarning(false);
+    if (!academyId || !ACCOUNTS_COL) return;
     let active = true;
     const mapDoc = (d) => ({
       id: d.$id,

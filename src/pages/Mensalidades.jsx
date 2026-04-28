@@ -314,7 +314,7 @@ export default function Mensalidades() {
     return c;
   }, [students, getStatus]);
 
-  const openPaymentModal = (student, payment) => {
+  const openPaymentModal = (student) => {
     const day = enrollmentDay(student);
     const dueDate = dueDateInMonth(currentMonth, day);
     setSelectedStudent(student);

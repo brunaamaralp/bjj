@@ -23,7 +23,7 @@ const PLAN_ICONS = {
 
 const PLAN_ORDER = ['starter', 'studio', 'pro'];
 
-const Plans = ({ user }) => {
+const Plans = () => {
   const navigate = useNavigate();
   const billingLive = isBillingLive();
   const academyId = useLeadStore((s) => s.academyId);

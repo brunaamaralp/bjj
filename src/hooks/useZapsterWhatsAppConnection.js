@@ -207,6 +207,14 @@ export function useZapsterWhatsAppConnection(academyId) {
           if (ct.includes('application/json')) {
             try {
               const j = await resp.json();
+              if (resp.status === 404 && String(j?.error || '').trim() === 'instance_not_found') {
+                setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+                setWaQrShown(false);
+                setWaQrError(false);
+                setWaQrLoadFailedOnce(false);
+                setWaQrTick(0);
+                return null;
+              }
               const msg = String(j?.detalhe || j?.erro || j?.codigo || '').trim();
               if (msg) {
                 useUiStore.getState().addToast({
