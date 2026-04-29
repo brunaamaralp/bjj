@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useTaskStore } from '../store/useTaskStore';
 import { useUiStore } from '../store/useUiStore';
-import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell } from 'lucide-react';
-import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
+import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare } from 'lucide-react';
+import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -156,6 +157,34 @@ const LeadProfile = () => {
 
     const [nlOpen, setNlOpen] = useState(false);
     const [studentPayments, setStudentPayments] = useState([]);
+    const [leadTasks, setLeadTasks] = useState([]);
+
+    useEffect(() => {
+        if (!id || !academyId) return;
+        let cancelled = false;
+        createSessionJwt().then(jwt => {
+            if (!jwt || cancelled) return;
+            fetch(`/api/tasks?academy_id=${encodeURIComponent(academyId)}&lead_id=${encodeURIComponent(id)}`, {
+                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId }
+            }).then(r => r.json()).then(data => {
+                if (!cancelled && data.sucesso) {
+                    setLeadTasks(data.tasks || []);
+                }
+            }).catch(() => {});
+        });
+        return () => { cancelled = true; };
+    }, [id, academyId]);
+
+    const toggleLeadTask = async (t) => {
+        const newStatus = t.status === 'done' ? 'pending' : 'done';
+        setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: newStatus } : x));
+        try {
+            await useTaskStore.getState().updateTask(t.id, { status: newStatus });
+        } catch(e) {
+            setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x));
+            addToast({ type: 'error', message: 'Erro ao atualizar tarefa' });
+        }
+    };
 
     useEffect(() => {
         if (!id || !academyId || !lead) {
@@ -1247,6 +1276,50 @@ const LeadProfile = () => {
                                 </button>
                             )}
                         </div>
+                    </div>
+
+                    {/* Tarefas */}
+                    <div className="profile-section">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="section-title" style={{ margin: 0 }}>Tarefas</h3>
+                            <button 
+                                type="button" 
+                                className="btn-action-ghost"
+                                style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
+                                onClick={() => navigate(`/tarefas?lead_id=${id}&new=1`)}
+                            >
+                                <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova
+                            </button>
+                        </div>
+                        {leadTasks.length === 0 ? (
+                            <p className="text-muted text-xs">Sem tarefas vinculadas.</p>
+                        ) : (
+                            <div className="flex-col gap-2">
+                                {leadTasks.slice(0, 5).map(t => (
+                                    <div key={t.id} className="flex gap-2 items-center" style={{ fontSize: 13 }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={t.status === 'done'} 
+                                            onChange={() => toggleLeadTask(t)} 
+                                            style={{ cursor: 'pointer' }}
+                                        />
+                                        <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-muted)' : 'var(--text)' }}>
+                                            {t.title}
+                                        </span>
+                                    </div>
+                                ))}
+                                {leadTasks.length > 5 && (
+                                    <button 
+                                        type="button" 
+                                        className="btn-action-ghost" 
+                                        style={{ fontSize: 12, marginTop: 4 }}
+                                        onClick={() => navigate(`/tarefas?lead_id=${id}`)}
+                                    >
+                                        Ver todas ({leadTasks.length})
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Mais Ações */}

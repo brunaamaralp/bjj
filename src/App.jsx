@@ -18,7 +18,8 @@ import {
   FileText,
   Wallet,
   Users,
-  BookOpen
+  BookOpen,
+  CheckSquare
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -48,6 +49,7 @@ import Templates from './pages/Templates';
 import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
 import AIAgentSettings from './pages/AIAgentSettings';
+import Tasks from './pages/Tasks';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -739,6 +741,14 @@ const App = () => {
                 <span className="navi-side-link-label">{labels.students}</span>
               </NavLink>
               <NavLink
+                to="/tarefas"
+                className={sideLinkClass}
+                title={sidebarCollapsed ? 'Tarefas' : undefined}
+              >
+                <CheckSquare size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">Tarefas</span>
+              </NavLink>
+              <NavLink
                 to="/reports"
                 className={sideLinkClass}
                 title={sidebarCollapsed ? 'Relatórios' : undefined}
@@ -925,6 +935,7 @@ const App = () => {
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
+              <Route path="/tarefas" element={<Tasks />} />
               <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
               <Route path="/planos" element={<Plans user={user} />} />
               <Route path="/empresa" element={<AcademySettings />} />

@@ -13,6 +13,8 @@
     { "source": "/api/conversations/:phone(.*)", "destination": "/api/conversations.js?phone=$1" },
     { "source": "/api/message-flags/:message_id(.*)", "destination": "/api/message-flags.js?message_id=$1" },
     { "source": "/api/message-flags", "destination": "/api/message-flags.js" },
+    { "source": "/api/tasks/:id(.*)", "destination": "/api/tasks.js?id=$1" },
+    { "source": "/api/tasks", "destination": "/api/tasks.js" },
     { "source": "/api/conversation-notes/:note_id(.*)", "destination": "/api/conversations.js?route=notes&note_id=$1" },
     { "source": "/api/conversation-notes", "destination": "/api/conversations.js?route=notes" },
     { "source": "/api/labels/:id", "destination": "/api/labels.js?id=:id" },

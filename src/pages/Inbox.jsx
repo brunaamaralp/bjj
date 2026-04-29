@@ -121,7 +121,7 @@ export default function Inbox() {
   const [threadError, setThreadError] = useState('');
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const autoRefresh = true;
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [isMobile, setIsMobile] = useState(() =>
@@ -266,6 +266,7 @@ export default function Inbox() {
   const desktopNotifyRef = useRef(false);
   const loadListRef = useRef(null);
   const loadThreadRef = useRef(null);
+  const loadingListRef = useRef(false);
   const threadAbortRef = useRef(null);
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
@@ -1148,12 +1149,14 @@ export default function Inbox() {
 
   async function loadList({ reset = false, silent = false } = {}) {
     if (!academyIdRef.current) return;
+    if (reset && loadingListRef.current) return;
     if (reset) {
       setNextCursor(null);
       setHasMore(true);
     }
     if (!reset && (!hasMore || loadingMore || loading)) return;
     if (!silent) setError('');
+    loadingListRef.current = true;
     if (reset) setLoading(true);
     else setLoadingMore(true);
     try {
@@ -1241,6 +1244,7 @@ export default function Inbox() {
     } catch (e) {
       if (!silent) setError(e?.message || 'Erro');
     } finally {
+      loadingListRef.current = false;
       if (reset) setLoading(false);
       else setLoadingMore(false);
     }
@@ -2260,14 +2264,16 @@ export default function Inbox() {
     if (!autoRefresh) return;
     const periodMs = realtimeOn ? 30000 : 10000;
     const id = setInterval(() => {
-      loadList({ reset: true, silent: true });
+      const fn = loadListRef.current;
+      if (typeof fn === 'function') fn({ reset: true, silent: true });
       const phone = selectedPhoneRef.current;
       if (phone && !String(draftRef.current || '').trim()) {
-        loadThread(phone, { silent: true });
+        const fnThread = loadThreadRef.current;
+        if (typeof fnThread === 'function') fnThread(phone, { silent: true });
       }
     }, periodMs);
     return () => clearInterval(id);
-  }, [autoRefresh, searchQuery, realtimeOn]);
+  }, [searchQuery, realtimeOn]);
 
   const threadBlocks = useMemo(() => {
     const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
@@ -3964,17 +3970,7 @@ export default function Inbox() {
               >
                 Atualizar
               </button>
-              <button
-                className={autoRefresh ? 'btn btn-primary' : 'btn btn-outline'}
-                onClick={() => setAutoRefresh((v) => !v)}
-                title={autoRefresh ? 'Atualização automática ativa (a cada 10s) — clique para pausar' : 'Ativar atualização automática a cada 10s'}
-                style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                type="button"
-              >
-                <span style={{ fontSize: 14 }}>↻</span>
-                Ao vivo
-              </button>
-              <button
+<button
                 className={desktopNotify ? 'btn btn-secondary' : 'btn btn-outline'}
                 onClick={() => void toggleDesktopNotifyPreference()}
                 title={
