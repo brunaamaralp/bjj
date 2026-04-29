@@ -58,9 +58,10 @@ export default async function handler(req, res) {
 
     try {
       if (!DB_ID || !LABELS_COL) {
-        console.error('[api/labels] Erro de configuração:', { DB_ID, LABELS_COL });
+        console.error('[api/labels] Erro de configuração:', { DB_ID: DB_ID || '✗VAZIO', LABELS_COL: LABELS_COL || '✗VAZIO' });
         return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite ausente no servidor (DB_ID ou LABELS_COL)' });
       }
+      console.log('[api/labels] listDocuments', { DB_ID, LABELS_COL, academyId });
 
       const existing = await databases.listDocuments(DB_ID, LABELS_COL, [
         Query.equal('academy_id', [academyId]),
