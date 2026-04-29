@@ -386,8 +386,9 @@ export default function Inbox() {
         });
         const data = await res.json();
         if (data?.sucesso) setInboxLabels(data.labels || []);
-        else console.error('[labels] erro:', res.status, data?.erro ?? JSON.stringify(data));
-      } catch (e) { console.error('[labels] fetch error:', e); }
+      } catch {
+        void 0;
+      }
     })();
   }, [academyId]);
 

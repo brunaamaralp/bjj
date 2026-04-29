@@ -61,10 +61,8 @@ export default async function handler(req, res) {
         console.error('[api/labels] Erro de configuração:', { DB_ID: DB_ID || '✗VAZIO', LABELS_COL: LABELS_COL || '✗VAZIO' });
         return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite ausente no servidor (DB_ID ou LABELS_COL)' });
       }
-      console.log('[api/labels] listDocuments', { DB_ID, LABELS_COL, academyId });
-
       const existing = await databases.listDocuments(DB_ID, LABELS_COL, [
-        Query.equal('academy_id', [academyId]),
+        Query.equal('academy_id', academyId),
         Query.limit(200),
       ]);
 
@@ -177,7 +175,7 @@ export default async function handler(req, res) {
           let offset = 0;
           while (true) {
             const batch = await databases.listDocuments(DB_ID, LEADS_COL, [
-              Query.equal('academyId', [academyId]),
+              Query.equal('academyId', academyId),
               Query.limit(100),
               Query.offset(offset),
             ]);
