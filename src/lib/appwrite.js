@@ -42,6 +42,9 @@ export const JOURNAL_COL =
 export const FINANCE_TX_FN_ID =
   import.meta.env.VITE_APPWRITE_FINANCE_TX_FN_ID || '';
 
+export const ATTENDANCE_COL =
+  import.meta.env.VITE_APPWRITE_ATTENDANCE_COLLECTION_ID || '';
+
 // Tamanhos padrão de kimono
 export const KIMONO_SIZES = {
     adulto_unissex: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6'],

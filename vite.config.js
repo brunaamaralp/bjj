@@ -61,6 +61,12 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: apiProxyTarget,
           changeOrigin: true
+        },
+        // Roteia chamadas ao equipamento Control iD via servidor local (porta 4000).
+        // Necessário para evitar CORS — o browser não consegue chamar IPs de rede local diretamente.
+        '/controlid-proxy': {
+          target: 'http://localhost:4000',
+          changeOrigin: true
         }
       }
     }

@@ -50,6 +50,7 @@ import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
 import AIAgentSettings from './pages/AIAgentSettings';
 import Tasks from './pages/Tasks';
+import Attendance from './pages/Attendance';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -936,6 +937,7 @@ const App = () => {
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
               <Route path="/tarefas" element={<Tasks />} />
+              <Route path="/presenca" element={<Attendance />} />
               <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
               <Route path="/planos" element={<Plans user={user} />} />
               <Route path="/empresa" element={<AcademySettings />} />

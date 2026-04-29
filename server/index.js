@@ -5,6 +5,53 @@ import { addLeadEventServer } from '../lib/server/leadEvents.js';
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
+// Permite que o frontend (qualquer origem, inclusive Vercel) chame este servidor local
+app.use('/controlid-proxy', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+// Proxy reverso para o equipamento Control iD na rede local.
+// O browser não consegue chamar http://192.168.x.x diretamente (CORS).
+// O frontend chama POST /controlid-proxy com { ip, endpoint, body, session? }
+// e este servidor repassa ao dispositivo sem restrição de origem.
+app.post('/controlid-proxy', express.json(), async (req, res) => {
+  const { ip, endpoint, body: deviceBody, session } = req.body || {};
+
+  if (!ip || !endpoint) {
+    return res.status(400).json({ erro: 'ip e endpoint são obrigatórios' });
+  }
+
+  const url = session
+    ? `http://${ip}/${endpoint}?session=${session}`
+    : `http://${ip}/${endpoint}`;
+
+  try {
+    const deviceRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deviceBody ?? {}),
+      signal: AbortSignal.timeout(10_000), // 10 s — evita travar se o IP estiver errado
+    });
+
+    const text = await deviceRes.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+
+    return res.status(deviceRes.status).json(data);
+  } catch (err) {
+    const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
+    return res.status(502).json({
+      erro: timedOut
+        ? `Timeout ao conectar em ${ip} — verifique o IP e a rede`
+        : `Equipamento inacessível: ${err.message}`,
+    });
+  }
+});
+
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
 const API_KEY = process.env.APPWRITE_API_KEY || '';
