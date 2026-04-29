@@ -5,8 +5,8 @@
     { "source": "/api/settings/ai-prompt", "destination": "/api/agent.js?route=ai-prompt" },
     { "source": "/api/settings/prompt-preview", "destination": "/api/agent.js?route=prompt-preview" },
     { "source": "/api/generate-prompt", "destination": "/api/agent.js?route=generate-prompt" },
-    { "source": "/api/academies/create", "destination": "/api/academy.js?route=create" },
-    { "source": "/api/team/members", "destination": "/api/academy.js?route=members" },
+    { "source": "/api/academies/create", "destination": "/api/agent.js?route=academy-create" },
+    { "source": "/api/team/members", "destination": "/api/agent.js?route=team-members" },
     { "source": "/api/webhook/zapster", "destination": "/api/zapster.js?route=webhook" },
     { "source": "/api/zapster/instances", "destination": "/api/zapster.js?route=instances" },
     { "source": "/api/conversations", "destination": "/api/conversations.js" },
@@ -23,6 +23,7 @@
     { "source": "/api/notifications/:action(.*)", "destination": "/api/conversations.js?route=notifications/$1" },
     { "source": "/api/notifications", "destination": "/api/conversations.js?route=notifications" },
     { "source": "/api/cron/automations", "destination": "/api/cron/reset-usage.js?action=automations" },
+    { "source": "/api/cron/tasks-due", "destination": "/api/cron/reset-usage.js?action=tasks-due" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
@@ -38,6 +39,10 @@
     {
       "path": "/api/cron/automations",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/cron/tasks-due",
+      "schedule": "0 10 * * *"
     }
   ]
 }

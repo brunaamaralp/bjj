@@ -1,7 +1,6 @@
 import { Query, ID } from 'appwrite';
 import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
-import { useLeadStore } from '../store/useLeadStore.js';
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
@@ -59,12 +58,6 @@ export async function createPayment(data) {
   }
   if (!data.lead_id || !data.academy_id) {
     throw new Error('lead_id e academy_id são obrigatórios');
-  }
-  const { leads } = useLeadStore.getState();
-  const leadExists = Array.isArray(leads) && leads.some((l) => l.id === data.lead_id);
-  if (!leadExists) {
-    console.error('createPayment: lead_id não encontrado', data.lead_id);
-    throw new Error('Lead não encontrado nesta academia');
   }
   const payload = {
     lead_id: data.lead_id,

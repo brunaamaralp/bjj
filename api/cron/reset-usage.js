@@ -1,7 +1,7 @@
 // ⚠️ Vercel Hobby: limite de 12 Serverless Functions em `/api/`.
 // Este arquivo foi consolidado para reduzir a contagem de funções.
 
-import { Client, Databases, Query } from 'node-appwrite';
+import { Client, Databases, Query, ID } from 'node-appwrite';
 import { timingSafeEqual } from 'crypto';
 import { DB_ID, ACADEMIES_COL, resetAcademyMonthlyThreadUsage } from '../../src/services/planService.js';
 import { isBillingStoreConfigured, getBillingDatabases } from '../../lib/billing/billingAppwriteStore.js';
@@ -22,6 +22,8 @@ const PROJECT_ID =
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const SUBS_COL = process.env.APPWRITE_BILLING_SUBSCRIPTIONS_COLLECTION_ID || process.env.APPWRITE_BILLING_SUBSCRIPTIONS_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const TASKS_COL = process.env.APPWRITE_TASKS_COLLECTION_ID || process.env.VITE_APPWRITE_TASKS_COLLECTION_ID || '';
+const NOTE_NOTIFICATIONS_COL = process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || '';
 
 const AUTOMATION_DEFAULTS = {
   schedule_confirm: { active: false, templateKey: 'confirm', delayMinutes: 0 },
@@ -289,6 +291,46 @@ async function runAutomations(databases) {
   return { scanned, due, sent, errors };
 }
 
+async function runTasksDue(databases) {
+  if (!DB_ID || !TASKS_COL || !NOTE_NOTIFICATIONS_COL) {
+    return { sucesso: false, erro: 'Configurações de banco de dados ausentes' };
+  }
+  const todayStr = new Date().toISOString().split('T')[0];
+  const tasksRes = await databases.listDocuments(DB_ID, TASKS_COL, [
+    Query.equal('status', 'pending'),
+    Query.limit(500),
+  ]);
+  const pendingTasks = tasksRes.documents || [];
+  let notifiedCount = 0;
+  const nowIso = new Date().toISOString();
+  for (const task of pendingTasks) {
+    const dueDate = String(task.due_date || '').trim();
+    const assignedTo = String(task.assigned_to || '').trim();
+    if (!dueDate || !assignedTo) continue;
+    if (dueDate.split('T')[0] > todayStr) continue;
+    const notifRes = await databases.listDocuments(DB_ID, NOTE_NOTIFICATIONS_COL, [
+      Query.equal('note_id', task.$id),
+      Query.equal('type', 'task_due'),
+      Query.limit(1),
+    ]);
+    if (notifRes.documents && notifRes.documents.length > 0) continue;
+    await databases.createDocument(DB_ID, NOTE_NOTIFICATIONS_COL, ID.unique(), {
+      academy_id: task.academy_id,
+      type: 'task_due',
+      note_id: task.$id,
+      conversation_id: '',
+      lead_id: task.lead_id || '',
+      lead_name: task.lead_name || '',
+      created_by_user_id: assignedTo,
+      created_by_name: 'Sistema',
+      created_at: nowIso,
+      read_by: [],
+    });
+    notifiedCount++;
+  }
+  return { sucesso: true, notified: notifiedCount };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -315,6 +357,12 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runAutomations(databases);
     return res.status(200).json({ mode: 'automations', ...out });
+  }
+  if (action === 'tasks-due') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const out = await runTasksDue(databases);
+    return res.status(200).json({ mode: 'tasks-due', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

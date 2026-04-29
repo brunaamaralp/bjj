@@ -7,6 +7,8 @@ import agentTestHandler from '../lib/server/agentTest.js';
 import nlActionHandler from '../lib/server/nlActionHandler.js';
 import importFinanceHandler from '../lib/server/importFinanceHandler.js';
 import settleFinanceTxHandler from '../lib/server/settleFinanceTxHandler.js';
+import academyCreateHandler from '../lib/server/academiesCreate.js';
+import teamMembersHandler from '../lib/server/teamMembers.js';
 
 export default async function handler(req, res) {
   const route = req.query.route || req.query.action || (Array.isArray(req.query.slug) ? req.query.slug?.[0] : req.query.slug);
@@ -19,5 +21,7 @@ export default async function handler(req, res) {
   if (route === 'nl-action' || req.url.includes('nl-action')) return nlActionHandler(req, res);
   if (route === 'import-finance') return importFinanceHandler(req, res);
   if (route === 'settle-finance-tx') return settleFinanceTxHandler(req, res);
+  if (route === 'academy-create') return academyCreateHandler(req, res);
+  if (route === 'team-members') return teamMembersHandler(req, res);
   return res.status(404).json({ error: 'invalid_agent_action' });
 }
