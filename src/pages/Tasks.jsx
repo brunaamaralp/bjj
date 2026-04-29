@@ -278,24 +278,60 @@ export default function Tasks() {
       </div>
 
       {showModal && (
-        <div className="dashboard-confirm-overlay" onClick={() => !saving && setShowModal(false)}>
-          <div className="task-modal" onClick={e => e.stopPropagation()}>
-            <div className="task-modal-header">
+        <div
+          role="presentation"
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) setShowModal(false); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              background: 'var(--surface)',
+              borderRadius: 16,
+              width: '100%',
+              maxWidth: 480,
+              boxShadow: 'var(--shadow)',
+              border: '1px solid var(--border)',
+              margin: 16,
+              boxSizing: 'border-box',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '18px 24px 16px',
+              borderBottom: '1px solid var(--border-light)',
+            }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ClipboardList size={18} color="var(--accent)" />
-                <h3 className="section-title" style={{ margin: 0 }}>{editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                  {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
+                </span>
               </div>
               <button
                 type="button"
-                className="task-modal-close"
                 onClick={() => !saving && setShowModal(false)}
                 aria-label="Fechar"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', padding: 4, borderRadius: 6,
+                  display: 'flex', alignItems: 'center',
+                }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="flex-col gap-3" style={{ marginTop: 20 }}>
+            <form onSubmit={handleSave} className="flex-col gap-3" style={{ padding: 24 }}>
               <div className="flex-col gap-1">
                 <label className="info-mini-label">Título *</label>
                 <input
@@ -436,10 +472,6 @@ export default function Tasks() {
         .task-action-btn { background: transparent; border: none; padding: 6px; border-radius: 6px; cursor: pointer; color: var(--text-muted); }
         .task-action-btn:hover { background: var(--border-light); color: var(--text); }
         .task-action-btn.text-danger:hover { background: var(--danger-light); color: var(--danger); }
-        .task-modal { background: var(--surface); padding: 24px; border-radius: var(--radius); width: 100%; max-width: 500px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
-        .task-modal-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
-        .task-modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; border-radius: 6px; display: flex; align-items: center; transition: background 0.15s, color 0.15s; }
-        .task-modal-close:hover { background: var(--border-light); color: var(--text); }
         .task-lead-drop { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); max-height: 200px; overflow-y: auto; padding: 4px 0; }
         .task-lead-option { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text); text-align: left; }
         .task-lead-option:hover { background: var(--surface-hover); }
