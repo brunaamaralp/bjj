@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckSquare, PlusCircle, MoreHorizontal, Pencil, Trash2, Calendar, User } from 'lucide-react';
+import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList } from 'lucide-react';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -22,6 +22,8 @@ export default function Tasks() {
   const [form, setForm] = useState({ title: '', description: '', due_date: '', assigned_to: '', lead_id: initLeadId });
   const [saving, setSaving] = useState(false);
   const [leadSearch, setLeadSearch] = useState('');
+  const [showLeadDrop, setShowLeadDrop] = useState(false);
+  const leadDropRef = useRef(null);
 
   // Sincronizar filtro ao carregar a página se tiver lead_id na URL
   useEffect(() => {
@@ -44,6 +46,15 @@ export default function Tasks() {
   useEffect(() => {
     if (academyId) fetchTasks(academyId);
   }, [academyId, fetchTasks]);
+
+  useEffect(() => {
+    if (!showLeadDrop) return;
+    const handler = (e) => {
+      if (leadDropRef.current && !leadDropRef.current.contains(e.target)) setShowLeadDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showLeadDrop]);
 
   const filteredTasks = useMemo(() => {
     const userId = useLeadStore.getState().userId;
@@ -269,43 +280,62 @@ export default function Tasks() {
       {showModal && (
         <div className="dashboard-confirm-overlay" onClick={() => !saving && setShowModal(false)}>
           <div className="task-modal" onClick={e => e.stopPropagation()}>
-            <h3 className="section-title mb-3">{editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
-            <form onSubmit={handleSave} className="flex-col gap-3">
+            <div className="task-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ClipboardList size={18} color="var(--accent)" />
+                <h3 className="section-title" style={{ margin: 0 }}>{editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
+              </div>
+              <button
+                type="button"
+                className="task-modal-close"
+                onClick={() => !saving && setShowModal(false)}
+                aria-label="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSave} className="flex-col gap-3" style={{ marginTop: 20 }}>
               <div className="flex-col gap-1">
                 <label className="info-mini-label">Título *</label>
-                <input 
-                  type="text" 
-                  className="form-input-sm" 
-                  value={form.title} 
-                  onChange={e => setForm({...form, title: e.target.value})} 
+                <input
+                  type="text"
+                  className="form-input-sm"
+                  value={form.title}
+                  onChange={e => setForm({...form, title: e.target.value})}
                   placeholder="Ex: Ligar para confirmar aula"
+                  autoFocus
                   required
                 />
               </div>
+
               <div className="flex-col gap-1">
                 <label className="info-mini-label">Descrição</label>
-                <textarea 
-                  className="form-input-sm" 
-                  rows={3} 
-                  value={form.description} 
-                  onChange={e => setForm({...form, description: e.target.value})} 
+                <textarea
+                  className="form-input-sm"
+                  rows={3}
+                  value={form.description}
+                  onChange={e => setForm({...form, description: e.target.value})}
+                  placeholder="Detalhes opcionais..."
+                  style={{ resize: 'vertical' }}
                 />
               </div>
+
               <div className="flex gap-3">
                 <div className="flex-col gap-1 flex-1">
                   <label className="info-mini-label">Prazo</label>
-                  <input 
-                    type="date" 
-                    className="form-input-sm" 
-                    value={form.due_date} 
-                    onChange={e => setForm({...form, due_date: e.target.value})} 
+                  <input
+                    type="date"
+                    className="form-input-sm"
+                    value={form.due_date}
+                    onChange={e => setForm({...form, due_date: e.target.value})}
                   />
                 </div>
                 <div className="flex-col gap-1 flex-1">
                   <label className="info-mini-label">Responsável</label>
-                  <select 
-                    className="form-input-sm" 
-                    value={form.assigned_to} 
+                  <select
+                    className="form-input-sm"
+                    value={form.assigned_to}
                     onChange={e => setForm({...form, assigned_to: e.target.value})}
                   >
                     <option value="">(Sem responsável)</option>
@@ -315,21 +345,65 @@ export default function Tasks() {
                   </select>
                 </div>
               </div>
-              <div className="flex-col gap-1">
+
+              <div className="flex-col gap-1" ref={leadDropRef} style={{ position: 'relative' }}>
                 <label className="info-mini-label">Vincular aluno / lead</label>
-                <select 
-                    className="form-input-sm" 
-                    value={form.lead_id} 
-                    onChange={e => setForm({...form, lead_id: e.target.value})}
-                  >
-                    <option value="">(Nenhum)</option>
-                    {leads.map(l => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="form-input-sm"
+                    value={leadSearch}
+                    onChange={e => {
+                      setLeadSearch(e.target.value);
+                      setForm(f => ({ ...f, lead_id: '' }));
+                      setShowLeadDrop(true);
+                    }}
+                    onFocus={() => setShowLeadDrop(true)}
+                    placeholder="Buscar aluno ou lead..."
+                    autoComplete="off"
+                  />
+                  {form.lead_id && (
+                    <button
+                      type="button"
+                      onClick={() => { setForm(f => ({ ...f, lead_id: '' })); setLeadSearch(''); }}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: 2 }}
+                      aria-label="Limpar"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {showLeadDrop && (
+                  <div className="task-lead-drop">
+                    {leads
+                      .filter(l => !leadSearch || l.name?.toLowerCase().includes(leadSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map(l => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          className="task-lead-option"
+                          onMouseDown={() => {
+                            setForm(f => ({ ...f, lead_id: l.id }));
+                            setLeadSearch(l.name);
+                            setShowLeadDrop(false);
+                          }}
+                        >
+                          {l.name}
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                            {l.phone || ''}
+                          </span>
+                        </button>
+                      ))
+                    }
+                    {leads.filter(l => !leadSearch || l.name?.toLowerCase().includes(leadSearch.toLowerCase())).length === 0 && (
+                      <p style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Nenhum resultado</p>
+                    )}
+                  </div>
+                )}
               </div>
-              
-              <div className="flex justify-end gap-2 mt-4 pt-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+
+              <div className="flex justify-end gap-2 mt-2 pt-3" style={{ borderTop: '1px solid var(--border-light)' }}>
                 <button type="button" className="btn-outline" onClick={() => setShowModal(false)} disabled={saving}>Cancelar</button>
                 <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
               </div>
@@ -362,7 +436,13 @@ export default function Tasks() {
         .task-action-btn { background: transparent; border: none; padding: 6px; border-radius: 6px; cursor: pointer; color: var(--text-muted); }
         .task-action-btn:hover { background: var(--border-light); color: var(--text); }
         .task-action-btn.text-danger:hover { background: var(--danger-light); color: var(--danger); }
-        .task-modal { background: var(--surface); padding: 24px; border-radius: var(--radius); width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); }
+        .task-modal { background: var(--surface); padding: 24px; border-radius: var(--radius); width: 100%; max-width: 500px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+        .task-modal-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
+        .task-modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; border-radius: 6px; display: flex; align-items: center; transition: background 0.15s, color 0.15s; }
+        .task-modal-close:hover { background: var(--border-light); color: var(--text); }
+        .task-lead-drop { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); max-height: 200px; overflow-y: auto; padding: 4px 0; }
+        .task-lead-option { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text); text-align: left; }
+        .task-lead-option:hover { background: var(--surface-hover); }
       `}} />
     </div>
   );
