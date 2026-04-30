@@ -1406,16 +1406,45 @@ export default function Inbox() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!DB_ID || !CONVERSATIONS_COL) return;
+
+    // DEBUG ─────────────────────────────────────────────────────────────────
+    console.group('[Inbox Realtime] setup');
+    console.log('DB_ID:', DB_ID || '⚠️ VAZIO');
+    console.log('CONVERSATIONS_COL:', CONVERSATIONS_COL || '⚠️ VAZIO');
+    console.log('academyId no momento do mount:', academyIdRef.current || '⚠️ VAZIO');
+    // ────────────────────────────────────────────────────────────────────────
+
+    if (!DB_ID || !CONVERSATIONS_COL) {
+      console.warn('[Inbox Realtime] ❌ DB_ID ou CONVERSATIONS_COL vazio — subscription NÃO criada');
+      console.groupEnd();
+      return;
+    }
+
+    const channel = `databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`;
+    console.log('[Inbox Realtime] canal:', channel);
+    console.groupEnd();
+    // ────────────────────────────────────────────────────────────────────────
+
     let unsub = null;
     try {
-      unsub = realtime.subscribe(`databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`, (ev) => {
+      unsub = realtime.subscribe(channel, (ev) => {
         const payload = ev && typeof ev === 'object' ? ev.payload : null;
         const academy = payload && typeof payload === 'object' ? String(payload.academy_id || payload.academyId || '').trim() : '';
         const expected = String(academyIdRef.current || '').trim();
-        if (academy && expected && academy !== expected) return;
         const phone = payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
         const selectedNow = String(selectedPhoneRef.current || '').trim();
+
+        // DEBUG ───────────────────────────────────────────────────────────────
+        console.group('[Inbox Realtime] evento recebido');
+        console.log('events:', ev?.events);
+        console.log('phone no payload:', phone || '(vazio)');
+        console.log('academy no payload:', academy || '(vazio)', '| esperado:', expected || '(vazio)');
+        console.log('academy match:', !academy || !expected || academy === expected ? '✅ ok' : '❌ descartado');
+        console.log('loadListRef ok:', typeof loadListRef.current === 'function' ? '✅' : '❌ null');
+        console.groupEnd();
+        // ─────────────────────────────────────────────────────────────────────
+
+        if (academy && expected && academy !== expected) return;
 
         if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
         realtimeTimersRef.current.list = setTimeout(() => {
@@ -1431,11 +1460,20 @@ export default function Inbox() {
           }, 250);
         }
       });
+
+      // DEBUG ─────────────────────────────────────────────────────────────────
+      console.log('[Inbox Realtime] ✅ subscrito com sucesso. unsub:', typeof unsub);
+      // ────────────────────────────────────────────────────────────────────────
+
       setRealtimeOn(true);
-    } catch {
+    } catch (e) {
+      // DEBUG ─────────────────────────────────────────────────────────────────
+      console.error('[Inbox Realtime] ❌ falhou ao subscrever:', e);
+      // ────────────────────────────────────────────────────────────────────────
       setRealtimeOn(false);
     }
     return () => {
+      console.log('[Inbox Realtime] desmontando / limpando subscription');
       try {
         if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
         if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
