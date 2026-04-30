@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'prompt',
         workbox: {
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB — bundle atual é ~2.1 MB
           cleanupOutdatedCaches: true,
           clientsClaim: false,
           skipWaiting: false,

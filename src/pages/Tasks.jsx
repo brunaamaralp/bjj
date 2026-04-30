@@ -280,101 +280,81 @@ export default function Tasks() {
       {showModal && (
         <div
           role="presentation"
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9999,
-          }}
+          className="task-modal-overlay"
           onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) setShowModal(false); }}
         >
           <div
             role="dialog"
             aria-modal="true"
-            style={{
-              background: 'var(--surface)',
-              borderRadius: 16,
-              width: '100%',
-              maxWidth: 480,
-              boxShadow: 'var(--shadow)',
-              border: '1px solid var(--border)',
-              margin: 16,
-              boxSizing: 'border-box',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
+            className="task-modal-panel"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Cabeçalho */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '18px 24px 16px',
-              borderBottom: '1px solid var(--border-light)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ClipboardList size={18} color="var(--accent)" />
-                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-                  {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
+            <div className="task-modal-header">
+              <div className="task-modal-title-row">
+                <div className="task-modal-icon-wrap">
+                  <ClipboardList size={16} />
+                </div>
+                <span className="task-modal-title">
+                  {editingTask ? 'Editar tarefa' : 'Nova tarefa'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => !saving && setShowModal(false)}
                 aria-label="Fechar"
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-muted)', padding: 4, borderRadius: 6,
-                  display: 'flex', alignItems: 'center',
-                }}
+                className="task-modal-close"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="flex-col gap-3" style={{ padding: 24 }}>
-              <div className="flex-col gap-1">
-                <label className="info-mini-label">Título *</label>
+            <form onSubmit={handleSave} className="task-modal-form">
+              {/* Título */}
+              <div className="task-field">
+                <label className="task-field-label">Título <span className="task-field-required">*</span></label>
                 <input
                   type="text"
-                  className="form-input-sm"
+                  className="form-input"
                   value={form.title}
                   onChange={e => setForm({...form, title: e.target.value})}
-                  placeholder="Ex: Ligar para confirmar aula"
+                  placeholder="Ex: Ligar para confirmar aula experimental"
                   autoFocus
                   required
                 />
               </div>
 
-              <div className="flex-col gap-1">
-                <label className="info-mini-label">Descrição</label>
+              {/* Descrição */}
+              <div className="task-field">
+                <label className="task-field-label">Descrição</label>
                 <textarea
-                  className="form-input-sm"
+                  className="form-input task-textarea"
                   rows={3}
                   value={form.description}
                   onChange={e => setForm({...form, description: e.target.value})}
                   placeholder="Detalhes opcionais..."
-                  style={{ resize: 'vertical' }}
                 />
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-col gap-1 flex-1">
-                  <label className="info-mini-label">Prazo</label>
+              {/* Prazo + Responsável — grid 2 colunas */}
+              <div className="task-field-row">
+                <div className="task-field">
+                  <label className="task-field-label">Prazo</label>
                   <input
                     type="date"
-                    className="form-input-sm"
+                    className="form-input"
                     value={form.due_date}
                     onChange={e => setForm({...form, due_date: e.target.value})}
                   />
                 </div>
-                <div className="flex-col gap-1 flex-1">
-                  <label className="info-mini-label">Responsável</label>
+                <div className="task-field">
+                  <label className="task-field-label">Responsável</label>
                   <select
-                    className="form-input-sm"
+                    className="form-input task-select"
                     value={form.assigned_to}
                     onChange={e => setForm({...form, assigned_to: e.target.value})}
                   >
-                    <option value="">(Sem responsável)</option>
+                    <option value="">Sem responsável</option>
                     {members.map(m => (
                       <option key={m.userId} value={m.userId}>{m.userName}</option>
                     ))}
@@ -382,12 +362,13 @@ export default function Tasks() {
                 </div>
               </div>
 
-              <div className="flex-col gap-1" ref={leadDropRef} style={{ position: 'relative' }}>
-                <label className="info-mini-label">Vincular aluno / lead</label>
+              {/* Vincular aluno / lead */}
+              <div className="task-field" ref={leadDropRef} style={{ position: 'relative' }}>
+                <label className="task-field-label">Vincular aluno / lead</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
-                    className="form-input-sm"
+                    className="form-input"
                     value={leadSearch}
                     onChange={e => {
                       setLeadSearch(e.target.value);
@@ -395,17 +376,18 @@ export default function Tasks() {
                       setShowLeadDrop(true);
                     }}
                     onFocus={() => setShowLeadDrop(true)}
-                    placeholder="Buscar aluno ou lead..."
+                    placeholder="Buscar por nome..."
                     autoComplete="off"
+                    style={form.lead_id ? { paddingRight: 32 } : {}}
                   />
                   {form.lead_id && (
                     <button
                       type="button"
                       onClick={() => { setForm(f => ({ ...f, lead_id: '' })); setLeadSearch(''); }}
-                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: 2 }}
+                      className="task-lead-clear"
                       aria-label="Limpar"
                     >
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   )}
                 </div>
@@ -425,23 +407,26 @@ export default function Tasks() {
                             setShowLeadDrop(false);
                           }}
                         >
-                          {l.name}
-                          <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                            {l.phone || ''}
-                          </span>
+                          <span className="task-lead-name">{l.name}</span>
+                          <span className="task-lead-phone">{l.phone || ''}</span>
                         </button>
                       ))
                     }
                     {leads.filter(l => !leadSearch || l.name?.toLowerCase().includes(leadSearch.toLowerCase())).length === 0 && (
-                      <p style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Nenhum resultado</p>
+                      <p className="task-lead-empty">Nenhum resultado</p>
                     )}
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 mt-2 pt-3" style={{ borderTop: '1px solid var(--border-light)' }}>
-                <button type="button" className="btn-outline" onClick={() => setShowModal(false)} disabled={saving}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
+              {/* Ações */}
+              <div className="task-modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowModal(false)} disabled={saving}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Salvando...' : editingTask ? 'Salvar alterações' : 'Criar tarefa'}
+                </button>
               </div>
             </form>
           </div>
@@ -449,6 +434,7 @@ export default function Tasks() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
+        /* ── Lista de tarefas ── */
         .task-filters { display: flex; gap: 8px; flex-wrap: wrap; }
         .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius); border: 1px dashed var(--border-mid); }
         .tasks-lists-wrap { display: flex; flex-direction: column; gap: 24px; }
@@ -472,9 +458,101 @@ export default function Tasks() {
         .task-action-btn { background: transparent; border: none; padding: 6px; border-radius: 6px; cursor: pointer; color: var(--text-muted); }
         .task-action-btn:hover { background: var(--border-light); color: var(--text); }
         .task-action-btn.text-danger:hover { background: var(--danger-light); color: var(--danger); }
-        .task-lead-drop { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); max-height: 200px; overflow-y: auto; padding: 4px 0; }
-        .task-lead-option { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text); text-align: left; }
-        .task-lead-option:hover { background: var(--surface-hover); }
+
+        /* ── Modal ── */
+        .task-modal-overlay {
+          position: fixed; inset: 0;
+          background: rgba(18, 16, 42, 0.55);
+          backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 9999; padding: 16px;
+        }
+        .task-modal-panel {
+          background: var(--white);
+          border-radius: 20px;
+          width: 100%; max-width: 480px;
+          box-shadow: 0 24px 60px rgba(18, 16, 42, 0.18), 0 2px 8px rgba(91,63,191,0.08);
+          border: 0.5px solid var(--border-light);
+          max-height: 92vh; overflow-y: auto;
+        }
+        .task-modal-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 20px 24px 18px;
+          border-bottom: 0.5px solid var(--v100);
+        }
+        .task-modal-title-row { display: flex; align-items: center; gap: 10px; }
+        .task-modal-icon-wrap {
+          width: 32px; height: 32px; border-radius: 9px;
+          background: var(--v50); color: var(--v500);
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .task-modal-title { font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+        .task-modal-close {
+          width: 32px; height: 32px; min-height: 32px; padding: 0;
+          background: transparent; border: 0.5px solid var(--v100);
+          border-radius: 8px; color: var(--faint);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .task-modal-close:hover { background: var(--v50); color: var(--mid); border-color: var(--v200); }
+
+        /* ── Formulário ── */
+        .task-modal-form {
+          display: flex; flex-direction: column; gap: 18px;
+          padding: 24px;
+        }
+        .task-field { display: flex; flex-direction: column; gap: 6px; }
+        .task-field-label {
+          font-family: var(--ff-mono);
+          font-size: 10px; font-weight: 400;
+          text-transform: uppercase; letter-spacing: 0.12em;
+          color: var(--mid);
+        }
+        .task-field-required { color: var(--c500); }
+        .task-textarea { resize: vertical; min-height: 88px; font-family: var(--ff-ui) !important; }
+        .task-select { cursor: pointer; }
+        .task-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* ── Busca de lead ── */
+        .task-lead-clear {
+          position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+          background: none; border: none; cursor: pointer; padding: 2px;
+          color: var(--faint); display: flex; align-items: center;
+          min-height: auto; width: auto; border-radius: 4px;
+        }
+        .task-lead-clear:hover { color: var(--mid); }
+        .task-lead-drop {
+          position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 300;
+          background: var(--white);
+          border: 0.5px solid var(--border-light);
+          border-radius: 12px;
+          box-shadow: 0 8px 28px rgba(18, 16, 42, 0.12);
+          max-height: 220px; overflow-y: auto;
+          padding: 6px;
+        }
+        .task-lead-option {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%; padding: 9px 12px;
+          background: none; border: none; border-radius: 8px;
+          cursor: pointer; text-align: left; gap: 8px;
+          min-height: auto;
+          transition: background 0.1s;
+        }
+        .task-lead-option:hover { background: var(--v50); }
+        .task-lead-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+        .task-lead-phone { font-size: 11px; color: var(--faint); font-family: var(--ff-mono); }
+        .task-lead-empty { padding: 10px 12px; font-size: 12px; color: var(--faint); margin: 0; }
+
+        /* ── Footer do modal ── */
+        .task-modal-footer {
+          display: flex; justify-content: flex-end; gap: 8px;
+          padding-top: 8px;
+          border-top: 0.5px solid var(--v100);
+          margin-top: 2px;
+        }
+        .task-modal-footer .btn-outline { min-height: 38px; font-size: 13px; padding: 0 16px; }
+        .task-modal-footer .btn-primary { min-height: 38px; font-size: 13px; padding: 0 20px; }
       `}} />
     </div>
   );
