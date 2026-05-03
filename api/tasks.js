@@ -59,7 +59,7 @@ function mapTask(d) {
     lead_name: d.lead_name ? String(d.lead_name) : '',
     created_by: d.created_by ? String(d.created_by) : '',
     created_at: String(d.created_at || d.$createdAt || ''),
-    updated_at: d.updated_at ? String(d.updated_at) : '',
+    updated_at: String(d.updated_at || d.$updatedAt || ''),
   };
 }
 
@@ -137,6 +137,7 @@ export default async function handler(req, res) {
       lead_name: String(req.body.lead_name || ''),
       created_by: String(req.body.created_by || ''),
       created_at: nowIso,
+      updated_at: nowIso,
     };
 
     if (!payload.created_by) {
@@ -189,6 +190,7 @@ export default async function handler(req, res) {
     const patch = { ...(req.body || {}) };
     delete patch.academy_id;
     delete patch.created_by;
+    delete patch.updated_at;
 
     const keys = Object.keys(patch);
     if (keys.length === 0) return json(res, 400, { sucesso: false, erro: 'Nenhum campo para atualizar' });

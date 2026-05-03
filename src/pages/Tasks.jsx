@@ -164,6 +164,42 @@ export default function Tasks() {
     }
   };
 
+  const renderTasksLoadingSkeleton = () => (
+    <div
+      className="tasks-skeleton-root"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Carregando tarefas"
+    >
+      <span className="tasks-skeleton-sr">Carregando tarefas…</span>
+      {[0, 1].map((section) => (
+        <div key={section} className="tasks-skeleton-section">
+          <div className="tasks-skeleton-group-title" aria-hidden />
+          <div className="tasks-skeleton-list">
+            {[0, 1, 2].map((row) => (
+              <div key={`${section}-${row}`} className="tasks-skeleton-card" aria-hidden>
+                <div className="tasks-skeleton-check" />
+                <div className="tasks-skeleton-body">
+                  <div className="tasks-skeleton-line tasks-skeleton-line--title" />
+                  <div className={`tasks-skeleton-line tasks-skeleton-line--sub ${row % 2 === 1 ? 'tasks-skeleton-line--short' : ''}`} />
+                  <div className="tasks-skeleton-badges">
+                    <span className="tasks-skeleton-pill" />
+                    <span className="tasks-skeleton-pill tasks-skeleton-pill--narrow" />
+                  </div>
+                </div>
+                <div className="tasks-skeleton-actions">
+                  <span className="tasks-skeleton-icon" />
+                  <span className="tasks-skeleton-icon" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   const renderTaskList = (list, title, titleColor) => {
     if (list.length === 0) return null;
     return (
@@ -257,9 +293,9 @@ export default function Tasks() {
         </div>
       ) : null}
 
-      <div className="tasks-board mt-4">
+      <div className={`tasks-board mt-4${loading && tasks.length === 0 ? ' tasks-board--loading' : ''}`}>
         {loading && tasks.length === 0 ? (
-          <p className="text-muted">Carregando tarefas...</p>
+          renderTasksLoadingSkeleton()
         ) : tasks.length === 0 ? (
           <div className="empty-state">
             <CheckSquare size={48} color="var(--border-mid)" />
@@ -434,6 +470,79 @@ export default function Tasks() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
+        @keyframes tasksSkeletonShimmer {
+          from { background-position: 200% 0; }
+          to { background-position: -200% 0; }
+        }
+        .tasks-skeleton-sr {
+          position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+          overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
+        .tasks-board--loading { position: relative; min-height: 280px; }
+        .tasks-skeleton-root {
+          pointer-events: none;
+          display: flex; flex-direction: column; gap: 28px;
+          padding: 4px 0 8px;
+        }
+        .tasks-skeleton-section { display: flex; flex-direction: column; gap: 12px; }
+        .tasks-skeleton-group-title {
+          height: 13px; width: 140px; border-radius: 6px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.16) 25%, rgba(148,163,184,0.3) 50%, rgba(148,163,184,0.16) 75%);
+          background-size: 200% 100%;
+          animation: tasksSkeletonShimmer 1.15s ease-in-out infinite;
+        }
+        .tasks-skeleton-list { display: flex; flex-direction: column; gap: 8px; }
+        .tasks-skeleton-card {
+          display: flex; align-items: flex-start; gap: 12px;
+          padding: 14px 16px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+        }
+        .tasks-skeleton-check {
+          flex-shrink: 0; width: 16px; height: 16px; margin-top: 3px; border-radius: 4px;
+          border: 1px solid var(--border-mid);
+          background: linear-gradient(90deg, rgba(148,163,184,0.1) 25%, rgba(148,163,184,0.2) 50%, rgba(148,163,184,0.1) 75%);
+          background-size: 200% 100%;
+          animation: tasksSkeletonShimmer 1.15s ease-in-out infinite;
+        }
+        .tasks-skeleton-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+        .tasks-skeleton-line {
+          height: 12px; border-radius: 6px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.26) 50%, rgba(148,163,184,0.12) 75%);
+          background-size: 200% 100%;
+          animation: tasksSkeletonShimmer 1.15s ease-in-out infinite;
+        }
+        .tasks-skeleton-line--title { width: 78%; max-width: 420px; height: 14px; }
+        .tasks-skeleton-line--sub { width: 52%; max-width: 280px; }
+        .tasks-skeleton-line--short { width: 38%; max-width: 200px; }
+        .tasks-skeleton-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .tasks-skeleton-pill {
+          height: 22px; width: 72px; border-radius: 999px;
+          background: linear-gradient(90deg, rgba(148,163,184,0.1) 25%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.1) 75%);
+          background-size: 200% 100%;
+          animation: tasksSkeletonShimmer 1.15s ease-in-out infinite;
+        }
+        .tasks-skeleton-pill--narrow { width: 52px; }
+        .tasks-skeleton-actions {
+          display: flex; flex-direction: row; gap: 4px; padding-top: 2px; opacity: 0.85;
+        }
+        .tasks-skeleton-icon {
+          width: 26px; height: 26px; border-radius: 8px;
+          border: 1px solid var(--border-light);
+          background: rgba(148,163,184,0.08);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .tasks-skeleton-group-title,
+          .tasks-skeleton-check,
+          .tasks-skeleton-line,
+          .tasks-skeleton-pill {
+            animation: none;
+            background: rgba(148,163,184,0.18);
+          }
+        }
+
         /* ── Lista de tarefas ── */
         .task-filters { display: flex; gap: 8px; flex-wrap: wrap; }
         .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius); border: 1px dashed var(--border-mid); }
