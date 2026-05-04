@@ -1041,12 +1041,13 @@ const Pipeline = () => {
 
     const handleWhatsApp = (e, lead) => {
         e.stopPropagation();
-        if (!lead?.phone) {
+        const digits = normalizeKanbanPhone(lead?.phone);
+        if (!digits) {
             setToast('Lead sem telefone cadastrado');
             setTimeout(() => setToast(''), 3200);
             return;
         }
-        navigate(`/inbox?phone=${encodeURIComponent(lead.phone)}`);
+        navigate(`/inbox?phone=${encodeURIComponent(digits)}`);
     };
 
     const handleReschedule = async (lead, ymd, time, note) => {
