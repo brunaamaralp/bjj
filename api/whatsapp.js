@@ -48,6 +48,21 @@ function ensureJson(req, res) {
   return true;
 }
 
+/** Ative na Vercel: DEBUG_WHATSAPP_API=1 (ou WHATSAPP_DEBUG=1 / true / yes). */
+function whatsappDebugEnabled() {
+  const v = String(process.env.DEBUG_WHATSAPP_API || process.env.WHATSAPP_DEBUG || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
+function waDebug(obj) {
+  if (!whatsappDebugEnabled()) return;
+  try {
+    console.log('[api/whatsapp][debug]', JSON.stringify({ ts: new Date().toISOString(), ...obj }));
+  } catch {
+    console.log('[api/whatsapp][debug]', new Date().toISOString(), obj);
+  }
+}
+
 
 function safeParseMessages(raw) {
   if (!raw) return [];
@@ -507,6 +522,14 @@ export default async function handler(req, res) {
   if (!access) return;
   const { doc: academyDoc, academyId } = access;
 
+  waDebug({
+    step: 'request',
+    method: req.method,
+    action,
+    academyId: String(academyId || '').trim(),
+    url: String(req.url || '').slice(0, 200),
+  });
+
   if (action === 'send') {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
@@ -519,7 +542,19 @@ export default async function handler(req, res) {
     if (!phone || !text) return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
     let sendAtIso = '';
     try {
+      waDebug({
+        step: 'send_start',
+        phoneLen: phone.length,
+        phoneSuffix4: phone.length >= 4 ? phone.slice(-4) : '',
+        textLen: text.length,
+        hasSendAtRaw: Boolean(sendAtRaw),
+      });
       const instanceId = await getZapsterInstanceIdForAcademy(academyDoc, academyId);
+      waDebug({
+        step: 'send_instance',
+        hasInstanceId: Boolean(String(instanceId || '').trim()),
+        instanceIdPrefix: String(instanceId || '').trim().slice(0, 8),
+      });
       if (sendAtRaw) {
         const ms = new Date(sendAtRaw).getTime();
         if (!Number.isFinite(ms)) return res.status(400).json({ sucesso: false, erro: 'send_at inválido (use ISO 8601)' });
@@ -539,6 +574,7 @@ export default async function handler(req, res) {
         }
         const waMeUrl = buildWaMeUrl(phone, text);
         if (!waMeUrl) return res.status(400).json({ sucesso: false, erro: 'Telefone inválido para abrir o WhatsApp.' });
+        waDebug({ step: 'send_channel', channel: 'wa_me', appendConversation: true });
         await appendOutboundToConversation(phone, academyId, academyDoc, text, { status: 'wa_me' });
         return res.status(200).json({
           sucesso: true,
@@ -551,6 +587,7 @@ export default async function handler(req, res) {
         });
       }
 
+      waDebug({ step: 'send_channel', channel: 'zapster_api', scheduled: Boolean(sendAtIso) });
       const sent = await sendZapsterTextWithOptionalRecover({
         recipient: phone,
         text,
@@ -561,6 +598,11 @@ export default async function handler(req, res) {
       await appendOutboundToConversation(phone, academyId, academyDoc, text, {
         sendAtIso,
         messageId: sent?.message_id ? String(sent.message_id) : ''
+      });
+      waDebug({
+        step: 'send_ok',
+        status: sendAtIso ? 'scheduled' : 'sent',
+        hasMessageId: Boolean(sent?.message_id),
       });
       return res.status(200).json({
         sucesso: true,
@@ -586,10 +628,27 @@ export default async function handler(req, res) {
               message_id: null
             });
           } catch (inner) {
+            console.error('[api/whatsapp] send wa_me append falhou', { phone, erro: inner?.message || inner });
+            waDebug({
+              step: 'send_wa_me_append_error',
+              erro: inner?.message || String(inner),
+              stack: String(inner?.stack || '').slice(0, 1200),
+            });
             return res.status(500).json({ sucesso: false, erro: inner?.message || 'Erro ao gravar conversa' });
           }
         }
       }
+      console.error('[api/whatsapp] send falhou', {
+        phone: normalizePhone(req.body?.phone || ''),
+        erro: e?.message || String(e),
+        zapsterRaw: typeof e?.zapsterRaw === 'string' ? e.zapsterRaw.slice(0, 400) : undefined
+      });
+      waDebug({
+        step: 'send_error',
+        erro: e?.message || String(e),
+        zapsterRaw: typeof e?.zapsterRaw === 'string' ? e.zapsterRaw.slice(0, 600) : undefined,
+        stack: String(e?.stack || '').slice(0, 1200),
+      });
       return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
     }
   }
@@ -605,6 +664,12 @@ export default async function handler(req, res) {
     const now = Date.now();
     const toIso = new Date(now).toISOString();
     const fromIso = new Date(now - 23 * 60 * 60 * 1000).toISOString();
+    waDebug({
+      step: 'reconcile_start',
+      fromIso,
+      toIso,
+      instanceIdPrefix: instanceId.slice(0, 8),
+    });
     try {
       const items = [];
       let after = '';
@@ -615,6 +680,13 @@ export default async function handler(req, res) {
         const page = await listZapsterMessages({ from: fromIso, to: toIso, after, limit, instanceId });
         const dataArr = Array.isArray(page?.data) ? page.data : [];
         items.push(...dataArr);
+        waDebug({
+          step: 'reconcile_page',
+          page: pages,
+          batchSize: dataArr.length,
+          itemsTotal: items.length,
+          hasMore: Boolean(page?.meta?.has_more),
+        });
         const hasMore = Boolean(page?.meta?.has_more);
         const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
         if (!hasMore || !nextCursor) break;
@@ -659,6 +731,12 @@ export default async function handler(req, res) {
         grouped.set(phone, arr);
       }
 
+      waDebug({
+        step: 'reconcile_grouped',
+        zapsterItems: items.length,
+        distinctPhones: grouped.size,
+      });
+
       let conversationsUpdated = 0;
       let conversationsCreated = 0;
       let messagesMerged = 0;
@@ -694,9 +772,24 @@ export default async function handler(req, res) {
           conversationsUpdated += 1;
           messagesMerged += Math.max(0, merged.length - history.length);
         } catch (e) {
-          errors.push({ phone, erro: String(e?.message || 'Erro') });
+          const errMsg = String(e?.message || 'Erro');
+          errors.push({ phone, erro: errMsg });
+          waDebug({
+            step: 'reconcile_phone_error',
+            phoneSuffix4: phone.length >= 4 ? phone.slice(-4) : '',
+            erro: errMsg,
+          });
         }
       }
+
+      waDebug({
+        step: 'reconcile_done',
+        pages,
+        conversations_updated: conversationsUpdated,
+        conversations_created: conversationsCreated,
+        messages_merged: messagesMerged,
+        errorsCount: errors.length,
+      });
 
       return res.status(200).json({
         sucesso: true,
@@ -718,6 +811,18 @@ export default async function handler(req, res) {
           erro: 'Seu plano Zapster permite sincronizar apenas as últimas 24h de mensagens. As mensagens mais recentes ainda foram importadas.'
         });
       }
+      console.error('[api/whatsapp] reconcile falhou', {
+        academyId,
+        instanceId: String(instanceId || '').slice(0, 8) + '…',
+        erro: e?.message || String(e),
+        zapsterCode: e?.zapsterCode
+      });
+      waDebug({
+        step: 'reconcile_error',
+        erro: e?.message || String(e),
+        zapsterCode: e?.zapsterCode,
+        stack: String(e?.stack || '').slice(0, 1200),
+      });
       return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao atualizar' });
     }
   }
