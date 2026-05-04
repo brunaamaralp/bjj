@@ -1159,8 +1159,8 @@ export default function Inbox() {
     if (!reset && (!hasMore || loadingMore || loading)) return;
     if (!silent) setError('');
     loadingListRef.current = true;
-    if (reset) setLoading(true);
-    else setLoadingMore(true);
+    if (reset && !silent) setLoading(true);
+    else if (!reset) setLoadingMore(true);
     try {
       const jwt = await getJwt();
       const qs = new URLSearchParams();
@@ -1247,8 +1247,8 @@ export default function Inbox() {
       if (!silent) setError(e?.message || 'Erro');
     } finally {
       loadingListRef.current = false;
-      if (reset) setLoading(false);
-      else setLoadingMore(false);
+      if (reset && !silent) setLoading(false);
+      else if (!reset) setLoadingMore(false);
     }
   }
 
@@ -1407,73 +1407,93 @@ export default function Inbox() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // DEBUG ─────────────────────────────────────────────────────────────────
-    console.group('[Inbox Realtime] setup');
-    console.log('DB_ID:', DB_ID || '⚠️ VAZIO');
-    console.log('CONVERSATIONS_COL:', CONVERSATIONS_COL || '⚠️ VAZIO');
-    console.log('academyId no momento do mount:', academyIdRef.current || '⚠️ VAZIO');
-    // ────────────────────────────────────────────────────────────────────────
+    const devLog = import.meta.env.DEV
+      ? (...args) => {
+          console.log(...args);
+        }
+      : () => {};
 
     if (!DB_ID || !CONVERSATIONS_COL) {
-      console.warn('[Inbox Realtime] ❌ DB_ID ou CONVERSATIONS_COL vazio — subscription NÃO criada');
-      console.groupEnd();
+      if (import.meta.env.DEV) {
+        console.warn('[Inbox Realtime] DB_ID ou CONVERSATIONS_COL vazio — subscription não criada');
+      }
       return;
     }
 
     const channel = `databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`;
-    console.log('[Inbox Realtime] canal:', channel);
-    console.groupEnd();
-    // ────────────────────────────────────────────────────────────────────────
+    if (import.meta.env.DEV) {
+      console.group('[Inbox Realtime] setup');
+      devLog('DB_ID:', DB_ID);
+      devLog('CONVERSATIONS_COL:', CONVERSATIONS_COL);
+      devLog('academyId (ref):', academyIdRef.current || '(vazio)');
+      devLog('canal:', channel);
+      console.groupEnd();
+    }
 
-    let unsub = null;
-    try {
-      unsub = realtime.subscribe(channel, (ev) => {
-        const payload = ev && typeof ev === 'object' ? ev.payload : null;
-        const academy = payload && typeof payload === 'object' ? String(payload.academy_id || payload.academyId || '').trim() : '';
-        const expected = String(academyIdRef.current || '').trim();
-        const phone = payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
-        const selectedNow = String(selectedPhoneRef.current || '').trim();
+    let cancelled = false;
+    let subscription = null;
 
-        // DEBUG ───────────────────────────────────────────────────────────────
-        console.group('[Inbox Realtime] evento recebido');
-        console.log('events:', ev?.events);
-        console.log('phone no payload:', phone || '(vazio)');
-        console.log('academy no payload:', academy || '(vazio)', '| esperado:', expected || '(vazio)');
-        console.log('academy match:', !academy || !expected || academy === expected ? '✅ ok' : '❌ descartado');
-        console.log('loadListRef ok:', typeof loadListRef.current === 'function' ? '✅' : '❌ null');
+    const onRealtimeEvent = (ev) => {
+      const payload = ev && typeof ev === 'object' ? ev.payload : null;
+      const academy =
+        payload && typeof payload === 'object'
+          ? String(payload.academy_id ?? payload.academyId ?? '').trim()
+          : '';
+      const expected = String(academyIdRef.current || '').trim();
+      const phone =
+        payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
+      const selectedNow = String(selectedPhoneRef.current || '').trim();
+
+      if (import.meta.env.DEV) {
+        console.group('[Inbox Realtime] evento');
+        devLog('events:', ev?.events);
+        devLog('phone:', phone || '(vazio)');
+        devLog('academy payload:', academy || '(vazio)', '| esperado:', expected || '(vazio)');
         console.groupEnd();
-        // ─────────────────────────────────────────────────────────────────────
+      }
 
-        if (academy && expected && academy !== expected) return;
+      if (academy && expected && academy !== expected) return;
 
-        if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
-        realtimeTimersRef.current.list = setTimeout(() => {
-          const fn = loadListRef.current;
-          if (typeof fn === 'function') fn({ reset: true, silent: true });
+      if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
+      realtimeTimersRef.current.list = setTimeout(() => {
+        const fn = loadListRef.current;
+        if (typeof fn === 'function') void fn({ reset: true, silent: true });
+      }, 250);
+
+      if (phone && selectedNow && phone === selectedNow) {
+        if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
+        realtimeTimersRef.current.thread = setTimeout(() => {
+          const fn = loadThreadRef.current;
+          if (typeof fn === 'function') void fn(phone, { silent: true });
         }, 250);
+      }
+    };
 
-        if (phone && selectedNow && phone === selectedNow) {
-          if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
-          realtimeTimersRef.current.thread = setTimeout(() => {
-            const fn = loadThreadRef.current;
-            if (typeof fn === 'function') fn(phone, { silent: true });
-          }, 250);
+    void realtime
+      .subscribe(channel, onRealtimeEvent)
+      .then((sub) => {
+        if (cancelled) {
+          void sub?.close?.();
+          return;
+        }
+        subscription = sub;
+        setRealtimeOn(true);
+        if (import.meta.env.DEV) {
+          devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          console.error('[Inbox Realtime] falha ao subscrever:', e);
+          setRealtimeOn(false);
         }
       });
 
-      // DEBUG ─────────────────────────────────────────────────────────────────
-      console.log('[Inbox Realtime] ✅ subscrito com sucesso. unsub:', typeof unsub);
-      // ────────────────────────────────────────────────────────────────────────
-
-      setRealtimeOn(true);
-    } catch (e) {
-      // DEBUG ─────────────────────────────────────────────────────────────────
-      console.error('[Inbox Realtime] ❌ falhou ao subscrever:', e);
-      // ────────────────────────────────────────────────────────────────────────
-      setRealtimeOn(false);
-    }
     return () => {
-      console.log('[Inbox Realtime] desmontando / limpando subscription');
+      cancelled = true;
+      if (import.meta.env.DEV) {
+        devLog('[Inbox Realtime] cleanup');
+      }
       try {
         if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
         if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
@@ -1481,13 +1501,26 @@ export default function Inbox() {
         void 0;
       }
       try {
-        if (unsub && typeof unsub === 'function') unsub();
-        if (unsub && typeof unsub.unsubscribe === 'function') unsub.unsubscribe();
+        if (subscription && typeof subscription.close === 'function') void subscription.close();
       } catch {
         void 0;
       }
       setRealtimeOn(false);
     };
+  }, []);
+
+  /** Fallback: Realtime pode não entregar eventos (SDK/protocolo, permissões ou payload). */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!DB_ID || !CONVERSATIONS_COL) return;
+    const POLL_MS = 28000;
+    const tick = () => {
+      if (!academyIdRef.current) return;
+      const fn = loadListRef.current;
+      if (typeof fn === 'function') void fn({ reset: true, silent: true });
+    };
+    const id = window.setInterval(tick, POLL_MS);
+    return () => window.clearInterval(id);
   }, []);
 
   async function setHandoffActive(ativo, { silent = false } = {}) {
