@@ -15,7 +15,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
-import { maskCPF } from '../lib/masks.js';
+import { maskCPF, maskPhone } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
@@ -90,6 +90,7 @@ const STUDENT_DATA_FIELDS = [
     { key: 'plan', label: 'Plano', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
     { key: 'enrollmentDate', label: 'Ingresso', type: 'date', placeholder: '' },
     { key: 'birthDate', label: 'Nascimento', type: 'date', placeholder: '' },
+    { key: 'phone', label: 'Telefone (WhatsApp)', type: 'tel', placeholder: '(00) 00000-0000' },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
     { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
 ];
@@ -211,6 +212,7 @@ export default function StudentProfile() {
         plan: '',
         enrollmentDate: '',
         birthDate: '',
+        phone: '',
         cpf: '',
         responsavel: '',
         emergencyContact: '',
@@ -281,6 +283,7 @@ export default function StudentProfile() {
             plan: student.plan || '',
             enrollmentDate: student.enrollmentDate || '',
             birthDate: student.birthDate || '',
+            phone: maskPhone(String(student.phone || '')),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
@@ -539,6 +542,7 @@ export default function StudentProfile() {
             plan: student.plan || '',
             enrollmentDate: student.enrollmentDate || '',
             birthDate: student.birthDate || '',
+            phone: maskPhone(String(student.phone || '')),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
@@ -556,6 +560,7 @@ export default function StudentProfile() {
             await updateLead(leadId, {
                 ...dataForm,
                 cpf: String(dataForm.cpf || '').replace(/\D/g, ''),
+                phone: String(dataForm.phone || '').replace(/\D/g, ''),
             });
             setEditingData(false);
             addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
@@ -792,6 +797,9 @@ export default function StudentProfile() {
             const s = String(raw ?? '').replace(/\D/g, '');
             return s ? maskCPF(s) : '';
         }
+        if (key === 'phone') {
+            return formatPhone(raw) || '';
+        }
         if (key === 'preferredPaymentMethod') {
             const v = String(raw ?? '').trim();
             return v ? METHOD_PAYMENT_LABELS[v] || v : '';
@@ -883,7 +891,9 @@ export default function StudentProfile() {
                     disabled={savingData}
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => {
-                        const v = field.key === 'cpf' ? maskCPF(e.target.value) : e.target.value;
+                        let v = e.target.value;
+                        if (field.key === 'cpf') v = maskCPF(e.target.value);
+                        else if (field.key === 'phone') v = maskPhone(e.target.value);
                         setDataForm((p) => ({ ...p, [field.key]: v }));
                     }}
                     style={dataFormInputStyle}
