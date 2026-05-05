@@ -9,9 +9,10 @@ import client from './lib/appwrite'
 
 client.ping();
 
-registerSW({
+const updateSW = registerSW({
   onNeedRefresh() {
-    // Nova versão disponível — atualiza automaticamente
+    // Garante troca imediata do SW para evitar ficar preso em bundle antigo.
+    void updateSW(true);
   },
   onOfflineReady() {
     console.log('Nave pronto para uso.');

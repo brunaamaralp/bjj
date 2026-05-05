@@ -15,12 +15,12 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         workbox: {
           maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB — bundle atual é ~2.1 MB
           cleanupOutdatedCaches: true,
-          clientsClaim: false,
-          skipWaiting: false,
+          clientsClaim: true,
+          skipWaiting: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
