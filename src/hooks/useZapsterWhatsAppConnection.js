@@ -330,7 +330,18 @@ export function useZapsterWhatsAppConnection(academyId) {
         if (isZapsterTokenMissingPayload(delData)) setWaTokenMissing(true);
         throw new Error(normalizeApiError(raw, String(delData.erro || '').trim() || 'Falha ao desconectar'));
       }
-      useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo desconectado' });
+      const removed = delData?.removido !== false;
+      const unlinked = delData?.vinculo_limpo !== false;
+      if (!removed) {
+        useUiStore.getState().addToast({
+          type: 'warning',
+          message: unlinked
+            ? 'Instância já não existia na Zapster, mas o vínculo local foi limpo.'
+            : 'Não foi possível remover a instância. Tente novamente.'
+        });
+      } else {
+        useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo desconectado' });
+      }
       setWaPersistFailed(false);
       setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
       setWaTokenMissing(false);
