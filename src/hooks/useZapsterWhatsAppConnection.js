@@ -443,10 +443,18 @@ export function useZapsterWhatsAppConnection(academyId) {
    * @param {((data: object) => void | Promise<void>)|undefined} afterSuccess — ex.: recarregar lista no Inbox
    */
   const reconcileWhatsAppHistory = useCallback(async (afterSuccess) => {
-    if (!academyIdRef.current) return;
+    const debugOn = inboxDebugEnabled();
+    if (!academyIdRef.current) {
+      const message = 'Não foi possível sincronizar: academia não identificada.';
+      if (debugOn) {
+        console.warn('[Inbox Reconcile] aborted: academyId vazio');
+      }
+      useUiStore.getState().addToast({ type: 'error', message });
+      setConnectionError(message);
+      return;
+    }
     setConnectionError('');
     setWaSyncing(true);
-    const debugOn = inboxDebugEnabled();
     try {
       if (debugOn) {
         console.log('[Inbox Reconcile] start', { academyId: String(academyIdRef.current || '').trim() });

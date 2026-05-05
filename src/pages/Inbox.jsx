@@ -842,7 +842,15 @@ export default function Inbox() {
   }
 
   async function reconcileLast24h() {
-    if (!academyIdRef.current) return;
+    if (!academyIdRef.current) {
+      const message = 'Não foi possível sincronizar: academia não identificada.';
+      addToast({ type: 'error', message });
+      setError(message);
+      if (isInboxDebugEnabled()) {
+        console.warn('[Inbox Realtime] atualizar chat abortado: academyId vazio');
+      }
+      return;
+    }
     setError('');
     const inboxDebugEnabled = isInboxDebugEnabled();
     if (inboxDebugEnabled) {
