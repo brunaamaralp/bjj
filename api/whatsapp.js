@@ -63,6 +63,26 @@ function waDebug(obj) {
   }
 }
 
+function normalizePhone(v) {
+  const raw = String(v || '').trim();
+  if (!raw) return '';
+  return raw.replace(/[^\d]/g, '');
+}
+
+function normalizePhoneForWaMe(v) {
+  let d = normalizePhone(v);
+  if (!d) return '';
+  if (d.startsWith('55') && d.length >= 12) return d;
+  if (d.length >= 10 && d.length <= 11) return `55${d}`;
+  return d;
+}
+
+function buildWaMeUrl(phone, text) {
+  const digits = normalizePhoneForWaMe(phone);
+  if (!digits) return '';
+  return `https://wa.me/${digits}?text=${encodeURIComponent(String(text || ''))}`;
+}
+
 
 function safeParseMessages(raw) {
   if (!raw) return [];
@@ -508,29 +528,30 @@ async function zapsterCancelMessage(id) {
 }
 
 export default async function handler(req, res) {
-  if (!ensureConfigOk(res)) return;
+  try {
+    if (!ensureConfigOk(res)) return;
 
-  const action = String(req.query?.action || '').trim().toLowerCase();
-  if (!action) {
-    res.setHeader('Allow', 'POST, DELETE');
-    return res.status(400).json({ sucesso: false, erro: 'action ausente' });
-  }
+    const action = String(req.query?.action || '').trim().toLowerCase();
+    if (!action) {
+      res.setHeader('Allow', 'POST, DELETE');
+      return res.status(400).json({ sucesso: false, erro: 'action ausente' });
+    }
 
-  const me = await ensureAuth(req, res);
-  if (!me) return;
-  const access = await ensureAcademyAccess(req, res, me);
-  if (!access) return;
-  const { doc: academyDoc, academyId } = access;
+    const me = await ensureAuth(req, res);
+    if (!me) return;
+    const access = await ensureAcademyAccess(req, res, me);
+    if (!access) return;
+    const { doc: academyDoc, academyId } = access;
 
-  waDebug({
-    step: 'request',
-    method: req.method,
-    action,
-    academyId: String(academyId || '').trim(),
-    url: String(req.url || '').slice(0, 200),
-  });
+    waDebug({
+      step: 'request',
+      method: req.method,
+      action,
+      academyId: String(academyId || '').trim(),
+      url: String(req.url || '').slice(0, 200),
+    });
 
-  if (action === 'send') {
+    if (action === 'send') {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
@@ -653,7 +674,7 @@ export default async function handler(req, res) {
     }
   }
 
-  if (action === 'reconcile') {
+    if (action === 'reconcile') {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
@@ -827,7 +848,7 @@ export default async function handler(req, res) {
     }
   }
 
-  if (action === 'cancel') {
+    if (action === 'cancel') {
     if (!(req.method === 'POST' || req.method === 'DELETE')) {
       res.setHeader('Allow', 'POST, DELETE');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
@@ -892,8 +913,15 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', 'POST, DELETE');
-  return res.status(400).json({ sucesso: false, erro: 'action inválida' });
+    res.setHeader('Allow', 'POST, DELETE');
+    return res.status(400).json({ sucesso: false, erro: 'action inválida' });
+  } catch (e) {
+    console.error('[api/whatsapp] unhandled error', {
+      erro: e?.message || String(e),
+      stack: String(e?.stack || '').slice(0, 2000)
+    });
+    return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+  }
 }
 
 

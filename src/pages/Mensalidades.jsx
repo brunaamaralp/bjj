@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { account, databases, DB_ID, FINANCIAL_TX_COL } from '../lib/appwrite';
@@ -122,6 +123,15 @@ export default function Mensalidades() {
   const [payForm, setPayForm] = useState({});
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [nlOpen, setNlOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showModal || typeof document === 'undefined') return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showModal]);
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -760,37 +770,34 @@ export default function Mensalidades() {
         </table>
       </div>
 
-      {showModal && selectedStudent && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="mensalidades-modal-title"
-          onClick={() => {
-            if (!savingPayment) setShowModal(false);
-          }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--surface, #fff)',
-              borderRadius: 14,
-              padding: 24,
-              width: '100%',
-              maxWidth: 400,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-              boxSizing: 'border-box',
-            }}
-          >
+      {showModal && selectedStudent && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="navi-modal-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mensalidades-modal-title"
+              onClick={() => {
+                if (!savingPayment) setShowModal(false);
+              }}
+              style={{
+                zIndex: 2500,
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: 'var(--surface, #fff)',
+                  borderRadius: 14,
+                  padding: 24,
+                  width: '100%',
+                  maxWidth: 400,
+                  maxHeight: 'calc(100vh - 32px)',
+                  overflowY: 'auto',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
+                  boxSizing: 'border-box',
+                }}
+              >
             <h3
               id="mensalidades-modal-title"
               style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: 'var(--text-primary, var(--text))' }}
@@ -912,9 +919,11 @@ export default function Mensalidades() {
                 {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
       <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} recentPayments={recentPaymentsForNl} />
     </div>
   );
