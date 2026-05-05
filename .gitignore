@@ -17,6 +17,7 @@ dist-ssr
 # Scripts locais (migrações); exceção: migração versionada para alinhar status ↔ pipeline_stage
 scripts/*
 !scripts/fix-lead-stage-sync.js
+!scripts/migrateLeadTypeKidsToCrianca.js
 
 # Editor directories and files
 .vscode/*

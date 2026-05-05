@@ -21,6 +21,7 @@ import { maskPhone } from '../lib/masks.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
+import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -536,7 +537,7 @@ const LeadProfile = () => {
         setForm({
             name: src.name || '',
             phone: maskPhone(src.phone || ''),
-            type: src.type || 'Adulto',
+            type: normalizeLeadProfileType(src.type || 'Adulto') || 'Adulto',
             origin: src.origin || '',
             parentName: src.parentName || '',
             age: src.age || '',

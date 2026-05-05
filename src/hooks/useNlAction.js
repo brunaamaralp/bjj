@@ -6,6 +6,7 @@ import { createExpenseTransaction } from '../lib/financeExpense';
 import { createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js';
 import { sanitizeStudentUpdatesForNl } from '../../lib/studentNlUpdates.js';
+import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { sanitizePaymentUpdatesForNl } from '../../lib/paymentNlUpdates.js';
 import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 import { addLeadEvent } from '../lib/leadEvents';
@@ -477,7 +478,7 @@ export function useNlAction() {
         const phone = String(d.phone || d.lead_phone || '').replace(/\D/g, '');
         if (!name || name.length < 2) throw new Error('Nome do lead inválido.');
         if (!phone || phone.length < 10) throw new Error('Telefone inválido.');
-        const typ = String(d.type || '').trim();
+        const typ = normalizeLeadProfileType(String(d.type || '').trim());
         const typeFinal = CREATE_LEAD_TYPES.has(typ) ? typ : 'Adulto';
         const out = await addLead({
           name,

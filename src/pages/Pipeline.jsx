@@ -10,6 +10,7 @@ import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
+import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
@@ -344,7 +345,7 @@ const leadMatchesProfileFilter = (lead, profileFilter) => {
     if (profileFilter === 'all') return true;
     const t = String(lead?.type || 'Adulto').trim();
     if (profileFilter === 'Adulto') return t === 'Adulto';
-    if (profileFilter === 'Criança') return t === 'Criança';
+    if (profileFilter === 'Criança') return isCriancaProfileType(t);
     if (profileFilter === 'Juniores') return t === 'Juniores';
     return true;
 };

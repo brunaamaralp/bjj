@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
+import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -77,7 +78,9 @@ const Students = () => {
                     (q && String(s.name || '').toLowerCase().includes(q)) ||
                     (q && String(s.type || '').toLowerCase().includes(q));
 
-                const matchTipo = filtroTipo === 'Todos' || s.type === filtroTipo;
+                const matchTipo =
+                    filtroTipo === 'Todos'
+                    || (filtroTipo === 'Criança' ? isCriancaProfileType(s.type) : s.type === filtroTipo);
                 const matchOrigem = filtroOrigem === 'Todas' || s.origin === filtroOrigem;
 
                 return matchBusca && matchTipo && matchOrigem;
@@ -154,7 +157,7 @@ const Students = () => {
             const created = await addLead({
                 name,
                 phone: cleanPhone,
-                type: newStudent.type || 'Adulto',
+                type: normalizeLeadProfileType(newStudent.type || 'Adulto') || 'Adulto',
                 origin: newStudent.origin || 'Cadastro manual',
                 parentName: String(newStudent.parentName || '').trim(),
                 age: String(newStudent.age || '').trim(),
@@ -212,7 +215,7 @@ const Students = () => {
             const data = allStudents.map(l => ({
                 'Nome': l.name || '',
                 'Telefone': l.phone || '',
-                'Tipo': l.type || '',
+                'Tipo': normalizeLeadProfileType(l.type) || l.type || '',
                 'Origem': l.origin || '',
                 'Status': l.status || '',
                 'Plano': l.plan || '',
@@ -309,7 +312,6 @@ const Students = () => {
                                 <option value="Adulto">Adulto</option>
                                 <option value="Criança">Criança</option>
                                 <option value="Juniores">Juniores</option>
-                                <option value="Kids">Kids</option>
                             </select>
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
                                 <option value="Todas">Todas as origens</option>
@@ -433,7 +435,7 @@ const Students = () => {
                                 }}
                             >
                                 <span>{s.name}</span>
-                                <span style={{ color: '#9A3412', opacity: 0.7 }}>{s.type}</span>
+                                <span style={{ color: '#9A3412', opacity: 0.7 }}>{normalizeLeadProfileType(s.type) || s.type}</span>
                             </div>
                         ))}
                     </div>
@@ -552,7 +554,7 @@ const Students = () => {
                                     >
                                         <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
                                         <p className="text-small" style={{ margin: 0 }}>
-                                            {[student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
+                                            {[normalizeLeadProfileType(student.type) || student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
                                         </p>
                                         {(student.plan || student.enrollmentDate) && (
                                             <div className="student-card-meta" style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -669,7 +671,6 @@ const Students = () => {
                                     <option value="Adulto">Adulto</option>
                                     <option value="Criança">Criança</option>
                                     <option value="Juniores">Juniores</option>
-                                    <option value="Kids">Kids</option>
                                 </select>
                             </label>
                             <label>

@@ -66,7 +66,13 @@ export default async function handler(req, res) {
 
     const baseQueries = [Query.equal('academyId', academyId)];
     if (filters?.origin && filters.origin !== 'all') baseQueries.push(Query.equal('origin', filters.origin));
-    if (filters?.type && filters.type !== 'all') baseQueries.push(Query.equal('type', filters.type));
+    if (filters?.type && filters.type !== 'all') {
+      if (filters.type === 'Criança') {
+        baseQueries.push(Query.or([Query.equal('type', 'Criança'), Query.equal('type', 'Kids')]));
+      } else {
+        baseQueries.push(Query.equal('type', filters.type));
+      }
+    }
 
     const allLeads = await fetchAll(baseQueries);
 

@@ -404,13 +404,14 @@ const Dashboard = () => {
             ) : (() => {
                 const startOfWeek = (d) => { const dd = new Date(d); const day = dd.getDay(); const diff = (day + 6) % 7; dd.setDate(dd.getDate()-diff); dd.setHours(0,0,0,0); return dd; };
                 const endOfWeek = (d) => { const dd = startOfWeek(d); dd.setDate(dd.getDate()+6); dd.setHours(23,59,59,999); return dd; };
-                const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
-                const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
                 const parseYMD = (s) => { if (!s) return null; const [Y,M,D] = s.split('-').map(Number); return new Date(Y,(M||1)-1,D||1); };
                 const inRange = (ts,a,b) => { if (!ts) return false; const t = new Date(ts).getTime(); return t>=a.getTime() && t<=b.getTime(); };
                 const now = new Date();
-                const mFrom = startOfMonth(now), mTo = endOfMonth(now);
-                const pmFrom = startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), pmTo = endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1));
+                const today = now.getDate();
+                const mFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+                const mTo = new Date(now.getFullYear(), now.getMonth(), today, 23, 59, 59);
+                const pmFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const pmTo = new Date(now.getFullYear(), now.getMonth() - 1, today, 23, 59, 59);
                 const wFrom = startOfWeek(now), wTo = endOfWeek(now);
                 const pwFrom = new Date(wFrom); pwFrom.setDate(pwFrom.getDate()-7);
                 const pwTo = new Date(wTo); pwTo.setDate(pwTo.getDate()-7);
@@ -441,19 +442,22 @@ const Dashboard = () => {
                         title: 'Novos leads no mês',
                         cur: newLeadsCur,
                         var: pctVar(newLeadsCur, newLeadsPrev),
-                        trendTitle: 'Comparado com o mês civil anterior (novos leads criados no período).',
+                        trendTitle: 'Comparado com o mesmo período do mês anterior (novos leads criados no período).',
+                        trendHint: 'vs. mesmo período do mês anterior',
                     },
                     {
                         title: 'Aulas agendadas (semana)',
                         cur: schedCur,
                         var: pctVar(schedCur, schedPrev),
                         trendTitle: 'Comparado com o intervalo de 7 dias imediatamente anterior (mesma lógica de “semana” do card).',
+                        trendHint: 'vs. período anterior',
                     },
                     {
                         title: 'Matrículas no mês',
                         cur: convCur,
                         var: pctVar(convCur, convPrev),
-                        trendTitle: 'Comparado com o mês civil anterior (matrículas registradas no período).',
+                        trendTitle: 'Comparado com o mesmo período do mês anterior (matrículas registradas no período).',
+                        trendHint: 'vs. mesmo período do mês anterior',
                     },
                 ];
                 return (
@@ -470,7 +474,7 @@ const Dashboard = () => {
                                             {up && c.var > 0 ? '+' : ''}
                                             {c.var}%
                                         </span>
-                                        <span className="agenda-kpi-trend-hint" title={c.trendTitle}>vs. período anterior</span>
+                                        <span className="agenda-kpi-trend-hint" title={c.trendTitle}>{c.trendHint}</span>
                                     </div>
                                 </div>
                             );

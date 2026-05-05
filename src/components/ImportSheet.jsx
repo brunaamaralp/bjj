@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
+import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 
 const COLUMN_MAP = {
     'nome': 'name',
@@ -92,6 +93,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
                     });
                     // Apply defaults
                     if (!obj.type) obj.type = 'Adulto';
+                    obj.type = normalizeLeadProfileType(obj.type) || obj.type;
                     if (!obj.origin) obj.origin = 'Planilha';
                     if (defaultStatus) obj.status = defaultStatus;
                     return obj;
