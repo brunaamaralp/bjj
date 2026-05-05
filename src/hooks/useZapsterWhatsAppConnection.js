@@ -134,6 +134,27 @@ export function useZapsterWhatsAppConnection(academyId) {
     setWaLoading(true);
     try {
       const jwt = await getJwt();
+      // Fluxo ideal: antes de criar nova instância, tenta recuperar vínculo existente.
+      try {
+        const { blocked: recoverBlocked, res: recoverResp } = await fetchWithBillingGuard('/api/zapster/instances?action=recover', {
+          headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
+        });
+        if (recoverBlocked) return;
+        const recoverRaw = await recoverResp.text();
+        const recoverData = safeParseJson(recoverRaw) || {};
+        if (recoverResp.ok && (recoverData.recovered || recoverData.already_linked)) {
+          setWaPersistFailed(false);
+          await fetchWaInfo({ silent: true });
+          useUiStore.getState().addToast({
+            type: 'success',
+            message: recoverData.recovered ? 'Instância existente recuperada com sucesso!' : 'Instância já estava vinculada.'
+          });
+          return;
+        }
+      } catch {
+        // Se recover falhar por rede/serviço, segue para tentativa de criação.
+      }
+
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
         method: 'POST',
         headers: {
@@ -185,7 +206,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     } finally {
       setWaLoading(false);
     }
-  }, []);
+  }, [fetchWaInfo]);
 
   const revealWaQrCode = useCallback(() => {
     if (!academyIdRef.current) return;
