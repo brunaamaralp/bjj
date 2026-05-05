@@ -1407,21 +1407,24 @@ export default function Inbox() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const devLog = import.meta.env.DEV
+    const inboxDebugEnabled =
+      import.meta.env.DEV ||
+      ['1', 'true', 'yes'].includes(String(import.meta.env.VITE_INBOX_DEBUG || '').trim().toLowerCase());
+    const devLog = inboxDebugEnabled
       ? (...args) => {
           console.log(...args);
         }
       : () => {};
 
     if (!DB_ID || !CONVERSATIONS_COL) {
-      if (import.meta.env.DEV) {
+      if (inboxDebugEnabled) {
         console.warn('[Inbox Realtime] DB_ID ou CONVERSATIONS_COL vazio — subscription não criada');
       }
       return;
     }
 
     const channel = `databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`;
-    if (import.meta.env.DEV) {
+    if (inboxDebugEnabled) {
       console.group('[Inbox Realtime] setup');
       devLog('DB_ID:', DB_ID);
       devLog('CONVERSATIONS_COL:', CONVERSATIONS_COL);
@@ -1444,7 +1447,7 @@ export default function Inbox() {
         payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
       const selectedNow = String(selectedPhoneRef.current || '').trim();
 
-      if (import.meta.env.DEV) {
+      if (inboxDebugEnabled) {
         console.group('[Inbox Realtime] evento');
         devLog('events:', ev?.events);
         devLog('phone:', phone || '(vazio)');
@@ -1478,7 +1481,7 @@ export default function Inbox() {
         }
         subscription = sub;
         setRealtimeOn(true);
-        if (import.meta.env.DEV) {
+        if (inboxDebugEnabled) {
           devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
         }
       })
@@ -1491,7 +1494,7 @@ export default function Inbox() {
 
     return () => {
       cancelled = true;
-      if (import.meta.env.DEV) {
+      if (inboxDebugEnabled) {
         devLog('[Inbox Realtime] cleanup');
       }
       try {
