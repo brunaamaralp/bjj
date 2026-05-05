@@ -4068,13 +4068,13 @@ export default function Inbox() {
             />
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
               <button
-                className="btn btn-outline"
+                className="btn btn-primary"
                 style={{ padding: '6px 10px', minHeight: 34 }}
-                onClick={() => loadList({ reset: true })}
-                disabled={loading}
+                onClick={reconcileLast24h}
+                disabled={waSyncing}
                 type="button"
               >
-                Atualizar
+                {waSyncing ? 'Sincronizando…' : 'Sincronizar WhatsApp'}
               </button>
 <button
                 className={desktopNotify ? 'btn btn-secondary' : 'btn btn-outline'}
