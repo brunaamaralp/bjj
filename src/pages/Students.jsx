@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Download } from 'lucide-react';
+import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
@@ -39,7 +39,7 @@ const Students = () => {
     const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
-    const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId } = useLeadStore();
+    const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId, addLead } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
@@ -49,9 +49,19 @@ const Students = () => {
     const [filtroOrigem, setFiltroOrigem] = useState('Todas');
     const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
+    const [showCreateStudent, setShowCreateStudent] = useState(false);
     const [listRefreshing, setListRefreshing] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [creatingStudent, setCreatingStudent] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [newStudent, setNewStudent] = useState({
+        name: '',
+        phone: '',
+        type: 'Adulto',
+        origin: LEAD_ORIGIN[0] || 'Cadastro manual',
+        parentName: '',
+        age: '',
+    });
 
     const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student');
 
@@ -116,6 +126,51 @@ const Students = () => {
         } finally {
             setImporting(false);
             setShowImport(false);
+        }
+    };
+
+    const resetNewStudentForm = () => {
+        setNewStudent({
+            name: '',
+            phone: '',
+            type: 'Adulto',
+            origin: LEAD_ORIGIN[0] || 'Cadastro manual',
+            parentName: '',
+            age: '',
+        });
+    };
+
+    const handleCreateStudent = async (e) => {
+        e.preventDefault();
+        if (creatingStudent) return;
+        const name = String(newStudent.name || '').trim();
+        if (!name) {
+            addToast({ type: 'warning', message: 'Informe o nome do aluno.' });
+            return;
+        }
+        setCreatingStudent(true);
+        try {
+            const cleanPhone = normalizePhone(newStudent.phone);
+            const created = await addLead({
+                name,
+                phone: cleanPhone,
+                type: newStudent.type || 'Adulto',
+                origin: newStudent.origin || 'Cadastro manual',
+                parentName: String(newStudent.parentName || '').trim(),
+                age: String(newStudent.age || '').trim(),
+                status: LEAD_STATUS.CONVERTED,
+                contact_type: 'student',
+                pipelineStage: 'Matriculado',
+                enrollmentDate: new Date().toISOString().slice(0, 10),
+            });
+            addToast({ type: 'success', message: 'Aluno cadastrado com sucesso.' });
+            setShowCreateStudent(false);
+            resetNewStudentForm();
+            if (created?.id) navigate(`/student/${created.id}`);
+        } catch (err) {
+            addToast({ type: 'error', message: err?.message || 'Erro ao cadastrar aluno.' });
+        } finally {
+            setCreatingStudent(false);
         }
     };
 
@@ -239,6 +294,9 @@ const Students = () => {
                             title={exportTooltip}
                         >
                             <Download size={14} /> {exporting ? 'Exportando...' : 'Exportar'}
+                        </button>
+                        <button type="button" className="btn-action-ghost" onClick={() => setShowCreateStudent(true)}>
+                            <UserPlus size={14} /> Cadastrar aluno
                         </button>
                         <button type="button" className="btn-action-primary" onClick={() => setShowImport(true)}>
                             <Upload size={14} /> Importar
@@ -563,6 +621,112 @@ const Students = () => {
                 importing={importing}
             />
 
+            {showCreateStudent ? (
+                <div className="students-create-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowCreateStudent(false)}>
+                    <form className="students-create-modal" onSubmit={handleCreateStudent} onMouseDown={(e) => e.stopPropagation()}>
+                        <div className="students-create-head">
+                            <h3>Cadastrar aluno</h3>
+                            <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => {
+                                    if (creatingStudent) return;
+                                    setShowCreateStudent(false);
+                                }}
+                                aria-label="Fechar cadastro de aluno"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        <div className="students-create-grid">
+                            <label>
+                                Nome*
+                                <input
+                                    type="text"
+                                    value={newStudent.name}
+                                    onChange={(e) => setNewStudent((prev) => ({ ...prev, name: e.target.value }))}
+                                    placeholder="Ex: João Silva"
+                                    required
+                                    autoFocus
+                                />
+                            </label>
+                            <label>
+                                Telefone
+                                <input
+                                    type="tel"
+                                    value={newStudent.phone}
+                                    onChange={(e) => setNewStudent((prev) => ({ ...prev, phone: e.target.value }))}
+                                    placeholder="(11) 99999-0000"
+                                />
+                            </label>
+                            <label>
+                                Perfil
+                                <select
+                                    value={newStudent.type}
+                                    onChange={(e) => setNewStudent((prev) => ({ ...prev, type: e.target.value }))}
+                                >
+                                    <option value="Adulto">Adulto</option>
+                                    <option value="Criança">Criança</option>
+                                    <option value="Juniores">Juniores</option>
+                                    <option value="Kids">Kids</option>
+                                </select>
+                            </label>
+                            <label>
+                                Origem
+                                <select
+                                    value={newStudent.origin}
+                                    onChange={(e) => setNewStudent((prev) => ({ ...prev, origin: e.target.value }))}
+                                >
+                                    {LEAD_ORIGIN.map((o) => (
+                                        <option key={o} value={o}>{o}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            {(newStudent.type === 'Criança' || newStudent.type === 'Juniores') ? (
+                                <>
+                                    <label>
+                                        Responsável
+                                        <input
+                                            type="text"
+                                            value={newStudent.parentName}
+                                            onChange={(e) => setNewStudent((prev) => ({ ...prev, parentName: e.target.value }))}
+                                            placeholder="Ex: Maria Silva"
+                                        />
+                                    </label>
+                                    <label>
+                                        Idade
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newStudent.age}
+                                            onChange={(e) => setNewStudent((prev) => ({ ...prev, age: e.target.value }))}
+                                            placeholder="Ex: 10"
+                                        />
+                                    </label>
+                                </>
+                            ) : null}
+                        </div>
+
+                        <div className="students-create-actions">
+                            <button
+                                type="button"
+                                className="btn-action-ghost"
+                                onClick={() => {
+                                    if (creatingStudent) return;
+                                    setShowCreateStudent(false);
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button type="submit" className="btn-action-primary" disabled={creatingStudent}>
+                                {creatingStudent ? 'Salvando...' : 'Salvar aluno'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            ) : null}
+
             <style dangerouslySetInnerHTML={{
                 __html: `
         @keyframes studentsSkeletonShimmer {
@@ -820,6 +984,76 @@ const Students = () => {
         }
         .students-load-more:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
         .students-load-more:disabled { opacity: 0.6; cursor: not-allowed; }
+        .students-create-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3000;
+          padding: 16px;
+        }
+        .students-create-modal {
+          width: min(640px, 100%);
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          box-shadow: var(--shadow);
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .students-create-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .students-create-head h3 {
+          margin: 0;
+          font-size: 1rem;
+          color: var(--text);
+        }
+        .students-create-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .students-create-grid label {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 0.78rem;
+          color: var(--text-secondary);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .students-create-grid input,
+        .students-create-grid select {
+          height: 40px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 0 10px;
+          color: var(--text);
+          background: var(--surface);
+          font-size: 0.9rem;
+          font-weight: 500;
+          text-transform: none;
+          letter-spacing: normal;
+        }
+        .students-create-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        @media (max-width: 640px) {
+          .students-create-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}} />
         </div>
     );
