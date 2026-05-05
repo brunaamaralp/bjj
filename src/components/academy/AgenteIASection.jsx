@@ -1140,11 +1140,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     <button type="button" className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => void zap.fetchWaInfo()} disabled={zap.waLoading}>
                                         Atualizar status
                                     </button>
-                                    {zap.waPersistFailed && (
-                                        <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.recoverZapsterInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                            Verificar e corrigir
-                                        </button>
-                                    )}
+                                    <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.recoverZapsterInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
+                                        Verificar e corrigir
+                                    </button>
                                     <button type="button" className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => void zap.reconcileWhatsAppHistory()} disabled={zap.waLoading || zap.waSyncing || zap.waTokenMissing}>
                                         {zap.waSyncing ? 'Sincronizando…' : 'Sincronizar mensagens (24h)'}
                                     </button>
