@@ -35,6 +35,20 @@ function formatPhone(raw) {
   return raw;
 }
 
+function isInboxDebugEnabled() {
+  const envEnabled =
+    import.meta.env.DEV ||
+    ['1', 'true', 'yes'].includes(String(import.meta.env.VITE_INBOX_DEBUG || '').trim().toLowerCase());
+  if (envEnabled) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    const local = String(window.localStorage?.getItem('inbox_debug') || '').trim().toLowerCase();
+    return local === '1' || local === 'true' || local === 'yes';
+  } catch {
+    return false;
+  }
+}
+
 async function getJwt() {
   const jwt = await account.createJWT();
   return String(jwt?.jwt || '').trim();
@@ -830,10 +844,20 @@ export default function Inbox() {
   async function reconcileLast24h() {
     if (!academyIdRef.current) return;
     setError('');
+    const inboxDebugEnabled = isInboxDebugEnabled();
+    if (inboxDebugEnabled) {
+      console.log('[Inbox Realtime] atualizar chat: início', {
+        academyId: String(academyIdRef.current || '').trim(),
+        selectedPhone: String(selectedPhoneRef.current || '').trim(),
+      });
+    }
     await reconcileWhatsAppHistory(async () => {
       await loadList({ reset: true, silent: true });
       const phone = String(selectedPhoneRef.current || '').trim();
       if (phone) await loadThread(phone);
+      if (inboxDebugEnabled) {
+        console.log('[Inbox Realtime] atualizar chat: lista/thread recarregados', { hasSelectedPhone: Boolean(phone) });
+      }
     });
   }
 
@@ -1407,9 +1431,7 @@ export default function Inbox() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const inboxDebugEnabled =
-      import.meta.env.DEV ||
-      ['1', 'true', 'yes'].includes(String(import.meta.env.VITE_INBOX_DEBUG || '').trim().toLowerCase());
+    const inboxDebugEnabled = isInboxDebugEnabled();
     const devLog = inboxDebugEnabled
       ? (...args) => {
           console.log(...args);

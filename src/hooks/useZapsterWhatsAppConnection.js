@@ -31,6 +31,20 @@ function normalizeApiError(raw, fallback) {
   return s;
 }
 
+function inboxDebugEnabled() {
+  const envEnabled =
+    import.meta.env.DEV ||
+    ['1', 'true', 'yes'].includes(String(import.meta.env.VITE_INBOX_DEBUG || '').trim().toLowerCase());
+  if (envEnabled) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    const local = String(window.localStorage?.getItem('inbox_debug') || '').trim().toLowerCase();
+    return local === '1' || local === 'true' || local === 'yes';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Estado e ações Zapster/WhatsApp compartilhadas entre Inbox (só leitura) e Agente IA (QR manual).
  * @param {string} academyId
@@ -432,7 +446,11 @@ export function useZapsterWhatsAppConnection(academyId) {
     if (!academyIdRef.current) return;
     setConnectionError('');
     setWaSyncing(true);
+    const debugOn = inboxDebugEnabled();
     try {
+      if (debugOn) {
+        console.log('[Inbox Reconcile] start', { academyId: String(academyIdRef.current || '').trim() });
+      }
       const jwt = await getJwt();
       const resp = await fetch('/api/whatsapp?action=reconcile', {
         method: 'POST',
@@ -445,6 +463,13 @@ export function useZapsterWhatsAppConnection(academyId) {
       });
       const raw = await resp.text();
       const data = safeParseJson(raw) || {};
+      if (debugOn) {
+        console.log('[Inbox Reconcile] response', {
+          ok: resp.ok,
+          status: resp.status,
+          keys: data && typeof data === 'object' ? Object.keys(data).slice(0, 12) : [],
+        });
+      }
       if (!resp.ok) {
         if (data?.code === 'messages_retention_exceeded' || resp.status === 402) {
           useUiStore.getState().addToast({
@@ -469,6 +494,9 @@ export function useZapsterWhatsAppConnection(academyId) {
         type: 'success',
         message: `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
       });
+      if (debugOn) {
+        console.log('[Inbox Reconcile] success', { updated, created, merged });
+      }
       if (typeof afterSuccess === 'function') {
         try {
           await afterSuccess(data);
@@ -477,6 +505,9 @@ export function useZapsterWhatsAppConnection(academyId) {
         }
       }
     } catch (e) {
+      if (debugOn) {
+        console.error('[Inbox Reconcile] error', e);
+      }
       useUiStore.getState().addToast({ type: 'error', message: e?.message || 'Erro ao atualizar' });
     } finally {
       setWaSyncing(false);
