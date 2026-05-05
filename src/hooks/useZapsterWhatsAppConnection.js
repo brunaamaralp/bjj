@@ -499,12 +499,18 @@ export function useZapsterWhatsAppConnection(academyId) {
       const updated = Number.isFinite(Number(data?.conversations_updated)) ? Number(data.conversations_updated) : 0;
       const created = Number.isFinite(Number(data?.conversations_created)) ? Number(data.conversations_created) : 0;
       const merged = Number.isFinite(Number(data?.messages_merged)) ? Number(data.messages_merged) : 0;
+      const zapsterItems = Number.isFinite(Number(data?.zapster_items)) ? Number(data.zapster_items) : 0;
+      const phones = Number.isFinite(Number(data?.phones)) ? Number(data.phones) : 0;
+      const pages = Number.isFinite(Number(data?.pages)) ? Number(data.pages) : 0;
       useUiStore.getState().addToast({
-        type: 'success',
-        message: `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
+        type: updated > 0 || created > 0 || merged > 0 ? 'success' : 'warning',
+        message:
+          updated > 0 || created > 0 || merged > 0
+            ? `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
+            : `Sincronização sem novas conversas • Zapster: ${zapsterItems} itens • Telefones válidos: ${phones} • Páginas: ${pages}`
       });
       if (debugOn) {
-        console.log('[Inbox Reconcile] success', { updated, created, merged });
+        console.log('[Inbox Reconcile] success', { updated, created, merged, zapsterItems, phones, pages });
       }
       if (typeof afterSuccess === 'function') {
         try {
