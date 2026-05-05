@@ -455,6 +455,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     }
     setConnectionError('');
     setWaSyncing(true);
+    useUiStore.getState().addToast({ type: 'info', message: 'Sincronização iniciada…' });
     try {
       if (debugOn) {
         console.log('[Inbox Reconcile] start', { academyId: String(academyIdRef.current || '').trim() });
