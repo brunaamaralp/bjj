@@ -104,6 +104,11 @@ export default function AgendaCalendarWeek({
     const pad = (n) => String(n).padStart(2, '0');
     const ymdOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+    const dayDatesWithAppointments = dayDates.filter((dayDate) => {
+        const key = ymdOf(dayDate);
+        return (weekLeadsByYmd[key] || []).length > 0;
+    });
+
     return (
         <div className="agenda-week-root">
             <div className="flex items-center justify-between flex-wrap agenda-week-nav" style={{ gap: 10, marginBottom: 14 }}>
@@ -116,29 +121,27 @@ export default function AgendaCalendarWeek({
             </div>
 
             <div ref={weekScrollRef} className="agenda-week-scroll">
-                <div className="agenda-week-grid">
-                    {dayDates.map((dayDate) => {
-                        const key = ymdOf(dayDate);
-                        const colLeads = weekLeadsByYmd[key] || [];
-                        const isToday = key === todayYmd;
-                        const isDenseColumn = colLeads.length >= 6;
+                {dayDatesWithAppointments.length === 0 ? (
+                    <p className="agenda-week-week-empty">Nenhum agendamento nesta semana.</p>
+                ) : (
+                    <div className="agenda-week-grid">
+                        {dayDatesWithAppointments.map((dayDate) => {
+                            const key = ymdOf(dayDate);
+                            const colLeads = weekLeadsByYmd[key] || [];
+                            const isToday = key === todayYmd;
+                            const isDenseColumn = colLeads.length >= 6;
 
-                        return (
-                            <div
-                                key={key}
-                                ref={isToday ? todayColRef : null}
-                                className={`agenda-week-col${isToday ? ' agenda-week-col--today' : ''}${isDenseColumn ? ' agenda-week-col--dense' : ''}`}
-                            >
-                                <div className="agenda-week-col-head">
-                                    <span className="agenda-week-col-head-label">{formatDayHeader(dayDate)}</span>
-                                </div>
-                                <div className="agenda-week-col-body">
-                                    {colLeads.length === 0 ? (
-                                        <div className="agenda-week-empty-wrap">
-                                            <p className="agenda-week-empty">Sem agendamentos</p>
-                                        </div>
-                                    ) : (
-                                        colLeads.map((lead) => {
+                            return (
+                                <div
+                                    key={key}
+                                    ref={isToday ? todayColRef : null}
+                                    className={`agenda-week-col${isToday ? ' agenda-week-col--today' : ''}${isDenseColumn ? ' agenda-week-col--dense' : ''}`}
+                                >
+                                    <div className="agenda-week-col-head">
+                                        <span className="agenda-week-col-head-label">{formatDayHeader(dayDate)}</span>
+                                    </div>
+                                    <div className="agenda-week-col-body">
+                                        {colLeads.map((lead) => {
                                             const modality = String(lead?.type || '').trim();
                                             const attendedSelected = lead?.status === 'Compareceu';
                                             const missedSelected = lead?.status === 'Não Compareceu';
@@ -166,13 +169,13 @@ export default function AgendaCalendarWeek({
                                                     </button>
                                                 </div>
                                             );
-                                        })
-                                    )}
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <style>{`
@@ -250,19 +253,12 @@ export default function AgendaCalendarWeek({
           flex-direction: column;
           gap: 10px;
         }
-        .agenda-week-empty-wrap {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 72px;
-        }
-        .agenda-week-empty {
-          text-align: center;
+        .agenda-week-week-empty {
           margin: 0;
-          font-size: 12px;
+          padding: 20px 4px 8px;
+          font-size: 14px;
           color: var(--text-muted);
-          opacity: 0.9;
+          line-height: 1.45;
         }
         .agenda-week-card {
           padding: 10px 12px !important;
