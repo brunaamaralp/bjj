@@ -488,7 +488,7 @@ const Dashboard = () => {
 
             <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }} aria-busy={loading}>
                 {loading ? (
-                    [1, 2, 3].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 120 }} />)
+                    [1, 2, 3, 4].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 148 }} />)
                 ) : (
                     [
                         { key: 'today', title: 'Aulas experimentais hoje', count: todayScheduled.length, icon: <Calendar size={16} strokeWidth={2} /> },
@@ -502,9 +502,11 @@ const Dashboard = () => {
                             className="agenda-kpi-card agenda-kpi-card--clickable"
                             onClick={() => setListModalType(card.key)}
                         >
-                            <div className="agenda-kpi-label">{card.title}</div>
-                            <div className="agenda-kpi-value">{card.count}</div>
-                            <div className="agenda-kpi-trend is-up" style={{ marginTop: 4 }}>
+                            <div className="agenda-kpi-card-stack">
+                                <div className="agenda-kpi-label">{card.title}</div>
+                                <div className="agenda-kpi-value">{card.count}</div>
+                            </div>
+                            <div className="agenda-kpi-trend is-up agenda-kpi-cta">
                                 {card.icon}
                                 <span>Ver lista</span>
                             </div>
@@ -836,13 +838,25 @@ const Dashboard = () => {
         }
         .agenda-kpi-card {
           position: relative;
-          padding: 14px 14px 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: space-between;
+          min-height: 148px;
+          padding: 18px 16px 14px;
           border-radius: 12px;
           background: var(--surface);
           border: 1px solid var(--border);
           box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
           overflow: hidden;
+        }
+        .agenda-kpi-card-stack {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+          width: 100%;
         }
         .agenda-kpi-card--clickable {
           text-align: left;
@@ -877,23 +891,29 @@ const Dashboard = () => {
           letter-spacing: 0.06em;
           text-transform: uppercase;
           color: var(--text-secondary);
-          margin-bottom: 8px;
-          line-height: 1.25;
-          padding-right: 4px;
+          margin-bottom: 0;
+          line-height: 1.3;
+          padding-right: 0;
+          width: 100%;
         }
         .agenda-kpi-value {
-          font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+          font-size: clamp(1.55rem, 2.6vw, 2.05rem);
           font-weight: 800;
           font-variant-numeric: tabular-nums;
-          line-height: 1.05;
+          line-height: 1.1;
           color: var(--v500);
           letter-spacing: -0.03em;
+          width: 100%;
+        }
+        .agenda-kpi-trend.agenda-kpi-cta {
+          margin-top: auto;
+          padding-top: 12px;
         }
         .agenda-kpi-trend {
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
           align-items: center;
-          gap: 6px 8px;
+          gap: 6px;
           margin-top: 8px;
           font-size: 0.76rem;
           font-weight: 700;
