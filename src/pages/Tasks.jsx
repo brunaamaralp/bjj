@@ -4,7 +4,34 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList } from 'lucide-react';
+import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList, LayoutList, Kanban, CalendarDays, AlertTriangle } from 'lucide-react';
+
+const VIEW_STORAGE_KEY = 'nave_tasks_view';
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+/** Segunda-feira 00:00 local da semana que contém `ref`. */
+function startOfWeekMondayLocal(ref = new Date()) {
+  const d = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0, 0);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function isDueInCurrentWeek(dueStr) {
+  if (!dueStr || !String(dueStr).trim()) return false;
+  const mon = startOfWeekMondayLocal();
+  const ymdDue = String(dueStr).trim().slice(0, 10);
+  const due = new Date(ymdDue.length === 10 ? `${ymdDue}T00:00:00` : ymdDue);
+  const dDue = new Date(due.getFullYear(), due.getMonth(), due.getDate(), 0, 0, 0, 0);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const dSun = new Date(sun.getFullYear(), sun.getMonth(), sun.getDate(), 0, 0, 0, 0);
+  return dDue.getTime() >= mon.getTime() && dDue.getTime() <= dSun.getTime();
+}
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -24,6 +51,30 @@ export default function Tasks() {
   const [leadSearch, setLeadSearch] = useState('');
   const [showLeadDrop, setShowLeadDrop] = useState(false);
   const leadDropRef = useRef(null);
+
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const v = localStorage.getItem(VIEW_STORAGE_KEY);
+      if (v === 'kanban' || v === 'calendar') return v;
+      return 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  const [estaSemanaOn, setEstaSemanaOn] = useState(false);
+  const [detailTask, setDetailTask] = useState(null);
+  const [calMonth, setCalMonth] = useState(() => {
+    const n = new Date();
+    return { y: n.getFullYear(), m: n.getMonth() };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
+    } catch {
+      /* ignore */
+    }
+  }, [viewMode]);
 
   // Sincronizar filtro ao carregar a página se tiver lead_id na URL
   useEffect(() => {
@@ -56,7 +107,23 @@ export default function Tasks() {
     return () => document.removeEventListener('mousedown', handler);
   }, [showLeadDrop]);
 
-  const filteredTasks = useMemo(() => {
+  useEffect(() => {
+    if (!detailTask) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setDetailTask(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailTask]);
+
+  function isVencida(dateStr) {
+    if (!dateStr) return false;
+    const due = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr).getTime();
+    const now = new Date().setHours(0,0,0,0);
+    return due < now;
+  }
+
+  const filteredTasksBase = useMemo(() => {
     const userId = useLeadStore.getState().userId;
     return tasks.filter(t => {
       if (filters.status === 'minhas' && t.assigned_to !== userId) return false;
@@ -67,11 +134,75 @@ export default function Tasks() {
     });
   }, [tasks, filters.status, filters.lead_id]);
 
-  function isVencida(dateStr) {
-    if (!dateStr) return false;
-    const due = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr).getTime();
-    const now = new Date().setHours(0,0,0,0);
-    return due < now;
+  const filteredTasks = useMemo(() => {
+    if (!estaSemanaOn) return filteredTasksBase;
+    return filteredTasksBase.filter((t) => isDueInCurrentWeek(t.due_date));
+  }, [filteredTasksBase, estaSemanaOn]);
+
+  const semPrazoExcluidasCount = useMemo(
+    () => filteredTasksBase.filter((t) => !t.due_date || !String(t.due_date).trim()).length,
+    [filteredTasksBase]
+  );
+
+  const semPrazoTasksForCalendar = useMemo(
+    () => filteredTasksBase.filter((t) => !t.due_date || !String(t.due_date).trim()),
+    [filteredTasksBase]
+  );
+
+  const tasksByDueYmd = useMemo(() => {
+    const map = {};
+    for (const t of filteredTasks) {
+      const raw = String(t.due_date || '').trim().slice(0, 10);
+      if (!raw || raw.length < 10) continue;
+      if (!map[raw]) map[raw] = [];
+      map[raw].push(t);
+    }
+    return map;
+  }, [filteredTasks]);
+
+  const kanbanColumns = useMemo(() => {
+    const atrasadas = [];
+    const aFazer = [];
+    const concluidas = [];
+    filteredTasks.forEach((t) => {
+      if (t.status === 'done') {
+        concluidas.push(t);
+      } else if (isVencida(t.due_date)) {
+        atrasadas.push(t);
+      } else {
+        aFazer.push(t);
+      }
+    });
+    return { atrasadas, aFazer, concluidas };
+  }, [filteredTasks]);
+
+  const calMatrix = useMemo(() => {
+    const first = new Date(calMonth.y, calMonth.m, 1);
+    const firstDow = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(calMonth.y, calMonth.m + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    return cells;
+  }, [calMonth.y, calMonth.m]);
+
+  const calMonthLabel = useMemo(
+    () =>
+      new Date(calMonth.y, calMonth.m, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+    [calMonth.y, calMonth.m]
+  );
+
+  function shiftCalMonth(delta) {
+    setCalMonth((prev) => {
+      const d = new Date(prev.y, prev.m + delta, 1);
+      return { y: d.getFullYear(), m: d.getMonth() };
+    });
+  }
+
+  function detailStatusMeta(t) {
+    if (t.status === 'done') return { label: 'Concluída', cls: 'task-drawer-badge--done' };
+    if (isVencida(t.due_date)) return { label: 'Atrasada', cls: 'task-drawer-badge--late' };
+    return { label: 'Pendente', cls: 'task-drawer-badge--pending' };
   }
 
   const groupedTasks = useMemo(() => {
@@ -138,6 +269,12 @@ export default function Tasks() {
     setShowModal(true);
   };
 
+  const openEditFromDetail = () => {
+    const t = detailTask;
+    setDetailTask(null);
+    if (t) openEdit(t);
+  };
+
   const openNew = () => {
     setEditingTask(null);
     setForm({ title: '', description: '', due_date: '', assigned_to: '', lead_id: filters.lead_id || '' });
@@ -158,10 +295,90 @@ export default function Tasks() {
     if (!window.confirm('Tem certeza que deseja excluir esta tarefa?')) return;
     try {
       await deleteTask(id);
+      if (detailTask?.id === id) setDetailTask(null);
       addToast({ type: 'success', message: 'Tarefa excluída' });
     } catch (e) {
       addToast({ type: 'error', message: 'Erro ao excluir' });
     }
+  };
+
+  const renderOneTaskCard = (t, opts = {}) => {
+    const compact = Boolean(opts.compact);
+    const vencida = isVencida(t.due_date) && t.status !== 'done';
+    return (
+      <div
+        key={t.id}
+        className={`task-card ${compact ? 'task-card--compact' : ''} ${t.status === 'done' ? 'done' : ''}`}
+      >
+        <input
+          type="checkbox"
+          checked={t.status === 'done'}
+          onChange={() => toggleDone(t)}
+          className="task-checkbox"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <div
+          className="task-content"
+          role="button"
+          tabIndex={0}
+          onClick={() => setDetailTask(t)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setDetailTask(t);
+            }
+          }}
+        >
+          <span className={`task-title ${t.status === 'done' ? 'line-through' : ''}`}>{t.title}</span>
+          {!compact ? (
+            <div className="task-meta">
+              {t.lead_id ? (
+                <span
+                  className="task-badge lead-badge"
+                  role="link"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/lead/${t.lead_id}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                      navigate(`/lead/${t.lead_id}`);
+                    }
+                  }}
+                >
+                  <User size={12} /> {t.lead_name || 'Aluno'}
+                </span>
+              ) : null}
+              {t.due_date ? (
+                <span className={`task-badge ${vencida ? 'text-danger' : ''}`}>
+                  <Calendar size={12} /> {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                </span>
+              ) : null}
+              {t.assigned_to ? (
+                <span
+                  className="task-badge assign-badge"
+                  title={members.find((m) => m.userId === t.assigned_to)?.userName || t.assigned_to}
+                >
+                  {(members.find((m) => m.userId === t.assigned_to)?.userName || t.assigned_to)
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="task-actions dropdown-container" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="task-action-btn" onClick={() => openEdit(t)}>
+            <Pencil size={14} />
+          </button>
+          <button type="button" className="task-action-btn text-danger" onClick={() => handleDelete(t.id)}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const renderTasksLoadingSkeleton = () => (
@@ -206,55 +423,52 @@ export default function Tasks() {
       <div className="task-group">
         <h3 className="task-group-title" style={{ color: titleColor }}>{title} ({list.length})</h3>
         <div className="task-list">
-          {list.map(t => {
-            const vencida = isVencida(t.due_date) && t.status !== 'done';
-            return (
-              <div key={t.id} className={`task-card ${t.status === 'done' ? 'done' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  checked={t.status === 'done'} 
-                  onChange={() => toggleDone(t)}
-                  className="task-checkbox"
-                />
-                <div className="task-content">
-                  <span className={`task-title ${t.status === 'done' ? 'line-through' : ''}`}>{t.title}</span>
-                  <div className="task-meta">
-                    {t.lead_id && (
-                      <span className="task-badge lead-badge" onClick={() => navigate(`/lead/${t.lead_id}`)}>
-                        <User size={12} /> {t.lead_name || 'Aluno'}
-                      </span>
-                    )}
-                    {t.due_date && (
-                      <span className={`task-badge ${vencida ? 'text-danger' : ''}`}>
-                        <Calendar size={12} /> {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                      </span>
-                    )}
-                    {t.assigned_to && (
-                      <span className="task-badge assign-badge" title={members.find(m => m.userId === t.assigned_to)?.userName || t.assigned_to}>
-                        {(members.find(m => m.userId === t.assigned_to)?.userName || t.assigned_to).slice(0, 2).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="task-actions dropdown-container">
-                  <button type="button" className="task-action-btn" onClick={() => openEdit(t)}><Pencil size={14} /></button>
-                  <button type="button" className="task-action-btn text-danger" onClick={() => handleDelete(t.id)}><Trash2 size={14} /></button>
-                </div>
-              </div>
-            );
-          })}
+          {list.map((t) => renderOneTaskCard(t))}
         </div>
       </div>
     );
   };
 
+  function formatCreatedByLabel(task) {
+    const raw = String(task?.created_by || '').trim();
+    if (!raw) return '—';
+    const creator = members.find(
+      (m) => String(m.userId) === raw || String(m.id) === raw
+    );
+    return creator?.userName ?? creator?.name ?? creator?.userEmail ?? creator?.email ?? raw;
+  }
+
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
       <header className="animate-in">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="navi-page-title flex items-center gap-2"><CheckSquare size={24} /> Tarefas</h1>
+        <div className="tasks-page-head-top flex flex-wrap justify-between items-center gap-3 mb-3">
+          <h1 className="navi-page-title flex items-center gap-2 mb-0"><CheckSquare size={24} /> Tarefas</h1>
           <button type="button" className="btn-primary" onClick={openNew}>
             <PlusCircle size={16} /> Nova tarefa
+          </button>
+        </div>
+
+        <div className="tasks-view-toggle flex flex-wrap gap-2 mb-3" role="group" aria-label="Visualização">
+          <button
+            type="button"
+            className={`tasks-view-btn ${viewMode === 'list' ? 'tasks-view-btn--active' : ''}`}
+            onClick={() => setViewMode('list')}
+          >
+            <LayoutList size={18} strokeWidth={2} /> Lista
+          </button>
+          <button
+            type="button"
+            className={`tasks-view-btn ${viewMode === 'kanban' ? 'tasks-view-btn--active' : ''}`}
+            onClick={() => setViewMode('kanban')}
+          >
+            <Kanban size={18} strokeWidth={2} /> Kanban
+          </button>
+          <button
+            type="button"
+            className={`tasks-view-btn ${viewMode === 'calendar' ? 'tasks-view-btn--active' : ''}`}
+            onClick={() => setViewMode('calendar')}
+          >
+            <CalendarDays size={18} strokeWidth={2} /> Calendário
           </button>
         </div>
         
@@ -269,6 +483,13 @@ export default function Tasks() {
               {f === 'all' ? 'Todas' : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
+          <button
+            type="button"
+            className={`filter-pill ${estaSemanaOn ? 'active' : ''}`}
+            onClick={() => setEstaSemanaOn((v) => !v)}
+          >
+            Esta semana
+          </button>
           {filters.lead_id && (
             <button 
               type="button" 
@@ -284,12 +505,26 @@ export default function Tasks() {
             </button>
           )}
         </div>
+        {estaSemanaOn && semPrazoExcluidasCount > 0 ? (
+          <p className="task-week-hint text-muted text-sm mt-2 mb-0" style={{ lineHeight: 1.45 }}>
+            {semPrazoExcluidasCount} {semPrazoExcluidasCount === 1 ? 'tarefa sem prazo definido não aparece' : 'tarefas sem prazo definido não aparecem'} neste filtro.
+          </p>
+        ) : null}
       </header>
 
       {error ? (
         <div className="dashboard-error-banner mt-3">
           <span>{error}</span>
           <button type="button" className="btn-secondary" onClick={() => fetchTasks(academyId, { reset: true })}>Tentar novamente</button>
+        </div>
+      ) : null}
+
+      {tasks.length >= 500 ? (
+        <div className="tasks-limit-notice" role="status">
+          <AlertTriangle className="tasks-limit-notice__icon" size={18} strokeWidth={2} aria-hidden />
+          <span>
+            Exibindo 500 tarefas — o limite máximo. Use os filtros para encontrar o que precisa.
+          </span>
         </div>
       ) : null}
 
@@ -302,13 +537,97 @@ export default function Tasks() {
             <p>Nenhuma tarefa por aqui ainda</p>
             <button type="button" className="btn-secondary mt-3" onClick={openNew}>+ Nova tarefa</button>
           </div>
-        ) : filteredTasks.length === 0 ? (
+        ) : filteredTasks.length === 0 && viewMode !== 'calendar' ? (
           <p className="text-muted mt-4">Nenhuma tarefa corresponde a este filtro.</p>
-        ) : (
+        ) : viewMode === 'list' ? (
           <div className="tasks-lists-wrap">
             {renderTaskList(groupedTasks.vencidas, 'Vencidas', 'var(--danger)')}
             {renderTaskList(groupedTasks.pendentes, 'Pendentes', 'var(--text)')}
             {renderTaskList(groupedTasks.concluidas, 'Concluídas', 'var(--success)')}
+          </div>
+        ) : viewMode === 'kanban' ? (
+          <div className="tasks-kanban">
+            <div className="tasks-kanban-col tasks-kanban-col--late">
+              <div className="tasks-kanban-col-head">
+                <span className="tasks-kanban-col-title">Atrasadas</span>
+                <span className="tasks-kanban-badge">{kanbanColumns.atrasadas.length}</span>
+              </div>
+              <div className="tasks-kanban-col-body task-list">
+                {kanbanColumns.atrasadas.map((t) => renderOneTaskCard(t))}
+              </div>
+            </div>
+            <div className="tasks-kanban-col tasks-kanban-col--todo">
+              <div className="tasks-kanban-col-head">
+                <span className="tasks-kanban-col-title">A fazer</span>
+                <span className="tasks-kanban-badge">{kanbanColumns.aFazer.length}</span>
+              </div>
+              <div className="tasks-kanban-col-body task-list">
+                {kanbanColumns.aFazer.map((t) => renderOneTaskCard(t))}
+              </div>
+            </div>
+            <div className="tasks-kanban-col tasks-kanban-col--done">
+              <div className="tasks-kanban-col-head">
+                <span className="tasks-kanban-col-title">Concluídas</span>
+                <span className="tasks-kanban-badge">{kanbanColumns.concluidas.length}</span>
+              </div>
+              <div className="tasks-kanban-col-body task-list">
+                {kanbanColumns.concluidas.map((t) => renderOneTaskCard(t))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="tasks-cal-layout">
+            <div className="tasks-cal-main">
+              <div className="tasks-cal-toolbar flex flex-wrap justify-between items-center gap-2 mb-3">
+                <button type="button" className="btn-secondary" onClick={() => shiftCalMonth(-1)}>
+                  Mês anterior
+                </button>
+                <span className="tasks-cal-month-label">{calMonthLabel}</span>
+                <button type="button" className="btn-secondary" onClick={() => shiftCalMonth(1)}>
+                  Próximo mês
+                </button>
+              </div>
+              <div className="tasks-cal-weekdays">
+                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((w) => (
+                  <div key={w} className="tasks-cal-weekday">
+                    {w}
+                  </div>
+                ))}
+              </div>
+              <div className="tasks-cal-grid">
+                {calMatrix.map((cell, idx) => {
+                  if (cell === null) {
+                    return <div key={`e-${idx}`} className="tasks-cal-cell tasks-cal-cell--empty" />;
+                  }
+                  const ymd = `${calMonth.y}-${pad2(calMonth.m + 1)}-${pad2(cell)}`;
+                  const now = new Date();
+                  const isToday =
+                    cell === now.getDate() &&
+                    calMonth.m === now.getMonth() &&
+                    calMonth.y === now.getFullYear();
+                  const dayTasks = tasksByDueYmd[ymd] || [];
+                  return (
+                    <div
+                      key={ymd}
+                      className={`tasks-cal-cell ${isToday ? 'tasks-cal-cell--today' : ''}`}
+                    >
+                      <div className="tasks-cal-day-num">{cell}</div>
+                      <div className="tasks-cal-day-tasks">
+                        {dayTasks.map((t) => renderOneTaskCard(t, { compact: true }))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <aside className="tasks-cal-sidebar">
+              <h4 className="tasks-cal-sidebar-title">Sem prazo</h4>
+              {semPrazoTasksForCalendar.length === 0 ? (
+                <p className="text-muted text-sm mb-0">Nenhuma tarefa sem prazo neste filtro.</p>
+              ) : (
+                <div className="task-list">{semPrazoTasksForCalendar.map((t) => renderOneTaskCard(t, { compact: true }))}</div>
+              )}
+            </aside>
           </div>
         )}
       </div>
@@ -469,6 +788,107 @@ export default function Tasks() {
         </div>
       )}
 
+      {detailTask ? (
+        <>
+          <div
+            role="presentation"
+            className="task-drawer-backdrop"
+            onMouseDown={() => setDetailTask(null)}
+          />
+          <aside className="task-drawer-panel" aria-labelledby="task-drawer-heading">
+            <div className="task-drawer-header">
+              <h2 id="task-drawer-heading" className="task-drawer-heading">
+                Detalhes da tarefa
+              </h2>
+              <button
+                type="button"
+                className="task-drawer-close"
+                aria-label="Fechar"
+                onClick={() => setDetailTask(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="task-drawer-body">
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Título</span>
+                <p className="task-drawer-value">{detailTask.title || '—'}</p>
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Descrição</span>
+                <p className="task-drawer-value task-drawer-value--multiline">
+                  {String(detailTask.description || '').trim() ? detailTask.description : 'Sem descrição'}
+                </p>
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Status</span>
+                <div>
+                  <span className={`task-drawer-badge ${detailStatusMeta(detailTask).cls}`}>
+                    {detailStatusMeta(detailTask).label}
+                  </span>
+                </div>
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Prazo</span>
+                <p className="task-drawer-value">
+                  {detailTask.due_date && String(detailTask.due_date).trim()
+                    ? new Date(String(detailTask.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString('pt-BR')
+                    : 'Sem prazo'}
+                </p>
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Responsável</span>
+                <p className="task-drawer-value">
+                  {detailTask.assigned_to
+                    ? members.find((m) => m.userId === detailTask.assigned_to)?.userName ||
+                      detailTask.assigned_to
+                    : '—'}
+                </p>
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Lead vinculado</span>
+                {detailTask.lead_id ? (
+                  <button
+                    type="button"
+                    className="task-drawer-link"
+                    onClick={() => {
+                      setDetailTask(null);
+                      navigate(`/lead/${detailTask.lead_id}`);
+                    }}
+                  >
+                    {detailTask.lead_name || detailTask.lead_id}
+                  </button>
+                ) : (
+                  <p className="task-drawer-value">—</p>
+                )}
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Criado por</span>
+                <p className="task-drawer-value">
+                  {formatCreatedByLabel(detailTask)}
+                  {detailTask.created_at
+                    ? ` · ${new Date(detailTask.created_at).toLocaleString('pt-BR')}`
+                    : ''}
+                </p>
+              </div>
+              <div className="task-drawer-field">
+                <span className="task-drawer-label">Atualizado em</span>
+                <p className="task-drawer-value">
+                  {detailTask.updated_at
+                    ? new Date(detailTask.updated_at).toLocaleString('pt-BR')
+                    : '—'}
+                </p>
+              </div>
+            </div>
+            <div className="task-drawer-footer">
+              <button type="button" className="btn-primary task-drawer-edit" onClick={openEditFromDetail}>
+                Editar
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes tasksSkeletonShimmer {
           from { background-position: 200% 0; }
@@ -544,6 +964,26 @@ export default function Tasks() {
         }
 
         /* ── Lista de tarefas ── */
+        .tasks-limit-notice {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-top: 12px;
+          padding: 10px 14px;
+          border-radius: var(--radius-sm);
+          background: var(--color-background-warning, var(--warn-bg));
+          color: var(--color-text-warning, var(--warn-text));
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.45;
+          border: 1px solid rgba(138, 107, 26, 0.2);
+        }
+        .tasks-limit-notice__icon {
+          flex-shrink: 0;
+          margin-top: 1px;
+          color: var(--color-text-warning, var(--warn-text));
+          opacity: 0.95;
+        }
         .task-filters { display: flex; gap: 8px; flex-wrap: wrap; }
         .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius); border: 1px dashed var(--border-mid); }
         .tasks-lists-wrap { display: flex; flex-direction: column; gap: 24px; }
@@ -553,7 +993,7 @@ export default function Tasks() {
         .task-card:hover { border-color: var(--border-mid); }
         .task-card.done { opacity: 0.7; background: var(--surface-hover); }
         .task-checkbox { margin-top: 3px; width: 16px; height: 16px; cursor: pointer; accent-color: var(--success); }
-        .task-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+        .task-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
         .task-title { font-weight: 600; font-size: 14px; color: var(--text); }
         .task-title.line-through { text-decoration: line-through; color: var(--text-muted); }
         .task-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -662,6 +1102,161 @@ export default function Tasks() {
         }
         .task-modal-footer .btn-outline { min-height: 38px; font-size: 13px; padding: 0 16px; }
         .task-modal-footer .btn-primary { min-height: 38px; font-size: 13px; padding: 0 20px; }
+
+        .tasks-view-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 8px 14px; border-radius: var(--radius-sm);
+          border: 1px solid var(--border-mid); background: var(--surface);
+          color: var(--text-secondary); font-size: 13px; font-weight: 600;
+          cursor: pointer; font-family: inherit; transition: var(--transition);
+        }
+        .tasks-view-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--v50); }
+        .tasks-view-btn--active {
+          border-color: var(--v500); color: var(--v700); background: var(--v50);
+          box-shadow: 0 1px 4px rgba(91, 63, 191, 0.12);
+        }
+
+        .tasks-kanban {
+          display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;
+          align-items: stretch;
+        }
+        @media (max-width: 900px) {
+          .tasks-kanban { grid-template-columns: 1fr; }
+        }
+        .tasks-kanban-col {
+          border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
+          background: var(--surface); overflow: hidden; display: flex; flex-direction: column;
+          min-height: 120px;
+        }
+        .tasks-kanban-col-head {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+          padding: 12px 14px; border-bottom: 1px solid var(--border);
+        }
+        .tasks-kanban-col--late .tasks-kanban-col-head { background: rgba(220, 38, 38, 0.08); }
+        .tasks-kanban-col--todo .tasks-kanban-col-head { background: rgba(91, 63, 191, 0.08); }
+        .tasks-kanban-col--done .tasks-kanban-col-head { background: rgba(22, 163, 74, 0.1); }
+        .tasks-kanban-col-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink); }
+        .tasks-kanban-col--late .tasks-kanban-col-title { color: var(--danger); }
+        .tasks-kanban-col--todo .tasks-kanban-col-title { color: var(--v500); }
+        .tasks-kanban-col--done .tasks-kanban-col-title { color: var(--success-text); }
+        .tasks-kanban-badge {
+          font-size: 11px; font-weight: 800; min-width: 22px; height: 22px; padding: 0 7px;
+          border-radius: 99px; background: var(--white); border: 1px solid var(--border-mid);
+          display: inline-flex; align-items: center; justify-content: center; color: var(--ink);
+        }
+        .tasks-kanban-col-body { padding: 10px; flex: 1; overflow-y: auto; max-height: min(62vh, 520px); }
+
+        .tasks-cal-layout {
+          display: flex; gap: 16px; align-items: flex-start;
+        }
+        @media (max-width: 960px) {
+          .tasks-cal-layout { flex-direction: column; }
+        }
+        .tasks-cal-main { flex: 1; min-width: 0; }
+        .tasks-cal-month-label {
+          font-size: 15px; font-weight: 700; color: var(--ink);
+          text-transform: capitalize;
+        }
+        .tasks-cal-weekdays {
+          display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px;
+        }
+        .tasks-cal-weekday {
+          font-size: 10px; font-weight: 700; text-align: center; color: var(--text-secondary);
+          text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .tasks-cal-grid {
+          display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;
+        }
+        .tasks-cal-cell {
+          border: 1px solid var(--border-mid); border-radius: 10px; background: var(--surface);
+          min-height: 100px; padding: 6px 6px 8px; display: flex; flex-direction: column;
+        }
+        .tasks-cal-cell--empty { background: transparent; border: none; min-height: 0; }
+        .tasks-cal-cell--today {
+          border-color: var(--v500); box-shadow: 0 0 0 1px rgba(91, 63, 191, 0.25);
+          background: rgba(91, 63, 191, 0.04);
+        }
+        .tasks-cal-day-num {
+          font-size: 12px; font-weight: 800; color: var(--text-secondary); margin-bottom: 6px;
+        }
+        .tasks-cal-cell--today .tasks-cal-day-num {
+          width: 26px; height: 26px; border-radius: 50%; background: #5b3fbf; color: #fff;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .tasks-cal-day-tasks { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow-y: auto; }
+        .tasks-cal-sidebar {
+          width: 280px; flex-shrink: 0; border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
+          background: var(--surface); padding: 14px; max-height: min(85vh, 720px); overflow-y: auto;
+        }
+        @media (max-width: 960px) {
+          .tasks-cal-sidebar { width: 100%; max-height: none; }
+        }
+        .tasks-cal-sidebar-title {
+          font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+          margin: 0 0 12px; color: var(--text-secondary);
+        }
+
+        .task-card--compact { padding: 8px 10px; gap: 8px; }
+        .task-card--compact .task-checkbox { margin-top: 2px; width: 14px; height: 14px; }
+        .task-card--compact .task-title { font-size: 12px; }
+        .task-card--compact .task-actions { opacity: 1; }
+
+        .task-drawer-backdrop {
+          position: fixed; inset: 0; z-index: 9500;
+          background: rgba(18, 16, 42, 0.35);
+        }
+        .task-drawer-panel {
+          position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw);
+          z-index: 9600; background: var(--surface);
+          box-shadow: -8px 0 40px rgba(18, 16, 42, 0.12);
+          border-left: 1px solid var(--border-mid);
+          display: flex; flex-direction: column;
+          animation: taskDrawerIn 0.22s ease-out;
+        }
+        @keyframes taskDrawerIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .task-drawer-panel { animation: none; }
+        }
+        .task-drawer-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 16px 18px; border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+        }
+        .task-drawer-heading { font-size: 16px; font-weight: 700; margin: 0; color: var(--ink); }
+        .task-drawer-close {
+          width: 36px; height: 36px; border-radius: var(--radius-sm);
+          border: 1px solid var(--border-light); background: var(--surface);
+          color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .task-drawer-close:hover { border-color: var(--border-mid); color: var(--ink); }
+        .task-drawer-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+        .task-drawer-field { display: flex; flex-direction: column; gap: 4px; }
+        .task-drawer-label {
+          font-family: var(--ff-mono); font-size: 10px; text-transform: uppercase;
+          letter-spacing: 0.1em; color: var(--mid);
+        }
+        .task-drawer-value { margin: 0; font-size: 14px; color: var(--ink); line-height: 1.45; }
+        .task-drawer-value--multiline { white-space: pre-wrap; }
+        .task-drawer-badge {
+          display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px;
+          font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .task-drawer-badge--pending { background: var(--v50); color: var(--v700); }
+        .task-drawer-badge--late { background: var(--danger-light); color: var(--danger); }
+        .task-drawer-badge--done { background: var(--success-light); color: var(--success-text); }
+        .task-drawer-link {
+          background: none; border: none; padding: 0; margin: 0;
+          font-size: 14px; font-weight: 600; color: var(--v500); cursor: pointer; text-align: left;
+          text-decoration: underline; font-family: inherit;
+        }
+        .task-drawer-link:hover { color: var(--v700); }
+        .task-drawer-footer {
+          padding: 14px 18px; border-top: 1px solid var(--border); flex-shrink: 0;
+        }
+        .task-drawer-edit { width: 100%; justify-content: center; }
       `}} />
     </div>
   );
