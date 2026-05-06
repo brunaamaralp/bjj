@@ -190,10 +190,10 @@ export default function AgendaCalendarWeek({
           top: 0;
           z-index: 4;
           background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 8px;
-          box-shadow: 0 4px 14px rgba(18, 16, 42, 0.06);
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius-sm);
+          padding: 10px 12px;
+          box-shadow: var(--shadow-sm);
         }
         .agenda-week-scroll {
           width: 100%;
@@ -212,12 +212,12 @@ export default function AgendaCalendarWeek({
           flex: 0 0 auto;
           width: 100%;
           max-width: 100%;
-          border-radius: 16px;
-          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border-mid);
           background: var(--surface);
           min-height: 0;
           overflow: hidden;
-          box-shadow: 0 2px 8px rgba(18, 16, 42, 0.04);
+          box-shadow: var(--shadow-sm);
         }
         .agenda-week-col--today {
           background: rgba(91, 63, 191, 0.06);
@@ -233,7 +233,7 @@ export default function AgendaCalendarWeek({
           align-items: center;
           justify-content: flex-start;
           gap: 8px;
-          border-bottom: 1px solid rgba(18, 16, 42, 0.08);
+          border-bottom: 1px solid var(--border);
           background: transparent;
           position: static;
           z-index: 2;
@@ -255,22 +255,25 @@ export default function AgendaCalendarWeek({
         }
         .agenda-week-week-empty {
           margin: 0;
-          padding: 20px 4px 8px;
-          font-size: 14px;
-          color: var(--text-muted);
+          padding: 14px 16px;
+          font-size: 13px;
+          color: var(--text-secondary);
           line-height: 1.45;
+          background: var(--v50);
+          border: 1px dashed var(--border-mid);
+          border-radius: var(--radius-sm);
         }
         .agenda-week-card {
           padding: 10px 12px !important;
-          border-radius: 14px !important;
-          border: 1px solid var(--border) !important;
-          box-shadow: 0 1px 4px rgba(18, 16, 42, 0.04);
+          border-radius: var(--radius-sm) !important;
+          border: 1px solid var(--border-mid) !important;
+          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04);
           transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
         .agenda-week-card:hover {
           transform: translateY(-2px);
           border-color: rgba(91, 63, 191, 0.22) !important;
-          box-shadow: 0 4px 12px rgba(18, 16, 42, 0.08), 0 14px 34px rgba(91, 63, 191, 0.12);
+          box-shadow: var(--shadow-sm);
         }
         .agenda-week-card--attended {
           background: rgba(16, 185, 129, 0.08);

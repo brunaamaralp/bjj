@@ -470,12 +470,12 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
+        <div className="container reception-dashboard" style={{ paddingTop: 20, paddingBottom: 28 }}>
             <div className="reception-agenda-inner reception-agenda-inner--wide">
-            <div className="animate-in">
+            <header className="reception-page-header animate-in">
                 <h1 className="navi-page-title">Agenda da Recepção</h1>
-                <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
-            </div>
+                <p className="navi-subtitle" style={{ marginTop: 2 }}>Controle de aulas experimentais e retornos</p>
+            </header>
 
             {leadsError && (
                 <div className="dashboard-error-banner" role="alert">
@@ -506,7 +506,7 @@ const Dashboard = () => {
                                 <div className="agenda-kpi-label">{card.title}</div>
                                 <div className="agenda-kpi-value">{card.count}</div>
                             </div>
-                            <div className="agenda-kpi-trend is-up agenda-kpi-cta">
+                            <div className="agenda-kpi-trend agenda-kpi-trend--cta agenda-kpi-cta">
                                 {card.icon}
                                 <span>Ver lista</span>
                             </div>
@@ -515,8 +515,9 @@ const Dashboard = () => {
                 )}
             </div>
 
-            <button className="btn-secondary btn-large mt-4" onClick={() => navigate('/new-lead')} style={{ borderRadius: 'var(--radius)' }}>
-                <Plus size={22} /> {`Novo ${(() => {
+            <div className="reception-primary-cta">
+            <button type="button" className="btn-primary btn-large" onClick={() => navigate('/new-lead')}>
+                <Plus size={22} strokeWidth={2.25} /> {`Novo ${(() => {
                     const l = useLeadStore.getState().labels?.leads || 'Leads';
                     const basePlural = String(l).trim();
                     const singular = basePlural.toLowerCase().endsWith('s') && basePlural.length > 1
@@ -525,31 +526,34 @@ const Dashboard = () => {
                     return singular.slice(0,1).toUpperCase() + singular.slice(1);
                 })()}`}
             </button>
+            </div>
 
             <div className="agenda-page-stack">
-            <section className="mt-6 animate-in agenda-week-section" style={{ animationDelay: '0.23s' }}>
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="navi-section-heading">
-                        <Calendar size={18} color="var(--v500)" /> Agenda da Semana
-                    </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <section className="animate-in agenda-week-section reception-section" style={{ animationDelay: '0.23s' }}>
+                <div className="reception-section-head flex justify-between items-center">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <h3 className="navi-section-heading reception-section-heading">
+                            <Calendar size={18} color="var(--v500)" strokeWidth={2} /> Agenda da semana
+                        </h3>
+                        <span className="badge badge-secondary reception-section-badge" title="Total de aulas experimentais agendadas no período">
+                            {allScheduled.length}
+                        </span>
+                    </div>
+                    <div className="reception-section-tools flex items-center gap-1 flex-shrink-0">
                         <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                         <button
+                            type="button"
                             className="refresh-btn"
                             onClick={handleRefresh}
                             disabled={loading || isRefreshing}
+                            aria-label="Atualizar agenda"
                         >
-                            <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} />
+                            <RefreshCcw size={18} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
                         </button>
                     </div>
                 </div>
-                <div className="agenda-block-head">
-                    <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
-                        Semana
-                    </h4>
-                    <span className="badge badge-secondary">{allScheduled.length}</span>
-                </div>
-                <div className="agenda-week-fullwidth">
+                <p className="reception-section-lead">Navegue pela semana e abra o lead pelo horário.</p>
+                <div className="agenda-week-fullwidth reception-week-embed">
                     <AgendaCalendarWeek
                         leads={allScheduled}
                         onCompareceu={markLeadAttended}
@@ -560,14 +564,16 @@ const Dashboard = () => {
                 </div>
             </section>
 
-            <section className="mt-6 animate-in agenda-followups-section" style={{ animationDelay: '0.2s' }}>
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="navi-section-heading">
-                        <List size={18} color="var(--v500)" /> Follow-ups Pendentes
-                    </h3>
-                    <span className="badge badge-secondary">{followUps.length}</span>
+            <section className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
+                <div className="reception-section-head flex justify-between items-center">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <h3 className="navi-section-heading reception-section-heading">
+                            <List size={18} color="var(--v500)" strokeWidth={2} /> Follow-ups pendentes
+                        </h3>
+                        <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
+                    </div>
                 </div>
-                <p className="text-xs text-light" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+                <p className="reception-hint">
                     Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da aula, o follow-up sai desta lista e fica só no Kanban.
                 </p>
 
@@ -655,16 +661,16 @@ const Dashboard = () => {
             {listModalType ? (
                 <div className="navi-modal-overlay" role="dialog" aria-modal="true" onClick={closeListModal}>
                     <div
-                        className="card"
+                        className="card reception-list-modal"
                         onClick={(e) => e.stopPropagation()}
-                        style={{ width: 'min(760px, calc(100vw - 24px))', maxHeight: '85vh', overflowY: 'auto', padding: 18 }}
                     >
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="navi-section-heading" style={{ margin: 0 }}>{modalTitle}</h3>
-                            <span className="badge badge-secondary">{modalListItems.length}</span>
+                        <div className="reception-list-modal__head flex justify-between items-center gap-3">
+                            <h3 className="navi-section-heading reception-list-modal__title" style={{ margin: 0 }}>{modalTitle}</h3>
+                            <span className="badge badge-secondary flex-shrink-0">{modalListItems.length}</span>
                         </div>
+                        <div className="reception-list-modal__scroll">
                         {modalListItems.length === 0 ? (
-                            <div className="empty-state"><p>Nenhum item nessa lista.</p></div>
+                            <div className="empty-state reception-list-modal__empty"><p>Nenhum item nessa lista.</p></div>
                         ) : (
                             <div className="flex-col agenda-followups-list">
                                 {modalListItems.map((lead, i) => {
@@ -765,6 +771,7 @@ const Dashboard = () => {
                                 })}
                             </div>
                         )}
+                        </div>
                     </div>
                 </div>
             ) : null}
@@ -782,6 +789,118 @@ const Dashboard = () => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
+        .reception-dashboard {
+          --reception-section-pad: clamp(16px, 2.5vw, 22px);
+        }
+        .reception-page-header {
+          padding-bottom: 20px;
+          margin-bottom: 8px;
+          border-bottom: 1px solid var(--border);
+        }
+        .reception-primary-cta {
+          margin-top: 22px;
+        }
+        .reception-primary-cta .btn-large {
+          width: 100%;
+          max-width: 420px;
+          border-radius: var(--radius-sm);
+          box-shadow: var(--shadow-accent);
+          font-weight: 700;
+          gap: 10px;
+        }
+        @media (min-width: 640px) {
+          .reception-primary-cta .btn-large { width: auto; min-width: 240px; }
+        }
+        .reception-section {
+          background: var(--surface);
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius);
+          padding: var(--reception-section-pad);
+          box-shadow: var(--shadow-sm);
+        }
+        .reception-section-head {
+          gap: 10px;
+          margin-bottom: 6px;
+          align-items: flex-start;
+        }
+        @media (min-width: 520px) {
+          .reception-section-head { align-items: center; }
+        }
+        .reception-section-heading {
+          font-size: 1.02rem;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+        }
+        .reception-section-badge {
+          font-variant-numeric: tabular-nums;
+        }
+        .reception-section-lead {
+          margin: 0 0 14px;
+          font-size: 13px;
+          line-height: 1.45;
+          color: var(--text-secondary);
+        }
+        .reception-hint {
+          margin: 0 0 14px;
+          padding: 11px 14px;
+          font-size: 12px;
+          line-height: 1.45;
+          color: var(--text-secondary);
+          background: var(--v50);
+          border: 1px solid var(--border-light);
+          border-radius: var(--radius-sm);
+          border-left: 3px solid var(--v200);
+        }
+        .reception-week-embed {
+          margin-top: 2px;
+        }
+        .reception-section-tools {
+          padding: 4px 6px;
+          background: var(--v50);
+          border-radius: 10px;
+          border: 1px solid var(--border-light);
+        }
+        .agenda-kpi-card--clickable:hover .agenda-kpi-trend--cta {
+          color: var(--v700);
+        }
+        .agenda-kpi-card--clickable:hover .agenda-kpi-trend--cta svg {
+          color: var(--v500);
+        }
+        .reception-list-modal {
+          width: min(760px, calc(100vw - 24px));
+          max-height: min(85vh, 900px);
+          display: flex;
+          flex-direction: column;
+          padding: 0;
+          overflow: hidden;
+          border-radius: var(--radius) !important;
+          border: 1px solid var(--border-mid) !important;
+          box-shadow: var(--shadow-lg) !important;
+          background: var(--surface) !important;
+        }
+        .reception-list-modal__head {
+          flex-shrink: 0;
+          padding: 16px 20px;
+          border-bottom: 1px solid var(--border);
+          background: linear-gradient(180deg, var(--v50) 0%, var(--surface) 100%);
+        }
+        .reception-list-modal__title {
+          font-size: 1.05rem;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          min-width: 0;
+        }
+        .reception-list-modal__scroll {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 16px 20px 20px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .reception-list-modal__empty {
+          padding: 28px 12px;
+          text-align: center;
+        }
         .reception-agenda-inner {
           width: 100%;
           max-width: 720px;
@@ -809,8 +928,9 @@ const Dashboard = () => {
           display: flex;
           flex-direction: column;
           align-items: stretch;
-          gap: 0;
+          gap: 22px;
           width: 100%;
+          margin-top: 26px;
         }
         .agenda-top-row {
           display: grid;
@@ -827,7 +947,7 @@ const Dashboard = () => {
         .agenda-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 10px;
+          gap: 12px;
           align-items: stretch;
         }
         @media (max-width: 1100px) {
@@ -842,12 +962,12 @@ const Dashboard = () => {
           flex-direction: column;
           align-items: stretch;
           justify-content: space-between;
-          min-height: 148px;
+          min-height: 152px;
           padding: 18px 16px 14px;
-          border-radius: 12px;
+          border-radius: var(--radius-sm);
           background: var(--surface);
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
+          border: 1px solid var(--border-mid);
+          box-shadow: var(--shadow-sm);
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
           overflow: hidden;
         }
@@ -872,9 +992,9 @@ const Dashboard = () => {
           left: 0;
           right: 0;
           height: 3px;
-          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.95));
-          border-radius: 12px 12px 0 0;
-          opacity: 0.9;
+          background: linear-gradient(90deg, var(--v500), var(--v400));
+          border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+          opacity: 0.92;
         }
         .agenda-kpi-card:hover {
           transform: translateY(-3px);
@@ -919,6 +1039,13 @@ const Dashboard = () => {
           font-weight: 700;
           font-variant-numeric: tabular-nums;
         }
+        .agenda-kpi-trend--cta {
+          color: var(--v500);
+        }
+        .agenda-kpi-trend--cta svg {
+          color: var(--v400);
+          opacity: 0.95;
+        }
         .agenda-kpi-trend.is-up { color: var(--success-text); }
         .agenda-kpi-trend.is-down { color: var(--danger); }
         .agenda-kpi-trend-hint {
@@ -936,7 +1063,7 @@ const Dashboard = () => {
         @keyframes dashboardSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
         .agenda-kpi-skeleton {
           pointer-events: none;
-          border-radius: 16px;
+          border-radius: var(--radius-sm);
           background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
           background-size: 200% 100%;
           animation: dashboardSk 1.2s ease-in-out infinite;
@@ -1043,7 +1170,7 @@ const Dashboard = () => {
         .agenda-followups-list {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 8px;
         }
         .agenda-time-group {
           display: flex;
@@ -1078,13 +1205,11 @@ const Dashboard = () => {
           padding: 10px 12px;
         }
         .reception-agenda-inner .follow-card.card {
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          padding: 10px 12px;
-          box-shadow:
-            0 1px 2px rgba(18, 16, 42, 0.05),
-            0 10px 32px rgba(91, 63, 191, 0.08);
+          background: var(--surface);
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius-sm);
+          padding: 12px 14px;
+          box-shadow: var(--shadow-sm);
         }
         .agenda-experimental-card {
           position: relative;
@@ -1226,14 +1351,12 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .agenda-card.card {
           position: relative;
-          border-radius: 16px;
+          border-radius: var(--radius-sm);
           padding: 18px 18px 16px;
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          border-left: 3px solid #5B3FBF;
-          box-shadow:
-            0 1px 2px rgba(18, 16, 42, 0.05),
-            0 10px 32px rgba(91, 63, 191, 0.08);
+          background: var(--surface);
+          border: 1px solid var(--border-mid);
+          border-left: 3px solid var(--v500);
+          box-shadow: var(--shadow-sm);
           overflow: hidden;
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
         }
@@ -1310,17 +1433,13 @@ const Dashboard = () => {
             padding: 14px 14px 12px;
             border-radius: 14px;
           }
-          .agenda-today-week-section > .flex.justify-between.items-center.mb-2,
-          .agenda-followups-section > .flex.justify-between.items-center.mb-2 {
-            align-items: flex-start;
-            gap: 8px;
+          .agenda-week-section > .reception-section-head,
+          .agenda-followups-section > .reception-section-head {
             flex-wrap: wrap;
+            gap: 10px;
           }
         }
         @media (max-width: 760px) {
-          .agenda-block-head {
-            margin-top: 10px;
-          }
           .reception-agenda-inner .agenda-card.card > .flex.justify-between.items-center,
           .reception-agenda-inner .follow-card.card > .flex.justify-between.items-center {
             flex-direction: column;
