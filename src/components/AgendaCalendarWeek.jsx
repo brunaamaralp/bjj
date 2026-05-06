@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
 /** Segunda-feira da semana civil que contém “hoje”, com offset em semanas. */
-function getWeekStart(offset = 0) {
+export function getWeekStart(offset = 0) {
     const today = new Date();
     const day = today.getDay();
     const diff = day === 0 ? -6 : 1 - day;
@@ -21,11 +21,16 @@ function parseLeadLocalDate(lead) {
     return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
 }
 
-function formatDayHeader(date) {
-    const dow = WEEKDAY_SHORT[(date.getDay() + 6) % 7];
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    return `${dow} ${dd}/${mm}`;
+export function formatWeekRangeLabel(offset = 0) {
+    const mon = getWeekStart(offset);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    const short = (d) =>
+        d
+            .toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+            .replace('.', '');
+    const y = sun.getFullYear();
+    return `${short(mon)} – ${short(sun)} ${y}`;
 }
 
 function timeSortMinutes(lead) {
@@ -43,13 +48,23 @@ function timeSortMinutes(lead) {
  * @param {(lead: object) => void} props.onCompareceu
  * @param {(lead: object) => void} props.onNaoCompareceu
  * @param {(lead: object) => void} props.onOpenLead
- * @param {Record<string, boolean>} [props.savingPresence]
+ * @param {number} [props.weekOffset] — semana controlada pelo pai (com `onWeekOffsetChange`)
+ * @param {(n: number) => void} [props.onWeekOffsetChange]
+ * @param {boolean} [props.hideNav] — oculta Anterior/Próxima internos (navegação no pai)
  */
 export default function AgendaCalendarWeek({
     leads,
     onOpenLead,
+    weekOffset: weekOffsetProp,
+    onWeekOffsetChange,
+    hideNav = false,
 }) {
-    const [weekOffset, setWeekOffset] = useState(0);
+    const [weekOffsetInternal, setWeekOffsetInternal] = useState(0);
+    const controlled =
+        typeof weekOffsetProp === 'number' && Number.isFinite(weekOffsetProp) && typeof onWeekOffsetChange === 'function';
+    const weekOffset = controlled ? weekOffsetProp : weekOffsetInternal;
+    const setWeekOffset = controlled ? onWeekOffsetChange : setWeekOffsetInternal;
+
     const weekScrollRef = useRef(null);
     const todayColRef = useRef(null);
 
@@ -104,32 +119,36 @@ export default function AgendaCalendarWeek({
     const pad = (n) => String(n).padStart(2, '0');
     const ymdOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-    const dayDatesWithAppointments = dayDates.filter((dayDate) => {
-        const key = ymdOf(dayDate);
-        return (weekLeadsByYmd[key] || []).length > 0;
-    });
+    const weekHasAny = useMemo(
+        () => dayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0),
+        [dayDates, weekLeadsByYmd]
+    );
 
     return (
         <div className="agenda-week-root">
-            <div className="flex items-center justify-between flex-wrap agenda-week-nav" style={{ gap: 10, marginBottom: 14 }}>
-                <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o - 1)}>
-                    &lt; Anterior
-                </button>
-                <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o + 1)}>
-                    Próxima &gt;
-                </button>
-            </div>
+            {!hideNav ? (
+                <div className="flex items-center justify-between flex-wrap agenda-week-nav" style={{ gap: 10, marginBottom: 14 }}>
+                    <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o - 1)}>
+                        &lt; Anterior
+                    </button>
+                    <button type="button" className="btn-secondary agenda-week-nav-btn" onClick={() => setWeekOffset((o) => o + 1)}>
+                        Próxima &gt;
+                    </button>
+                </div>
+            ) : null}
 
             <div ref={weekScrollRef} className="agenda-week-scroll">
-                {dayDatesWithAppointments.length === 0 ? (
+                {!weekHasAny ? (
                     <p className="agenda-week-week-empty">Nenhum agendamento nesta semana.</p>
                 ) : (
                     <div className="agenda-week-grid">
-                        {dayDatesWithAppointments.map((dayDate) => {
+                        {dayDates.map((dayDate) => {
                             const key = ymdOf(dayDate);
                             const colLeads = weekLeadsByYmd[key] || [];
                             const isToday = key === todayYmd;
                             const isDenseColumn = colLeads.length >= 6;
+                            const dow = WEEKDAY_SHORT[(dayDate.getDay() + 6) % 7];
+                            const dayNum = dayDate.getDate();
 
                             return (
                                 <div
@@ -138,9 +157,19 @@ export default function AgendaCalendarWeek({
                                     className={`agenda-week-col${isToday ? ' agenda-week-col--today' : ''}${isDenseColumn ? ' agenda-week-col--dense' : ''}`}
                                 >
                                     <div className="agenda-week-col-head">
-                                        <span className="agenda-week-col-head-label">{formatDayHeader(dayDate)}</span>
+                                        <span className="agenda-week-dow">{dow}</span>
+                                        <span
+                                            className={
+                                                isToday ? 'agenda-week-day-num agenda-week-day-num--today' : 'agenda-week-day-num'
+                                            }
+                                        >
+                                            {dayNum}
+                                        </span>
                                     </div>
                                     <div className="agenda-week-col-body">
+                                        {colLeads.length === 0 ? (
+                                            <div className="agenda-week-col-empty">—</div>
+                                        ) : null}
                                         {colLeads.map((lead) => {
                                             const modality = String(lead?.type || '').trim();
                                             const attendedSelected = lead?.status === 'Compareceu';
@@ -148,9 +177,9 @@ export default function AgendaCalendarWeek({
                                             return (
                                                 <div
                                                     key={lead.id}
-                                                    className={`agenda-week-card card${attendedSelected ? ' agenda-week-card--attended' : ''}${
-                                                        missedSelected ? ' agenda-week-card--missed' : ''
-                                                    }`}
+                                                    className={`agenda-week-card agenda-week-card--lead card${
+                                                        attendedSelected ? ' agenda-week-card--attended' : ''
+                                                    }${missedSelected ? ' agenda-week-card--missed' : ''}`}
                                                 >
                                                     <button
                                                         type="button"
@@ -202,11 +231,28 @@ export default function AgendaCalendarWeek({
           margin-bottom: 4px;
         }
         .agenda-week-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: 10px;
           padding-inline: 0;
           align-items: stretch;
+        }
+        @media (max-width: 1100px) {
+          .agenda-week-grid {
+            grid-template-columns: repeat(7, minmax(92px, 1fr));
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+          }
+          .agenda-week-col { min-width: 92px; }
+        }
+        @media (max-width: 640px) {
+          .agenda-week-grid {
+            grid-template-columns: 1fr;
+            overflow-x: visible;
+          }
+          .agenda-week-col { min-width: 0; }
         }
         .agenda-week-col {
           flex: 0 0 auto;
@@ -218,40 +264,70 @@ export default function AgendaCalendarWeek({
           min-height: 0;
           overflow: hidden;
           box-shadow: var(--shadow-sm);
+          display: flex;
+          flex-direction: column;
         }
         .agenda-week-col--today {
-          background: rgba(91, 63, 191, 0.06);
-          border-color: rgba(91, 63, 191, 0.22);
-          border-top: 2px solid var(--v500);
+          background: rgba(91, 63, 191, 0.04);
+          border-color: rgba(91, 63, 191, 0.25);
         }
         .agenda-week-col-head {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          padding: 12px 14px;
+          padding: 12px 8px 10px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: flex-start;
-          gap: 8px;
+          justify-content: center;
+          gap: 6px;
           border-bottom: 1px solid var(--border);
           background: transparent;
           position: static;
           z-index: 2;
+          text-align: center;
         }
-        .agenda-week-col-head-label {
-          min-width: 0;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          overflow: hidden;
+        .agenda-week-dow {
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+        .agenda-week-day-num {
+          font-size: 15px;
+          font-weight: 800;
+          color: var(--ink);
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
+        }
+        .agenda-week-day-num--today {
+          background: #5b3fbf;
+          color: #fff;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
         }
         .agenda-week-col--today .agenda-week-col-head {
           background: rgba(91, 63, 191, 0.06);
         }
         .agenda-week-col-body {
-          padding: 12px 12px 14px;
+          padding: 10px 8px 12px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
+          flex: 1 1 auto;
+          min-height: 56px;
+        }
+        .agenda-week-col-empty {
+          margin: auto 0;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-align: center;
+          opacity: 0.65;
+          padding: 6px 4px;
         }
         .agenda-week-week-empty {
           margin: 0;
@@ -264,27 +340,31 @@ export default function AgendaCalendarWeek({
           border-radius: var(--radius-sm);
         }
         .agenda-week-card {
-          padding: 10px 12px !important;
-          border-radius: var(--radius-sm) !important;
-          border: 1px solid var(--border-mid) !important;
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04);
-          transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          padding: 8px 10px !important;
+          border-radius: 10px !important;
+          border: 1px solid rgba(91, 63, 191, 0.14) !important;
+          box-shadow: none;
+          transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.15s ease;
+        }
+        .agenda-week-card--lead {
+          background: #eeedfe !important;
         }
         .agenda-week-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(91, 63, 191, 0.22) !important;
-          box-shadow: var(--shadow-sm);
+          transform: translateY(-1px);
+          border-color: rgba(91, 63, 191, 0.28) !important;
+          box-shadow: 0 2px 8px rgba(91, 63, 191, 0.12);
+          filter: brightness(0.99);
         }
         .agenda-week-card--attended {
-          background: rgba(16, 185, 129, 0.08);
-          border-color: rgba(16, 185, 129, 0.22) !important;
+          background: rgba(16, 185, 129, 0.12) !important;
+          border-color: rgba(16, 185, 129, 0.28) !important;
         }
         .agenda-week-card--attended:hover {
           border-color: rgba(16, 185, 129, 0.32) !important;
         }
         .agenda-week-card--missed {
-          background: rgba(239, 68, 68, 0.06);
-          border-color: rgba(239, 68, 68, 0.22) !important;
+          background: rgba(239, 68, 68, 0.1) !important;
+          border-color: rgba(239, 68, 68, 0.25) !important;
         }
         .agenda-week-card--missed:hover {
           border-color: rgba(239, 68, 68, 0.32) !important;

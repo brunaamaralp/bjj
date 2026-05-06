@@ -7,7 +7,7 @@ import { Query } from 'appwrite';
 import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -15,7 +15,7 @@ import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
-import AgendaCalendarWeek from '../components/AgendaCalendarWeek.jsx';
+import AgendaCalendarWeek, { formatWeekRangeLabel, getWeekStart } from '../components/AgendaCalendarWeek.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
@@ -43,6 +43,7 @@ const Dashboard = () => {
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [savingTaskDone, setSavingTaskDone] = useState({});
+    const [dashboardWeekOffset, setDashboardWeekOffset] = useState(0);
     const hiddenAtRef = useRef(null);
 
     const closeListModal = () => setListModalType('');
@@ -309,6 +310,23 @@ const Dashboard = () => {
             return ta.localeCompare(tb);
         });
 
+    const scheduledInVisibleWeekCount = useMemo(() => {
+        const mon = getWeekStart(dashboardWeekOffset);
+        const sunEnd = new Date(mon);
+        sunEnd.setDate(mon.getDate() + 6);
+        sunEnd.setHours(23, 59, 59, 999);
+        const a = mon.getTime();
+        const b = sunEnd.getTime();
+        return allScheduled.filter((lead) => {
+            const raw = String(lead?.scheduledDate || '').trim();
+            if (!raw) return false;
+            const [y, m, d] = raw.split('T')[0].split('-').map(Number);
+            if (!Number.isFinite(y)) return false;
+            const t = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0).getTime();
+            return t >= a && t <= b;
+        }).length;
+    }, [allScheduled, dashboardWeekOffset]);
+
     const modalListItems =
         listModalType === 'today'
             ? todayScheduled
@@ -331,11 +349,10 @@ const Dashboard = () => {
                   ? 'Próximas tarefas'
                 : '';
 
-    const getUrgency = (days) => {
-        if (days >= 5) return { level: 'critical', label: 'Urgente', color: 'var(--danger)' };
-        if (days >= 3) return { level: 'high', label: 'Atenção', color: 'var(--warning)' };
-        if (days >= 1) return { level: 'medium', label: 'Acompanhar', color: 'var(--accent)' };
-        return { level: 'low', label: 'Recente', color: 'var(--success)' };
+    const followupElapsedColor = (daysAgo) => {
+        if (daysAgo === 0) return '#854F0B';
+        if (daysAgo === 1) return '#6b6b88';
+        return '#A32D2D';
     };
 
     const sendDashboardTemplate = async (lead, templateKey) => {
@@ -472,9 +489,27 @@ const Dashboard = () => {
     return (
         <div className="container reception-dashboard" style={{ paddingTop: 20, paddingBottom: 28 }}>
             <div className="reception-agenda-inner reception-agenda-inner--wide">
-            <header className="reception-page-header animate-in">
-                <h1 className="navi-page-title">Agenda da Recepção</h1>
-                <p className="navi-subtitle" style={{ marginTop: 2 }}>Controle de aulas experimentais e retornos</p>
+            <header className="reception-page-header reception-page-header--split animate-in">
+                <div className="reception-page-header__intro">
+                    <h1 className="navi-page-title">Agenda da Recepção</h1>
+                    <p className="navi-subtitle" style={{ marginTop: 2 }}>Controle de aulas experimentais e retornos</p>
+                </div>
+                <div className="reception-page-header__actions">
+                    <div className="reception-header-ai">
+                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                    </div>
+                    <button type="button" className="btn-primary reception-header-new-lead" onClick={() => navigate('/new-lead')}>
+                        <Plus size={20} strokeWidth={2.25} />{' '}
+                        {`Novo ${(() => {
+                            const l = useLeadStore.getState().labels?.leads || 'Leads';
+                            const basePlural = String(l).trim();
+                            const singular = basePlural.toLowerCase().endsWith('s') && basePlural.length > 1
+                                ? basePlural.slice(0, -1)
+                                : basePlural.toLowerCase();
+                            return singular.slice(0, 1).toUpperCase() + singular.slice(1);
+                        })()}`}
+                    </button>
+                </div>
             </header>
 
             {leadsError && (
@@ -491,59 +526,97 @@ const Dashboard = () => {
                     [1, 2, 3, 4].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 148 }} />)
                 ) : (
                     [
-                        { key: 'today', title: 'Aulas experimentais hoje', count: todayScheduled.length, icon: <Calendar size={16} strokeWidth={2} /> },
-                        { key: 'week', title: 'Aulas experimentais esta semana', count: weekScheduled.length, icon: <LayoutGrid size={16} strokeWidth={2} /> },
-                        { key: 'followup', title: 'Follow-ups pendentes', count: followUps.length, icon: <List size={16} strokeWidth={2} /> },
-                        { key: 'tasks', title: 'Próximas tarefas', count: pendingTasks.length, icon: <CheckSquare size={16} strokeWidth={2} /> },
+                        {
+                            key: 'today',
+                            title: 'Aulas experimentais hoje',
+                            count: todayScheduled.length,
+                            cta: 'Ver agenda',
+                            Icon: Calendar,
+                            variant: 'default',
+                        },
+                        {
+                            key: 'week',
+                            title: 'Aulas experimentais esta semana',
+                            count: weekScheduled.length,
+                            cta: 'Ver lista',
+                            Icon: LayoutGrid,
+                            variant: 'default',
+                        },
+                        {
+                            key: 'followup',
+                            title: 'Follow-ups pendentes',
+                            count: followUps.length,
+                            cta: 'Ver abaixo',
+                            Icon: ChevronDown,
+                            variant: 'followup',
+                        },
+                        {
+                            key: 'tasks',
+                            title: 'Próximas tarefas',
+                            count: pendingTasks.length,
+                            cta: 'Ver tarefas',
+                            Icon: CheckSquare,
+                            variant: 'default',
+                        },
                     ].map((card) => (
                         <button
                             key={card.key}
                             type="button"
-                            className="agenda-kpi-card agenda-kpi-card--clickable"
+                            className={`agenda-kpi-card agenda-kpi-card--clickable${card.variant === 'followup' ? ' agenda-kpi-card--followup' : ''}`}
                             onClick={() => setListModalType(card.key)}
                         >
                             <div className="agenda-kpi-card-stack">
                                 <div className="agenda-kpi-label">{card.title}</div>
-                                <div className="agenda-kpi-value">{card.count}</div>
+                                <div className={`agenda-kpi-value${card.variant === 'followup' ? ' agenda-kpi-value--followup' : ''}`}>{card.count}</div>
                             </div>
-                            <div className="agenda-kpi-trend agenda-kpi-trend--cta agenda-kpi-cta">
-                                {card.icon}
-                                <span>Ver lista</span>
+                            <div
+                                className={`agenda-kpi-trend agenda-kpi-cta${
+                                    card.variant === 'followup' ? ' agenda-kpi-trend--followup' : ' agenda-kpi-trend--cta'
+                                }`}
+                            >
+                                <card.Icon size={16} strokeWidth={2} />
+                                <span>{card.cta}</span>
                             </div>
                         </button>
                     ))
                 )}
             </div>
 
-            <div className="reception-primary-cta">
-            <button type="button" className="btn-primary btn-large" onClick={() => navigate('/new-lead')}>
-                <Plus size={22} strokeWidth={2.25} /> {`Novo ${(() => {
-                    const l = useLeadStore.getState().labels?.leads || 'Leads';
-                    const basePlural = String(l).trim();
-                    const singular = basePlural.toLowerCase().endsWith('s') && basePlural.length > 1
-                        ? basePlural.slice(0, -1)
-                        : basePlural.toLowerCase();
-                    return singular.slice(0,1).toUpperCase() + singular.slice(1);
-                })()}`}
-            </button>
-            </div>
-
             <div className="agenda-page-stack">
-            <section className="animate-in agenda-week-section reception-section" style={{ animationDelay: '0.23s' }}>
-                <div className="reception-section-head flex justify-between items-center">
+            <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.23s' }}>
+                <div className="reception-week-panel__head flex flex-wrap justify-between items-center gap-3">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <h3 className="navi-section-heading reception-section-heading">
                             <Calendar size={18} color="var(--v500)" strokeWidth={2} /> Agenda da semana
                         </h3>
-                        <span className="badge badge-secondary reception-section-badge" title="Total de aulas experimentais agendadas no período">
-                            {allScheduled.length}
+                        <span
+                            className="badge badge-secondary reception-section-badge"
+                            title="Aulas experimentais na semana exibida"
+                        >
+                            {scheduledInVisibleWeekCount}
                         </span>
                     </div>
-                    <div className="reception-section-tools flex items-center gap-1 flex-shrink-0">
-                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                    <div className="reception-week-panel__nav flex flex-wrap items-center gap-2">
                         <button
                             type="button"
-                            className="refresh-btn"
+                            className="btn-secondary agenda-dash-week-nav"
+                            onClick={() => setDashboardWeekOffset((o) => o - 1)}
+                        >
+                            &lt; Anterior
+                        </button>
+                        <span className="reception-week-range" aria-live="polite">
+                            {formatWeekRangeLabel(dashboardWeekOffset)}
+                        </span>
+                        <button
+                            type="button"
+                            className="btn-secondary agenda-dash-week-nav"
+                            onClick={() => setDashboardWeekOffset((o) => o + 1)}
+                        >
+                            Próxima &gt;
+                        </button>
+                        <button
+                            type="button"
+                            className="refresh-btn reception-week-refresh"
                             onClick={handleRefresh}
                             disabled={loading || isRefreshing}
                             aria-label="Atualizar agenda"
@@ -552,7 +625,6 @@ const Dashboard = () => {
                         </button>
                     </div>
                 </div>
-                <p className="reception-section-lead">Navegue pela semana e abra o lead pelo horário.</p>
                 <div className="agenda-week-fullwidth reception-week-embed">
                     <AgendaCalendarWeek
                         leads={allScheduled}
@@ -560,8 +632,12 @@ const Dashboard = () => {
                         onNaoCompareceu={markLeadMissed}
                         onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
                         savingPresence={savingPresence}
+                        weekOffset={dashboardWeekOffset}
+                        onWeekOffsetChange={setDashboardWeekOffset}
+                        hideNav
                     />
                 </div>
+                <p className="reception-calendar-hint">Clique em um horário para abrir o lead.</p>
             </section>
 
             <section className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
@@ -577,70 +653,70 @@ const Dashboard = () => {
                     Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da aula, o follow-up sai desta lista e fica só no Kanban.
                 </p>
 
-                <div className="flex-col agenda-followups-list">
+                <div className="agenda-followups-grid">
                     {followUps.length > 0 ? followUps.map((lead, i) => {
-                        const urgency = getUrgency(lead.daysAgo);
+                        const isPost = lead.status === LEAD_STATUS.COMPLETED;
+                        const elapsedLabel = lead.daysAgo === 0 ? 'Hoje' : `há ${lead.daysAgo} ${lead.daysAgo === 1 ? 'dia' : 'dias'}`;
                         return (
-                            <div key={lead.id} className="card follow-card animate-in" style={{ animationDelay: `${0.04 * i}s` }}>
-                                <div className="flex justify-between items-center" onClick={() => navigate(`/lead/${lead.id}`)} style={{ cursor: 'pointer' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div className="flex items-center gap-2">
-                                            <strong className="agenda-followup-name">{lead.name}</strong>
+                            <div
+                                key={lead.id}
+                                className={`follow-card follow-card--tile animate-in${isPost ? ' follow-card--tile-post' : ' follow-card--tile-recover'}`}
+                                style={{ animationDelay: `${0.04 * i}s` }}
+                            >
+                                <button
+                                    type="button"
+                                    className="follow-card__main"
+                                    onClick={() => navigate(`/lead/${lead.id}`)}
+                                >
+                                    <div className="follow-card__title-row">
+                                        <strong className="follow-card__name">{lead.name}</strong>
+                                        <span className={`follow-card__type-tag ${isPost ? 'follow-card__type-tag--post' : 'follow-card__type-tag--recover'}`}>
+                                            {isPost ? 'Pós-aula' : 'Recuperar'}
+                                        </span>
+                                    </div>
+                                    <span
+                                        className="follow-card__elapsed"
+                                        style={{ color: followupElapsedColor(lead.daysAgo) }}
+                                        title={lead.daysAgo === 0 ? 'Dia da aula experimental' : `Há ${lead.daysAgo} dias desde a data da aula`}
+                                    >
+                                        {elapsedLabel}
+                                    </span>
+                                    <p className="follow-card__meta">
+                                        {lead.phone || '—'}
+                                        {lead.intention ? ` · ${lead.intention}` : ''}
+                                        {lead.priority ? ` · ${lead.priority}` : ''}
+                                    </p>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="follow-card__wa"
+                                    onClick={() => handleWhatsApp(lead)}
+                                >
+                                    <span className="dashboard-wa-btn-inner">
+                                        {academyWaLoadFailed && (
                                             <span
-                                                className="urgency-tag"
-                                                style={{ background: urgency.color + '18', color: urgency.color }}
-                                                title={lead.daysAgo === 0 ? 'Dia da aula experimental' : `Há ${lead.daysAgo} dias desde a data da aula`}
+                                                className="dashboard-wa-warning-badge"
+                                                title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
+                                                aria-hidden
                                             >
-                                                {lead.daysAgo === 0 ? 'Hoje' : `há ${lead.daysAgo} dias`}
+                                                ⚠️
                                             </span>
-                                        </div>
-                                        <p className="agenda-followup-sub">
-                                            {lead.phone}{lead.intention ? ` • ${lead.intention}` : ''}{lead.priority ? ` • ${lead.priority}` : ''} • {urgency.label}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
-                                            {lead.status === LEAD_STATUS.COMPLETED ? 'Pós-Aula' : 'Recuperar'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Quick actions */}
-                                <div className="flex gap-2 agenda-followup-actions border-t">
-                                    <button
-                                        type="button"
-                                        className="followup-action-btn flex-1"
-                                        onClick={(e) => { e.stopPropagation(); handleWhatsApp(lead); }}
-                                    >
-                                        <span className="dashboard-wa-btn-inner">
-                                            {academyWaLoadFailed && (
-                                                <span
-                                                    className="dashboard-wa-warning-badge"
-                                                    title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
-                                                    aria-hidden
-                                                >
-                                                    ⚠️
-                                                </span>
-                                            )}
-                                            <MessageCircle size={14} color="#25D366" /> WhatsApp
-                                        </span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="followup-action-btn flex-1"
-                                        disabled={Boolean(savingFollowupDone[lead.id])}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            void markFollowupDone(lead);
-                                        }}
-                                    >
-                                        {savingFollowupDone[lead.id] ? 'Salvando…' : 'Marcar feito'}
-                                    </button>
-                                </div>
+                                        )}
+                                        <MessageCircle size={16} color="#fff" /> WhatsApp
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="follow-card__done"
+                                    disabled={Boolean(savingFollowupDone[lead.id])}
+                                    onClick={() => void markFollowupDone(lead)}
+                                >
+                                    {savingFollowupDone[lead.id] ? 'Salvando…' : 'Marcar feito'}
+                                </button>
                             </div>
                         );
                     }) : (
-                        <div className="empty-state">
+                        <div className="empty-state agenda-followups-grid__empty">
                             <p>Nada pendente por agora.</p>
                             {followUpsKanbanOnlyCount > 0 && (
                                 <p className="text-xs text-light mt-2">
@@ -791,25 +867,47 @@ const Dashboard = () => {
                 __html: `
         .reception-dashboard {
           --reception-section-pad: clamp(16px, 2.5vw, 22px);
+          --border-radius-lg: 16px;
         }
         .reception-page-header {
           padding-bottom: 20px;
           margin-bottom: 8px;
           border-bottom: 1px solid var(--border);
         }
-        .reception-primary-cta {
-          margin-top: 22px;
+        .reception-page-header--split {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 16px 24px;
         }
-        .reception-primary-cta .btn-large {
-          width: 100%;
-          max-width: 420px;
-          border-radius: var(--radius-sm);
-          box-shadow: var(--shadow-accent);
-          font-weight: 700;
-          gap: 10px;
+        .reception-page-header__intro {
+          flex: 1 1 220px;
+          min-width: 0;
         }
-        @media (min-width: 640px) {
-          .reception-primary-cta .btn-large { width: auto; min-width: 240px; }
+        .reception-page-header__actions {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 10px 12px;
+          flex: 1 1 300px;
+        }
+        .reception-header-ai {
+          flex: 1 1 200px;
+          min-width: min(100%, 200px);
+          max-width: 380px;
+        }
+        .reception-header-ai button { width: 100%; }
+        .reception-header-new-lead {
+          display: inline-flex !important;
+          align-items: center;
+          gap: 8px;
+          font-weight: 700 !important;
+          padding: 10px 18px !important;
+          border-radius: var(--radius-sm) !important;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .reception-section {
           background: var(--surface);
@@ -854,6 +952,156 @@ const Dashboard = () => {
         .reception-week-embed {
           margin-top: 2px;
         }
+        .reception-week-panel__head {
+          margin-bottom: 14px;
+        }
+        .reception-week-range {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--ink);
+          padding: 0 8px;
+          white-space: nowrap;
+        }
+        .reception-week-refresh { margin-left: 2px; }
+        .agenda-dash-week-nav {
+          font-size: 12px;
+          padding: 8px 14px;
+          min-height: 38px;
+        }
+        .reception-calendar-hint {
+          margin: 14px 0 0;
+          font-size: 12px;
+          color: var(--text-secondary);
+          line-height: 1.45;
+        }
+        .agenda-followups-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+        .agenda-followups-grid__empty {
+          grid-column: 1 / -1;
+        }
+        @media (max-width: 1100px) {
+          .agenda-followups-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 560px) {
+          .agenda-followups-grid { grid-template-columns: 1fr; }
+        }
+        .reception-agenda-inner .follow-card--tile.card {
+          border-left: none !important;
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius-sm);
+          padding: 0;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          box-shadow: var(--shadow-sm);
+        }
+        .follow-card--tile-recover {
+          border-top: 2px solid #e24b4a !important;
+        }
+        .follow-card--tile-post {
+          border-top: 2px solid #639922 !important;
+        }
+        .follow-card__main {
+          display: block;
+          width: 100%;
+          padding: 12px 14px 10px;
+          border: none;
+          background: none;
+          text-align: left;
+          font: inherit;
+          cursor: pointer;
+          color: inherit;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .follow-card__title-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+        .follow-card__name {
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.25;
+          min-width: 0;
+          text-align: left;
+        }
+        .follow-card__type-tag {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 3px 8px;
+          border-radius: 99px;
+          flex-shrink: 0;
+        }
+        .follow-card__type-tag--recover {
+          background: rgba(226, 75, 74, 0.14);
+          color: #a32d2d;
+        }
+        .follow-card__type-tag--post {
+          background: rgba(99, 153, 34, 0.18);
+          color: #4a7519;
+        }
+        .follow-card__elapsed {
+          display: block;
+          font-size: 12px;
+          font-weight: 700;
+          margin-bottom: 6px;
+        }
+        .follow-card__meta {
+          font-size: 11px;
+          color: var(--text-secondary);
+          line-height: 1.35;
+          margin: 0;
+          text-align: left;
+        }
+        .follow-card__wa {
+          margin: 8px 12px 0;
+          width: calc(100% - 24px);
+          align-self: center;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 11px 12px;
+          border: none;
+          border-radius: var(--radius-sm);
+          background: #25d366;
+          color: #fff !important;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: inherit;
+          box-sizing: border-box;
+        }
+        .follow-card__wa:hover { filter: brightness(0.97); }
+        .follow-card__wa:disabled { opacity: 0.55; cursor: not-allowed; }
+        .follow-card__done {
+          margin: 8px 12px 12px;
+          width: calc(100% - 24px);
+          align-self: center;
+          box-sizing: border-box;
+          padding: 10px 12px;
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius-sm);
+          background: var(--v50);
+          color: var(--text-secondary);
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .follow-card__done:hover:not(:disabled) {
+          border-color: var(--border-strong);
+          color: var(--ink);
+        }
+        .follow-card__done:disabled { opacity: 0.5; cursor: not-allowed; }
         .reception-section-tools {
           padding: 4px 6px;
           background: var(--v50);
@@ -865,6 +1113,29 @@ const Dashboard = () => {
         }
         .agenda-kpi-card--clickable:hover .agenda-kpi-trend--cta svg {
           color: var(--v500);
+        }
+        .agenda-kpi-card--followup {
+          border-left: 3px solid #e24b4a;
+          border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+        }
+        .agenda-kpi-card--followup::before {
+          border-radius: 0 var(--border-radius-lg) 0 0;
+        }
+        .agenda-kpi-value--followup {
+          color: #a32d2d !important;
+        }
+        .agenda-kpi-trend--followup {
+          color: #e24b4a !important;
+        }
+        .agenda-kpi-trend--followup svg {
+          color: #e24b4a !important;
+          opacity: 1 !important;
+        }
+        .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup {
+          color: #8f2e2e !important;
+        }
+        .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup svg {
+          color: #8f2e2e !important;
         }
         .reception-list-modal {
           width: min(760px, calc(100vw - 24px));
@@ -1429,11 +1700,14 @@ const Dashboard = () => {
             max-width: 100%;
           }
           .reception-agenda-inner .agenda-card.card,
-          .reception-agenda-inner .follow-card.card {
+          .reception-agenda-inner .follow-card.card:not(.follow-card--tile) {
             padding: 14px 14px 12px;
             border-radius: 14px;
           }
-          .agenda-week-section > .reception-section-head,
+          .reception-agenda-inner .follow-card--tile.card {
+            padding: 0 !important;
+          }
+          .agenda-week-section > .reception-week-panel__head,
           .agenda-followups-section > .reception-section-head {
             flex-wrap: wrap;
             gap: 10px;
