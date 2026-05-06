@@ -620,13 +620,6 @@ const Dashboard = () => {
                                     <button
                                         type="button"
                                         className="followup-action-btn flex-1"
-                                        onClick={(e) => { e.stopPropagation(); navigate(`/lead/${lead.id}`); }}
-                                    >
-                                        <ChevronRight size={14} /> Ver Perfil
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="followup-action-btn flex-1"
                                         disabled={Boolean(savingFollowupDone[lead.id])}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -797,7 +790,7 @@ const Dashboard = () => {
           max-width: 1180px;
         }
         .reception-agenda-inner--wide {
-          max-width: 1180px;
+          max-width: 1280px;
         }
         .agenda-today-week-section,
         .agenda-followups-section,
@@ -831,16 +824,20 @@ const Dashboard = () => {
         }
         .agenda-kpi-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 14px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          align-items: stretch;
+        }
+        @media (max-width: 1100px) {
+          .agenda-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 700px) {
           .agenda-kpi-grid { grid-template-columns: 1fr; }
         }
         .agenda-kpi-card {
           position: relative;
-          padding: 18px 18px 16px;
-          border-radius: 16px;
+          padding: 14px 14px 12px;
+          border-radius: 12px;
           background: var(--surface);
           border: 1px solid var(--border);
           box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
@@ -862,7 +859,7 @@ const Dashboard = () => {
           right: 0;
           height: 3px;
           background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.95));
-          border-radius: 16px 16px 0 0;
+          border-radius: 12px 12px 0 0;
           opacity: 0.9;
         }
         .agenda-kpi-card:hover {
@@ -875,17 +872,17 @@ const Dashboard = () => {
           .agenda-kpi-card:hover { transform: none; }
         }
         .agenda-kpi-label {
-          font-size: 0.68rem;
+          font-size: 0.62rem;
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
           color: var(--text-secondary);
-          margin-bottom: 10px;
-          line-height: 1.35;
+          margin-bottom: 8px;
+          line-height: 1.25;
           padding-right: 4px;
         }
         .agenda-kpi-value {
-          font-size: clamp(1.75rem, 4vw, 2.125rem);
+          font-size: clamp(1.4rem, 2.4vw, 1.9rem);
           font-weight: 800;
           font-variant-numeric: tabular-nums;
           line-height: 1.05;
@@ -897,8 +894,8 @@ const Dashboard = () => {
           flex-wrap: wrap;
           align-items: center;
           gap: 6px 8px;
-          margin-top: 12px;
-          font-size: 0.8125rem;
+          margin-top: 8px;
+          font-size: 0.76rem;
           font-weight: 700;
           font-variant-numeric: tabular-nums;
         }

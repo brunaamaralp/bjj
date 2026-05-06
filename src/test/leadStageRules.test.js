@@ -27,7 +27,7 @@ describe('leadStageRules', () => {
     expect(isLeadScheduledForExperimental(base)).toBe(true);
     expect(isLeadScheduledForExperimental({ ...base, scheduledDate: '' })).toBe(false);
     expect(isLeadScheduledForExperimental({ ...base, origin: 'Planilha' })).toBe(false);
-    expect(isLeadScheduledForExperimental({ ...base, contact_type: 'student' })).toBe(false);
+    expect(isLeadScheduledForExperimental({ ...base, contact_type: 'student' })).toBe(true);
     expect(isLeadScheduledForExperimental({ ...base, pipelineStage: 'Matriculado' })).toBe(false);
   });
 });

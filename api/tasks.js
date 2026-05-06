@@ -231,6 +231,29 @@ export default async function handler(req, res) {
       }
 
       const updated = await databases.updateDocument(DB_ID, TASKS_COL, taskId, patch);
+
+      const prevStatus = String(current?.status || '').trim().toLowerCase();
+      const nextStatus = String(updated?.status || '').trim().toLowerCase();
+      const leadIdForTimeline = String(updated?.lead_id || current?.lead_id || '').trim();
+      if (leadIdForTimeline && prevStatus !== 'done' && nextStatus === 'done') {
+        try {
+          await addLeadEventServer({
+            academyId,
+            leadId: leadIdForTimeline,
+            type: 'task_done',
+            text: `Tarefa concluída: ${String(updated?.title || current?.title || 'Sem título')}`.slice(0, 1000),
+            createdBy: String(me?.$id || 'user'),
+            payloadJson: {
+              task_id: String(updated?.$id || current?.$id || ''),
+              title: String(updated?.title || current?.title || ''),
+              completed_at: new Date().toISOString(),
+            },
+          });
+        } catch (e) {
+          console.warn('[tasks] Falha ao registrar conclusão na timeline:', e?.message || e);
+        }
+      }
+
       return json(res, 200, { sucesso: true, task: mapTask(updated) });
     } catch (e) {
       console.error('[tasks] Erro ao atualizar:', e);

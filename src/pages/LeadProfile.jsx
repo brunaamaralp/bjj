@@ -64,6 +64,7 @@ const TIMELINE_EVENT_LABELS = {
     note: 'Nota',
     lead_created: 'Cadastro',
     task_created: 'Tarefa criada',
+    task_done: 'Tarefa concluída',
     import: 'Importação',
     attended: 'Compareceu à aula',
     missed: 'Não compareceu',
@@ -1439,6 +1440,7 @@ const LeadProfile = () => {
                                 else if (type === 'schedule') dotColor = '#0088CC';
                                 else if (type === 'followup_done') dotColor = '#2E7D32';
                                 else if (type === 'task_created') dotColor = '#5B3FBF';
+                                else if (type === 'task_done') dotColor = '#2E7D32';
                                 else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
                                 else if (type === 'pipeline_change') dotColor = '#F5A623';
 
@@ -1447,6 +1449,8 @@ const LeadProfile = () => {
                                     label = `Agendado para ${n.date} ${n.time || ''}`.trim();
                                 } else if (type === 'followup_done') {
                                     label = n.text || 'Follow-up marcado como concluído';
+                                } else if (type === 'task_done') {
+                                    label = n.text || 'Tarefa marcada como concluída';
                                 } else if (type === 'stage_change' || type === 'pipeline_change') {
                                     label = `De ${humanizeTimelineStage(n.from, stages)} para ${humanizeTimelineStage(n.to, stages)}`;
                                 } else if (type === 'inbox_note') {

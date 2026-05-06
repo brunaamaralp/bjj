@@ -45,7 +45,6 @@ export function isLeadScheduledForExperimental(lead) {
     hasExperimentalCalendarDate(lead) &&
     String(lead?.origin || '').trim() !== 'Planilha' &&
     lead?.status !== LEAD_STATUS.CONVERTED &&
-    String(lead?.pipelineStage || '').trim() !== 'Matriculado' &&
-    lead?.contact_type !== 'student'
+    String(lead?.pipelineStage || '').trim() !== 'Matriculado'
   );
 }
