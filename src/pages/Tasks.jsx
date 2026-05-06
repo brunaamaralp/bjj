@@ -620,14 +620,16 @@ export default function Tasks() {
                 })}
               </div>
             </div>
-            <aside className="tasks-cal-sidebar">
-              <h4 className="tasks-cal-sidebar-title">Sem prazo</h4>
+            <section className="tasks-cal-semprazo" aria-label="Tarefas sem prazo">
+              <h4 className="tasks-cal-semprazo-title">Sem prazo</h4>
               {semPrazoTasksForCalendar.length === 0 ? (
                 <p className="text-muted text-sm mb-0">Nenhuma tarefa sem prazo neste filtro.</p>
               ) : (
-                <div className="task-list">{semPrazoTasksForCalendar.map((t) => renderOneTaskCard(t, { compact: true }))}</div>
+                <div className="tasks-cal-semprazo-grid">
+                  {semPrazoTasksForCalendar.map((t) => renderOneTaskCard(t, { compact: true }))}
+                </div>
               )}
-            </aside>
+            </section>
           </div>
         )}
       </div>
@@ -1147,12 +1149,12 @@ export default function Tasks() {
         .tasks-kanban-col-body { padding: 10px; flex: 1; overflow-y: auto; max-height: min(62vh, 520px); }
 
         .tasks-cal-layout {
-          display: flex; gap: 16px; align-items: flex-start;
+          display: flex;
+          flex-direction: column;
+          gap: 22px;
+          align-items: stretch;
         }
-        @media (max-width: 960px) {
-          .tasks-cal-layout { flex-direction: column; }
-        }
-        .tasks-cal-main { flex: 1; min-width: 0; }
+        .tasks-cal-main { width: 100%; min-width: 0; }
         .tasks-cal-month-label {
           font-size: 15px; font-weight: 700; color: var(--ink);
           text-transform: capitalize;
@@ -1165,11 +1167,13 @@ export default function Tasks() {
           text-transform: uppercase; letter-spacing: 0.06em;
         }
         .tasks-cal-grid {
-          display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: 8px;
         }
         .tasks-cal-cell {
           border: 1px solid var(--border-mid); border-radius: 10px; background: var(--surface);
-          min-height: 100px; padding: 6px 6px 8px; display: flex; flex-direction: column;
+          min-height: 118px; padding: 8px 8px 10px; display: flex; flex-direction: column;
         }
         .tasks-cal-cell--empty { background: transparent; border: none; min-height: 0; }
         .tasks-cal-cell--today {
@@ -1184,17 +1188,32 @@ export default function Tasks() {
           display: flex; align-items: center; justify-content: center;
         }
         .tasks-cal-day-tasks { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow-y: auto; }
-        .tasks-cal-sidebar {
-          width: 280px; flex-shrink: 0; border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
-          background: var(--surface); padding: 14px; max-height: min(85vh, 720px); overflow-y: auto;
+        .tasks-cal-day-tasks .task-title {
+          white-space: normal;
+          word-break: break-word;
+          line-height: 1.35;
         }
-        @media (max-width: 960px) {
-          .tasks-cal-sidebar { width: 100%; max-height: none; }
+        .tasks-cal-semprazo {
+          width: 100%;
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius-sm);
+          background: var(--surface);
+          padding: 16px 18px;
         }
-        .tasks-cal-sidebar-title {
-          font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-          margin: 0 0 12px; color: var(--text-secondary);
+        .tasks-cal-semprazo-title {
+          font-size: 12px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin: 0 0 12px;
+          color: var(--text-secondary);
         }
+        .tasks-cal-semprazo-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 8px;
+        }
+        .tasks-cal-semprazo-grid .task-card { min-width: 0; }
 
         .task-card--compact { padding: 8px 10px; gap: 8px; }
         .task-card--compact .task-checkbox { margin-top: 2px; width: 14px; height: 14px; }
