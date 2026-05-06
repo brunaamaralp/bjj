@@ -349,12 +349,6 @@ const Dashboard = () => {
                   ? 'Próximas tarefas'
                 : '';
 
-    const followupElapsedColor = (daysAgo) => {
-        if (daysAgo === 0) return '#854F0B';
-        if (daysAgo === 1) return '#6b6b88';
-        return '#A32D2D';
-    };
-
     const sendDashboardTemplate = async (lead, templateKey) => {
         await sendWhatsappTemplateOutbound({
             lead,
@@ -586,11 +580,11 @@ const Dashboard = () => {
             <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.23s' }}>
                 <div className="reception-week-panel__head flex flex-wrap justify-between items-center gap-3">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
-                        <h3 className="navi-section-heading reception-section-heading">
-                            <Calendar size={18} color="var(--v500)" strokeWidth={2} /> Agenda da semana
+                        <h3 className="navi-section-heading reception-section-heading reception-week-panel__title">
+                            <Calendar size={18} color="#5B3FBF" strokeWidth={2} /> Agenda da semana
                         </h3>
                         <span
-                            className="badge badge-secondary reception-section-badge"
+                            className="badge reception-week-count-badge"
                             title="Aulas experimentais na semana exibida"
                         >
                             {scheduledInVisibleWeekCount}
@@ -637,7 +631,7 @@ const Dashboard = () => {
                         hideNav
                     />
                 </div>
-                <p className="reception-calendar-hint">Clique em um horário para abrir o lead.</p>
+                <p className="reception-calendar-hint">Clique em um horário para abrir o lead</p>
             </section>
 
             <section className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
@@ -653,73 +647,77 @@ const Dashboard = () => {
                     Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da aula, o follow-up sai desta lista e fica só no Kanban.
                 </p>
 
-                <div className="agenda-followups-grid">
+                <div className="fu-list-card">
                     {followUps.length > 0 ? followUps.map((lead, i) => {
                         const isPost = lead.status === LEAD_STATUS.COMPLETED;
-                        const elapsedLabel = lead.daysAgo === 0 ? 'Hoje' : `há ${lead.daysAgo} ${lead.daysAgo === 1 ? 'dia' : 'dias'}`;
+                        const elapsedLabel =
+                            lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
+                        const elapsedClass =
+                            lead.daysAgo === 0 ? 'fu-elapsed fu-elapsed--today' : lead.daysAgo === 1 ? 'fu-elapsed fu-elapsed--1' : 'fu-elapsed fu-elapsed--2plus';
                         return (
                             <div
                                 key={lead.id}
-                                className={`follow-card follow-card--tile animate-in${isPost ? ' follow-card--tile-post' : ' follow-card--tile-recover'}`}
+                                className={`fu-row animate-in${i === followUps.length - 1 ? ' fu-row--last' : ''}`}
                                 style={{ animationDelay: `${0.04 * i}s` }}
                             >
+                                <span
+                                    className={`fu-dot ${isPost ? 'fu-dot--post' : 'fu-dot--recover'}`}
+                                    aria-hidden
+                                />
                                 <button
                                     type="button"
-                                    className="follow-card__main"
+                                    className="fu-name"
                                     onClick={() => navigate(`/lead/${lead.id}`)}
                                 >
-                                    <div className="follow-card__title-row">
-                                        <strong className="follow-card__name">{lead.name}</strong>
-                                        <span className={`follow-card__type-tag ${isPost ? 'follow-card__type-tag--post' : 'follow-card__type-tag--recover'}`}>
-                                            {isPost ? 'Pós-aula' : 'Recuperar'}
-                                        </span>
-                                    </div>
-                                    <span
-                                        className="follow-card__elapsed"
-                                        style={{ color: followupElapsedColor(lead.daysAgo) }}
-                                        title={lead.daysAgo === 0 ? 'Dia da aula experimental' : `Há ${lead.daysAgo} dias desde a data da aula`}
+                                    {lead.name}
+                                </button>
+                                <span className="fu-phone">
+                                    {lead.phone || '—'}
+                                </span>
+                                <span
+                                    className={elapsedClass}
+                                    title={lead.daysAgo === 0 ? 'Dia da aula experimental' : `Há ${lead.daysAgo} dias desde a data da aula`}
+                                >
+                                    {elapsedLabel}
+                                </span>
+                                <span className={`fu-type-badge ${isPost ? 'fu-type-badge--post' : 'fu-type-badge--recover'}`}>
+                                    {isPost ? 'Pós-aula' : 'Recuperar'}
+                                </span>
+                                <div className="fu-actions">
+                                    <button
+                                        type="button"
+                                        className="fu-btn-wa"
+                                        onClick={() => handleWhatsApp(lead)}
                                     >
-                                        {elapsedLabel}
-                                    </span>
-                                    <p className="follow-card__meta">
-                                        {lead.phone || '—'}
-                                        {lead.intention ? ` · ${lead.intention}` : ''}
-                                        {lead.priority ? ` · ${lead.priority}` : ''}
-                                    </p>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="follow-card__wa"
-                                    onClick={() => handleWhatsApp(lead)}
-                                >
-                                    <span className="dashboard-wa-btn-inner">
-                                        {academyWaLoadFailed && (
-                                            <span
-                                                className="dashboard-wa-warning-badge"
-                                                title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
-                                                aria-hidden
-                                            >
-                                                ⚠️
-                                            </span>
-                                        )}
-                                        <MessageCircle size={16} color="#fff" /> WhatsApp
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="follow-card__done"
-                                    disabled={Boolean(savingFollowupDone[lead.id])}
-                                    onClick={() => void markFollowupDone(lead)}
-                                >
-                                    {savingFollowupDone[lead.id] ? 'Salvando…' : 'Marcar feito'}
-                                </button>
+                                        <span className="dashboard-wa-btn-inner">
+                                            {academyWaLoadFailed && (
+                                                <span
+                                                    className="dashboard-wa-warning-badge"
+                                                    title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
+                                                    aria-hidden
+                                                >
+                                                    ⚠️
+                                                </span>
+                                            )}
+                                            <MessageCircle size={14} color="#fff" /> WhatsApp
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="fu-btn-done"
+                                        disabled={Boolean(savingFollowupDone[lead.id])}
+                                        onClick={() => void markFollowupDone(lead)}
+                                    >
+                                        {savingFollowupDone[lead.id] ? 'Salvando…' : 'Marcar feito'}
+                                    </button>
+                                </div>
                             </div>
                         );
                     }) : (
-                        <div className="empty-state agenda-followups-grid__empty">
-                            <p>Nada pendente por agora.</p>
+                        <div className="fu-list-empty">
+                            <p className="mb-0">Nada pendente por agora.</p>
                             {followUpsKanbanOnlyCount > 0 && (
-                                <p className="text-xs text-light mt-2">
+                                <p className="text-xs text-light mt-2 mb-0">
                                     {followUpsKanbanOnlyCount} {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (aula há {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
                                 </p>
                             )}
@@ -798,7 +796,7 @@ const Dashboard = () => {
                                                         <button
                                                             type="button"
                                                             className="followup-action-btn flex-1"
-                                                            onClick={() => navigate('/tasks')}
+                                                            onClick={() => navigate('/tarefas')}
                                                         >
                                                             <ChevronRight size={14} /> Abrir tarefas
                                                         </button>
@@ -949,6 +947,31 @@ const Dashboard = () => {
           border-radius: var(--radius-sm);
           border-left: 3px solid var(--v200);
         }
+        .reception-agenda-inner .agenda-week-section.reception-week-panel.reception-section {
+          background: #F4F2FF;
+          border: 0.5px solid #AFA9EC;
+        }
+        .reception-week-panel__title.navi-section-heading,
+        .reception-week-panel__title {
+          color: #26215C;
+        }
+        .badge.reception-week-count-badge {
+          background: #5B3FBF;
+          color: #fff;
+          border: none;
+          font-weight: 700;
+        }
+        .reception-agenda-inner .agenda-dash-week-nav {
+          background: #fff;
+          border: 0.5px solid #AFA9EC;
+          color: #534AB7;
+          font-weight: 600;
+        }
+        .reception-agenda-inner .agenda-dash-week-nav:hover {
+          background: #faf9ff;
+          border-color: #CECBF6;
+          color: #43389a;
+        }
         .reception-week-embed {
           margin-top: 2px;
         }
@@ -958,7 +981,7 @@ const Dashboard = () => {
         .reception-week-range {
           font-size: 13px;
           font-weight: 700;
-          color: var(--ink);
+          color: #534AB7;
           padding: 0 8px;
           white-space: nowrap;
         }
@@ -970,138 +993,242 @@ const Dashboard = () => {
         }
         .reception-calendar-hint {
           margin: 14px 0 0;
-          font-size: 12px;
-          color: var(--text-secondary);
-          line-height: 1.45;
-        }
-        .agenda-followups-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 12px;
-        }
-        .agenda-followups-grid__empty {
-          grid-column: 1 / -1;
-        }
-        @media (max-width: 1100px) {
-          .agenda-followups-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 560px) {
-          .agenda-followups-grid { grid-template-columns: 1fr; }
-        }
-        .reception-agenda-inner .follow-card--tile.card {
-          border-left: none !important;
-          border: 1px solid var(--border-mid);
-          border-radius: var(--radius-sm);
-          padding: 0;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          box-shadow: var(--shadow-sm);
-        }
-        .follow-card--tile-recover {
-          border-top: 2px solid #e24b4a !important;
-        }
-        .follow-card--tile-post {
-          border-top: 2px solid #639922 !important;
-        }
-        .follow-card__main {
-          display: block;
-          width: 100%;
-          padding: 12px 14px 10px;
-          border: none;
-          background: none;
-          text-align: left;
-          font: inherit;
-          cursor: pointer;
-          color: inherit;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .follow-card__title-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 8px;
-          margin-bottom: 6px;
-        }
-        .follow-card__name {
-          font-size: 14px;
-          font-weight: 600;
-          line-height: 1.25;
-          min-width: 0;
-          text-align: left;
-        }
-        .follow-card__type-tag {
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          padding: 3px 8px;
-          border-radius: 99px;
-          flex-shrink: 0;
-        }
-        .follow-card__type-tag--recover {
-          background: rgba(226, 75, 74, 0.14);
-          color: #a32d2d;
-        }
-        .follow-card__type-tag--post {
-          background: rgba(99, 153, 34, 0.18);
-          color: #4a7519;
-        }
-        .follow-card__elapsed {
-          display: block;
-          font-size: 12px;
-          font-weight: 700;
-          margin-bottom: 6px;
-        }
-        .follow-card__meta {
           font-size: 11px;
-          color: var(--text-secondary);
-          line-height: 1.35;
-          margin: 0;
-          text-align: left;
+          color: #7F77DD;
+          line-height: 1.45;
+          text-align: center;
         }
-        .follow-card__wa {
-          margin: 8px 12px 0;
-          width: calc(100% - 24px);
-          align-self: center;
-          display: inline-flex;
+        .reception-agenda-inner .reception-week-embed .agenda-week-col {
+          border-radius: 10px;
+          border: 0.5px solid #CECBF6;
+          background: #fff;
+          box-shadow: none;
+          min-height: 140px;
+          padding: 10px 8px;
+          overflow: visible;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
+          border: 1.5px solid #5B3FBF;
+          background: #fff !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col-head {
+          padding: 0 0 8px;
+          margin: 0 0 8px;
+          border-bottom: none;
+          gap: 6px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--today .agenda-week-col-head {
+          background: transparent !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-dow {
+          font-size: 10px;
+          font-weight: 500;
+          color: #7F77DD;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-day-num {
+          font-size: 15px;
+          font-weight: 700;
+          color: #3C3489;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-day-num--today {
+          width: 30px;
+          height: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          background: #5B3FBF !important;
+          color: #fff !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col-body {
+          padding: 0;
+          gap: 5px;
+          min-height: 0;
+          flex: 1;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col-empty {
+          color: #AFA9EC;
+          opacity: 1;
+          font-weight: 500;
+          flex: 1;
+          display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          padding: 11px 12px;
-          border: none;
-          border-radius: var(--radius-sm);
-          background: #25d366;
-          color: #fff !important;
-          font-size: 13px;
-          font-weight: 700;
-          cursor: pointer;
-          font-family: inherit;
-          box-sizing: border-box;
+          margin: 0;
         }
-        .follow-card__wa:hover { filter: brightness(0.97); }
-        .follow-card__wa:disabled { opacity: 0.55; cursor: not-allowed; }
-        .follow-card__done {
-          margin: 8px 12px 12px;
-          width: calc(100% - 24px);
-          align-self: center;
-          box-sizing: border-box;
-          padding: 10px 12px;
-          border: 1px solid var(--border-mid);
-          border-radius: var(--radius-sm);
-          background: var(--v50);
-          color: var(--text-secondary);
+        .reception-agenda-inner .reception-week-embed .agenda-week-card.agenda-week-card--lead {
+          padding: 8px 10px 8px 8px !important;
+          border-radius: 0 6px 6px 0 !important;
+          border: none !important;
+          border-left: 2px solid #5B3FBF !important;
+          background: #EEEDFE !important;
+          box-shadow: none !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-card:hover {
+          transform: none;
+          filter: none;
+          box-shadow: 0 1px 4px rgba(91, 63, 191, 0.15) !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-time {
+          font-size: 11px;
+          font-weight: 500;
+          color: #534AB7;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-name {
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 500;
+          color: #3C3489;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-mod {
+          font-size: 10px;
+          font-weight: 500;
+          color: #7F77DD;
+          margin-top: 2px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-card--attended {
+          border-left-color: #16a34a !important;
+          background: rgba(16, 185, 129, 0.14) !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-card--missed {
+          border-left-color: #e24b4a !important;
+          background: rgba(239, 68, 68, 0.12) !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-col-body {
+          gap: 5px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-card {
+          padding: 8px 10px 8px 8px !important;
+          border-radius: 0 6px 6px 0 !important;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-name {
+          font-size: 12px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-mod {
+          font-size: 10px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-week-empty {
+          background: rgba(255, 255, 255, 0.65);
+          border-color: #CECBF6;
+          color: #534AB7;
+        }
+        .fu-list-card {
+          background: var(--surface);
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius);
+          padding: 0 16px;
+          box-shadow: var(--shadow-sm);
+        }
+        .fu-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 9px 0;
+          border-bottom: 0.5px solid var(--color-border-tertiary, var(--border-light));
+          flex-wrap: wrap;
+        }
+        .fu-row--last {
+          border-bottom: none;
+        }
+        .fu-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .fu-dot--recover { background: #E24B4A; }
+        .fu-dot--post { background: #639922; }
+        .fu-name {
+          flex: 1;
+          min-width: 120px;
+          font-size: 13px;
+          font-weight: 500;
+          text-align: left;
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          color: inherit;
+          font-family: inherit;
+        }
+        .fu-name:hover {
+          color: var(--v500);
+          text-decoration: underline;
+        }
+        .fu-phone {
+          flex: 1;
+          min-width: 100px;
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .fu-elapsed {
+          font-size: 12px;
+          min-width: 60px;
+          flex-shrink: 0;
+        }
+        .fu-elapsed--today { color: #854F0B; }
+        .fu-elapsed--1 { color: var(--text-secondary); }
+        .fu-elapsed--2plus { color: #A32D2D; }
+        .fu-type-badge {
+          font-size: 10px;
+          border-radius: 20px;
+          padding: 2px 8px;
+          font-weight: 600;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .fu-type-badge--recover {
+          background: #FCEBEB;
+          color: #A32D2D;
+        }
+        .fu-type-badge--post {
+          background: #EAF3DE;
+          color: #3B6D11;
+        }
+        .fu-actions {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        .fu-btn-wa {
+          background: #25D366;
+          color: #fff;
+          border: none;
+          padding: 5px 10px;
+          font-size: 11px;
+          border-radius: 6px;
+          font-weight: 600;
           cursor: pointer;
           font-family: inherit;
         }
-        .follow-card__done:hover:not(:disabled) {
+        .fu-btn-wa:hover { filter: brightness(0.96); }
+        .fu-btn-done {
+          background: var(--surface-hover);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-mid);
+          padding: 5px 10px;
+          font-size: 11px;
+          border-radius: 6px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .fu-btn-done:hover:not(:disabled) {
           border-color: var(--border-strong);
           color: var(--ink);
         }
-        .follow-card__done:disabled { opacity: 0.5; cursor: not-allowed; }
+        .fu-btn-done:disabled { opacity: 0.5; cursor: not-allowed; }
+        .fu-list-empty {
+          padding: 16px 0;
+          text-align: center;
+          color: var(--text-secondary);
+        }
+        @media (max-width: 720px) {
+          .fu-row .fu-actions {
+            width: 100%;
+            justify-content: flex-end;
+          }
+        }
         .reception-section-tools {
           padding: 4px 6px;
           background: var(--v50);
@@ -1700,12 +1827,9 @@ const Dashboard = () => {
             max-width: 100%;
           }
           .reception-agenda-inner .agenda-card.card,
-          .reception-agenda-inner .follow-card.card:not(.follow-card--tile) {
+          .reception-agenda-inner .follow-card.card {
             padding: 14px 14px 12px;
             border-radius: 14px;
-          }
-          .reception-agenda-inner .follow-card--tile.card {
-            padding: 0 !important;
           }
           .agenda-week-section > .reception-week-panel__head,
           .agenda-followups-section > .reception-section-head {
