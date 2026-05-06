@@ -1,5 +1,6 @@
 import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
+import { addLeadEventServer } from '../lib/server/leadEvents.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -172,6 +173,32 @@ export default async function handler(req, res) {
           });
         } catch (e) {
           console.warn('[tasks] Falha ao criar notificação de atribuição:', e?.message || e);
+        }
+      }
+
+      const leadIdForTimeline = String(payload.lead_id || '').trim();
+      if (leadIdForTimeline) {
+        try {
+          const duePtBr = String(payload.due_date || '').trim()
+            ? new Date(`${String(payload.due_date).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR')
+            : '';
+          const timelineText =
+            `Tarefa criada: ${payload.title}` + (duePtBr ? ` · prazo ${duePtBr}` : '');
+          await addLeadEventServer({
+            academyId,
+            leadId: leadIdForTimeline,
+            type: 'task_created',
+            text: timelineText,
+            createdBy: String(payload.created_by || me?.$id || 'user'),
+            payloadJson: {
+              task_id: String(doc?.$id || ''),
+              title: String(payload.title || ''),
+              due_date: String(payload.due_date || ''),
+              assigned_to: String(payload.assigned_to || ''),
+            },
+          });
+        } catch (e) {
+          console.warn('[tasks] Falha ao registrar evento na timeline:', e?.message || e);
         }
       }
 

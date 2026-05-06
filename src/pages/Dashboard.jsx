@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useTaskStore } from '../store/useTaskStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { Query } from 'appwrite';
+import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, MessageCircle, RefreshCcw, TrendingUp, TrendingDown, List, LayoutGrid } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -16,32 +18,15 @@ import ScheduleModal from '../components/ScheduleModal.jsx';
 import AgendaCalendarWeek from '../components/AgendaCalendarWeek.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
-const DAY_FILTERS = [
-    { key: 'today', label: 'Hoje' },
-    { key: 'tomorrow', label: 'Amanhã' },
-    {
-        key: 'week',
-        label: 'Semana',
-        title: 'Próximos 7 dias corridos a partir de hoje (não é semana civil segunda–domingo).',
-    },
-    { key: 'all', label: 'Todos' },
-];
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
+    const tasks = useTaskStore((s) => s.tasks);
+    const fetchTasks = useTaskStore((s) => s.fetchTasks);
+    const updateTask = useTaskStore((s) => s.updateTask);
     const addToast = useUiStore((s) => s.addToast);
-    const [dateFilter, _setDateFilter] = useState('all');
-    const [agendaView, _setAgendaView] = useState(() => {
-        try {
-            if (typeof window === 'undefined') return 'list';
-            const v = localStorage.getItem('nave_agenda_view');
-            return v === 'week' ? 'week' : 'list';
-        } catch {
-            return 'list';
-        }
-    });
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dashboardQuickTimes, setDashboardQuickTimes] = useState([]);
@@ -54,8 +39,13 @@ const Dashboard = () => {
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
     const [nlOpen, setNlOpen] = useState(false);
-    const [expandedExperimentalId, setExpandedExperimentalId] = useState(null);
+    const [listModalType, setListModalType] = useState('');
+    const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
+    const [savingFollowupDone, setSavingFollowupDone] = useState({});
+    const [savingTaskDone, setSavingTaskDone] = useState({});
     const hiddenAtRef = useRef(null);
+
+    const closeListModal = () => setListModalType('');
 
     const pipelineStagesNl = useMemo(() => {
         const fixed = PIPELINE_STAGES.map((s) => ({ id: s, label: s, slaDays: DEFAULT_STAGE_SLA_DAYS }));
@@ -82,18 +72,15 @@ const Dashboard = () => {
     }, [academyList, academyId]);
 
     useEffect(() => {
-        try {
-            localStorage.setItem('nave_agenda_view', agendaView);
-        } catch {
-            /* ignore quota / private mode */
-        }
-    }, [agendaView]);
-
-    useEffect(() => {
         if (academyId) {
             fetchLeads();
         }
     }, [academyId]);
+
+    useEffect(() => {
+        if (!academyId) return;
+        void fetchTasks(academyId, { silent: true, filters: { status: 'pending' } });
+    }, [academyId, fetchTasks]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -163,18 +150,58 @@ const Dashboard = () => {
         };
     }, [academyId]);
 
+    useEffect(() => {
+        if (!academyId || !LEAD_EVENTS_COL) {
+            setFollowupDoneAtByLead({});
+            return;
+        }
+        let cancelled = false;
+        const loadDoneEvents = async () => {
+            try {
+                let cursor = null;
+                let pageCount = 0;
+                const byLead = {};
+                do {
+                    const queries = [
+                        Query.equal('academy_id', [String(academyId || '').trim()]),
+                        Query.equal('type', ['followup_done']),
+                        Query.orderDesc('at'),
+                        Query.limit(100),
+                    ];
+                    if (cursor) queries.push(Query.cursorAfter(cursor));
+                    const res = await databases.listDocuments(DB_ID, LEAD_EVENTS_COL, queries);
+                    const docs = Array.isArray(res?.documents) ? res.documents : [];
+                    for (const d of docs) {
+                        const leadId = String(d?.lead_id || '').trim();
+                        const at = String(d?.at || '').trim();
+                        if (!leadId || !at || byLead[leadId]) continue;
+                        byLead[leadId] = at;
+                    }
+                    cursor = docs.length === 100 ? docs[docs.length - 1]?.$id : null;
+                    pageCount += 1;
+                } while (cursor && pageCount < 10);
+                if (!cancelled) setFollowupDoneAtByLead(byLead);
+            } catch {
+                if (!cancelled) setFollowupDoneAtByLead({});
+            }
+        };
+        void loadDoneEvents();
+        return () => {
+            cancelled = true;
+        };
+    }, [academyId]);
+
     const handleRefresh = async () => {
         if (isRefreshing) return;
         setIsRefreshing(true);
         try {
-            await fetchLeads();
+            await Promise.all([
+                fetchLeads(),
+                fetchTasks(academyId, { silent: true, filters: { status: 'pending' } }),
+            ]);
         } finally {
             setTimeout(() => setIsRefreshing(false), 300);
         }
-    };
-
-    const openScheduleModal = (lead) => {
-        setScheduleModalLead(lead);
     };
 
     const onConfirmScheduleDashboard = async ({ date, time, note }) => {
@@ -210,8 +237,6 @@ const Dashboard = () => {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
     const weekEnd = new Date(today);
     weekEnd.setDate(today.getDate() + 7);
 
@@ -236,20 +261,19 @@ const Dashboard = () => {
         .filter(isLeadScheduledForExperimental)
         .sort((a, b) => toDateTime(a) - toDateTime(b));
 
-    const _agendaLeads = allScheduled
-        .filter((lead) => {
-            if (dateFilter === 'all') return true;
-            if (!lead.scheduledDate) return false;
+    const todayScheduled = allScheduled.filter((lead) => {
+        if (!lead.scheduledDate) return false;
+        const [y, m, d] = lead.scheduledDate.split('-').map(Number);
+        const leadDate = new Date(y, m - 1, d);
+        return leadDate.toDateString() === today.toDateString();
+    });
 
-            // Use YYYY-MM-DD from lead.scheduledDate directly for comparison to avoid TZ shifts
-            const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-            const leadDate = new Date(y, m - 1, d);
-
-            if (dateFilter === 'today') return leadDate.toDateString() === today.toDateString();
-            if (dateFilter === 'tomorrow') return leadDate.toDateString() === tomorrow.toDateString();
-            if (dateFilter === 'week') return leadDate >= today && leadDate < weekEnd;
-            return true;
-        });
+    const weekScheduled = allScheduled.filter((lead) => {
+        if (!lead.scheduledDate) return false;
+        const [y, m, d] = lead.scheduledDate.split('-').map(Number);
+        const leadDate = new Date(y, m - 1, d);
+        return leadDate >= today && leadDate < weekEnd;
+    });
 
     // Follow-ups: dias desde a data da aula experimental; na agenda, só os primeiros 7 dias; mais recentes no topo
     const followUpsAll = leads
@@ -258,11 +282,15 @@ const Dashboard = () => {
             const classDate = l.scheduledDate ? new Date(l.scheduledDate + 'T00:00:00') : new Date(l.createdAt);
             const diffMs = new Date() - classDate;
             const daysAgo = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            return { ...l, daysAgo };
+            const doneAtIso = String(followupDoneAtByLead[String(l.id || '').trim()] || '').trim();
+            const doneAtMs = doneAtIso ? new Date(doneAtIso).getTime() : 0;
+            const classMs = classDate.getTime();
+            const doneForCurrentClass = Number.isFinite(doneAtMs) && doneAtMs > 0 && doneAtMs >= classMs;
+            return { ...l, daysAgo, classDate, doneForCurrentClass };
         });
-    const followUpsKanbanOnlyCount = followUpsAll.filter((l) => l.daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS).length;
+    const followUpsKanbanOnlyCount = followUpsAll.filter((l) => !l.doneForCurrentClass && l.daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS).length;
     const followUps = followUpsAll
-        .filter((l) => l.daysAgo < FOLLOWUP_AGENDA_MAX_DAYS)
+        .filter((l) => !l.doneForCurrentClass && l.daysAgo < FOLLOWUP_AGENDA_MAX_DAYS)
         .sort((a, b) => {
             if (a.daysAgo !== b.daysAgo) return a.daysAgo - b.daysAgo;
             const ta = new Date(a.statusChangedAt || a.pipelineStageChangedAt || a.createdAt || 0).getTime();
@@ -270,25 +298,44 @@ const Dashboard = () => {
             return tb - ta;
         });
 
+    const pendingTasks = (tasks || [])
+        .filter((t) => String(t?.status || '').trim().toLowerCase() !== 'done')
+        .sort((a, b) => {
+            const ta = String(a?.due_date || '').trim();
+            const tb = String(b?.due_date || '').trim();
+            if (!ta && !tb) return 0;
+            if (!ta) return 1;
+            if (!tb) return -1;
+            return ta.localeCompare(tb);
+        });
+
+    const modalListItems =
+        listModalType === 'today'
+            ? todayScheduled
+            : listModalType === 'week'
+              ? weekScheduled
+              : listModalType === 'followup'
+                ? followUps
+                : listModalType === 'tasks'
+                  ? pendingTasks
+                : [];
+
+    const modalTitle =
+        listModalType === 'today'
+            ? 'Aulas experimentais hoje'
+            : listModalType === 'week'
+              ? 'Aulas experimentais esta semana'
+              : listModalType === 'followup'
+                ? 'Follow-ups pendentes'
+                : listModalType === 'tasks'
+                  ? 'Próximas tarefas'
+                : '';
+
     const getUrgency = (days) => {
         if (days >= 5) return { level: 'critical', label: 'Urgente', color: 'var(--danger)' };
         if (days >= 3) return { level: 'high', label: 'Atenção', color: 'var(--warning)' };
         if (days >= 1) return { level: 'medium', label: 'Acompanhar', color: 'var(--accent)' };
         return { level: 'low', label: 'Recente', color: 'var(--success)' };
-    };
-
-    // Count per filter
-    const countFor = (key) => {
-        if (key === 'all') return allScheduled.length;
-        return allScheduled.filter(l => {
-            if (!l.scheduledDate) return false;
-            const [y, m, d] = l.scheduledDate.split('-').map(Number);
-            const leadDate = new Date(y, m - 1, d);
-            if (key === 'today') return leadDate.toDateString() === today.toDateString();
-            if (key === 'tomorrow') return leadDate.toDateString() === tomorrow.toDateString();
-            if (key === 'week') return leadDate >= today && leadDate < weekEnd;
-            return false;
-        }).length;
     };
 
     const sendDashboardTemplate = async (lead, templateKey) => {
@@ -306,10 +353,6 @@ const Dashboard = () => {
     const handleWhatsApp = (lead) => {
         const key = lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'post_class';
         void sendDashboardTemplate(lead, key);
-    };
-
-    const handleWhatsAppScheduled = (lead) => {
-        void sendDashboardTemplate(lead, 'confirm');
     };
 
     const markLeadAttended = async (lead) => {
@@ -378,9 +421,57 @@ const Dashboard = () => {
         }
     };
 
+    const markFollowupDone = async (lead) => {
+        if (!lead?.id || savingFollowupDone[lead.id]) return;
+        setSavingFollowupDone((prev) => ({ ...prev, [lead.id]: true }));
+        try {
+            const st = useLeadStore.getState();
+            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+            const nowIso = new Date().toISOString();
+            await addLeadEvent({
+                academyId: st.academyId,
+                leadId: lead.id,
+                type: 'followup_done',
+                text: 'Follow-up marcado como concluído',
+                createdBy: st.userId || 'user',
+                permissionContext: permCtx,
+                payloadJson: { source: 'dashboard', status: lead.status || '', scheduledDate: lead.scheduledDate || '' },
+            });
+            setFollowupDoneAtByLead((prev) => ({ ...prev, [lead.id]: nowIso }));
+            addToast({ type: 'success', message: 'Follow-up marcado como feito.' });
+        } catch {
+            addToast({ type: 'error', message: 'Erro ao marcar follow-up como feito.' });
+        } finally {
+            setSavingFollowupDone((prev) => {
+                const next = { ...prev };
+                delete next[lead.id];
+                return next;
+            });
+        }
+    };
+
+    const markTaskAsDone = async (task) => {
+        const taskId = String(task?.id || '').trim();
+        if (!taskId || savingTaskDone[taskId]) return;
+        setSavingTaskDone((prev) => ({ ...prev, [taskId]: true }));
+        try {
+            await updateTask(taskId, { status: 'done' });
+            addToast({ type: 'success', message: 'Tarefa concluída.' });
+        } catch {
+            addToast({ type: 'error', message: 'Erro ao concluir tarefa.' });
+        } finally {
+            setSavingTaskDone((prev) => {
+                const next = { ...prev };
+                delete next[taskId];
+                return next;
+            });
+        }
+    };
+
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
-            <div className={`reception-agenda-inner${agendaView === 'week' ? ' reception-agenda-inner--week' : ''} reception-agenda-inner--wide`}>
+            <div className="reception-agenda-inner reception-agenda-inner--wide">
             <div className="animate-in">
                 <h1 className="navi-page-title">Agenda da Recepção</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6 }}>Controle de aulas experimentais e retornos</p>
@@ -395,93 +486,32 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {loading ? (
-                <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }} aria-busy="true" aria-label="Carregando indicadores">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 120 }} />
-                    ))}
-                </div>
-            ) : (() => {
-                const startOfWeek = (d) => { const dd = new Date(d); const day = dd.getDay(); const diff = (day + 6) % 7; dd.setDate(dd.getDate()-diff); dd.setHours(0,0,0,0); return dd; };
-                const endOfWeek = (d) => { const dd = startOfWeek(d); dd.setDate(dd.getDate()+6); dd.setHours(23,59,59,999); return dd; };
-                const parseYMD = (s) => { if (!s) return null; const [Y,M,D] = s.split('-').map(Number); return new Date(Y,(M||1)-1,D||1); };
-                const inRange = (ts,a,b) => { if (!ts) return false; const t = new Date(ts).getTime(); return t>=a.getTime() && t<=b.getTime(); };
-                const now = new Date();
-                const today = now.getDate();
-                const mFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-                const mTo = new Date(now.getFullYear(), now.getMonth(), today, 23, 59, 59);
-                const pmFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                const pmTo = new Date(now.getFullYear(), now.getMonth() - 1, today, 23, 59, 59);
-                const wFrom = startOfWeek(now), wTo = endOfWeek(now);
-                const pwFrom = new Date(wFrom); pwFrom.setDate(pwFrom.getDate()-7);
-                const pwTo = new Date(wTo); pwTo.setDate(pwTo.getDate()-7);
-                const pctVar = (cur, prev) => { if (prev === 0) return cur > 0 ? 100 : 0; return Math.round(((cur - prev) / prev) * 100); };
-                const isRealLead = (l) => l.origin !== 'Planilha';
-                const newLeadsCur = leads.filter(l => isRealLead(l) && inRange(l.createdAt, mFrom, mTo)).length;
-                const newLeadsPrev = leads.filter(l => isRealLead(l) && inRange(l.createdAt, pmFrom, pmTo)).length;
-                const schedCur = leads.filter((l) => {
-                    if (!isRealLead(l)) return false;
-                    const d = parseYMD(l.scheduledDate);
-                    return d && inRange(d, wFrom, wTo);
-                }).length;
-                const schedPrev = leads.filter((l) => {
-                    if (!isRealLead(l)) return false;
-                    const d = parseYMD(l.scheduledDate);
-                    return d && inRange(d, pwFrom, pwTo);
-                }).length;
-                const convCur = leads.filter((l) => {
-                    if (!isRealLead(l) || !l.convertedAt) return false;
-                    return inRange(l.convertedAt, mFrom, mTo);
-                }).length;
-                const convPrev = leads.filter((l) => {
-                    if (!isRealLead(l) || !l.convertedAt) return false;
-                    return inRange(l.convertedAt, pmFrom, pmTo);
-                }).length;
-                const cards = [
-                    {
-                        title: 'Novos leads no mês',
-                        cur: newLeadsCur,
-                        var: pctVar(newLeadsCur, newLeadsPrev),
-                        trendTitle: 'Comparado com o mesmo período do mês anterior (novos leads criados no período).',
-                        trendHint: 'vs. mesmo período do mês anterior',
-                    },
-                    {
-                        title: 'Aulas agendadas (semana)',
-                        cur: schedCur,
-                        var: pctVar(schedCur, schedPrev),
-                        trendTitle: 'Comparado com o intervalo de 7 dias imediatamente anterior (mesma lógica de “semana” do card).',
-                        trendHint: 'vs. período anterior',
-                    },
-                    {
-                        title: 'Matrículas no mês',
-                        cur: convCur,
-                        var: pctVar(convCur, convPrev),
-                        trendTitle: 'Comparado com o mesmo período do mês anterior (matrículas registradas no período).',
-                        trendHint: 'vs. mesmo período do mês anterior',
-                    },
-                ];
-                return (
-                    <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-                        {cards.map((c, i) => {
-                            const up = c.var >= 0;
-                            return (
-                                <div key={i} className="agenda-kpi-card">
-                                    <div className="agenda-kpi-label">{c.title}</div>
-                                    <div className="agenda-kpi-value">{c.cur}</div>
-                                    <div className={`agenda-kpi-trend ${up ? 'is-up' : 'is-down'}`}>
-                                        {up ? <TrendingUp size={16} strokeWidth={2.25} aria-hidden /> : <TrendingDown size={16} strokeWidth={2.25} aria-hidden />}
-                                        <span>
-                                            {up && c.var > 0 ? '+' : ''}
-                                            {c.var}%
-                                        </span>
-                                        <span className="agenda-kpi-trend-hint" title={c.trendTitle}>{c.trendHint}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                );
-            })()}
+            <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }} aria-busy={loading}>
+                {loading ? (
+                    [1, 2, 3].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 120 }} />)
+                ) : (
+                    [
+                        { key: 'today', title: 'Aulas experimentais hoje', count: todayScheduled.length, icon: <Calendar size={16} strokeWidth={2} /> },
+                        { key: 'week', title: 'Aulas experimentais esta semana', count: weekScheduled.length, icon: <LayoutGrid size={16} strokeWidth={2} /> },
+                        { key: 'followup', title: 'Follow-ups pendentes', count: followUps.length, icon: <List size={16} strokeWidth={2} /> },
+                        { key: 'tasks', title: 'Próximas tarefas', count: pendingTasks.length, icon: <CheckSquare size={16} strokeWidth={2} /> },
+                    ].map((card) => (
+                        <button
+                            key={card.key}
+                            type="button"
+                            className="agenda-kpi-card agenda-kpi-card--clickable"
+                            onClick={() => setListModalType(card.key)}
+                        >
+                            <div className="agenda-kpi-label">{card.title}</div>
+                            <div className="agenda-kpi-value">{card.count}</div>
+                            <div className="agenda-kpi-trend is-up" style={{ marginTop: 4 }}>
+                                {card.icon}
+                                <span>Ver lista</span>
+                            </div>
+                        </button>
+                    ))
+                )}
+            </div>
 
             <button className="btn-secondary btn-large mt-4" onClick={() => navigate('/new-lead')} style={{ borderRadius: 'var(--radius)' }}>
                 <Plus size={22} /> {`Novo ${(() => {
@@ -495,11 +525,10 @@ const Dashboard = () => {
             </button>
 
             <div className="agenda-page-stack">
-            <div className="agenda-top-row">
-            <section className="mt-6 animate-in agenda-today-week-section" style={{ animationDelay: '0.1s' }}>
+            <section className="mt-6 animate-in agenda-week-section" style={{ animationDelay: '0.23s' }}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="navi-section-heading">
-                        <Calendar size={18} color="var(--v500)" /> Aulas Experimentais
+                        <Calendar size={18} color="var(--v500)" /> Agenda da Semana
                     </h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
@@ -512,180 +541,21 @@ const Dashboard = () => {
                         </button>
                     </div>
                 </div>
-
                 <div className="agenda-block-head">
                     <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
-                        Hoje
+                        Semana
                     </h4>
-                    <span className="badge badge-secondary">{countFor('today')}</span>
+                    <span className="badge badge-secondary">{allScheduled.length}</span>
                 </div>
-
-                <div className="flex-col gap-3 agenda-experimental-cards">
-                    {loading ? (
-                        <div className="flex justify-center p-8">
-                            <div className="spinner" />
-                        </div>
-                    ) : countFor('today') === 0 ? (
-                        <div className="empty-state">
-                            <Calendar size={28} color="var(--text-muted)" style={{ marginBottom: 10, opacity: 0.5 }} />
-                            <p>Nenhuma aula para hoje.</p>
-                            <p className="text-xs text-light mt-1">Abaixo você encontra a visão completa da semana.</p>
-                        </div>
-                    ) : (
-                        (() => {
-                            const todayLeads = allScheduled.filter((lead) => {
-                                if (!lead.scheduledDate) return false;
-                                const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-                                const leadDate = new Date(y, m - 1, d);
-                                return leadDate.toDateString() === today.toDateString();
-                            });
-
-                            const groups = [];
-                            const groupByTime = new Map();
-                            for (const lead of todayLeads) {
-                                const t = String(lead.scheduledTime || '').trim() || '--:--';
-                                let g = groupByTime.get(t);
-                                if (!g) {
-                                    g = { time: t, leads: [] };
-                                    groupByTime.set(t, g);
-                                    groups.push(g);
-                                }
-                                g.leads.push(lead);
-                            }
-
-                            let rowIndex = 0;
-                            return groups.map((g) => (
-                                <div key={g.time} className="agenda-time-group">
-                                    <div className="agenda-time-sep">
-                                        <span className="agenda-time-label">{g.time}</span>
-                                        <span className="agenda-time-line" aria-hidden />
-                                    </div>
-                                    <div className="agenda-time-group-list">
-                                        {g.leads.map((lead) => {
-                                            rowIndex += 1;
-                                            const hasPhone = String(lead.phone || '').replace(/\D/g, '').length >= 8;
-                                            const isExpanded = expandedExperimentalId === lead.id;
-                                            const isAttended = lead.status === LEAD_STATUS.COMPLETED;
-                                            const isMissed = lead.status === LEAD_STATUS.MISSED;
-                                            const noScheduleDate = !String(lead.scheduledDate || '').trim();
-                                            const showNoDateWarning = noScheduleDate;
-                                            const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
-                                            const category = lead.type || 'Adulto';
-                                            const phone = String(lead.phone || '').trim();
-
-                                            return (
-                                                <div
-                                                    key={lead.id}
-                                                    className={`card agenda-card agenda-experimental-card animate-in${
-                                                        showNoDateWarning ? ' agenda-card--no-date' : ''
-                                                    }${isAttended ? ' agenda-card--attended' : ''}`}
-                                                    style={{ animationDelay: `${0.02 * rowIndex}s` }}
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        className="agenda-card-more-btn"
-                                                        aria-label="Mais ações"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setExpandedExperimentalId((cur) => (cur === lead.id ? null : lead.id));
-                                                        }}
-                                                    >
-                                                        ⋯
-                                                    </button>
-
-                                                    <div
-                                                        className="agenda-experimental-main"
-                                                        onClick={() => navigate(`/lead/${lead.id}`)}
-                                                        style={{ cursor: 'pointer' }}
-                                                    >
-                                                        <div className="agenda-experimental-name-row">
-                                                            <strong className="agenda-experimental-name">{lead.name}</strong>
-                                                            {showNoDateWarning && (
-                                                                <span className="agenda-no-date-badge">Sem data</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="agenda-experimental-meta">
-                                                            <span>{category}</span>
-                                                            {phone ? (
-                                                                <>
-                                                                    <span aria-hidden>·</span>
-                                                                    <span>{phone}</span>
-                                                                </>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="agenda-experimental-primary-actions">
-                                                        <button
-                                                            type="button"
-                                                            className={`agenda-presence-btn agenda-presence-btn--attended${
-                                                                isAttended ? ' is-active' : ''
-                                                            }${isMissed ? ' is-faded' : ''}`}
-                                                            disabled={busy}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                void markLeadAttended(lead);
-                                                            }}
-                                                        >
-                                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={`agenda-presence-btn agenda-presence-btn--missed${
-                                                                isMissed ? ' is-active' : ''
-                                                            }${isAttended ? ' is-faded' : ''}`}
-                                                            disabled={busy}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                void markLeadMissed(lead);
-                                                            }}
-                                                        >
-                                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
-                                                        </button>
-                                                    </div>
-
-                                                    {isExpanded ? (
-                                                        <div className="agenda-experimental-more-actions">
-                                                            <button
-                                                                type="button"
-                                                                className="followup-action-btn flex-1"
-                                                                disabled={!hasPhone}
-                                                                title={!hasPhone ? 'Cadastre um telefone válido no perfil' : 'Abrir WhatsApp com mensagem de confirmação'}
-                                                                onClick={(e) => { e.stopPropagation(); handleWhatsAppScheduled(lead); }}
-                                                            >
-                                                                <span className="dashboard-wa-btn-inner">
-                                                                    {academyWaLoadFailed && (
-                                                                        <span
-                                                                            className="dashboard-wa-warning-badge"
-                                                                            title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
-                                                                            aria-hidden
-                                                                        >
-                                                                            ⚠️
-                                                                        </span>
-                                                                    )}
-                                                                    <MessageCircle size={14} color="#25D366" /> WhatsApp
-                                                                </span>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="followup-action-btn flex-1"
-                                                                title="Alterar data, horário ou status"
-                                                                onClick={(e) => { e.stopPropagation(); openScheduleModal(lead); }}
-                                                            >
-                                                                <Calendar size={14} color="var(--accent)" /> Remarcar
-                                                            </button>
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ));
-                        })()
-                    )}
+                <div className="agenda-week-fullwidth">
+                    <AgendaCalendarWeek
+                        leads={allScheduled}
+                        onCompareceu={markLeadAttended}
+                        onNaoCompareceu={markLeadMissed}
+                        onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
+                        savingPresence={savingPresence}
+                    />
                 </div>
-
             </section>
 
             <section className="mt-6 animate-in agenda-followups-section" style={{ animationDelay: '0.2s' }}>
@@ -754,6 +624,17 @@ const Dashboard = () => {
                                     >
                                         <ChevronRight size={14} /> Ver Perfil
                                     </button>
+                                    <button
+                                        type="button"
+                                        className="followup-action-btn flex-1"
+                                        disabled={Boolean(savingFollowupDone[lead.id])}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            void markFollowupDone(lead);
+                                        }}
+                                    >
+                                        {savingFollowupDone[lead.id] ? 'Salvando…' : 'Marcar feito'}
+                                    </button>
                                 </div>
                             </div>
                         );
@@ -775,24 +656,123 @@ const Dashboard = () => {
                 )}
             </section>
             </div>
-            <section className="mt-6 animate-in agenda-week-section" style={{ animationDelay: '0.23s' }}>
-                <div className="agenda-block-head">
-                    <h4 className="navi-section-heading" style={{ fontSize: '0.95rem' }}>
-                        Semana
-                    </h4>
-                    <span className="badge badge-secondary">{allScheduled.length}</span>
+
+            {listModalType ? (
+                <div className="navi-modal-overlay" role="dialog" aria-modal="true" onClick={closeListModal}>
+                    <div
+                        className="card"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ width: 'min(760px, calc(100vw - 24px))', maxHeight: '85vh', overflowY: 'auto', padding: 18 }}
+                    >
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="navi-section-heading" style={{ margin: 0 }}>{modalTitle}</h3>
+                            <span className="badge badge-secondary">{modalListItems.length}</span>
+                        </div>
+                        {modalListItems.length === 0 ? (
+                            <div className="empty-state"><p>Nenhum item nessa lista.</p></div>
+                        ) : (
+                            <div className="flex-col agenda-followups-list">
+                                {modalListItems.map((lead, i) => {
+                                    const isFollowup = listModalType === 'followup';
+                                    const isTasks = listModalType === 'tasks';
+                                    const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
+                                    const followupBusy = Boolean(savingFollowupDone[lead.id]);
+                                    const taskBusy = Boolean(savingTaskDone[String(lead?.id || '').trim()]);
+                                    return (
+                                        <div key={`${lead.id || lead.$id || i}-${i}`} className="card follow-card">
+                                            <div
+                                                className="flex justify-between items-center"
+                                                onClick={() => {
+                                                    if (isTasks) {
+                                                        const leadId = String(lead?.lead_id || '').trim();
+                                                        if (leadId) navigate(`/lead/${leadId}`);
+                                                        return;
+                                                    }
+                                                    navigate(`/lead/${lead.id}`);
+                                                }}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <strong className="agenda-followup-name">
+                                                    {isTasks ? String(lead?.title || 'Tarefa') : lead.name}
+                                                </strong>
+                                                {isTasks ? (
+                                                    <span className="status-pill">
+                                                        {lead?.due_date ? new Date(`${lead.due_date}T00:00:00`).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                                                    </span>
+                                                ) : isFollowup ? (
+                                                    <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
+                                                        {lead.status === LEAD_STATUS.COMPLETED ? 'Pós-Aula' : 'Recuperar'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 agenda-followup-actions border-t">
+                                                {isTasks ? (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className="followup-action-btn flex-1"
+                                                            disabled={taskBusy}
+                                                            onClick={() => void markTaskAsDone(lead)}
+                                                        >
+                                                            {taskBusy ? 'Salvando…' : 'Marcar concluída'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="followup-action-btn flex-1"
+                                                            onClick={() => navigate('/tasks')}
+                                                        >
+                                                            <ChevronRight size={14} /> Abrir tarefas
+                                                        </button>
+                                                    </>
+                                                ) : !isFollowup ? (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className="followup-action-btn flex-1"
+                                                            disabled={busy}
+                                                            onClick={() => void markLeadAttended(lead)}
+                                                        >
+                                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="followup-action-btn flex-1"
+                                                            disabled={busy}
+                                                            onClick={() => void markLeadMissed(lead)}
+                                                        >
+                                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className="followup-action-btn flex-1"
+                                                            onClick={() => handleWhatsApp(lead)}
+                                                        >
+                                                            <MessageCircle size={14} color="#25D366" /> WhatsApp
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="followup-action-btn flex-1"
+                                                            disabled={followupBusy}
+                                                            onClick={() => void markFollowupDone(lead)}
+                                                        >
+                                                            {followupBusy ? 'Salvando…' : 'Marcar feito'}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="agenda-week-fullwidth">
-                    <AgendaCalendarWeek
-                        leads={allScheduled}
-                        onCompareceu={markLeadAttended}
-                        onNaoCompareceu={markLeadMissed}
-                        onOpenLead={(lead) => navigate(`/lead/${lead.id}`)}
-                        savingPresence={savingPresence}
-                    />
-                </div>
-            </section>
-            </div>
+            ) : null}
 
             <ScheduleModal
                 open={scheduleModalLead !== null}
@@ -866,6 +846,13 @@ const Dashboard = () => {
           box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
           overflow: hidden;
+        }
+        .agenda-kpi-card--clickable {
+          text-align: left;
+          width: 100%;
+          cursor: pointer;
+          appearance: none;
+          font-family: inherit;
         }
         .agenda-kpi-card::before {
           content: '';

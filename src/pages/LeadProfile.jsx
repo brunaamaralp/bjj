@@ -63,11 +63,13 @@ const TIMELINE_EVENT_LABELS = {
     pipeline_change: 'Movido no funil',
     note: 'Nota',
     lead_created: 'Cadastro',
+    task_created: 'Tarefa criada',
     import: 'Importação',
     attended: 'Compareceu à aula',
     missed: 'Não compareceu',
     converted: 'Matriculado',
     lost: 'Perda',
+    followup_done: 'Follow-up concluído',
     inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
 };
@@ -1435,12 +1437,16 @@ const LeadProfile = () => {
                                 if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
                                 else if (type === 'message') dotColor = '#25D366';
                                 else if (type === 'schedule') dotColor = '#0088CC';
+                                else if (type === 'followup_done') dotColor = '#2E7D32';
+                                else if (type === 'task_created') dotColor = '#5B3FBF';
                                 else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
                                 else if (type === 'pipeline_change') dotColor = '#F5A623';
 
                                 let label = n.text || '';
                                 if (type === 'schedule') {
                                     label = `Agendado para ${n.date} ${n.time || ''}`.trim();
+                                } else if (type === 'followup_done') {
+                                    label = n.text || 'Follow-up marcado como concluído';
                                 } else if (type === 'stage_change' || type === 'pipeline_change') {
                                     label = `De ${humanizeTimelineStage(n.from, stages)} para ${humanizeTimelineStage(n.to, stages)}`;
                                 } else if (type === 'inbox_note') {
