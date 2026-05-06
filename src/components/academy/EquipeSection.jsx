@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import { friendlyError } from '../../lib/errorMessages';
-import { teams } from '../../lib/appwrite';
+import { teams, createSessionJwt } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
-import { authService } from '../../lib/auth';
 import { useUserRole } from '../../lib/useUserRole';
 
 const EquipeSection = ({ academy, academyId }) => {
@@ -58,7 +57,11 @@ const EquipeSection = ({ academy, academyId }) => {
 
         setSavingMember(true);
         try {
-            const jwt = await authService.createSessionJwt();
+            const jwt = await createSessionJwt();
+            if (!String(jwt || '').trim()) {
+                setMemberError('Sessão expirada, faça login novamente.');
+                return;
+            }
             const res = await fetch('/api/team/members', {
                 method: 'POST',
                 headers: {
@@ -74,15 +77,33 @@ const EquipeSection = ({ academy, academyId }) => {
                 })
             });
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.erro || 'Erro ao criar usuário');
+            let data = {};
+            try {
+                data = await res.json();
+            } catch {
+                data = {};
+            }
+            if (!res.ok) {
+                let msg = data.erro || 'Erro ao criar usuário';
+                if (res.status === 401) msg = 'Sessão expirada, faça login novamente.';
+                else if (res.status === 403) msg = 'Você não tem permissão para adicionar membros.';
+                else if (res.status === 409) msg = 'Já existe uma conta com este e-mail.';
+                throw new Error(msg);
+            }
 
             const result = await teams.listMemberships(academy.teamId);
             setMembers(result.memberships || []);
             setNewMember({ name: '', email: '', password: '' });
             addToast({ type: 'success', message: 'Recepcionista criado com sucesso!' });
         } catch (error) {
-            setMemberError(friendlyError(error, 'action') || 'Não foi possível salvar o membro.');
+            const raw = String(error?.message || '').trim();
+            const useRaw =
+                raw === 'Sessão expirada, faça login novamente.' ||
+                raw === 'Você não tem permissão para adicionar membros.' ||
+                raw === 'Já existe uma conta com este e-mail.';
+            setMemberError(
+                useRaw ? raw : friendlyError(error, 'action') || 'Não foi possível salvar o membro.'
+            );
         } finally {
             setSavingMember(false);
         }
