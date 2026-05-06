@@ -2,8 +2,6 @@ import { LEAD_STATUS } from './leadStatus.js';
 
 /** Status que não devem ser revertidos para Agendado ao só mudar data/hora. */
 const ADVANCED_STATUSES = [
-  LEAD_STATUS.COMPLETED,
-  LEAD_STATUS.MISSED,
   LEAD_STATUS.CONVERTED,
   LEAD_STATUS.LOST,
 ];
@@ -11,7 +9,8 @@ const ADVANCED_STATUSES = [
 /**
  * Patch para agendar/reagendar via ScheduleModal.
  * Primeira vez (sem scheduledDate): sempre Agendado + Aula experimental.
- * Reagendamento com status avançado: só datas + statusChangedAt.
+ * Reagendamento de Compareceu/Não Compareceu: volta para Agendado (retorna para agenda).
+ * Reagendamento com status terminal (Matriculado/Não fechou): só datas + statusChangedAt.
  *
  * @param {object} lead
  * @param {{ date: string; time: string }} param1
