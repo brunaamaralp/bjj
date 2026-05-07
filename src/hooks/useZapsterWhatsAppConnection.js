@@ -144,10 +144,16 @@ function inboxDebugEnabled() {
 /**
  * Estado e ações Zapster/WhatsApp compartilhadas entre Inbox (só leitura) e Agente IA (QR manual).
  * @param {string} academyId
+ * @param {{ onRegisterWebhooksResult?: (r: { ok: boolean }) => void }} [options]
  */
-export function useZapsterWhatsAppConnection(academyId) {
+export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const academyIdRef = useRef('');
+  const onRegisterWebhooksResultRef = useRef(options?.onRegisterWebhooksResult);
   const waPersistFailedRef = useRef(false);
+
+  useEffect(() => {
+    onRegisterWebhooksResultRef.current = options?.onRegisterWebhooksResult;
+  }, [options?.onRegisterWebhooksResult]);
   const [waLoading, setWaLoading] = useState(false);
   const [waInfo, setWaInfo] = useState({ instance_id: null, status: 'disconnected', qrcode: null });
   const [waTokenMissing, setWaTokenMissing] = useState(false);
@@ -179,6 +185,57 @@ export function useZapsterWhatsAppConnection(academyId) {
     setWaQrLoadFailedOnce(false);
     setWaQrTick(0);
     setConnectionError('');
+  }, []);
+
+  const registerWebhooks = useCallback(async (instanceId) => {
+    const id = String(instanceId || '').trim();
+    const aid = String(academyIdRef.current || '').trim();
+    if (!id || !aid) return;
+
+    let storageKey = '';
+    try {
+      if (typeof window === 'undefined') return;
+      storageKey = `nave_webhooks_registered_${id}`;
+      if (window.localStorage.getItem(storageKey) === '1') return;
+    } catch {
+      void 0;
+    }
+
+    try {
+      const jwt = await getJwt();
+      const host = typeof window !== 'undefined' ? String(window.location.host || '').trim() : '';
+      const { blocked, res } = await fetchWithBillingGuard('/api/zapster/instances?action=register-webhooks', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': aid,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ instanceId: id, ...(host ? { host } : {}) })
+      });
+
+      const cb = onRegisterWebhooksResultRef.current;
+      if (blocked || !res) {
+        cb?.({ ok: false });
+        return;
+      }
+
+      if (res.ok) {
+        try {
+          if (storageKey && typeof window !== 'undefined') {
+            window.localStorage.setItem(storageKey, '1');
+          }
+        } catch {
+          void 0;
+        }
+        cb?.({ ok: true });
+        return;
+      }
+
+      cb?.({ ok: false });
+    } catch {
+      onRegisterWebhooksResultRef.current?.({ ok: false });
+    }
   }, []);
 
   const fetchWaInfo = useCallback(async ({ silent = false, quiet = false } = {}) => {
@@ -266,6 +323,10 @@ export function useZapsterWhatsAppConnection(academyId) {
       } else {
         setWaQrError(false);
       }
+
+      if (incomingId && String(finalStatus || '').trim().toLowerCase() === 'connected') {
+        void registerWebhooks(incomingId);
+      }
     } catch (e) {
       const msg = String(e?.message || '');
       if (
@@ -279,7 +340,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     } finally {
       if (!quiet) setWaLoading(false);
     }
-  }, [resetWaToNoInstanceSilently]);
+  }, [resetWaToNoInstanceSilently, registerWebhooks]);
 
   const createWaInstance = useCallback(async () => {
     if (!academyIdRef.current) return;

@@ -62,7 +62,15 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const canConfigure = role === 'owner' || role === 'member';
     const isOwner = role === 'owner';
 
-    const zap = useZapsterWhatsAppConnection(academyId);
+    const zap = useZapsterWhatsAppConnection(academyId, {
+        onRegisterWebhooksResult: ({ ok }) => {
+            if (ok) {
+                addToast({ type: 'success', message: 'Agente reativado com sucesso.' });
+                return;
+            }
+            addToast({ type: 'error', message: 'Erro ao reativar agente — tente reconectar.' });
+        }
+    });
 
     const shouldLoadWaQr =
         zap.waQrShown &&
@@ -714,16 +722,37 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
                 const data = await resp.json().catch(() => ({}));
                 if (!resp.ok) {
+                    const fallbackChat =
+                        resp.status === 429
+                            ? String(data?.message || '').trim() || 'Limite diário atingido.'
+                            : 'Erro ao processar. Verifique se o prompt está configurado.';
                     if (resp.status === 429) {
                         addToast({ type: 'warning', message: data?.message || 'Limite diário atingido' });
                         setTestsLeftLocal(0);
+                        setMessages((prev) => [...prev, { role: 'assistant', content: fallbackChat }]);
                         return;
                     }
-                    addToast({ type: 'error', message: data?.erro || data?.message || 'Falha ao testar assistente' });
+                    addToast({
+                        type: 'error',
+                        message: data?.erro || data?.message || 'Falha ao testar assistente'
+                    });
+                    setMessages((prev) => [...prev, { role: 'assistant', content: fallbackChat }]);
                     return;
                 }
 
-                setMessages((prev) => [...prev, { role: 'assistant', content: data?.response || '' }]);
+                const reply = data?.response != null ? String(data.response).trim() : '';
+                if (!reply) {
+                    setMessages((prev) => [
+                        ...prev,
+                        {
+                            role: 'assistant',
+                            content:
+                                'O agente não gerou resposta. Verifique o prompt na aba Configurações.'
+                        }
+                    ]);
+                } else {
+                    setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+                }
                 const nextUsed = Number(data?.testsUsedToday) || (usedToday + 1);
                 const nextLeft = Math.max(0, testsLimit - nextUsed);
                 setTestsLeftLocal(nextLeft);
