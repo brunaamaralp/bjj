@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { account } from '../../lib/appwrite';
 import { parseFaqItems } from '../../../lib/whatsappTemplateDefaults.js';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
@@ -174,7 +175,10 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const handleWaConfirmAction = () => {
         if (!waConfirm) return;
         const { variant } = waConfirm;
-        setWaConfirm(null);
+        // Fecha o modal antes de qualquer await (ex.: 402 em DELETE dispara redirect com atraso).
+        flushSync(() => {
+            setWaConfirm(null);
+        });
         if (variant === 'disconnect') void zap.disconnectWaInstance();
         if (variant === 'powerOff') void zap.powerOffInstance();
         if (variant === 'restart') void zap.restartInstance();

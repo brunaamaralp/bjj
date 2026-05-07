@@ -21,16 +21,21 @@ function parseLeadLocalDate(lead) {
     return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
 }
 
-export function formatWeekRangeLabel(offset = 0) {
+/**
+ * @param {number} [offset]
+ * @param {{ endOnSaturday?: boolean }} [options] — se true, o fim do intervalo é sábado (grade sem domingo)
+ */
+export function formatWeekRangeLabel(offset = 0, options = {}) {
+    const endOnSaturday = Boolean(options.endOnSaturday);
     const mon = getWeekStart(offset);
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
+    const end = new Date(mon);
+    end.setDate(mon.getDate() + (endOnSaturday ? 5 : 6));
     const short = (d) =>
         d
             .toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
             .replace('.', '');
-    const y = sun.getFullYear();
-    return `${short(mon)} – ${short(sun)} ${y}`;
+    const y = end.getFullYear();
+    return `${short(mon)} – ${short(end)} ${y}`;
 }
 
 function timeSortMinutes(lead) {
@@ -51,6 +56,7 @@ function timeSortMinutes(lead) {
  * @param {number} [props.weekOffset] — semana controlada pelo pai (com `onWeekOffsetChange`)
  * @param {(n: number) => void} [props.onWeekOffsetChange]
  * @param {boolean} [props.hideNav] — oculta Anterior/Próxima internos (navegação no pai)
+ * @param {boolean} [props.hideSunday] — se true, exibe só seg–sáb (padrão: true)
  */
 export default function AgendaCalendarWeek({
     leads,
@@ -58,6 +64,7 @@ export default function AgendaCalendarWeek({
     weekOffset: weekOffsetProp,
     onWeekOffsetChange,
     hideNav = false,
+    hideSunday = true,
 }) {
     const [weekOffsetInternal, setWeekOffsetInternal] = useState(0);
     const controlled =
@@ -119,9 +126,14 @@ export default function AgendaCalendarWeek({
     const pad = (n) => String(n).padStart(2, '0');
     const ymdOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+    const displayDayDates = useMemo(
+        () => (hideSunday ? dayDates.slice(0, 6) : dayDates),
+        [hideSunday, dayDates]
+    );
+
     const weekHasAny = useMemo(
-        () => dayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0),
-        [dayDates, weekLeadsByYmd]
+        () => displayDayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0),
+        [displayDayDates, weekLeadsByYmd]
     );
 
     return (
@@ -141,8 +153,8 @@ export default function AgendaCalendarWeek({
                 {!weekHasAny ? (
                     <p className="agenda-week-week-empty">Nenhum agendamento nesta semana.</p>
                 ) : (
-                    <div className="agenda-week-grid">
-                        {dayDates.map((dayDate) => {
+                    <div className={`agenda-week-grid${hideSunday ? ' agenda-week-grid--six' : ''}`}>
+                        {displayDayDates.map((dayDate) => {
                             const key = ymdOf(dayDate);
                             const colLeads = weekLeadsByYmd[key] || [];
                             const isToday = key === todayYmd;
@@ -237,6 +249,9 @@ export default function AgendaCalendarWeek({
           padding-inline: 0;
           align-items: stretch;
         }
+        .agenda-week-grid--six {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
         @media (max-width: 1100px) {
           .agenda-week-grid {
             grid-template-columns: repeat(7, minmax(92px, 1fr));
@@ -245,12 +260,18 @@ export default function AgendaCalendarWeek({
             padding-bottom: 8px;
             -webkit-overflow-scrolling: touch;
           }
+          .agenda-week-grid--six {
+            grid-template-columns: repeat(6, minmax(92px, 1fr));
+          }
           .agenda-week-col { min-width: 92px; }
         }
         @media (max-width: 640px) {
           .agenda-week-grid {
             grid-template-columns: 1fr;
             overflow-x: visible;
+          }
+          .agenda-week-grid--six {
+            grid-template-columns: 1fr;
           }
           .agenda-week-col { min-width: 0; }
         }

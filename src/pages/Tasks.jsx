@@ -1154,7 +1154,7 @@ export default function Tasks() {
           gap: 22px;
           align-items: stretch;
         }
-        .tasks-cal-main { width: 100%; min-width: 0; }
+        .tasks-cal-main { width: 100%; min-width: 0; overflow-x: auto; }
         .tasks-cal-month-label {
           font-size: 15px; font-weight: 700; color: var(--ink);
           text-transform: capitalize;
@@ -1168,12 +1168,13 @@ export default function Tasks() {
         }
         .tasks-cal-grid {
           display: grid;
-          grid-template-columns: repeat(7, minmax(0, 1fr));
+          grid-template-columns: repeat(7, minmax(88px, 1fr));
           gap: 8px;
         }
         .tasks-cal-cell {
           border: 1px solid var(--border-mid); border-radius: 10px; background: var(--surface);
           min-height: 118px; padding: 8px 8px 10px; display: flex; flex-direction: column;
+          min-width: 0;
         }
         .tasks-cal-cell--empty { background: transparent; border: none; min-height: 0; }
         .tasks-cal-cell--today {
@@ -1187,10 +1188,36 @@ export default function Tasks() {
           width: 26px; height: 26px; border-radius: 50%; background: #5b3fbf; color: #fff;
           display: flex; align-items: center; justify-content: center;
         }
-        .tasks-cal-day-tasks { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow-y: auto; }
+        .tasks-cal-day-tasks {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          flex: 1;
+          min-height: 0;
+          min-width: 0;
+          width: 100%;
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+        .tasks-cal-day-tasks .task-card {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+        .tasks-cal-day-tasks .task-checkbox { flex-shrink: 0; }
+        .tasks-cal-day-tasks .task-actions { flex-shrink: 0; }
+        .tasks-cal-day-tasks .task-content {
+          flex: 1 1 0%;
+          min-width: 0;
+        }
         .tasks-cal-day-tasks .task-title {
+          display: block;
+          width: 100%;
+          min-width: 0;
           white-space: normal;
-          word-break: break-word;
+          word-break: normal;
+          overflow-wrap: break-word;
           line-height: 1.35;
         }
         .tasks-cal-semprazo {

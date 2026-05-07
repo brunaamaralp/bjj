@@ -31,6 +31,52 @@ function normalizeApiError(raw, fallback) {
   return s;
 }
 
+/**
+ * Quando GET /instances reporta "connected", o GET do PNG do QR funciona como prova de vida:
+ * — 200 + imagem: ainda é possível exibir QR (sessão WA não está estável como conectada no painel).
+ * — 406: QR indisponível (típico com sessão ativa) → confiar no status "connected".
+ * — Outros erros: tratar como possível dessincronia e permitir fluxo de reconexão.
+ * @returns {Promise<boolean>} true se o status reportado como connected deve ser forçado para disconnected
+ */
+async function shouldOverrideConnectedStatusAfterQrProbe(academyId, jwt, instanceId) {
+  const id = String(instanceId || '').trim();
+  const aid = String(academyId || '').trim();
+  if (!id || !aid) return false;
+
+  const { blocked, res } = await fetchWithBillingGuard(
+    `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
+    { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid } }
+  );
+  if (blocked || !res) return false;
+
+  if (res.ok) {
+    const ct = String(res.headers.get('content-type') || '');
+    try {
+      await res.arrayBuffer();
+    } catch {
+      void 0;
+    }
+    if (ct.includes('image/png') || ct.includes('image/')) return true;
+    return false;
+  }
+
+  if (res.status === 406) {
+    try {
+      await res.arrayBuffer();
+    } catch {
+      void 0;
+    }
+    return false;
+  }
+
+  try {
+    await res.text();
+  } catch {
+    void 0;
+  }
+  return true;
+}
+
 function inboxDebugEnabled() {
   const envEnabled =
     import.meta.env.DEV ||
@@ -90,28 +136,42 @@ export function useZapsterWhatsAppConnection(academyId) {
         throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao consultar WhatsApp'));
       }
       const incomingId = data?.instance_id ?? null;
-      const status = String(data?.status || '').trim() || 'unknown';
-      const qrcode = data?.qrcode ?? null;
+      let status = String(data?.status || '').trim() || 'unknown';
+      let qrcode = data?.qrcode ?? null;
+
+      if (incomingId && status === 'connected') {
+        const stale = await shouldOverrideConnectedStatusAfterQrProbe(academyIdRef.current, jwt, incomingId);
+        if (stale) {
+          status = 'disconnected';
+          qrcode = null;
+        }
+      }
+
+      const finalStatus = status;
+      const finalQrcode = qrcode;
+
       setWaInfo((prev) => {
         if (incomingId) {
-          if (prev.instance_id === incomingId && prev.status === status && prev.qrcode === qrcode) return prev;
-          return { instance_id: incomingId, status, qrcode };
+          if (prev.instance_id === incomingId && prev.status === finalStatus && prev.qrcode === finalQrcode) return prev;
+          return { instance_id: incomingId, status: finalStatus, qrcode: finalQrcode };
         }
         if (waPersistFailedRef.current && prev.instance_id) {
-          if (prev.status === status && prev.qrcode === qrcode) return prev;
-          return { ...prev, status, qrcode };
+          if (prev.status === finalStatus && prev.qrcode === finalQrcode) return prev;
+          return { ...prev, status: finalStatus, qrcode: finalQrcode };
         }
-        if (prev.instance_id === null && prev.status === status && prev.qrcode === qrcode) return prev;
+        if (prev.instance_id === null && prev.status === finalStatus && prev.qrcode === finalQrcode) return prev;
         return { instance_id: null, status: 'disconnected', qrcode: null };
       });
       if (incomingId) {
         setWaPersistFailed(false);
       }
       setWaTokenMissing(false);
-      if (status === 'connected') {
+      if (finalStatus === 'connected') {
         setWaQrError(false);
         setWaQrShown(false);
         setWaQrLoadFailedOnce(false);
+      } else {
+        setWaQrError(false);
       }
     } catch (e) {
       const msg = String(e?.message || '');
@@ -328,20 +388,24 @@ export function useZapsterWhatsAppConnection(academyId) {
       const delData = safeParseJson(raw) || {};
       if (!resp.ok) {
         if (isZapsterTokenMissingPayload(delData)) setWaTokenMissing(true);
+        if (resp.status === 403) {
+          useUiStore.getState().addToast({
+            type: 'error',
+            message: 'Esta instância não pertence a esta academia.'
+          });
+          await fetchWaInfo({ silent: true });
+          return;
+        }
         throw new Error(normalizeApiError(raw, String(delData.erro || '').trim() || 'Falha ao desconectar'));
       }
-      const removed = delData?.removido !== false;
-      const unlinked = delData?.vinculo_limpo !== false;
-      if (!removed) {
+      if (delData?.removido === false) {
         useUiStore.getState().addToast({
-          type: 'warning',
-          message: unlinked
-            ? 'Instância já não existia na Zapster, mas o vínculo local foi limpo.'
-            : 'Não foi possível remover a instância. Tente novamente.'
+          type: 'error',
+          message: 'Não foi possível desconectar. Tente novamente.'
         });
-      } else {
-        useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo desconectado' });
+        return;
       }
+      useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo desconectado' });
       setWaPersistFailed(false);
       setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
       setWaTokenMissing(false);
@@ -362,7 +426,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     } finally {
       setWaLoading(false);
     }
-  }, [waInfo?.instance_id]);
+  }, [waInfo?.instance_id, fetchWaInfo]);
 
   const powerOnInstance = useCallback(async () => {
     const id = String(waInfo?.instance_id || '').trim();

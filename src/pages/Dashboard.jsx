@@ -312,11 +312,11 @@ const Dashboard = () => {
 
     const scheduledInVisibleWeekCount = useMemo(() => {
         const mon = getWeekStart(dashboardWeekOffset);
-        const sunEnd = new Date(mon);
-        sunEnd.setDate(mon.getDate() + 6);
-        sunEnd.setHours(23, 59, 59, 999);
+        const satEnd = new Date(mon);
+        satEnd.setDate(mon.getDate() + 5);
+        satEnd.setHours(23, 59, 59, 999);
         const a = mon.getTime();
-        const b = sunEnd.getTime();
+        const b = satEnd.getTime();
         return allScheduled.filter((lead) => {
             const raw = String(lead?.scheduledDate || '').trim();
             if (!raw) return false;
@@ -599,7 +599,7 @@ const Dashboard = () => {
                             &lt; Anterior
                         </button>
                         <span className="reception-week-range" aria-live="polite">
-                            {formatWeekRangeLabel(dashboardWeekOffset)}
+                            {formatWeekRangeLabel(dashboardWeekOffset, { endOnSaturday: true })}
                         </span>
                         <button
                             type="button"

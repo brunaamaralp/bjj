@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Pencil } from 'lucide-react';
 import { friendlyError } from '../../lib/errorMessages';
 import { teams, createSessionJwt } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
+
+/** Appwrite pode ocultar userName/userEmail (privacidade do time); usar fallbacks. */
+function membershipPrimaryLabel(m) {
+    const name = String(m.userName || m.name || '').trim();
+    if (name) return name;
+    const email = String(m.userEmail || m.email || '').trim();
+    if (email) return email;
+    return 'Usuário';
+}
+
+function membershipSecondaryEmail(m) {
+    const name = String(m.userName || m.name || '').trim();
+    const email = String(m.userEmail || m.email || '').trim();
+    if (name && email) return email;
+    return '';
+}
 
 const EquipeSection = ({ academy, academyId }) => {
     const addToast = useUiStore((s) => s.addToast);
@@ -16,6 +32,10 @@ const EquipeSection = ({ academy, academyId }) => {
     const [savingMember, setSavingMember] = useState(false);
     const [memberError, setMemberError] = useState('');
     const [removeConfirm, setRemoveConfirm] = useState(null);
+    const [editMember, setEditMember] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState('');
 
     const loadMembers = useCallback(async () => {
         if (!academy?.teamId) return;
@@ -92,7 +112,21 @@ const EquipeSection = ({ academy, academyId }) => {
             }
 
             const result = await teams.listMemberships(academy.teamId);
-            setMembers(result.memberships || []);
+            let list = result.memberships || [];
+            const mid = String(data.memberId || '').trim();
+            if (mid) {
+                const dn = String(data.displayName || newMember.name || '').trim();
+                const em = String(data.memberEmail || newMember.email || '').trim();
+                list = list.map((mem) => {
+                    if (String(mem.userId || '').trim() !== mid) return mem;
+                    return {
+                        ...mem,
+                        ...(dn ? { userName: dn } : {}),
+                        ...(em ? { userEmail: em } : {}),
+                    };
+                });
+            }
+            setMembers(list);
             setNewMember({ name: '', email: '', password: '' });
             addToast({ type: 'success', message: 'Recepcionista criado com sucesso!' });
         } catch (error) {
@@ -111,6 +145,75 @@ const EquipeSection = ({ academy, academyId }) => {
 
     const handleRemoveMember = async (membershipId) => {
         setRemoveConfirm({ membershipId });
+    };
+
+    const openEditMember = (m) => {
+        setEditError('');
+        const label = membershipPrimaryLabel(m);
+        setEditName(label === 'Usuário' ? '' : label);
+        setEditMember({ userId: m.userId });
+    };
+
+    const handleSaveEditName = async (e) => {
+        e.preventDefault();
+        setEditError('');
+        const trimmed = String(editName || '').trim();
+        if (!trimmed) {
+            setEditError('Informe o nome.');
+            return;
+        }
+        if (!editMember?.userId) return;
+        setEditSaving(true);
+        try {
+            const jwt = await createSessionJwt();
+            if (!String(jwt || '').trim()) {
+                setEditError('Sessão expirada, faça login novamente.');
+                return;
+            }
+            const res = await fetch('/api/team/members', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${jwt}`,
+                },
+                body: JSON.stringify({
+                    academyId: String(academyId || '').trim(),
+                    teamId: academy.teamId,
+                    userId: editMember.userId,
+                    name: trimmed,
+                }),
+            });
+            let data = {};
+            try {
+                data = await res.json();
+            } catch {
+                data = {};
+            }
+            if (!res.ok) {
+                let msg = data.erro || 'Não foi possível atualizar o nome.';
+                if (res.status === 401) msg = 'Sessão expirada, faça login novamente.';
+                if (res.status === 403) msg = 'Você não tem permissão para editar este membro.';
+                throw new Error(msg);
+            }
+            const dn = String(data.displayName || trimmed).trim();
+            setMembers((prev) =>
+                prev.map((mem) =>
+                    mem.userId === editMember.userId ? { ...mem, userName: dn } : mem
+                )
+            );
+            setEditMember(null);
+            addToast({ type: 'success', message: 'Nome atualizado.' });
+        } catch (error) {
+            const raw = String(error?.message || '').trim();
+            const useRaw =
+                raw === 'Sessão expirada, faça login novamente.' ||
+                raw === 'Você não tem permissão para editar este membro.';
+            setEditError(
+                useRaw ? raw : friendlyError(error, 'action') || 'Não foi possível atualizar o nome.'
+            );
+        } finally {
+            setEditSaving(false);
+        }
     };
 
     return (
@@ -141,23 +244,35 @@ const EquipeSection = ({ academy, academyId }) => {
                                             <div key={m.$id} className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
                                                     <span className="info-row-label" style={{ display: 'block', textTransform: 'none', color: 'var(--text)' }}>
-                                                        {m.userName || 'Usuário'}
+                                                        {membershipPrimaryLabel(m)}
                                                     </span>
-                                                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{m.userEmail}</span>
+                                                    {membershipSecondaryEmail(m) ? (
+                                                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{membershipSecondaryEmail(m)}</span>
+                                                    ) : null}
                                                 </div>
-                                                <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-2">
                                                     <span className="type-pill" style={{ background: isOwner ? 'var(--accent-light)' : 'var(--surface-hover)', color: isOwner ? 'var(--accent)' : 'var(--text-secondary)' }}>
                                                         {isOwner ? 'Dono' : 'Recepcionista'}
                                                     </span>
                                                     {role === 'owner' && !isOwner && (
-                                                        <button
-                                                            type="button"
-                                                            className="icon-btn icon-btn-remove icon-only"
-                                                            title="Remover membro"
-                                                            onClick={() => handleRemoveMember(m.$id)}
-                                                        >
-                                                            <Trash2 size={16} color="var(--danger)" />
-                                                        </button>
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                className="icon-btn icon-only"
+                                                                title="Editar nome"
+                                                                onClick={() => openEditMember(m)}
+                                                            >
+                                                                <Pencil size={16} color="var(--text-muted)" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="icon-btn icon-btn-remove icon-only"
+                                                                title="Remover membro"
+                                                                onClick={() => handleRemoveMember(m.$id)}
+                                                            >
+                                                                <Trash2 size={16} color="var(--danger)" />
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -227,6 +342,38 @@ const EquipeSection = ({ academy, academyId }) => {
                     </div>
                 )}
             </div>
+            {editMember ? (
+                <div className="confirm-overlay" onClick={() => !editSaving && setEditMember(null)}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="navi-section-heading">Nome do membro</h3>
+                        <p className="navi-subtitle" style={{ marginTop: 8 }}>
+                            Atualiza o nome exibido no sistema e nas tarefas.
+                        </p>
+                        <form onSubmit={handleSaveEditName} className="flex-col gap-3" style={{ marginTop: 14 }}>
+                            <div className="form-group">
+                                <label>Nome completo</label>
+                                <input
+                                    className="form-input"
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    autoFocus
+                                    disabled={editSaving}
+                                />
+                            </div>
+                            {editError ? <p className="field-error">{editError}</p> : null}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <button type="button" className="btn-outline" disabled={editSaving} onClick={() => setEditMember(null)}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn-primary" disabled={editSaving}>
+                                    {editSaving ? 'Salvando…' : 'Salvar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) : null}
             {removeConfirm ? (
                 <div className="confirm-overlay" onClick={() => setRemoveConfirm(null)}>
                     <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
