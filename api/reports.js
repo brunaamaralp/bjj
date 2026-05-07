@@ -20,6 +20,30 @@ const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).se
 const databases = new Databases(adminClient);
 
 function json(res, status, obj) { res.status(status).json(obj); }
+const toYmdTs = (ymd) => {
+  if (!ymd) return null;
+  const [Y, M, D] = String(ymd).split('-').map(Number);
+  if (!Y || !M || !D) return null;
+  const dt = new Date(Y, M - 1, D, 0, 0, 0, 0);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+};
+const parseHour = (hhmm) => {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  return Number.isFinite(h) && h >= 0 && h <= 23 ? h : null;
+};
+const diffDays = (start, end) => {
+  if (!(start instanceof Date) || Number.isNaN(start.getTime())) return null;
+  if (!(end instanceof Date) || Number.isNaN(end.getTime())) return null;
+  const v = (end.getTime() - start.getTime()) / 86400000;
+  return v >= 0 ? v : null;
+};
+const avg1 = (arr) => {
+  if (!arr.length) return null;
+  const val = arr.reduce((acc, n) => acc + n, 0) / arr.length;
+  return Number(val.toFixed(1));
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
@@ -109,12 +133,91 @@ export default async function handler(req, res) {
     const chartData = chartMode === 'weekly' 
         ? buildWeekBuckets(from, to) 
         : buildMonthBuckets(from, to);
+    const prevChartData = chartMode === 'weekly'
+        ? buildWeekBuckets(prevFrom, prevTo)
+        : buildMonthBuckets(prevFrom, prevTo);
 
     chartData.forEach(bucket => {
         bucket.newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, bucket.start, bucket.end)).length;
         bucket.scheduled = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, bucket.start, bucket.end)).length;
         bucket.converted = allLeads.filter(l => countsAsConvertedInPeriod(l, bucket.start, bucket.end)).length;
     });
+    prevChartData.forEach(bucket => {
+      bucket.newLeads = allLeads.filter(l => isRealLead(l) && inRange(l.$createdAt, bucket.start, bucket.end)).length;
+      bucket.scheduled = allLeads.filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, bucket.start, bucket.end)).length;
+      bucket.converted = allLeads.filter(l => countsAsConvertedInPeriod(l, bucket.start, bucket.end)).length;
+    });
+
+    // Heatmap por dia da semana/hora para agendamentos do período.
+    let heatmapData = null;
+    const heatmapRows = allLeads
+      .filter((l) => isRealLead(l) && inRangeYmd(l.scheduledDate, from, to))
+      .map((l) => {
+        const dateObj = toYmdTs(l.scheduledDate);
+        const hour = parseHour(l.scheduledTime);
+        if (!dateObj || hour === null) return null;
+        return { day: dateObj.getDay(), hour };
+      })
+      .filter(Boolean);
+    if (heatmapRows.length > 0) {
+      heatmapData = {};
+      heatmapRows.forEach(({ day, hour }) => {
+        if (!heatmapData[day]) heatmapData[day] = {};
+        heatmapData[day][hour] = Number(heatmapData[day][hour] || 0) + 1;
+      });
+    }
+
+    // Série de conversão por bucket (com comparativo do período anterior por índice).
+    const conversionSeries = chartData.length > 0
+      ? chartData.map((bucket, idx) => {
+          const curNew = Number(bucket.newLeads || 0);
+          const curConverted = Number(bucket.converted || 0);
+          const prevBucket = prevChartData[idx] || null;
+          const prevNew = Number(prevBucket?.newLeads || 0);
+          const prevConverted = Number(prevBucket?.converted || 0);
+          const rate = curNew > 0 ? Number(((curConverted / curNew) * 100).toFixed(1)) : 0;
+          const previousRate = prevNew > 0 ? Number(((prevConverted / prevNew) * 100).toFixed(1)) : 0;
+          return {
+            date: bucket.label,
+            rate,
+            previousRate,
+          };
+      })
+      : null;
+
+    // Tempo médio no funil (somente para convertidos no período com dados suficientes).
+    const convertedInPeriod = allLeads.filter((l) => countsAsConvertedInPeriod(l, from, to));
+    const createdToScheduledVals = [];
+    const scheduledToAttendedVals = [];
+    const attendedToConvertedVals = [];
+    const totalVals = [];
+    convertedInPeriod.forEach((l) => {
+      const createdAt = l.$createdAt ? new Date(l.$createdAt) : null;
+      const scheduledAt = toYmdTs(l.scheduledDate);
+      const attendedAt = l.attended_at ? new Date(l.attended_at) : null;
+      const convertedAt = l.converted_at ? new Date(l.converted_at) : null;
+
+      const cts = diffDays(createdAt, scheduledAt);
+      if (cts !== null) createdToScheduledVals.push(cts);
+
+      const sta = diffDays(scheduledAt, attendedAt);
+      if (sta !== null) scheduledToAttendedVals.push(sta);
+
+      const atc = diffDays(attendedAt, convertedAt);
+      if (atc !== null) attendedToConvertedVals.push(atc);
+
+      const total = diffDays(createdAt, convertedAt);
+      if (total !== null) totalVals.push(total);
+    });
+    const funnelTimingCandidate = {
+      createdToScheduled: avg1(createdToScheduledVals),
+      scheduledToAttended: avg1(scheduledToAttendedVals),
+      attendedToConverted: avg1(attendedToConvertedVals),
+      total: avg1(totalVals),
+    };
+    const funnelTiming = Object.values(funnelTimingCandidate).every((v) => v === null)
+      ? null
+      : funnelTimingCandidate;
 
     return json(res, 200, {
       period: { from, to },
@@ -126,7 +229,10 @@ export default async function handler(req, res) {
         converted: { current: converted.length, previous: convertedPrev.length, list: toList(converted) },
         conversionRate: { current: conversionRate, previous: conversionRatePrev, list: [] }
       },
-      chart: chartData
+      chart: chartData,
+      heatmapData,
+      conversionSeries,
+      funnelTiming
     });
   } catch (e) {
       console.error(e);

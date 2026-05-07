@@ -1146,8 +1146,7 @@ const LeadProfile = () => {
                     <div className="profile-section">
                         <div className="lead-status-row flex items-center gap-2 flex-wrap mb-3">
                             <span
-                                className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}
-                                style={{ fontFamily: 'Arial, sans-serif', fontWeight: 700, fontStyle: 'normal' }}
+                                className="lead-contact-label"
                             >
                                 {contactType === 'student' ? 'Aluno' : 'Lead'}
                             </span>
@@ -1162,13 +1161,10 @@ const LeadProfile = () => {
                             >
                                 {lead.status}
                             </span>
+                            {!editing && lead.origin && (
+                                <span className="status-tag origin-status-tag">{lead.origin}</span>
+                            )}
                         </div>
-                        
-                        {!editing && lead.origin && (
-                            <div className="origin-chip-wrap">
-                                <span className="origin-chip">{lead.origin}</span>
-                            </div>
-                        )}
 
                         {!editing && (
                             <div className="flex flex-wrap gap-1 mt-3">
@@ -1208,7 +1204,7 @@ const LeadProfile = () => {
                                 type="button"
                                 className="comm-btn-dropdown"
                                 disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                                aria-label="Abrir opções de WhatsApp"
+                                aria-label="Abrir opções de mensagem no WhatsApp"
                                 title="Mais opções de WhatsApp"
                                 onClick={(e) => {
                                     e.preventDefault();
@@ -1216,7 +1212,7 @@ const LeadProfile = () => {
                                     setTemplateMenuOpen((o) => !o);
                                 }}
                             >
-                                <ChevronDown size={16} aria-hidden />
+                                <span className="ti ti-dots-vertical" aria-hidden />
                             </button>
 
                             {templateMenuOpen && (
@@ -1332,17 +1328,29 @@ const LeadProfile = () => {
                     <div className="profile-section">
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="section-title" style={{ margin: 0 }}>Tarefas</h3>
-                            <button 
-                                type="button" 
-                                className="btn-action-ghost"
-                                style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
-                                onClick={() => navigate(`/tarefas?lead_id=${id}&new=1`)}
-                            >
-                                <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova
-                            </button>
+                            {leadTasks.length > 0 && (
+                                <button
+                                    type="button"
+                                    className="btn-action-ghost"
+                                    style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
+                                    onClick={() => navigate(`/tarefas?lead_id=${id}&new=1`)}
+                                >
+                                    <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova
+                                </button>
+                            )}
                         </div>
                         {leadTasks.length === 0 ? (
-                            <p className="text-muted text-xs">Sem tarefas vinculadas.</p>
+                            <div className="tasks-empty-row">
+                                <span className="tasks-empty-label">Nenhuma tarefa</span>
+                                <button
+                                    type="button"
+                                    className="btn-action-ghost"
+                                    style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
+                                    onClick={() => navigate(`/tarefas?lead_id=${id}&new=1`)}
+                                >
+                                    <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova
+                                </button>
+                            </div>
                         ) : (
                             <div className="flex-col gap-2">
                                 {leadTasks.slice(0, 5).map(t => (
@@ -1406,15 +1414,13 @@ const LeadProfile = () => {
                         </div>
                     )}
 
-                </div>
-                <div className="left-col-danger-zone">
                     <button
                         type="button"
                         className="btn-delete-lead-link"
                         onClick={openDeleteLeadConfirm}
                         disabled={deletingLead}
                     >
-                        <span className="ti ti-trash" aria-hidden style={{ fontSize: 13, lineHeight: 1 }} />
+                        <span className="ti ti-trash" aria-hidden style={{ fontSize: 14, lineHeight: 1 }} />
                         Excluir lead
                     </button>
                 </div>
@@ -1756,16 +1762,28 @@ const LeadProfile = () => {
                     color: var(--color-text-primary, var(--text));
                     font-weight: 500;
                 }
-                .origin-chip-wrap { margin-top: 4px; margin-bottom: 2px; }
-                .origin-chip {
+                .lead-contact-label {
+                    color: var(--color-text-secondary, var(--text-secondary));
+                    font-size: 13px;
+                    font-weight: 500;
+                    line-height: 1.2;
+                    font-style: normal;
+                }
+                .status-tag {
+                    border-radius: 20px;
+                    padding: 2px 8px;
+                    font-size: 11px;
+                    line-height: 1.2;
+                }
+                .origin-status-tag {
                     display: inline-flex;
                     align-items: center;
+                    background: var(--color-background-secondary, var(--surface-hover)) !important;
+                    border: 0.5px solid var(--color-border-secondary, var(--border)) !important;
+                    color: var(--color-text-secondary, var(--text-secondary)) !important;
                     font-size: 11px;
                     padding: 2px 8px;
-                    border-radius: 999px;
-                    border: 0.5px solid var(--color-border-tertiary, var(--border-light));
-                    background: var(--surface-hover);
-                    color: var(--text-secondary);
+                    border-radius: 20px;
                     font-weight: 500;
                 }
                 .contact-type-badge,
@@ -1780,9 +1798,6 @@ const LeadProfile = () => {
                 .lead-status-row .status-tag {
                     font-family: Arial, sans-serif !important;
                     font-style: normal !important;
-                    border-radius: 999px !important;
-                    padding: 2px 10px !important;
-                    line-height: 1.2 !important;
                 }
 
                 /* Botões de Perfil */
@@ -1889,20 +1904,21 @@ const LeadProfile = () => {
                 }
 
                 .comm-btn-dropdown {
-                    width: 40px;
-                    height: 40px;
+                    width: 44px;
+                    height: 44px;
                     background: var(--color-background-secondary, var(--surface-hover));
                     color: var(--color-text-primary, var(--text));
                     border: 0.5px solid var(--color-border-secondary, var(--border));
-                    border-radius: 10px;
+                    border-radius: var(--border-radius-md, 10px);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
                 }
-                .comm-btn-dropdown svg {
-                    color: var(--accent);
-                    stroke-width: 2.25;
+                .comm-btn-dropdown .ti {
+                    font-size: 18px;
+                    color: var(--color-text-primary, var(--text));
+                    line-height: 1;
                 }
                 .comm-btn-dropdown:hover { background: var(--surface); }
                 .comm-btn-dropdown:focus-visible {
@@ -2066,17 +2082,12 @@ const LeadProfile = () => {
                     opacity: 0.6;
                 }
 
-                .left-col-danger-zone {
-                    padding: 12px 20px;
-                    border-top: 1px solid var(--border-light);
-                    background: var(--surface);
-                }
                 .btn-delete-lead-link {
                     width: 100%;
                     padding: 0;
                     border-radius: 0;
                     background: transparent;
-                    color: var(--color-text-danger, var(--danger));
+                    color: var(--color-text-tertiary, var(--text-muted));
                     border: none;
                     font-size: 12px;
                     font-weight: 500;
@@ -2085,15 +2096,26 @@ const LeadProfile = () => {
                     justify-content: center;
                     gap: 6px;
                     cursor: pointer;
+                    margin-top: 24px;
+                    margin-bottom: 16px;
                 }
                 .btn-delete-lead-link:hover {
-                    text-decoration: underline;
-                    text-underline-offset: 2px;
+                    color: var(--color-text-danger, var(--danger));
                 }
                 .btn-delete-lead-link:focus-visible {
                     outline: 2px solid color-mix(in srgb, var(--danger) 35%, white);
                     outline-offset: 2px;
                     border-radius: 8px;
+                }
+                .tasks-empty-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                }
+                .tasks-empty-label {
+                    font-size: 13px;
+                    color: var(--color-text-tertiary, var(--text-muted));
                 }
 
                 .btn-toggle-timeline {
@@ -2337,11 +2359,15 @@ const LeadProfile = () => {
 
                 .filter-strip {
                     display: flex;
-                    flex-wrap: wrap;
+                    flex-wrap: nowrap;
                     gap: 6px;
-                    overflow: visible;
+                    overflow-x: auto;
+                    overflow-y: hidden;
                     padding-bottom: 2px;
+                    -webkit-overflow-scrolling: touch;
+                    scrollbar-width: none;
                 }
+                .filter-strip::-webkit-scrollbar { display: none; }
 
                 .filter-pill {
                     padding: 4px 10px;
@@ -2390,9 +2416,6 @@ const LeadProfile = () => {
                     .btn-next-step {
                         padding: 10px 12px;
                         font-size: 12px;
-                    }
-                    .left-col-danger-zone {
-                        padding: 10px 16px;
                     }
                     .filter-pill {
                         min-height: 28px;

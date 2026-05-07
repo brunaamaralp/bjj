@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { hasAnyActivity } from '../lib/reportActivity.js';
 import { account } from '../lib/appwrite';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import {
     Calendar,
     Download,
@@ -390,6 +390,118 @@ const Reports = () => {
     const reportHasActivity = hasAnyActivity(reportData);
 
     const drillList = reportData && drillKey ? reportData.metrics[drillKey]?.list || [] : [];
+    const funnelStages = useMemo(() => {
+        if (!reportData?.metrics) return [];
+        const m = reportData.metrics;
+        const newLeadsCurrent = Number(m.newLeads?.current || 0);
+        const safeBase = Math.max(newLeadsCurrent, 1);
+        const scheduledCurrent = Number(m.scheduled?.current || 0);
+        const completedCurrent = Number(m.completed?.current ?? m.showed?.current ?? 0);
+        const convertedCurrent = Number(m.converted?.current || 0);
+        const conversionCurrent = Number(m.conversionRate?.current || 0);
+        const scheduledPrev = Number(m.scheduled?.previous || 0);
+        const completedPrev = Number(m.completed?.previous || m.showed?.previous || 0);
+        const convertedPrev = Number(m.converted?.previous || 0);
+        const conversionPrev = Number(m.conversionRate?.previous || 0);
+        const stageRows = [
+            { key: 'newLeads', label: 'Novos leads', current: newLeadsCurrent, previous: Number(m.newLeads?.previous || 0), drillKey: 'newLeads', prevBase: newLeadsCurrent, color: '#5B3FBF' },
+            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#5142A9' },
+            { key: 'completed', label: 'Compareceram', current: completedCurrent, previous: completedPrev, drillKey: 'completed', prevBase: scheduledCurrent, color: '#4A3D98' },
+            { key: 'converted', label: 'Matrículas', current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: '#433888' },
+            { key: 'conversionRate', label: 'Conversão total', current: conversionCurrent, previous: conversionPrev, drillKey: null, prevBase: 100, color: '#3C3489', isPercent: true },
+        ];
+        return stageRows.map((s, index) => {
+            const variation = pctVar(s.current, s.previous);
+            const relativeBase = s.isPercent ? 100 : Math.max(Number(s.prevBase || 0), 1);
+            const relativePct = Math.max(0, Math.round((Number(s.current || 0) / relativeBase) * 100));
+            const barPct = s.isPercent
+                ? Math.min(100, Math.max(0, s.current))
+                : Math.min(100, Math.round((Number(s.current || 0) / safeBase) * 100));
+            return { ...s, variation, relativePct, barPct, isLast: index === stageRows.length - 1 };
+        });
+    }, [reportData]);
+    const ratesCards = useMemo(() => {
+        if (!reportData?.metrics) return [];
+        const m = reportData.metrics;
+        const newLeads = Number(m.newLeads?.current || 0);
+        const scheduled = Number(m.scheduled?.current || 0);
+        const completed = Number(m.completed?.current ?? m.showed?.current ?? 0);
+        const converted = Number(m.converted?.current || 0);
+        const safePct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
+        return [
+            {
+                key: 'scheduled',
+                label: 'Taxa de agendamento',
+                icon: 'ti ti-percentage',
+                accent: 'var(--warning)',
+                pct: safePct(scheduled, newLeads),
+                insight: `${scheduled} de ${newLeads} leads agendaram`,
+            },
+            {
+                key: 'attendance',
+                label: 'Taxa de presença',
+                icon: 'ti ti-door-enter',
+                accent: '#0B8A8F',
+                pct: safePct(completed, scheduled),
+                insight: `${completed} de ${scheduled} agendados compareceram`,
+            },
+            {
+                key: 'closure',
+                label: 'Taxa de fechamento',
+                icon: 'ti ti-award',
+                accent: 'var(--accent)',
+                pct: safePct(converted, completed),
+                insight: `${converted} de ${completed} compareceram matricularam`,
+            },
+        ];
+    }, [reportData]);
+    const chartDataComparison = useMemo(() => {
+        if (!reportData?.chart || reportData.chart.length === 0 || !reportData?.metrics) return [];
+        const metricMap = chartMetric === 'new' ? 'newLeads' : chartMetric === 'scheduled' ? 'scheduled' : 'converted';
+        const prevTotal =
+            metricMap === 'newLeads'
+                ? Number(reportData.metrics.newLeads?.previous || 0)
+                : metricMap === 'scheduled'
+                  ? Number(reportData.metrics.scheduled?.previous || 0)
+                  : Number(reportData.metrics.converted?.previous || 0);
+        const prevPerBucket = reportData.chart.length > 0 ? Number((prevTotal / reportData.chart.length).toFixed(2)) : 0;
+        return reportData.chart.map((bucket) => ({
+            label: bucket.label,
+            current: Number(bucket[metricMap] || 0),
+            previous: prevPerBucket,
+        }));
+    }, [reportData, chartMetric]);
+    const conversionChartData = useMemo(
+        () => (Array.isArray(reportData?.conversionSeries) ? reportData.conversionSeries : []),
+        [reportData]
+    );
+    const lastConversionPoint = conversionChartData.length > 0 ? conversionChartData[conversionChartData.length - 1] : null;
+    const heatmapSlots = [8, 10, 14, 17, 19, 20];
+    const heatmapDays = [
+        { key: 1, label: 'Seg' },
+        { key: 2, label: 'Ter' },
+        { key: 3, label: 'Qua' },
+        { key: 4, label: 'Qui' },
+        { key: 5, label: 'Sex' },
+        { key: 6, label: 'Sáb' },
+        { key: 0, label: 'Dom' },
+    ];
+    const heatmapMax = useMemo(() => {
+        if (!reportData?.heatmapData) return 0;
+        return heatmapDays.reduce((maxAcc, day) => {
+            const dayMap = reportData.heatmapData?.[day.key] || {};
+            return heatmapSlots.reduce((slotAcc, h) => Math.max(slotAcc, Number(dayMap[h] || 0)), maxAcc);
+        }, 0);
+    }, [reportData]);
+    const heatmapLevelColor = (count) => {
+        if (!heatmapMax || count <= 0) return '#EEEDFE';
+        const ratio = count / heatmapMax;
+        if (ratio <= 0.2) return '#DFDCF9';
+        if (ratio <= 0.4) return '#CECBF6';
+        if (ratio <= 0.6) return '#B2ACEB';
+        if (ratio <= 0.8) return '#8D82D8';
+        return '#534AB7';
+    };
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
@@ -446,23 +558,52 @@ const Reports = () => {
             ) : null}
 
             <div className="page-header-card">
-                <div className="page-header-row">
-                    {presets.map((p) => (
-                        <span
-                            key={p.key}
-                            className={`date-chip${preset === p.key ? ' active' : ''}`}
-                            onClick={() => setPreset(p.key)}
+                <div className="page-header-row reports-filters-row">
+                    <div className="reports-period-block">
+                        {presets.map((p) => (
+                            <span
+                                key={p.key}
+                                className={`date-chip${preset === p.key ? ' active' : ''}`}
+                                onClick={() => setPreset(p.key)}
+                            >
+                                {p.label}
+                            </span>
+                        ))}
+                        {preset === 'custom' && (
+                            <>
+                                <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
+                                <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
+                                <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
+                            </>
+                        )}
+                    </div>
+                    <div className="reports-filters-divider" aria-hidden />
+                    <div className="filter-group reports-selects-inline">
+                        <select
+                            value={originFilter}
+                            onChange={(e) => setOriginFilter(e.target.value)}
+                            aria-label="Filtrar por origem"
+                            style={{ width: 'auto', minWidth: 'unset' }}
                         >
-                            {p.label}
-                        </span>
-                    ))}
-                    {preset === 'custom' && (
-                        <>
-                            <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
-                            <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
-                            <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
-                        </>
-                    )}
+                            <option value="all">Origem</option>
+                            {LEAD_ORIGIN.map((o) => (
+                                <option key={o} value={o}>
+                                    {o}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={profileFilter}
+                            onChange={(e) => setProfileFilter(e.target.value)}
+                            aria-label="Filtrar por perfil"
+                            style={{ width: 'auto', minWidth: 'unset' }}
+                        >
+                            <option value="all">Perfil</option>
+                            <option value="Adulto">Adulto</option>
+                            <option value="Criança">Criança</option>
+                            <option value="Juniores">Juniores</option>
+                        </select>
+                    </div>
                     {dateError ? <span className="reports-field-error">{dateError}</span> : null}
                     <div style={{ flex: 1 }} />
                     <div className="reports-export-wrap" ref={exportWrapRef}>
@@ -511,24 +652,6 @@ const Reports = () => {
                         ) : null}
                     </div>
                 </div>
-                <div className="page-header-row">
-                    <div className="filter-group">
-                        <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} aria-label="Filtrar por origem">
-                            <option value="all">Todas</option>
-                            {LEAD_ORIGIN.map((o) => (
-                                <option key={o} value={o}>
-                                    {o}
-                                </option>
-                            ))}
-                        </select>
-                        <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)} aria-label="Filtrar por perfil">
-                            <option value="all">Todos</option>
-                            <option value="Adulto">Adulto</option>
-                            <option value="Criança">Criança</option>
-                            <option value="Juniores">Juniores</option>
-                        </select>
-                    </div>
-                </div>
             </div>
 
             {!error && !showInitialLoad && leads.length === 0 && !leadsLoading ? (
@@ -552,61 +675,44 @@ const Reports = () => {
             ) : null}
 
             {!error && !showInitialLoad && reportData?.metrics ? (
-            <div className="reports-kpi-grid mt-4 animate-in">
-                <Card
-                    title="Novos leads"
-                    value={reportData.metrics.newLeads.current}
-                    variation={reportData.metrics.newLeads.var || reportData.metrics.newLeads.variation || pctVar(reportData.metrics.newLeads.current, reportData.metrics.newLeads.previous)}
-                    icon={<UserPlus size={18} color="var(--v500)" strokeWidth={2} />}
-                    color="accent"
-                    trendHint={trendHintFor('newLeads', preset)}
-                    onClick={() => setDrillKey('newLeads')}
-                />
-                <Card
-                    title="Aulas agendadas"
-                    value={reportData.metrics.scheduled.current}
-                    variation={reportData.metrics.scheduled.var || reportData.metrics.scheduled.variation || pctVar(reportData.metrics.scheduled.current, reportData.metrics.scheduled.previous)}
-                    icon={<Calendar size={18} color="var(--warn-text)" strokeWidth={2} />}
-                    color="accent"
-                    trendHint={trendHintFor('scheduled', preset)}
-                    onClick={() => setDrillKey('scheduled')}
-                />
-                <Card
-                    title="Compareceram"
-                    value={reportData.metrics.completed?.current ?? reportData.metrics.showed?.current}
-                    variation={reportData.metrics.completed ? pctVar(reportData.metrics.completed.current, reportData.metrics.completed.previous) : (reportData.metrics.showed?.var || reportData.metrics.showed?.variation)}
-                    icon={<CheckCircle2 size={18} color="var(--success-dot)" strokeWidth={2} />}
-                    color="success"
-                    trendHint={trendHintFor('completed', preset)}
-                    onClick={() => setDrillKey('completed')}
-                />
-                <Card
-                    title="Não compareceram"
-                    value={reportData.metrics.missed.current}
-                    variation={reportData.metrics.missed.var || reportData.metrics.missed.variation || pctVar(reportData.metrics.missed.current, reportData.metrics.missed.previous)}
-                    icon={<XCircle size={18} color="var(--danger)" strokeWidth={2} />}
-                    color="danger"
-                    trendHint={trendHintFor('missed', preset)}
-                    onClick={() => setDrillKey('missed')}
-                />
-                <Card
-                    title="Matrículas"
-                    value={reportData.metrics.converted.current}
-                    variation={reportData.metrics.converted.var || reportData.metrics.converted.variation || pctVar(reportData.metrics.converted.current, reportData.metrics.converted.previous)}
-                    icon={<Users size={18} color="var(--success-text)" strokeWidth={2} />}
-                    color="success"
-                    trendHint={trendHintFor('converted', preset)}
-                    onClick={() => setDrillKey('converted')}
-                />
-                {/* Taxa de conversão não aponta para lista de leads individual; manter sem CTA para não sugerir navegação inexistente. */}
-                <Card
-                    title="Taxa de conversão"
-                    value={`${reportData.metrics.conversionRate.current}%`}
-                    variation={reportData.metrics.conversionRate.var || reportData.metrics.conversionRate.variation || pctVar(reportData.metrics.conversionRate.current, reportData.metrics.conversionRate.previous)}
-                    icon={<TrendingUp size={18} color="var(--v500)" strokeWidth={2} />}
-                    color="accent"
-                    trendHint={trendHintFor('conversionRate', preset)}
-                />
+            <div className="reports-funnel-card mt-4 animate-in">
+                <div className="reports-funnel-row">
+                    {funnelStages.map((stage) => (
+                        <React.Fragment key={stage.key}>
+                            <button
+                                type="button"
+                                className={`reports-funnel-stage${stage.drillKey ? ' is-clickable' : ''}`}
+                                onClick={() => stage.drillKey && setDrillKey(stage.drillKey)}
+                                disabled={!stage.drillKey}
+                            >
+                                <div className="reports-funnel-track">
+                                    <span className="reports-funnel-fill" style={{ width: `${stage.barPct}%`, background: stage.color }} />
+                                </div>
+                                <div className="reports-funnel-value">{stage.isPercent ? `${stage.current}%` : stage.current}</div>
+                                <div className="reports-funnel-label">{stage.label}</div>
+                                <div className={`reports-funnel-variation ${stage.variation >= 0 ? 'is-up' : 'is-down'}`}>
+                                    {stage.variation >= 0 ? '+' : ''}{stage.variation}% vs período anterior
+                                </div>
+                                <span className="reports-funnel-relative">{stage.relativePct}% da etapa anterior</span>
+                            </button>
+                            {!stage.isLast ? (
+                                <span className="reports-funnel-arrow" aria-hidden>
+                                    <span className="ti ti-chevron-right" />
+                                </span>
+                            ) : null}
+                        </React.Fragment>
+                    ))}
+                </div>
+                <div className="reports-rates-grid">
+                    {ratesCards.map((item) => (
+                        <div key={item.key} className="reports-rate-card">
+                            <span className={item.icon} aria-hidden style={{ color: item.accent }} />
+                            <div className="reports-rate-value">{item.pct}%</div>
+                            <div className="reports-rate-label">{item.label}</div>
+                            <div className="reports-rate-insight">{item.insight}</div>
+                        </div>
+                    ))}
+                </div>
             </div>
             ) : null}
 
@@ -652,22 +758,124 @@ const Reports = () => {
                     </strong>
                     , respeitando filtros de origem e perfil.
                 </p>
+                <div className="reports-chart-legend">
+                    <span className="reports-chart-legend-item"><i className="reports-chart-dot is-current" aria-hidden /> Este período</span>
+                    <span className="reports-chart-legend-item"><i className="reports-chart-dot is-previous" aria-hidden /> Período anterior</span>
+                </div>
                 {(!reportData || !reportData.chart || reportData.chart.length === 0) ? (
                     <p className="text-small" style={{ color: 'var(--text-muted)' }}>
                         Período muito curto ou inválido para agrupar.
                     </p>
                 ) : (
                     <ResponsiveContainer width="100%" height={chartHeight}>
-                        <BarChart data={reportData.chart}>
+                        <BarChart data={chartDataComparison}>
                             <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} tickFormatter={formatChartTickPt} />
-                            <YAxis fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis hide />
                             <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                            {chartMetric === 'new' && <Bar dataKey="newLeads" name="Novos leads" fill="var(--v500)" radius={[4, 4, 0, 0]} />}
-                            {chartMetric === 'scheduled' && <Bar dataKey="scheduled" name="Agendados" fill="var(--warn-text)" radius={[4, 4, 0, 0]} />}
-                            {chartMetric === 'converted' && <Bar dataKey="converted" name="Matrículas" fill="var(--success-text)" radius={[4, 4, 0, 0]} />}
+                            <Bar dataKey="current" name="Este período" fill="#5B3FBF" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="previous" name="Período anterior" fill="#CECBF6" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 )}
+            </div>
+            ) : null}
+
+            {!error && !showInitialLoad ? (
+            <div className="card reports-evo-card mt-4">
+                <div className="evo-header">
+                    <h3 className="navi-section-heading evo-title">Evolução da taxa de conversão</h3>
+                </div>
+                {conversionChartData.length === 0 ? (
+                    <p className="text-small" style={{ color: 'var(--text-muted)' }}>
+                        Dados insuficientes para este período.
+                    </p>
+                ) : (
+                    <>
+                        <p className="text-xs text-light" style={{ marginBottom: 10 }}>
+                            Último ponto: <strong>{Number(lastConversionPoint?.rate || 0).toFixed(1)}%</strong>
+                        </p>
+                        <ResponsiveContainer width="100%" height={chartHeight}>
+                            <LineChart data={conversionChartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                                <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
+                                <YAxis hide />
+                                <Tooltip cursor={{ stroke: '#5B3FBF', strokeOpacity: 0.2 }} formatter={(value) => `${Number(value || 0).toFixed(1)}%`} />
+                                <Line type="monotone" dataKey="rate" name="Este período" stroke="#5B3FBF" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                                <Line type="monotone" dataKey="previousRate" name="Período anterior" stroke="#9A95D9" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </>
+                )}
+            </div>
+            ) : null}
+
+            {!error && !showInitialLoad ? (
+            <div className="reports-aux-grid mt-4">
+                <div className="card reports-evo-card">
+                    <div className="evo-header">
+                        <h3 className="navi-section-heading evo-title">Heatmap de horários</h3>
+                    </div>
+                    {!reportData?.heatmapData ? (
+                        <p className="text-small" style={{ color: 'var(--text-muted)' }}>
+                            Dados insuficientes para este período.
+                        </p>
+                    ) : (
+                        <div className="reports-heatmap">
+                            <div className="reports-heatmap-head">
+                                <span />
+                                {heatmapDays.map((d) => (
+                                    <span key={d.label} className="reports-heatmap-day">{d.label}</span>
+                                ))}
+                            </div>
+                            {heatmapSlots.map((hour) => (
+                                <div key={hour} className="reports-heatmap-row">
+                                    <span className="reports-heatmap-hour">{String(hour).padStart(2, '0')}h</span>
+                                    {heatmapDays.map((d) => {
+                                        const count = Number(reportData.heatmapData?.[d.key]?.[hour] || 0);
+                                        return (
+                                            <span
+                                                key={`${d.key}-${hour}`}
+                                                className="reports-heatmap-cell"
+                                                title={`${d.label} ${String(hour).padStart(2, '0')}h: ${count}`}
+                                                style={{ background: heatmapLevelColor(count) }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                            <div className="reports-heatmap-legend">Menos <span className="ti ti-arrow-right" aria-hidden /> Mais</div>
+                        </div>
+                    )}
+                </div>
+                <div className="card reports-evo-card">
+                    <div className="evo-header">
+                        <h3 className="navi-section-heading evo-title">Tempo médio no funil</h3>
+                    </div>
+                    {!reportData?.funnelTiming ? (
+                        <p className="text-small" style={{ color: 'var(--text-muted)' }}>
+                            Dados insuficientes para este período.
+                        </p>
+                    ) : (
+                        <div className="reports-timing-grid">
+                            <div className="reports-timing-col">
+                                <div className="reports-timing-value">{reportData.funnelTiming.createdToScheduled ?? '—'}d</div>
+                                <div className="reports-timing-label">Lead → Agendamento</div>
+                            </div>
+                            <div className="reports-timing-col">
+                                <div className="reports-timing-value">{reportData.funnelTiming.scheduledToAttended ?? '—'}d</div>
+                                <div className="reports-timing-label">Agendamento → Aula</div>
+                            </div>
+                            <div className="reports-timing-col">
+                                <div className="reports-timing-value">{reportData.funnelTiming.attendedToConverted ?? '—'}d</div>
+                                <div className="reports-timing-label">Aula → Matrícula</div>
+                            </div>
+                            <div className="reports-timing-col is-total">
+                                <div className="reports-timing-value">{reportData.funnelTiming.total ?? '—'}d</div>
+                                <div className="reports-timing-label">Total</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
             ) : null}
 
@@ -881,6 +1089,10 @@ const Reports = () => {
           opacity: 0.95;
         }
         .reports-filters-card { margin-top: 12px; }
+        .reports-filters-row { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow-x: auto; }
+        .reports-period-block { display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+        .reports-filters-divider { width: 1px; height: 30px; background: var(--color-border-tertiary, var(--border-light)); flex: 0 0 1px; }
+        .reports-selects-inline { display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
         .filters-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .custom-range { display: inline-flex; align-items: center; gap: 8px; }
         .reports-secondary-filters { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light); }
@@ -951,6 +1163,145 @@ const Reports = () => {
           font-size: 0.85rem; font-weight: 600; color: var(--text); cursor: pointer; border-radius: 6px; font-family: inherit;
         }
         .reports-export-item:hover { background: var(--accent-light); color: var(--accent); }
+        .reports-funnel-card {
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 14px;
+          background: var(--surface);
+          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 24px rgba(91, 63, 191, 0.06);
+        }
+        .reports-funnel-row {
+          display: flex;
+          align-items: stretch;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+        .reports-funnel-stage {
+          min-width: 170px;
+          border: 1px solid var(--border-light);
+          border-radius: 12px;
+          background: var(--surface);
+          padding: 10px;
+          text-align: left;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-family: inherit;
+        }
+        .reports-funnel-stage.is-clickable { cursor: pointer; }
+        .reports-funnel-stage:not(.is-clickable) { cursor: default; }
+        .reports-funnel-track { width: 100%; height: 6px; border-radius: 999px; background: var(--surface-hover); overflow: hidden; }
+        .reports-funnel-fill { display: block; height: 100%; border-radius: 999px; }
+        .reports-funnel-value { font-size: 26px; font-weight: 500; color: var(--text); line-height: 1; }
+        .reports-funnel-label { font-size: 11px; color: var(--text-secondary); }
+        .reports-funnel-variation { font-size: 11px; }
+        .reports-funnel-variation.is-up { color: var(--success); }
+        .reports-funnel-variation.is-down { color: var(--danger); }
+        .reports-funnel-relative {
+          display: inline-flex; align-self: flex-start;
+          font-size: 10px; color: var(--text-secondary);
+          background: var(--surface-hover); border: 1px solid var(--border-light);
+          border-radius: 999px; padding: 2px 7px;
+        }
+        .reports-funnel-arrow {
+          display: inline-flex;
+          align-items: center;
+          color: var(--text-muted);
+          font-size: 16px;
+        }
+        .reports-rates-grid {
+          margin-top: 12px;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .reports-rate-card {
+          background: var(--color-background-secondary, var(--surface-hover));
+          border: 1px solid var(--border-light);
+          border-radius: 12px;
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .reports-rate-card .ti { font-size: 16px; line-height: 1; }
+        .reports-rate-value { font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.1; }
+        .reports-rate-label { font-size: 11px; color: var(--text-secondary); }
+        .reports-rate-insight { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+        .reports-chart-legend { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+        .reports-chart-legend-item { font-size: 11px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
+        .reports-chart-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .reports-chart-dot.is-current { background: #5B3FBF; }
+        .reports-chart-dot.is-previous { background: #CECBF6; }
+        .reports-aux-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+        .reports-heatmap {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .reports-heatmap-head,
+        .reports-heatmap-row {
+          display: grid;
+          grid-template-columns: 38px repeat(7, minmax(18px, 1fr));
+          gap: 6px;
+          align-items: center;
+        }
+        .reports-heatmap-day {
+          font-size: 10px;
+          color: var(--text-secondary);
+          text-align: center;
+          font-weight: 600;
+        }
+        .reports-heatmap-hour {
+          font-size: 10px;
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+        .reports-heatmap-cell {
+          height: 20px;
+          border-radius: 6px;
+          border: 0.5px solid rgba(83, 74, 183, 0.14);
+        }
+        .reports-heatmap-legend {
+          margin-top: 4px;
+          font-size: 11px;
+          color: var(--text-secondary);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .reports-timing-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 0;
+          border: 1px solid var(--border-light);
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .reports-timing-col {
+          padding: 12px 10px;
+          border-right: 1px solid var(--border-light);
+          background: var(--surface);
+        }
+        .reports-timing-col:last-child { border-right: none; }
+        .reports-timing-col.is-total { background: var(--accent-light); }
+        .reports-timing-value {
+          font-size: 24px;
+          font-weight: 600;
+          color: var(--text);
+          line-height: 1.1;
+        }
+        .reports-timing-col.is-total .reports-timing-value { color: var(--accent); }
+        .reports-timing-label {
+          margin-top: 6px;
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
         .evo-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
         .evo-title { margin: 0; margin-right: 12px; }
         .evo-controls { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
@@ -1049,6 +1400,18 @@ const Reports = () => {
         .reports-drill-link:hover { background: var(--surface-hover); }
         .reports-drill-name { font-weight: 700; font-size: 0.9rem; color: var(--text); }
         .reports-drill-meta { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+        @media (max-width: 959px) {
+          .reports-filters-row { flex-wrap: wrap; overflow-x: visible; }
+          .reports-filters-divider { display: none; }
+          .reports-rates-grid { grid-template-columns: 1fr; }
+          .reports-aux-grid { grid-template-columns: 1fr; }
+          .reports-timing-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 520px) {
+          .reports-timing-grid { grid-template-columns: 1fr; }
+          .reports-timing-col { border-right: none; border-bottom: 1px solid var(--border-light); }
+          .reports-timing-col:last-child { border-bottom: none; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .reports-drill-overlay, .reports-drill-panel { animation: none; }
           .reports-drill-close:hover { transform: none; }
