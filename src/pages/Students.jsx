@@ -164,6 +164,7 @@ const Students = () => {
                 status: LEAD_STATUS.CONVERTED,
                 contact_type: 'student',
                 pipelineStage: 'Matriculado',
+                dueDay: new Date().getDate(),
                 enrollmentDate: new Date().toISOString().slice(0, 10),
             });
             addToast({ type: 'success', message: 'Aluno cadastrado com sucesso.' });

@@ -34,6 +34,9 @@ function parsePendingAutomations(raw) {
  * @param {Set<string>} operationalStatusSet
  */
 export function mapAppwriteDocToLead(doc, operationalStatusSet) {
+  const dueDayRaw = Number(doc.due_day ?? doc.dueDay ?? 0);
+  const dueDay = Number.isFinite(dueDayRaw) && dueDayRaw >= 1 && dueDayRaw <= 31 ? Math.trunc(dueDayRaw) : null;
+
   const fromStage = String(doc.pipeline_stage || '').trim();
   const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
   const effectivePipelineStage =
@@ -83,6 +86,7 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     createdAt: doc.$createdAt,
     lostReason: doc.lostReason || '',
     plan: doc.plan || '',
+    dueDay,
     enrollmentDate: doc.enrollmentDate || '',
     emergencyContact: doc.emergencyContact || '',
     emergencyPhone: doc.emergencyPhone || '',

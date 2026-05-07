@@ -59,9 +59,10 @@ function parseYmdLocal(ymd) {
   return Number.isNaN(t.getTime()) ? null : t;
 }
 
-function enrollmentDay(student) {
-  const d = parseYmdLocal(student.enrollmentDate);
-  return d ? d.getDate() : null;
+function studentDueDay(student) {
+  const n = Number(student?.dueDay);
+  if (Number.isFinite(n) && n >= 1 && n <= 31) return Math.trunc(n);
+  return null;
 }
 
 function dueDateInMonth(currentMonth, dayOfMonth) {
@@ -87,7 +88,7 @@ function getRowStatus(student, payment, currentMonth) {
     return { status: 'soon', dueDate: dueRaw, paidAt: null };
   }
 
-  const day = enrollmentDay(student);
+  const day = studentDueDay(student);
   const defaultDue = dueDateInMonth(currentMonth, day);
   if (defaultDue) {
     const due0 = startOfLocalDay(defaultDue);
@@ -133,6 +134,7 @@ export default function Mensalidades() {
   const [loadingError, setLoadingError] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -309,6 +311,22 @@ export default function Mensalidades() {
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
   }, [students, filter, search, getStatus]);
 
+  const displayedStudents = useMemo(() => {
+    if (!dueSortOrder) return filteredStudents;
+    const copy = [...filteredStudents];
+    copy.sort((a, b) => {
+      const aDay = studentDueDay(a);
+      const bDay = studentDueDay(b);
+      const aMissing = !Number.isFinite(aDay);
+      const bMissing = !Number.isFinite(bDay);
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      return dueSortOrder === 'asc' ? aDay - bDay : bDay - aDay;
+    });
+    return copy;
+  }, [filteredStudents, dueSortOrder]);
+
   const summary = useMemo(() => {
     let paid = 0;
     let pending = 0;
@@ -341,7 +359,7 @@ export default function Mensalidades() {
   }, [students, getStatus]);
 
   const openPaymentModal = (student) => {
-    const day = enrollmentDay(student);
+    const day = studentDueDay(student);
     const dueDate = dueDateInMonth(currentMonth, day);
     setSelectedStudent(student);
     setPayForm({
@@ -352,6 +370,7 @@ export default function Mensalidades() {
       status: 'paid',
       paid_at: new Date().toISOString().slice(0, 10),
       due_date: dueDate ? dueDate.toISOString().slice(0, 10) : '',
+      due_day: day ? String(day) : '',
       plan_name: student.plan || '',
       note: '',
       saveAsPreferred: !String(student.preferredPaymentMethod || '').trim(),
@@ -369,6 +388,12 @@ export default function Mensalidades() {
     const paidAtMs = new Date(String(payForm.paid_at || '').trim()).getTime();
     if (!Number.isFinite(paidAtMs)) {
       addToast({ type: 'error', message: 'Informe uma data de pagamento válida.' });
+      return;
+    }
+    const dueDayNum = Number(String(payForm.due_day || '').replace(/[^\d]/g, ''));
+    const dueDayValid = Number.isFinite(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
+    if (String(payForm.due_day || '').trim() && !dueDayValid) {
+      addToast({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
       return;
     }
     setSavingPayment(true);
@@ -393,7 +418,10 @@ export default function Mensalidades() {
         await updateLead(selectedStudent.id, {
           preferredPaymentMethod: payForm.method,
           preferredPaymentAccount: payForm.account || '',
+          dueDay: dueDayValid ? dueDayNum : null,
         });
+      } else if (dueDayValid || String(selectedStudent?.dueDay || '').trim()) {
+        await updateLead(selectedStudent.id, { dueDay: dueDayValid ? dueDayNum : null });
       }
       setPayments((prev) => [...(prev || []).filter((p) => String(p.lead_id) !== String(selectedStudent.id)), doc]);
       setShowModal(false);
@@ -510,12 +538,53 @@ export default function Mensalidades() {
             color: var(--text-primary, inherit);
           }
           .mensalidades-page .mensal-modal-in--amount {
-            padding-left: 34px;
-            font-size: 18px;
+            padding-left: 36px;
+            font-size: 20px;
             font-weight: 500;
+            color: var(--color-text-primary, var(--text-primary, inherit));
+            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+            border-radius: var(--border-radius-md, var(--radius-sm));
+            height: 48px;
+            width: 100%;
           }
-          .mensalidades-page .mensal-modal-in:focus { border-color: #5B3FBF; outline: none; }
-          .mensalidades-page .mensal-modal-textarea { height: 72px; resize: none; }
+          .mensalidades-page .mensal-modal-account {
+            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+            border-radius: var(--border-radius-md, var(--radius-sm));
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--color-text-primary, var(--text-primary, inherit));
+            height: 44px;
+            width: 100%;
+            outline: none;
+          }
+          .mensalidades-page .mensal-modal-account::placeholder {
+            color: var(--color-text-tertiary, var(--text-secondary));
+          }
+          .mensalidades-page .mensal-modal-textarea {
+            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+            border-radius: var(--border-radius-md, var(--radius-sm));
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--color-text-primary, var(--text-primary, inherit));
+            height: 80px;
+            width: 100%;
+            resize: none;
+            outline: none;
+            font-family: var(--font-sans);
+          }
+          .mensalidades-page .mensal-modal-textarea::placeholder {
+            color: var(--color-text-tertiary, var(--text-secondary));
+          }
+          .mensalidades-page .mensal-modal-in:focus,
+          .mensalidades-page .mensal-modal-account:focus,
+          .mensalidades-page .mensal-modal-textarea:focus {
+            border-color: #5B3FBF;
+            background: var(--color-background-primary, var(--surface, #fff));
+            outline: none;
+          }
           @media (max-width: 900px) {
             .mensalidades-page .mensal-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           }
@@ -684,7 +753,48 @@ export default function Mensalidades() {
           <thead>
             <tr>
               <th>Aluno</th>
-              <th>Vencimento</th>
+              <th>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDueSortOrder((prev) => (prev === null ? 'asc' : prev === 'asc' ? 'desc' : null))
+                  }
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    border: 'none',
+                    background:
+                      dueSortOrder == null
+                        ? 'transparent'
+                        : 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
+                    color:
+                      dueSortOrder == null
+                        ? 'var(--color-text-secondary, var(--text-secondary))'
+                        : '#5B3FBF',
+                    cursor: 'pointer',
+                    padding: '4px 6px',
+                    marginLeft: -6,
+                    borderRadius: 6,
+                    font: 'inherit',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  <span>Vencimento</span>
+                  <span
+                    className={`ti ${
+                      dueSortOrder === 'asc'
+                        ? 'ti-chevron-up'
+                        : dueSortOrder === 'desc'
+                          ? 'ti-chevron-down'
+                          : 'ti-selector'
+                    }`}
+                    style={{ fontSize: 14, lineHeight: 1 }}
+                    aria-hidden
+                  />
+                </button>
+              </th>
               <th>Valor</th>
               <th>Pagamento habitual</th>
               <th>Status</th>
@@ -698,7 +808,7 @@ export default function Mensalidades() {
                   Carregando…
                 </td>
               </tr>
-            ) : filteredStudents.length === 0 ? (
+            ) : displayedStudents.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ padding: 48, textAlign: 'center', verticalAlign: 'middle' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--text-secondary)' }}>
@@ -709,7 +819,7 @@ export default function Mensalidades() {
                 </td>
               </tr>
             ) : (
-              filteredStudents.map((student) => {
+              displayedStudents.map((student) => {
                 const payment = paymentMap[student.id];
                 const row = getRowStatus(student, payment, currentMonth);
                 const today0 = startOfLocalDay(new Date());
@@ -957,6 +1067,21 @@ export default function Mensalidades() {
                         }}
                       />
                     </div>
+                    <div>
+                      <label className="mensal-modal-field-label" htmlFor="mensal-pay-due-day">
+                        Dia de vencimento
+                      </label>
+                      <input
+                        id="mensal-pay-due-day"
+                        className="mensal-modal-in"
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={payForm.due_day || ''}
+                        onChange={(e) => setPayForm((f) => ({ ...f, due_day: e.target.value }))}
+                        placeholder="1 a 31"
+                      />
+                    </div>
                   </div>
                   <div>
                     <div className="mensal-modal-field-label" style={{ marginBottom: 6 }}>
@@ -1009,7 +1134,7 @@ export default function Mensalidades() {
                     </label>
                     <input
                       id="mensal-pay-account"
-                      className="mensal-modal-in"
+                      className="mensal-modal-in mensal-modal-account"
                       value={payForm.account}
                       onChange={(e) => setPayForm((f) => ({ ...f, account: e.target.value }))}
                       placeholder="Ex: Sicoob, Nubank"
@@ -1043,6 +1168,7 @@ export default function Mensalidades() {
                       className="mensal-modal-in mensal-modal-textarea"
                       value={payForm.note}
                       onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))}
+                      placeholder="Algum detalhe sobre este pagamento..."
                     />
                   </div>
                 </div>

@@ -72,6 +72,10 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.age !== undefined) copyIf('age', u.age);
   if (u.lostReason !== undefined) copyIf('lostReason', u.lostReason);
   if (u.plan !== undefined) copyIf('plan', u.plan);
+  if (u.dueDay !== undefined) {
+    const n = Number(u.dueDay);
+    patch.due_day = Number.isFinite(n) && n >= 1 && n <= 31 ? Math.trunc(n) : null;
+  }
   if (u.enrollmentDate !== undefined) copyIf('enrollmentDate', u.enrollmentDate);
   if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
   if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);

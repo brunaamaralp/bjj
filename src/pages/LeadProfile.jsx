@@ -937,6 +937,14 @@ const LeadProfile = () => {
 
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
     const contactType = String(lead.contact_type || '').trim() || (lead.status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
+    const hasOtherDetails = Boolean(
+        lead.parentName ||
+        lead.age ||
+        (customQuestions || []).some((q) => {
+            const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
+            return hasLeadDisplayValue(ans);
+        })
+    );
 
     return (
         <div className={`lead-profile-container ${timelineOpen ? 'timeline-open' : 'timeline-closed'}`}>
@@ -1124,27 +1132,29 @@ const LeadProfile = () => {
 
                     {/* Status e Tags */}
                     <div className="profile-section">
-                        <div className="flex items-center gap-2 flex-wrap mb-3">
-                            <span className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}>
+                        <div className="flex items-center gap-2 flex-wrap mb-3" style={{ fontFamily: 'var(--font-sans)' }}>
+                            <span
+                                className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}
+                                style={{ fontFamily: 'var(--font-sans)' }}
+                            >
                                 {contactType === 'student' ? 'Aluno' : 'Lead'}
                             </span>
-                            <span className="status-tag" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                            <span
+                                className="status-tag"
+                                style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'var(--font-sans)' }}
+                            >
                                 {lead.status}
                             </span>
                         </div>
                         
                         {!editing && (
-                            <div className="flex flex-col gap-2">
-                                <div className="info-mini-row">
-                                    <span className="info-mini-label">Etapa:</span>
-                                    <span className="info-mini-value">
-                                        {humanizeTimelineStage(lead.pipelineStage, stages) || '—'}
-                                    </span>
-                                </div>
-                                <div className="info-mini-row">
-                                    <span className="info-mini-label">Origem:</span>
-                                    <span className="info-mini-value">{lead.origin || '—'}</span>
-                                </div>
+                            <div className="info-meta-grid">
+                                <span className="info-mini-label">Etapa</span>
+                                <span className="info-mini-value">
+                                    {humanizeTimelineStage(lead.pipelineStage, stages) || '—'}
+                                </span>
+                                <span className="info-mini-label">Origem</span>
+                                <span className="info-mini-value">{lead.origin || '—'}</span>
                             </div>
                         )}
 
@@ -1186,13 +1196,15 @@ const LeadProfile = () => {
                                 type="button"
                                 className="comm-btn-dropdown"
                                 disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
+                                aria-label="Abrir opções de WhatsApp"
+                                title="Mais opções de WhatsApp"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setTemplateMenuOpen((o) => !o);
                                 }}
                             >
-                                <ChevronDown size={18} />
+                                <span className="ti ti-phone" aria-hidden style={{ fontSize: 16, lineHeight: 1 }} />
                             </button>
 
                             {templateMenuOpen && (
@@ -1271,13 +1283,15 @@ const LeadProfile = () => {
                                 </button>
                             )}
                             {lead.status !== LEAD_STATUS.LOST && (
-                                <button
-                                    type="button"
-                                    className="btn-next-step danger"
-                                    onClick={handleMarkLost}
-                                >
-                                    <AlertTriangle size={14} /> Marcar como perdido
-                                </button>
+                                <div className="next-step-danger-wrap">
+                                    <button
+                                        type="button"
+                                        className="btn-next-step danger"
+                                        onClick={handleMarkLost}
+                                    >
+                                        <AlertTriangle size={14} /> Marcar como perdido
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -1326,21 +1340,8 @@ const LeadProfile = () => {
                         )}
                     </div>
 
-                    {/* Mais Ações */}
-                    <div className="profile-section">
-                        <h3 className="section-title">Mais Ações</h3>
-                        <button 
-                            type="button" 
-                            className="btn-delete-lead" 
-                            onClick={openDeleteLeadConfirm}
-                            disabled={deletingLead}
-                        >
-                            <Trash2 size={14} /> Excluir lead
-                        </button>
-                    </div>
-
                     {/* Dados Adicionais (Preservados do original, mas agora em lista) */}
-                    {!editing && (
+                    {!editing && hasOtherDetails && (
                         <div className="profile-section extra-info">
                             <h3 className="section-title">Outros detalhes</h3>
                             <div className="flex-col gap-2">
@@ -1369,6 +1370,16 @@ const LeadProfile = () => {
                             </div>
                         </div>
                     )}
+
+                    <button
+                        type="button"
+                        className="btn-delete-lead-link"
+                        onClick={openDeleteLeadConfirm}
+                        disabled={deletingLead}
+                    >
+                        <span className="ti ti-trash" aria-hidden style={{ fontSize: 13, lineHeight: 1 }} />
+                        Excluir lead
+                    </button>
                 </div>
 
                 <div className="left-col-footer">
@@ -1409,6 +1420,7 @@ const LeadProfile = () => {
                             onClick={() => void addNote()} 
                             disabled={!note.trim() || addingNote}
                         >
+                            <span className="ti ti-send" aria-hidden style={{ fontSize: 14, lineHeight: 1 }} />
                             <Send size={16} />
                         </button>
                     </div>
@@ -1671,15 +1683,21 @@ const LeadProfile = () => {
 
                 .section-title {
                     font-size: 11px;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    color: var(--text-muted);
-                    margin: 0 0 12px;
+                    font-weight: 500;
+                    letter-spacing: 0.04em;
+                    color: var(--color-text-tertiary, var(--text-muted));
+                    margin: 0 0 8px;
                 }
 
                 .profile-section {
+                    padding-top: 16px;
                     padding-bottom: 4px;
+                    border-top: 0.5px solid var(--color-border-tertiary, var(--border-light));
+                }
+
+                .profile-section:first-of-type {
+                    border-top: none;
+                    padding-top: 0;
                 }
 
                 /* Mini Rows */
@@ -1692,6 +1710,19 @@ const LeadProfile = () => {
 
                 .info-mini-label { color: var(--text-muted); }
                 .info-mini-value { color: var(--text); font-weight: 600; }
+                .info-meta-grid {
+                    display: grid;
+                    grid-template-columns: 120px 1fr;
+                    gap: 6px 8px;
+                    font-size: 13px;
+                }
+                .info-meta-grid .info-mini-label {
+                    color: var(--color-text-secondary, var(--text-secondary));
+                }
+                .info-meta-grid .info-mini-value {
+                    color: var(--color-text-primary, var(--text));
+                    font-weight: 500;
+                }
 
                 /* Botões de Perfil */
                 .btn-edit-header {
@@ -1789,16 +1820,16 @@ const LeadProfile = () => {
                 .comm-btn-dropdown {
                     width: 36px;
                     height: 40px;
-                    background: #25D366;
-                    color: white;
-                    border: none;
-                    border-left: 1px solid rgba(255,255,255,0.2);
-                    border-radius: 0 10px 10px 0;
+                    background: var(--color-background-secondary, var(--surface-hover));
+                    color: var(--color-text-primary, var(--text));
+                    border: 0.5px solid var(--color-border-secondary, var(--border));
+                    border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
                 }
+                .comm-btn-dropdown .ti { color: var(--accent); }
 
                 .comm-dropdown-menu {
                     position: absolute;
@@ -1859,9 +1890,9 @@ const LeadProfile = () => {
                 .btn-state-missed {
                     flex: 1;
                     padding: 8px;
-                    background: #EF4444;
-                    color: white;
-                    border: none;
+                    background: var(--color-background-secondary, var(--surface-hover));
+                    color: var(--color-text-secondary, var(--text-secondary));
+                    border: 0.5px solid var(--color-border-secondary, var(--border));
                     border-radius: 8px;
                     font-size: 12px;
                     font-weight: 700;
@@ -1886,21 +1917,34 @@ const LeadProfile = () => {
                 }
 
                 .btn-next-step.highlight { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
-                .btn-next-step.danger { border-color: #FEE2E2; background: #FFF5F5; color: #991B1B; }
-
-                .btn-delete-lead {
-                    width: 100%;
-                    padding: 10px;
-                    border-radius: 10px;
-                    background: #FEE2E2;
-                    color: #991B1B;
+                .next-step-danger-wrap {
+                    margin-top: 8px;
+                    padding-top: 8px;
+                    border-top: 0.5px solid var(--color-border-tertiary, var(--border-light));
+                }
+                .btn-next-step.danger {
                     border: none;
+                    background: none;
+                    color: var(--color-text-danger, var(--danger));
+                    margin-bottom: 0;
+                    padding: 4px 0;
                     font-size: 13px;
-                    font-weight: 700;
+                }
+
+                .btn-delete-lead-link {
+                    margin-top: 24px;
+                    width: 100%;
+                    padding: 0;
+                    border-radius: 0;
+                    background: transparent;
+                    color: var(--color-text-danger, var(--danger));
+                    border: none;
+                    font-size: 12px;
+                    font-weight: 500;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 8px;
+                    gap: 6px;
                     cursor: pointer;
                 }
 
@@ -1986,13 +2030,14 @@ const LeadProfile = () => {
                     right: 8px;
                     width: 36px;
                     height: 36px;
-                    border-radius: 10px;
-                    background: var(--accent);
+                    border-radius: var(--border-radius-md, 10px);
+                    background: #5B3FBF;
                     color: white;
                     border: none;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    gap: 4px;
                     cursor: pointer;
                     box-shadow: var(--shadow);
                 }
