@@ -936,6 +936,18 @@ const LeadProfile = () => {
     };
 
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
+    const statusBadgeStyle =
+        lead.status === LEAD_STATUS.SCHEDULED
+            ? {
+                  background: '#F6EFE0',
+                  color: '#8A6A2B',
+                  border: '1px solid #E8D8B0',
+              }
+            : {
+                  background: statusStyle.bg,
+                  color: statusStyle.color,
+                  border: '1px solid transparent',
+              };
     const contactType = String(lead.contact_type || '').trim() || (lead.status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
     const hasOtherDetails = Boolean(
         lead.parentName ||
@@ -1141,7 +1153,12 @@ const LeadProfile = () => {
                             </span>
                             <span
                                 className="status-tag"
-                                style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'Arial, sans-serif', fontWeight: 600, fontStyle: 'normal' }}
+                                style={{
+                                    ...statusBadgeStyle,
+                                    fontFamily: 'Arial, sans-serif',
+                                    fontWeight: 600,
+                                    fontStyle: 'normal',
+                                }}
                             >
                                 {lead.status}
                             </span>
@@ -1763,6 +1780,9 @@ const LeadProfile = () => {
                 .lead-status-row .status-tag {
                     font-family: Arial, sans-serif !important;
                     font-style: normal !important;
+                    border-radius: 999px !important;
+                    padding: 2px 10px !important;
+                    line-height: 1.2 !important;
                 }
 
                 /* Botões de Perfil */
