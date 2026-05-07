@@ -31,6 +31,56 @@ function normalizeApiError(raw, fallback) {
   return s;
 }
 
+/** Texto agregado de campos de erro para matching (case-insensitive nos testes). */
+function collectWaApiErrorText(data, raw) {
+  const parts = [];
+  if (data && typeof data === 'object') {
+    for (const k of ['erro', 'error', 'message', 'detalhe', 'codigo']) {
+      const v = data[k];
+      if (typeof v === 'string' && v.trim()) parts.push(v);
+    }
+  }
+  if (typeof raw === 'string' && raw.trim()) parts.push(raw);
+  return parts.join(' ').toLowerCase();
+}
+
+/**
+ * Instância sumiu na Zapster mas o Appwrite ainda tem instance_id (ou a API devolveu erro explícito).
+ */
+function isInstanceNotFoundResponse(resp, data, raw) {
+  if (resp && Number(resp.status) === 404) return true;
+  const text = collectWaApiErrorText(data, raw);
+  if (!text.trim()) return false;
+  return (
+    /instance\s*not\s*found/.test(text) ||
+    /\bnot\s+found\b/.test(text) ||
+    /instance_not_found/.test(text) ||
+    /inst\u00e2ncia\s+n\u00e3o\s+encontrada/.test(text) ||
+    /instancia\s+nao\s+encontrada/.test(text)
+  );
+}
+
+async function clearStaleZapsterLinkInAppwrite(jwt, academyId) {
+  const aid = String(academyId || '').trim();
+  if (!aid) return;
+  const { blocked, res } = await fetchWithBillingGuard('/api/zapster-clear-link', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': aid,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({})
+  });
+  if (blocked || !res || !res.ok) {
+    try {
+      await res?.text();
+    } catch {
+      void 0;
+    }
+  }
+}
+
 /**
  * Quando GET /instances reporta "connected", o GET do PNG do QR funciona como prova de vida:
  * — 200 + imagem: ainda é possível exibir QR (sessão WA não está estável como conectada no painel).
@@ -119,6 +169,18 @@ export function useZapsterWhatsAppConnection(academyId) {
     waPersistFailedRef.current = waPersistFailed;
   }, [waPersistFailed]);
 
+  /** Instância órfã (Zapster sem o id): limpa UI sem toast nem connectionError. */
+  const resetWaToNoInstanceSilently = useCallback(() => {
+    setWaPersistFailed(false);
+    setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+    setWaTokenMissing(false);
+    setWaQrError(false);
+    setWaQrShown(false);
+    setWaQrLoadFailedOnce(false);
+    setWaQrTick(0);
+    setConnectionError('');
+  }, []);
+
   const fetchWaInfo = useCallback(async ({ silent = false, quiet = false } = {}) => {
     if (!academyIdRef.current) return;
     if (!silent) setConnectionError('');
@@ -133,11 +195,42 @@ export function useZapsterWhatsAppConnection(academyId) {
       const data = safeParseJson(raw) || {};
       if (!resp.ok) {
         if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
+        if (isInstanceNotFoundResponse(resp, data, raw)) {
+          await clearStaleZapsterLinkInAppwrite(jwt, academyIdRef.current);
+          resetWaToNoInstanceSilently();
+          return;
+        }
         throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao consultar WhatsApp'));
       }
       const incomingId = data?.instance_id ?? null;
       let status = String(data?.status || '').trim() || 'unknown';
       let qrcode = data?.qrcode ?? null;
+
+      if (incomingId && status.toLowerCase() === 'unknown') {
+        const { blocked: probeBlocked, res: probeResp } = await fetchWithBillingGuard(
+          `/api/zapster/instances?action=get&id=${encodeURIComponent(incomingId)}`,
+          { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') } }
+        );
+        if (!probeBlocked && probeResp) {
+          const probeRaw = await probeResp.text();
+          const probeData = safeParseJson(probeRaw) || {};
+          if (
+            !probeResp.ok &&
+            (probeResp.status === 404 || isInstanceNotFoundResponse(probeResp, probeData, probeRaw))
+          ) {
+            await clearStaleZapsterLinkInAppwrite(jwt, academyIdRef.current);
+            resetWaToNoInstanceSilently();
+            return;
+          }
+          if (probeResp.ok && probeData && typeof probeData === 'object' && probeData.sucesso !== false) {
+            const st = String(probeData.status || '').trim();
+            if (st) {
+              status = st;
+              qrcode = probeData.qrcode ?? null;
+            }
+          }
+        }
+      }
 
       if (incomingId && status === 'connected') {
         const stale = await shouldOverrideConnectedStatusAfterQrProbe(academyIdRef.current, jwt, incomingId);
@@ -186,7 +279,7 @@ export function useZapsterWhatsAppConnection(academyId) {
     } finally {
       if (!quiet) setWaLoading(false);
     }
-  }, []);
+  }, [resetWaToNoInstanceSilently]);
 
   const createWaInstance = useCallback(async () => {
     if (!academyIdRef.current) return;
