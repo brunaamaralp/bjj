@@ -1132,16 +1132,16 @@ const LeadProfile = () => {
 
                     {/* Status e Tags */}
                     <div className="profile-section">
-                        <div className="flex items-center gap-2 flex-wrap mb-3" style={{ fontFamily: 'var(--font-sans)' }}>
+                        <div className="flex items-center gap-2 flex-wrap mb-3" style={{ fontFamily: 'var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif)' }}>
                             <span
                                 className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}
-                                style={{ fontFamily: 'var(--font-sans)' }}
+                                style={{ fontFamily: 'var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif)' }}
                             >
                                 {contactType === 'student' ? 'Aluno' : 'Lead'}
                             </span>
                             <span
                                 className="status-tag"
-                                style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'var(--font-sans)' }}
+                                style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif)' }}
                             >
                                 {lead.status}
                             </span>
@@ -1199,7 +1199,7 @@ const LeadProfile = () => {
                                     setTemplateMenuOpen((o) => !o);
                                 }}
                             >
-                                <span className="ti ti-chevron-down" aria-hidden style={{ fontSize: 16, lineHeight: 1 }} />
+                                <ChevronDown size={16} aria-hidden />
                             </button>
 
                             {templateMenuOpen && (
@@ -1418,10 +1418,7 @@ const LeadProfile = () => {
                         <button type="button" className={`filter-pill${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
                         <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
                         <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'pipeline_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('pipeline_change')}>Pipeline</button>
                         <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'lead_created' ? ' active' : ''}`} onClick={() => setEventTypeFilter('lead_created')}>Cadastros</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'import' ? ' active' : ''}`} onClick={() => setEventTypeFilter('import')}>Importações</button>
                     </div>
                 </div>
 
@@ -1440,8 +1437,7 @@ const LeadProfile = () => {
                             onClick={() => void addNote()} 
                             disabled={!note.trim() || addingNote}
                         >
-                            <span className="ti ti-send" aria-hidden style={{ fontSize: 14, lineHeight: 1 }} />
-                            <Send size={16} />
+                            <Send size={16} aria-hidden className="send-note-icon" />
                         </button>
                     </div>
                 </div>
@@ -1755,6 +1751,10 @@ const LeadProfile = () => {
                     color: var(--text-secondary);
                     font-weight: 500;
                 }
+                .contact-type-badge,
+                .status-tag {
+                    font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif) !important;
+                }
 
                 /* Botões de Perfil */
                 .btn-edit-header {
@@ -1871,7 +1871,10 @@ const LeadProfile = () => {
                     justify-content: center;
                     cursor: pointer;
                 }
-                .comm-btn-dropdown .ti { color: var(--accent); }
+                .comm-btn-dropdown svg {
+                    color: var(--accent);
+                    stroke-width: 2.25;
+                }
                 .comm-btn-dropdown:hover { background: var(--surface); }
                 .comm-btn-dropdown:focus-visible {
                     outline: 2px solid color-mix(in srgb, var(--accent) 35%, white);
@@ -2157,6 +2160,11 @@ const LeadProfile = () => {
                     cursor: pointer;
                     box-shadow: var(--shadow);
                 }
+                .btn-send-note .send-note-icon {
+                    color: #fff;
+                    display: block;
+                    flex-shrink: 0;
+                }
 
                 .timeline-content {
                     flex: 1;
@@ -2300,14 +2308,11 @@ const LeadProfile = () => {
 
                 .filter-strip {
                     display: flex;
-                    flex-wrap: nowrap;
+                    flex-wrap: wrap;
                     gap: 6px;
-                    overflow-x: auto;
-                    padding-bottom: 4px;
-                    -webkit-overflow-scrolling: touch;
-                    scrollbar-width: none;
+                    overflow: visible;
+                    padding-bottom: 2px;
                 }
-                .filter-strip::-webkit-scrollbar { display: none; }
 
                 .filter-pill {
                     padding: 4px 10px;
