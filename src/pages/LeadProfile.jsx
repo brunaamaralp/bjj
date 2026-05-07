@@ -1132,16 +1132,15 @@ const LeadProfile = () => {
 
                     {/* Status e Tags */}
                     <div className="profile-section">
-                        <div className="flex items-center gap-2 flex-wrap mb-3" style={{ fontFamily: 'var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif)' }}>
+                        <div className="lead-status-row flex items-center gap-2 flex-wrap mb-3">
                             <span
                                 className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}
-                                style={{ fontFamily: 'var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif)' }}
                             >
                                 {contactType === 'student' ? 'Aluno' : 'Lead'}
                             </span>
                             <span
                                 className="status-tag"
-                                style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif)' }}
+                                style={{ background: statusStyle.bg, color: statusStyle.color }}
                             >
                                 {lead.status}
                             </span>
@@ -1753,6 +1752,10 @@ const LeadProfile = () => {
                 }
                 .contact-type-badge,
                 .status-tag {
+                    font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif) !important;
+                }
+                .lead-status-row,
+                .lead-status-row * {
                     font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif) !important;
                 }
 
