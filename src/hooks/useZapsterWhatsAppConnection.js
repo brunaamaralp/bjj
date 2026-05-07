@@ -63,7 +63,7 @@ function isInstanceNotFoundResponse(resp, data, raw) {
 async function clearStaleZapsterLinkInAppwrite(jwt, academyId) {
   const aid = String(academyId || '').trim();
   if (!aid) return;
-  const { blocked, res } = await fetchWithBillingGuard('/api/zapster-clear-link', {
+  const { blocked, res } = await fetchWithBillingGuard('/api/zapster/instances?action=clear-local-link', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${jwt}`,
