@@ -1168,7 +1168,7 @@ export default function Tasks() {
         }
         .tasks-cal-grid {
           display: grid;
-          grid-template-columns: repeat(7, minmax(88px, 1fr));
+          grid-template-columns: repeat(7, minmax(100px, 1fr));
           gap: 8px;
         }
         .tasks-cal-cell {
@@ -1199,17 +1199,35 @@ export default function Tasks() {
           overflow-x: hidden;
           overflow-y: auto;
         }
+        /* Grid em vez de flex em linha: colunas do calendário são estreitas; checkbox+ações
+           consumiam quase toda a largura e o título ficava com ~0px (uma letra por linha). */
         .tasks-cal-day-tasks .task-card {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          grid-template-rows: auto auto;
+          column-gap: 8px;
+          row-gap: 4px;
+          align-items: start;
           width: 100%;
           max-width: 100%;
           min-width: 0;
           box-sizing: border-box;
         }
-        .tasks-cal-day-tasks .task-checkbox { flex-shrink: 0; }
-        .tasks-cal-day-tasks .task-actions { flex-shrink: 0; }
+        .tasks-cal-day-tasks .task-checkbox {
+          grid-column: 1;
+          grid-row: 1;
+          margin-top: 2px;
+        }
+        .tasks-cal-day-tasks .task-actions {
+          grid-column: 3;
+          grid-row: 1;
+          justify-self: end;
+        }
         .tasks-cal-day-tasks .task-content {
-          flex: 1 1 0%;
+          grid-column: 1 / -1;
+          grid-row: 2;
           min-width: 0;
+          width: 100%;
         }
         .tasks-cal-day-tasks .task-title {
           display: block;
