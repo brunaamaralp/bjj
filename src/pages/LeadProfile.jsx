@@ -1147,14 +1147,9 @@ const LeadProfile = () => {
                             </span>
                         </div>
                         
-                        {!editing && (
-                            <div className="info-meta-grid">
-                                <span className="info-mini-label">Etapa</span>
-                                <span className="info-mini-value">
-                                    {humanizeTimelineStage(lead.pipelineStage, stages) || '—'}
-                                </span>
-                                <span className="info-mini-label">Origem</span>
-                                <span className="info-mini-value">{lead.origin || '—'}</span>
+                        {!editing && lead.origin && (
+                            <div className="origin-chip-wrap">
+                                <span className="origin-chip">{lead.origin}</span>
                             </div>
                         )}
 
@@ -1183,7 +1178,7 @@ const LeadProfile = () => {
                     {/* Comunicação */}
                     <div className="profile-section">
                         <h3 className="section-title">Comunicação</h3>
-                        <div className="flex gap-2 items-center" style={{ position: 'relative' }}>
+                        <div className="comm-actions-wrap" style={{ position: 'relative' }}>
                             <button
                                 type="button"
                                 className="comm-btn-primary"
@@ -1204,7 +1199,7 @@ const LeadProfile = () => {
                                     setTemplateMenuOpen((o) => !o);
                                 }}
                             >
-                                <span className="ti ti-phone" aria-hidden style={{ fontSize: 16, lineHeight: 1 }} />
+                                <span className="ti ti-chevron-down" aria-hidden style={{ fontSize: 16, lineHeight: 1 }} />
                             </button>
 
                             {templateMenuOpen && (
@@ -1253,9 +1248,27 @@ const LeadProfile = () => {
                                         Não compareceu
                                     </button>
                                 </div>
+                                <button
+                                    type="button"
+                                    className="schedule-secondary-link"
+                                    onClick={() => setScheduleModalOpen(true)}
+                                    disabled={updatingStatus}
+                                >
+                                    Reagendar
+                                </button>
                             </div>
                         ) : (
-                            <p className="text-muted text-xs">Sem aula experimental agendada.</p>
+                            <div className="flex-col gap-2">
+                                <p className="text-muted text-xs">Sem aula experimental agendada.</p>
+                                <button
+                                    type="button"
+                                    className="btn-next-step"
+                                    onClick={() => setScheduleModalOpen(true)}
+                                    disabled={updatingStatus}
+                                >
+                                    <Calendar size={14} /> Agendar primeira aula
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -1263,14 +1276,16 @@ const LeadProfile = () => {
                     <div className="profile-section">
                         <h3 className="section-title">Próximos Passos</h3>
                         <div className="flex-col gap-2">
-                            <button
-                                type="button"
-                                className="btn-next-step"
-                                onClick={() => setScheduleModalOpen(true)}
-                                disabled={updatingStatus}
-                            >
-                                <Calendar size={14} /> Agendar nova data
-                            </button>
+                            {lead.scheduledDate && (
+                                <button
+                                    type="button"
+                                    className="btn-next-step"
+                                    onClick={() => setScheduleModalOpen(true)}
+                                    disabled={updatingStatus}
+                                >
+                                    <Calendar size={14} /> Agendar nova data
+                                </button>
+                            )}
                             
                             {lead.status !== LEAD_STATUS.CONVERTED && (
                                 <button
@@ -1314,16 +1329,19 @@ const LeadProfile = () => {
                         ) : (
                             <div className="flex-col gap-2">
                                 {leadTasks.slice(0, 5).map(t => (
-                                    <div key={t.id} className="flex gap-2 items-center" style={{ fontSize: 13 }}>
+                                    <div key={t.id} className={`task-row ${t.status === 'done' ? 'done' : ''}`}>
                                         <input 
                                             type="checkbox" 
                                             checked={t.status === 'done'} 
                                             onChange={() => toggleLeadTask(t)} 
                                             style={{ cursor: 'pointer' }}
                                         />
-                                        <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-muted)' : 'var(--text)' }}>
-                                            {t.title}
-                                        </span>
+                                        <span className="task-title">{t.title}</span>
+                                        {(t.due_date || t.dueDate) && (
+                                            <span className="task-due">
+                                                {new Date((t.due_date || t.dueDate) + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                            </span>
+                                        )}
                                     </div>
                                 ))}
                                 {leadTasks.length > 5 && (
@@ -1371,6 +1389,8 @@ const LeadProfile = () => {
                         </div>
                     )}
 
+                </div>
+                <div className="left-col-danger-zone">
                     <button
                         type="button"
                         className="btn-delete-lead-link"
@@ -1659,15 +1679,15 @@ const LeadProfile = () => {
                 .profile-main-header {
                     display: flex;
                     flex-direction: column;
-                    align-items: center;
-                    text-align: center;
+                    align-items: flex-start;
+                    text-align: left;
                     gap: 12px;
                 }
 
 
                 .profile-name {
-                    font-size: 1.25rem;
-                    font-weight: 800;
+                    font-size: 1.125rem;
+                    font-weight: 700;
                     color: var(--text);
                     margin: 0;
                 }
@@ -1675,7 +1695,7 @@ const LeadProfile = () => {
                 .profile-phone {
                     display: flex;
                     align-items: center;
-                    justify-content: center;
+                    justify-content: flex-start;
                     gap: 6px;
                     font-size: 13px;
                     color: var(--text-secondary);
@@ -1690,7 +1710,7 @@ const LeadProfile = () => {
                 }
 
                 .profile-section {
-                    padding-top: 16px;
+                    padding-top: 20px;
                     padding-bottom: 4px;
                     border-top: 0.5px solid var(--color-border-tertiary, var(--border-light));
                 }
@@ -1721,6 +1741,18 @@ const LeadProfile = () => {
                 }
                 .info-meta-grid .info-mini-value {
                     color: var(--color-text-primary, var(--text));
+                    font-weight: 500;
+                }
+                .origin-chip-wrap { margin-top: 4px; margin-bottom: 2px; }
+                .origin-chip {
+                    display: inline-flex;
+                    align-items: center;
+                    font-size: 11px;
+                    padding: 2px 8px;
+                    border-radius: 999px;
+                    border: 0.5px solid var(--color-border-tertiary, var(--border-light));
+                    background: var(--surface-hover);
+                    color: var(--text-secondary);
                     font-weight: 500;
                 }
 
@@ -1801,13 +1833,18 @@ const LeadProfile = () => {
                 }
 
                 /* Comunicação */
+                .comm-actions-wrap {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
                 .comm-btn-primary {
                     flex: 1;
                     height: 40px;
-                    background: #25D366;
+                    background: var(--accent);
                     color: white;
                     border: none;
-                    border-radius: 10px 0 0 10px;
+                    border-radius: 10px;
                     font-weight: 700;
                     font-size: 13px;
                     display: flex;
@@ -1816,9 +1853,14 @@ const LeadProfile = () => {
                     gap: 8px;
                     cursor: pointer;
                 }
+                .comm-btn-primary:hover { filter: brightness(0.96); }
+                .comm-btn-primary:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--accent) 45%, white);
+                    outline-offset: 2px;
+                }
 
                 .comm-btn-dropdown {
-                    width: 36px;
+                    width: 40px;
                     height: 40px;
                     background: var(--color-background-secondary, var(--surface-hover));
                     color: var(--color-text-primary, var(--text));
@@ -1830,6 +1872,11 @@ const LeadProfile = () => {
                     cursor: pointer;
                 }
                 .comm-btn-dropdown .ti { color: var(--accent); }
+                .comm-btn-dropdown:hover { background: var(--surface); }
+                .comm-btn-dropdown:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--accent) 35%, white);
+                    outline-offset: 2px;
+                }
 
                 .comm-dropdown-menu {
                     position: absolute;
@@ -1878,7 +1925,7 @@ const LeadProfile = () => {
                 .btn-state-attended {
                     flex: 1;
                     padding: 8px;
-                    background: #22C55E;
+                    background: var(--accent);
                     color: white;
                     border: none;
                     border-radius: 8px;
@@ -1915,8 +1962,19 @@ const LeadProfile = () => {
                     cursor: pointer;
                     margin-bottom: 8px;
                 }
+                .btn-next-step:hover { background: var(--surface-hover); }
+                .btn-next-step:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--accent) 32%, white);
+                    outline-offset: 2px;
+                }
 
                 .btn-next-step.highlight { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+                .btn-next-step.highlight {
+                    background: var(--accent);
+                    border-color: var(--accent);
+                    color: #fff;
+                }
+                .btn-next-step.highlight:hover { filter: brightness(0.96); }
                 .next-step-danger-wrap {
                     margin-top: 8px;
                     padding-top: 8px;
@@ -1925,14 +1983,63 @@ const LeadProfile = () => {
                 .btn-next-step.danger {
                     border: none;
                     background: none;
-                    color: var(--color-text-danger, var(--danger));
+                    color: var(--text-muted);
                     margin-bottom: 0;
                     padding: 4px 0;
-                    font-size: 13px;
+                    font-size: 12px;
+                }
+                .btn-next-step.danger:hover {
+                    color: var(--color-text-danger, var(--danger));
                 }
 
+                .schedule-secondary-link {
+                    margin-top: 10px;
+                    border: none;
+                    background: none;
+                    padding: 0;
+                    font-size: 12px;
+                    color: var(--accent);
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+                .schedule-secondary-link:hover { text-decoration: underline; }
+                .schedule-secondary-link:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--accent) 32%, white);
+                    outline-offset: 2px;
+                    border-radius: 6px;
+                }
+                .schedule-secondary-link:disabled {
+                    opacity: 0.6;
+                    cursor: default;
+                }
+
+                .task-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 13px;
+                }
+                .task-title {
+                    color: var(--text);
+                    flex: 1;
+                }
+                .task-due {
+                    color: var(--text-muted);
+                    font-size: 11px;
+                    font-weight: 500;
+                    margin-left: auto;
+                }
+                .task-row.done .task-title {
+                    text-decoration: line-through;
+                    opacity: 0.6;
+                }
+
+                .left-col-danger-zone {
+                    padding: 12px 20px;
+                    border-top: 1px solid var(--border-light);
+                    background: var(--surface);
+                }
                 .btn-delete-lead-link {
-                    margin-top: 24px;
                     width: 100%;
                     padding: 0;
                     border-radius: 0;
@@ -1946,6 +2053,15 @@ const LeadProfile = () => {
                     justify-content: center;
                     gap: 6px;
                     cursor: pointer;
+                }
+                .btn-delete-lead-link:hover {
+                    text-decoration: underline;
+                    text-underline-offset: 2px;
+                }
+                .btn-delete-lead-link:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--danger) 35%, white);
+                    outline-offset: 2px;
+                    border-radius: 8px;
                 }
 
                 .btn-toggle-timeline {
@@ -2194,24 +2310,61 @@ const LeadProfile = () => {
                 .filter-strip::-webkit-scrollbar { display: none; }
 
                 .filter-pill {
-                    padding: 6px 12px;
+                    padding: 4px 10px;
                     border-radius: 100px;
-                    border: 1px solid var(--border);
-                    background: var(--surface);
+                    border: 1px solid var(--border-light);
+                    background: transparent;
                     color: var(--text-secondary);
-                    font-size: 12px;
-                    font-weight: 700;
+                    font-size: 11px;
+                    font-weight: 600;
                     white-space: nowrap;
                     cursor: pointer;
-                    min-height: 44px;
+                    min-height: 30px;
                     display: inline-flex;
                     align-items: center;
                     box-sizing: border-box;
                 }
+                .filter-pill:hover {
+                    border-color: var(--border);
+                    background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
+                }
+                .filter-pill:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--accent) 28%, white);
+                    outline-offset: 2px;
+                }
                 .filter-pill.active {
-                    background: var(--accent);
-                    color: white;
+                    background: var(--accent-light);
+                    color: var(--accent);
                     border-color: var(--accent);
+                }
+
+                @media (max-width: 640px) {
+                    .left-col-content {
+                        padding: 16px;
+                        gap: 18px;
+                    }
+                    .profile-section {
+                        padding-top: 16px;
+                    }
+                    .comm-actions-wrap {
+                        gap: 6px;
+                    }
+                    .comm-btn-primary,
+                    .comm-btn-dropdown {
+                        height: 38px;
+                    }
+                    .btn-next-step {
+                        padding: 10px 12px;
+                        font-size: 12px;
+                    }
+                    .left-col-danger-zone {
+                        padding: 10px 16px;
+                    }
+                    .filter-pill {
+                        min-height: 28px;
+                        padding: 3px 9px;
+                        font-size: 10px;
+                    }
                 }
 
                 /* Confirm Modal Tweaks */
