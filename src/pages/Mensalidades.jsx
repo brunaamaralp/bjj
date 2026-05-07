@@ -26,6 +26,22 @@ const METHOD_LABELS = {
   transferência: 'Transferência',
 };
 
+/** Ordem visual no modal (mesmos `value` do <select> anterior). */
+const PAY_METHOD_MODAL_ORDER = ['pix', 'cartão_débito', 'cartão_crédito', 'dinheiro', 'transferência'];
+
+const PAY_METHOD_MODAL_ICONS = {
+  pix: 'ti-qrcode',
+  dinheiro: 'ti-cash',
+  cartão_débito: 'ti-credit-card',
+  cartão_crédito: 'ti-credit-card',
+  transferência: 'ti-building-bank',
+};
+
+function orderedPayMethodsForModal() {
+  const byVal = Object.fromEntries(PAY_METHODS.map((o) => [o.value, o]));
+  return PAY_METHOD_MODAL_ORDER.map((v) => byVal[v]).filter(Boolean);
+}
+
 function startOfLocalDay(d) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -431,6 +447,21 @@ export default function Mensalidades() {
     >
       <style>
         {`
+          @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
+          .mensalidades-page .mensal-modal-field-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-secondary, var(--text-secondary));
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+          .mensalidades-page .mensal-modal-field-label-opt {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: normal;
+          }
           .mensalidades-page .mensal-table-wrap {
             background: var(--surface, #fff);
             border: 0.5px solid var(--border-light, #e8e8ef);
@@ -468,8 +499,23 @@ export default function Mensalidades() {
           .mensalidades-page .mensal-btn-pay:hover { background: #4a31a0; }
           .mensalidades-page .mensal-btn-estornar { background: var(--surface, #fff); color: var(--text-secondary); border: 0.5px solid var(--border-light, #e8e8ef); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
           .mensalidades-page .mensal-btn-estornar:hover { background: #fef2f2; color: #A32D2D; border-color: #F7C1C1; }
-          .mensalidades-page .mensal-modal-in { border: 0.5px solid var(--border-light, #e8e8ef); border-radius: 7px; padding: 8px 10px; font-size: 13px; width: 100%; box-sizing: border-box; background: var(--surface, #fff); color: var(--text-primary, inherit); }
+          .mensalidades-page .mensal-modal-in {
+            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+            border-radius: var(--border-radius-md, var(--radius-sm));
+            padding: 10px 12px;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+            color: var(--text-primary, inherit);
+          }
+          .mensalidades-page .mensal-modal-in--amount {
+            padding-left: 34px;
+            font-size: 18px;
+            font-weight: 500;
+          }
           .mensalidades-page .mensal-modal-in:focus { border-color: #5B3FBF; outline: none; }
+          .mensalidades-page .mensal-modal-textarea { height: 72px; resize: none; }
           @media (max-width: 900px) {
             .mensalidades-page .mensal-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           }
@@ -789,7 +835,7 @@ export default function Mensalidades() {
                 style={{
                   background: 'var(--surface, #fff)',
                   borderRadius: 14,
-                  padding: 24,
+                  padding: 0,
                   width: '100%',
                   maxWidth: 400,
                   maxHeight: 'calc(100vh - 32px)',
@@ -798,127 +844,260 @@ export default function Mensalidades() {
                   boxSizing: 'border-box',
                 }}
               >
-            <h3
-              id="mensalidades-modal-title"
-              style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: 'var(--text-primary, var(--text))' }}
-            >
-              {selectedStudent.name}
-            </h3>
-            <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--text-secondary)' }}>{formatMonthTitleCapitalized(currentMonth)}</p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
-                    Valor (R$)
-                  </label>
-                  <input
-                    className="mensal-modal-in"
-                    type="text"
-                    inputMode="decimal"
-                    value={payForm.amount}
-                    onChange={(e) => setPayForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
-                    placeholder="0,00"
-                  />
-                </div>
-                <div>
-                  <DateInput
-                    label="Data do pagamento"
-                    type="date"
-                    value={payForm.paid_at}
-                    onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
-                  Forma de pagamento
-                </label>
-                <select
-                  className="mensal-modal-in"
-                  value={payForm.method}
-                  onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
+                <header
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: 16,
+                    padding: '24px 24px 20px',
+                    borderBottom: '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
+                  }}
                 >
-                  {PAY_METHODS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
-                  Conta
-                </label>
-                <input
-                  className="mensal-modal-in"
-                  value={payForm.account}
-                  onChange={(e) => setPayForm((f) => ({ ...f, account: e.target.value }))}
-                  placeholder="Ex: Sicoob, Nubank"
-                />
-              </div>
-              <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(payForm.saveAsPreferred)}
-                  onChange={(e) => setPayForm((f) => ({ ...f, saveAsPreferred: e.target.checked }))}
-                  style={{ accentColor: '#5B3FBF' }}
-                />
-                Salvar como pagamento habitual deste aluno
-              </label>
-              <div>
-                <label className="text-small" style={{ display: 'block', marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11 }}>
-                  Observação (opcional)
-                </label>
-                <textarea
-                  className="mensal-modal-in"
-                  rows={2}
-                  value={payForm.note}
-                  onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))}
-                  style={{ resize: 'vertical', minHeight: 56 }}
-                />
-              </div>
-            </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      id="mensalidades-modal-title"
+                      style={{
+                        fontSize: 17,
+                        fontWeight: 500,
+                        color: 'var(--text-primary, var(--text))',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {selectedStudent.name}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        marginTop: 6,
+                        fontSize: 13,
+                        color: 'var(--color-text-secondary, var(--text-secondary))',
+                      }}
+                    >
+                      <span className="ti ti-calendar" style={{ fontSize: 13, lineHeight: 1 }} aria-hidden />
+                      {formatMonthTitleCapitalized(currentMonth)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Fechar"
+                    disabled={savingPayment}
+                    onClick={() => {
+                      if (!savingPayment) setShowModal(false);
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
+                      color: 'var(--color-text-secondary, var(--text-secondary))',
+                      cursor: savingPayment ? 'not-allowed' : 'pointer',
+                      opacity: savingPayment ? 0.5 : 1,
+                    }}
+                  >
+                    <span className="ti ti-x" style={{ fontSize: 16, lineHeight: 1 }} aria-hidden />
+                  </button>
+                </header>
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                disabled={savingPayment}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: 7,
-                  border: '0.5px solid var(--border-light, #e8e8ef)',
-                  background: 'var(--surface, #fff)',
-                  color: 'var(--text-secondary)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: savingPayment ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={savingPayment}
-                onClick={() => void handleSavePayment()}
-                style={{
-                  flex: 2,
-                  padding: '10px 12px',
-                  borderRadius: 7,
-                  border: 'none',
-                  background: '#5B3FBF',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: savingPayment ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}
-              </button>
-            </div>
+                <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label className="mensal-modal-field-label" htmlFor="mensal-pay-amount">
+                        Valor (R$)
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: 12,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: 'var(--color-text-secondary, var(--text-secondary))',
+                            fontSize: 14,
+                            pointerEvents: 'none',
+                            lineHeight: 1,
+                          }}
+                          aria-hidden
+                        >
+                          R$
+                        </span>
+                        <input
+                          id="mensal-pay-amount"
+                          className="mensal-modal-in mensal-modal-in--amount"
+                          type="text"
+                          inputMode="decimal"
+                          value={payForm.amount}
+                          onChange={(e) => setPayForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <DateInput
+                        label="Data do pagamento"
+                        type="date"
+                        value={payForm.paid_at}
+                        onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
+                        required
+                        className="mensal-modal-in"
+                        labelStyle={{
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: 'var(--color-text-secondary, var(--text-secondary))',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mensal-modal-field-label" style={{ marginBottom: 6 }}>
+                      Forma de pagamento
+                    </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: 6,
+                      }}
+                    >
+                      {(() => {
+                        const list = orderedPayMethodsForModal();
+                        return list.map((o, idx) => {
+                          const active = payForm.method === o.value;
+                          const iconClass = PAY_METHOD_MODAL_ICONS[o.value] || 'ti-cash';
+                          return (
+                            <button
+                              key={o.value}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => setPayForm((f) => ({ ...f, method: o.value }))}
+                              style={{
+                                gridColumn: idx === list.length - 1 ? '1 / -1' : undefined,
+                                background: active ? '#EEEDFE' : 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
+                                border: active ? '0.5px solid #5B3FBF' : '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
+                                borderRadius: 'var(--border-radius-md, var(--radius-sm))',
+                                padding: '8px 4px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: 4,
+                                cursor: 'pointer',
+                                color: active ? '#3C3489' : 'var(--text-primary, var(--text))',
+                                font: 'inherit',
+                              }}
+                            >
+                              <span className={`ti ${iconClass}`} style={{ fontSize: 18, lineHeight: 1 }} aria-hidden />
+                              <span style={{ fontSize: 12, fontWeight: 500, textAlign: 'center', lineHeight: 1.2 }}>{o.label}</span>
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mensal-modal-field-label" htmlFor="mensal-pay-account">
+                      Conta
+                    </label>
+                    <input
+                      id="mensal-pay-account"
+                      className="mensal-modal-in"
+                      value={payForm.account}
+                      onChange={(e) => setPayForm((f) => ({ ...f, account: e.target.value }))}
+                      placeholder="Ex: Sicoob, Nubank"
+                    />
+                  </div>
+                  <label
+                    style={{
+                      fontSize: 14,
+                      color: 'var(--color-text-secondary, var(--text-secondary))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(payForm.saveAsPreferred)}
+                      onChange={(e) => setPayForm((f) => ({ ...f, saveAsPreferred: e.target.checked }))}
+                      style={{ accentColor: '#5B3FBF' }}
+                    />
+                    Salvar como pagamento habitual deste aluno
+                  </label>
+                  <div>
+                    <label className="mensal-modal-field-label" htmlFor="mensal-pay-note">
+                      Observação{' '}
+                      <span className="mensal-modal-field-label-opt">(opcional)</span>
+                    </label>
+                    <textarea
+                      id="mensal-pay-note"
+                      className="mensal-modal-in mensal-modal-textarea"
+                      value={payForm.note}
+                      onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <footer
+                  style={{
+                    borderTop: '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
+                    padding: '16px 24px 24px',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 2fr',
+                    gap: 10,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    disabled={savingPayment}
+                    style={{
+                      padding: 11,
+                      borderRadius: 'var(--border-radius-md, var(--radius-sm))',
+                      border: '0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef))',
+                      background: 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
+                      color: 'var(--color-text-secondary, var(--text-secondary))',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      cursor: savingPayment ? 'not-allowed' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingPayment}
+                    onClick={() => void handleSavePayment()}
+                    style={{
+                      padding: 11,
+                      borderRadius: 'var(--border-radius-md, var(--radius-sm))',
+                      border: 'none',
+                      background: '#5B3FBF',
+                      color: '#fff',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      cursor: savingPayment ? 'not-allowed' : 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <span className="ti ti-check" style={{ fontSize: 18, lineHeight: 1 }} aria-hidden />
+                    {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}
+                  </button>
+                </footer>
               </div>
             </div>,
             document.body

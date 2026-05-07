@@ -8,7 +8,7 @@ const ICONS = {
 };
 
 export const DateInput = forwardRef(function DateInput(
-  { label, type = 'date', value, onChange, required = false, disabled = false, placeholder, style, className },
+  { label, type = 'date', value, onChange, required = false, disabled = false, placeholder, style, className, labelStyle },
   ref
 ) {
   return (
@@ -21,6 +21,7 @@ export const DateInput = forwardRef(function DateInput(
             color: 'var(--text-secondary)',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
+            ...labelStyle,
           }}
         >
           {label}
