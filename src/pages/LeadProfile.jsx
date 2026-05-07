@@ -1135,12 +1135,13 @@ const LeadProfile = () => {
                         <div className="lead-status-row flex items-center gap-2 flex-wrap mb-3">
                             <span
                                 className={`contact-type-badge ${contactType === 'student' ? 'student' : 'lead'}`}
+                                style={{ fontFamily: 'Arial, sans-serif', fontWeight: 700, fontStyle: 'normal' }}
                             >
                                 {contactType === 'student' ? 'Aluno' : 'Lead'}
                             </span>
                             <span
                                 className="status-tag"
-                                style={{ background: statusStyle.bg, color: statusStyle.color }}
+                                style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'Arial, sans-serif', fontWeight: 600, fontStyle: 'normal' }}
                             >
                                 {lead.status}
                             </span>
@@ -1757,6 +1758,11 @@ const LeadProfile = () => {
                 .lead-status-row,
                 .lead-status-row * {
                     font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif) !important;
+                }
+                .lead-status-row .contact-type-badge,
+                .lead-status-row .status-tag {
+                    font-family: Arial, sans-serif !important;
+                    font-style: normal !important;
                 }
 
                 /* Botões de Perfil */
