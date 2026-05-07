@@ -323,6 +323,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       } else {
         setWaQrError(false);
       }
+      console.log('[debug] status final fetchWaInfo:', finalStatus, 'instanceId:', incomingId);
 
       if (incomingId && String(finalStatus || '').trim().toLowerCase() === 'connected') {
         void registerWebhooks(incomingId);
@@ -376,7 +377,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           'x-academy-id': String(academyIdRef.current || ''),
           'content-type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          host: typeof window !== 'undefined' ? String(window.location.host || '').trim() : ''
+        })
       });
       if (blocked) return;
       const raw = await resp.text();
