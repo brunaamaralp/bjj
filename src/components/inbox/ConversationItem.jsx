@@ -11,6 +11,7 @@ export default function ConversationItem({
   ticketChip,
   formatTimeOnly,
   formatWhen,
+  compact = false,
   enableLongPress = false,
   onLongPress,
 }) {
@@ -112,7 +113,7 @@ export default function ConversationItem({
         boxSizing: 'border-box',
         width: '100%',
         textAlign: 'left',
-        padding: '10px 14px 10px',
+        padding: compact ? '7px 10px 7px' : '10px 14px 10px',
         border: 'none',
         borderBottom: '1px solid var(--border)',
         borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
@@ -121,8 +122,8 @@ export default function ConversationItem({
         overflow: 'hidden'
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: compact ? 6 : 8, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: compact ? 4 : 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
           {lastAssistantDot && (
             <span
               title={lastAssistantDot.label}
@@ -131,14 +132,14 @@ export default function ConversationItem({
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <span style={{ fontWeight: 700, fontSize: compact ? 13 : 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                 {String(item?._displayTitle || '-')}
               </span>
               <span
                 className="text-small"
                 style={{
                   color: 'var(--text-secondary)',
-                  fontSize: 10,
+                  fontSize: compact ? 9 : 10,
                   padding: 0,
                   borderRadius: 0,
                   fontWeight: 600,
@@ -155,7 +156,7 @@ export default function ConversationItem({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
@@ -176,7 +177,7 @@ export default function ConversationItem({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
@@ -197,7 +198,7 @@ export default function ConversationItem({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
@@ -212,10 +213,10 @@ export default function ConversationItem({
               )}
               {item?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: compact ? 2 : 3, minWidth: 0 }}>
               <span
                 className="text-small"
-                style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                style={{ color: 'var(--text-secondary)', fontSize: compact ? 11 : 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
               >
                 {preview || '—'}
               </span>
@@ -227,8 +228,8 @@ export default function ConversationItem({
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0, marginLeft: 6 }}>
-          <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: compact ? 2 : 4, flexShrink: 0, marginLeft: compact ? 4 : 6 }}>
+          <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: compact ? 11 : 12, whiteSpace: 'nowrap' }}>
             {formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
           </span>
           {unreadCount > 0 && (

@@ -44,7 +44,7 @@ export default function ConversationList(props) {
     onClearListFilters,
   } = props;
 
-  const groups = useMemo(() => safeGrouped(groupedItems), [groupedItems]);
+  const groups = useMemo(() => safeGrouped(groupedItems).filter((g) => g.items.length > 0), [groupedItems]);
   const flatCount = useMemo(() => groups.reduce((n, g) => n + g.items.length, 0), [groups]);
 
   const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
@@ -72,6 +72,7 @@ export default function ConversationList(props) {
                 ticketChip={ticketChip}
                 formatTimeOnly={formatTimeOnly}
                 formatWhen={formatWhen}
+                compact
                 enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
                 onLongPress={() => onConversationLongPress?.(it)}
               />

@@ -1927,6 +1927,7 @@ button:active {
 .agent-prompt-editor {
   margin-top: 8px;
   max-width: min(920px, 100%);
+  overscroll-behavior: contain;
 }
 
 .agent-prompt-editor__header {
@@ -1993,6 +1994,7 @@ button:active {
   border-radius: 12px;
   resize: vertical;
   outline: none;
+  overscroll-behavior: contain;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   -webkit-font-smoothing: antialiased;
 }

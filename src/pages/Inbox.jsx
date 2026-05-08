@@ -35,6 +35,16 @@ function formatPhone(raw) {
   return raw;
 }
 
+function pickDisplayName({ leadName = '', manualContactName = '', whatsappProfileName = '', phone = '' }) {
+  const lead = String(leadName || '').trim();
+  if (lead) return lead;
+  const manual = String(manualContactName || '').trim();
+  if (manual) return manual;
+  const wa = String(whatsappProfileName || '').trim();
+  if (wa) return wa;
+  return formatPhone(String(phone || '').trim()) || '-';
+}
+
 function isInboxDebugEnabled() {
   const envEnabled =
     import.meta.env.DEV ||
@@ -169,6 +179,9 @@ export default function Inbox() {
   });
   const [leadPanel, setLeadPanel] = useState(null);
   const [leadNameDraft, setLeadNameDraft] = useState('');
+  const [contactNameDraft, setContactNameDraft] = useState('');
+  const [editingContactName, setEditingContactName] = useState(false);
+  const [savingContactName, setSavingContactName] = useState(false);
   const [leadTypeDraft, setLeadTypeDraft] = useState('Adulto');
   const [leadSearch, setLeadSearch] = useState('');
   const [linkingLead, setLinkingLead] = useState(false);
@@ -1262,7 +1275,12 @@ export default function Inbox() {
           const updatedAdvanced = Boolean(curUpdated && curUpdated !== prevUpdated);
           if (!unreadIncreased && !(userMsgRenewed && updatedAdvanced)) continue;
           const preview = String(it?.last_preview || '').trim();
-          const name = String(it?.lead_name || '').trim() || phone;
+          const name = pickDisplayName({
+            leadName: it?.lead_name,
+            manualContactName: it?.contact_name,
+            whatsappProfileName: it?.whatsapp_profile_name,
+            phone
+          });
           playNotificationSound();
           setHighlightedPhone(phone);
           addToast({
@@ -1356,6 +1374,9 @@ export default function Inbox() {
           summary,
           lead_id: typeof data?.lead_id === 'string' ? data.lead_id : null,
           lead_name: typeof data?.lead_name === 'string' ? data.lead_name : '',
+          contact_name: typeof data?.contact_name === 'string' ? data.contact_name : '',
+          contact_name_source: typeof data?.contact_name_source === 'string' ? data.contact_name_source : '',
+          whatsapp_profile_name: typeof data?.whatsapp_profile_name === 'string' ? data.whatsapp_profile_name : '',
           need_human: Boolean(data?.need_human),
           human_handoff_until: handoffUntil || null,
           ticket_status: String(ticketStatus || 'open'),
@@ -1832,9 +1853,70 @@ export default function Inbox() {
     }
   }
 
+  async function saveContactName() {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    if (!phone || savingContactName) return;
+    const nextName = String(contactNameDraft || '').trim();
+    setSavingContactName(true);
+    setError('');
+    try {
+      const jwt = await getJwt();
+      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': String(academyIdRef.current || ''),
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'set_contact_name', contact_name: nextName })
+      });
+      if (blocked) return;
+      const raw = await resp.text();
+      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar nome do contato'));
+      const data = safeParseJson(raw) || {};
+      const savedName = String(data?.contact_name || '').trim();
+      const savedSource = String(data?.contact_name_source || '').trim();
+      const waProfileName = String(data?.whatsapp_profile_name || '').trim();
+      setSelected((prev) => {
+        if (!prev || prev.phone !== phone) return prev;
+        return {
+          ...prev,
+          contact_name: savedName,
+          contact_name_source: savedSource || (savedName ? 'manual' : ''),
+          whatsapp_profile_name: waProfileName || prev.whatsapp_profile_name || ''
+        };
+      });
+      setItems((prev) =>
+        (Array.isArray(prev) ? prev : []).map((it) => {
+          const rowPhone = String(it?.phone_number || '').trim();
+          if (rowPhone !== phone) return it;
+          return {
+            ...it,
+            contact_name: savedName,
+            contact_name_source: savedSource || (savedName ? 'manual' : ''),
+            whatsapp_profile_name: waProfileName || String(it?.whatsapp_profile_name || '').trim()
+          };
+        })
+      );
+      setEditingContactName(false);
+      addToast({ type: 'success', message: savedName ? 'Nome do contato salvo' : 'Nome do contato removido' });
+    } catch (e) {
+      setError(e?.message || 'Erro ao salvar nome');
+    } finally {
+      setSavingContactName(false);
+    }
+  }
+
   async function convertToLead() {
     const phone = String(selectedPhoneRef.current || '').trim();
-    const name = String(leadNameDraft || '').trim() || String(selected?.lead_name || '').trim() || phone;
+    const name =
+      String(leadNameDraft || '').trim() ||
+      pickDisplayName({
+        leadName: selected?.lead_name,
+        manualContactName: selected?.contact_name,
+        whatsappProfileName: selected?.whatsapp_profile_name,
+        phone
+      });
     if (!phone) return;
     setLinkingLead(true);
     setError('');
@@ -2053,6 +2135,12 @@ export default function Inbox() {
     if (selectedPhone) loadThread(selectedPhone);
   }, [selectedPhone]);
 
+  useEffect(() => {
+    setEditingContactName(false);
+    setSavingContactName(false);
+    setContactNameDraft('');
+  }, [selectedPhone]);
+
 
   const leadById = useMemo(() => {
     const map = new Map();
@@ -2084,8 +2172,10 @@ export default function Inbox() {
       const leadFromId = leadId ? leadById.get(leadId) : null;
       const leadFromPhone = phone ? leadByPhone.get(normalizePhone(phone)) : null;
       const lead = leadFromId || leadFromPhone;
-      const name = String(lead?.name || '').trim() || String(it?.lead_name || '').trim() || String(it?.contact_name || '').trim();
-      const displayTitle = name || formatPhone(phone) || '-';
+      const leadName = String(lead?.name || '').trim() || String(it?.lead_name || '').trim();
+      const manualContactName = String(it?.contact_name || '').trim();
+      const waProfileName = String(it?.whatsapp_profile_name || '').trim();
+      const displayTitle = pickDisplayName({ leadName, manualContactName, whatsappProfileName: waProfileName, phone });
       const lastRole = String(it?.last_message_role || '').trim() || '';
       const lastSender = String(it?.last_message_sender || '').trim() || '';
       const unreadCount = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
@@ -2104,7 +2194,10 @@ export default function Inbox() {
         ...it,
         _phone: phone,
         _displayTitle: displayTitle,
-        _displaySubtitle: name ? phone : '',
+        _displaySubtitle: displayTitle && phone && displayTitle !== phone ? phone : '',
+        _leadName: leadName,
+        _manualContactName: manualContactName,
+        _waProfileName: waProfileName,
         _lead: lead || null,
         _hotLead: hotLead,
         _handoffActive: handoffActive,
@@ -2226,7 +2319,10 @@ export default function Inbox() {
         conversation_id: convId || null,
         summary: isSamePhone ? prev.summary : null,
         lead_id: String(it?.lead_id || '').trim() || null,
-        lead_name: String(it?._displayTitle || it?.lead_name || '').trim(),
+        lead_name: String(it?._leadName || it?.lead_name || '').trim(),
+        contact_name: String(it?._manualContactName || it?.contact_name || '').trim(),
+        contact_name_source: String(it?.contact_name_source || '').trim(),
+        whatsapp_profile_name: String(it?._waProfileName || it?.whatsapp_profile_name || '').trim(),
         need_human: Boolean(it?._handoffActive || it?.need_human),
         human_handoff_until: isSamePhone ? prev.human_handoff_until : null,
         ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),
@@ -2497,9 +2593,9 @@ export default function Inbox() {
         background: 'var(--surface)',
         display: 'flex',
         flexDirection: 'column',
-        flex: isMobile ? undefined : 1,
-        minHeight: isMobile ? undefined : 0,
-        maxHeight: isMobile ? undefined : '100%'
+        flex: 1,
+        minHeight: 0,
+        maxHeight: '100%'
       }}
     >
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -2640,9 +2736,9 @@ export default function Inbox() {
       </div>
       <div
         style={{
-          flex: isMobile ? 'none' : 1,
-          minHeight: isMobile ? undefined : 0,
-          maxHeight: isMobile ? '72vh' : '100%',
+          flex: 1,
+          minHeight: 0,
+          maxHeight: '100%',
           overflow: 'auto'
         }}
         onScroll={onConversationListScroll}
@@ -2719,16 +2815,75 @@ export default function Inbox() {
                 const phone = String(selectedPhone || '').trim();
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+                const name = pickDisplayName({
+                  leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+                  manualContactName: selected?.contact_name,
+                  whatsappProfileName: selected?.whatsapp_profile_name,
+                  phone
+                });
                 return name || phone || '—';
               })()}
             </div>
+            {!selected?.lead_id && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                {editingContactName ? (
+                  <>
+                    <input
+                      className="input"
+                      value={contactNameDraft}
+                      onChange={(e) => setContactNameDraft(e.target.value)}
+                      placeholder="Nome do contato"
+                      style={{ minWidth: 170, height: 30, padding: '4px 8px' }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ padding: '4px 8px', minHeight: 30 }}
+                      onClick={() => void saveContactName()}
+                      disabled={savingContactName}
+                    >
+                      {savingContactName ? 'Salvando…' : 'Salvar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ padding: '4px 8px', minHeight: 30 }}
+                      onClick={() => {
+                        setEditingContactName(false);
+                        setContactNameDraft('');
+                      }}
+                      disabled={savingContactName}
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{ padding: '4px 8px', minHeight: 30 }}
+                    onClick={() => {
+                      const seed = String(selected?.contact_name || '').trim() || String(selected?.whatsapp_profile_name || '').trim();
+                      setContactNameDraft(seed);
+                      setEditingContactName(true);
+                    }}
+                  >
+                    {String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
+                  </button>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
               {(() => {
                 const phone = String(selectedPhone || '').trim();
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+                const name = pickDisplayName({
+                  leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+                  manualContactName: selected?.contact_name,
+                  whatsappProfileName: selected?.whatsapp_profile_name,
+                  phone
+                });
                 const showPhone = Boolean(name) && Boolean(phone);
                 if (!showPhone) return null;
                 return (
@@ -3592,7 +3747,12 @@ export default function Inbox() {
         const leadId = String(selected?.lead_id || '').trim();
         const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
         if (!lead && !phone) return null;
-        const name = String(lead?.name || '').trim() || String(selected?.lead_name || '').trim();
+        const name = pickDisplayName({
+          leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+          manualContactName: selected?.contact_name,
+          whatsappProfileName: selected?.whatsapp_profile_name,
+          phone
+        });
         const status = String(lead?.status || '').trim();
         const intention = String(lead?.intention || '').trim();
         const priority = String(lead?.priority || '').trim();
@@ -4576,10 +4736,8 @@ export default function Inbox() {
                       style={{
                         paddingRight: 10,
                         minWidth: 0,
-                        position: 'sticky',
-                        top: 0,
-                        alignSelf: 'start',
-                        maxHeight: 'calc(100dvh - 108px)',
+                        alignSelf: 'stretch',
+                        height: 'calc(100dvh - 92px)',
                         minHeight: 0,
                         overflow: 'hidden',
                         display: 'flex',

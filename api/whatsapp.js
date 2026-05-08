@@ -478,6 +478,22 @@ function pickSender(v) {
   return '';
 }
 
+function pickSenderName(v) {
+  if (!v || typeof v !== 'object') return '';
+  const candidates = [
+    v?.sender?.name,
+    v?.sender_name,
+    v?.senderName,
+    v?.contact_name,
+    v?.contactName
+  ];
+  for (const c of candidates) {
+    const s = String(c || '').trim();
+    if (s) return s;
+  }
+  return '';
+}
+
 function isInboundMessage(v) {
   if (!v || typeof v !== 'object') return false;
   const raw = String(v.direction || v.type || v.event || '').trim().toLowerCase();
@@ -782,9 +798,11 @@ export default async function handler(req, res) {
               ...(sendAt ? { send_at: sendAt } : {}),
               ...(canceledAt ? { canceled_at: canceledAt } : {})
             };
-        const arr = grouped.get(phone) || [];
-        arr.push(msg);
-        grouped.set(phone, arr);
+        const senderName = pickSenderName(it);
+        const bucket = grouped.get(phone) || { messages: [], whatsappName: '' };
+        bucket.messages.push(msg);
+        if (!bucket.whatsappName && senderName) bucket.whatsappName = senderName;
+        grouped.set(phone, bucket);
       }
 
       waDebug({
@@ -798,8 +816,9 @@ export default async function handler(req, res) {
       let messagesMerged = 0;
       const errors = [];
 
-      for (const [phone, msgs] of grouped.entries()) {
+      for (const [phone, bucket] of grouped.entries()) {
         try {
+          const msgs = Array.isArray(bucket?.messages) ? bucket.messages : [];
           const { doc, created } = await getOrCreateConversationDoc(phone, academyId, academyDoc);
           if (created) conversationsCreated += 1;
           const current = await databases.getDocument(DB_ID, CONVERSATIONS_COL, doc.$id);
@@ -817,13 +836,28 @@ export default async function handler(req, res) {
           }
           const docPayload = { messages: JSON.stringify(merged), updated_at: updatedAt };
           if (lastUserMsgAt) docPayload.last_user_msg_at = lastUserMsgAt;
+          const waName = String(bucket?.whatsappName || '').trim();
+          const currentContactName = String(current?.contact_name || '').trim();
+          const currentSource = String(current?.contact_name_source || '').trim().toLowerCase();
+          const shouldFillContactName = waName && (!currentContactName || currentSource !== 'manual');
+          if (waName) {
+            docPayload.whatsapp_profile_name = waName;
+            docPayload.whatsapp_profile_name_updated_at = new Date().toISOString();
+          }
+          if (shouldFillContactName) {
+            docPayload.contact_name = waName;
+            docPayload.contact_name_source = 'whatsapp';
+            docPayload.contact_name_updated_at = new Date().toISOString();
+          }
           try {
             await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, docPayload);
           } catch {
-            await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+            const fallbackPayload = {
               messages: JSON.stringify(merged),
               updated_at: updatedAt
-            });
+            };
+            if (shouldFillContactName) fallbackPayload.contact_name = waName;
+            await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, fallbackPayload);
           }
           conversationsUpdated += 1;
           messagesMerged += Math.max(0, merged.length - history.length);

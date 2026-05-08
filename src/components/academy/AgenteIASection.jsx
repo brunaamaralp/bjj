@@ -182,6 +182,11 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const [testMessagesToday, setTestMessagesToday] = useState(0);
     const [testMessagesResetDate, setTestMessagesResetDate] = useState('');
 
+    const textareaScrollLockProps = {
+        onWheelCapture: (e) => e.stopPropagation(),
+        onTouchMoveCapture: (e) => e.stopPropagation(),
+    };
+
     useEffect(() => {
         if (!waConfirm) return undefined;
         const onKey = (e) => {
@@ -495,6 +500,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         className="agent-prompt-textarea agent-prompt-textarea--sm"
                         value={birthdayMessage}
                         onChange={(e) => setBirthdayMessage(e.target.value)}
+                        {...textareaScrollLockProps}
                         rows={3}
                         disabled={loadingPrompt}
                         placeholder="Ex: Feliz aniversário, {primeiroNome}! A equipe deseja um dia incrível…"
@@ -538,6 +544,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     const v = e.target.value;
                                     setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, a: v } : p)));
                                 }}
+                                {...textareaScrollLockProps}
                                 placeholder="Resposta"
                                 rows={3}
                                 disabled={loadingPrompt}
@@ -628,6 +635,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         className="agent-prompt-textarea agent-prompt-textarea--md"
                         value={editIntro}
                         onChange={(e) => setEditIntro(e.target.value)}
+                        {...textareaScrollLockProps}
                         rows={6}
                         disabled={savingPrompt}
                         placeholder="Ex.: Você é a Ana, atendente do estúdio…"
@@ -645,6 +653,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         className="agent-prompt-textarea agent-prompt-textarea--lg"
                         value={editBody}
                         onChange={(e) => setEditBody(e.target.value)}
+                        {...textareaScrollLockProps}
                         rows={12}
                         disabled={savingPrompt}
                         placeholder="Ex.: Endereço, modalidades, valores, política de experimental…"

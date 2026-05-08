@@ -102,6 +102,8 @@ function docToListItem(doc) {
     lead_id: String(doc.lead_id || '').trim(),
     lead_name: String(doc.lead_name || '').trim(),
     contact_name: String(doc.contact_name || '').trim(),
+    contact_name_source: String(doc.contact_name_source || '').trim(),
+    whatsapp_profile_name: String(doc.whatsapp_profile_name || '').trim(),
     last_read_at: String(doc.last_read_at || '').trim(),
     last_user_msg_at: String(doc.last_user_msg_at || '').trim(),
     ...meta,
@@ -295,6 +297,9 @@ export default async function handler(req, res) {
         summary: parseSummaryField(doc.summary),
         lead_id: String(doc.lead_id || '').trim() || null,
         lead_name: String(doc.lead_name || '').trim(),
+        contact_name: String(doc.contact_name || '').trim(),
+        contact_name_source: String(doc.contact_name_source || '').trim(),
+        whatsapp_profile_name: String(doc.whatsapp_profile_name || '').trim(),
         need_human: humanHandoffIsActive(doc.human_handoff_until),
         human_handoff_until: typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '',
         ticket_status: String(doc.ticket_status || 'open').trim() || 'open',
@@ -389,6 +394,34 @@ export default async function handler(req, res) {
       if (leadName) payload.lead_name = leadName;
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
       return json(res, 200, { lead_id: leadId, lead_name: leadName });
+    }
+
+    if (action === 'set_contact_name') {
+      const nextName = String(body.contact_name || '').trim();
+      if (!doc) {
+        doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
+      }
+      if (!doc) return json(res, 500, { sucesso: false, erro: 'Não foi possível abrir conversa' });
+      const nowIso = new Date().toISOString();
+      const nextSource = nextName ? 'manual' : '';
+      try {
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+          contact_name: nextName,
+          contact_name_source: nextSource,
+          contact_name_updated_at: nowIso
+        });
+      } catch {
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+          contact_name: nextName
+        });
+      }
+      const updated = await databases.getDocument(DB_ID, CONVERSATIONS_COL, doc.$id);
+      return json(res, 200, {
+        sucesso: true,
+        contact_name: String(updated?.contact_name || '').trim(),
+        contact_name_source: String(updated?.contact_name_source || '').trim() || (nextName ? 'manual' : ''),
+        whatsapp_profile_name: String(updated?.whatsapp_profile_name || '').trim()
+      });
     }
 
     if (action === 'ticket') {
