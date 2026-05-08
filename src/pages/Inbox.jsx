@@ -96,6 +96,19 @@ function buildQuotedForwardBlock(originalText) {
   return `${quoted}\n\n`;
 }
 
+function inboxMessageMediaUrl(m) {
+  if (!m || typeof m !== 'object') return '';
+  const nested = m.media && typeof m.media === 'object' ? String(m.media.url || '').trim() : '';
+  const u = String(m.mediaUrl || m.media_url || m.url || nested || '').trim();
+  if (u && /^https?:\/\//i.test(u)) return u;
+  return '';
+}
+
+function inboxContentIsAudioPlaceholder(content) {
+  const s = String(content || '').trim();
+  return /🎵\s*\[Áudio recebido\]|\[Áudio recebido\]/i.test(s);
+}
+
 export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -819,10 +832,21 @@ export default function Inbox() {
     const rect = el ? el.getBoundingClientRect() : { left: 0, top: 0, bottom: 0, right: 0, width: 0, height: 0 };
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const w = 260;
-    const h = 260;
-    const x = Math.max(10, Math.min(rect.left, vw - w - 10));
-    const y = Math.max(10, Math.min(rect.bottom + 8, vh - h - 10));
+    const pad = 8;
+    const menuW = 260;
+    const menuH = String(kind || '').trim() === 'message' ? 300 : 360;
+    let x;
+    if (String(kind || '').trim() === 'message') {
+      x = rect.right - menuW;
+    } else {
+      x = rect.left;
+    }
+    x = Math.max(pad, Math.min(x, vw - menuW - pad));
+    let y = rect.bottom + 6;
+    if (y + menuH > vh - pad) {
+      y = rect.top - menuH - 6;
+    }
+    y = Math.max(pad, Math.min(y, vh - menuH - pad));
     setMenu({ kind: String(kind || '').trim(), x, y, payload: payload || null });
   }
 
@@ -2793,8 +2817,18 @@ export default function Inbox() {
       </div>
     </div>
   ) : (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
-      <div className="inbox-thread-header" style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        background: 'var(--surface)',
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      <div className="inbox-thread-header" style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
           {isMobile && (
             <button
@@ -3054,11 +3088,11 @@ export default function Inbox() {
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div
           ref={threadScrollRef}
           onScroll={onThreadScroll}
-          style={{ padding: 14, maxHeight: isMobile ? '58vh' : '58vh', overflow: 'auto', background: 'rgba(91,63,191,0.04)' }}
+          style={{ padding: 14, flex: 1, minHeight: 0, overflow: 'auto', background: 'rgba(91,63,191,0.04)' }}
         >
           {threadHasMore && !threadLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
@@ -3110,6 +3144,13 @@ export default function Inbox() {
                 >
                   {g.items.map(({ key, m }, idx) => {
                     const contentRaw = String(m?.content || '');
+                    const mediaUrlNorm = inboxMessageMediaUrl(m);
+                    const typeLower = String(m?.type || '').toLowerCase();
+                    const audioPlaceholder = inboxContentIsAudioPlaceholder(contentRaw);
+                    const showAudioPlayer =
+                      Boolean(mediaUrlNorm) &&
+                      (typeLower === 'audio' || typeLower === 'ptt' || audioPlaceholder);
+                    const showImage = typeLower === 'image' && Boolean(mediaUrlNorm);
                     const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
                     const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
                     const statusLower = String(m?.status || '').trim().toLowerCase();
@@ -3138,11 +3179,11 @@ export default function Inbox() {
                             {senderKind === 'ai' ? 'Agente IA' : 'Você'}
                           </div>
                         )}
-                        {m?.type === 'audio' && m?.mediaUrl ? (
+                        {showAudioPlayer ? (
                           <div className="inbox-msg-audio" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                             <audio
                               controls
-                              src={m.mediaUrl}
+                              src={mediaUrlNorm}
                               preload="metadata"
                               style={{ width: '100%', maxWidth: 320, minWidth: 200, verticalAlign: 'middle' }}
                             />
@@ -3158,10 +3199,14 @@ export default function Inbox() {
                               </div>
                             ) : null}
                           </div>
-                        ) : m?.type === 'image' && m?.mediaUrl ? (
+                        ) : audioPlaceholder && !mediaUrlNorm ? (
+                          <div className="inbox-msg-text" style={{ lineHeight: '22px', fontSize: 15, color: 'var(--text-secondary)' }}>
+                            <span aria-hidden>🎵</span> Áudio recebido — link não disponível no painel. Use <strong>Sincronizar WhatsApp</strong> ou abra no app do WhatsApp.
+                          </div>
+                        ) : showImage ? (
                           <div className="inbox-msg-image">
                             <img
-                              src={m.mediaUrl}
+                              src={mediaUrlNorm}
                               alt="Imagem"
                               style={{
                                 maxWidth: '100%',
@@ -3171,7 +3216,7 @@ export default function Inbox() {
                                 objectFit: 'cover',
                                 display: 'block'
                               }}
-                              onClick={() => window.open(m.mediaUrl, '_blank')}
+                              onClick={() => window.open(mediaUrlNorm, '_blank')}
                               onError={(e) => {
                                 e.target.style.display = 'none';
                                 const el = e.target.nextSibling;
@@ -3381,7 +3426,8 @@ export default function Inbox() {
           borderTop: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 10
+          gap: 10,
+          flexShrink: 0
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -3997,14 +4043,27 @@ export default function Inbox() {
   const contextPanelVisible = contextOpen && !isNarrowDesktop;
 
   return (
-    <div className="container" style={{ paddingTop: 18, paddingBottom: 30, maxWidth: '100%', width: '100%' }}>
+    <div
+      className="container"
+      style={{
+        paddingTop: 18,
+        paddingBottom: 30,
+        maxWidth: '100%',
+        width: '100%',
+        flex: '1 1 0%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box'
+      }}
+    >
       <style dangerouslySetInnerHTML={{ __html: `
         .inbox-msg { border-radius: 12px; padding: 8px; margin: -6px; transition: var(--transition); }
         .inbox-msg.selected { background: var(--v50); outline: 2px solid rgba(91, 63, 191, 0.35); }
         .inbox-msg-actions { opacity: 0; pointer-events: none; transition: var(--transition); }
         .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
         .inbox-menu-overlay { position: fixed; inset: 0; background: var(--overlay-menu); z-index: 80; }
-        .inbox-menu-panel { position: fixed; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); overflow: hidden; z-index: 81; }
+        .inbox-menu-panel { position: fixed; width: 260px; max-height: min(72vh, 520px); overflow-x: hidden; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); z-index: 81; }
         .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
         .inbox-menu-item:hover { background: var(--surface-hover); }
         .inbox-menu-item.danger { color: var(--danger); }
@@ -4274,6 +4333,7 @@ export default function Inbox() {
           </div>
       </div>
 
+      <div className="inbox-body-grow" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
       {menu && (
         <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
@@ -4717,24 +4777,24 @@ export default function Inbox() {
 
 
       {error && (
-        <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12 }}>
+        <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12, flexShrink: 0 }}>
           {error}
         </div>
       )}
 
       {
                 isMobile ? (
-                  <div className="inbox-mobile-split">
+                  <div className="inbox-mobile-split" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <div
                       className="inbox-mobile-list-slot"
-                      style={{ display: selectedPhone ? 'none' : 'block' }}
+                      style={{ display: selectedPhone ? 'none' : 'flex', flex: 1, minHeight: 0, flexDirection: 'column' }}
                       aria-hidden={selectedPhone ? true : undefined}
                     >
                       {listPanel}
                     </div>
                     <div
                       className="inbox-mobile-thread-slot"
-                      style={{ display: selectedPhone ? 'block' : 'none' }}
+                      style={{ display: selectedPhone ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}
                       aria-hidden={!selectedPhone ? true : undefined}
                     >
                       {threadPanel}
@@ -4747,17 +4807,17 @@ export default function Inbox() {
                       width: '100%',
                       maxWidth: '100%',
                       boxSizing: 'border-box',
+                      flex: 1,
+                      minHeight: 0,
                       gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
                       gap: 0,
-                      alignItems: 'start'
+                      alignItems: 'stretch'
                     }}
                   >
                     <div
                       style={{
                         paddingRight: 10,
                         minWidth: 0,
-                        alignSelf: 'stretch',
-                        height: 'calc(100dvh - 92px)',
                         minHeight: 0,
                         overflow: 'hidden',
                         display: 'flex',
@@ -4786,11 +4846,12 @@ export default function Inbox() {
                     >
                       <div style={{ width: 2, flex: 1, minHeight: 200, background: 'var(--border)', borderRadius: 999 }} />
                     </div>
-                    <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0, minWidth: 0 }}>{threadPanel}</div>
-                    {contextPanelVisible && <div style={{ paddingLeft: 10 }}>{contextPanel}</div>}
+                    <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>{threadPanel}</div>
+                    {contextPanelVisible && <div style={{ paddingLeft: 10, minHeight: 0, overflow: 'auto' }}>{contextPanel}</div>}
                   </div>
                 )
       }
+      </div>
     </div>
   );
 }
