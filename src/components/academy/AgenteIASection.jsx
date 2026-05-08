@@ -48,6 +48,17 @@ function waAgentStatusVisual(status) {
     return { Icon: HelpCircle, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
 }
 
+function agentDebugEnabled() {
+    if (typeof window === 'undefined') return false;
+    try {
+        const local = String(window.localStorage?.getItem('inbox_debug') || '').trim().toLowerCase();
+        if (local === '1' || local === 'true' || local === 'yes') return true;
+    } catch {
+        void 0;
+    }
+    return false;
+}
+
 const cardBase = {
     borderRadius: 12,
     padding: 20,
@@ -323,6 +334,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     }
 
     async function handleToggleIa(nextActive) {
+        const debugOn = agentDebugEnabled();
         if (!promptConfigurado || togglingIa) return false;
         const target = typeof nextActive === 'boolean' ? nextActive : !iaAtiva;
         if (target === iaAtiva) return true;
@@ -340,6 +352,15 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             });
             if (blocked) return false;
             const data = await resp.json().catch(() => ({}));
+            if (debugOn) {
+                console.log('[AI Agent Debug] toggle response', {
+                    target,
+                    status: resp.status,
+                    blocked,
+                    success: Boolean(data?.sucesso),
+                    iaAtiva: data?.ia_ativa
+                });
+            }
             if (data?.sucesso) {
                 setIaAtiva(data.ia_ativa === true);
                 return true;
@@ -347,6 +368,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
             return false;
         } catch (e) {
+            if (debugOn) {
+                console.error('[AI Agent Debug] toggle exception', e);
+            }
             addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
             return false;
         } finally {
@@ -1104,9 +1128,11 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                         maxWidth: 360,
                                                     }}
                                                 >
-                                                    {zap.waQrError
-                                                        ? 'Não foi possível carregar o QR. Use o botão "Gerar novo QR" abaixo ou "Atualizar status".'
-                                                        : 'Carregando imagem do QR…'}
+                                                    {zap.waInfo?.status === 'connected'
+                                                        ? 'WhatsApp já conectado. Não há QR disponível no momento.'
+                                                        : zap.waQrError
+                                                            ? 'Não foi possível carregar o QR. Use o botão "Gerar novo QR" abaixo ou "Atualizar status".'
+                                                            : 'Carregando imagem do QR…'}
                                                 </div>
                                             )}
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>

@@ -188,6 +188,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   }, []);
 
   const registerWebhooks = useCallback(async (instanceId) => {
+    const debugOn = inboxDebugEnabled();
     const id = String(instanceId || '').trim();
     const aid = String(academyIdRef.current || '').trim();
     if (!id || !aid) return;
@@ -204,6 +205,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     try {
       const jwt = await getJwt();
       const host = typeof window !== 'undefined' ? String(window.location.host || '').trim() : '';
+      if (debugOn) {
+        console.log('[WA Debug] registerWebhooks request', { instanceId: id, academyId: aid, host });
+      }
       const { blocked, res } = await fetchWithBillingGuard('/api/zapster/instances?action=register-webhooks', {
         method: 'POST',
         headers: {
@@ -216,6 +220,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
 
       const cb = onRegisterWebhooksResultRef.current;
       if (blocked || !res) {
+        if (debugOn) {
+          console.warn('[WA Debug] registerWebhooks blocked/no-response', { blocked, hasResponse: Boolean(res) });
+        }
         cb?.({ ok: false });
         return;
       }
@@ -228,17 +235,27 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         } catch {
           void 0;
         }
+        if (debugOn) {
+          console.log('[WA Debug] registerWebhooks success', { instanceId: id, status: res.status });
+        }
         cb?.({ ok: true });
         return;
       }
 
+      if (debugOn) {
+        console.warn('[WA Debug] registerWebhooks non-ok', { instanceId: id, status: res.status });
+      }
       cb?.({ ok: false });
-    } catch {
+    } catch (e) {
+      if (debugOn) {
+        console.error('[WA Debug] registerWebhooks exception', e);
+      }
       onRegisterWebhooksResultRef.current?.({ ok: false });
     }
   }, []);
 
   const fetchWaInfo = useCallback(async ({ silent = false, quiet = false } = {}) => {
+    const debugOn = inboxDebugEnabled();
     if (!academyIdRef.current) return;
     if (!silent) setConnectionError('');
     if (!quiet) setWaLoading(true);
@@ -323,12 +340,24 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       } else {
         setWaQrError(false);
       }
-      console.log('[debug] status final fetchWaInfo:', finalStatus, 'instanceId:', incomingId);
+      if (debugOn) {
+        console.log('[WA Debug] fetchWaInfo final', {
+          academyId: String(academyIdRef.current || '').trim(),
+          instanceId: incomingId,
+          status: finalStatus,
+          hasQr: Boolean(finalQrcode),
+          silent,
+          quiet
+        });
+      }
 
       if (incomingId && String(finalStatus || '').trim().toLowerCase() === 'connected') {
         void registerWebhooks(incomingId);
       }
     } catch (e) {
+      if (debugOn) {
+        console.error('[WA Debug] fetchWaInfo exception', e);
+      }
       const msg = String(e?.message || '');
       if (
         msg.toLowerCase().includes('zapster_api_token') ||
