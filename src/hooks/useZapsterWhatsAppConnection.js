@@ -455,6 +455,15 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       );
       if (blocked || !resp || !resp.ok) {
         if (resp && !resp.ok) {
+          /** 406 = QR indisponível (ex.: já conectado) — não é falha que mereça toast de erro. */
+          if (resp.status === 406) {
+            try {
+              await resp.text();
+            } catch {
+              void 0;
+            }
+            return null;
+          }
           const ct = String(resp.headers.get('content-type') || '');
           if (ct.includes('application/json')) {
             try {
