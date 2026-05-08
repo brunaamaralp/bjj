@@ -42,6 +42,7 @@ export default function ConversationList(props) {
     isMobile = false,
     onConversationLongPress,
     onClearListFilters,
+    handoffNowMs,
   } = props;
 
   const groups = useMemo(() => safeGrouped(groupedItems).filter((g) => g.items.length > 0), [groupedItems]);
@@ -75,6 +76,7 @@ export default function ConversationList(props) {
                 compact
                 enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
                 onLongPress={() => onConversationLongPress?.(it)}
+                handoffNowMs={handoffNowMs}
               />
             );
           })}

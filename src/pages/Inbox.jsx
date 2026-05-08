@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
+import { getHandoffPresentation } from '../../lib/inboxHandoffPresentation.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import {
   WHATSAPP_TEMPLATE_LABELS,
@@ -14,12 +15,23 @@ import { useUserRole } from '../lib/useUserRole';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { Bell, BellOff, Flame, Loader2, MessageSquare, Sparkles } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, X } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 const EMPTY_ACADEMY_LIST = [];
+
+const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
+
+function readComposerExpandedFromStorage() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(COMPOSER_EXPANDED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 function normalizePhone(v) {
   const raw = String(v || '').trim();
@@ -172,11 +184,13 @@ export default function Inbox() {
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
+  const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
 
-  const [listFilter, setListFilter] = useState('all');
-  const listFilterRef = useRef('all');
+  const [listFilter, setListFilter] = useState('unread');
+  const listFilterRef = useRef('unread');
   const prevListFilterForReloadRef = useRef(null);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
+  const listExtraFiltersRef = useRef(null);
   const [labelFilter, setLabelFilter] = useState(null); // string id | null
   const [inboxLabels, setInboxLabels] = useState([]);
   const [stats, setStats] = useState({
@@ -223,6 +237,7 @@ export default function Inbox() {
   });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [menu, setMenu] = useState(null);
+  const [imageLightboxUrl, setImageLightboxUrl] = useState('');
   /** Mobile: bottom sheet após long press na lista (só ação "marcar não lida" quando aplicável). */
   const [conversationSheet, setConversationSheet] = useState(null);
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
@@ -230,6 +245,21 @@ export default function Inbox() {
   const [threadAtBottom, setThreadAtBottom] = useState(true);
   const [newMsgCount, setNewMsgCount] = useState(0);
   const [msgFlags, setMsgFlags] = useState({});
+
+  useEffect(() => {
+    const url = String(imageLightboxUrl || '').trim();
+    if (!url) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => {
+      if (e.key === 'Escape') setImageLightboxUrl('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [imageLightboxUrl]);
 
   useEffect(() => {
     if (!academyId) {
@@ -397,6 +427,20 @@ export default function Inbox() {
   useEffect(() => {
     desktopNotifyRef.current = Boolean(desktopNotify);
   }, [desktopNotify]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COMPOSER_EXPANDED_STORAGE_KEY, composerExpanded ? '1' : '0');
+    } catch {
+      void 0;
+    }
+  }, [composerExpanded]);
+
+  useEffect(() => {
+    if (composerExpanded) return;
+    setTemplatesOpen(false);
+    setEmojiOpen(false);
+  }, [composerExpanded]);
 
   useEffect(() => {
     return () => {
@@ -1619,7 +1663,9 @@ export default function Inbox() {
       if (blocked) return false;
       const raw = await resp.text();
       if (!resp.ok) {
-        const msg = String(raw || '').trim() ? normalizeApiError(raw, 'Falha ao atualizar handoff') : `Falha ao atualizar handoff (HTTP ${resp.status})`;
+        const msg = String(raw || '').trim()
+          ? normalizeApiError(raw, 'Falha ao atualizar o modo de atendimento')
+          : `Falha ao atualizar o modo de atendimento (HTTP ${resp.status})`;
         throw new Error(msg);
       }
       const data = safeParseJson(raw) || {};
@@ -2294,6 +2340,19 @@ export default function Inbox() {
         return Array.isArray(ids) && ids.includes(labelFilter);
       });
     }
+    if (f === 'all') {
+      const updatedMs = (it) => {
+        const u = parseTimestampMs(it?.updated_at);
+        if (u) return u;
+        return parseTimestampMs(it?.last_message_timestamp);
+      };
+      const unreadRank = (it) => (unreadN(it) > 0 ? 0 : 1);
+      result = result.slice().sort((a, b) => {
+        const ru = unreadRank(a) - unreadRank(b);
+        if (ru !== 0) return ru;
+        return updatedMs(b) - updatedMs(a);
+      });
+    }
     return result;
   }, [prioritizedItems, listFilter, labelFilter]);
 
@@ -2579,9 +2638,20 @@ export default function Inbox() {
   const handleClearInboxListFilters = useCallback(() => {
     setListFilter('all');
     setLabelFilter(null);
-    setShowMoreFilters(false);
+    setExtraFiltersMenuOpen(false);
     setSearch('');
   }, []);
+
+  useEffect(() => {
+    if (!extraFiltersMenuOpen) return undefined;
+    const onDoc = (e) => {
+      const root = listExtraFiltersRef.current;
+      if (!root || root.contains(e.target)) return;
+      setExtraFiltersMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [extraFiltersMenuOpen]);
 
   const waChatConnected = useMemo(() => String(waInfo?.status || '').trim() === 'connected', [waInfo?.status]);
 
@@ -2609,6 +2679,9 @@ export default function Inbox() {
     };
   }, [isMobile]);
 
+  const inboxExtraFilterActive =
+    !['unread', 'need_human'].includes(String(listFilter || '')) || Boolean(labelFilter);
+
   const listPanel = (
     <div
       style={{
@@ -2632,131 +2705,173 @@ export default function Inbox() {
           </div>
         )}
       </div>
-      <div
-        style={{
-          padding: '8px 10px',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          gap: 8,
-          flexWrap: 'wrap',
-          alignItems: 'center',
-        }}
-      >
-        {Number(stats?.unreadBacklog || 0) > 0 && (
-          <span className="text-small" style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }} title="Backlog de conversas com mensagens não lidas">
-            Não lidas: {Number(stats.unreadBacklog)}
-          </span>
-        )}
-        {Number(stats?.resolvedCount || 0) > 0 && (
-          <span className="text-small" style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 999 }} title="Conversas em status resolvido">
-            Resolvidas: {Number(stats.resolvedCount)}
-          </span>
-        )}
-        {Number(stats?.transferredCount || 0) > 0 && (
-          <span
-            className="text-small"
-            style={{
-              background: 'var(--inbox-info-badge-bg)',
-              color: 'var(--inbox-info-badge-fg)',
-              padding: '2px 8px',
-              borderRadius: 999,
-            }}
-            title="Conversas transferidas"
-          >
-            Transferidas: {Number(stats.transferredCount)}
-          </span>
-        )}
-      </div>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
           type="button"
-          className={listFilter === 'all' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('all')}
-        >
-          Todos
-        </button>
-        <button
-          type="button"
           className={listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
+          style={{ padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 8 }}
           onClick={() => setListFilter('unread')}
         >
-          Não lidas
-        </button>
-        <button
-          type="button"
-          className={listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('waiting_customer')}
-        >
-          Aguardando cliente
-        </button>
-        <button
-          type="button"
-          className={listFilter === 'resolved' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('resolved')}
-        >
-          Resolvidos
-        </button>
-        <button
-          type="button"
-          className={listFilter === 'archived' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('archived')}
-        >
-          Arquivadas
-        </button>
-        <button
-          type="button"
-          className={showMoreFilters ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setShowMoreFilters((v) => !v)}
-        >
-          Mais filtros
-        </button>
-        {showMoreFilters && (
-          <>
-            <button
-              type="button"
-              className={listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
-              style={{ padding: '6px 10px', minHeight: 34 }}
-              onClick={() => setListFilter('hot')}
+          <span>Não lidas</span>
+          {Number(stats?.unreadBacklog || 0) > 0 ? (
+            <span
+              className="text-small"
+              style={{
+                background: listFilter === 'unread' ? 'rgba(255,255,255,0.25)' : 'var(--danger-light)',
+                color: listFilter === 'unread' ? 'inherit' : 'var(--danger)',
+                padding: '1px 7px',
+                borderRadius: 999,
+                fontWeight: 800,
+                lineHeight: 1.2
+              }}
+              title="Conversas com mensagens não lidas"
             >
-              Lead quente
-            </button>
-            <button
-              type="button"
-              className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
-              style={{ padding: '6px 10px', minHeight: 34 }}
-              onClick={() => setListFilter('need_human')}
+              {Number(stats.unreadBacklog)}
+            </span>
+          ) : null}
+        </button>
+        <button
+          type="button"
+          className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ padding: '6px 10px', minHeight: 34 }}
+          onClick={() => setListFilter('need_human')}
+        >
+          Com você agora
+        </button>
+        <div ref={listExtraFiltersRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className={extraFiltersMenuOpen || inboxExtraFilterActive ? 'btn btn-secondary' : 'btn btn-outline'}
+            style={{ padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setExtraFiltersMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={extraFiltersMenuOpen}
+            title="Mais filtros"
+          >
+            <Filter size={16} strokeWidth={2} aria-hidden />
+            Mais filtros
+          </button>
+          {extraFiltersMenuOpen ? (
+            <div
+              role="menu"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: 6,
+                zIndex: 45,
+                minWidth: 280,
+                maxWidth: 'min(360px, 92vw)',
+                padding: 10,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                boxShadow: 'var(--shadow-lg)'
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
-              Precisa de você
-            </button>
-            {inboxLabels.length > 0 && (
-              <select
-                value={labelFilter || ''}
-                onChange={(e) => setLabelFilter(e.target.value || null)}
-                style={{
-                  padding: '6px 10px',
-                  minHeight: 34,
-                  border: labelFilter ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  borderRadius: 8,
-                  background: labelFilter ? 'var(--accent-light)' : 'var(--surface)',
-                  color: labelFilter ? 'var(--accent)' : 'var(--text-primary)',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="">Etiqueta: todas</option>
-                {inboxLabels.map((l) => (
-                  <option key={l.$id} value={l.$id}>{l.name}</option>
-                ))}
-              </select>
-            )}
-          </>
-        )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className={listFilter === 'all' ? 'btn btn-primary' : 'btn btn-outline'}
+                  style={{ padding: '6px 10px', minHeight: 34 }}
+                  onClick={() => {
+                    setListFilter('all');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  className={listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
+                  style={{ padding: '6px 10px', minHeight: 34 }}
+                  onClick={() => {
+                    setListFilter('waiting_customer');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Aguardando cliente
+                </button>
+                <button
+                  type="button"
+                  className={listFilter === 'resolved' ? 'btn btn-primary' : 'btn btn-outline'}
+                  style={{ padding: '6px 10px', minHeight: 34 }}
+                  onClick={() => {
+                    setListFilter('resolved');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Resolvidos
+                </button>
+                <button
+                  type="button"
+                  className={listFilter === 'archived' ? 'btn btn-primary' : 'btn btn-outline'}
+                  style={{ padding: '6px 10px', minHeight: 34 }}
+                  onClick={() => {
+                    setListFilter('archived');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Arquivadas
+                </button>
+                <button
+                  type="button"
+                  className={listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
+                  style={{ padding: '6px 10px', minHeight: 34 }}
+                  onClick={() => {
+                    setListFilter('hot');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Lead quente
+                </button>
+                <button
+                  type="button"
+                  className={listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
+                  style={{ padding: '6px 10px', minHeight: 34 }}
+                  onClick={() => {
+                    setListFilter('transferred');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Transferidas
+                </button>
+              </div>
+              {inboxLabels.length > 0 ? (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <label className="text-small" style={{ display: 'block', marginBottom: 6, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    Etiqueta
+                  </label>
+                  <select
+                    value={labelFilter || ''}
+                    onChange={(e) => setLabelFilter(e.target.value || null)}
+                    aria-label="Filtrar por etiqueta"
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      minHeight: 34,
+                      border: labelFilter ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      borderRadius: 8,
+                      background: labelFilter ? 'var(--accent-light)' : 'var(--surface)',
+                      color: labelFilter ? 'var(--accent)' : 'var(--text-primary)',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="">Todas as etiquetas</option>
+                    {inboxLabels.map((l) => (
+                      <option key={l.$id} value={l.$id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div
         style={{
@@ -2783,6 +2898,7 @@ export default function Inbox() {
             if (!isMobile) return;
             setConversationSheet({ item: it });
           }}
+          handoffNowMs={nowMs}
         />
       </div>
     </div>
@@ -2939,70 +3055,47 @@ export default function Inbox() {
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
                 const aiSuggestHuman = Boolean(lead?.needHuman);
-                const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
-                const untilIso = untilMs > 0 ? new Date(untilMs).toISOString() : '';
-                const untilLabel = untilIso ? formatTimeOnly(untilIso) || formatWhen(untilIso) : '';
-                let rem = null;
-                const expired = Boolean(untilMs > 0 && untilMs <= nowMs);
-                const blinkOn = Math.floor(nowMs / 500) % 2 === 0;
-                if (untilMs > 0) {
-                  const remaining = untilMs - nowMs;
-                  if (remaining > 0) {
-                    const hours = Math.floor(remaining / 3600000);
-                    const minutes = Math.floor((remaining % 3600000) / 60000);
-                    if (hours > 0) rem = `${hours}h ${minutes}min`;
-                    else if (minutes > 0) rem = `${minutes}min`;
-                    else rem = 'menos de 1min';
-                  }
-                }
-
-                if (selected?.need_human) {
-                  return (
-                    <>
+                const pres = getHandoffPresentation({
+                  needHuman: Boolean(selected?.need_human),
+                  humanHandoffUntil: selected?.human_handoff_until,
+                  nowMs
+                });
+                return (
+                  <>
+                    <span
+                      className="text-small"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: pres.bg,
+                        color: pres.fg,
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        maxWidth: '100%',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: pres.dotColor, flexShrink: 0 }} />
+                      <span style={{ lineHeight: 1.35 }}>{pres.text}</span>
+                    </span>
+                    {!selected?.need_human && aiSuggestHuman ? (
                       <span
                         className="text-small"
-                        style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 999 }}
-                        title={
-                          untilLabel
-                            ? `Atendimento humano por ${handoffDurationPhrase} (até ${untilLabel})`
-                            : `Atendimento humano ativo (${handoffDurationPhrase})`
-                        }
+                        style={{
+                          background: 'var(--warning-light)',
+                          color: 'var(--warning-text)',
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          maxWidth: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                        title="Sugestão com base no lead"
                       >
-                        {untilLabel ? `Humano até ${untilLabel}` : 'Atendimento humano'}
+                        Vale a pena alguém da equipe ver esta conversa
                       </span>
-                      {rem && (
-                        <span className="text-small handoff-timer" style={{ background: 'var(--warning-light)', color: 'var(--warning)', padding: '2px 8px', borderRadius: 999 }}>
-                          IA retoma em {rem}
-                        </span>
-                      )}
-                      {expired && (
-                        <span
-                          className="text-small handoff-timer"
-                          style={{
-                            background: blinkOn ? 'rgba(239, 68, 68, 0.18)' : 'rgba(239, 68, 68, 0.32)',
-                            color: 'var(--danger)',
-                            padding: '2px 8px',
-                            borderRadius: 999,
-                            transition: 'background-color 160ms ease'
-                          }}
-                        >
-                          Tempo manual encerrado
-                        </span>
-                      )}
-                    </>
-                  );
-                }
-                if (aiSuggestHuman) {
-                  return (
-                    <span className="text-small" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }} title="IA sugere intervenção humana">
-                      IA sugere humano
-                    </span>
-                  );
-                }
-                return (
-                  <span className="text-small" style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '2px 8px', borderRadius: 999 }}>
-                    Agente IA ativo
-                  </span>
+                    ) : null}
+                  </>
                 );
               })()}
             </div>
@@ -3216,7 +3309,11 @@ export default function Inbox() {
                                 objectFit: 'cover',
                                 display: 'block'
                               }}
-                              onClick={() => window.open(mediaUrlNorm, '_blank')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setImageLightboxUrl(mediaUrlNorm);
+                              }}
                               onError={(e) => {
                                 e.target.style.display = 'none';
                                 const el = e.target.nextSibling;
@@ -3430,125 +3527,210 @@ export default function Inbox() {
           flexShrink: 0
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {selectedPhone && (
+        {composerExpanded && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {selectedPhone && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className={`inbox-composer-action-btn ${templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}`}
+                    style={{ padding: '0 10px', fontSize: 14 }}
+                    onClick={() => {
+                      setTemplatesOpen((v) => !v);
+                      setEmojiOpen(false);
+                    }}
+                    type="button"
+                    title="Mensagens prontas"
+                  >
+                    {'\u26A1'}
+                  </button>
+                  {templatesOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 36,
+                        left: 0,
+                        width: 280,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 12,
+                        boxShadow: 'var(--shadow)',
+                        padding: 8,
+                        zIndex: 50,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4
+                      }}
+                    >
+                      <div className="navi-section-heading" style={{ fontSize: '0.82rem', padding: '2px 6px 6px' }}>
+                        Mensagens prontas
+                      </div>
+                      {quickTemplates.length === 0 && (
+                        <div className="text-small" style={{ color: 'var(--text-muted)', padding: '4px 8px' }}>
+                          Nenhum template da academia. Configure em Templates no menu.
+                        </div>
+                      )}
+                      {quickTemplates.map((tpl) => {
+                        const lid = String(selected?.lead_id || '').trim();
+                        const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+                        const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
+                        return (
+                          <button
+                            key={tpl.key}
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ textAlign: 'left', padding: '6px 10px', minHeight: 32, whiteSpace: 'normal', lineHeight: '18px' }}
+                            onClick={() => {
+                              const out = applyWhatsappTemplatePlaceholders(tpl.text, {
+                                lead: leadForTpl,
+                                academyName: academyNameForTemplates
+                              });
+                              setDraft(out);
+                              setTemplatesOpen(false);
+                              try {
+                                textareaRef.current?.focus();
+                              } catch {
+                                void 0;
+                              }
+                            }}
+                          >
+                            <span style={{ display: 'block', fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{tpl.label}</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                              {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ position: 'relative' }}>
                 <button
-                  className={`inbox-composer-action-btn ${templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}`}
-                  style={{ padding: '0 10px', fontSize: 14 }}
-                  onClick={() => { setTemplatesOpen((v) => !v); setEmojiOpen(false); }}
+                  className="btn btn-outline inbox-composer-action-btn"
+                  style={{ padding: '0 10px', fontSize: 16 }}
+                  onClick={() => {
+                    setEmojiOpen((v) => !v);
+                    setTemplatesOpen(false);
+                  }}
                   type="button"
-                  title="Mensagens prontas"
+                  aria-expanded={emojiOpen}
+                  title="Inserir emoji"
                 >
-                  {'\u26A1'}
+                  {'\u{1F60A}'}
                 </button>
-                {templatesOpen && (
+                {emojiOpen && (
                   <div
                     style={{
                       position: 'absolute',
                       bottom: 36,
                       left: 0,
-                      width: 280,
+                      width: 260,
                       background: 'var(--surface)',
                       border: '1px solid var(--border)',
                       borderRadius: 12,
                       boxShadow: 'var(--shadow)',
-                      padding: 8,
-                      zIndex: 50,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4
+                      padding: 10,
+                      zIndex: 50
                     }}
                   >
-                    <div className="navi-section-heading" style={{ fontSize: '0.82rem', padding: '2px 6px 6px' }}>Mensagens prontas</div>
-                    {quickTemplates.length === 0 && (
-                      <div className="text-small" style={{ color: 'var(--text-muted)', padding: '4px 8px' }}>
-                        Nenhum template da academia. Configure em Templates no menu.
-                      </div>
-                    )}
-                    {quickTemplates.map((tpl) => {
-                      const lid = String(selected?.lead_id || '').trim();
-                      const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
-                      const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
-                      return (
-                      <button
-                        key={tpl.key}
-                        type="button"
-                        className="btn btn-outline"
-                        style={{ textAlign: 'left', padding: '6px 10px', minHeight: 32, whiteSpace: 'normal', lineHeight: '18px' }}
-                        onClick={() => {
-                          const out = applyWhatsappTemplatePlaceholders(tpl.text, {
-                            lead: leadForTpl,
-                            academyName: academyNameForTemplates
-                          });
-                          setDraft(out);
-                          setTemplatesOpen(false);
-                          try { textareaRef.current?.focus(); } catch { void 0; }
-                        }}
-                      >
-                        <span style={{ display: 'block', fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{tpl.label}</span>
-                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
-                        </span>
-                      </button>
-                    );})}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
+                      {emojis.map((em) => (
+                        <button
+                          key={em}
+                          type="button"
+                          className="inbox-composer-emoji-grid-btn"
+                          onClick={() => {
+                            insertAtCursor(em);
+                            setEmojiOpen(false);
+                          }}
+                          style={{
+                            padding: 0,
+                            borderRadius: 10,
+                            background: 'transparent',
+                            border: '1px solid var(--border)'
+                          }}
+                        >
+                          <span style={{ fontSize: 18, lineHeight: '18px' }}>{em}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            )}
-            <div style={{ position: 'relative' }}>
-              <button
-                className="btn btn-outline inbox-composer-action-btn"
-                style={{ padding: '0 10px', fontSize: 16 }}
-                onClick={() => { setEmojiOpen((v) => !v); setTemplatesOpen(false); }}
-                type="button"
-                aria-expanded={emojiOpen}
-                title="Inserir emoji"
-              >
-                {'\u{1F60A}'}
-              </button>
-              {emojiOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 36,
-                    left: 0,
-                    width: 260,
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 12,
-                    boxShadow: 'var(--shadow)',
-                    padding: 10,
-                    zIndex: 50
-                  }}
-                >
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
-                    {emojis.map((em) => (
-                      <button
-                        key={em}
-                        type="button"
-                        className="inbox-composer-emoji-grid-btn"
-                        onClick={() => {
-                          insertAtCursor(em);
-                          setEmojiOpen(false);
-                        }}
-                        style={{
-                          padding: 0,
-                          borderRadius: 10,
-                          background: 'transparent',
-                          border: '1px solid var(--border)'
-                        }}
-                      >
-                        <span style={{ fontSize: 18, lineHeight: '18px' }}>{em}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
-        </div>
+        )}
+
+        {(composerExpanded || scheduleOn) && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button
+              className={scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'}
+              style={{ padding: '6px 10px' }}
+              onClick={() => setScheduleOn((v) => !v)}
+              disabled={sending || !selectedPhone}
+              type="button"
+            >
+              Agendar
+            </button>
+            {scheduleOn && (
+              <input
+                type="datetime-local"
+                className="form-input"
+                value={scheduleAtLocal}
+                onChange={(e) => setScheduleAtLocal(e.target.value)}
+                disabled={sending || !selectedPhone}
+                style={{ width: 210 }}
+              />
+            )}
+          </div>
+        )}
+
+        {composerExpanded && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '6px 10px', minHeight: 34, minWidth: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={improveDraftWithAi}
+              disabled={sending || improvingDraft || !selectedPhone || String(draft || '').trim().length <= 3}
+              type="button"
+              title={improvingDraft ? 'Melhorando…' : 'Melhorar texto com IA (usa o contexto da conversa)'}
+              aria-label={improvingDraft ? 'Melhorando texto com IA' : 'Melhorar texto com IA'}
+              aria-busy={improvingDraft}
+            >
+              {improvingDraft ? (
+                <Loader2 size={18} className="inbox-improve-spin" aria-hidden />
+              ) : (
+                <Sparkles size={18} strokeWidth={2} aria-hidden />
+              )}
+            </button>
+            {draftBeforeImprove != null && (
+              <button
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', minHeight: 34 }}
+                onClick={() => {
+                  setDraft(String(draftBeforeImprove));
+                  setDraftBeforeImprove(null);
+                  try {
+                    setTimeout(() => textareaRef.current?.focus?.(), 0);
+                  } catch {
+                    void 0;
+                  }
+                }}
+                disabled={sending || improvingDraft}
+                type="button"
+                title="Voltar ao texto antes da melhoria"
+              >
+                {'\u21A9'} Desfazer
+              </button>
+            )}
+            {String(draft || '').length > 160 && (
+              <div className="text-small" style={{ color: String(draft || '').length > 800 ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                {String(draft || '').length} chars
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
           <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
@@ -3652,81 +3834,54 @@ export default function Inbox() {
               className="form-input"
               rows={3}
               style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 88 }}
+              onFocus={() => {
+                if (!isMobile) setComposerExpanded(true);
+              }}
             />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button
-                className={scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'}
-                style={{ padding: '6px 10px' }}
-                onClick={() => setScheduleOn((v) => !v)}
-                disabled={sending || !selectedPhone}
-                type="button"
-              >
-                Agendar
-              </button>
-              {scheduleOn && (
-                <input
-                  type="datetime-local"
-                  className="form-input"
-                  value={scheduleAtLocal}
-                  onChange={(e) => setScheduleAtLocal(e.target.value)}
-                  disabled={sending || !selectedPhone}
-                  style={{ width: 210 }}
-                />
-              )}
-            </div>
-            {String(draft || '').length > 160 && (
-              <div className="text-small" style={{ color: String(draft || '').length > 800 ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                {String(draft || '').length} chars
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
+            {draftBeforeImprove != null && !composerExpanded && (
               <button
                 className="btn btn-outline"
-                style={{ padding: '6px 10px', minHeight: 34, minWidth: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={improveDraftWithAi}
-                disabled={
-                  sending ||
-                  improvingDraft ||
-                  !selectedPhone ||
-                  String(draft || '').trim().length <= 3
-                }
+                style={{ padding: '6px 10px', minHeight: 34, whiteSpace: 'nowrap' }}
+                onClick={() => {
+                  setDraft(String(draftBeforeImprove));
+                  setDraftBeforeImprove(null);
+                  try {
+                    setTimeout(() => textareaRef.current?.focus?.(), 0);
+                  } catch {
+                    void 0;
+                  }
+                }}
+                disabled={sending || improvingDraft}
                 type="button"
-                title={improvingDraft ? 'Melhorando…' : 'Melhorar texto com IA (usa o contexto da conversa)'}
-                aria-label={improvingDraft ? 'Melhorando texto com IA' : 'Melhorar texto com IA'}
-                aria-busy={improvingDraft}
+                title="Voltar ao texto antes da melhoria"
               >
-                {improvingDraft ? (
-                  <Loader2 size={18} className="inbox-improve-spin" aria-hidden />
-                ) : (
-                  <Sparkles size={18} strokeWidth={2} aria-hidden />
-                )}
+                {'\u21A9'} Desfazer
               </button>
-              {draftBeforeImprove != null && (
-                <button
-                  className="btn btn-outline"
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
-                    setDraft(String(draftBeforeImprove));
-                    setDraftBeforeImprove(null);
-                    try {
-                      setTimeout(() => textareaRef.current?.focus?.(), 0);
-                    } catch {
-                      void 0;
-                    }
-                  }}
-                  disabled={sending || improvingDraft}
-                  type="button"
-                  title="Voltar ao texto antes da melhoria"
-                >
-                  {'\u21A9'} Desfazer
-                </button>
-              )}
-              <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
-                {sending ? 'Enviando…' : 'Enviar'}
-              </button>
-            </div>
+            )}
+            <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
+              {sending ? 'Enviando…' : 'Enviar'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline inbox-composer-action-btn"
+              aria-label="Mais opções"
+              aria-expanded={composerExpanded}
+              onClick={() => setComposerExpanded((v) => !v)}
+              title={composerExpanded ? 'Ocultar opções avançadas' : 'Mais opções: templates, emoji, agendar, IA'}
+              style={{
+                minHeight: 44,
+                minWidth: 44,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 10px',
+                alignSelf: 'stretch'
+              }}
+            >
+              {composerExpanded ? <ChevronDown size={20} strokeWidth={2} aria-hidden /> : <ChevronUp size={20} strokeWidth={2} aria-hidden />}
+            </button>
           </div>
         </div>
       </div>
@@ -4667,6 +4822,65 @@ export default function Inbox() {
           </div>
         </div>
       )}
+
+      {String(imageLightboxUrl || '').trim() ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Imagem ampliada"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 96,
+            background: 'rgba(0, 0, 0, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 12,
+            boxSizing: 'border-box',
+          }}
+          onClick={() => setImageLightboxUrl('')}
+        >
+          <button
+            type="button"
+            className="btn btn-secondary"
+            aria-label="Fechar imagem"
+            style={{
+              position: 'fixed',
+              top: 16,
+              right: 16,
+              zIndex: 97,
+              minWidth: 44,
+              minHeight: 44,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 999,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setImageLightboxUrl('');
+            }}
+          >
+            <X size={22} aria-hidden />
+          </button>
+          <img
+            src={String(imageLightboxUrl).trim()}
+            alt=""
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: 4,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
 
       {(isMobile || isNarrowDesktop) && detailsOpen && selectedPhone && (
         <div
