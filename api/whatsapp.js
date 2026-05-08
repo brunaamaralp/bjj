@@ -679,7 +679,7 @@ export default async function handler(req, res) {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
     }
-    const instanceId = String((await getZapsterInstanceIdForAcademy(academyDoc, academyId)) ?? '').trim();
+    let instanceId = String((await getZapsterInstanceIdForAcademy(academyDoc, academyId)) ?? '').trim();
     if (!instanceId) return res.status(400).json({ sucesso: false, erro: 'Instância Zapster não configurada' });
 
     const now = Date.now();
@@ -713,6 +713,41 @@ export default async function handler(req, res) {
         if (!hasMore || !nextCursor) break;
         after = nextCursor;
         if (pages >= 10) break;
+      }
+
+      // Se veio vazio, o instance_id salvo pode estar desatualizado.
+      // Tenta recuperar pela metadata da instância e refazer a busca uma vez.
+      if (items.length === 0) {
+        const recovered = String((await recoverZapsterInstanceIdFromList(academyId)) || '').trim();
+        if (recovered && recovered !== instanceId) {
+          await persistAcademyZapsterInstanceId(academyId, recovered);
+          waDebug({
+            step: 'reconcile_instance_recovered',
+            oldInstanceIdPrefix: instanceId.slice(0, 8),
+            newInstanceIdPrefix: recovered.slice(0, 8)
+          });
+          instanceId = recovered;
+          after = '';
+          pages = 0;
+          for (;;) {
+            pages += 1;
+            const page = await listZapsterMessages({ from: fromIso, to: toIso, after, limit, instanceId });
+            const dataArr = Array.isArray(page?.data) ? page.data : [];
+            items.push(...dataArr);
+            waDebug({
+              step: 'reconcile_page_after_recover',
+              page: pages,
+              batchSize: dataArr.length,
+              itemsTotal: items.length,
+              hasMore: Boolean(page?.meta?.has_more)
+            });
+            const hasMore = Boolean(page?.meta?.has_more);
+            const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
+            if (!hasMore || !nextCursor) break;
+            after = nextCursor;
+            if (pages >= 10) break;
+          }
+        }
       }
 
       const grouped = new Map();
