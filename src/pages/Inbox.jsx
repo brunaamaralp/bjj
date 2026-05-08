@@ -3138,7 +3138,27 @@ export default function Inbox() {
                             {senderKind === 'ai' ? 'Agente IA' : 'Você'}
                           </div>
                         )}
-                        {m?.type === 'image' && m?.mediaUrl ? (
+                        {m?.type === 'audio' && m?.mediaUrl ? (
+                          <div className="inbox-msg-audio" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                            <audio
+                              controls
+                              src={m.mediaUrl}
+                              preload="metadata"
+                              style={{ width: '100%', maxWidth: 320, minWidth: 200, verticalAlign: 'middle' }}
+                            />
+                            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-muted)' }}>
+                              Se não reproduzir, o link pode ter expirado — abra no WhatsApp.
+                            </p>
+                            {String(content || '').trim() &&
+                            !String(content || '')
+                              .trim()
+                              .startsWith('🎵') ? (
+                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)', marginTop: 8 }}>
+                                {content}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : m?.type === 'image' && m?.mediaUrl ? (
                           <div className="inbox-msg-image">
                             <img
                               src={m.mediaUrl}

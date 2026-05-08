@@ -494,6 +494,29 @@ function pickSenderName(v) {
   return '';
 }
 
+/** URL de mídia no payload da listagem Zapster (alinhado ao webhook). */
+function pickMediaUrlFromZapster(v) {
+  if (!v || typeof v !== 'object') return '';
+  const c = v.content && typeof v.content === 'object' ? v.content : {};
+  const u = String(c?.media?.url || v?.media?.url || v?.url || '').trim();
+  if (u && /^https?:\/\//i.test(u)) return u;
+  return '';
+}
+
+/**
+ * true = mensagem do cliente, false = enviada pela instância, null = desconhecido.
+ * Evita classificar `type: audio` como outbound só porque a string não contém "inbound".
+ */
+function zapsterInboundDirection(v) {
+  if (!v || typeof v !== 'object') return null;
+  const d = String(v.direction || v.flow || '').trim().toLowerCase();
+  if (['inbound', 'incoming', 'received'].includes(d)) return true;
+  if (['outbound', 'outgoing', 'sent'].includes(d)) return false;
+  if (v.from_me === false || v.fromMe === false) return true;
+  if (v.from_me === true || v.fromMe === true) return false;
+  return null;
+}
+
 function isInboundMessage(v) {
   if (!v || typeof v !== 'object') return false;
   const raw = String(v.direction || v.type || v.event || '').trim().toLowerCase();
@@ -769,9 +792,22 @@ export default async function handler(req, res) {
       const grouped = new Map();
       for (const it of items) {
         if (!it || typeof it !== 'object') continue;
-        const text = String(pickText(it) || '').trim();
+        let inbound = isInboundMessage(it);
+        const dirHint = zapsterInboundDirection(it);
+        if (dirHint !== null) inbound = dirHint;
+
+        let text = String(pickText(it) || '').trim();
+        const zType = String(it?.type || it?.content?.type || '').trim().toLowerCase();
+        const mediaUrl = pickMediaUrlFromZapster(it);
+        let mediaExtras = {};
+        if (!text && mediaUrl && (zType === 'audio' || zType === 'ptt')) {
+          text = '🎵 [Áudio recebido]';
+          mediaExtras = { type: 'audio', mediaUrl };
+        } else if (!text && mediaUrl && zType === 'image') {
+          text = '[imagem]';
+          mediaExtras = { type: 'image', mediaUrl };
+        }
         if (!text) continue;
-        const inbound = isInboundMessage(it);
         const phone = inbound ? pickSender(it) : pickRecipient(it);
         if (!phone) continue;
         const timestamp = pickTimestamp(it) || new Date().toISOString();
@@ -787,7 +823,8 @@ export default async function handler(req, res) {
               ...(messageId ? { message_id: messageId } : {}),
               ...(status ? { status } : {}),
               ...(sendAt ? { send_at: sendAt } : {}),
-              ...(canceledAt ? { canceled_at: canceledAt } : {})
+              ...(canceledAt ? { canceled_at: canceledAt } : {}),
+              ...mediaExtras
             }
           : {
               role: 'assistant',
@@ -796,7 +833,8 @@ export default async function handler(req, res) {
               ...(messageId ? { message_id: messageId } : {}),
               ...(status ? { status } : {}),
               ...(sendAt ? { send_at: sendAt } : {}),
-              ...(canceledAt ? { canceled_at: canceledAt } : {})
+              ...(canceledAt ? { canceled_at: canceledAt } : {}),
+              ...mediaExtras
             };
         const senderName = pickSenderName(it);
         const bucket = grouped.get(phone) || { messages: [], whatsappName: '' };
