@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
-import { getHandoffPresentation } from '../../lib/inboxHandoffPresentation.js';
+import { getThreadHandoffBanner } from '../../lib/inboxHandoffPresentation.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import {
   WHATSAPP_TEMPLATE_LABELS,
@@ -2974,6 +2974,32 @@ export default function Inbox() {
                 return name || phone || '—';
               })()}
             </div>
+            {(() => {
+              const banner = getThreadHandoffBanner({
+                needHuman: Boolean(selected?.need_human),
+                humanHandoffUntil: selected?.human_handoff_until,
+                nowMs
+              });
+              return (
+                <div
+                  role="status"
+                  style={{
+                    marginTop: 8,
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    lineHeight: 1.35,
+                    width: '100%',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    borderRadius: 8,
+                    background: banner.bg,
+                    color: banner.color
+                  }}
+                >
+                  {banner.text}
+                </div>
+              );
+            })()}
             {!selected?.lead_id && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                 {editingContactName ? (
@@ -3055,47 +3081,22 @@ export default function Inbox() {
                 const leadId = String(selected?.lead_id || '').trim();
                 const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
                 const aiSuggestHuman = Boolean(lead?.needHuman);
-                const pres = getHandoffPresentation({
-                  needHuman: Boolean(selected?.need_human),
-                  humanHandoffUntil: selected?.human_handoff_until,
-                  nowMs
-                });
+                if (selected?.need_human || !aiSuggestHuman) return null;
                 return (
-                  <>
-                    <span
-                      className="text-small"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        background: pres.bg,
-                        color: pres.fg,
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        maxWidth: '100%',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: pres.dotColor, flexShrink: 0 }} />
-                      <span style={{ lineHeight: 1.35 }}>{pres.text}</span>
-                    </span>
-                    {!selected?.need_human && aiSuggestHuman ? (
-                      <span
-                        className="text-small"
-                        style={{
-                          background: 'var(--warning-light)',
-                          color: 'var(--warning-text)',
-                          padding: '4px 10px',
-                          borderRadius: 999,
-                          maxWidth: '100%',
-                          boxSizing: 'border-box'
-                        }}
-                        title="Sugestão com base no lead"
-                      >
-                        Vale a pena alguém da equipe ver esta conversa
-                      </span>
-                    ) : null}
-                  </>
+                  <span
+                    className="text-small"
+                    style={{
+                      background: 'var(--warning-light)',
+                      color: 'var(--warning-text)',
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      maxWidth: '100%',
+                      boxSizing: 'border-box'
+                    }}
+                    title="Sugestão com base no lead"
+                  >
+                    Vale a pena alguém da equipe ver esta conversa
+                  </span>
                 );
               })()}
             </div>

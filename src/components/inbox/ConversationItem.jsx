@@ -1,6 +1,5 @@
-import React, { useRef, useCallback, useMemo } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { AlertTriangle, Flame } from 'lucide-react';
-import { getHandoffPresentation } from '../../../lib/inboxHandoffPresentation.js';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
@@ -20,15 +19,6 @@ export default function ConversationItem({
   const hotLead = Boolean(item?._hotLead);
   const handoffActive = Boolean(item?._handoffActive);
   const aiSuggestHuman = Boolean(item?._aiSuggestHuman);
-  const handoffPres = useMemo(() => {
-    if (!handoffActive) return null;
-    const now = typeof handoffNowMs === 'number' && Number.isFinite(handoffNowMs) ? handoffNowMs : Date.now();
-    return getHandoffPresentation({
-      needHuman: true,
-      humanHandoffUntil: item?.human_handoff_until,
-      nowMs: now
-    });
-  }, [handoffActive, item?.human_handoff_until, handoffNowMs]);
   const unreadCount = Number(item?._unreadCount || 0);
   const contactType = String(item?._contactType || '').trim() === 'student' ? 'student' : 'lead';
   const lastRole = String(item?._lastRole || '').trim();
@@ -180,28 +170,44 @@ export default function ConversationItem({
                   Quente
                 </span>
               )}
-              {handoffPres && (
+              {handoffActive ? (
                 <span
-                  title={handoffPres.text}
+                  title="Atendimento com você"
                   className="inbox-status-chip inbox-status-chip-handoff"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: compact ? 4 : 5,
                     fontSize: compact ? 10 : 11,
-                    fontWeight: 700,
+                    fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
-                    background: handoffPres.bg,
-                    color: handoffPres.fg,
+                    background: 'var(--warning-light)',
+                    color: 'var(--warning-text)',
                     flexShrink: 0,
-                    maxWidth: compact ? 'min(220px, 46vw)' : 300,
-                    boxSizing: 'border-box',
                     lineHeight: 1.25
                   }}
                 >
-                  <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: handoffPres.dotColor, flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{handoffPres.text}</span>
+                  Com você
+                </span>
+              ) : (
+                <span
+                  title="A IA pode responder nesta conversa"
+                  className="inbox-status-chip inbox-status-chip-ia"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    fontSize: compact ? 9 : 10,
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                    background: 'var(--inbox-info-badge-bg)',
+                    color: 'var(--inbox-info-badge-fg)',
+                    flexShrink: 0,
+                    lineHeight: 1.25,
+                    opacity: 0.92
+                  }}
+                >
+                  IA
                 </span>
               )}
               {!handoffActive && aiSuggestHuman && (
