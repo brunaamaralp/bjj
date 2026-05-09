@@ -342,6 +342,8 @@ export default function Inbox() {
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
   const prevAcademyIdForInboxRef = useRef('');
+  const inboxAutoSelectDoneRef = useRef(false);
+  const handleSelectConversationRef = useRef(() => {});
   const messageFlagsMigrationDoneRef = useRef(false);
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
   const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
@@ -1000,7 +1002,7 @@ export default function Inbox() {
         void 0;
       }
       setDesktopNotify(false);
-      addToast({ type: 'info', message: 'Alertas do sistema desativados.' });
+      addToast({ type: 'info', message: 'Notificações do sistema desativadas.' });
       return;
     }
     if (typeof Notification === 'undefined') {
@@ -1012,7 +1014,7 @@ export default function Inbox() {
       perm = await Notification.requestPermission();
     }
     if (perm !== 'granted') {
-      addToast({ type: 'warning', message: 'Permissão necessária para alertas do sistema.' });
+      addToast({ type: 'warning', message: 'Permissão necessária para notificações do sistema.' });
       return;
     }
     try {
@@ -1021,7 +1023,7 @@ export default function Inbox() {
       void 0;
     }
     setDesktopNotify(true);
-    addToast({ type: 'success', message: 'Você receberá alertas quando chegar mensagem.' });
+    addToast({ type: 'success', message: 'Você receberá notificações quando chegar mensagem.' });
   }
 
   function setHighlightedPhone(phone) {
@@ -2195,6 +2197,7 @@ export default function Inbox() {
       setMsgFlags({});
       messageFlagsMigrationDoneRef.current = false;
       notifiedOnceRef.current = false;
+      inboxAutoSelectDoneRef.current = false;
     }
     prevAcademyIdForInboxRef.current = cur;
     const fn = loadListRef.current;
@@ -2387,6 +2390,18 @@ export default function Inbox() {
     ];
   }, [filteredItems]);
 
+  const firstVisibleConversation = useMemo(() => {
+    const groups = Array.isArray(groupedFilteredItems) ? groupedFilteredItems : [];
+    for (const g of groups) {
+      const raw = Array.isArray(g?.items) ? g.items : [];
+      for (const it of raw) {
+        const phone = String(it?._phone || it?.phone_number || '').trim();
+        if (phone) return it;
+      }
+    }
+    return null;
+  }, [groupedFilteredItems]);
+
   const handleSelectConversation = (it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
@@ -2421,6 +2436,23 @@ export default function Inbox() {
       markSeen(phone);
     }
   };
+
+  handleSelectConversationRef.current = handleSelectConversation;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (normalizePhone(String(params.get('phone') || '').trim())) return;
+    if (searchQuery) return;
+    const curAcademy = String(academyId || '').trim();
+    if (!curAcademy) return;
+    if (loading) return;
+    if (inboxAutoSelectDoneRef.current) return;
+    if (String(selectedPhoneRef.current || '').trim()) return;
+    const it = firstVisibleConversation;
+    if (!it) return;
+    inboxAutoSelectDoneRef.current = true;
+    handleSelectConversationRef.current(it);
+  }, [academyId, loading, firstVisibleConversation, location.search, searchQuery]);
 
   function ticketChip(status, transferTo) {
     const s = String(status || '').trim();
@@ -2705,11 +2737,25 @@ export default function Inbox() {
           </div>
         )}
       </div>
-      <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div
+        style={{
+          padding: 10,
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'nowrap',
+          alignItems: 'center',
+          gap: 8,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          minWidth: 0,
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         <button
           type="button"
           className={listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 8 }}
           onClick={() => setListFilter('unread')}
         >
           <span>Não lidas</span>
@@ -2733,12 +2779,12 @@ export default function Inbox() {
         <button
           type="button"
           className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ padding: '6px 10px', minHeight: 34 }}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34 }}
           onClick={() => setListFilter('need_human')}
         >
           Com você agora
         </button>
-        <div ref={listExtraFiltersRef} style={{ position: 'relative' }}>
+        <div ref={listExtraFiltersRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
             type="button"
             className={extraFiltersMenuOpen || inboxExtraFilterActive ? 'btn btn-secondary' : 'btn btn-outline'}
@@ -2855,7 +2901,7 @@ export default function Inbox() {
                       borderRadius: 8,
                       background: labelFilter ? 'var(--accent-light)' : 'var(--surface)',
                       color: labelFilter ? 'var(--accent)' : 'var(--text-primary)',
-                      fontSize: 13,
+                      fontSize: 'var(--inbox-font-secondary)',
                       cursor: 'pointer',
                       boxSizing: 'border-box'
                     }}
@@ -2924,7 +2970,7 @@ export default function Inbox() {
     >
       <div style={{ textAlign: 'center', color: 'var(--text-secondary)', maxWidth: 420 }}>
         <MessageSquare size={44} strokeWidth={1.35} style={{ margin: '0 auto 14px', opacity: 0.55, color: 'var(--text-muted)' }} aria-hidden />
-        <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+        <p style={{ margin: 0, fontSize: 'var(--inbox-font-thread-title)', fontWeight: 600, color: 'var(--text-secondary)' }}>
           Nenhuma conversa selecionada
         </p>
         <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>
@@ -2959,8 +3005,17 @@ export default function Inbox() {
               Voltar
             </button>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <div style={{ fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: 'var(--inbox-font-thread-title)',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {(() => {
                 const phone = String(selectedPhone || '').trim();
                 const leadId = String(selected?.lead_id || '').trim();
@@ -2986,7 +3041,7 @@ export default function Inbox() {
                   style={{
                     marginTop: 8,
                     padding: '8px 12px',
-                    fontSize: 13,
+                    fontSize: 'var(--inbox-font-secondary)',
                     lineHeight: 1.35,
                     width: '100%',
                     maxWidth: '100%',
@@ -3269,7 +3324,10 @@ export default function Inbox() {
                         onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
                       >
                         {idx === 0 && g.mine && (
-                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, color: senderKind === 'ai' ? 'var(--accent)' : 'var(--text-secondary)', letterSpacing: '0.02em' }}>
+                          <div
+                            className="inbox-msg-sender-label"
+                            style={{ color: senderKind === 'ai' ? 'var(--accent)' : 'var(--text-secondary)' }}
+                          >
                             {senderKind === 'ai' ? 'Agente IA' : 'Você'}
                           </div>
                         )}
@@ -3288,13 +3346,13 @@ export default function Inbox() {
                             !String(content || '')
                               .trim()
                               .startsWith('🎵') ? (
-                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)', marginTop: 8 }}>
+                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', marginTop: 8 }}>
                                 {content}
                               </div>
                             ) : null}
                           </div>
                         ) : audioPlaceholder && !mediaUrlNorm ? (
-                          <div className="inbox-msg-text" style={{ lineHeight: '22px', fontSize: 15, color: 'var(--text-secondary)' }}>
+                          <div className="inbox-msg-text" style={{ color: 'var(--text-secondary)' }}>
                             <span aria-hidden>🎵</span> Áudio recebido — link não disponível no painel. Use <strong>Sincronizar WhatsApp</strong> ou abra no app do WhatsApp.
                           </div>
                         ) : showImage ? (
@@ -3327,20 +3385,20 @@ export default function Inbox() {
                                 alignItems: 'center',
                                 gap: 8,
                                 color: 'var(--text-muted)',
-                                fontSize: 13,
+                                fontSize: 'var(--inbox-font-secondary)',
                                 padding: '8px 0'
                               }}
                             >
                               Imagem indisponível (link expirado ou bloqueado)
                             </div>
                             {String(content || '').trim() && String(content || '').trim() !== '[imagem]' ? (
-                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)', marginTop: 8 }}>
+                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', marginTop: 8 }}>
                                 {content}
                               </div>
                             ) : null}
                           </div>
                         ) : (
-                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: 15, color: 'var(--text)' }}>
+                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
                             {content}
                           </div>
                         )}
@@ -3535,7 +3593,7 @@ export default function Inbox() {
                 <div style={{ position: 'relative' }}>
                   <button
                     className={`inbox-composer-action-btn ${templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}`}
-                    style={{ padding: '0 10px', fontSize: 14 }}
+                    style={{ padding: '0 10px', fontSize: 'var(--inbox-font-list-title)' }}
                     onClick={() => {
                       setTemplatesOpen((v) => !v);
                       setEmojiOpen(false);
@@ -3563,7 +3621,7 @@ export default function Inbox() {
                         gap: 4
                       }}
                     >
-                      <div className="navi-section-heading" style={{ fontSize: '0.82rem', padding: '2px 6px 6px' }}>
+                      <div className="navi-section-heading" style={{ padding: '2px 6px 6px' }}>
                         Mensagens prontas
                       </div>
                       {quickTemplates.length === 0 && (
@@ -3595,8 +3653,17 @@ export default function Inbox() {
                               }
                             }}
                           >
-                            <span style={{ display: 'block', fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{tpl.label}</span>
-                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                            <span
+                              style={{
+                                display: 'block',
+                                fontWeight: 700,
+                                fontSize: 'var(--inbox-font-caption)',
+                                marginBottom: 2
+                              }}
+                            >
+                              {tpl.label}
+                            </span>
+                            <span style={{ fontSize: 'var(--inbox-font-secondary)', color: 'var(--text-secondary)' }}>
                               {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
                             </span>
                           </button>
@@ -3609,7 +3676,7 @@ export default function Inbox() {
               <div style={{ position: 'relative' }}>
                 <button
                   className="btn btn-outline inbox-composer-action-btn"
-                  style={{ padding: '0 10px', fontSize: 16 }}
+                  style={{ padding: '0 10px', fontSize: '1.125rem' }}
                   onClick={() => {
                     setEmojiOpen((v) => !v);
                     setTemplatesOpen(false);
@@ -3652,7 +3719,7 @@ export default function Inbox() {
                             border: '1px solid var(--border)'
                           }}
                         >
-                          <span style={{ fontSize: 18, lineHeight: '18px' }}>{em}</span>
+                          <span style={{ fontSize: '1.125rem', lineHeight: 1 }}>{em}</span>
                         </button>
                       ))}
                     </div>
@@ -3758,7 +3825,7 @@ export default function Inbox() {
                           applySlashTemplate(tpl);
                         }}
                       >
-                        <span style={{ display: 'block', fontWeight: 700, fontSize: 13 }}>{tpl.label}</span>
+                        <span style={{ display: 'block', fontWeight: 700, fontSize: 'var(--inbox-font-secondary)' }}>{tpl.label}</span>
                         <span className="text-small" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 2 }}>
                           {preview}
                         </span>
@@ -4142,7 +4209,7 @@ export default function Inbox() {
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-          <div className="navi-section-heading" style={{ fontSize: '0.9rem' }}>
+          <div className="navi-section-heading">
             Fixadas
           </div>
           <span className="navi-ui-count">{pinnedMessages.length}</span>
@@ -4185,7 +4252,7 @@ export default function Inbox() {
   const contextPanel = (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div className="navi-section-heading" style={{ fontSize: '1.05rem' }}>Detalhes</div>
+        <div className="navi-section-heading">Detalhes</div>
         {!isMobile && (
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setContextOpen(false)}>
             Ocultar painel
@@ -4220,7 +4287,7 @@ export default function Inbox() {
         .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
         .inbox-menu-overlay { position: fixed; inset: 0; background: var(--overlay-menu); z-index: 80; }
         .inbox-menu-panel { position: fixed; width: 260px; max-height: min(72vh, 520px); overflow-x: hidden; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); z-index: 81; }
-        .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
+        .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-size: var(--inbox-font-secondary); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
         .inbox-menu-item:hover { background: var(--surface-hover); }
         .inbox-menu-item.danger { color: var(--danger); }
         .inbox-menu-item.danger:hover { background: var(--danger-light); }
@@ -4235,10 +4302,21 @@ export default function Inbox() {
         }
         .inbox-conversation-item:hover { background: rgba(15, 23, 42, 0.04) !important; }
         .inbox-conversation-item.active { box-shadow: inset 3px 0 0 var(--v500); }
+        .inbox-msg-text {
+          font-size: var(--inbox-font-body);
+          line-height: var(--inbox-line-body);
+        }
+        .inbox-msg-sender-label {
+          font-size: var(--inbox-font-caption);
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          margin-bottom: 4px;
+          line-height: 1.25;
+        }
         .inbox-group-title {
           position: sticky; top: 0; z-index: 3;
           background: var(--surface); border-bottom: 1px solid var(--border);
-          padding: 6px 12px; font-size: 0.72rem; font-weight: 800; letter-spacing: .03em;
+          padding: 6px 12px; font-size: var(--inbox-font-group-label); font-weight: 800; letter-spacing: .03em;
           color: var(--text-secondary); text-transform: uppercase;
         }
         .inbox-list-skeleton {
@@ -4304,7 +4382,7 @@ export default function Inbox() {
         }
         .inbox-slash-templates-row:hover, .inbox-slash-templates-row.active { background: rgba(91, 63, 191, 0.08); }
         .agent-header { margin-bottom: 24px; }
-        .agent-subtitle { color: var(--text-muted); font-size: 14px; margin: 0; line-height: 1.45; }
+        .agent-subtitle { color: var(--text-muted); font-size: var(--inbox-font-list-title); margin: 0; line-height: 1.45; }
         .agent-toggle-block {
           background: var(--surface);
           border: 1px solid var(--border);
@@ -4319,9 +4397,9 @@ export default function Inbox() {
           gap: 12px;
           flex-wrap: wrap;
         }
-        .agent-toggle-label { font-weight: 600; font-size: 15px; color: var(--text); }
+        .agent-toggle-label { font-weight: 600; font-size: var(--inbox-font-body); color: var(--text); }
         .agent-toggle-hint {
-          font-size: 13px;
+          font-size: var(--inbox-font-secondary);
           color: var(--text-muted);
           margin: 8px 0 0;
           padding: 8px 12px;
@@ -4339,7 +4417,7 @@ export default function Inbox() {
           background: var(--surface-hover);
           color: var(--text);
           font-weight: 600;
-          font-size: 14px;
+          font-size: var(--inbox-font-list-title);
           cursor: pointer;
         }
         .agent-toggle-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -4360,14 +4438,14 @@ export default function Inbox() {
           display: block;
           font-weight: 600;
           margin-bottom: 6px;
-          font-size: 14px;
+          font-size: var(--inbox-font-list-title);
         }
         .agent-field-textarea {
           width: 100%;
           box-sizing: border-box;
           border-radius: 8px;
           padding: 10px 12px;
-          font-size: 14px;
+          font-size: var(--inbox-font-list-title);
           resize: vertical;
           font-family: inherit;
         }
@@ -4380,7 +4458,7 @@ export default function Inbox() {
           margin-top: 16px;
         }
         .agent-actions-right { display: flex; gap: 8px; flex-wrap: wrap; }
-        .unsaved-indicator { color: var(--warning); font-size: 13px; font-weight: 600; }
+        .unsaved-indicator { color: var(--warning); font-size: var(--inbox-font-secondary); font-weight: 600; }
         .agent-accordion {
           border: 1px solid var(--border);
           border-radius: 12px;
@@ -4388,11 +4466,11 @@ export default function Inbox() {
           margin-bottom: 24px;
           background: var(--surface);
         }
-        .agent-accordion summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+        .agent-accordion summary { cursor: pointer; font-weight: 600; font-size: var(--inbox-font-list-title); }
         .agent-accordion-content { margin-top: 14px; }
-        .agent-warning { color: var(--danger); font-size: 13px; margin: 8px 0 0; line-height: 1.45; }
-        .agent-info { color: var(--text-muted); font-size: 13px; margin: 8px 0 0; line-height: 1.45; }
-        .agent-field-hint { color: var(--text-muted); font-size: 13px; margin: 0 0 8px; line-height: 1.45; }
+        .agent-warning { color: var(--danger); font-size: var(--inbox-font-secondary); margin: 8px 0 0; line-height: 1.45; }
+        .agent-info { color: var(--text-muted); font-size: var(--inbox-font-secondary); margin: 8px 0 0; line-height: 1.45; }
+        .agent-field-hint { color: var(--text-muted); font-size: var(--inbox-font-secondary); margin: 0 0 8px; line-height: 1.45; }
         .agent-instructions-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
         .wizard-agente-overlay {
           position: fixed;
@@ -4427,8 +4505,8 @@ export default function Inbox() {
         }
         .wizard-agente-checks, .wizard-agente-radios { display: flex; flex-wrap: wrap; gap: 12px 16px; }
         .wizard-agente-radios--col { flex-direction: column; align-items: flex-start; }
-        .wizard-agente-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
-        .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        .wizard-agente-check { display: inline-flex; align-items: center; gap: 8px; font-size: var(--inbox-font-list-title); cursor: pointer; }
+        .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: var(--inbox-font-list-title); }
       ` }} />
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
@@ -4476,14 +4554,14 @@ export default function Inbox() {
                 onClick={() => void toggleDesktopNotifyPreference()}
                 title={
                   desktopNotify
-                    ? 'Alertas do sistema ativos (notificação do Windows/macOS)'
+                    ? 'Notificações do sistema ativas (Windows/macOS)'
                     : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
                 }
-                style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', minHeight: 34 }}
                 type="button"
               >
                 {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-                Alertas
+                Notificações
               </button>
             </div>
           </div>
@@ -4939,7 +5017,16 @@ export default function Inbox() {
               onClick={(e) => e.stopPropagation()}
             >
               <div style={{ width: 40, height: 4, borderRadius: 4, background: 'var(--border)', margin: '0 auto 14px' }} aria-hidden />
-              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 'var(--inbox-font-body)',
+                  marginBottom: 14,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
                 {title}
               </div>
               {sheetUnread === 0 ? (

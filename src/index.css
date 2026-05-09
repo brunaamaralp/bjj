@@ -77,6 +77,16 @@
   /* Badges tipo “Transferido” / info azul no Inbox (--info global continua violeta para texto UI). */
   --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
   --inbox-info-badge-fg: #1d4ed8;
+  /* Atendimento (Inbox) — uma escala tipográfica (rem ≈ 16px root) */
+  --inbox-font-meta: 0.6875rem; /* 11px — chips densos, alinhado a .navi-ui-date */
+  --inbox-font-caption: 0.75rem; /* 12px — .text-xs, rótulos de mensagem */
+  --inbox-font-secondary: 0.8125rem; /* 13px — .form-input / .navi-subtitle */
+  --inbox-font-list-title-sm: 0.8125rem; /* 13px — título na lista (compact) */
+  --inbox-font-list-title: 0.875rem; /* 14px — título na lista */
+  --inbox-font-body: 0.9375rem; /* 15px — corpo das mensagens */
+  --inbox-font-thread-title: 1rem; /* título do thread no header */
+  --inbox-font-group-label: 0.75rem; /* cabeçalhos sticky da lista */
+  --inbox-line-body: 1.47; /* line-height do corpo da mensagem */
   /* Filtro opcional no ícone nativo do calendário (WebKit) */
   --date-icon-filter: none;
   --transition: all 0.15s ease;

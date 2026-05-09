@@ -133,14 +133,23 @@ export default function ConversationItem({
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span style={{ fontWeight: 700, fontSize: compact ? 13 : 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: compact ? 'var(--inbox-font-list-title-sm)' : 'var(--inbox-font-list-title)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1
+                }}
+              >
                 {String(item?._displayTitle || '-')}
               </span>
               <span
                 className="text-small"
                 style={{
                   color: 'var(--text-secondary)',
-                  fontSize: compact ? 9 : 10,
+                  fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
                   padding: 0,
                   borderRadius: 0,
                   fontWeight: 600,
@@ -157,7 +166,7 @@ export default function ConversationItem({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    fontSize: compact ? 10 : 11,
+                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
                     fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
@@ -177,7 +186,7 @@ export default function ConversationItem({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    fontSize: compact ? 10 : 11,
+                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
                     fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
@@ -196,7 +205,7 @@ export default function ConversationItem({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    fontSize: compact ? 9 : 10,
+                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
                     fontWeight: 700,
                     padding: '1px 6px',
                     borderRadius: 999,
@@ -218,7 +227,7 @@ export default function ConversationItem({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    fontSize: compact ? 10 : 11,
+                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
                     fontWeight: 800,
                     padding: '1px 7px',
                     borderRadius: 999,
@@ -236,7 +245,14 @@ export default function ConversationItem({
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: compact ? 2 : 3, minWidth: 0 }}>
               <span
                 className="text-small"
-                style={{ color: 'var(--text-secondary)', fontSize: compact ? 11 : 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1
+                }}
               >
                 {preview || '—'}
               </span>
@@ -249,7 +265,15 @@ export default function ConversationItem({
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: compact ? 2 : 4, flexShrink: 0, marginLeft: compact ? 4 : 6 }}>
-          <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: compact ? 11 : 12, whiteSpace: 'nowrap' }}>
+          <span
+            className="text-small"
+            style={{
+              color: 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
+              whiteSpace: 'nowrap'
+            }}
+          >
             {formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
           </span>
           {unreadCount > 0 && (
