@@ -698,6 +698,13 @@ button:active {
   flex: 0 0 auto;
 }
 
+/* Atendimento: preenche a altura útil do main e mantém rolagem só no thread (evita flex 0 0 auto da regra acima em netos via Routes) */
+.main-content .container.inbox-page {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 @media (min-width: 1024px) {
   .navi-sidebar {
     display: flex;

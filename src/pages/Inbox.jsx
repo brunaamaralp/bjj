@@ -15,7 +15,7 @@ import { useUserRole } from '../lib/useUserRole';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, X } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, User, X, Zap } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
 import ThreadState from '../components/inbox/ThreadState';
@@ -23,6 +23,18 @@ import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
+const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
+
+function readMinhaFilaFromStorage() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const v = window.localStorage.getItem(MINHA_FILA_STORAGE_KEY);
+    if (v === null) return false;
+    return v === '1' || String(v).toLowerCase() === 'true';
+  } catch {
+    return false;
+  }
+}
 
 function readComposerExpandedFromStorage() {
   if (typeof window === 'undefined') return false;
@@ -90,6 +102,30 @@ function formatTimeOnly(iso) {
   const d = new Date(s);
   if (!Number.isFinite(d.getTime())) return '';
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Rótulo curto para a lista: “Agora”, “Há N min”, horário no dia, “Ontem”, data. */
+function formatListActivityLabel(iso) {
+  const s = String(iso || '').trim();
+  if (!s) return '';
+  const d = new Date(s);
+  if (!Number.isFinite(d.getTime())) return '';
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMsg = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffMs = now.getTime() - d.getTime();
+  if (diffMs >= 0 && diffMs < 60_000) return 'Agora';
+  if (diffMs >= 60_000 && diffMs < 3600_000) {
+    const m = Math.floor(diffMs / 60_000);
+    return `Há ${m} min`;
+  }
+  if (startOfMsg.getTime() === startOfToday.getTime()) {
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  const yesterday = new Date(startOfToday);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (startOfMsg.getTime() === yesterday.getTime()) return 'Ontem';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 /** 0 = desconhecido/inválido — na ordenação por data ficam por último dentro do grupo. */
@@ -186,8 +222,9 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
 
-  const [listFilter, setListFilter] = useState('unread');
-  const listFilterRef = useRef('unread');
+  const [listFilter, setListFilter] = useState('all');
+  const [minhaFilaOn, setMinhaFilaOn] = useState(() => readMinhaFilaFromStorage());
+  const listFilterRef = useRef('all');
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const listExtraFiltersRef = useRef(null);
@@ -439,6 +476,18 @@ export default function Inbox() {
   }, [composerExpanded]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(MINHA_FILA_STORAGE_KEY, minhaFilaOn ? '1' : '0');
+    } catch {
+      void 0;
+    }
+  }, [minhaFilaOn]);
+
+  useEffect(() => {
+    if (listFilter === 'my_queue') setListFilter('unread');
+  }, [listFilter]);
+
+  useEffect(() => {
     if (composerExpanded) return;
     setTemplatesOpen(false);
     setEmojiOpen(false);
@@ -537,6 +586,33 @@ export default function Inbox() {
     };
   }, []);
 
+  const [inboxThreadNarrow767, setInboxThreadNarrow767] = useState(false);
+  const [showInboxKeyHints, setShowInboxKeyHints] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const apply = () => setInboxThreadNarrow767(Boolean(mq.matches));
+    apply();
+    if (mq.addEventListener) mq.addEventListener('change', apply);
+    else mq.addListener(apply);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', apply);
+      else mq.removeListener(apply);
+    };
+  }, []);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(min-width: 769px)');
+    const apply = () => setShowInboxKeyHints(Boolean(mq.matches));
+    apply();
+    if (mq.addEventListener) mq.addEventListener('change', apply);
+    else mq.addListener(apply);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', apply);
+      else mq.removeListener(apply);
+    };
+  }, []);
+
   useEffect(() => {
     if (!isNarrowDesktop) return;
     if (!contextOpen) return;
@@ -551,25 +627,6 @@ export default function Inbox() {
     setStats((prev) => ({ ...prev, unreadBacklog, resolvedCount, transferredCount }));
     useLeadStore.getState().setInboxUnreadConversations(unreadBacklog);
   }, [items, listFilter]);
-
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      const target = e.target;
-      const tag = String(target?.tagName || '').toLowerCase();
-      const editing = tag === 'input' || tag === 'textarea' || target?.isContentEditable;
-      if (editing) return;
-      if (!selectedPhoneRef.current) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
-        e.preventDefault();
-        loadThread(selectedPhoneRef.current);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selected?.ticket_status]);
 
   function safeParseJson(raw) {
     try {
@@ -2320,7 +2377,6 @@ export default function Inbox() {
 
   const filteredItems = useMemo(() => {
     const arr = Array.isArray(prioritizedItems) ? prioritizedItems : [];
-    const f = String(listFilter || 'all');
     const normTicket = (it) =>
       String(it?._ticketStatus ?? it?.ticket_status ?? '')
         .trim()
@@ -2329,6 +2385,19 @@ export default function Inbox() {
       const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
       return Number.isFinite(n) ? n : 0;
     };
+    const applyLabel = (rows) => {
+      if (!labelFilter) return rows;
+      return rows.filter((it) => {
+        const ids = it?._lead?.labelIds;
+        return Array.isArray(ids) && ids.includes(labelFilter);
+      });
+    };
+
+    if (minhaFilaOn) {
+      return applyLabel(arr.filter((it) => Boolean(it?._handoffActive) && unreadN(it) > 0));
+    }
+
+    const f = String(listFilter || 'all');
     let result = arr;
     if (f === 'archived') result = arr.filter((it) => Boolean(it?.archived));
     else if (f === 'unread') result = arr.filter((it) => unreadN(it) > 0);
@@ -2337,12 +2406,7 @@ export default function Inbox() {
     else if (f === 'waiting_customer') result = arr.filter((it) => normTicket(it) === 'waiting_customer');
     else if (f === 'resolved') result = arr.filter((it) => normTicket(it) === 'resolved');
     else if (f === 'transferred') result = arr.filter((it) => normTicket(it) === 'transferred');
-    if (labelFilter) {
-      result = result.filter((it) => {
-        const ids = it?._lead?.labelIds;
-        return Array.isArray(ids) && ids.includes(labelFilter);
-      });
-    }
+    result = applyLabel(result);
     if (f === 'all') {
       const updatedMs = (it) => {
         const u = parseTimestampMs(it?.updated_at);
@@ -2357,7 +2421,7 @@ export default function Inbox() {
       });
     }
     return result;
-  }, [prioritizedItems, listFilter, labelFilter]);
+  }, [prioritizedItems, listFilter, labelFilter, minhaFilaOn]);
 
   const groupedFilteredItems = useMemo(() => {
     const arr = Array.isArray(filteredItems) ? filteredItems : [];
@@ -2400,6 +2464,16 @@ export default function Inbox() {
       }
     }
     return null;
+  }, [groupedFilteredItems]);
+
+  const flatVisibleConversations = useMemo(() => {
+    const groups = Array.isArray(groupedFilteredItems) ? groupedFilteredItems : [];
+    const out = [];
+    for (const g of groups) {
+      const raw = Array.isArray(g?.items) ? g.items : [];
+      for (const it of raw) out.push(it);
+    }
+    return out;
   }, [groupedFilteredItems]);
 
   const handleSelectConversation = (it) => {
@@ -2531,6 +2605,69 @@ export default function Inbox() {
       setTicketUpdating(false);
     }
   }
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const target = e.target;
+      const tag = String(target?.tagName || '').toLowerCase();
+      const editing = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
+      if (editing) return;
+
+      const flat = flatVisibleConversations;
+      const keyOne = e.key.length === 1 ? e.key.toLowerCase() : '';
+
+      if (!e.ctrlKey && !e.metaKey && (keyOne === 'j' || keyOne === 'k') && flat.length) {
+        e.preventDefault();
+        const cur = String(selectedPhoneRef.current || '').trim();
+        let idx = flat.findIndex((it) => String(it?._phone || it?.phone_number || '').trim() === cur);
+        if (idx < 0) {
+          const pick = keyOne === 'j' ? flat[0] : flat[flat.length - 1];
+          if (pick) handleSelectConversationRef.current(pick);
+          return;
+        }
+        const nextIdx = keyOne === 'j' ? Math.min(flat.length - 1, idx + 1) : Math.max(0, idx - 1);
+        if (nextIdx !== idx) {
+          const pick = flat[nextIdx];
+          if (pick) handleSelectConversationRef.current(pick);
+        }
+        return;
+      }
+
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && keyOne === 'r' && selectedPhoneRef.current) {
+        e.preventDefault();
+        try {
+          textareaRef.current?.focus?.();
+        } catch {
+          void 0;
+        }
+        return;
+      }
+
+      if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        keyOne === 'e' &&
+        selectedPhoneRef.current &&
+        String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved'
+      ) {
+        e.preventDefault();
+        void updateTicket({ status: 'resolved' });
+        return;
+      }
+
+      if (!selectedPhoneRef.current) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        loadThread(selectedPhoneRef.current);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        void updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [flatVisibleConversations, selected?.ticket_status]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
@@ -2668,6 +2805,7 @@ export default function Inbox() {
   };
 
   const handleClearInboxListFilters = useCallback(() => {
+    setMinhaFilaOn(false);
     setListFilter('all');
     setLabelFilter(null);
     setExtraFiltersMenuOpen(false);
@@ -2712,7 +2850,7 @@ export default function Inbox() {
   }, [isMobile]);
 
   const inboxExtraFilterActive =
-    !['unread', 'need_human'].includes(String(listFilter || '')) || Boolean(labelFilter);
+    !['unread', 'need_human', 'waiting_customer'].includes(String(listFilter || '')) || Boolean(labelFilter);
 
   const listPanel = (
     <div
@@ -2728,8 +2866,20 @@ export default function Inbox() {
       }}
     >
       <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+          title={
+            isMobile
+              ? undefined
+              : 'Atalhos (fora de campos de texto): J / K conversas, R focar resposta, E resolver, Ctrl+R recarregar histórico, Ctrl+K alternar resolvido.'
+          }
+        >
           <span>Conversas</span>
+          {!isMobile ? (
+            <span className="text-small" style={{ color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              J · K
+            </span>
+          ) : null}
         </div>
         {!searchQuery && (
           <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
@@ -2754,17 +2904,20 @@ export default function Inbox() {
       >
         <button
           type="button"
-          className={listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={!minhaFilaOn && listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
           style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 8 }}
-          onClick={() => setListFilter('unread')}
+          onClick={() => {
+            setMinhaFilaOn(false);
+            setListFilter('unread');
+          }}
         >
           <span>Não lidas</span>
           {Number(stats?.unreadBacklog || 0) > 0 ? (
             <span
               className="text-small"
               style={{
-                background: listFilter === 'unread' ? 'rgba(255,255,255,0.25)' : 'var(--danger-light)',
-                color: listFilter === 'unread' ? 'inherit' : 'var(--danger)',
+                background: !minhaFilaOn && listFilter === 'unread' ? 'rgba(255,255,255,0.25)' : 'var(--danger-light)',
+                color: !minhaFilaOn && listFilter === 'unread' ? 'inherit' : 'var(--danger)',
                 padding: '1px 7px',
                 borderRadius: 999,
                 fontWeight: 800,
@@ -2778,11 +2931,26 @@ export default function Inbox() {
         </button>
         <button
           type="button"
-          className={listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={!minhaFilaOn && listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
           style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34 }}
-          onClick={() => setListFilter('need_human')}
+          onClick={() => {
+            setMinhaFilaOn(false);
+            setListFilter('need_human');
+          }}
         >
           Com você agora
+        </button>
+        <button
+          type="button"
+          className={!minhaFilaOn && listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34 }}
+          onClick={() => {
+            setMinhaFilaOn(false);
+            setListFilter('waiting_customer');
+          }}
+          title="Ticket aguardando resposta do cliente"
+        >
+          Aguardando cliente
         </button>
         <div ref={listExtraFiltersRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
@@ -2819,9 +2987,10 @@ export default function Inbox() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                 <button
                   type="button"
-                  className={listFilter === 'all' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={!minhaFilaOn && listFilter === 'all' ? 'btn btn-primary' : 'btn btn-outline'}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
+                    setMinhaFilaOn(false);
                     setListFilter('all');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -2830,20 +2999,10 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={!minhaFilaOn && listFilter === 'resolved' ? 'btn btn-primary' : 'btn btn-outline'}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
-                    setListFilter('waiting_customer');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Aguardando cliente
-                </button>
-                <button
-                  type="button"
-                  className={listFilter === 'resolved' ? 'btn btn-primary' : 'btn btn-outline'}
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
+                    setMinhaFilaOn(false);
                     setListFilter('resolved');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -2852,9 +3011,10 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={listFilter === 'archived' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={!minhaFilaOn && listFilter === 'archived' ? 'btn btn-primary' : 'btn btn-outline'}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
+                    setMinhaFilaOn(false);
                     setListFilter('archived');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -2863,9 +3023,10 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={!minhaFilaOn && listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
+                    setMinhaFilaOn(false);
                     setListFilter('hot');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -2874,9 +3035,10 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={!minhaFilaOn && listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
+                    setMinhaFilaOn(false);
                     setListFilter('transferred');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -2938,6 +3100,7 @@ export default function Inbox() {
           ticketChip={ticketChip}
           formatTimeOnly={formatTimeOnly}
           formatWhen={formatWhen}
+          formatActivityLabel={formatListActivityLabel}
           isMobile={isMobile}
           onClearListFilters={handleClearInboxListFilters}
           onConversationLongPress={(it) => {
@@ -2987,15 +3150,26 @@ export default function Inbox() {
         flex: 1,
         minHeight: 0,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        overflow: 'hidden'
       }}
     >
-      <div className="inbox-thread-header" style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
+      <div
+        className="inbox-thread-header"
+        style={{
+          padding: 10,
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          flexShrink: 0
+        }}
+      >
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, width: '100%' }}>
           {isMobile && (
             <button
               className="btn btn-secondary"
-              style={{ padding: '6px 10px', minHeight: 34 }}
+              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
               onClick={() => {
                 setSelectedPhone('');
                 setDetailsOpen(false);
@@ -3005,7 +3179,7 @@ export default function Inbox() {
               Voltar
             </button>
           )}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto' }}>
             <div
               style={{
                 fontWeight: 800,
@@ -3155,14 +3329,25 @@ export default function Inbox() {
                 );
               })()}
             </div>
-          </div>
+            </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', maxWidth: '100%' }}>
+        <div
+          className="inbox-thread-header-actions"
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}
+        >
           {String(selected?.ticket_status || '') === 'resolved' ? (
             <button
               className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34 }}
+              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
               onClick={() => updateTicket({ status: 'open' })}
               disabled={!selectedPhone || ticketUpdating}
               type="button"
@@ -3170,22 +3355,11 @@ export default function Inbox() {
             >
               Reabrir
             </button>
-          ) : (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34 }}
-              onClick={() => updateTicket({ status: 'resolved' })}
-              disabled={!selectedPhone || ticketUpdating}
-              type="button"
-              title="Marca como resolvido; a conversa entra no filtro Resolvidas"
-            >
-              Resolver
-            </button>
-          )}
+          ) : null}
           {listFilter === 'archived' && selectedPhone ? (
             <button
               className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34 }}
+              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
               onClick={() => void unarchiveConversation(selectedPhone)}
               disabled={!selectedPhone}
               type="button"
@@ -3196,7 +3370,7 @@ export default function Inbox() {
           {!selected?.need_human ? (
             <button
               className="btn btn-primary"
-              style={{ padding: '6px 10px', minHeight: 34 }}
+              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
               onClick={() => setHandoffActive(true)}
               disabled={!selectedPhone}
               type="button"
@@ -3205,13 +3379,20 @@ export default function Inbox() {
               Assumir
             </button>
           ) : (
-            <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => setHandoffActive(false)} disabled={!selectedPhone} type="button" title="Reativa o agente agora">
+            <button
+              className="btn btn-primary"
+              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
+              onClick={() => setHandoffActive(false)}
+              disabled={!selectedPhone}
+              type="button"
+              title="Reativa o agente agora"
+            >
               Devolver
             </button>
           )}
           <button
             className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34 }}
+            style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
             onClick={() => {
               if (isMobile || isNarrowDesktop) setDetailsOpen(true);
               else setContextOpen((v) => !v);
@@ -3224,7 +3405,7 @@ export default function Inbox() {
           </button>
           <button
             className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900 }}
+            style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900, flexShrink: 0 }}
             onClick={(e) => openMenu('thread', e.currentTarget, { phone: String(selectedPhone || '').trim() })}
             disabled={!selectedPhone}
             title={!selectedPhone ? 'Selecione uma conversa para ver as ações' : 'Mais ações'}
@@ -3241,7 +3422,15 @@ export default function Inbox() {
         <div
           ref={threadScrollRef}
           onScroll={onThreadScroll}
-          style={{ padding: 14, flex: 1, minHeight: 0, overflow: 'auto', background: 'rgba(91,63,191,0.04)' }}
+          style={{
+            padding: 14,
+            flex: 1,
+            minHeight: 0,
+            overflow: 'auto',
+            overflowAnchor: 'none',
+            WebkitOverflowScrolling: 'touch',
+            background: 'rgba(91,63,191,0.04)'
+          }}
         >
           {threadHasMore && !threadLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
@@ -3574,6 +3763,120 @@ export default function Inbox() {
           </div>
         )}
       </div>
+
+      {String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved' ? (
+        <div
+          role="toolbar"
+          aria-label="Ações rápidas da conversa"
+          style={{
+            flexShrink: 0,
+            borderTop: '1px solid var(--border)',
+            padding: '6px 10px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 8,
+            minHeight: 38,
+            boxSizing: 'border-box',
+            background: 'var(--surface)'
+          }}
+        >
+          <button
+            type="button"
+            disabled={!selectedPhone || ticketUpdating}
+            onClick={() => void updateTicket({ status: 'resolved' })}
+            title="Resolver conversa"
+            style={{
+              height: 28,
+              padding: '0 10px',
+              fontSize: 12,
+              lineHeight: '26px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'transparent',
+              color: 'var(--text)',
+              fontWeight: 600,
+              cursor: !selectedPhone || ticketUpdating ? 'not-allowed' : 'pointer',
+              opacity: !selectedPhone || ticketUpdating ? 0.5 : 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxSizing: 'border-box',
+              fontFamily: 'var(--ff-ui, inherit)'
+            }}
+          >
+            Resolver
+            {showInboxKeyHints ? (
+              <span
+                aria-hidden
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: 'var(--text-muted)',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                E
+              </span>
+            ) : null}
+          </button>
+          {!inboxThreadNarrow767 ? (
+            <button
+              type="button"
+              disabled={!selectedPhone || ticketUpdating}
+              onClick={() => void updateTicket({ status: 'waiting_customer' })}
+              title="Marcar ticket como aguardando cliente"
+              style={{
+                height: 28,
+                padding: '0 10px',
+                fontSize: 12,
+                lineHeight: '26px',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'transparent',
+                color: 'var(--text)',
+                fontWeight: 600,
+                cursor: !selectedPhone || ticketUpdating ? 'not-allowed' : 'pointer',
+                opacity: !selectedPhone || ticketUpdating ? 0.5 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                boxSizing: 'border-box',
+                fontFamily: 'var(--ff-ui, inherit)'
+              }}
+            >
+              Aguardando cliente
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={!selectedPhone}
+            onClick={() => {
+              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+              else setContextOpen(true);
+            }}
+            title="Abrir painel de dados do contato"
+            style={{
+              height: 28,
+              padding: '0 10px',
+              fontSize: 12,
+              lineHeight: '26px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'transparent',
+              color: 'var(--text)',
+              fontWeight: 600,
+              cursor: !selectedPhone ? 'not-allowed' : 'pointer',
+              opacity: !selectedPhone ? 0.5 : 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              boxSizing: 'border-box',
+              fontFamily: 'var(--ff-ui, inherit)'
+            }}
+          >
+            Ver ficha
+          </button>
+        </div>
+      ) : null}
 
       <div
         style={{
@@ -4267,7 +4570,7 @@ export default function Inbox() {
 
   return (
     <div
-      className="container"
+      className="container inbox-page"
       style={{
         paddingTop: 18,
         paddingBottom: 30,
@@ -4344,15 +4647,14 @@ export default function Inbox() {
           animation: inbox-slash-pop 120ms ease-out;
         }
         @media (max-width: 1023px) {
-          .inbox-thread-header > div:last-child .btn {
-            min-width: 44px;
+          .inbox-thread-header-actions .btn {
             min-height: 44px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             box-sizing: border-box;
           }
-          .inbox-thread-header > div:last-child .btn:disabled {
+          .inbox-thread-header-actions .btn:disabled {
             opacity: 0.4;
             cursor: not-allowed;
           }
@@ -4532,13 +4834,65 @@ export default function Inbox() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por telefone ou nome…"
-              className="form-input"
-              style={{ flex: '1 1 300px', minWidth: 240, maxWidth: 420 }}
-            />
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'stretch',
+                flex: '1 1 300px',
+                minWidth: 220,
+                maxWidth: 520
+              }}
+            >
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por telefone ou nome…"
+                className="form-input"
+                style={{ flex: 1, minWidth: 160, minHeight: 34, boxSizing: 'border-box' }}
+              />
+              <button
+                type="button"
+                className={minhaFilaOn ? 'btn btn-primary' : 'btn btn-outline'}
+                aria-pressed={minhaFilaOn}
+                onClick={() => setMinhaFilaOn((v) => !v)}
+                title="Quando ativo: só conversas com handoff humano e não lidas. Preferência salva neste aparelho."
+                style={{
+                  flexShrink: 0,
+                  padding: '6px 12px',
+                  minHeight: 34,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxSizing: 'border-box'
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    width: 22,
+                    height: 20
+                  }}
+                >
+                  <User size={17} strokeWidth={2} style={{ opacity: 0.92 }} />
+                  <Zap
+                    size={11}
+                    strokeWidth={2.75}
+                    style={{
+                      position: 'absolute',
+                      right: -3,
+                      bottom: -2,
+                      color: minhaFilaOn ? 'rgba(255,255,255,0.95)' : 'var(--warning)'
+                    }}
+                  />
+                </span>
+                <span style={{ whiteSpace: 'nowrap' }}>Minha fila</span>
+              </button>
+            </div>
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
               <button
                 className="btn btn-primary"
@@ -5096,7 +5450,14 @@ export default function Inbox() {
                     </div>
                     <div
                       className="inbox-mobile-thread-slot"
-                      style={{ display: selectedPhone ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}
+                      style={{
+                        display: selectedPhone ? 'flex' : 'none',
+                        flex: 1,
+                        minHeight: 0,
+                        minWidth: 0,
+                        flexDirection: 'column',
+                        overflow: 'hidden'
+                      }}
                       aria-hidden={!selectedPhone ? true : undefined}
                     >
                       {threadPanel}
@@ -5148,7 +5509,19 @@ export default function Inbox() {
                     >
                       <div style={{ width: 2, flex: 1, minHeight: 200, background: 'var(--border)', borderRadius: 999 }} />
                     </div>
-                    <div style={{ paddingLeft: 10, paddingRight: contextPanelVisible ? 10 : 0, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>{threadPanel}</div>
+                    <div
+                      style={{
+                        paddingLeft: 10,
+                        paddingRight: contextPanelVisible ? 10 : 0,
+                        minWidth: 0,
+                        minHeight: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {threadPanel}
+                    </div>
                     {contextPanelVisible && <div style={{ paddingLeft: 10, minHeight: 0, overflow: 'auto' }}>{contextPanel}</div>}
                   </div>
                 )

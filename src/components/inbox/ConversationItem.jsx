@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { AlertTriangle, Flame } from 'lucide-react';
 
 const LONG_PRESS_MS = 520;
@@ -11,11 +11,13 @@ export default function ConversationItem({
   ticketChip,
   formatTimeOnly,
   formatWhen,
+  formatActivityLabel,
   compact = false,
   enableLongPress = false,
   onLongPress,
   handoffNowMs,
 }) {
+  const [rowHover, setRowHover] = useState(false);
   const hotLead = Boolean(item?._hotLead);
   const handoffActive = Boolean(item?._handoffActive);
   const aiSuggestHuman = Boolean(item?._aiSuggestHuman);
@@ -31,8 +33,31 @@ export default function ConversationItem({
       : null;
   const isHighlighted = Boolean(item?._isHighlighted);
   const ticket = ticketChip(item?._ticketStatus, item?._transferTo);
+  const ticketStatusLower = String(item?._ticketStatus ?? item?.ticket_status ?? '')
+    .trim()
+    .toLowerCase();
+  const isWaitingCustomer = ticketStatusLower === 'waiting_customer';
+
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-  const preview = rawPrev.length > 40 ? `${rawPrev.slice(0, 40)}…` : rawPrev;
+  const previewMax = handoffActive ? 72 : 52;
+  const preview = rawPrev.length > previewMax ? `${rawPrev.slice(0, previewMax)}…` : rawPrev;
+
+  const hasLevel1 = unreadCount > 0 || handoffActive;
+  const showLevel2IA = !handoffActive && !hasLevel1;
+  const pureAiLast = lastRole === 'assistant' && lastSender !== 'human';
+  const showDot = Boolean(lastAssistantDot) && !(pureAiLast && showLevel2IA);
+
+  const showL2WaitingChip =
+    !hasLevel1 && isWaitingCustomer && Boolean(ticket?.label) && !ticket?.isDefault;
+
+  const showLevel3 = !enableLongPress && rowHover;
+  const showL3Hot = showLevel3 && hotLead;
+  const showL3AiAlert = showLevel3 && !handoffActive && aiSuggestHuman;
+  const showL3Ticket =
+    showLevel3 &&
+    Boolean(ticket?.label) &&
+    !ticket?.isDefault &&
+    !(isWaitingCustomer && !hasLevel1);
 
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
@@ -104,6 +129,8 @@ export default function ConversationItem({
       type="button"
       data-inbox-conversation-item
       onClick={handleClick}
+      onMouseEnter={() => setRowHover(true)}
+      onMouseLeave={() => setRowHover(false)}
       onTouchStart={enableLongPress ? handleTouchStart : undefined}
       onTouchMove={enableLongPress ? handleTouchMove : undefined}
       onTouchEnd={enableLongPress ? handleTouchEnd : undefined}
@@ -117,7 +144,11 @@ export default function ConversationItem({
         padding: compact ? '7px 10px 7px' : '10px 14px 10px',
         border: 'none',
         borderBottom: '1px solid var(--border)',
-        borderLeft: active ? '4px solid var(--accent)' : '4px solid transparent',
+        borderLeft: active
+          ? '4px solid var(--accent)'
+          : handoffActive
+            ? '3px solid var(--warning)'
+            : '4px solid transparent',
         background: active ? 'var(--v50)' : isHighlighted ? 'rgba(91, 63, 191, 0.08)' : 'transparent',
         cursor: 'pointer',
         overflow: 'hidden'
@@ -125,14 +156,14 @@ export default function ConversationItem({
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: compact ? 6 : 8, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
         <div style={{ display: 'flex', gap: compact ? 4 : 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
-          {lastAssistantDot && (
+          {showDot ? (
             <span
               title={lastAssistantDot.label}
               style={{ width: 8, height: 8, borderRadius: 999, background: lastAssistantDot.bg, flex: '0 0 auto', marginTop: 2 }}
             />
-          )}
+          ) : null}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
               <span
                 style={{
                   fontWeight: 700,
@@ -140,7 +171,8 @@ export default function ConversationItem({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  flex: 1
+                  flex: 1,
+                  minWidth: 120
                 }}
               >
                 {String(item?._displayTitle || '-')}
@@ -158,30 +190,9 @@ export default function ConversationItem({
               >
                 {contactType === 'student' ? 'Aluno' : 'Lead'}
               </span>
-              {hotLead && (
-                <span
-                  title="Lead quente"
-                  className="inbox-status-chip inbox-status-chip-hot"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
-                    fontWeight: 800,
-                    padding: '1px 7px',
-                    borderRadius: 999,
-                    background: 'rgba(245, 158, 11, 0.18)',
-                    color: 'var(--warning-text)',
-                    flexShrink: 0
-                  }}
-                >
-                  <Flame size={12} aria-hidden />
-                  Quente
-                </span>
-              )}
               {handoffActive ? (
                 <span
-                  title="Atendimento com você"
+                  title="Atendimento com você (handoff ativo)"
                   className="inbox-status-chip inbox-status-chip-handoff"
                   style={{
                     display: 'inline-flex',
@@ -198,7 +209,8 @@ export default function ConversationItem({
                 >
                   Com você
                 </span>
-              ) : (
+              ) : null}
+              {showLevel2IA ? (
                 <span
                   title="A IA pode responder nesta conversa"
                   className="inbox-status-chip inbox-status-chip-ia"
@@ -218,28 +230,7 @@ export default function ConversationItem({
                 >
                   IA
                 </span>
-              )}
-              {!handoffActive && aiSuggestHuman && (
-                <span
-                  title="IA sugere intervenção"
-                  className="inbox-status-chip inbox-status-chip-warn"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
-                    fontWeight: 800,
-                    padding: '1px 7px',
-                    borderRadius: 999,
-                    background: 'var(--warning-light)',
-                    color: 'var(--warning-text)',
-                    flexShrink: 0
-                  }}
-                >
-                  <AlertTriangle size={12} aria-hidden />
-                  IA alerta
-                </span>
-              )}
+              ) : null}
               {item?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: compact ? 2 : 3, minWidth: 0 }}>
@@ -256,12 +247,70 @@ export default function ConversationItem({
               >
                 {preview || '—'}
               </span>
-              {!!ticket?.label && !ticket?.isDefault && (
+              {showL2WaitingChip ? (
                 <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '1px 6px', borderRadius: 999, flexShrink: 0 }}>
                   {ticket.label}
                 </span>
-              )}
+              ) : null}
             </div>
+            {showL3Hot || showL3AiAlert || showL3Ticket ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginTop: compact ? 4 : 5,
+                  minHeight: 0
+                }}
+              >
+                {showL3Hot ? (
+                  <span
+                    title="Lead quente"
+                    className="inbox-status-chip inbox-status-chip-hot"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
+                      fontWeight: 800,
+                      padding: compact ? '2px 5px' : '2px 6px',
+                      borderRadius: 999,
+                      background: 'rgba(245, 158, 11, 0.18)',
+                      color: 'var(--warning-text)',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Flame size={compact ? 12 : 13} aria-hidden />
+                  </span>
+                ) : null}
+                {showL3AiAlert ? (
+                  <span
+                    title="IA sugere intervenção humana"
+                    className="inbox-status-chip inbox-status-chip-warn"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
+                      fontWeight: 800,
+                      padding: compact ? '2px 5px' : '2px 6px',
+                      borderRadius: 999,
+                      background: 'var(--warning-light)',
+                      color: 'var(--warning-text)',
+                      flexShrink: 0
+                    }}
+                  >
+                    <AlertTriangle size={compact ? 12 : 13} aria-hidden />
+                  </span>
+                ) : null}
+                {showL3Ticket ? (
+                  <span className="text-small" style={{ background: ticket.bg, color: ticket.fg, padding: '1px 6px', borderRadius: 999, flexShrink: 0 }}>
+                    {ticket.label}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: compact ? 2 : 4, flexShrink: 0, marginLeft: compact ? 4 : 6 }}>
@@ -273,10 +322,13 @@ export default function ConversationItem({
               fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
               whiteSpace: 'nowrap'
             }}
+            title={formatWhen(item?.updated_at) || undefined}
           >
-            {formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
+            {typeof formatActivityLabel === 'function'
+              ? formatActivityLabel(item?.updated_at)
+              : formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
           </span>
-          {unreadCount > 0 && (
+          {unreadCount > 0 ? (
             <span
               className="text-small"
               style={{ background: 'var(--danger)', color: '#fff', padding: '1px 7px', borderRadius: 999, fontWeight: 800 }}
@@ -284,7 +336,7 @@ export default function ConversationItem({
             >
               {unreadCount}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
     </button>

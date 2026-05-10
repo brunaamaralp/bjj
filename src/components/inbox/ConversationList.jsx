@@ -39,6 +39,7 @@ export default function ConversationList(props) {
     ticketChip,
     formatTimeOnly,
     formatWhen,
+    formatActivityLabel,
     isMobile = false,
     onConversationLongPress,
     onClearListFilters,
@@ -73,6 +74,7 @@ export default function ConversationList(props) {
                 ticketChip={ticketChip}
                 formatTimeOnly={formatTimeOnly}
                 formatWhen={formatWhen}
+                formatActivityLabel={formatActivityLabel}
                 compact
                 enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
                 onLongPress={() => onConversationLongPress?.(it)}
