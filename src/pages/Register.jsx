@@ -10,6 +10,7 @@ const Register = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [vertical, setVertical] = useState('fitness');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,7 @@ const Register = ({ onLogin }) => {
       if (password.length < 8) { setError('Senha deve ter no mínimo 8 caracteres.'); setLoading(false); return; }
       await authService.register(email, password, name);
       const user = await authService.getCurrentUser();
-      onLogin(user);
+      onLogin(user, { vertical });
     } catch (err) {
       if (err.code === 409) {
         setError('Não foi possível criar a conta. Verifique os dados e tente novamente.');
@@ -81,6 +82,21 @@ const Register = ({ onLogin }) => {
           </div>
 
           <div className="form-group">
+            <label>Tipo de negócio</label>
+            <select
+              className="form-input"
+              value={vertical}
+              onChange={(e) => setVertical(e.target.value === 'physio' ? 'physio' : 'fitness')}
+            >
+              <option value="fitness">Academia / Artes marciais</option>
+              <option value="physio">Fisioterapia</option>
+            </select>
+            <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6, marginBottom: 0 }}>
+              Ajusta termos na interface (ex.: paciente vs aluno).
+            </p>
+          </div>
+
+          <div className="form-group">
             <label>Senha</label>
             <div className="password-wrapper">
               <input
@@ -135,11 +151,17 @@ const Register = ({ onLogin }) => {
         .login-title { margin: 0 0 4px; display: flex; align-items: center; justify-content: center; }
         .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
         .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }
-        .password-wrapper { position: relative; }
-        .password-toggle {
-          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+        .login-card .password-wrapper { position: relative; }
+        .login-card .password-wrapper .form-input { padding-right: 44px; }
+        .login-card button.password-toggle {
+          position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+          z-index: 2;
           background: none; border: none; color: var(--text-muted); padding: 0;
-          min-height: auto; cursor: pointer;
+          min-height: auto; width: 40px; height: 40px; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .login-card button.password-toggle:active {
+          transform: translateY(-50%) scale(0.98);
         }
         .login-error {
           padding: 10px 14px; background: var(--danger-light); color: var(--danger);

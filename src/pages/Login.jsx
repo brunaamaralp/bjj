@@ -128,11 +128,17 @@ const Login = ({ onLogin }) => {
         }
         .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
         .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }
-        .password-wrapper { position: relative; }
-        .password-toggle {
-          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+        .login-card .password-wrapper { position: relative; }
+        .login-card .password-wrapper .form-input { padding-right: 44px; }
+        .login-card button.password-toggle {
+          position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+          z-index: 2;
           background: none; border: none; color: var(--text-muted); padding: 0;
-          min-height: auto; cursor: pointer;
+          min-height: auto; width: 40px; height: 40px; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .login-card button.password-toggle:active {
+          transform: translateY(-50%) scale(0.98);
         }
         .login-error {
           padding: 10px 14px; background: var(--danger-light); color: var(--danger);

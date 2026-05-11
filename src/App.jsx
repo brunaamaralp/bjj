@@ -71,6 +71,14 @@ function defaultAiNameFromUser(user) {
   return (first || 'Nave').slice(0, 80);
 }
 
+function academyCreateBodyFromUser(user, opts) {
+  const body = { ai_name: defaultAiNameFromUser(user) };
+  if (opts && opts.vertical !== undefined && opts.vertical !== null) {
+    body.vertical = String(opts.vertical).trim() === 'physio' ? 'physio' : 'fitness';
+  }
+  return body;
+}
+
 const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -398,8 +406,8 @@ const App = () => {
     init();
   }, []);
 
-  // Create or find academy for user
-  const setupAcademy = async (u) => {
+  // Create or find academy for user (opts.vertical só no cadastro: primeiro POST /api/academies/create)
+  const setupAcademy = async (u, opts) => {
     try {
       if (!u || !u.$id) {
         throw new Error('invalid_user');
@@ -464,7 +472,7 @@ const App = () => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${jwt}`
           },
-          body: JSON.stringify({ ai_name: defaultAiNameFromUser(u) })
+          body: JSON.stringify(academyCreateBodyFromUser(u, opts))
         });
         const data = await resp.json().catch(() => ({}));
         if (resp.ok && data && data.id) {
@@ -630,7 +638,7 @@ const App = () => {
     }
   };
 
-  const handleLogin = async (u) => {
+  const handleLogin = async (u, opts) => {
     if (!u || !u.$id) {
       navigate('/login', { replace: true });
       return;
@@ -638,7 +646,7 @@ const App = () => {
     setUser(u);
     try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
     try { await authService.refreshJwt(); } catch (e) { void e; }
-    await setupAcademy(u);
+    await setupAcademy(u, opts);
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
     navigate('/', { replace: true });
   };
