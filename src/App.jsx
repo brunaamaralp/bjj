@@ -21,7 +21,6 @@ import {
   BookOpen,
   CheckSquare,
   Menu,
-  ClipboardList,
   CreditCard,
   X
 } from 'lucide-react';
@@ -54,7 +53,6 @@ import Inbox from './pages/Inbox';
 import Plans from './pages/Plans';
 import AIAgentSettings from './pages/AIAgentSettings';
 import Tasks from './pages/Tasks';
-import Attendance from './pages/Attendance';
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -62,7 +60,6 @@ import OnboardingBanner from './components/OnboardingBanner.jsx';
 import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
-import { useTerms } from './lib/terminology.js';
 
 
 function defaultAiNameFromUser(user) {
@@ -113,7 +110,6 @@ const App = () => {
   }, [academyList, academyIdStore]);
 
   const billingAccessTop = useLeadStore((s) => s.billingAccess);
-  const terms = useTerms();
 
   const topbarTrialChip = useMemo(() => {
     if (!isBillingLive() || billingAccessTop?.status !== 'trial' || !billingAccessTop?.currentPeriodEnd) {
@@ -185,7 +181,6 @@ const App = () => {
       title: 'Gestão',
       items: [
         { to: '/tarefas', label: 'Tarefas', Icon: CheckSquare },
-        { to: '/presenca', label: terms.attendance, Icon: ClipboardList },
         { to: '/planos', label: 'Planos', Icon: CreditCard },
       ],
     });
@@ -216,7 +211,7 @@ const App = () => {
     cfgItems.push({ to: '/reports', label: 'Relatórios', Icon: BarChart3 });
     sections.push({ title: 'Configurações', items: cfgItems });
     return sections;
-  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa, terms.attendance]);
+  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa]);
 
   const closeMobileDrawer = () => setMobileMenuOpen(false);
 
@@ -566,11 +561,12 @@ const App = () => {
             mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
           }
         } catch { uiLabels = null; mods = null; }
+        const labelVertical = String(doc.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
         if (uiLabels && typeof uiLabels === 'object') {
           setLabels({
-            leads: uiLabels.leads || 'Leads',
-            students: uiLabels.students || 'Alunos',
-            classes: uiLabels.classes || 'Aulas',
+            leads: uiLabels.leads || (labelVertical === 'physio' ? 'Pacientes' : 'Leads'),
+            students: uiLabels.students || (labelVertical === 'physio' ? 'Pacientes' : 'Alunos'),
+            classes: uiLabels.classes || (labelVertical === 'physio' ? 'Atendimentos' : 'Aulas'),
             pipeline: uiLabels.pipeline || 'Funil',
           });
         }
@@ -732,11 +728,12 @@ const App = () => {
               mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
             }
           } catch { uiLabels = null; mods = null; }
+          const labelVerticalSwitch = String(doc.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
           if (uiLabels && typeof uiLabels === 'object') {
             setLabels({
-              leads: uiLabels.leads || 'Leads',
-              students: uiLabels.students || 'Alunos',
-              classes: uiLabels.classes || 'Aulas',
+              leads: uiLabels.leads || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Leads'),
+              students: uiLabels.students || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Alunos'),
+              classes: uiLabels.classes || (labelVerticalSwitch === 'physio' ? 'Atendimentos' : 'Aulas'),
               pipeline: uiLabels.pipeline || 'Funil',
             });
           }
@@ -845,14 +842,6 @@ const App = () => {
               >
                 <CheckSquare size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Tarefas</span>
-              </NavLink>
-              <NavLink
-                to="/presenca"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? terms.attendance : undefined}
-              >
-                <ClipboardList size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">{terms.attendance}</span>
               </NavLink>
               <NavLink
                 to="/reports"
@@ -1055,7 +1044,8 @@ const App = () => {
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
               <Route path="/tarefas" element={<Tasks />} />
-              <Route path="/presenca" element={<Attendance />} />
+              {/* Presença / Control iD: oculto até finalizar integração da catraca */}
+              <Route path="/presenca" element={<Navigate to="/" replace />} />
               <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
               <Route path="/planos" element={<Plans user={user} />} />
               <Route path="/empresa" element={<AcademySettings />} />

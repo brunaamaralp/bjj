@@ -17,12 +17,18 @@ import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import AgendaCalendarWeek, { formatWeekRangeLabel, getWeekStart } from '../components/AgendaCalendarWeek.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
+import { useTerms } from '../lib/terminology.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 const Dashboard = () => {
     const navigate = useNavigate();
     const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
+    const vertical = useLeadStore((s) => s.vertical);
+    const terms = useTerms();
+    const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
+    const receptionSubtitle =
+        vertical === 'physio' ? 'Controle de avaliações e retornos' : 'Controle de aulas experimentais e retornos';
     const tasks = useTaskStore((s) => s.tasks);
     const fetchTasks = useTaskStore((s) => s.fetchTasks);
     const updateTask = useTaskStore((s) => s.updateTask);
@@ -210,7 +216,7 @@ const Dashboard = () => {
         const st = useLeadStore.getState();
         const modalLead = scheduleModalLead;
         const patch = buildSchedulePatch(modalLead, { date, time });
-        const textBody = String(note || '').trim() || 'Aula experimental agendada';
+        const textBody = String(note || '').trim() || `${terms.trial} agendada`;
         const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
         const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
         try {
@@ -229,7 +235,7 @@ const Dashboard = () => {
             } catch {
                 await st.updateLead(modalLead.id, patch);
             }
-            addToast({ type: 'success', message: 'Aula agendada com sucesso.' });
+            addToast({ type: 'success', message: `${terms.trial} agendada com sucesso.` });
         } catch (e) {
             addToast({ type: 'error', message: 'Erro ao atualizar agendamento.' });
             throw e;
@@ -340,9 +346,9 @@ const Dashboard = () => {
 
     const modalTitle =
         listModalType === 'today'
-            ? 'Aulas experimentais hoje'
+            ? `${trialSeriesPlural} hoje`
             : listModalType === 'week'
-              ? 'Aulas experimentais esta semana'
+              ? `${trialSeriesPlural} esta semana`
               : listModalType === 'followup'
                 ? 'Follow-ups pendentes'
                 : listModalType === 'tasks'
@@ -486,7 +492,7 @@ const Dashboard = () => {
             <header className="reception-page-header reception-page-header--split animate-in">
                 <div className="reception-page-header__intro">
                     <h1 className="navi-page-title">Agenda da Recepção</h1>
-                    <p className="navi-subtitle" style={{ marginTop: 2 }}>Controle de aulas experimentais e retornos</p>
+                    <p className="navi-subtitle" style={{ marginTop: 2 }}>{receptionSubtitle}</p>
                 </div>
                 <div className="reception-page-header__actions">
                     <div className="reception-header-ai">
@@ -522,7 +528,7 @@ const Dashboard = () => {
                     [
                         {
                             key: 'today',
-                            title: 'Aulas experimentais hoje',
+                            title: `${trialSeriesPlural} hoje`,
                             count: todayScheduled.length,
                             cta: 'Ver agenda',
                             Icon: Calendar,
@@ -530,7 +536,7 @@ const Dashboard = () => {
                         },
                         {
                             key: 'week',
-                            title: 'Aulas experimentais esta semana',
+                            title: `${trialSeriesPlural} esta semana`,
                             count: weekScheduled.length,
                             cta: 'Ver lista',
                             Icon: LayoutGrid,
@@ -585,7 +591,7 @@ const Dashboard = () => {
                         </h3>
                         <span
                             className="badge reception-week-count-badge"
-                            title="Aulas experimentais na semana exibida"
+                            title={`${trialSeriesPlural} na semana exibida`}
                         >
                             {scheduledInVisibleWeekCount}
                         </span>
@@ -644,7 +650,8 @@ const Dashboard = () => {
                     </div>
                 </div>
                 <p className="reception-hint">
-                    Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da aula, o follow-up sai desta lista e fica só no Kanban.
+                    Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da{' '}
+                    {vertical === 'physio' ? 'avaliação' : 'aula'}, o follow-up sai desta lista e fica só no Kanban.
                 </p>
 
                 <div className="fu-list-card">
@@ -676,12 +683,16 @@ const Dashboard = () => {
                                 </span>
                                 <span
                                     className={elapsedClass}
-                                    title={lead.daysAgo === 0 ? 'Dia da aula experimental' : `Há ${lead.daysAgo} dias desde a data da aula`}
+                                    title={
+                                        lead.daysAgo === 0
+                                            ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
+                                            : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`
+                                    }
                                 >
                                     {elapsedLabel}
                                 </span>
                                 <span className={`fu-type-badge ${isPost ? 'fu-type-badge--post' : 'fu-type-badge--recover'}`}>
-                                    {isPost ? 'Pós-aula' : 'Recuperar'}
+                                    {isPost ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula') : 'Recuperar'}
                                 </span>
                                 <div className="fu-actions">
                                     <button
@@ -718,7 +729,8 @@ const Dashboard = () => {
                             <p className="mb-0">Nada pendente por agora.</p>
                             {followUpsKanbanOnlyCount > 0 && (
                                 <p className="text-xs text-light mt-2 mb-0">
-                                    {followUpsKanbanOnlyCount} {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (aula há {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
+                                    {followUpsKanbanOnlyCount} {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
+                                    {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
                                 </p>
                             )}
                         </div>
@@ -726,7 +738,8 @@ const Dashboard = () => {
                 </div>
                 {followUps.length > 0 && followUpsKanbanOnlyCount > 0 && (
                     <p className="text-xs text-light mt-2" style={{ lineHeight: 1.35 }}>
-                        + {followUpsKanbanOnlyCount} no Kanban (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a aula).
+                        + {followUpsKanbanOnlyCount} no Kanban (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a{' '}
+                        {vertical === 'physio' ? 'avaliação' : 'aula'}).
                     </p>
                 )}
             </section>
@@ -776,7 +789,9 @@ const Dashboard = () => {
                                                     </span>
                                                 ) : isFollowup ? (
                                                     <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
-                                                        {lead.status === LEAD_STATUS.COMPLETED ? 'Pós-Aula' : 'Recuperar'}
+                                                        {lead.status === LEAD_STATUS.COMPLETED
+                                                            ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-Aula')
+                                                            : 'Recuperar'}
                                                     </span>
                                                 ) : (
                                                     <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
