@@ -47,11 +47,18 @@ function permissionContextFromStore(get) {
   };
 }
 
-/** Nome do atributo na coleção de leads para dia de vencimento (1–31). Padrão `dueDay` (camelCase, alinhado a plan/scheduledDate). */
+/**
+ * Atributo Appwrite na coleção de leads para dia de vencimento (1–31).
+ * Só grava se a env estiver definida explicitamente (`dueDay` ou `due_day`);
+ * valores `off`, `false`, `0`, vazio → não envia (evita erro "Unknown attribute").
+ */
 const LEAD_DUE_DAY_APPWRITE_KEY = (() => {
-  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_DUE_DAY_ATTR || 'dueDay').trim().toLowerCase();
-  if (raw === 'due_day') return 'due_day';
-  return 'dueDay';
+  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_DUE_DAY_ATTR || '').trim();
+  const lower = raw.toLowerCase();
+  if (!raw || ['off', 'false', '0', 'no', 'none'].includes(lower)) return null;
+  if (lower === 'due_day') return 'due_day';
+  if (lower === 'dueday') return 'dueDay';
+  return null;
 })();
 
 /**
@@ -79,7 +86,7 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.age !== undefined) copyIf('age', u.age);
   if (u.lostReason !== undefined) copyIf('lostReason', u.lostReason);
   if (u.plan !== undefined) copyIf('plan', u.plan);
-  if (u.dueDay !== undefined) {
+  if (u.dueDay !== undefined && LEAD_DUE_DAY_APPWRITE_KEY) {
     const n = Number(u.dueDay);
     const val = Number.isFinite(n) && n >= 1 && n <= 31 ? Math.trunc(n) : null;
     patch[LEAD_DUE_DAY_APPWRITE_KEY] = val;
