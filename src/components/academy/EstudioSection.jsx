@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Phone, Mail, MapPin } from 'lucide-react';
+import { Building2, Phone, Mail, MapPin, Tags } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { maskPhone, maskCPFOrCNPJ } from '../../lib/masks.js';
@@ -109,6 +109,9 @@ const EstudioSection = ({
         }
     };
 
+    const verticalLabel =
+        academy.vertical === 'physio' ? 'Fisioterapia' : 'Academia / Artes marciais';
+
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
             <div className="flex justify-between items-center mb-2">
@@ -127,6 +130,28 @@ const EstudioSection = ({
                                 onChange={e => setAcademy({ ...academy, name: e.target.value })}
                                 placeholder="Ex: Team BJJ" />
                         </div>
+                        {role === 'owner' ? (
+                            <div className="form-group">
+                                <label>Tipo de negócio</label>
+                                <select
+                                    className="form-input"
+                                    style={{ maxWidth: 360 }}
+                                    value={academy.vertical || 'fitness'}
+                                    onChange={(e) =>
+                                        setAcademy({
+                                            ...academy,
+                                            vertical: e.target.value === 'physio' ? 'physio' : 'fitness',
+                                        })
+                                    }
+                                >
+                                    <option value="fitness">Academia / Artes marciais</option>
+                                    <option value="physio">Fisioterapia</option>
+                                </select>
+                                <p className="text-xs text-light" style={{ marginTop: 6 }}>
+                                    Ajusta termos na interface (ex.: paciente vs aluno).
+                                </p>
+                            </div>
+                        ) : null}
                         <div className="form-group">
                             <label>Telefone</label>
                             <input className="form-input" value={academy.phone}
@@ -191,6 +216,13 @@ const EstudioSection = ({
                 ) : (
                     <div className="flex-col gap-2">
                         <InfoRow icon={<Building2 size={16} />} label="Nome" value={academy.name} />
+                        <InfoRow
+                            icon={<Tags size={16} />}
+                            label="Tipo de negócio"
+                            value={verticalLabel}
+                            showAddInline={role === 'owner'}
+                            onAdd={() => setEditing(true)}
+                        />
                         <InfoRow
                             icon={<Phone size={16} />}
                             label="Telefone"

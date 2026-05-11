@@ -392,28 +392,6 @@ const AcademySettings = () => {
 
             {activeTab === 'estudio' && (
                 <>
-                    <section className="empresa-section animate-in card" style={{ animationDelay: '0.02s', padding: 16, marginBottom: 16 }}>
-                        <label className="navi-section-heading" style={{ display: 'block', fontSize: '0.85rem', marginBottom: 8 }}>
-                            Tipo de negócio
-                        </label>
-                        <select
-                            className="form-input"
-                            style={{ maxWidth: 360 }}
-                            value={academy.vertical || 'fitness'}
-                            onChange={(e) =>
-                                setAcademy((prev) => ({
-                                    ...prev,
-                                    vertical: e.target.value === 'physio' ? 'physio' : 'fitness',
-                                }))
-                            }
-                        >
-                            <option value="fitness">Academia / Artes marciais</option>
-                            <option value="physio">Fisioterapia</option>
-                        </select>
-                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 8, marginBottom: 0 }}>
-                            Ajusta termos na interface (ex.: paciente vs aluno). Salve para aplicar.
-                        </p>
-                    </section>
                     <EstudioSection
                         academy={academy}
                         setAcademy={setAcademy}
