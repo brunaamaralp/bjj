@@ -22,7 +22,7 @@ import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
-import { useTerms } from '../lib/terminology.js';
+import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -87,21 +87,23 @@ const ENGLISH_STATUS_TOKEN_LABELS = {
     PIPELINE_CHANGE: 'Movido no funil',
 };
 
-function humanizeTimelineStage(value, stages = []) {
+function humanizeTimelineStage(value, stages = [], terms) {
     const t = String(value || '').trim();
     if (!t) return '—';
 
     const dynamic = (stages || []).find((s) => String(s?.id || '') === t || String(s?.label || '') === t);
     if (dynamic?.label) return String(dynamic.label);
 
-    // STATUS_CONFIG mapeia status canônicos → objeto de estilo; o rótulo exibido é a própria chave (string).
-    if (STATUS_CONFIG[t]) return t;
+    if (STATUS_CONFIG[t]) return operationalStatusDisplayLabel(terms, t);
 
     const fixedPipeline = PIPELINE_STAGES.find((s) => s === t);
-    if (fixedPipeline) return fixedPipeline;
+    if (fixedPipeline) return pipelineStageDisplayLabel(terms, t);
 
     const upper = t.toUpperCase().replace(/\s+/g, '_');
-    if (ENGLISH_STATUS_TOKEN_LABELS[upper]) return ENGLISH_STATUS_TOKEN_LABELS[upper];
+    if (ENGLISH_STATUS_TOKEN_LABELS[upper]) {
+        if (upper === 'CONVERTED' && terms) return terms.convertedStatusUi;
+        return ENGLISH_STATUS_TOKEN_LABELS[upper];
+    }
 
     return t.replace(/_/g, ' ');
 }
@@ -669,7 +671,7 @@ const LeadProfile = () => {
         if (afterExp && stageAfter && stageAfter !== afterExp) {
             setConfirmModal({
                 title: 'Status e etapa divergem',
-                description: `O status (${payload.status ?? lead.status}) costuma ir com a etapa “${afterExp}”, mas a etapa atual é “${stageAfter}”. Isso pode deixar o card na coluna errada no funil. Deseja salvar mesmo assim?`,
+                description: `O status (${operationalStatusDisplayLabel(terms, payload.status ?? lead.status)}) costuma ir com a etapa “${pipelineStageDisplayLabel(terms, afterExp)}”, mas a etapa atual é “${pipelineStageDisplayLabel(terms, stageAfter)}”. Isso pode deixar o card na coluna errada no funil. Deseja salvar mesmo assim?`,
                 confirmLabel: 'Salvar mesmo assim',
                 danger: false,
                 onConfirm: async () => {
@@ -725,7 +727,7 @@ const LeadProfile = () => {
             if (newStatus === LEAD_STATUS.COMPLETED) {
                 addToast({ type: 'success', message: 'Comparecimento registrado.' });
             } else if (newStatus === LEAD_STATUS.CONVERTED) {
-                addToast({ type: 'success', message: 'Lead marcado como matriculado.' });
+                addToast({ type: 'success', message: terms.leadMarkedConvertedToast });
             }
             return true;
         } catch (e) {
@@ -1165,7 +1167,7 @@ const LeadProfile = () => {
                                     fontStyle: 'normal',
                                 }}
                             >
-                                {lead.status}
+                                {operationalStatusDisplayLabel(terms, lead.status)}
                             </span>
                             {!editing && lead.origin && (
                                 <span className="status-tag origin-status-tag">{lead.origin}</span>
@@ -1489,7 +1491,8 @@ const LeadProfile = () => {
                             {filteredTimelineEvents.map((n, i) => {
                                 const when = new Date(n.at || n.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
                                 const type = n.type || 'note';
-                                const tag = TIMELINE_EVENT_LABELS[type] ?? type;
+                                const tag =
+                                    type === 'converted' ? terms.convertedStatusUi : TIMELINE_EVENT_LABELS[type] ?? type;
                                 
                                 let dotColor = '#8E8E8E';
                                 if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
@@ -1509,7 +1512,7 @@ const LeadProfile = () => {
                                 } else if (type === 'task_done') {
                                     label = n.text || 'Tarefa marcada como concluída';
                                 } else if (type === 'stage_change' || type === 'pipeline_change') {
-                                    label = `De ${humanizeTimelineStage(n.from, stages)} para ${humanizeTimelineStage(n.to, stages)}`;
+                                    label = `De ${humanizeTimelineStage(n.from, stages, terms)} para ${humanizeTimelineStage(n.to, stages, terms)}`;
                                 } else if (type === 'inbox_note') {
                                     label = (
                                         <span>

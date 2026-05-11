@@ -261,8 +261,9 @@ const Students = () => {
     const pipelineName = labels.pipeline || 'Funil';
 
     // TODO: quando existir status inativo, adicionar filtro "Ativos/Inativos" aqui.
-    const exportTooltip =
-        `Exporta ${studentPlural.toLowerCase()} com status Matriculado ou tipo de contato ${terms.student} (mesmo critério da lista). Até 5000 por critério no servidor.`;
+    const exportTooltip = terms.exportStudentsTooltip
+        .replace(/\{students\}/g, studentPlural.toLowerCase())
+        .replace(/\{student\}/g, terms.student);
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
@@ -384,7 +385,9 @@ const Students = () => {
                         {loadingMore ? 'Carregando…' : `Carregar mais ${studentPlural.toLowerCase()}`}
                     </button>
                     <p className="text-xs text-light mt-1">
-                        A lista de {studentPlural.toLowerCase()} usa os mesmos dados do servidor que o {pipelineName}. Carregue mais para incluir matriculados em registros antigos.
+                        {terms.studentsLoadMoreFootnote
+                            .replace(/\{students\}/g, studentPlural.toLowerCase())
+                            .replace(/\{pipeline\}/g, pipelineName)}
                     </p>
                 </div>
             ) : null}
@@ -489,10 +492,10 @@ const Students = () => {
                         ) : (
                             <>
                                 <p className="navi-section-heading" style={{ marginBottom: 8, color: 'var(--text)' }}>
-                                    Nenhum {studentSingular.toLowerCase()} matriculado ainda.
+                                    Nenhum {studentSingular.toLowerCase()} {terms.enrolledPastParticiple} ainda.
                                 </p>
                                 <p className="text-small" style={{ marginBottom: 20, lineHeight: 1.5, maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto' }}>
-                                    Matrículas são feitas pelo {pipelineName} — mova um contato para o status &quot;{LEAD_STATUS.CONVERTED}&quot;.
+                                    {terms.studentsEmptyHowItWorks.replace(/\{pipeline\}/g, pipelineName)}
                                 </p>
                                 <button type="button" className="btn-primary" onClick={() => navigate('/pipeline')}>
                                     Ir para o {pipelineName}

@@ -11,6 +11,7 @@ import { sanitizePaymentUpdatesForNl } from '../../lib/paymentNlUpdates.js';
 import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 import { addLeadEvent } from '../lib/leadEvents';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
+import { useTerms } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { emitLeadAttendanceChanged, emitLeadsRefresh } from '../lib/leadTimelineEvents.js';
@@ -48,6 +49,7 @@ function normalizePaymentMethod(m) {
 }
 
 export function useNlAction() {
+  const terms = useTerms();
   const leads = useLeadStore((s) => s.leads);
   const academyId = useLeadStore((s) => s.academyId);
   const userId = useLeadStore((s) => s.userId);
@@ -398,9 +400,7 @@ export function useNlAction() {
         const toStage = String(d.target_stage_id || d.stage_id || d.pipeline_stage || '').trim();
         if (!leadId || !toStage) throw new Error('Lead ou etapa de destino ausente');
         if (MOVE_PIPELINE_FORBIDDEN_TARGETS.has(toStage)) {
-          throw new Error(
-            'Esta etapa exige outro comando: matricular, não compareceu, perdido ou agendar experimental com data e hora.'
-          );
+          throw new Error(terms.nlPipelineMoveForbiddenHint);
         }
         const lead = (leads || []).find((l) => String(l.id || '').trim() === leadId);
         if (!lead) throw new Error('Lead não encontrado na lista.');
@@ -554,7 +554,7 @@ export function useNlAction() {
 
       throw new Error('Ação não suportada');
     },
-    [academyId, userId, sessionUserName, permissionContext, updateLead, leads, addLead]
+    [academyId, userId, sessionUserName, permissionContext, updateLead, leads, addLead, terms.nlPipelineMoveForbiddenHint]
   );
 
   return { interpret, execute, academyName };

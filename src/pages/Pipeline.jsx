@@ -21,7 +21,7 @@ import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
-import { useTerms } from '../lib/terminology.js';
+import { useTerms, TERMS } from '../lib/terminology.js';
 import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
@@ -320,15 +320,17 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
 };
 
 
-/** Ordem: Novo → Experimental → Não compareceu → Aguardando decisão → Matrícula → Perdidos */
-const DEFAULT_STAGE_LABELS = [
-    { id: 'Novo', label: 'Novo' },
-    { id: 'Aula experimental', label: 'Experimental' },
-    { id: LEAD_STATUS.MISSED, label: 'Não compareceu' },
-    { id: PIPELINE_WAITING_DECISION_STAGE, label: 'Aguardando decisão' },
-    { id: 'Matriculado', label: 'Matrícula' },
-    { id: LEAD_STATUS.LOST, label: 'Perdidos' },
-];
+/** Ordem: Novo → Experimental → Não compareceu → Aguardando decisão → coluna convertida → Perdidos */
+function buildDefaultStages(t) {
+    return [
+        { id: 'Novo', label: 'Novo' },
+        { id: 'Aula experimental', label: 'Experimental' },
+        { id: LEAD_STATUS.MISSED, label: 'Não compareceu' },
+        { id: PIPELINE_WAITING_DECISION_STAGE, label: 'Aguardando decisão' },
+        { id: 'Matriculado', label: t.pipelineEnrolledColumnLabel },
+        { id: LEAD_STATUS.LOST, label: 'Perdidos' },
+    ];
+}
 const STAGE_COLORS = [
     { color: 'var(--accent)', bg: 'var(--accent-light)' },
     { color: 'var(--warning)', bg: 'var(--warning-light)' },
@@ -642,6 +644,7 @@ const Pipeline = () => {
     const leadsError = useLeadStore((s) => s.leadsError);
     const addToast = useUiStore((s) => s.addToast);
     const labels = useLeadStore((s) => s.labels);
+    const vertical = useLeadStore((s) => s.vertical);
     const terms = useTerms();
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -667,7 +670,9 @@ const Pipeline = () => {
     const [noteText, setNoteText] = useState('');
     const [moverOpenId, setMoverOpenId] = useState(null);
     const [lostModal, setLostModal] = useState(null);
-    const [stages, setStages] = useState(DEFAULT_STAGE_LABELS);
+    const [stages, setStages] = useState(() =>
+        buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
+    );
     /** Rótulo curto da coluna (fitness = «Experimental» como antes; physio = trialShort). */
     const displayStages = useMemo(
         () =>
@@ -677,7 +682,9 @@ const Pipeline = () => {
         [stages, terms.trialShort]
     );
     const [editStages, setEditStages] = useState(false);
-    const [tempStages, setTempStages] = useState(DEFAULT_STAGE_LABELS);
+    const [tempStages, setTempStages] = useState(() =>
+        buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
+    );
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
     const [kanbanSearch, setKanbanSearch] = useState('');
     const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
@@ -950,6 +957,15 @@ const Pipeline = () => {
             }
             return base;
         };
+        const applyMatriculadoLabel = (cols) => {
+            if (vertical !== 'physio') return cols;
+            return (cols || []).map((c) =>
+                String(c?.id || '').trim() === 'Matriculado'
+                    ? { ...c, label: terms.pipelineEnrolledColumnLabel }
+                    : c
+            );
+        };
+        const finalizeStages = (cols) => applyMatriculadoLabel(ensureSpecialColumns(mergeWaitingDecisionStage(cols)));
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 let tplParsed = {};
@@ -971,21 +987,21 @@ const Pipeline = () => {
                     if (doc.stagesConfig) {
                         const conf = typeof doc.stagesConfig === 'string' ? JSON.parse(doc.stagesConfig) : doc.stagesConfig;
                         if (Array.isArray(conf) && conf.length > 0) {
-                            const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(conf));
+                            const normalized = finalizeStages(conf);
                             setStages(normalized);
                             setTempStages(normalized);
                         } else {
-                            const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(DEFAULT_STAGE_LABELS));
+                            const normalized = finalizeStages(buildDefaultStages(terms));
                             setStages(normalized);
                             setTempStages(normalized);
                         }
                     } else {
-                        const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(DEFAULT_STAGE_LABELS));
+                        const normalized = finalizeStages(buildDefaultStages(terms));
                         setStages(normalized);
                         setTempStages(normalized);
                     }
                 } catch {
-                    const normalized = ensureSpecialColumns(mergeWaitingDecisionStage(DEFAULT_STAGE_LABELS));
+                    const normalized = finalizeStages(buildDefaultStages(terms));
                     setStages(normalized);
                     setTempStages(normalized);
                 }
@@ -995,7 +1011,7 @@ const Pipeline = () => {
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(null));
                 addToast({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
             });
-    }, [academyId, addToast]);
+    }, [academyId, addToast, vertical, terms]);
 
     const templateSendKeys = useMemo(
         () =>
@@ -1201,7 +1217,7 @@ const Pipeline = () => {
                 waOutbound,
                 academyRaw: academyAutomationsRaw,
             }).catch(console.error);
-            setToast('Lead matriculado com sucesso!');
+            setToast(terms.pipelineEnrollmentSuccessToast);
             setTimeout(() => setToast(''), 2000);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
@@ -1739,7 +1755,12 @@ const Pipeline = () => {
                                         description: 'As etapas atuais do editor serão substituídas até você salvar.',
                                         confirmLabel: 'Aplicar',
                                         onConfirm: async () => {
-                                            setTempStages(DEFAULT_STAGE_LABELS.map((s) => ({ ...s, slaDays: s.slaDays ?? DEFAULT_STAGE_SLA_DAYS })));
+                                            setTempStages(
+                                                buildDefaultStages(terms).map((s) => ({
+                                                    ...s,
+                                                    slaDays: s.slaDays ?? DEFAULT_STAGE_SLA_DAYS,
+                                                }))
+                                            );
                                             setConfirmModal(null);
                                         }
                                     });

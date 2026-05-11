@@ -29,6 +29,16 @@ const TABS_ALL = [
 
 const AcademySettings = () => {
     const terms = useTerms();
+    const automationLabels = useMemo(
+        () => ({
+            ...AUTOMATION_LABELS,
+            converted: {
+                label: terms.automationConvertedLabel,
+                description: terms.automationConvertedDescription,
+            },
+        }),
+        [terms.automationConvertedLabel, terms.automationConvertedDescription]
+    );
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const billingAccess = useLeadStore((s) => s.billingAccess);
@@ -428,7 +438,7 @@ const AcademySettings = () => {
                             </p>
                         </div>
                         <div className="flex-col gap-3">
-                            {Object.entries(AUTOMATION_LABELS).map(([key, meta]) => {
+                            {Object.entries(automationLabels).map(([key, meta]) => {
                                 const cfg = automationsConfig?.[key] || {};
                                 return (
                                     <div key={key} className="card" style={{ padding: 12, border: '1px solid var(--border-light)' }}>

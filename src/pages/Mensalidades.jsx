@@ -478,7 +478,8 @@ export default function Mensalidades() {
       <style>
         {`
           @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
-          .mensalidades-page .mensal-modal-field-label {
+          .mensalidades-page .mensal-modal-field-label,
+          .mensalidades-modal-scope .mensal-modal-field-label {
             display: block;
             margin-bottom: 6px;
             font-size: 12px;
@@ -487,7 +488,8 @@ export default function Mensalidades() {
             text-transform: uppercase;
             letter-spacing: 0.04em;
           }
-          .mensalidades-page .mensal-modal-field-label-opt {
+          .mensalidades-page .mensal-modal-field-label-opt,
+          .mensalidades-modal-scope .mensal-modal-field-label-opt {
             font-weight: 400;
             text-transform: none;
             letter-spacing: normal;
@@ -529,7 +531,8 @@ export default function Mensalidades() {
           .mensalidades-page .mensal-btn-pay:hover { background: #4a31a0; }
           .mensalidades-page .mensal-btn-estornar { background: var(--surface, #fff); color: var(--text-secondary); border: 0.5px solid var(--border-light, #e8e8ef); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
           .mensalidades-page .mensal-btn-estornar:hover { background: #fef2f2; color: #A32D2D; border-color: #F7C1C1; }
-          .mensalidades-page .mensal-modal-in {
+          .mensalidades-page .mensal-modal-in,
+          .mensalidades-modal-scope .mensal-modal-in {
             border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
             border-radius: var(--border-radius-md, var(--radius-sm));
             padding: 10px 12px;
@@ -538,8 +541,11 @@ export default function Mensalidades() {
             box-sizing: border-box;
             background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
             color: var(--text-primary, inherit);
+            font-family: inherit;
+            line-height: 1.35;
           }
-          .mensalidades-page .mensal-modal-in--amount {
+          .mensalidades-page .mensal-modal-in--amount,
+          .mensalidades-modal-scope .mensal-modal-in--amount {
             padding-left: 36px;
             font-size: 20px;
             font-weight: 500;
@@ -550,42 +556,98 @@ export default function Mensalidades() {
             height: 48px;
             width: 100%;
           }
-          .mensalidades-page .mensal-modal-account {
+          .mensalidades-page .mensal-modal-in[type="number"],
+          .mensalidades-modal-scope .mensal-modal-in[type="number"] {
+            height: 48px;
+            font-size: 15px;
+            font-weight: 500;
+          }
+          .mensalidades-page .mensal-modal-account,
+          .mensalidades-modal-scope .mensal-modal-account {
             background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
             border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
             border-radius: var(--border-radius-md, var(--radius-sm));
             padding: 10px 12px;
             font-size: 14px;
             color: var(--color-text-primary, var(--text-primary, inherit));
-            height: 44px;
+            height: 48px;
             width: 100%;
             outline: none;
+            font-family: inherit;
           }
-          .mensalidades-page .mensal-modal-account::placeholder {
+          .mensalidades-page .mensal-modal-account::placeholder,
+          .mensalidades-modal-scope .mensal-modal-account::placeholder {
             color: var(--color-text-tertiary, var(--text-secondary));
           }
-          .mensalidades-page .mensal-modal-textarea {
+          .mensalidades-page .mensal-modal-textarea,
+          .mensalidades-modal-scope .mensal-modal-textarea {
             background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
             border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
             border-radius: var(--border-radius-md, var(--radius-sm));
             padding: 10px 12px;
             font-size: 14px;
             color: var(--color-text-primary, var(--text-primary, inherit));
-            height: 80px;
+            min-height: 88px;
             width: 100%;
-            resize: none;
+            resize: vertical;
+            max-height: 160px;
             outline: none;
-            font-family: var(--font-sans);
+            font-family: inherit;
+            line-height: 1.45;
           }
-          .mensalidades-page .mensal-modal-textarea::placeholder {
+          .mensalidades-page .mensal-modal-textarea::placeholder,
+          .mensalidades-modal-scope .mensal-modal-textarea::placeholder {
             color: var(--color-text-tertiary, var(--text-secondary));
           }
           .mensalidades-page .mensal-modal-in:focus,
           .mensalidades-page .mensal-modal-account:focus,
-          .mensalidades-page .mensal-modal-textarea:focus {
+          .mensalidades-page .mensal-modal-textarea:focus,
+          .mensalidades-modal-scope .mensal-modal-in:focus,
+          .mensalidades-modal-scope .mensal-modal-account:focus,
+          .mensalidades-modal-scope .mensal-modal-textarea:focus {
             border-color: #5B3FBF;
             background: var(--color-background-primary, var(--surface, #fff));
             outline: none;
+          }
+          .mensalidades-modal-scope .mensal-modal-checkbox-row {
+            margin-top: 2px;
+            padding: 12px 14px;
+            border-radius: var(--border-radius-md, var(--radius-sm));
+            background: var(--surface-hover, #f4f4f8);
+            border: 0.5px solid var(--border-light, #e8e8ef);
+            font-size: 13px;
+            color: var(--text-primary, var(--text));
+            line-height: 1.4;
+          }
+          .mensalidades-modal-scope .mensal-modal-checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            accent-color: #5B3FBF;
+            cursor: pointer;
+            margin-top: 2px;
+          }
+          .mensalidades-page input[type="date"].mensal-modal-in,
+          .mensalidades-modal-scope input[type="date"].mensal-modal-in {
+            min-height: 48px;
+          }
+          .mensalidades-modal-scope .mensal-pay-top-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            align-items: start;
+          }
+          @media (max-width: 420px) {
+            .mensalidades-modal-scope .mensal-pay-top-grid {
+              grid-template-columns: 1fr;
+            }
+            .mensalidades-modal-scope .mensalidades-modal-footer {
+              flex-direction: column;
+            }
+            .mensalidades-modal-scope .mensalidades-modal-footer button {
+              flex: 1 1 auto !important;
+              width: 100%;
+            }
           }
           @media (max-width: 900px) {
             .mensalidades-page .mensal-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -943,13 +1005,14 @@ export default function Mensalidades() {
               }}
             >
               <div
+                className="mensalidades-modal-scope"
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   background: 'var(--surface, #fff)',
                   borderRadius: 14,
                   padding: 0,
                   width: '100%',
-                  maxWidth: 400,
+                  maxWidth: 440,
                   maxHeight: 'calc(100vh - 32px)',
                   overflowY: 'auto',
                   boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
@@ -1019,9 +1082,9 @@ export default function Mensalidades() {
                   </button>
                 </header>
 
-                <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div>
+                <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div className="mensal-pay-top-grid">
+                    <div style={{ minWidth: 0 }}>
                       <label className="mensal-modal-field-label" htmlFor="mensal-pay-amount">
                         Valor (R$)
                       </label>
@@ -1052,7 +1115,7 @@ export default function Mensalidades() {
                         />
                       </div>
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <DateInput
                         label="Data do pagamento"
                         type="date"
@@ -1069,21 +1132,21 @@ export default function Mensalidades() {
                         }}
                       />
                     </div>
-                    <div>
-                      <label className="mensal-modal-field-label" htmlFor="mensal-pay-due-day">
-                        Dia de vencimento
-                      </label>
-                      <input
-                        id="mensal-pay-due-day"
-                        className="mensal-modal-in"
-                        type="number"
-                        min={1}
-                        max={31}
-                        value={payForm.due_day || ''}
-                        onChange={(e) => setPayForm((f) => ({ ...f, due_day: e.target.value }))}
-                        placeholder="1 a 31"
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <label className="mensal-modal-field-label" htmlFor="mensal-pay-due-day">
+                      Dia de vencimento
+                    </label>
+                    <input
+                      id="mensal-pay-due-day"
+                      className="mensal-modal-in"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={payForm.due_day || ''}
+                      onChange={(e) => setPayForm((f) => ({ ...f, due_day: e.target.value }))}
+                      placeholder="1 a 31"
+                    />
                   </div>
                   <div>
                     <div className="mensal-modal-field-label" style={{ marginBottom: 6 }}>
@@ -1139,26 +1202,18 @@ export default function Mensalidades() {
                       className="mensal-modal-in mensal-modal-account"
                       value={payForm.account}
                       onChange={(e) => setPayForm((f) => ({ ...f, account: e.target.value }))}
-                      placeholder="Ex: Sicoob, Nubank"
+                      placeholder="Ex.: Sicoob, Nubank"
                     />
                   </div>
-                  <label
-                    style={{
-                      fontSize: 14,
-                      color: 'var(--color-text-secondary, var(--text-secondary))',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      cursor: 'pointer',
-                    }}
-                  >
+                  <label className="mensal-modal-checkbox-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: 0 }}>
                     <input
                       type="checkbox"
                       checked={Boolean(payForm.saveAsPreferred)}
                       onChange={(e) => setPayForm((f) => ({ ...f, saveAsPreferred: e.target.checked }))}
-                      style={{ accentColor: '#5B3FBF' }}
                     />
-                    Salvar como pagamento habitual deste {terms.student.toLowerCase()}
+                    <span>
+                      Salvar como pagamento habitual deste {terms.student.toLowerCase()}
+                    </span>
                   </label>
                   <div>
                     <label className="mensal-modal-field-label" htmlFor="mensal-pay-note">
@@ -1170,56 +1225,50 @@ export default function Mensalidades() {
                       className="mensal-modal-in mensal-modal-textarea"
                       value={payForm.note}
                       onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))}
-                      placeholder="Algum detalhe sobre este pagamento..."
+                      placeholder="Algum detalhe sobre este pagamento…"
                     />
                   </div>
                 </div>
 
                 <footer
+                  className="mensalidades-modal-footer"
                   style={{
                     borderTop: '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
                     padding: '16px 24px 24px',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 2fr',
+                    display: 'flex',
                     gap: 10,
+                    alignItems: 'stretch',
                   }}
                 >
                   <button
                     type="button"
+                    className="btn-outline"
                     onClick={() => setShowModal(false)}
                     disabled={savingPayment}
                     style={{
-                      padding: 11,
-                      borderRadius: 'var(--border-radius-md, var(--radius-sm))',
-                      border: '0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef))',
-                      background: 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
-                      color: 'var(--color-text-secondary, var(--text-secondary))',
-                      fontSize: 14,
-                      fontWeight: 500,
+                      flex: 1,
+                      minHeight: 44,
+                      fontWeight: 600,
+                      opacity: savingPayment ? 0.55 : 1,
                       cursor: savingPayment ? 'not-allowed' : 'pointer',
-                      fontFamily: 'inherit',
                     }}
                   >
                     Cancelar
                   </button>
                   <button
                     type="button"
+                    className="btn-primary"
                     disabled={savingPayment}
                     onClick={() => void handleSavePayment()}
                     style={{
-                      padding: 11,
-                      borderRadius: 'var(--border-radius-md, var(--radius-sm))',
-                      border: 'none',
-                      background: '#5B3FBF',
-                      color: '#fff',
-                      fontSize: 14,
-                      fontWeight: 500,
-                      cursor: savingPayment ? 'not-allowed' : 'pointer',
-                      fontFamily: 'inherit',
+                      flex: 2,
+                      minHeight: 44,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 8,
+                      fontWeight: 600,
+                      cursor: savingPayment ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <span className="ti ti-check" style={{ fontSize: 18, lineHeight: 1 }} aria-hidden />

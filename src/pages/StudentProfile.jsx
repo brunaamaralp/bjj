@@ -17,7 +17,7 @@ import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
-import { useTerms } from '../lib/terminology.js';
+import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
@@ -77,13 +77,19 @@ const ENGLISH_STATUS_TOKEN_LABELS = {
     PIPELINE_CHANGE: 'Movido no funil',
 };
 
-function humanizeTimelineStage(s) {
-    const t = String(s || '').trim();
+function humanizeTimelineStage(value, stages = [], terms) {
+    const t = String(value || '').trim();
     if (!t) return '—';
-    if (STATUS_CONFIG[t]) return t;
-    if (PIPELINE_STAGES.includes(t)) return t;
+    const dynamic = (stages || []).find((s) => String(s?.id || '') === t || String(s?.label || '') === t);
+    if (dynamic?.label) return String(dynamic.label);
+    if (STATUS_CONFIG[t]) return operationalStatusDisplayLabel(terms, t);
+    const fixedPipeline = PIPELINE_STAGES.find((s) => s === t);
+    if (fixedPipeline) return pipelineStageDisplayLabel(terms, t);
     const upper = t.toUpperCase().replace(/\s+/g, '_');
-    if (ENGLISH_STATUS_TOKEN_LABELS[upper]) return ENGLISH_STATUS_TOKEN_LABELS[upper];
+    if (ENGLISH_STATUS_TOKEN_LABELS[upper]) {
+        if (upper === 'CONVERTED' && terms) return terms.convertedStatusUi;
+        return ENGLISH_STATUS_TOKEN_LABELS[upper];
+    }
     return t.replace(/_/g, ' ');
 }
 
@@ -187,11 +193,14 @@ export default function StudentProfile() {
     }, [academyList, academyId, userId]);
 
     const pipelineStagesNl = useMemo(() => {
-        const patchTrial = (rows) =>
-            (rows || []).map((s) =>
-                String(s?.id || '').trim() === 'Aula experimental' ? { ...s, label: terms.trial } : s
-            );
-        const fixed = patchTrial(PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage })));
+        const patchStageLabels = (rows) =>
+            (rows || []).map((s) => {
+                let out = { ...s };
+                if (String(s?.id || '').trim() === 'Aula experimental') out = { ...out, label: terms.trial };
+                if (String(s?.id || '').trim() === 'Matriculado') out = { ...out, label: terms.pipelineEnrolledColumnLabel };
+                return out;
+            });
+        const fixed = patchStageLabels(PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage })));
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         let conf = acad?.stagesConfig;
         if (!conf) return fixed;
@@ -207,11 +216,11 @@ export default function StudentProfile() {
                     return sid ? { id: sid, label: label || sid } : null;
                 })
                 .filter(Boolean);
-            return normalized.length > 0 ? patchTrial(normalized) : fixed;
+            return normalized.length > 0 ? patchStageLabels(normalized) : fixed;
         } catch {
             return fixed;
         }
-    }, [academyList, academyId, terms.trial]);
+    }, [academyList, academyId, terms.trial, terms.pipelineEnrolledColumnLabel]);
 
     const studentDataFields = useMemo(
         () => STUDENT_DATA_FIELDS.map((f) => (f.key === 'plan' ? { ...f, label: terms.plan } : f)),
@@ -996,7 +1005,7 @@ export default function StudentProfile() {
                     <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 10 }}>
                         <span className="badge-success" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
-                            Matriculado
+                            {terms.convertedStatusUi}
                         </span>
                         {student.type && String(student.type).trim() ? (
                             <span className="badge-purple" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
@@ -1785,7 +1794,8 @@ export default function StudentProfile() {
                                             minute: '2-digit',
                                         });
                                         const type = n.type || 'note';
-                                        const tag = TIMELINE_EVENT_LABELS[type] ?? type;
+                                        const tag =
+                                            type === 'converted' ? terms.convertedStatusUi : TIMELINE_EVENT_LABELS[type] ?? type;
                                         let dotColor = '#8E8E8E';
                                         if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
                                         else if (type === 'message') dotColor = '#25D366';
@@ -1797,7 +1807,7 @@ export default function StudentProfile() {
                                         if (type === 'schedule') {
                                             label = `Agendado para ${n.date} ${n.time || ''}`.trim();
                                         } else if (type === 'stage_change' || type === 'pipeline_change') {
-                                            label = `De ${humanizeTimelineStage(n.from)} para ${humanizeTimelineStage(n.to)}`;
+                                            label = `De ${humanizeTimelineStage(n.from, pipelineStagesNl, terms)} para ${humanizeTimelineStage(n.to, pipelineStagesNl, terms)}`;
                                         } else if (type === 'inbox_note') {
                                             label = (
                                                 <span>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
+import { useTerms } from '../../lib/terminology.js';
 
 export const SYSTEM_RULES = `
 REGRAS OBRIGATÓRIAS DO SISTEMA:
@@ -317,7 +318,7 @@ Retorne APENAS JSON válido neste formato, sem markdown:
   "body": "todas as informações da academia organizadas claramente"
 }`;
 
-function buildUserContentForGen(answers) {
+function buildUserContentForGen(answers, terms) {
   const a = answers;
   return `
 Estabelecimento: ${a.academyName}
@@ -333,7 +334,7 @@ PLANOS E PREÇOS:
 ${Object.entries(a.planPrices || {})
   .map(([plano, valor]) => `${plano}: ${valor}`)
   .join('\n')}
-Matrícula: ${a.enrollment?.has ? 'R$' + a.enrollment.value : 'Não cobra'}
+${terms.agentEnrollmentSummaryLabel}: ${a.enrollment?.has ? 'R$' + a.enrollment.value : 'Não cobra'}
 Desconto: ${a.discount?.has ? a.discount.text : 'Não informado'}
 
 VESTUÁRIO / UNIFORME: ${a.uniform}
@@ -352,32 +353,33 @@ ESCALAR PARA HUMANO: ${a.escalate || 'não definido'}
 `.trim();
 }
 
-function stepPrompt(stepId) {
-  const map = {
-    academyName: 'Como se chama sua academia, estúdio ou espaço?',
-    segment: 'O que melhor descreve o seu negócio? (pode marcar vários)',
-    assistantName: 'Quer dar um nome ao assistente virtual? (opcional)',
-    tone: 'Qual tom de voz o assistente deve usar?',
-    address: 'Endereço e como chegar (referências, estacionamento, acesso)',
-    gradeHorarios: `Horários e turmas
+const STATIC_STEP_PROMPTS = {
+  academyName: 'Como se chama sua academia, estúdio ou espaço?',
+  segment: 'O que melhor descreve o seu negócio? (pode marcar vários)',
+  assistantName: 'Quer dar um nome ao assistente virtual? (opcional)',
+  tone: 'Qual tom de voz o assistente deve usar?',
+  address: 'Endereço e como chegar (referências, estacionamento, acesso)',
+  gradeHorarios: `Horários e turmas
 
 Cole ou descreva tudo em um bloco: dias, horários, nomes das turmas ou níveis — do jeito que você já divulga.`,
-    plans: 'Quais planos, pacotes ou recorrências o cliente pode contratar?',
-    planPrices: 'Informe o valor de cada plano (texto livre, ex.: R$ 199/mês).',
-    enrollment: 'Há taxa de matrícula? Se sim, qual o valor?',
-    discount: 'Oferece desconto para família, anuidade ou promoções? Descreva se houver.',
-    uniform: 'Como funciona vestuário ou uniforme nas aulas?',
-    uniformDetails: 'Detalhes (cores, onde comprar, o que pode ou não usar…)',
-    uniformLoan: 'Há empréstimo ou aluguel de peças para a primeira experiência?',
-    amenities: 'Quais comodidades você quer destacar?',
-    trial: 'Como funciona a primeira experiência para quem é novo? (aula avulsa, trial, degustação…)',
-    trialDetails: 'Detalhes dessa primeira experiência (o que combina com o seu processo)',
-    priceFlow: 'Quando perguntarem preço, qual fluxo você prefere?',
-    scheduling: 'O assistente pode agendar ou só coleta dados?',
-    neverDo: 'Algo que o assistente nunca deve fazer ou dizer? (opcional)',
-    escalate: 'Em quais situações deve passar para um humano? (opcional)'
-  };
-  return map[stepId] || stepId;
+  plans: 'Quais planos, pacotes ou recorrências o cliente pode contratar?',
+  planPrices: 'Informe o valor de cada plano (texto livre, ex.: R$ 199/mês).',
+  discount: 'Oferece desconto para família, anuidade ou promoções? Descreva se houver.',
+  uniform: 'Como funciona vestuário ou uniforme nas aulas?',
+  uniformDetails: 'Detalhes (cores, onde comprar, o que pode ou não usar…)',
+  uniformLoan: 'Há empréstimo ou aluguel de peças para a primeira experiência?',
+  amenities: 'Quais comodidades você quer destacar?',
+  trial: 'Como funciona a primeira experiência para quem é novo? (aula avulsa, trial, degustação…)',
+  trialDetails: 'Detalhes dessa primeira experiência (o que combina com o seu processo)',
+  priceFlow: 'Quando perguntarem preço, qual fluxo você prefere?',
+  scheduling: 'O assistente pode agendar ou só coleta dados?',
+  neverDo: 'Algo que o assistente nunca deve fazer ou dizer? (opcional)',
+  escalate: 'Em quais situações deve passar para um humano? (opcional)',
+};
+
+function stepPromptFor(stepId, terms) {
+  if (stepId === 'enrollment') return terms.agentWizardEnrollmentQuestion;
+  return STATIC_STEP_PROMPTS[stepId] || stepId;
 }
 
 /**
@@ -392,6 +394,7 @@ Cole ou descreva tudo em um bloco: dias, horários, nomes das turmas ou níveis 
  * }} props
  */
 export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, loading = false, onComplete, onWizardReset }) {
+  const terms = useTerms();
   const messagesScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const resumeDataRef = useRef(null);
@@ -516,10 +519,10 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
     (idx, ans) => {
       const s = STEPS[idx];
       if (!s) return;
-      pushNave(stepPrompt(s.id));
+      pushNave(stepPromptFor(s.id, terms));
       syncDraftsForStep(idx, ans);
     },
-    [pushNave, syncDraftsForStep]
+    [pushNave, syncDraftsForStep, terms]
   );
 
   const startFlow = useCallback(() => {
@@ -564,7 +567,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
   const runGenerate = useCallback(
     async (finalAnswers) => {
       setGenerating(true);
-      const userContent = buildUserContentForGen(finalAnswers);
+      const userContent = buildUserContentForGen(finalAnswers, terms);
       try {
         const jwt = await getJwt();
         const res = await fetch('/api/generate-prompt', {
@@ -636,7 +639,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         setGenerating(false);
       }
     },
-    [academyId, getJwt, onComplete, pushNave, saveProgress]
+    [academyId, getJwt, onComplete, pushNave, saveProgress, terms]
   );
 
   const commitAndAdvance = useCallback(
@@ -925,7 +928,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
               className="agent-chat-input"
               value={enrollVal}
               onChange={(e) => setEnrollVal(e.target.value)}
-              placeholder="Valor da matrícula"
+              placeholder={terms.agentWizardEnrollmentPlaceholder}
             />
           ) : null}
           <button type="button" className="agent-chat-send" style={{ alignSelf: 'flex-start' }} onClick={() => void handleEnrollmentSend()}>

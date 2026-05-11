@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
+import { useTerms } from '../lib/terminology.js';
 
 export default function MatriculaModal({ isOpen, onClose, onConfirmSimple, onConfirmFull }) {
+  const terms = useTerms();
   useEffect(() => {
     if (!isOpen) return undefined;
     const onKey = (e) => {
@@ -49,10 +51,10 @@ export default function MatriculaModal({ isOpen, onClose, onConfirmSimple, onCon
           id="matricula-modal-title"
           style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
         >
-          Matricular aluno
+          {terms.matriculaModalTitle}
         </h3>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-          Como deseja registrar a matricula?
+          {terms.matriculaModalSubtitle}
         </p>
 
         <div style={{ display: 'grid', gap: 10 }}>
@@ -70,7 +72,7 @@ export default function MatriculaModal({ isOpen, onClose, onConfirmSimple, onCon
             onClick={onConfirmSimple}
             style={{ width: '100%', justifyContent: 'center' }}
           >
-            So matricular
+            {terms.matriculaModalSimpleCta}
           </button>
           <button
             type="button"

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
+import { useTerms } from '../lib/terminology.js';
 
 const COLUMN_MAP = {
     'nome': 'name',
@@ -49,6 +50,7 @@ const normalizeKey = (key) => {
 };
 
 const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importing }) => {
+    const terms = useTerms();
     const [rows, setRows] = useState([]);
     const [fileName, setFileName] = useState('');
     const [error, setError] = useState('');
@@ -104,7 +106,9 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
                 setSkippedCount(skipped);
 
                 if (transformed.length === 0) {
-                    setError('Nenhuma linha válida encontrada. Inclua a coluna com o nome do aluno (ex.: Nome, Nome do aluno).');
+                    setError(
+                        `Nenhuma linha válida encontrada. Inclua a coluna com o nome do ${terms.student.toLowerCase()} (ex.: Nome, Nome do ${terms.student.toLowerCase()}).`
+                    );
                     return;
                 }
 
@@ -172,9 +176,11 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
 
                             <div className="import-tip mt-4">
                                 <p className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 6 }}>📋 Formato esperado</p>
-                                <p className="navi-subtitle" style={{ marginBottom: 8, marginTop: 0 }}>
-                                    <strong>Nome / Nome do aluno</strong> = aluno matriculado. Opcional: <strong>Responsável</strong>, <strong>Nome do pai</strong>, <strong>Contato</strong>, etc. = quem usa o WhatsApp (recomendado para Criança/Juniores).
-                                </p>
+                                <p
+                                    className="navi-subtitle"
+                                    style={{ marginBottom: 8, marginTop: 0 }}
+                                    dangerouslySetInnerHTML={{ __html: terms.importSheetStudentRowHint }}
+                                />
                                 <table className="tip-table">
                                     <thead>
                                         <tr><th>Nome do aluno</th><th>Responsável</th><th>Telefone</th><th>Tipo</th><th>Origem</th></tr>

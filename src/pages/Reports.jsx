@@ -205,6 +205,10 @@ const pctVar = (cur, prev) => {
 
 const Reports = () => {
     const terms = useTerms();
+    const drillLabels = useMemo(
+        () => ({ ...DRILL_LABELS, converted: terms.reportsDrillConvertedTitle }),
+        [terms.reportsDrillConvertedTitle]
+    );
     const { leads, fetchLeads, fetchMoreLeads } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
@@ -409,7 +413,7 @@ const Reports = () => {
             { key: 'newLeads', label: 'Novos leads', current: newLeadsCurrent, previous: Number(m.newLeads?.previous || 0), drillKey: 'newLeads', prevBase: newLeadsCurrent, color: '#5B3FBF' },
             { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#5142A9' },
             { key: 'completed', label: 'Compareceram', current: completedCurrent, previous: completedPrev, drillKey: 'completed', prevBase: scheduledCurrent, color: '#4A3D98' },
-            { key: 'converted', label: 'Matrículas', current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: '#433888' },
+            { key: 'converted', label: terms.reportsMetricConvertedShort, current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: '#433888' },
             { key: 'conversionRate', label: 'Conversão total', current: conversionCurrent, previous: conversionPrev, drillKey: null, prevBase: 100, color: '#3C3489', isPercent: true },
         ];
         return stageRows.map((s, index) => {
@@ -421,7 +425,7 @@ const Reports = () => {
                 : Math.min(100, Math.round((Number(s.current || 0) / safeBase) * 100));
             return { ...s, variation, relativePct, barPct, isLast: index === stageRows.length - 1 };
         });
-    }, [reportData]);
+    }, [reportData, terms.reportsMetricConvertedShort]);
     const ratesCards = useMemo(() => {
         if (!reportData?.metrics) return [];
         const m = reportData.metrics;
@@ -453,10 +457,12 @@ const Reports = () => {
                 icon: 'ti ti-award',
                 accent: 'var(--accent)',
                 pct: safePct(converted, completed),
-                insight: `${converted} de ${completed} compareceram matricularam`,
+                insight: terms.reportsClosureRateInsight
+                    .replace(/\{converted\}/g, String(converted))
+                    .replace(/\{completed\}/g, String(completed)),
             },
         ];
-    }, [reportData]);
+    }, [reportData, terms.reportsClosureRateInsight]);
     const chartDataComparison = useMemo(() => {
         if (!reportData?.chart || reportData.chart.length === 0 || !reportData?.metrics) return [];
         const metricMap = chartMetric === 'new' ? 'newLeads' : chartMetric === 'scheduled' ? 'scheduled' : 'converted';
@@ -647,8 +653,8 @@ const Reports = () => {
                                 <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('missed', 'nao-compareceram')}>
                                     Não compareceram
                                 </button>
-                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('converted', 'matriculas')}>
-                                    Matrículas
+                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('converted', terms.reportsExportConvertedFileSlug)}>
+                                    {terms.reportsMetricConvertedShort}
                                 </button>
                             </div>
                         ) : null}
@@ -735,7 +741,7 @@ const Reports = () => {
                                     Agendados
                                 </button>
                                 <button type="button" className={`filter-pill ${chartMetric === 'converted' ? 'active' : ''}`} onClick={() => setChartMetric('converted')}>
-                                    Matrículas
+                                    {terms.reportsMetricConvertedShort}
                                 </button>
                             </div>
                         </div>
@@ -869,7 +875,7 @@ const Reports = () => {
                             </div>
                             <div className="reports-timing-col">
                                 <div className="reports-timing-value">{reportData.funnelTiming.attendedToConverted ?? '—'}d</div>
-                                <div className="reports-timing-label">Aula → Matrícula</div>
+                                <div className="reports-timing-label">{terms.reportsTimingAttendedToEnrolled}</div>
                             </div>
                             <div className="reports-timing-col is-total">
                                 <div className="reports-timing-value">{reportData.funnelTiming.total ?? '—'}d</div>
@@ -910,7 +916,7 @@ const Reports = () => {
                     >
                         <div className="reports-drill-head">
                             <h3 id="reports-drill-title" className="reports-drill-title">
-                                {DRILL_LABELS[drillKey]}
+                                {drillLabels[drillKey]}
                             </h3>
                             <button type="button" className="reports-drill-close" onClick={() => setDrillKey(null)} aria-label="Fechar">
                                 <X size={20} strokeWidth={2.25} />

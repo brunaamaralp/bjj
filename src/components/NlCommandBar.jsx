@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useNlAction } from '../hooks/useNlAction';
+import { useTerms } from '../lib/terminology.js';
 
 function formatRefMonth(ym) {
   if (!ym) return '—';
@@ -68,6 +69,7 @@ export default function NlCommandBar({
   const [parsed, setParsed] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const { interpret, execute, academyName: academyNameFromHook } = useNlAction();
+  const terms = useTerms();
   const academyName = String(academyNameProp || academyNameFromHook || '').trim();
   const inputRef = useRef(null);
 
@@ -480,7 +482,7 @@ export default function NlCommandBar({
                         {parsed.data?.lead_name || parsed.data?.lead_id || '—'}
                       </li>
                       <li>
-                        <strong style={{ color: 'var(--text)' }}>Resultado:</strong> Status matriculado · tipo aluno
+                        <strong style={{ color: 'var(--text)' }}>Resultado:</strong> {terms.nlCommandBarMarkEnrolledResult}
                       </li>
                     </>
                   ) : parsed.action === 'schedule_experimental' ? (
