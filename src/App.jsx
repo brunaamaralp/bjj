@@ -60,6 +60,7 @@ import OnboardingBanner from './components/OnboardingBanner.jsx';
 import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
+import { useTerms } from './lib/terminology.js';
 
 
 function defaultAiNameFromUser(user) {
@@ -84,6 +85,7 @@ const App = () => {
   const setAcademyId = useLeadStore((s) => s.setAcademyId);
   const labels = useLeadStore((s) => s.labels);
   const setLabels = useLeadStore((s) => s.setLabels);
+  const vertical = useLeadStore((s) => s.vertical);
   const modules = useLeadStore((s) => s.modules);
   const setModules = useLeadStore((s) => s.setModules);
   const [academyList, setAcademyList] = useState([]);
@@ -110,6 +112,9 @@ const App = () => {
   }, [academyList, academyIdStore]);
 
   const billingAccessTop = useLeadStore((s) => s.billingAccess);
+  const terms = useTerms();
+  /** Menu: em physio, uiLabels pode ainda ter "Alunos" gravado — forçar terminologia da vertical. */
+  const navStudentsLabel = vertical === 'physio' ? terms.students : labels.students;
 
   const topbarTrialChip = useMemo(() => {
     if (!isBillingLive() || billingAccessTop?.status !== 'trial' || !billingAccessTop?.currentPeriodEnd) {
@@ -830,10 +835,10 @@ const App = () => {
               <NavLink
                 to="/students"
                 className={sideLinkClass}
-                title={sidebarCollapsed ? labels.students : undefined}
+                title={sidebarCollapsed ? navStudentsLabel : undefined}
               >
                 <GraduationCap size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">{labels.students}</span>
+                <span className="navi-side-link-label">{navStudentsLabel}</span>
               </NavLink>
               <NavLink
                 to="/tarefas"
@@ -1139,7 +1144,7 @@ const App = () => {
         </Link>
         <Link to="/students" className={`navi-nav-item ${isActive('/students') ? 'active' : ''}`}>
           <GraduationCap size={22} strokeWidth={1.75} />
-          <span>{labels.students}</span>
+          <span>{navStudentsLabel}</span>
         </Link>
         {modules.sales === true && (
           <Link to="/vendas" className={`navi-nav-item ${isActive('/vendas') ? 'active' : ''}`}>
