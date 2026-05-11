@@ -30,6 +30,7 @@ vi.mock('../store/useLeadStore.js', () => ({
 describe('Pagamentos de mensalidade', () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
     paymentMocks.createDocument.mockReset();
     paymentMocks.listDocuments.mockReset();
@@ -38,6 +39,7 @@ describe('Pagamentos de mensalidade', () => {
     process.env.VITE_APPWRITE_DATABASE_ID = 'db-pay';
     process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'payments-col';
     process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = '';
+    vi.stubEnv('VITE_STUDENT_PAYMENT_WRITE_FINANCIAL_TX_REF', '');
   });
 
   describe('createPayment', () => {
@@ -149,7 +151,30 @@ describe('Pagamentos de mensalidade', () => {
       expect(paymentMocks.updateDocument).not.toHaveBeenCalled();
     });
 
-    it('após espelho FINANCIAL_TX com sucesso, atualiza student_payment com financial_tx_id', async () => {
+    it('com espelho FINANCIAL_TX e writeback desligado, não chama updateDocument com financial_tx_id', async () => {
+      paymentMocks.createDocument
+        .mockResolvedValueOnce({ $id: 'pay-11b' })
+        .mockResolvedValueOnce({ $id: 'tx-100' });
+      vi.doMock('../lib/appwrite.js', () => ({
+        databases: { createDocument: paymentMocks.createDocument, listDocuments: paymentMocks.listDocuments, updateDocument: paymentMocks.updateDocument },
+        DB_ID: 'db-pay',
+        FINANCIAL_TX_COL: 'tx-col'
+      }));
+      const { createPayment } = await import('../lib/studentPayments.js');
+      await createPayment({
+        lead_id: 'lead-1',
+        academy_id: 'acad-1',
+        amount: 150,
+        method: 'pix',
+        status: 'paid',
+        reference_month: '2026-04'
+      });
+      expect(paymentMocks.updateDocument).not.toHaveBeenCalled();
+    });
+
+    it('após espelho FINANCIAL_TX com sucesso, atualiza student_payment com financial_tx_id quando writeback está ligado', async () => {
+      vi.stubEnv('VITE_STUDENT_PAYMENT_WRITE_FINANCIAL_TX_REF', 'true');
+      vi.resetModules();
       paymentMocks.createDocument
         .mockResolvedValueOnce({ $id: 'pay-11' })
         .mockResolvedValueOnce({ $id: 'tx-99' });

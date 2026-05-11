@@ -4,6 +4,11 @@ import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
+/** Só grava `financial_tx_id` no documento de mensalidade se a coleção Appwrite tiver esse atributo (string) e esta env estiver true/1. */
+const WRITE_FINANCIAL_TX_REF_ON_PAYMENT = ['true', '1', 'yes'].includes(
+  String(import.meta.env.VITE_STUDENT_PAYMENT_WRITE_FINANCIAL_TX_REF || '').trim().toLowerCase()
+);
+
 export async function getStudentPayments(leadId, academyId) {
   if (!PAYMENTS_COL || !leadId || !academyId) return [];
   const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
@@ -108,7 +113,7 @@ export async function createPayment(data) {
         ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload, permissions)
         : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload);
       const mirrorId = String(mirror?.$id || '').trim();
-      if (mirrorId) {
+      if (mirrorId && WRITE_FINANCIAL_TX_REF_ON_PAYMENT) {
         databases
           .updateDocument(DB_ID, PAYMENTS_COL, doc.$id, { financial_tx_id: mirrorId })
           .catch((err) => console.error('financial_tx_id update failed:', err));
