@@ -547,16 +547,69 @@ const Sales = () => {
 
         {cart.length > 0 && (
           <div className="mt-3">
-            <div className="table">
-              <div className="row header">
-                <div style={{ flex: 3 }}>Item</div>
-                <div style={{ flex: 1, textAlign: 'right' }}>Qtd</div>
-                <div style={{ flex: 2, textAlign: 'right' }}>Preço Base</div>
-                <div style={{ flex: 2, textAlign: 'right' }}>Desconto</div>
-                <div style={{ flex: 2, textAlign: 'right' }}>Preço Líquido</div>
-                <div style={{ flex: 2, textAlign: 'right' }}>Subtotal</div>
-                <div style={{ width: 48 }}></div>
+            <div className="sales-cart-table-wrap">
+              <div className="table sales-cart-table">
+                <div className="row header">
+                  <div style={{ flex: 3 }}>Item</div>
+                  <div style={{ flex: 1, textAlign: 'right' }}>Qtd</div>
+                  <div style={{ flex: 2, textAlign: 'right' }}>Preço Base</div>
+                  <div style={{ flex: 2, textAlign: 'right' }}>Desconto</div>
+                  <div style={{ flex: 2, textAlign: 'right' }}>Preço Líquido</div>
+                  <div style={{ flex: 2, textAlign: 'right' }}>Subtotal</div>
+                  <div style={{ width: 48 }}></div>
+                </div>
+                {cart.map((it, idx) => {
+                  const base = Number(it.preco_bruto ?? it.preco_unitario);
+                  const desc = Number(it.desconto ?? 0);
+                  const net = Number(it.preco_unitario);
+                  const subtotal = Number(it.quantidade) * net;
+                  const netFmt = (() => {
+                    try { return net.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${net.toFixed(2)}`.replace('.', ','); }
+                  })();
+                  const subtotalFmt = (() => {
+                    try { return subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${subtotal.toFixed(2)}`.replace('.', ','); }
+                  })();
+                  return (
+                    <div className="row" key={`${it.item_estoque_id}-${idx}`}>
+                      <div style={{ flex: 3 }}>{it.item_estoque_id}</div>
+                      <div style={{ flex: 1, textAlign: 'right' }}>
+                        <input
+                          type="number"
+                          min={1}
+                          className="table-input"
+                          value={it.quantidade}
+                          onChange={(e) => updateCartQty(idx, e.target.value)}
+                        />
+                      </div>
+                      <div style={{ flex: 2, textAlign: 'right' }}>
+                        <input
+                          type="text"
+                          className="table-input"
+                          value={(() => { try { return base.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${base.toFixed(2)}`.replace('.', ','); } })()}
+                          onChange={(e) => updateCartBasePrice(idx, e.target.value)}
+                        />
+                      </div>
+                      <div style={{ flex: 2, textAlign: 'right' }}>
+                        <input
+                          type="text"
+                          className="table-input"
+                          value={(() => { try { return desc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${desc.toFixed(2)}`.replace('.', ','); } })()}
+                          onChange={(e) => updateCartDiscount(idx, e.target.value)}
+                        />
+                      </div>
+                      <div style={{ flex: 2, textAlign: 'right' }}>{netFmt}</div>
+                      <div style={{ flex: 2, textAlign: 'right' }}>{subtotalFmt}</div>
+                      <div style={{ width: 48, textAlign: 'right' }}>
+                        <button type="button" className="btn-ghost" onClick={() => removeFromCart(idx)} title="Remover">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+            <div className="sales-cart-cards" aria-label="Itens do carrinho">
               {cart.map((it, idx) => {
                 const base = Number(it.preco_bruto ?? it.preco_unitario);
                 const desc = Number(it.desconto ?? 0);
@@ -568,46 +621,65 @@ const Sales = () => {
                 const subtotalFmt = (() => {
                   try { return subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${subtotal.toFixed(2)}`.replace('.', ','); }
                 })();
+                const baseStr = (() => {
+                  try { return base.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${base.toFixed(2)}`.replace('.', ','); }
+                })();
+                const descStr = (() => {
+                  try { return desc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${desc.toFixed(2)}`.replace('.', ','); }
+                })();
                 return (
-                  <div className="row" key={`${it.item_estoque_id}-${idx}`}>
-                    <div style={{ flex: 3 }}>{it.item_estoque_id}</div>
-                    <div style={{ flex: 1, textAlign: 'right' }}>
-                      <input
-                        type="number"
-                        min={1}
-                        className="table-input"
-                        value={it.quantidade}
-                        onChange={(e) => updateCartQty(idx, e.target.value)}
-                      />
-                    </div>
-                    <div style={{ flex: 2, textAlign: 'right' }}>
-                      <input
-                        type="text"
-                        className="table-input"
-                        value={(() => { try { return base.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${base.toFixed(2)}`.replace('.', ','); } })()}
-                        onChange={(e) => updateCartBasePrice(idx, e.target.value)}
-                      />
-                    </div>
-                    <div style={{ flex: 2, textAlign: 'right' }}>
-                      <input
-                        type="text"
-                        className="table-input"
-                        value={(() => { try { return desc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { return `R$ ${desc.toFixed(2)}`.replace('.', ','); } })()}
-                        onChange={(e) => updateCartDiscount(idx, e.target.value)}
-                      />
-                    </div>
-                    <div style={{ flex: 2, textAlign: 'right' }}>{netFmt}</div>
-                    <div style={{ flex: 2, textAlign: 'right' }}>{subtotalFmt}</div>
-                    <div style={{ width: 48, textAlign: 'right' }}>
-                      <button type="button" className="btn-ghost" onClick={() => removeFromCart(idx)} title="Remover">
-                        <Trash2 size={16} />
+                  <div className="sales-cart-card" key={`card-${it.item_estoque_id}-${idx}`}>
+                    <div className="sales-cart-card__head">
+                      <div className="sales-cart-card__id">{it.item_estoque_id}</div>
+                      <button type="button" className="btn-ghost sales-cart-card__remove" onClick={() => removeFromCart(idx)} title="Remover">
+                        <Trash2 size={18} aria-hidden />
                       </button>
+                    </div>
+                    <div className="sales-cart-card__row-metrics">
+                      <div className="sales-cart-card__metric">
+                        <span className="sales-cart-card__label">Qtd</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="table-input"
+                          value={it.quantidade}
+                          onChange={(e) => updateCartQty(idx, e.target.value)}
+                        />
+                      </div>
+                      <div className="sales-cart-card__metric">
+                        <span className="sales-cart-card__label">Preço líq.</span>
+                        <span className="sales-cart-card__readonly">{netFmt}</span>
+                      </div>
+                      <div className="sales-cart-card__metric">
+                        <span className="sales-cart-card__label">Subtotal</span>
+                        <span className="sales-cart-card__readonly">{subtotalFmt}</span>
+                      </div>
+                    </div>
+                    <div className="sales-cart-card__row-edit">
+                      <div className="sales-cart-card__field">
+                        <span className="sales-cart-card__label">Preço base</span>
+                        <input
+                          type="text"
+                          className="table-input"
+                          value={baseStr}
+                          onChange={(e) => updateCartBasePrice(idx, e.target.value)}
+                        />
+                      </div>
+                      <div className="sales-cart-card__field">
+                        <span className="sales-cart-card__label">Desconto</span>
+                        <input
+                          type="text"
+                          className="table-input"
+                          value={descStr}
+                          onChange={(e) => updateCartDiscount(idx, e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div className="flex" style={{ justifyContent: 'flex-end', marginTop: 8, gap: 16 }}>
+            <div className="flex sales-cart-totals" style={{ justifyContent: 'flex-end', marginTop: 8, gap: 16 }}>
               <div><strong>Subtotal: </strong>{subtotalMasked}</div>
               <div><strong>Desconto Geral: </strong>{descGeralMaskedOut}</div>
               <div><strong>Total: </strong>{totalMasked}</div>
@@ -671,7 +743,7 @@ const Sales = () => {
         .btn-outline svg { vertical-align: -3px }
         .btn-ghost { background: transparent; border: none; padding: 6px; color: var(--text); cursor: pointer }
         .table { width: 100%; }
-        .table .row { display: flex; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: center }
+        .table .row { display: flex; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: center; min-width: 0; }
         .table .header { font-weight: 600; border-bottom: 2px solid var(--border) }
         .suggestions { margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
         .suggestion { display: flex; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: center; }

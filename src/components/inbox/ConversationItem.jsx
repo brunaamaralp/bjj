@@ -1,5 +1,5 @@
-import React, { useRef, useCallback, useState } from 'react';
-import { AlertTriangle, Flame } from 'lucide-react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
+import { AlertTriangle, Flame, User } from 'lucide-react';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
@@ -41,6 +41,12 @@ export default function ConversationItem({
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
   const previewMax = handoffActive ? 72 : 52;
   const preview = rawPrev.length > previewMax ? `${rawPrev.slice(0, previewMax)}…` : rawPrev;
+
+  const profileUrl = String(item?._profileImageUrl || item?.whatsapp_profile_image_url || '').trim();
+  const [avatarOk, setAvatarOk] = useState(true);
+  useEffect(() => {
+    setAvatarOk(true);
+  }, [profileUrl]);
 
   const hasLevel1 = unreadCount > 0 || handoffActive;
   const showLevel2IA = !handoffActive && !hasLevel1;
@@ -155,11 +161,41 @@ export default function ConversationItem({
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: compact ? 6 : 8, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: compact ? 4 : 6, alignItems: 'center', minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', gap: compact ? 4 : 6, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              width: compact ? 32 : 36,
+              height: compact ? 32 : 36,
+              borderRadius: 999,
+              overflow: 'hidden',
+              flexShrink: 0,
+              background: 'var(--v50)',
+              border: '0.5px solid var(--border-violet, var(--border))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 1
+            }}
+            aria-hidden
+          >
+            {profileUrl && avatarOk ? (
+              <img
+                src={profileUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarOk(false)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <User size={compact ? 16 : 18} strokeWidth={1.75} style={{ color: 'var(--text-muted)', opacity: 0.88 }} aria-hidden />
+            )}
+          </div>
           {showDot ? (
             <span
               title={lastAssistantDot.label}
-              style={{ width: 8, height: 8, borderRadius: 999, background: lastAssistantDot.bg, flex: '0 0 auto', marginTop: 2 }}
+              style={{ width: 8, height: 8, borderRadius: 999, background: lastAssistantDot.bg, flex: '0 0 auto', marginTop: 4 }}
             />
           ) : null}
           <div style={{ minWidth: 0, flex: 1 }}>

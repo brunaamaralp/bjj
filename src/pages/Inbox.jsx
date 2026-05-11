@@ -1504,6 +1504,8 @@ export default function Inbox() {
           contact_name: typeof data?.contact_name === 'string' ? data.contact_name : '',
           contact_name_source: typeof data?.contact_name_source === 'string' ? data.contact_name_source : '',
           whatsapp_profile_name: typeof data?.whatsapp_profile_name === 'string' ? data.whatsapp_profile_name : '',
+          whatsapp_profile_image_url:
+            typeof data?.whatsapp_profile_image_url === 'string' ? data.whatsapp_profile_image_url : '',
           need_human: Boolean(data?.need_human),
           human_handoff_until: handoffUntil || null,
           ticket_status: String(ticketStatus || 'open'),
@@ -2305,6 +2307,7 @@ export default function Inbox() {
       const leadName = String(lead?.name || '').trim() || String(it?.lead_name || '').trim();
       const manualContactName = String(it?.contact_name || '').trim();
       const waProfileName = String(it?.whatsapp_profile_name || '').trim();
+      const waProfileImageUrl = String(it?.whatsapp_profile_image_url || '').trim();
       const displayTitle = pickDisplayName({ leadName, manualContactName, whatsappProfileName: waProfileName, phone });
       const lastRole = String(it?.last_message_role || '').trim() || '';
       const lastSender = String(it?.last_message_sender || '').trim() || '';
@@ -2328,6 +2331,7 @@ export default function Inbox() {
         _leadName: leadName,
         _manualContactName: manualContactName,
         _waProfileName: waProfileName,
+        _profileImageUrl: waProfileImageUrl,
         _lead: lead || null,
         _hotLead: hotLead,
         _handoffActive: handoffActive,
@@ -2495,6 +2499,7 @@ export default function Inbox() {
         contact_name: String(it?._manualContactName || it?.contact_name || '').trim(),
         contact_name_source: String(it?.contact_name_source || '').trim(),
         whatsapp_profile_name: String(it?._waProfileName || it?.whatsapp_profile_name || '').trim(),
+        whatsapp_profile_image_url: String(it?._profileImageUrl || it?.whatsapp_profile_image_url || '').trim(),
         need_human: Boolean(it?._handoffActive || it?.need_human),
         human_handoff_until: isSamePhone ? prev.human_handoff_until : null,
         ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),

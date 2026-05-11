@@ -19,7 +19,11 @@ import {
   Wallet,
   Users,
   BookOpen,
-  CheckSquare
+  CheckSquare,
+  Menu,
+  ClipboardList,
+  CreditCard,
+  X
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -84,6 +88,12 @@ const App = () => {
       return false;
     }
   });
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 1023px)').matches
+      : false
+  );
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isActive = (path) => location.pathname === path;
   const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
   const academyIdStore = useLeadStore((s) => s.academyId);
@@ -132,6 +142,73 @@ const App = () => {
 
   const navRole = useUserRole(academyDocForRole);
   const canConfigureAgenteIa = navRole === 'owner' || navRole === 'member';
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const onChange = () => {
+      const next = mq.matches;
+      setIsMobileViewport(next);
+      if (!next) setMobileMenuOpen(false);
+    };
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileMenuOpen]);
+
+  const mobileMenuSections = useMemo(() => {
+    const sections = [];
+    sections.push({
+      title: 'Gestão',
+      items: [
+        { to: '/tarefas', label: 'Tarefas', Icon: CheckSquare },
+        { to: '/presenca', label: 'Presença', Icon: ClipboardList },
+        { to: '/planos', label: 'Planos', Icon: CreditCard },
+      ],
+    });
+    const financeItems = [];
+    if (modules.finance === true) {
+      financeItems.push({ to: '/mensalidades', label: 'Mensalidades', Icon: Users });
+      financeItems.push({ to: '/caixa', label: 'Caixa', Icon: Wallet });
+      if (navRole === 'owner') {
+        financeItems.push({ to: '/finance', label: 'Contabilidade', Icon: BookOpen });
+      }
+    }
+    if (financeItems.length > 0) {
+      sections.push({ title: 'Financeiro', items: financeItems });
+    }
+    const opsItems = [];
+    if (modules.inventory === true) {
+      opsItems.push({ to: '/estoque', label: 'Estoque', Icon: Boxes });
+    }
+    if (modules.sales === true) {
+      opsItems.push({ to: '/vendas', label: 'Vendas', Icon: ShoppingBag });
+    }
+    opsItems.push({ to: '/templates', label: 'Templates', Icon: FileText });
+    sections.push({ title: 'Operacional', items: opsItems });
+    const cfgItems = [{ to: '/empresa', label: 'Minha academia', Icon: Building2 }];
+    if (canConfigureAgenteIa) {
+      cfgItems.push({ to: '/agente-ia', label: 'Agente IA', Icon: Bot });
+    }
+    cfgItems.push({ to: '/reports', label: 'Relatórios', Icon: BarChart3 });
+    sections.push({ title: 'Configurações', items: cfgItems });
+    return sections;
+  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa]);
+
+  const closeMobileDrawer = () => setMobileMenuOpen(false);
 
   const sideLinkClass = ({ isActive: navIsActive }) =>
     `navi-side-link${navIsActive ? ' active' : ''}`;
@@ -877,6 +954,19 @@ const App = () => {
 
         <div className="navi-main-stack">
           <header className="navi-topbar">
+            {isMobileViewport ? (
+              <button
+                type="button"
+                className="navi-topbar-menu-btn"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="navi-mobile-drawer-panel"
+                aria-label="Abrir menu"
+                title="Menu"
+              >
+                <Menu size={22} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
             <div className="navi-topbar-spacer" aria-hidden="true" />
             <div className="navi-topbar-actions">
               {topbarTrialChip}
@@ -948,6 +1038,65 @@ const App = () => {
           </main>
         </div>
       </div>
+
+      {isMobileViewport ? (
+        <div
+          className={`navi-mobile-drawer${mobileMenuOpen ? ' navi-mobile-drawer--open' : ''}`}
+          aria-hidden={!mobileMenuOpen}
+        >
+          <div
+            className="navi-mobile-drawer__backdrop"
+            onClick={closeMobileDrawer}
+            role="presentation"
+            aria-hidden="true"
+          />
+          <aside
+            id="navi-mobile-drawer-panel"
+            className="navi-mobile-drawer__panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu do aplicativo"
+            inert={!mobileMenuOpen}
+          >
+            <div className="navi-mobile-drawer__panel-inner">
+              <div className="navi-mobile-drawer__head">
+                <span className="navi-mobile-drawer__head-title">Menu</span>
+                <button
+                  type="button"
+                  className="navi-mobile-drawer__close"
+                  onClick={closeMobileDrawer}
+                  aria-label="Fechar"
+                >
+                  <X size={22} strokeWidth={2} aria-hidden />
+                </button>
+              </div>
+              <nav className="navi-mobile-drawer__nav" aria-label="Rotas adicionais">
+                {mobileMenuSections.map((sec) => (
+                  <div key={sec.title} className="navi-mobile-drawer__section">
+                    <div className="navi-mobile-drawer__section-title">{sec.title}</div>
+                    {sec.items.map((item) => {
+                      const Icon = item.Icon;
+                      const active =
+                        location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+                      return (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          className={`navi-mobile-drawer__link${active ? ' navi-mobile-drawer__link--active' : ''}`}
+                          onClick={closeMobileDrawer}
+                        >
+                          <Icon size={20} strokeWidth={1.75} aria-hidden />
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
+              </nav>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       <nav className="navi-bottom-nav" aria-label="Navegação">
         <Link to="/" className={`navi-nav-item ${isActive('/') ? 'active' : ''}`}>

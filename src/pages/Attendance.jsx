@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useControlIdStore } from '../store/useControlIdStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { Wifi, WifiOff, RefreshCw, Settings, CheckCircle2, Clock, User, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Settings, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -70,33 +70,36 @@ export default function Attendance() {
   const StatusIcon = connected ? Wifi : WifiOff;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6 attendance-page">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="attendance-toolbar">
+        <div className="attendance-toolbar__title">
           <h1 className="text-2xl font-bold text-gray-900">Presença</h1>
           <p className="text-sm text-gray-500 mt-1">Registros importados do equipamento Control iD</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="attendance-toolbar__actions">
           <button
+            type="button"
             onClick={() => setShowSettings(true)}
-            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
+            className="attendance-toolbar__btn p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
             title="Configurações do equipamento"
           >
             <Settings size={18} />
           </button>
           <button
+            type="button"
             onClick={handleConnect}
             disabled={!deviceIp || connecting}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700 disabled:opacity-50"
+            className="attendance-toolbar__btn flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700 disabled:opacity-50"
           >
             <StatusIcon size={16} className={statusColor} />
             {connecting ? 'Conectando...' : connected ? 'Conectado' : 'Testar conexão'}
           </button>
           <button
+            type="button"
             onClick={handleSync}
             disabled={!connected || syncing || !academyId}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50"
+            className="attendance-toolbar__btn flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50"
           >
             <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
@@ -106,7 +109,7 @@ export default function Attendance() {
 
       {/* Device info bar */}
       {deviceIp && (
-        <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-600">
+        <div className="attendance-device-bar flex flex-wrap items-center gap-4 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-600">
           <span>Equipamento: <strong className="text-gray-900">{deviceIp}</strong></span>
           {lastSync && (
             <span>Última sync: <strong className="text-gray-900">{formatDate(lastSync)}</strong></span>
@@ -130,43 +133,70 @@ export default function Attendance() {
           </p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Aluno</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Data / Horário</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Portal</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Evento</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {attendance.map((record) => (
-                <tr key={record.$id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
-                        {(record.student_name || '?')[0].toUpperCase()}
-                      </div>
-                      <span className="font-medium text-gray-900">{record.student_name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    <div className="flex items-center gap-1">
-                      <Clock size={13} className="text-gray-400" />
-                      {formatDate(record.checked_in_at)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{record.portal_id || '-'}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
-                      {record.event_type === 3 ? 'Acesso liberado' : `Evento ${record.event_type ?? '-'}`}
-                    </span>
-                  </td>
+        <div className="border border-gray-200 rounded-xl attendance-table-panel">
+          <div className="attendance-table-wrap">
+            <table className="w-full text-sm attendance-table">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Aluno</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Data / Horário</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Portal</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Evento</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {attendance.map((record) => (
+                  <tr key={record.$id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
+                          {(record.student_name || '?')[0].toUpperCase()}
+                        </div>
+                        <span className="font-medium text-gray-900">{record.student_name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      <div className="flex items-center gap-1">
+                        <Clock size={13} className="text-gray-400 shrink-0" />
+                        {formatDate(record.checked_in_at)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{record.portal_id || '-'}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                        {record.event_type === 3 ? 'Acesso liberado' : `Evento ${record.event_type ?? '-'}`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="attendance-cards" aria-label="Registros de presença">
+            {attendance.map((record) => (
+              <div key={`card-${record.$id}`} className="attendance-card">
+                <div className="attendance-card__head">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shrink-0">
+                    {(record.student_name || '?')[0].toUpperCase()}
+                  </div>
+                  <span className="attendance-card__name font-medium text-gray-900">{record.student_name}</span>
+                </div>
+                <div className="attendance-card__row text-gray-700 text-sm">
+                  <Clock size={14} className="text-gray-400 shrink-0" aria-hidden />
+                  <span>{formatDate(record.checked_in_at)}</span>
+                </div>
+                <div className="attendance-card__row text-sm text-gray-500">
+                  <span className="font-medium text-gray-600">Portal</span>
+                  <span>{record.portal_id || '—'}</span>
+                </div>
+                <div className="attendance-card__footer">
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                    {record.event_type === 3 ? 'Acesso liberado' : `Evento ${record.event_type ?? '-'}`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

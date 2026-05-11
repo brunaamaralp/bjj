@@ -1,6 +1,7 @@
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
+import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -837,9 +838,13 @@ export default async function handler(req, res) {
               ...mediaExtras
             };
         const senderName = pickSenderName(it);
-        const bucket = grouped.get(phone) || { messages: [], whatsappName: '' };
+        const bucket = grouped.get(phone) || { messages: [], whatsappName: '', whatsappProfileImageUrl: '' };
         bucket.messages.push(msg);
         if (!bucket.whatsappName && senderName) bucket.whatsappName = senderName;
+        if (inbound) {
+          const pic = pickSenderProfileImageUrl(it);
+          if (pic && !bucket.whatsappProfileImageUrl) bucket.whatsappProfileImageUrl = pic;
+        }
         grouped.set(phone, bucket);
       }
 
@@ -875,12 +880,18 @@ export default async function handler(req, res) {
           const docPayload = { messages: JSON.stringify(merged), updated_at: updatedAt };
           if (lastUserMsgAt) docPayload.last_user_msg_at = lastUserMsgAt;
           const waName = String(bucket?.whatsappName || '').trim();
+          const waPic = String(bucket?.whatsappProfileImageUrl || '').trim();
+          const picOk = Boolean(waPic && /^https?:\/\//i.test(waPic));
           const currentContactName = String(current?.contact_name || '').trim();
           const currentSource = String(current?.contact_name_source || '').trim().toLowerCase();
           const shouldFillContactName = waName && (!currentContactName || currentSource !== 'manual');
           if (waName) {
             docPayload.whatsapp_profile_name = waName;
             docPayload.whatsapp_profile_name_updated_at = new Date().toISOString();
+          }
+          if (picOk) {
+            docPayload.whatsapp_profile_image_url = waPic;
+            docPayload.whatsapp_profile_image_updated_at = new Date().toISOString();
           }
           if (shouldFillContactName) {
             docPayload.contact_name = waName;
@@ -895,7 +906,18 @@ export default async function handler(req, res) {
               updated_at: updatedAt
             };
             if (shouldFillContactName) fallbackPayload.contact_name = waName;
-            await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, fallbackPayload);
+            if (picOk) {
+              fallbackPayload.whatsapp_profile_image_url = waPic;
+              fallbackPayload.whatsapp_profile_image_updated_at = new Date().toISOString();
+            }
+            try {
+              await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, fallbackPayload);
+            } catch {
+              await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+                messages: JSON.stringify(merged),
+                updated_at: updatedAt
+              });
+            }
           }
           conversationsUpdated += 1;
           messagesMerged += Math.max(0, merged.length - history.length);
