@@ -16,6 +16,7 @@ import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations.js';
+import { useTerms } from '../lib/terminology.js';
 
 const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2 },
@@ -27,6 +28,7 @@ const TABS_ALL = [
 ];
 
 const AcademySettings = () => {
+    const terms = useTerms();
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const billingAccess = useLeadStore((s) => s.billingAccess);
@@ -311,7 +313,7 @@ const AcademySettings = () => {
                 console.error('[AcademySettings] erro:', e);
                 addToast({ type: 'error', message: friendlyError(e, 'save') });
             }
-            addToast({ type: 'success', message: 'Configurações da academia salvas.' });
+            addToast({ type: 'success', message: `Configurações da ${terms.workspaceNoun} salvas.` });
         } catch (e) {
             if (String(e?.message) === 'tax') {
                 throw e;
@@ -357,8 +359,8 @@ const AcademySettings = () => {
                     <ChevronLeft size={18} strokeWidth={2} aria-hidden />
                     Voltar à conta
                 </Link>
-                <h2 className="navi-page-title">{academy.name || 'Minha academia'}</h2>
-                <p className="academy-settings-page-subtitle">Configurações da academia</p>
+                <h2 className="navi-page-title">{academy.name || terms.myWorkspace}</h2>
+                <p className="academy-settings-page-subtitle">Configurações da {terms.workspaceNoun}</p>
             </div>
 
             {academyLoadState === 'error' && (
@@ -374,7 +376,7 @@ const AcademySettings = () => {
                 </div>
             )}
 
-            <nav className="empresa-subnav" aria-label="Seções da academia">
+            <nav className="empresa-subnav" aria-label={`Seções da ${terms.workspaceNoun}`}>
                 <div className="empresa-subnav-scroll">
                     {TABS.map((tab) => (
                         <button

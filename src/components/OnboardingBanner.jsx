@@ -13,10 +13,12 @@ import {
   buildEffectiveCoreSteps,
   ONBOARDING_STEP_TITLES,
 } from '../lib/onboardingChecklist.js';
+import { useTerms } from '../lib/terminology.js';
 
 const ONBOARDING_BANNER_HEADLINE = 'Vamos deixar seu CRM pronto?';
 
 export default function OnboardingBanner() {
+  const terms = useTerms();
   const navigate = useNavigate();
   const { academyId, checklist, billingAccess, reopenNonce, academyList } = useLeadStore(
     useShallow((s) => ({
@@ -100,7 +102,7 @@ export default function OnboardingBanner() {
     if (stepBlocked(stepId)) {
       addToast({
         type: 'info',
-        message: 'Peça ao dono da academia para configurar a IA e o WhatsApp.',
+        message: `Peça ao dono da ${terms.workspaceNoun} para configurar a IA e o WhatsApp.`,
         duration: 6000,
       });
       return;

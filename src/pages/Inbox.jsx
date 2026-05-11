@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
+import { useTerms } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
@@ -175,6 +176,7 @@ export default function Inbox() {
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
   const { waInfo, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId);
+  const terms = useTerms();
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -3936,7 +3938,7 @@ export default function Inbox() {
                       </div>
                       {quickTemplates.length === 0 && (
                         <div className="text-small" style={{ color: 'var(--text-muted)', padding: '4px 8px' }}>
-                          Nenhum template da academia. Configure em Templates no menu.
+                          {`Nenhum template da ${terms.workspaceNoun}. Configure em Templates no menu.`}
                         </div>
                       )}
                       {quickTemplates.map((tpl) => {

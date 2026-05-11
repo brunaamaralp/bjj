@@ -3,9 +3,11 @@ import { Download, Trash2 } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
+import { useTerms } from '../../lib/terminology.js';
 import ExportButton from '../ExportButton';
 
 const AvancadoSection = ({ academy, leads }) => {
+    const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
 
@@ -65,7 +67,7 @@ const AvancadoSection = ({ academy, leads }) => {
                     </>
                 ) : (
                     <div style={{ padding: 16 }}>
-                        <p className="text-small" style={{ color: 'var(--text-muted)' }}>Apenas o dono da academia pode exportar ou excluir os dados em massa.</p>
+                        <p className="text-small" style={{ color: 'var(--text-muted)' }}>Apenas o dono da {terms.workspaceNoun} pode exportar ou excluir os dados em massa.</p>
                     </div>
                 )}
             </div>

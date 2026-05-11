@@ -4,6 +4,7 @@ import { Eye, EyeOff, UserPlus, X, LogIn } from 'lucide-react';
 import NaviLogo from '../components/NaviLogo.jsx';
 import NaviWordmark from '../components/NaviWordmark.jsx';
 import { useNavigate, Link } from 'react-router-dom';
+import { TERMS } from '../lib/terminology.js';
 
 const Register = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -15,12 +16,14 @@ const Register = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const registerTerms = TERMS[vertical] || TERMS.fitness;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      if (!name.trim()) { setError('Informe o nome da academia.'); setLoading(false); return; }
+      if (!name.trim()) { setError(`Informe o nome da ${registerTerms.workspaceNoun}.`); setLoading(false); return; }
       if (password.length < 8) { setError('Senha deve ter no mínimo 8 caracteres.'); setLoading(false); return; }
       await authService.register(email, password, name);
       const user = await authService.getCurrentUser();
@@ -58,7 +61,7 @@ const Register = ({ onLogin }) => {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label>Nome da Academia</label>
+            <label>Nome da {registerTerms.workspaceNounTitle}</label>
             <input
               type="text"
               className="form-input"

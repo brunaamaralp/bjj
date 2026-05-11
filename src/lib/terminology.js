@@ -11,6 +11,12 @@ export const TERMS = {
     plan: 'Plano',
     belt: 'Faixa',
     kimono: 'Kimono',
+    /** Navegação e título quando o nome do negócio ainda não existe */
+    myWorkspace: 'Minha academia',
+    /** Substantivo (minúsculo) para frases: "da …", "sua …", "nome da …" */
+    workspaceNoun: 'academia',
+    /** Mesmo substantivo com inicial maiúscula (títulos: "Dados da …") */
+    workspaceNounTitle: 'Academia',
   },
   physio: {
     student: 'Paciente',
@@ -22,6 +28,9 @@ export const TERMS = {
     plan: 'Protocolo',
     belt: 'Evolução',
     kimono: 'Equipamento',
+    myWorkspace: 'Minha clínica',
+    workspaceNoun: 'clínica',
+    workspaceNounTitle: 'Clínica',
   },
 };
 

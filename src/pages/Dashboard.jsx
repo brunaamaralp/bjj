@@ -704,7 +704,7 @@ const Dashboard = () => {
                                             {academyWaLoadFailed && (
                                                 <span
                                                     className="dashboard-wa-warning-badge"
-                                                    title="Não foi possível carregar a configuração da academia. O WhatsApp pode não funcionar."
+                                                    title={`Não foi possível carregar a configuração da ${terms.workspaceNoun}. O WhatsApp pode não funcionar.`}
                                                     aria-hidden
                                                 >
                                                     ⚠️

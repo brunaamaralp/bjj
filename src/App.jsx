@@ -209,14 +209,14 @@ const App = () => {
     }
     opsItems.push({ to: '/templates', label: 'Templates', Icon: FileText });
     sections.push({ title: 'Operacional', items: opsItems });
-    const cfgItems = [{ to: '/empresa', label: 'Minha academia', Icon: Building2 }];
+    const cfgItems = [{ to: '/empresa', label: terms.myWorkspace, Icon: Building2 }];
     if (canConfigureAgenteIa) {
       cfgItems.push({ to: '/agente-ia', label: 'Agente IA', Icon: Bot });
     }
     cfgItems.push({ to: '/reports', label: 'Relatórios', Icon: BarChart3 });
     sections.push({ title: 'Configurações', items: cfgItems });
     return sections;
-  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa]);
+  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa, terms.myWorkspace]);
 
   const closeMobileDrawer = () => setMobileMenuOpen(false);
 
@@ -629,7 +629,7 @@ const App = () => {
       try {
         useUiStore.getState().addToast({
           type: 'error',
-          message: 'Não foi possível carregar sua academia. Tente novamente ou entre em contato com o administrador.',
+          message: `Não foi possível carregar sua ${terms.workspaceNoun}. Tente novamente ou entre em contato com o administrador.`,
           duration: 6000
         });
       } catch (toastErr) {
@@ -957,10 +957,10 @@ const App = () => {
               <NavLink
                 to="/empresa"
                 className={({ isActive }) => `navi-side-link${isActive ? ' active' : ''}`}
-                title={sidebarCollapsed ? 'Minha academia' : undefined}
+                title={sidebarCollapsed ? terms.myWorkspace : undefined}
               >
                 <Building2 size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Minha academia</span>
+                <span className="navi-side-link-label">{terms.myWorkspace}</span>
               </NavLink>
               <NavLink
                 to="/conta"

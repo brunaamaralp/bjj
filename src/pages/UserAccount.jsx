@@ -7,6 +7,7 @@ import { authService } from '../lib/auth';
 import { createSessionJwt } from '../lib/appwrite';
 import { isBillingLive } from '../lib/billingEnabled';
 import { useUiStore } from '../store/useUiStore';
+import { useTerms } from '../lib/terminology.js';
 
 const MIN_PWD = 8;
 
@@ -17,6 +18,7 @@ function userInitial(email) {
 }
 
 const UserAccount = ({ user }) => {
+    const terms = useTerms();
     const academyId = useLeadStore((s) => s.academyId);
     const reopenOnboardingBanner = useLeadStore((s) => s.reopenOnboardingBanner);
     const addToast = useUiStore((s) => s.addToast);
@@ -94,7 +96,7 @@ const UserAccount = ({ user }) => {
 
     const showOnboardingChecklistAgain = () => {
         if (!academyId) {
-            addToast({ type: 'info', message: 'Selecione uma academia primeiro.' });
+            addToast({ type: 'info', message: `Selecione uma ${terms.workspaceNoun} primeiro.` });
             return;
         }
         try {
@@ -162,7 +164,7 @@ const UserAccount = ({ user }) => {
                         className="btn btn-secondary"
                         onClick={showOnboardingChecklistAgain}
                         disabled={!academyId}
-                        title={!academyId ? 'Selecione uma academia primeiro' : undefined}
+                        title={!academyId ? `Selecione uma ${terms.workspaceNoun} primeiro` : undefined}
                     >
                         Mostrar checklist
                     </button>

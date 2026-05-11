@@ -8,6 +8,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
+import { useTerms } from '../../lib/terminology.js';
 
 async function getJwt() {
     const jwt = await account.createJWT();
@@ -66,6 +67,7 @@ const cardBase = {
 };
 
 const AgenteIASection = ({ academyId, role, academyDoc }) => {
+    const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const academyIdRef = useRef(academyId);
     useEffect(() => { academyIdRef.current = academyId; }, [academyId]);
@@ -706,7 +708,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         const [messages, setMessages] = useState([
             {
                 role: 'assistant',
-                content: `Olá! Sou ${aiName || 'assistente'}, assistente configurado para ${academyName || 'sua academia'}. Como posso ajudar? (Modo de teste)`
+                content: `Olá! Sou ${aiName || 'assistente'}, assistente configurado para ${academyName || `sua ${terms.workspaceNoun}`}. Como posso ajudar? (Modo de teste)`
             }
         ]);
         const [input, setInput] = useState('');
@@ -1001,8 +1003,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)' }}>Primeiro passo</p>
                                 <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 }}>
                                     {isOwner
-                                        ? 'Crie a conexão desta academia com o WhatsApp. Na sequência você poderá exibir o código QR para escanear no celular.'
-                                        : 'Peça ao dono da academia para iniciar a conexão com o WhatsApp aqui.'}
+                                        ? `Crie a conexão desta ${terms.workspaceNoun} com o WhatsApp. Na sequência você poderá exibir o código QR para escanear no celular.`
+                                        : `Peça ao dono da ${terms.workspaceNoun} para iniciar a conexão com o WhatsApp aqui.`}
                                 </p>
                                 {isOwner && (
                                     <button
@@ -1075,7 +1077,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                     <strong>Exibir código QR</strong> aqui e aponte a câmera para a tela.
                                                 </>
                                             ) : (
-                                                <>Somente o dono da academia pode abrir o código QR nesta página. Você pode atualizar o status abaixo para ver se a conexão já foi feita.</>
+                                                <>Somente o dono da {terms.workspaceNoun} pode abrir o código QR nesta página. Você pode atualizar o status abaixo para ver se a conexão já foi feita.</>
                                             )}
                                         </p>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>

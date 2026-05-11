@@ -9,6 +9,7 @@ import {
   WHATSAPP_TEMPLATE_LABELS,
   applyWhatsappTemplatePlaceholders
 } from '../../lib/whatsappTemplateDefaults.js';
+import { useTerms } from '../lib/terminology.js';
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
@@ -18,17 +19,20 @@ const WHATSAPP_TEMPLATE_CHAR_LIMIT = 1024;
 const isAutomaticTemplateId = (id) =>
   id === 'birthday' || String(labelFor[id] || '').toLowerCase().includes('(automático)');
 
-const PLACEHOLDERS = [
-  { key: '{primeiroNome}', label: 'Primeiro nome' },
-  { key: '{nome}', label: 'Igual a primeiro nome (legado)' },
-  { key: '{dataAula}', label: 'Data da aula (DD/MM/AAAA)' },
-  { key: '{horaAula}', label: 'Hora da aula (HH:MM)' },
-  { key: '{amanhaData}', label: 'Texto “amanhã (DD/MM/AAAA)”' },
-  { key: '{nomeAcademia}', label: 'Nome da academia' },
-  { key: '{dataAulaOpcional}', label: 'Data opcional (prefixa “ do dia …”)' },
-];
-
 const Templates = () => {
+  const terms = useTerms();
+  const placeholders = useMemo(
+    () => [
+      { key: '{primeiroNome}', label: 'Primeiro nome' },
+      { key: '{nome}', label: 'Igual a primeiro nome (legado)' },
+      { key: '{dataAula}', label: 'Data da aula (DD/MM/AAAA)' },
+      { key: '{horaAula}', label: 'Hora da aula (HH:MM)' },
+      { key: '{amanhaData}', label: 'Texto “amanhã (DD/MM/AAAA)”' },
+      { key: '{nomeAcademia}', label: `Nome da ${terms.workspaceNoun}` },
+      { key: '{dataAulaOpcional}', label: 'Data opcional (prefixa “ do dia …”)' },
+    ],
+    [terms.workspaceNoun]
+  );
   const academyId = useLeadStore((s) => s.academyId);
   const { leads } = useLeadStore();
   const addToast = useUiStore((s) => s.addToast);
@@ -339,7 +343,7 @@ const Templates = () => {
                   <div className="tpl-vars">
                     <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Variáveis</div>
                     <div className="tpl-vars-scroll">
-                      {PLACEHOLDERS.map((ph) => (
+                      {placeholders.map((ph) => (
                         <button
                           key={ph.key}
                           type="button"

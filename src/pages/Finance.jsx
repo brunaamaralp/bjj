@@ -9,6 +9,7 @@ import JournalTab from '../components/finance/JournalTab.jsx';
 import ReportsTab from '../components/finance/ReportsTab.jsx';
 import ImportFinanceModal from '../components/finance/ImportFinanceModal.jsx';
 import { FINANCE_PAGE_CSS } from '../components/finance/financePageStyles.js';
+import { useTerms } from '../lib/terminology.js';
 
 const defaultFinanceConfig = () => ({
   cardFees: {
@@ -34,6 +35,7 @@ const mapAccountDoc = (d) => ({
 });
 
 const Finance = () => {
+  const terms = useTerms();
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -118,7 +120,7 @@ const Finance = () => {
     || (financeConfig.bankAccounts?.length || 0) > 0;
 
   const handleImportFinance = useCallback(async ({ accounts: newAccounts, plans: newPlans, bankAccounts: newBankAccounts, mode }) => {
-    if (!academyId) throw new Error('Selecione uma academia para importar.');
+    if (!academyId) throw new Error(`Selecione uma ${terms.workspaceNoun} para importar.`);
     const accountsList = Array.isArray(newAccounts) ? newAccounts : [];
     const plansList = Array.isArray(newPlans) ? newPlans : [];
     const banksList = Array.isArray(newBankAccounts) ? newBankAccounts : [];
@@ -184,7 +186,7 @@ const Finance = () => {
     }
 
     addToast({ type: 'success', message: 'Dados importados com sucesso.' });
-  }, [academyId, financeConfig, setAccounts, addToast]);
+  }, [academyId, financeConfig, setAccounts, addToast, terms.workspaceNoun]);
 
   return (
     <div className="finance-page-root">
@@ -198,7 +200,7 @@ const Finance = () => {
 
         {!String(academyId || '').trim() ? (
           <div style={{ padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>
-            Selecione uma academia para visualizar os dados.
+            Selecione uma {terms.workspaceNoun} para visualizar os dados.
           </div>
         ) : (
           <>

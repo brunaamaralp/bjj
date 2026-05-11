@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Phone, Mail, MapPin, Tags } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
+import { useTerms } from '../../lib/terminology.js';
 import { maskPhone, maskCPFOrCNPJ } from '../../lib/masks.js';
 
 const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
@@ -40,6 +41,7 @@ const EstudioSection = ({
     taxInputRef,
     autoEditTax = false,
 }) => {
+    const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
     const [editing, setEditing] = useState(false);
@@ -115,7 +117,7 @@ const EstudioSection = ({
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
             <div className="flex justify-between items-center mb-2">
-                <h3 className="navi-section-heading">Dados da Academia</h3>
+                <h3 className="navi-section-heading">Dados da {terms.workspaceNounTitle}</h3>
                 {role === 'owner' && !editing && (
                     <button className="edit-link" onClick={() => setEditing(true)}>Editar</button>
                 )}
@@ -125,7 +127,7 @@ const EstudioSection = ({
                 {editing ? (
                     <div className="flex-col gap-4">
                         <div className="form-group">
-                            <label>Nome da Academia</label>
+                            <label>Nome da {terms.workspaceNounTitle}</label>
                             <input className="form-input" value={academy.name}
                                 onChange={e => setAcademy({ ...academy, name: e.target.value })}
                                 placeholder="Ex: Team BJJ" />

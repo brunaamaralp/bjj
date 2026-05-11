@@ -19,6 +19,7 @@ import {
     X,
     Loader2,
 } from 'lucide-react';
+import { useTerms } from '../lib/terminology.js';
 
 const presets = [
     { key: 'today', label: 'Hoje' },
@@ -203,6 +204,7 @@ const pctVar = (cur, prev) => {
 };
 
 const Reports = () => {
+    const terms = useTerms();
     const { leads, fetchLeads, fetchMoreLeads } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
@@ -660,7 +662,7 @@ const Reports = () => {
                         Nenhum lead carregado
                     </p>
                     <p className="text-small" style={{ color: 'var(--text-muted)' }}>
-                        Volte ao início ou ao funil e aguarde o carregamento. Se a academia ainda não tiver leads, cadastre o primeiro no menu.
+                        Volte ao início ou ao funil e aguarde o carregamento. Se a {terms.workspaceNoun} ainda não tiver leads, cadastre o primeiro no menu.
                     </p>
                 </div>
             ) : !error && !showInitialLoad && !reportHasActivity ? (
