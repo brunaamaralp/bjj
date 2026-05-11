@@ -2405,6 +2405,11 @@ const Pipeline = () => {
         .wa-templates-dropdown { position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 180px; z-index: 100; overflow: hidden; }
         .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
         .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+        @media (max-width: 1023px) {
+          .wa-main-btn { min-height: 44px; }
+          .wa-drop-toggle { min-height: 44px; }
+          .action-btn--menu { min-width: 44px; min-height: 44px; }
+        }
         .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 9000; overflow: hidden; padding: 6px 0; }
         .menu-group { display: flex; flex-direction: column; }
         .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; text-align: left; cursor: pointer; transition: background 0.15s; }

@@ -3128,8 +3128,8 @@ export default function Inbox() {
 
   const threadPanel = !selectedPhone ? (
     <div
+      className="inbox-empty-thread-placeholder"
       style={{
-        minHeight: '62vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -3886,7 +3886,9 @@ export default function Inbox() {
       <div
         style={{
           padding: 12,
-          paddingBottom: isMobile ? 12 + inboxVvInset : 12,
+          paddingBottom: isMobile
+            ? `calc(12px + ${inboxVvInset}px + env(safe-area-inset-bottom, 0px))`
+            : 12,
           borderTop: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
@@ -4210,8 +4212,18 @@ export default function Inbox() {
               className="form-input"
               rows={3}
               style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 88 }}
-              onFocus={() => {
+              onFocus={(e) => {
                 if (!isMobile) setComposerExpanded(true);
+                if (isMobile) {
+                  const el = e.currentTarget;
+                  setTimeout(() => {
+                    try {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    } catch {
+                      void 0;
+                    }
+                  }, 100);
+                }
               }}
             />
           </div>
@@ -4567,7 +4579,7 @@ export default function Inbox() {
           </button>
         )}
       </div>
-      <div style={{ maxHeight: '70vh', overflow: 'auto' }}>{contextPanelContent}</div>
+      <div className="inbox-context-panel-scroll">{contextPanelContent}</div>
     </div>
   );
 
@@ -4600,6 +4612,24 @@ export default function Inbox() {
         .inbox-menu-item.danger { color: var(--danger); }
         .inbox-menu-item.danger:hover { background: var(--danger-light); }
         .inbox-menu-item.muted { color: var(--text-secondary); font-weight: 600; }
+        .inbox-empty-thread-placeholder {
+          min-height: 62vh;
+          min-height: 62dvh;
+        }
+        .inbox-context-panel-scroll {
+          max-height: 70vh;
+          max-height: 70dvh;
+          overflow: auto;
+        }
+        .inbox-details-modal-shell {
+          max-height: 92vh;
+          max-height: 92dvh;
+        }
+        .inbox-details-modal-scroll {
+          max-height: calc(92vh - 56px);
+          max-height: calc(92dvh - 56px);
+          overflow: auto;
+        }
         .inbox-conversation-item {
           transition: background .16s ease, border-color .16s ease;
           appearance: none;
@@ -4607,6 +4637,7 @@ export default function Inbox() {
           border-radius: 0;
           font: inherit;
           line-height: 1.25;
+          min-height: 44px;
         }
         .inbox-conversation-item:hover { background: rgba(15, 23, 42, 0.04) !important; }
         .inbox-conversation-item.active { box-shadow: inset 3px 0 0 var(--v500); }
@@ -5327,7 +5358,8 @@ export default function Inbox() {
           role="presentation"
         >
           <div
-            style={{ width: 'min(560px, 96vw)', maxHeight: '92vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}
+            className="inbox-details-modal-shell"
+            style={{ width: 'min(560px, 96vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -5336,7 +5368,7 @@ export default function Inbox() {
                 Fechar
               </button>
             </div>
-            <div style={{ maxHeight: 'calc(92vh - 56px)', overflow: 'auto' }}>{contextPanelContent}</div>
+            <div className="inbox-details-modal-scroll">{contextPanelContent}</div>
           </div>
         </div>
       )}
