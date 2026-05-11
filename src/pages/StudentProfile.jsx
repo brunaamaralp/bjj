@@ -17,6 +17,7 @@ import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
+import { useTerms } from '../lib/terminology.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
@@ -178,6 +179,7 @@ export default function StudentProfile() {
     const updateLead = useLeadStore((s) => s.updateLead);
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
+    const terms = useTerms();
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -185,7 +187,11 @@ export default function StudentProfile() {
     }, [academyList, academyId, userId]);
 
     const pipelineStagesNl = useMemo(() => {
-        const fixed = PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage }));
+        const patchTrial = (rows) =>
+            (rows || []).map((s) =>
+                String(s?.id || '').trim() === 'Aula experimental' ? { ...s, label: terms.trial } : s
+            );
+        const fixed = patchTrial(PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage })));
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         let conf = acad?.stagesConfig;
         if (!conf) return fixed;
@@ -201,11 +207,16 @@ export default function StudentProfile() {
                     return sid ? { id: sid, label: label || sid } : null;
                 })
                 .filter(Boolean);
-            return normalized.length > 0 ? normalized : fixed;
+            return normalized.length > 0 ? patchTrial(normalized) : fixed;
         } catch {
             return fixed;
         }
-    }, [academyList, academyId]);
+    }, [academyList, academyId, terms.trial]);
+
+    const studentDataFields = useMemo(
+        () => STUDENT_DATA_FIELDS.map((f) => (f.key === 'plan' ? { ...f, label: terms.plan } : f)),
+        [terms.plan]
+    );
 
     const [editingData, setEditingData] = useState(false);
     const [dataForm, setDataForm] = useState({
@@ -634,7 +645,7 @@ export default function StudentProfile() {
         setDeleteBusy(true);
         try {
             await deleteLead(leadId);
-            addToast({ type: 'success', message: 'Aluno excluído com sucesso.' });
+            addToast({ type: 'success', message: `${terms.student} excluído com sucesso.` });
             setConfirmDeleteOpen(false);
             navigate('/students');
         } catch (e) {
@@ -657,7 +668,7 @@ export default function StudentProfile() {
                 },
                 permCtx
             );
-            addToast({ type: 'success', message: 'Presença registrada!' });
+            addToast({ type: 'success', message: `${terms.attendance} registrada!` });
             setCheckins((prev) => [doc, ...prev]);
             setFreqStats((prev) => {
                 if (!prev) {
@@ -679,7 +690,7 @@ export default function StudentProfile() {
             });
             emitLeadAttendanceChanged(leadId);
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') || 'Não foi possível registrar a presença.' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') || `Não foi possível registrar a ${terms.attendance.toLowerCase()}.` });
         } finally {
             setCheckingIn(false);
         }
@@ -774,9 +785,9 @@ export default function StudentProfile() {
     if (!student) {
         return (
             <div className="container" style={{ paddingTop: 40, textAlign: 'center', minHeight: '100vh' }}>
-                <p className="text-light">Aluno não encontrado.</p>
+                <p className="text-light">{terms.student} não encontrado.</p>
                 <button type="button" className="btn-primary mt-4" onClick={() => navigate('/students')}>
-                    Voltar aos alunos
+                    Voltar aos {terms.students.toLowerCase()}
                 </button>
             </div>
         );
@@ -784,7 +795,7 @@ export default function StudentProfile() {
 
     const phoneHasDigits = Boolean(String(student.phone || '').replace(/\D/g, '').length);
     const attendanceReady = isAttendanceConfigured();
-    const studentsPlural = uiLabels.students || 'Alunos';
+    const studentsPlural = terms.students;
     const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const currentMonthExtended = formatReferenceMonthLong(currentYm);
 
@@ -1086,7 +1097,7 @@ export default function StudentProfile() {
                         opacity: checkingIn || !leadId || !academyId || !attendanceReady ? 0.65 : 1,
                     }}
                 >
-                    {checkingIn ? 'Registrando...' : '+ Registrar presença'}
+                    {checkingIn ? 'Registrando...' : `+ Registrar ${terms.attendance.toLowerCase()}`}
                 </button>
 
                 <div style={{ marginBottom: 22 }}>
@@ -1205,14 +1216,14 @@ export default function StudentProfile() {
                             marginBottom: 12,
                         }}
                     >
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Dados do aluno</h3>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Dados do {terms.student.toLowerCase()}</h3>
                         {!editingData ? (
                             <button type="button" className="btn-outline" style={{ minHeight: 44, fontSize: 12, padding: '6px 12px' }} onClick={() => setEditingData(true)}>
                                 Editar
                             </button>
                         ) : null}
                     </div>
-                    {editingData ? STUDENT_DATA_FIELDS.map(renderStudentDataEditRow) : STUDENT_DATA_FIELDS.map(renderStudentDataViewRow)}
+                    {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
                 </div>
 
                 <div style={{ marginBottom: 22 }}>
@@ -1281,7 +1292,7 @@ export default function StudentProfile() {
                             fontFamily: 'inherit',
                         }}
                     >
-                        <Trash2 size={16} /> Excluir aluno
+                        <Trash2 size={16} /> Excluir {terms.student.toLowerCase()}
                     </button>
                 </div>
             </div>
@@ -1403,13 +1414,13 @@ export default function StudentProfile() {
                             >
                                 {Number(freqErrorCode) === 401 ? (
                                     <>
-                                        Sem permissão para ler a coleção de presenças no Appwrite (401). Abra a coleção
+                                        Sem permissão para ler a coleção de {terms.attendance.toLowerCase()} no Appwrite (401). Abra a coleção
                                         configurada em <code style={{ fontSize: 12 }}>VITE_APPWRITE_ATTENDANCE_COL_ID</code> e
                                         conceda <strong>Read</strong> ao papel adequado (usuários autenticados ou equipe da
                                         academia), como na coleção de leads.
                                     </>
                                 ) : (
-                                    <>Erro ao carregar presenças.</>
+                                    <>Erro ao carregar {terms.attendance.toLowerCase()}.</>
                                 )}{' '}
                                 <button
                                     type="button"
@@ -1468,7 +1479,7 @@ export default function StudentProfile() {
                                             padding: '16px 8px',
                                         }}
                                     >
-                                        Nenhuma presença registrada ainda
+                                        Nenhuma {terms.attendance.toLowerCase()} registrada ainda
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1700,7 +1711,7 @@ export default function StudentProfile() {
                             <textarea
                                 value={note}
                                 onChange={(e) => setNote(e.target.value)}
-                                placeholder="Adicione uma observação sobre este aluno..."
+                                placeholder={`Adicione uma observação sobre este ${terms.student.toLowerCase()}...`}
                                 rows={3}
                                 style={{
                                     ...inputStyle,
@@ -1905,9 +1916,9 @@ export default function StudentProfile() {
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
                             <AlertTriangle size={28} color="var(--danger)" />
                         </div>
-                        <h3 style={{ margin: 0, textAlign: 'center', fontSize: 18, fontWeight: 800 }}>Excluir aluno?</h3>
+                        <h3 style={{ margin: 0, textAlign: 'center', fontSize: 18, fontWeight: 800 }}>Excluir {terms.student.toLowerCase()}?</h3>
                         <p style={{ margin: '12px 0 0', textAlign: 'center', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                            Esta ação não pode ser desfeita. Todos os dados do aluno serão removidos.
+                            Esta ação não pode ser desfeita. Todos os dados do {terms.student.toLowerCase()} serão removidos.
                         </p>
                         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
                             <button

@@ -46,6 +46,7 @@ const AcademySettings = () => {
         email: '',
         address: '',
         quickTimes: '',
+        vertical: 'fitness',
         uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
         modules: { sales: false, inventory: false, finance: false },
         customLeadQuestions: [],
@@ -178,12 +179,15 @@ const AcademySettings = () => {
                     addToast({ type: 'error', message: friendlyError(e, 'save') });
                 }
                 const normalized = normalizeQuestions(doc.customLeadQuestions);
+                const verticalRaw = String(doc.vertical || '').trim();
+                const vertical = verticalRaw === 'physio' ? 'physio' : 'fitness';
                 setAcademy({
                     name: doc.name || '',
                     phone: doc.phone || '',
                     email: doc.email || '',
                     address: doc.address || '',
                     quickTimes: doc.quickTimes || '',
+                    vertical,
                     uiLabels: labels,
                     modules: mods,
                     automationsConfigRaw: doc.automations_config || '',
@@ -192,6 +196,11 @@ const AcademySettings = () => {
                     ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
                 });
+                try {
+                    useLeadStore.getState().setVertical(vertical);
+                } catch (e) {
+                    console.error('[AcademySettings] setVertical:', e);
+                }
                 setAutomationsConfig(parseAutomationsConfig(doc.automations_config || ''));
                 if (normalized.migrated) {
                     try {
@@ -283,18 +292,21 @@ const AcademySettings = () => {
             } catch {
                 void 0;
             }
+            const vertical = String(academy.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 name: academy.name,
                 phone: String(academy.phone || '').replace(/\D/g, ''),
                 email: academy.email,
                 address: academy.address,
                 quickTimes: academy.quickTimes || '',
+                vertical,
                 uiLabels: JSON.stringify(academy.uiLabels || {}),
                 modules: JSON.stringify(modulesPayload),
             });
             try {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
                 useLeadStore.getState().setModules(academy.modules || {});
+                useLeadStore.getState().setVertical(vertical);
             } catch (e) {
                 console.error('[AcademySettings] erro:', e);
                 addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -379,18 +391,42 @@ const AcademySettings = () => {
             </nav>
 
             {activeTab === 'estudio' && (
-                <EstudioSection
-                    academy={academy}
-                    setAcademy={setAcademy}
-                    onSave={handleSave}
-                    taxUpdateNeeded={taxUpdateNeeded}
-                    companyTaxRegistered={Boolean(billingAccess?.companyTaxOk)}
-                    billingLive={isBillingLive()}
-                    taxDocumentInput={taxDocumentInput}
-                    setTaxDocumentInput={setTaxDocumentInput}
-                    taxInputRef={taxInputRef}
-                    autoEditTax={autoEditTax}
-                />
+                <>
+                    <section className="empresa-section animate-in card" style={{ animationDelay: '0.02s', padding: 16, marginBottom: 16 }}>
+                        <label className="navi-section-heading" style={{ display: 'block', fontSize: '0.85rem', marginBottom: 8 }}>
+                            Tipo de negócio
+                        </label>
+                        <select
+                            className="form-input"
+                            style={{ maxWidth: 360 }}
+                            value={academy.vertical || 'fitness'}
+                            onChange={(e) =>
+                                setAcademy((prev) => ({
+                                    ...prev,
+                                    vertical: e.target.value === 'physio' ? 'physio' : 'fitness',
+                                }))
+                            }
+                        >
+                            <option value="fitness">Academia / Artes marciais</option>
+                            <option value="physio">Fisioterapia</option>
+                        </select>
+                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 8, marginBottom: 0 }}>
+                            Ajusta termos na interface (ex.: paciente vs aluno). Salve para aplicar.
+                        </p>
+                    </section>
+                    <EstudioSection
+                        academy={academy}
+                        setAcademy={setAcademy}
+                        onSave={handleSave}
+                        taxUpdateNeeded={taxUpdateNeeded}
+                        companyTaxRegistered={Boolean(billingAccess?.companyTaxOk)}
+                        billingLive={isBillingLive()}
+                        taxDocumentInput={taxDocumentInput}
+                        setTaxDocumentInput={setTaxDocumentInput}
+                        taxInputRef={taxInputRef}
+                        autoEditTax={autoEditTax}
+                    />
+                </>
             )}
 
             {activeTab === 'funil' && (

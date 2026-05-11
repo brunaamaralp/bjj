@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle } from 'lucide-react';
 import { maskPhone } from '../lib/masks.js';
+import { useTerms } from '../lib/terminology.js';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -38,6 +39,7 @@ const NewLead = () => {
     const leads = useLeadStore((state) => state.leads);
     const academyId = useLeadStore((state) => state.academyId);
     const addToast = useUiStore((state) => state.addToast);
+    const terms = useTerms();
     const [submitting, setSubmitting] = useState(false);
 
     const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
@@ -257,6 +259,9 @@ const NewLead = () => {
                 {/* Agendamento */}
                 <div className="card animate-in" style={{ animationDelay: '0.15s' }}>
                     <h3 className="type-label" style={{ marginBottom: 12 }}>Agendamento <span className="optional-label" style={{textTransform: 'none', fontWeight: 500}}>(opcional)</span></h3>
+                    <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 0, marginBottom: 10 }}>
+                        Com data e horário, o cadastro entra na etapa {terms.trialShort}.
+                    </p>
                     <div className="flex gap-2">
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Data</label>

@@ -22,6 +22,7 @@ import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
+import { useTerms } from '../lib/terminology.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -126,13 +127,18 @@ const LeadProfile = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
+    const terms = useTerms();
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
     const stages = useMemo(() => {
-        const fixed = PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage }));
+        const patchTrial = (rows) =>
+            (rows || []).map((s) =>
+                String(s?.id || '').trim() === 'Aula experimental' ? { ...s, label: terms.trial } : s
+            );
+        const fixed = patchTrial(PIPELINE_STAGES.map((stage) => ({ id: stage, label: stage })));
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         let conf = acad?.stagesConfig;
         if (!conf) return fixed;
@@ -148,11 +154,11 @@ const LeadProfile = () => {
                     return id ? { id, label: label || id } : null;
                 })
                 .filter(Boolean);
-            return normalized.length > 0 ? normalized : fixed;
+            return normalized.length > 0 ? patchTrial(normalized) : fixed;
         } catch {
             return fixed;
         }
-    }, [academyList, academyId]);
+    }, [academyList, academyId, terms.trial]);
 
     const academyNameDisplay = useMemo(() => {
         const cur = (academyList || []).find((a) => a.id === academyId);
@@ -732,7 +738,7 @@ const LeadProfile = () => {
 
     const onConfirmScheduleFromModal = async ({ date, time, note }) => {
         const patch = buildSchedulePatch(lead, { date, time });
-        const textBody = String(note || '').trim() || 'Aula experimental agendada';
+        const textBody = String(note || '').trim() || `${terms.trial} agendada`;
         try {
             try {
                 await addLeadEvent({
@@ -1148,7 +1154,7 @@ const LeadProfile = () => {
                             <span
                                 className="lead-contact-label"
                             >
-                                {contactType === 'student' ? 'Aluno' : 'Lead'}
+                                {contactType === 'student' ? terms.student : 'Lead'}
                             </span>
                             <span
                                 className="status-tag"
@@ -1272,7 +1278,7 @@ const LeadProfile = () => {
                             </div>
                         ) : (
                             <div className="flex-col gap-2">
-                                <p className="text-muted text-xs">Sem aula experimental agendada.</p>
+                                <p className="text-muted text-xs">Sem {terms.trial.toLowerCase()} agendada.</p>
                                 <button
                                     type="button"
                                     className="btn-next-step"
@@ -1307,7 +1313,7 @@ const LeadProfile = () => {
                                     onClick={handleMatricularClick}
                                     disabled={updatingStatus}
                                 >
-                                    <UserCheck size={14} /> Matricular
+                                    <UserCheck size={14} /> {terms.enrollment}
                                 </button>
                             )}
                             {lead.status !== LEAD_STATUS.LOST && (

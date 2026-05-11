@@ -9,6 +9,7 @@ import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
+import { useTerms } from '../lib/terminology.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -39,6 +40,7 @@ function formatDate(dateStr) {
 const Students = () => {
     const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
+    const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId, addLead } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
@@ -111,6 +113,9 @@ const Students = () => {
         filtroOrigem !== 'Todas' ||
         ordenacao !== 'az';
 
+    const studentPlural = terms.students;
+    const studentSingular = terms.student;
+
     const handleImport = async (rows, skippedCount = 0) => {
         setImporting(true);
         const withStatus = rows.map((r) => ({
@@ -120,12 +125,12 @@ const Students = () => {
         }));
         try {
             await importLeads(withStatus);
-            addToast({ type: 'success', message: `${rows.length} aluno(s) importado(s) com sucesso.` });
+            addToast({ type: 'success', message: `${rows.length} ${terms.student.toLowerCase()}(s) importado(s) com sucesso.` });
             if (skippedCount > 0) {
                 addToast({ type: 'warning', message: `${skippedCount} linha(s) ignorada(s) por não ter nome preenchido.` });
             }
         } catch {
-            addToast({ type: 'error', message: 'Erro ao importar alunos.' });
+            addToast({ type: 'error', message: `Erro ao importar ${terms.students.toLowerCase()}.` });
         } finally {
             setImporting(false);
             setShowImport(false);
@@ -148,7 +153,7 @@ const Students = () => {
         if (creatingStudent) return;
         const name = String(newStudent.name || '').trim();
         if (!name) {
-            addToast({ type: 'warning', message: 'Informe o nome do aluno.' });
+            addToast({ type: 'warning', message: `Informe o nome do ${terms.student.toLowerCase()}.` });
             return;
         }
         setCreatingStudent(true);
@@ -167,12 +172,12 @@ const Students = () => {
                 dueDay: new Date().getDate(),
                 enrollmentDate: new Date().toISOString().slice(0, 10),
             });
-            addToast({ type: 'success', message: 'Aluno cadastrado com sucesso.' });
+            addToast({ type: 'success', message: `${terms.student} cadastrado com sucesso.` });
             setShowCreateStudent(false);
             resetNewStudentForm();
             if (created?.id) navigate(`/student/${created.id}`);
         } catch (err) {
-            addToast({ type: 'error', message: err?.message || 'Erro ao cadastrar aluno.' });
+            addToast({ type: 'error', message: err?.message || `Erro ao cadastrar ${terms.student.toLowerCase()}.` });
         } finally {
             setCreatingStudent(false);
         }
@@ -209,7 +214,7 @@ const Students = () => {
             const allStudents = await fetchAllStudents(academyId);
 
             if (allStudents.length === 0) {
-                addToast({ type: 'warning', message: 'Nenhum aluno encontrado para exportar.' });
+                addToast({ type: 'warning', message: `Nenhum ${terms.student.toLowerCase()} encontrado para exportar.` });
                 return;
             }
 
@@ -233,10 +238,15 @@ const Students = () => {
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Dados');
-            XLSX.writeFile(wb, `alunos-ativos.xlsx`);
+            const exportSlug = terms.students
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, '-');
+            XLSX.writeFile(wb, `${exportSlug}-ativos.xlsx`);
         } catch (e) {
             console.error(e);
-            addToast({ type: 'error', message: 'Erro ao exportar alunos.' });
+            addToast({ type: 'error', message: `Erro ao exportar ${terms.students.toLowerCase()}.` });
         } finally {
             setExporting(false);
         }
@@ -247,26 +257,23 @@ const Students = () => {
         await fetchMoreLeads();
     };
 
-    const studentLabel = labels.students || 'Alunos';
-    const studentSingular = studentLabel.toLowerCase().endsWith('s') && studentLabel.length > 1
-        ? studentLabel.slice(0, -1)
-        : studentLabel;
+    const studentLabel = terms.students;
     const pipelineName = labels.pipeline || 'Funil';
 
     // TODO: quando existir status inativo, adicionar filtro "Ativos/Inativos" aqui.
     const exportTooltip =
-        'Exporta alunos com status Matriculado ou tipo de contato Aluno (mesmo critério da lista). Até 5000 por critério no servidor.';
+        `Exporta ${studentPlural.toLowerCase()} com status Matriculado ou tipo de contato ${terms.student} (mesmo critério da lista). Até 5000 por critério no servidor.`;
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <header className="animate-in">
                 <h1 className="navi-page-title">{studentLabel}</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-                    <span className="navi-ui-count">{filteredStudents.length}</span> alunos cadastrados
+                    <span className="navi-ui-count">{filteredStudents.length}</span> {studentPlural.toLowerCase()} cadastrados
                     {filtrosAtivos && students.length !== filteredStudents.length
                         ? ` (de ${students.length})`
                         : ''}
-                    {leadsHasMore ? ' (parcial — há mais alunos no servidor)' : ''}
+                    {leadsHasMore ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)` : ''}
                 </p>
                 <div className="page-header-card">
                     <div className="page-header-row">
@@ -300,7 +307,7 @@ const Students = () => {
                             <Download size={14} /> {exporting ? 'Exportando...' : 'Exportar'}
                         </button>
                         <button type="button" className="btn-action-ghost" onClick={() => setShowCreateStudent(true)}>
-                            <UserPlus size={14} /> Cadastrar aluno
+                            <UserPlus size={14} /> Cadastrar {studentSingular.toLowerCase()}
                         </button>
                         <button type="button" className="btn-action-primary" onClick={() => setShowImport(true)}>
                             <Upload size={14} /> Importar
@@ -341,7 +348,7 @@ const Students = () => {
 
             {leadsError ? (
                 <div className="dashboard-error-banner mt-3" role="alert">
-                    <span>Não foi possível carregar os alunos.</span>
+                    <span>Não foi possível carregar os {studentPlural.toLowerCase()}.</span>
                     <button type="button" className="btn-secondary" onClick={() => void fetchLeads({ reset: true })}>
                         Tentar novamente
                     </button>
@@ -374,10 +381,10 @@ const Students = () => {
                         onClick={handleLoadMore}
                         disabled={loadingMore || leadsLoading}
                     >
-                        {loadingMore ? 'Carregando…' : 'Carregar mais alunos'}
+                        {loadingMore ? 'Carregando…' : `Carregar mais ${studentPlural.toLowerCase()}`}
                     </button>
                     <p className="text-xs text-light mt-1">
-                        A lista de alunos usa os mesmos dados do servidor que o {pipelineName}. Carregue mais para incluir matriculados em registros antigos.
+                        A lista de {studentPlural.toLowerCase()} usa os mesmos dados do servidor que o {pipelineName}. Carregue mais para incluir matriculados em registros antigos.
                     </p>
                 </div>
             ) : null}
@@ -599,8 +606,8 @@ const Students = () => {
                                             to={`/student/${student.id}`}
                                             className="student-profile-chevron students-touch-hit"
                                             onClick={(e) => e.stopPropagation()}
-                                            title="Perfil do aluno"
-                                            aria-label="Abrir perfil do aluno"
+                                            title={`Perfil do ${studentSingular.toLowerCase()}`}
+                                            aria-label={`Abrir perfil do ${studentSingular.toLowerCase()}`}
                                         >
                                             <ChevronRight size={16} color="var(--text-muted)" />
                                         </Link>
@@ -620,7 +627,7 @@ const Students = () => {
                 onClose={() => setShowImport(false)}
                 onImport={handleImport}
                 defaultStatus={LEAD_STATUS.CONVERTED}
-                title="Importar Alunos"
+                title={`Importar ${studentPlural}`}
                 importing={importing}
             />
 
@@ -628,7 +635,7 @@ const Students = () => {
                 <div className="students-create-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowCreateStudent(false)}>
                     <form className="students-create-modal" onSubmit={handleCreateStudent} onMouseDown={(e) => e.stopPropagation()}>
                         <div className="students-create-head">
-                            <h3>Cadastrar aluno</h3>
+                            <h3>Cadastrar {studentSingular.toLowerCase()}</h3>
                             <button
                                 type="button"
                                 className="icon-btn"
@@ -636,7 +643,7 @@ const Students = () => {
                                     if (creatingStudent) return;
                                     setShowCreateStudent(false);
                                 }}
-                                aria-label="Fechar cadastro de aluno"
+                                aria-label={`Fechar cadastro de ${studentSingular.toLowerCase()}`}
                             >
                                 <X size={16} />
                             </button>
@@ -722,7 +729,7 @@ const Students = () => {
                                 Cancelar
                             </button>
                             <button type="submit" className="btn-action-primary" disabled={creatingStudent}>
-                                {creatingStudent ? 'Salvando...' : 'Salvar aluno'}
+                                {creatingStudent ? 'Salvando...' : `Salvar ${studentSingular.toLowerCase()}`}
                             </button>
                         </div>
                     </form>

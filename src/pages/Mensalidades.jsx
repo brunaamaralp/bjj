@@ -9,6 +9,7 @@ import { friendlyError } from '../lib/errorMessages';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
+import { useTerms } from '../lib/terminology.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -127,6 +128,7 @@ export default function Mensalidades() {
   const userId = useLeadStore((s) => s.userId);
   const updateLead = useLeadStore((s) => s.updateLead);
   const addToast = useUiStore((s) => s.addToast);
+  const terms = useTerms();
 
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [payments, setPayments] = useState([]);
@@ -611,7 +613,7 @@ export default function Mensalidades() {
             <div className="page-header-search">
               <input
                 type="search"
-                placeholder="Buscar aluno..."
+                placeholder={`Buscar ${terms.student.toLowerCase()}...`}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -752,7 +754,7 @@ export default function Mensalidades() {
         <table className="mensal-table">
           <thead>
             <tr>
-              <th>Aluno</th>
+              <th>{terms.student}</th>
               <th>
                 <button
                   type="button"
@@ -813,7 +815,7 @@ export default function Mensalidades() {
                 <td colSpan={6} style={{ padding: 48, textAlign: 'center', verticalAlign: 'middle' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--text-secondary)' }}>
                     <Users size={32} strokeWidth={1.5} aria-hidden />
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Nenhum aluno encontrado</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Nenhum {terms.student.toLowerCase()} encontrado</span>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Tente ajustar os filtros ou a busca</span>
                   </div>
                 </td>
@@ -1156,7 +1158,7 @@ export default function Mensalidades() {
                       onChange={(e) => setPayForm((f) => ({ ...f, saveAsPreferred: e.target.checked }))}
                       style={{ accentColor: '#5B3FBF' }}
                     />
-                    Salvar como pagamento habitual deste aluno
+                    Salvar como pagamento habitual deste {terms.student.toLowerCase()}
                   </label>
                   <div>
                     <label className="mensal-modal-field-label" htmlFor="mensal-pay-note">

@@ -21,6 +21,7 @@ import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
+import { useTerms } from '../lib/terminology.js';
 import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
@@ -54,7 +55,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     const slaClass =
         slaAlert?.urgency === 'critical'
@@ -192,11 +193,11 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, 
                                         onOpenScheduleModal(lead);
                                     }}
                                 >
-                                    <Calendar size={16} /> Agendar aula experimental
+                                    <Calendar size={16} /> Agendar {pipelineMenuTrialLc}
                                 </button>
                                 {lead.pipelineStage === 'Aula experimental' && (
                                     <button className="menu-item success" onClick={(e) => handleConfirmPresence(e, lead)}>
-                                        <PlusCircle size={16} /> Confirmar presença
+                                        <PlusCircle size={16} /> Confirmar {pipelineMenuAttendanceLc}
                                     </button>
                                 )}
                                 {lead.pipelineStage === 'Aula experimental' && (
@@ -206,7 +207,7 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, 
                                 )}
                                 {['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
                                     <button className="menu-item primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
-                                        <GraduationCap size={16} /> Matricular
+                                        <GraduationCap size={16} /> {pipelineMenuEnrollment}
                                     </button>
                                 )}
                                 <button className="menu-item" onClick={(e) => openMover(e, lead.id)}>
@@ -401,7 +402,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
     const [expanded, setExpanded] = useState({});
     const defaultOpenStageId = useMemo(() => {
         if (!Array.isArray(stages) || stages.length === 0) return '';
-        const exp = stages.find((s) => s.id === 'Aula experimental' || s.label === 'Experimental');
+        const exp = stages.find((s) => String(s?.id || '').trim() === 'Aula experimental');
         return exp ? exp.id : '';
     }, [stages]);
 
@@ -641,6 +642,7 @@ const Pipeline = () => {
     const leadsError = useLeadStore((s) => s.leadsError);
     const addToast = useUiStore((s) => s.addToast);
     const labels = useLeadStore((s) => s.labels);
+    const terms = useTerms();
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
@@ -666,6 +668,14 @@ const Pipeline = () => {
     const [moverOpenId, setMoverOpenId] = useState(null);
     const [lostModal, setLostModal] = useState(null);
     const [stages, setStages] = useState(DEFAULT_STAGE_LABELS);
+    /** Rótulo curto da coluna (fitness = «Experimental» como antes; physio = trialShort). */
+    const displayStages = useMemo(
+        () =>
+            stages.map((s) =>
+                String(s?.id || '').trim() === 'Aula experimental' ? { ...s, label: terms.trialShort } : s
+            ),
+        [stages, terms.trialShort]
+    );
     const [editStages, setEditStages] = useState(false);
     const [tempStages, setTempStages] = useState(DEFAULT_STAGE_LABELS);
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
@@ -712,11 +722,11 @@ const Pipeline = () => {
 
     const searchStageScopeOptions = useMemo(() => [
         { value: 'all', label: 'Todas as etapas' },
-        ...stages.map((s) => ({
+        ...displayStages.map((s) => ({
             value: s.id,
             label: String(s.label || s.id).trim() || s.id,
         })),
-    ], [stages]);
+    ], [displayStages]);
 
     useEffect(() => {
         setSearchStageScope((prev) => {
@@ -1053,7 +1063,7 @@ const Pipeline = () => {
 
     const handleReschedule = async (lead, ymd, time, note) => {
         const patch = buildSchedulePatch(lead, { date: ymd, time });
-        const textBody = String(note || '').trim() || 'Aula experimental agendada';
+        const textBody = String(note || '').trim() || `${terms.trial} agendada`;
         try {
             await addLeadEvent({
                 academyId,
@@ -1125,7 +1135,7 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            setToast('Presença confirmada');
+            setToast(`${terms.attendance} confirmada`);
             setOpenMenuId(null);
             setTimeout(() => setToast(''), 2000);
         } catch (err) {
@@ -1763,7 +1773,7 @@ const Pipeline = () => {
 
             {isMobile ? (
                 <MobileLeadList
-                    stages={stages}
+                    stages={displayStages}
                     leadsForBoard={leadsForBoard}
                     originFilter={originFilter}
                     STAGE_COLORS={STAGE_COLORS}
@@ -1789,7 +1799,7 @@ const Pipeline = () => {
                     aria-busy={showKanbanInitialLoading || undefined}
                     aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
                 >
-                    {stages.map((col, idx) => {
+                    {displayStages.map((col, idx) => {
                         const color = STAGE_COLORS[idx % STAGE_COLORS.length];
                         if (showKanbanInitialLoading) {
                             return (
@@ -1860,7 +1870,7 @@ const Pipeline = () => {
                                             waDropdownOpenId={waDropdownOpenId}
                                             templateSendKeys={templateSendKeys}
                                             sendTemplateFromPipeline={sendTemplateFromPipeline}
-                                            stages={stages}
+                                            stages={displayStages}
                                             moveToStatus={moveToStatus}
                                             handleCopyPhone={handleCopyPhone}
                                             copiedId={copiedId}
@@ -1873,6 +1883,9 @@ const Pipeline = () => {
                                             openMover={openMover}
                                             setDragTargetLead={setDragTargetLead}
                                             mapLeadToStageId={mapLeadToStageId}
+                                            pipelineMenuTrialLc={terms.trial.toLowerCase()}
+                                            pipelineMenuAttendanceLc={terms.attendance.toLowerCase()}
+                                            pipelineMenuEnrollment={terms.enrollment}
                                         />
                                     ))}
                                 </SortableContext>
@@ -1917,7 +1930,7 @@ const Pipeline = () => {
                             waDropdownOpenId={waDropdownOpenId}
                             templateSendKeys={templateSendKeys}
                             sendTemplateFromPipeline={sendTemplateFromPipeline}
-                            stages={stages}
+                            stages={displayStages}
                             moveToStatus={moveToStatus}
                             handleCopyPhone={handleCopyPhone}
                             copiedId={copiedId}
@@ -1930,6 +1943,9 @@ const Pipeline = () => {
                             openMover={openMover}
                             setDragTargetLead={setDragTargetLead}
                             mapLeadToStageId={mapLeadToStageId}
+                            pipelineMenuTrialLc={terms.trial.toLowerCase()}
+                            pipelineMenuAttendanceLc={terms.attendance.toLowerCase()}
+                            pipelineMenuEnrollment={terms.enrollment}
                         />
                     ) : null}
                 </DragOverlay>
@@ -2466,7 +2482,7 @@ const Pipeline = () => {
                     </div>
                 </div>
             )}
-            <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} context="funil" pipelineStages={stages} />
+            <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} context="funil" pipelineStages={displayStages} />
         </div>
     );
 };

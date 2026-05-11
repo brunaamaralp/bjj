@@ -138,6 +138,8 @@ export const useLeadStore = create(
   teamId: null,
   userId: null,
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
+  /** Vertical de terminologia: 'fitness' (padrão) | 'physio'. */
+  vertical: 'fitness',
   modules: { sales: false, inventory: false, finance: false },
   inboxUnreadConversations: 0,
   onboardingChecklist: null,
@@ -166,6 +168,7 @@ export const useLeadStore = create(
         leadsCursor: null,
         leadsHasMore: false,
         labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
+        vertical: 'fitness',
         onboardingChecklist: null,
         billingAccess: null,
         financeConfig: null,
@@ -181,6 +184,7 @@ export const useLeadStore = create(
          leads: [],
          leadsCursor: null,
          leadsHasMore: false,
+         vertical: 'fitness',
          onboardingChecklist: null,
          billingAccess: null,
          academyList: [],
@@ -220,6 +224,8 @@ export const useLeadStore = create(
   setTeamId: (id) => set({ teamId: id }),
   setUserId: (id) => set({ userId: id }),
   setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
+  setVertical: (v) =>
+    set({ vertical: String(v || '').trim() === 'physio' ? 'physio' : 'fitness' }),
   setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
 
   fetchLeads: async (opts = {}) => {
@@ -618,4 +624,9 @@ export const useLeadStore = create(
 
 if (typeof window !== 'undefined') {
   window.useLeadStore = useLeadStore;
+}
+
+/** Selector reativo da vertical de terminologia. */
+export function useVertical() {
+  return useLeadStore((s) => s.vertical);
 }

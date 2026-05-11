@@ -62,6 +62,7 @@ import OnboardingBanner from './components/OnboardingBanner.jsx';
 import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
+import { useTerms } from './lib/terminology.js';
 
 
 function defaultAiNameFromUser(user) {
@@ -104,6 +105,7 @@ const App = () => {
   }, [academyList, academyIdStore]);
 
   const billingAccessTop = useLeadStore((s) => s.billingAccess);
+  const terms = useTerms();
 
   const topbarTrialChip = useMemo(() => {
     if (!isBillingLive() || billingAccessTop?.status !== 'trial' || !billingAccessTop?.currentPeriodEnd) {
@@ -175,7 +177,7 @@ const App = () => {
       title: 'Gestão',
       items: [
         { to: '/tarefas', label: 'Tarefas', Icon: CheckSquare },
-        { to: '/presenca', label: 'Presença', Icon: ClipboardList },
+        { to: '/presenca', label: terms.attendance, Icon: ClipboardList },
         { to: '/planos', label: 'Planos', Icon: CreditCard },
       ],
     });
@@ -206,7 +208,7 @@ const App = () => {
     cfgItems.push({ to: '/reports', label: 'Relatórios', Icon: BarChart3 });
     sections.push({ title: 'Configurações', items: cfgItems });
     return sections;
-  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa]);
+  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa, terms.attendance]);
 
   const closeMobileDrawer = () => setMobileMenuOpen(false);
 
@@ -564,6 +566,11 @@ const App = () => {
             pipeline: uiLabels.pipeline || 'Funil',
           });
         }
+        try {
+          useLeadStore.getState().setVertical(doc.vertical || 'fitness');
+        } catch (e) {
+          void e;
+        }
         if (mods && typeof mods === 'object') {
           setModules({
             sales: Boolean(mods.sales),
@@ -725,6 +732,11 @@ const App = () => {
               pipeline: uiLabels.pipeline || 'Funil',
             });
           }
+          try {
+            useLeadStore.getState().setVertical(doc.vertical || 'fitness');
+          } catch (e2) {
+            void e2;
+          }
           if (mods && typeof mods === 'object') {
             setModules({
               sales: Boolean(mods.sales),
@@ -825,6 +837,14 @@ const App = () => {
               >
                 <CheckSquare size={18} strokeWidth={1.75} />
                 <span className="navi-side-link-label">Tarefas</span>
+              </NavLink>
+              <NavLink
+                to="/presenca"
+                className={sideLinkClass}
+                title={sidebarCollapsed ? terms.attendance : undefined}
+              >
+                <ClipboardList size={18} strokeWidth={1.75} />
+                <span className="navi-side-link-label">{terms.attendance}</span>
               </NavLink>
               <NavLink
                 to="/reports"

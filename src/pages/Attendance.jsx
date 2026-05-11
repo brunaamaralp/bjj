@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { Wifi, WifiOff, RefreshCw, Settings, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useTerms } from '../lib/terminology.js';
 
 function formatDate(iso) {
   try {
@@ -17,6 +18,7 @@ function formatDate(iso) {
 export default function Attendance() {
   const { academyId } = useLeadStore();
   const addToast = useUiStore((s) => s.addToast);
+  const terms = useTerms();
 
   const {
     deviceIp, deviceUsername, devicePassword,
@@ -57,7 +59,7 @@ export default function Attendance() {
       addToast({
         type: 'success',
         message: result.synced > 0
-          ? `${result.synced} registro(s) de presença importado(s)`
+          ? `${result.synced} registro(s) de ${terms.attendance.toLowerCase()} importado(s)`
           : 'Nenhum registro novo encontrado',
       });
       await fetchAttendance(academyId);
@@ -74,7 +76,7 @@ export default function Attendance() {
       {/* Header */}
       <div className="attendance-toolbar">
         <div className="attendance-toolbar__title">
-          <h1 className="text-2xl font-bold text-gray-900">Presença</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{terms.attendance}</h1>
           <p className="text-sm text-gray-500 mt-1">Registros importados do equipamento Control iD</p>
         </div>
         <div className="attendance-toolbar__actions">
@@ -128,7 +130,7 @@ export default function Attendance() {
           <CheckCircle2 size={40} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">
             {deviceIp
-              ? 'Nenhum registro de presença. Clique em "Sincronizar agora" para importar.'
+              ? `Nenhum registro de ${terms.attendance.toLowerCase()}. Clique em "Sincronizar agora" para importar.`
               : 'Configure o IP do equipamento para começar.'}
           </p>
         </div>
@@ -138,7 +140,7 @@ export default function Attendance() {
             <table className="w-full text-sm attendance-table">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Aluno</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{terms.student}</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Data / Horário</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Portal</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Evento</th>
@@ -172,7 +174,7 @@ export default function Attendance() {
               </tbody>
             </table>
           </div>
-          <div className="attendance-cards" aria-label="Registros de presença">
+          <div className="attendance-cards" aria-label={`Registros de ${terms.attendance.toLowerCase()}`}>
             {attendance.map((record) => (
               <div key={`card-${record.$id}`} className="attendance-card">
                 <div className="attendance-card__head">

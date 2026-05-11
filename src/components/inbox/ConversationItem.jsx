@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { AlertTriangle, Flame, User } from 'lucide-react';
+import { useTerms } from '../../lib/terminology.js';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
@@ -17,6 +18,7 @@ export default function ConversationItem({
   onLongPress,
   handoffNowMs,
 }) {
+  const terms = useTerms();
   const [rowHover, setRowHover] = useState(false);
   const hotLead = Boolean(item?._hotLead);
   const handoffActive = Boolean(item?._handoffActive);
@@ -224,7 +226,7 @@ export default function ConversationItem({
                   flexShrink: 0
                 }}
               >
-                {contactType === 'student' ? 'Aluno' : 'Lead'}
+                {contactType === 'student' ? terms.student : 'Lead'}
               </span>
               {handoffActive ? (
                 <span
