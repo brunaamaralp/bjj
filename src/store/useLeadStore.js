@@ -47,6 +47,13 @@ function permissionContextFromStore(get) {
   };
 }
 
+/** Nome do atributo na coleção de leads para dia de vencimento (1–31). Padrão `dueDay` (camelCase, alinhado a plan/scheduledDate). */
+const LEAD_DUE_DAY_APPWRITE_KEY = (() => {
+  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_DUE_DAY_ATTR || 'dueDay').trim().toLowerCase();
+  if (raw === 'due_day') return 'due_day';
+  return 'dueDay';
+})();
+
 /**
  * Converte updates camelCase (UI) → payload Appwrite (snake novos + camel legados).
  * Não inclui `notes` (deprecado).
@@ -74,7 +81,8 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.plan !== undefined) copyIf('plan', u.plan);
   if (u.dueDay !== undefined) {
     const n = Number(u.dueDay);
-    patch.due_day = Number.isFinite(n) && n >= 1 && n <= 31 ? Math.trunc(n) : null;
+    const val = Number.isFinite(n) && n >= 1 && n <= 31 ? Math.trunc(n) : null;
+    patch[LEAD_DUE_DAY_APPWRITE_KEY] = val;
   }
   if (u.enrollmentDate !== undefined) copyIf('enrollmentDate', u.enrollmentDate);
   if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
