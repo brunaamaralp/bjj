@@ -32,6 +32,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     lead_id: ''
   });
   const [savingTx, setSavingTx] = useState(false);
+  const [cancelLoadingId, setCancelLoadingId] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
 
@@ -48,13 +49,15 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
 
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
-    if (q.length < 3) return [];
+    if (q.length < 2) return [];
+    const isStudentLike = (l) =>
+      l.status === LEAD_STATUS.CONVERTED || String(l.contact_type || '').trim() === 'student';
     return (leads || []).filter((l) => {
-      if (l.contact_type !== 'student' || l.status !== LEAD_STATUS.CONVERTED) return false;
+      if (!isStudentLike(l)) return false;
       const name = String(l.name || '').toLowerCase();
       const phone = String(l.phone || '').replace(/\D/g, '');
       const qd = q.replace(/\D/g, '');
-      return name.includes(q) || (qd.length >= 3 && phone.includes(qd));
+      return name.includes(q) || (qd.length >= 2 && phone.includes(qd));
     }).slice(0, 12);
   }, [leads, studentQuery]);
 
@@ -126,6 +129,15 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     return () => window.removeEventListener('navi-financial-tx-settled', onSettled);
   }, []);
 
+  const financeTxErrorMessage = (code) => {
+    const c = String(code || '').trim();
+    if (c === 'cannot_settle_cancelled') return 'Não é possível liquidar um lançamento cancelado.';
+    if (c === 'cannot_cancel_settled') return 'Não é possível cancelar um lançamento já liquidado.';
+    if (c === 'already_cancelled') return 'Este lançamento já está cancelado.';
+    if (c === 'already_settled') return 'Este lançamento já foi liquidado.';
+    return '';
+  };
+
   const settle = async (id) => {
     try {
       const jwt = await createSessionJwt();
@@ -142,7 +154,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
         let errMsg = 'Erro ao liquidar';
         try {
           const errBody = await response.json();
-          errMsg = errBody.error || errMsg;
+          errMsg = financeTxErrorMessage(errBody.error) || errBody.error || errMsg;
         } catch {
           void 0;
         }
@@ -158,7 +170,49 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
       }
     } catch (e) {
       console.error(e);
-      addToast({ type: 'error', message: friendlyError(e, 'action') });
+      const msg = String(e?.message || '').trim();
+      addToast({ type: 'error', message: msg || friendlyError(e, 'action') });
+    }
+  };
+
+  const cancelTx = async (id) => {
+    if (!window.confirm('Cancelar este lançamento? Ele deixará de aparecer como pendente e não poderá ser liquidado.')) {
+      return;
+    }
+    const tid = String(id || '').trim();
+    if (!tid || !academyId) return;
+    setCancelLoadingId(tid);
+    try {
+      const jwt = await createSessionJwt();
+      const response = await fetch('/api/agent?route=cancel-finance-tx', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          'x-academy-id': academyId,
+        },
+        body: JSON.stringify({ transactionId: tid }),
+      });
+      if (!response.ok) {
+        let errMsg = 'Erro ao cancelar';
+        try {
+          const errBody = await response.json();
+          errMsg = financeTxErrorMessage(errBody.error) || errBody.error || errMsg;
+        } catch {
+          void 0;
+        }
+        throw new Error(errMsg);
+      }
+      setTransactions((prev) =>
+        prev.map((t) => (String(t.id) === tid ? { ...t, status: 'cancelled', settledAt: '' } : t))
+      );
+      addToast({ type: 'success', message: 'Lançamento cancelado.' });
+    } catch (e) {
+      console.error(e);
+      const msg = String(e?.message || '').trim();
+      addToast({ type: 'error', message: msg || friendlyError(e, 'action') });
+    } finally {
+      setCancelLoadingId('');
     }
   };
 
@@ -290,7 +344,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   <th className="finance-num">Taxa</th>
                   <th className="finance-num">Líquido</th>
                   <th>Status</th>
-                  <th className="finance-num" style={{ width: 112 }}>Ação</th>
+                  <th className="finance-num" style={{ minWidth: 128 }}>Ação</th>
                 </tr>
               </thead>
               <tbody>
@@ -328,13 +382,17 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
                   const alumStr = rawName ? (rawName.length > 20 ? `${rawName.slice(0, 20)}…` : rawName) : '—';
                   const st = String(tx.status || '').toLowerCase();
-                  const statusBadge = st === 'pending' ? (
-                    <span className="badge badge-warning">Pendente</span>
-                  ) : st === 'settled' ? (
-                    <span className="badge badge-success">Liquidado</span>
-                  ) : (
-                    <span className="badge badge-secondary">{tx.status || '—'}</span>
-                  );
+                  const statusBadge =
+                    st === 'pending' ? (
+                      <span className="badge badge-warning">Pendente</span>
+                    ) : st === 'settled' ? (
+                      <span className="badge badge-success">Liquidado</span>
+                    ) : st === 'cancelled' ? (
+                      <span className="badge badge-secondary">Cancelado</span>
+                    ) : (
+                      <span className="badge badge-secondary">{tx.status || '—'}</span>
+                    );
+                  const rowBusy = cancelLoadingId === tx.id;
                   return (
                     <tr key={tx.id}>
                       <td>{dateStr}</td>
@@ -347,8 +405,26 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                       <td className="finance-num">{netFmt}</td>
                       <td>{statusBadge}</td>
                       <td className="finance-num">
-                        {tx.status !== 'settled' ? (
-                          <button type="button" className="btn-outline" onClick={() => settle(tx.id)}>Liquidar</button>
+                        {st === 'pending' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              onClick={() => void settle(tx.id)}
+                              disabled={rowBusy}
+                            >
+                              Liquidar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              onClick={() => void cancelTx(tx.id)}
+                              disabled={rowBusy}
+                              style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                            >
+                              {rowBusy ? 'Cancelando…' : 'Cancelar'}
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-small" style={{ opacity: 0.75, color: 'var(--text-secondary)' }}>—</span>
                         )}
@@ -492,22 +568,25 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   </select>
                 </div>
               )}
-              {txForm.type !== 'expense' ? (
-                <div className="form-group" style={{ position: 'relative' }}>
-                  <label>Aluno (opcional)</label>
-                  <input
-                    className="form-input"
-                    placeholder="Buscar por nome..."
-                    value={studentQuery}
-                    onChange={(e) => {
-                      setStudentQuery(e.target.value);
-                      setStudentPickerOpen(true);
-                      if (!e.target.value.trim()) setTxForm((f) => ({ ...f, lead_id: '' }));
-                    }}
-                    onFocus={() => setStudentPickerOpen(true)}
-                    onBlur={() => { window.setTimeout(() => setStudentPickerOpen(false), 180); }}
-                  />
-                  {studentPickerOpen && studentMatches.length > 0 ? (
+              <div className="form-group" style={{ position: 'relative' }}>
+                <label>Aluno (opcional)</label>
+                <input
+                  className="form-input"
+                  placeholder="Nome ou telefone (mín. 2 caracteres)…"
+                  value={studentQuery}
+                  onChange={(e) => {
+                    setStudentQuery(e.target.value);
+                    setStudentPickerOpen(true);
+                    if (!e.target.value.trim()) setTxForm((f) => ({ ...f, lead_id: '' }));
+                  }}
+                  onFocus={() => setStudentPickerOpen(true)}
+                  onBlur={() => { window.setTimeout(() => setStudentPickerOpen(false), 180); }}
+                />
+                <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
+                  Alunos matriculados ou marcados como aluno na base.
+                </p>
+                {studentPickerOpen && String(studentQuery || '').trim().length >= 2 ? (
+                  studentMatches.length > 0 ? (
                     <div
                       className="card"
                       style={{
@@ -548,9 +627,26 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                         </button>
                       ))}
                     </div>
-                  ) : null}
-                </div>
-              ) : null}
+                  ) : (
+                    <div
+                      className="card text-small"
+                      style={{
+                        position: 'absolute',
+                        zIndex: 2,
+                        left: 0,
+                        right: 0,
+                        top: '100%',
+                        marginTop: 4,
+                        padding: '12px 14px',
+                        color: 'var(--text-secondary)',
+                        boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
+                      }}
+                    >
+                      Nenhum aluno encontrado para essa busca.
+                    </div>
+                  )
+                ) : null}
+              </div>
               <div className="form-group">
                 <label>Observação</label>
                 <textarea
