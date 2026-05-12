@@ -6,6 +6,7 @@ import { Wifi, WifiOff, RefreshCw, Settings, CheckCircle2, Clock, AlertCircle } 
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 function formatDate(iso) {
   try {
@@ -126,14 +127,23 @@ export default function Attendance() {
 
       {/* Attendance table */}
       {attendance.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <CheckCircle2 size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">
-            {deviceIp
-              ? `Nenhum registro de ${terms.attendance.toLowerCase()}. Clique em "Sincronizar agora" para importar.`
-              : 'Configure o IP do equipamento para começar.'}
-          </p>
-        </div>
+        <EmptyState
+          variant="default"
+          tone="dashed"
+          icon={CheckCircle2}
+          title={
+            deviceIp
+              ? `Nenhum registro de ${terms.attendance.toLowerCase()}`
+              : 'Configure o IP do equipamento'
+          }
+          description={
+            deviceIp
+              ? 'Clique em "Sincronizar agora" para importar.'
+              : 'Informe o IP do equipamento para começar.'
+          }
+          role="status"
+          className="attendance-page-empty"
+        />
       ) : (
         <div className="border border-gray-200 rounded-xl attendance-table-panel">
           <div className="attendance-table-wrap">

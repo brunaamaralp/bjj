@@ -20,6 +20,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 const presets = [
     { key: 'today', label: 'Hoje' },
@@ -664,21 +665,25 @@ const Reports = () => {
 
             {!error && !showInitialLoad && leads.length === 0 && !leadsLoading ? (
                 <div className="reports-empty card mt-4">
-                    <p className="navi-section-heading" style={{ marginBottom: 8 }}>
-                        Nenhum lead carregado
-                    </p>
-                    <p className="text-small" style={{ color: 'var(--text-muted)' }}>
-                        Volte ao início ou ao funil e aguarde o carregamento. Se a {terms.workspaceNoun} ainda não tiver leads, cadastre o primeiro no menu.
-                    </p>
+                    <EmptyState
+                        insideCard
+                        variant="compact"
+                        tone="solid"
+                        title="Nenhum lead carregado"
+                        description={`Volte ao início ou ao funil e aguarde o carregamento. Se a ${terms.workspaceNoun} ainda não tiver leads, cadastre o primeiro no menu.`}
+                        role="status"
+                    />
                 </div>
             ) : !error && !showInitialLoad && !reportHasActivity ? (
                 <div className="reports-empty card mt-4">
-                    <p className="navi-section-heading" style={{ marginBottom: 8 }}>
-                        Sem atividade neste período
-                    </p>
-                    <p className="text-small" style={{ color: 'var(--text-muted)' }}>
-                        Tente outro intervalo de datas ou remova os filtros de origem/perfil.
-                    </p>
+                    <EmptyState
+                        insideCard
+                        variant="compact"
+                        tone="solid"
+                        title="Sem atividade neste período"
+                        description="Tente outro intervalo de datas ou remova os filtros de origem/perfil."
+                        role="status"
+                    />
                 </div>
             ) : null}
 
@@ -935,7 +940,9 @@ const Reports = () => {
                                 </li>
                             ))}
                         </ul>
-                        {drillList.length === 0 ? <p className="text-small" style={{ color: 'var(--text-muted)' }}>Nenhum registro.</p> : null}
+                        {drillList.length === 0 ? (
+                            <EmptyState variant="compact" tone="dashed" title="Nenhum registro" role="status" />
+                        ) : null}
                     </div>
                 </div>
             ) : null}

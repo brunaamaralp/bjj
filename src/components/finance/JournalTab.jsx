@@ -3,6 +3,7 @@ import { databases, DB_ID, JOURNAL_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { PlusCircle, Trash2, Receipt } from 'lucide-react';
 import { fmt } from './financeFmt.js';
+import EmptyState from '../shared/EmptyState.jsx';
 
 export default function JournalTab({
   academyId,
@@ -241,11 +242,15 @@ export default function JournalTab({
             <tbody>
               {journal.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
-                    <div className="finance-tx-empty">
-                      <p style={{ margin: 0, fontWeight: 600, color: 'var(--text)' }}>Nenhum lançamento ainda</p>
-                      <p>Quando você gravar um lançamento balanceado, ele aparecerá aqui.</p>
-                    </div>
+                  <td colSpan={5} style={{ padding: 16, verticalAlign: 'middle' }}>
+                    <EmptyState
+                      variant="table-cell"
+                      tone="solid"
+                      icon={Receipt}
+                      title="Nenhum lançamento ainda"
+                      description="Quando você gravar um lançamento balanceado, ele aparecerá aqui."
+                      role="status"
+                    />
                   </td>
                 </tr>
               ) : (

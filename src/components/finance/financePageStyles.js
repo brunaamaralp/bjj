@@ -13,8 +13,6 @@ export const FINANCE_PAGE_CSS = `
           .finance-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--border-light); vertical-align: middle; }
           .finance-table tbody tr:hover { background: var(--surface-hover); }
           .finance-table .finance-num { text-align: right; font-variant-numeric: tabular-nums; }
-          .finance-tx-empty { padding: 56px 20px; text-align: center; color: var(--text-secondary); }
-          .finance-tx-empty p { margin: 8px 0 0; font-size: 13px; }
           .finance-accounts-form-card { background: var(--surface-hover); border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; }
           .finance-accounts-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: end; }
           @media (min-width: 720px) {

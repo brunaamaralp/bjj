@@ -10,6 +10,7 @@ import {
   applyWhatsappTemplatePlaceholders
 } from '../../lib/whatsappTemplateDefaults.js';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
@@ -387,8 +388,14 @@ const Templates = () => {
           </div>
         )})}
         {filteredIds.length === 0 && (
-          <div className="card" style={{ color: 'var(--text-secondary)' }}>
-            Nenhum template encontrado para “{filter}”.
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <EmptyState
+              insideCard
+              variant="compact"
+              tone="dashed"
+              title={`Nenhum template encontrado para “${filter}”.`}
+              role="status"
+            />
           </div>
         )}
       </div>

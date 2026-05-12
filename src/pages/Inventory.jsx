@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useInventoryStore } from '../store/useInventoryStore';
-import { PackagePlus, Wrench, ArrowDownToLine, ArrowUpFromLine, Scissors } from 'lucide-react';
+import { PackagePlus, Wrench, ArrowDownToLine, ArrowUpFromLine, Scissors, PackageSearch } from 'lucide-react';
 import { KIMONO_SIZES, databases, DB_ID, STOCK_ITEMS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import { useUiStore } from '../store/useUiStore';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 const Inventory = () => {
   const { inventoryMove, lastResult, loading, error } = useInventoryStore();
@@ -214,9 +215,20 @@ const Inventory = () => {
               Gera um rótulo no formato kimono:categoria:tamanho. Ajuste conforme o seu cadastro.
             </p>
           </div>
-          {lookupMsg && (
+          {lookupMsg?.startsWith('Nenhum item encontrado') ? (
+            <div className="mt-2">
+              <EmptyState
+                variant="compact"
+                tone="dashed"
+                icon={PackageSearch}
+                title="Nenhum item encontrado"
+                description="Tente outra categoria ou tamanho, ou cadastre o item no estoque."
+                role="status"
+              />
+            </div>
+          ) : lookupMsg ? (
             <p className="text-small mt-1" style={{ color: 'var(--text-secondary)' }}>{lookupMsg}</p>
-          )}
+          ) : null}
         </div>
 
         <div className="flex gap-2 mt-2">

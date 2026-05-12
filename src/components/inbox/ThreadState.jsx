@@ -1,5 +1,6 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
+import EmptyState from '../shared/EmptyState.jsx';
 
 export default function ThreadState({ type, errorText = '', onRetry }) {
   if (type === 'none-selected') {
@@ -13,12 +14,13 @@ export default function ThreadState({ type, errorText = '', onRetry }) {
           padding: 24,
         }}
       >
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-          <MessageSquare size={44} strokeWidth={1.35} style={{ margin: '0 auto 14px', opacity: 0.55 }} aria-hidden />
-          <p style={{ margin: 0, fontSize: '1rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
-            Selecione uma conversa para começar
-          </p>
-        </div>
+        <EmptyState
+          variant="embedded"
+          tone="dashed"
+          icon={MessageSquare}
+          title="Selecione uma conversa para começar"
+          role="status"
+        />
       </div>
     );
   }
@@ -40,10 +42,13 @@ export default function ThreadState({ type, errorText = '', onRetry }) {
   if (type === 'empty') {
     return (
       <div style={{ padding: 12, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, maxWidth: 520, textAlign: 'center' }}>
-          <div className="navi-section-heading" style={{ fontSize: '1rem', width: '100%', justifyContent: 'center', marginBottom: 6 }}>Sem mensagens nesta conversa</div>
-          <div className="navi-subtitle" style={{ margin: 0, textAlign: 'center' }}>Envie a primeira mensagem para iniciar o atendimento.</div>
-        </div>
+        <EmptyState
+          variant="embedded"
+          tone="solid"
+          title="Sem mensagens nesta conversa"
+          description="Envie a primeira mensagem para iniciar o atendimento."
+          role="status"
+        />
       </div>
     );
   }

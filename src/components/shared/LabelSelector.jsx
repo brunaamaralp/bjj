@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Tag, Check } from 'lucide-react';
 import LabelPill from './LabelPill';
+import EmptyState from './EmptyState.jsx';
 
 /**
  * Dropdown for assigning / removing labels on a lead.
@@ -75,9 +76,9 @@ const LabelSelector = ({ allLabels = [], selectedIds = [], onChange, disabled = 
           }}
         >
           {allLabels.length === 0 && (
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 14px', margin: 0 }}>
-              Nenhuma etiqueta disponível.
-            </p>
+            <div style={{ padding: '6px 10px' }}>
+              <EmptyState variant="bare" title="Nenhuma etiqueta disponível." role="status" />
+            </div>
           )}
           {allLabels.map((label) => {
             const selected = (Array.isArray(selectedIds) ? selectedIds : []).includes(label.$id);

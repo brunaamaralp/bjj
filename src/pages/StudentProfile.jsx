@@ -21,6 +21,7 @@ import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } fr
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -1480,16 +1481,12 @@ export default function StudentProfile() {
                                     ))}
                                 </div>
                                 {checkins.length === 0 ? (
-                                    <div
-                                        style={{
-                                            textAlign: 'center',
-                                            color: 'var(--text-secondary)',
-                                            fontSize: 14,
-                                            padding: '16px 8px',
-                                        }}
-                                    >
-                                        Nenhuma {terms.attendance.toLowerCase()} registrada ainda
-                                    </div>
+                                    <EmptyState
+                                        variant="compact"
+                                        tone="dashed"
+                                        title={`Nenhuma ${terms.attendance.toLowerCase()} registrada ainda`}
+                                        role="status"
+                                    />
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {checkins.map((c) => (
@@ -1591,16 +1588,7 @@ export default function StudentProfile() {
                                 </button>
                             </div>
                         ) : payments.length === 0 ? (
-                            <div
-                                style={{
-                                    textAlign: 'center',
-                                    color: 'var(--text-secondary)',
-                                    fontSize: 14,
-                                    padding: '16px 8px',
-                                }}
-                            >
-                                Nenhum pagamento registrado
-                            </div>
+                            <EmptyState variant="compact" tone="dashed" title="Nenhum pagamento registrado" role="status" />
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {payments.map((payment) => {
@@ -1769,9 +1757,7 @@ export default function StudentProfile() {
                                 </div>
                             ) : null}
                             {!timelineError && filteredTimelineEvents.length === 0 ? (
-                                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 24, fontSize: 14 }}>
-                                    Nenhum evento registrado.
-                                </div>
+                                <EmptyState variant="compact" tone="dashed" title="Nenhum evento registrado." role="status" />
                             ) : null}
                             {!timelineError && filteredTimelineEvents.length > 0 ? (
                                 <div style={{ position: 'relative', paddingLeft: 18 }}>

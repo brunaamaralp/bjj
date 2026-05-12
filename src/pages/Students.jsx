@@ -10,6 +10,7 @@ import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -461,74 +462,37 @@ const Students = () => {
                         ))}
                     </div>
                 ) : students.length === 0 ? (
-                    <div
-                        className="card students-empty-root mt-4 animate-in"
-                        style={{
-                            textAlign: 'center',
-                            padding: '48px 16px',
-                            color: 'var(--text-muted)',
-                        }}
-                    >
+                    <div className="card students-empty-root mt-4 animate-in">
                         {filtrosAtivos ? (
-                            <>
-                                <p style={{ marginBottom: 12 }}>
-                                    Nenhum {studentSingular.toLowerCase()} encontrado com esses filtros.
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={limparFiltros}
-                                    style={{
-                                        color: 'var(--purple)',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: 14,
-                                        textDecoration: 'underline',
-                                    }}
-                                >
-                                    Limpar filtros
-                                </button>
-                            </>
+                            <EmptyState
+                                insideCard
+                                variant="default"
+                                tone="solid"
+                                title={`Nenhum ${studentSingular.toLowerCase()} encontrado com esses filtros.`}
+                                secondaryAction={{ label: 'Limpar filtros', onClick: limparFiltros, variant: 'link' }}
+                                role="status"
+                            />
                         ) : (
-                            <>
-                                <p className="navi-section-heading" style={{ marginBottom: 8, color: 'var(--text)' }}>
-                                    Nenhum {studentSingular.toLowerCase()} {terms.enrolledPastParticiple} ainda.
-                                </p>
-                                <p className="text-small" style={{ marginBottom: 20, lineHeight: 1.5, maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto' }}>
-                                    {terms.studentsEmptyHowItWorks.replace(/\{pipeline\}/g, pipelineName)}
-                                </p>
-                                <button type="button" className="btn-primary" onClick={() => navigate('/pipeline')}>
-                                    Ir para o {pipelineName}
-                                </button>
-                            </>
+                            <EmptyState
+                                insideCard
+                                variant="default"
+                                tone="solid"
+                                title={`Nenhum ${studentSingular.toLowerCase()} ${terms.enrolledPastParticiple} ainda.`}
+                                description={terms.studentsEmptyHowItWorks.replace(/\{pipeline\}/g, pipelineName)}
+                                primaryAction={{ label: `Ir para o ${pipelineName}`, onClick: () => navigate('/pipeline') }}
+                                role="status"
+                            />
                         )}
                     </div>
                 ) : filteredStudents.length === 0 ? (
-                    <div
-                        className="mt-4 animate-in"
-                        style={{
-                            textAlign: 'center',
-                            padding: '48px 16px',
-                            color: 'var(--text-muted)',
-                        }}
-                    >
-                        <p style={{ marginBottom: 12 }}>
-                            Nenhum {studentSingular.toLowerCase()} encontrado com esses filtros.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={limparFiltros}
-                            style={{
-                                color: 'var(--purple)',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontSize: 14,
-                                textDecoration: 'underline',
-                            }}
-                        >
-                            Limpar filtros
-                        </button>
+                    <div className="mt-4 animate-in">
+                        <EmptyState
+                            variant="default"
+                            tone="solid"
+                            title={`Nenhum ${studentSingular.toLowerCase()} encontrado com esses filtros.`}
+                            secondaryAction={{ label: 'Limpar filtros', onClick: limparFiltros, variant: 'link' }}
+                            role="status"
+                        />
                     </div>
                 ) : (
                     filteredStudents.map((student, i) => {

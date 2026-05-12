@@ -1,4 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { Calendar } from 'lucide-react';
+import EmptyState from './shared/EmptyState.jsx';
 
 const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
@@ -151,7 +153,14 @@ export default function AgendaCalendarWeek({
 
             <div ref={weekScrollRef} className="agenda-week-scroll">
                 {!weekHasAny ? (
-                    <p className="agenda-week-week-empty">Nenhum agendamento nesta semana.</p>
+                    <EmptyState
+                        variant="compact"
+                        tone="dashed"
+                        icon={Calendar}
+                        title="Nenhum agendamento nesta semana."
+                        role="status"
+                        className="agenda-week-week-empty"
+                    />
                 ) : (
                     <div className={`agenda-week-grid${hideSunday ? ' agenda-week-grid--six' : ''}`}>
                         {displayDayDates.map((dayDate) => {
@@ -350,15 +359,9 @@ export default function AgendaCalendarWeek({
           opacity: 0.65;
           padding: 6px 4px;
         }
-        .agenda-week-week-empty {
+        .agenda-week-week-empty.navi-empty {
           margin: 0;
-          padding: 14px 16px;
-          font-size: 13px;
-          color: var(--text-secondary);
-          line-height: 1.45;
-          background: var(--v50);
-          border: 1px dashed var(--border-mid);
-          border-radius: var(--radius-sm);
+          max-width: none;
         }
         .agenda-week-card {
           padding: 8px 10px !important;

@@ -4,6 +4,7 @@ import { databases, DB_ID, ACADEMIES_COL, account } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import LabelPill from '../shared/LabelPill';
+import EmptyState from '../shared/EmptyState.jsx';
 
 const PRESET_COLORS = ['#5B3FBF', '#F04040', '#F5A623', '#25D366', '#0088CC', '#8E8E8E'];
 
@@ -420,9 +421,17 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                             </div>
                         ))}
                         {(academy.customLeadQuestions || []).length === 0 && (
-                            <div className="navi-subtitle" style={{ marginTop: 0 }}>
-                                Nenhuma pergunta configurada. {role === 'owner' && 'Adicione perguntas personalizadas para acompanhar no perfil do lead.'}
-                            </div>
+                            <EmptyState
+                                variant="compact"
+                                tone="dashed"
+                                title="Nenhuma pergunta configurada."
+                                description={
+                                    role === 'owner'
+                                        ? 'Adicione perguntas personalizadas para acompanhar no perfil do lead.'
+                                        : undefined
+                                }
+                                role="status"
+                            />
                         )}
                     </div>
                     {role === 'owner' && (
@@ -479,19 +488,14 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                     )}
 
                     {!labelsLoading && !labelsError && labels.length === 0 && (
-                        <div
-                            style={{
-                                textAlign: 'center',
-                                padding: '8px 4px 12px',
-                                color: 'var(--text-secondary)',
-                            }}
-                        >
-                            <Tag size={36} strokeWidth={1.5} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.55 }} aria-hidden />
-                            <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Nenhuma etiqueta criada</div>
-                            <p className="text-small" style={{ margin: 0, lineHeight: 1.5, maxWidth: 320, marginLeft: 'auto', marginRight: 'auto' }}>
-                                Crie etiquetas para categorizar seus leads no atendimento
-                            </p>
-                        </div>
+                        <EmptyState
+                            variant="compact"
+                            tone="dashed"
+                            icon={Tag}
+                            title="Nenhuma etiqueta criada"
+                            description="Crie etiquetas para categorizar seus leads no atendimento."
+                            role="status"
+                        />
                     )}
 
                     {!labelsLoading && !labelsError && labels.length > 0 && (

@@ -23,6 +23,7 @@ import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -1348,17 +1349,16 @@ const LeadProfile = () => {
                             )}
                         </div>
                         {leadTasks.length === 0 ? (
-                            <div className="tasks-empty-row">
-                                <span className="tasks-empty-label">Nenhuma tarefa</span>
-                                <button
-                                    type="button"
-                                    className="btn-action-ghost"
-                                    style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
-                                    onClick={() => navigate(`/tarefas?lead_id=${id}&new=1`)}
-                                >
-                                    <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova
-                                </button>
-                            </div>
+                            <EmptyState
+                                variant="compact"
+                                tone="dashed"
+                                title="Nenhuma tarefa"
+                                primaryAction={{
+                                    label: '+ Nova tarefa',
+                                    onClick: () => navigate(`/tarefas?lead_id=${id}&new=1`),
+                                }}
+                                role="status"
+                            />
                         ) : (
                             <div className="flex-col gap-2">
                                 {leadTasks.slice(0, 5).map(t => (
@@ -1482,7 +1482,7 @@ const LeadProfile = () => {
                     )}
 
                     {!timelineError && filteredTimelineEvents.length === 0 && (
-                        <div className="timeline-empty">Nenhum evento registrado.</div>
+                        <EmptyState variant="compact" tone="dashed" title="Nenhum evento registrado." role="status" />
                     )}
 
                     {!timelineError && filteredTimelineEvents.length > 0 && (
@@ -2116,18 +2116,6 @@ const LeadProfile = () => {
                     outline-offset: 2px;
                     border-radius: 8px;
                 }
-                .tasks-empty-row {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 8px 0;
-                }
-                .tasks-empty-label {
-                    font-size: 13px;
-                    color: var(--color-text-tertiary, var(--text-muted));
-                }
-
-                .btn-toggle-timeline {
                     width: 100%;
                     padding: 12px;
                     border-radius: 12px;

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import ConversationItem from './ConversationItem';
+import EmptyState from '../shared/EmptyState.jsx';
 
 /** Aceita array ou (defensivo) objeto tipo mapa id→linha — antes virava [] e sumiam todos os cards. */
 function normalizeGroupItems(raw) {
@@ -85,18 +86,23 @@ export default function ConversationList(props) {
         </div>
       ))}
       {!loading && totalItems === 0 && (
-        <div style={{ padding: 12, color: 'var(--text-secondary)' }} role="status">
-          Nenhuma conversa encontrada.
+        <div style={{ padding: 12 }}>
+          <EmptyState variant="compact" tone="dashed" title="Nenhuma conversa encontrada." role="status" />
         </div>
       )}
       {!loading && totalItems > 0 && flatCount === 0 && (
-        <div style={{ padding: 12, color: 'var(--text-secondary)' }} role="status">
-          <p style={{ margin: '0 0 10px' }}>Nenhuma conversa com este filtro ou busca.</p>
-          {typeof onClearListFilters === 'function' ? (
-            <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px', minHeight: 36 }} onClick={() => onClearListFilters()}>
-              Limpar filtros
-            </button>
-          ) : null}
+        <div style={{ padding: 12 }}>
+          <EmptyState
+            variant="compact"
+            tone="dashed"
+            title="Nenhuma conversa com este filtro ou busca."
+            secondaryAction={
+              typeof onClearListFilters === 'function'
+                ? { label: 'Limpar filtros', onClick: () => onClearListFilters() }
+                : undefined
+            }
+            role="status"
+          />
         </div>
       )}
       {loadingMore && <div style={{ padding: 12, color: 'var(--text-secondary)' }}>Carregando mais…</div>}

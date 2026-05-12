@@ -18,6 +18,7 @@ import ScheduleModal from '../components/ScheduleModal.jsx';
 import AgendaCalendarWeek, { formatWeekRangeLabel, getWeekStart } from '../components/AgendaCalendarWeek.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
@@ -726,13 +727,21 @@ const Dashboard = () => {
                         );
                     }) : (
                         <div className="fu-list-empty">
-                            <p className="mb-0">Nada pendente por agora.</p>
-                            {followUpsKanbanOnlyCount > 0 && (
-                                <p className="text-xs text-light mt-2 mb-0">
-                                    {followUpsKanbanOnlyCount} {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
-                                    {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
-                                </p>
-                            )}
+                            <EmptyState
+                                variant="compact"
+                                tone="dashed"
+                                title="Nada pendente por agora."
+                                description={
+                                    followUpsKanbanOnlyCount > 0 ? (
+                                        <span className="text-xs text-light" style={{ display: 'block', lineHeight: 1.35 }}>
+                                            {followUpsKanbanOnlyCount}{' '}
+                                            {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
+                                            {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
+                                        </span>
+                                    ) : undefined
+                                }
+                                role="status"
+                            />
                         </div>
                     )}
                 </div>
@@ -757,7 +766,9 @@ const Dashboard = () => {
                         </div>
                         <div className="reception-list-modal__scroll">
                         {modalListItems.length === 0 ? (
-                            <div className="empty-state reception-list-modal__empty"><p>Nenhum item nessa lista.</p></div>
+                            <div className="reception-list-modal__empty">
+                                <EmptyState variant="compact" tone="dashed" title="Nenhum item nessa lista." role="status" />
+                            </div>
                         ) : (
                             <div className="flex-col agenda-followups-list">
                                 {modalListItems.map((lead, i) => {
@@ -1121,9 +1132,11 @@ const Dashboard = () => {
         .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-mod {
           font-size: 10px;
         }
-        .reception-agenda-inner .reception-week-embed .agenda-week-week-empty {
+        .reception-agenda-inner .reception-week-embed .agenda-week-week-empty.navi-empty {
           background: rgba(255, 255, 255, 0.65);
           border-color: #CECBF6;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-week-empty.navi-empty .navi-empty__title {
           color: #534AB7;
         }
         .fu-list-card {

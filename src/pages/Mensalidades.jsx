@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -874,12 +875,15 @@ export default function Mensalidades() {
               </tr>
             ) : displayedStudents.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: 48, textAlign: 'center', verticalAlign: 'middle' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--text-secondary)' }}>
-                    <Users size={32} strokeWidth={1.5} aria-hidden />
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Nenhum {terms.student.toLowerCase()} encontrado</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Tente ajustar os filtros ou a busca</span>
-                  </div>
+                <td colSpan={6} style={{ padding: 24, textAlign: 'center', verticalAlign: 'middle' }}>
+                  <EmptyState
+                    variant="table-cell"
+                    tone="solid"
+                    icon={Users}
+                    title={`Nenhum ${terms.student.toLowerCase()} encontrado`}
+                    description="Tente ajustar os filtros ou a busca"
+                    role="status"
+                  />
                 </td>
               </tr>
             ) : (

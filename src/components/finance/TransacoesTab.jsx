@@ -9,6 +9,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
+import EmptyState from '../shared/EmptyState.jsx';
 
 export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
   const leads = useLeadStore((s) => s.leads);
@@ -299,12 +300,15 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   </tr>
                 ) : transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
-                      <div className="finance-tx-empty">
-                        <Receipt size={40} strokeWidth={1.5} style={{ opacity: 0.5, marginBottom: 4 }} aria-hidden />
-                        <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 15 }}>Nenhuma transação encontrada</div>
-                        <p>{`Use '+ Nova transação' para registrar um lançamento`}</p>
-                      </div>
+                    <td colSpan={10} style={{ padding: 16, verticalAlign: 'middle' }}>
+                      <EmptyState
+                        variant="table-cell"
+                        tone="solid"
+                        icon={Receipt}
+                        title="Nenhuma transação encontrada"
+                        description="Use '+ Nova transação' para registrar um lançamento."
+                        role="status"
+                      />
                     </td>
                   </tr>
                 ) : transactions.map((tx) => {

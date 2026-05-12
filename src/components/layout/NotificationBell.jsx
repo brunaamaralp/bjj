@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNoteNotifications } from '../../hooks/useNoteNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import EmptyState from '../shared/EmptyState.jsx';
 
 export default function NotificationBell({ academyId, userId }) {
   const navigate = useNavigate();
@@ -148,9 +149,8 @@ export default function NotificationBell({ academyId, userId }) {
             }}
           >
             {notifications.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <Bell size={24} style={{ opacity: 0.2, marginBottom: 8 }} />
-                <p style={{ margin: 0, fontSize: '13px' }}>Nenhuma notificação nova</p>
+              <div style={{ padding: '16px 12px' }}>
+                <EmptyState variant="compact" tone="dashed" icon={Bell} title="Nenhuma notificação nova" role="status" />
               </div>
             ) : (
               notifications.map((n) => (

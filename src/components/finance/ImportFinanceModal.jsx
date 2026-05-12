@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Loader2, RefreshCcw, Upload, X } from 'lucide-react';
+import EmptyState from '../shared/EmptyState.jsx';
 import { createSessionJwt } from '../../lib/appwrite';
 
 const emptyExpanded = { accounts: true, plans: true, bankAccounts: true };
@@ -179,12 +180,17 @@ export default function ImportFinanceModal({
               ) : null}
 
               {!canImport ? (
-                <div className="finance-import-empty">
-                  <p>Nenhuma informação financeira identificada na planilha. Tente um arquivo diferente.</p>
-                  <button className="btn-secondary" onClick={() => setStep('upload')}>
-                    <RefreshCcw size={16} /> Tentar novamente
-                  </button>
-                </div>
+                <EmptyState
+                  variant="embedded"
+                  tone="dashed"
+                  title="Nenhuma informação financeira identificada na planilha."
+                  description="Tente um arquivo diferente."
+                  primaryAction={{
+                    label: 'Tentar novamente',
+                    onClick: () => setStep('upload'),
+                  }}
+                  role="status"
+                />
               ) : (
                 <div className="flex-col" style={{ gap: 10 }}>
                   {(parsed?.accounts?.length || 0) > 0 ? (
@@ -335,7 +341,6 @@ export default function ImportFinanceModal({
         .finance-import-table-wrap { overflow-x: auto; }
         .finance-import-list { padding: 10px 12px; display:flex; flex-direction:column; gap:8px; }
         .finance-import-list-item { border: 1px solid var(--border-light); border-radius: 10px; padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-        .finance-import-empty { border:1px dashed var(--border); border-radius:12px; padding:16px; text-align:center; color:var(--text-secondary); display:flex; flex-direction:column; gap:10px; align-items:center; }
         .finance-import-mode { text-align:left; border:1px solid var(--border-light); border-radius:12px; background:var(--surface); padding:12px; cursor:pointer; }
         .finance-import-mode.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
         .finance-import-mode--danger { border-color: rgba(225,93,75,0.4); }

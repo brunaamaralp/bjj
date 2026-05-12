@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 import { useTerms } from '../../lib/terminology.js';
+import EmptyState from '../shared/EmptyState.jsx';
 
 export const SYSTEM_RULES = `
 REGRAS OBRIGATÓRIAS DO SISTEMA:
@@ -890,7 +891,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
     if (s.id === 'planPrices') {
       const keys = answers.plans || [];
       if (keys.length === 0) {
-        return <p className="text-small" style={{ color: 'var(--text-muted)' }}>Nenhum plano selecionado.</p>;
+        return <EmptyState variant="bare" title="Nenhum plano selecionado." role="none" />;
       }
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

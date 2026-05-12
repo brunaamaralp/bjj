@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
+import EmptyState from './shared/EmptyState.jsx';
 
 const COLUMN_MAP = {
     'nome': 'name',
@@ -136,6 +137,17 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
 
     if (!isOpen) return null;
 
+    const importErrorTitle = error
+        ? error === 'A planilha está vazia.'
+            ? 'Planilha vazia'
+            : error.startsWith('Nenhuma linha válida')
+              ? 'Nenhuma linha válida'
+              : error.includes('Erro ao ler')
+                ? 'Erro ao ler o arquivo'
+                : 'Não foi possível importar'
+        : '';
+    const importErrorDescription = error && error !== 'A planilha está vazia.' ? error : undefined;
+
     return (
         <div className="import-overlay">
             <div className="import-modal">
@@ -169,8 +181,16 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
                             </div>
 
                             {error && (
-                                <div className="import-error mt-3">
-                                    <AlertCircle size={16} /> {error}
+                                <div className="mt-3" role="alert">
+                                    <EmptyState
+                                        variant="embedded"
+                                        tone="dashed"
+                                        icon={AlertCircle}
+                                        title={importErrorTitle}
+                                        description={importErrorDescription}
+                                        role="none"
+                                        className="import-sheet-parse-empty"
+                                    />
                                 </div>
                             )}
 
@@ -285,11 +305,6 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
           background: var(--surface-hover);
         }
         .upload-zone:hover { border-color: var(--accent); background: var(--accent-light); }
-        .import-error {
-          display: flex; align-items: center; gap: 8px; padding: 12px 16px;
-          background: var(--danger-light); color: var(--danger); border-radius: var(--radius-sm);
-          font-size: 0.85rem; font-weight: 500;
-        }
         .import-success {
           display: flex; align-items: center; gap: 8px; padding: 12px 16px;
           background: var(--success-light); color: var(--success); border-radius: var(--radius-sm);

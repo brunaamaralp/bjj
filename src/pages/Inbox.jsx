@@ -21,6 +21,7 @@ import ConversationList from '../components/inbox/ConversationList';
 import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
+import EmptyState from '../components/shared/EmptyState.jsx';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
@@ -3138,15 +3139,14 @@ export default function Inbox() {
         padding: 24,
       }}
     >
-      <div style={{ textAlign: 'center', color: 'var(--text-secondary)', maxWidth: 420 }}>
-        <MessageSquare size={44} strokeWidth={1.35} style={{ margin: '0 auto 14px', opacity: 0.55, color: 'var(--text-muted)' }} aria-hidden />
-        <p style={{ margin: 0, fontSize: 'var(--inbox-font-thread-title)', fontWeight: 600, color: 'var(--text-secondary)' }}>
-          Nenhuma conversa selecionada
-        </p>
-        <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>
-          Escolha uma conversa à esquerda para ver o histórico e responder o contato.
-        </p>
-      </div>
+      <EmptyState
+        variant="embedded"
+        tone="dashed"
+        icon={MessageSquare}
+        title="Nenhuma conversa selecionada"
+        description="Escolha uma conversa à esquerda para ver o histórico e responder o contato."
+        role="status"
+      />
     </div>
   ) : (
     <div
@@ -3719,13 +3719,14 @@ export default function Inbox() {
 
           {threadMessagesEmptyUi && waChatConnected && (
             <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-                <MessageSquare size={36} strokeWidth={1.35} style={{ opacity: 0.55, color: 'var(--text-muted)' }} aria-hidden />
-              </div>
-              <div style={{ fontWeight: 700, color: 'var(--text)' }}>Nenhuma mensagem carregada</div>
-              <div className="text-small" style={{ marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>
-                Se já há mensagens no WhatsApp, clique em <strong>Sincronizar</strong> para importar o histórico das últimas 24h.
-              </div>
+              <EmptyState
+                variant="embedded"
+                tone="dashed"
+                icon={MessageSquare}
+                title="Nenhuma mensagem carregada"
+                description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar o histórico das últimas 24h.'
+                role="status"
+              />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
                 <button
                   className="btn btn-primary"
@@ -3937,9 +3938,13 @@ export default function Inbox() {
                         Mensagens prontas
                       </div>
                       {quickTemplates.length === 0 && (
-                        <div className="text-small" style={{ color: 'var(--text-muted)', padding: '4px 8px' }}>
-                          {`Nenhum template da ${terms.workspaceNoun}. Configure em Templates no menu.`}
-                        </div>
+                        <EmptyState
+                          variant="bare"
+                          title={`Nenhum template da ${terms.workspaceNoun}.`}
+                          description="Configure em Templates no menu."
+                          role="status"
+                          className="inbox-quick-templates-empty"
+                        />
                       )}
                       {quickTemplates.map((tpl) => {
                         const lid = String(selected?.lead_id || '').trim();
@@ -4117,9 +4122,7 @@ export default function Inbox() {
             {slashOpen && selectedPhone && (
               <div ref={slashPopupRef} className="inbox-slash-templates" style={{ maxHeight: inboxSlashMaxHeight }} role="listbox" aria-label="Templates rápidos">
                 {slashFilteredTemplates.length === 0 ? (
-                  <div className="text-small" style={{ color: 'var(--text-secondary)', padding: '10px 12px' }}>
-                    Nenhum template encontrado
-                  </div>
+                  <EmptyState variant="bare" title="Nenhum template encontrado" role="status" className="inbox-slash-empty" />
                 ) : (
                   slashFilteredTemplates.map((tpl, idx) => {
                     const rawPrev = String(tpl.text || '').replace(/\s+/g, ' ').trim();
@@ -4491,7 +4494,9 @@ export default function Inbox() {
             </button>
           </div>
           {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
-          {!leadsLoading && leadCandidates.length === 0 && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Nenhum lead encontrado.</div>}
+          {!leadsLoading && leadCandidates.length === 0 && (
+            <EmptyState variant="compact" tone="dashed" title="Nenhum lead encontrado." role="status" />
+          )}
           {!leadsLoading && leadCandidates.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {leadCandidates.map((l) => (
@@ -4537,9 +4542,7 @@ export default function Inbox() {
           <span className="navi-ui-count">{pinnedMessages.length}</span>
         </div>
         {pinnedMessages.length === 0 ? (
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-            Nenhuma mensagem fixada.
-          </div>
+          <EmptyState variant="bare" title="Nenhuma mensagem fixada." role="status" />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {pinnedMessages.map((pm) => (

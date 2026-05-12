@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList, LayoutList, Kanban, CalendarDays, AlertTriangle } from 'lucide-react';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 const VIEW_STORAGE_KEY = 'nave_tasks_view';
 
@@ -532,13 +533,36 @@ export default function Tasks() {
         {loading && tasks.length === 0 ? (
           renderTasksLoadingSkeleton()
         ) : tasks.length === 0 ? (
-          <div className="empty-state">
-            <CheckSquare size={48} color="var(--border-mid)" />
-            <p>Nenhuma tarefa por aqui ainda</p>
-            <button type="button" className="btn-secondary mt-3" onClick={openNew}>+ Nova tarefa</button>
-          </div>
+          <EmptyState
+            variant="default"
+            tone="dashed"
+            icon={CheckSquare}
+            title="Nenhuma tarefa por aqui ainda"
+            primaryAction={{ label: '+ Nova tarefa', onClick: openNew }}
+            role="status"
+          />
         ) : filteredTasks.length === 0 && viewMode !== 'calendar' ? (
-          <p className="text-muted mt-4">Nenhuma tarefa corresponde a este filtro.</p>
+          <EmptyState
+            variant="default"
+            tone="dashed"
+            title="Nenhuma tarefa corresponde a este filtro."
+            secondaryAction={
+              filters.status !== 'all' || filters.lead_id || estaSemanaOn
+                ? {
+                    label: 'Limpar filtros',
+                    variant: 'link',
+                    onClick: () => {
+                      setFilter('status', 'all');
+                      setFilter('lead_id', null);
+                      setEstaSemanaOn(false);
+                      navigate('/tarefas');
+                    },
+                  }
+                : undefined
+            }
+            role="status"
+            className="mt-2"
+          />
         ) : viewMode === 'list' ? (
           <div className="tasks-lists-wrap">
             {renderTaskList(groupedTasks.vencidas, 'Vencidas', 'var(--danger)')}
@@ -623,7 +647,7 @@ export default function Tasks() {
             <section className="tasks-cal-semprazo" aria-label="Tarefas sem prazo">
               <h4 className="tasks-cal-semprazo-title">Sem prazo</h4>
               {semPrazoTasksForCalendar.length === 0 ? (
-                <p className="text-muted text-sm mb-0">Nenhuma tarefa sem prazo neste filtro.</p>
+                <EmptyState variant="bare" title="Nenhuma tarefa sem prazo neste filtro." role="none" />
               ) : (
                 <div className="tasks-cal-semprazo-grid">
                   {semPrazoTasksForCalendar.map((t) => renderOneTaskCard(t, { compact: true }))}
@@ -770,7 +794,7 @@ export default function Tasks() {
                       ))
                     }
                     {leads.filter(l => !leadSearch || l.name?.toLowerCase().includes(leadSearch.toLowerCase())).length === 0 && (
-                      <p className="task-lead-empty">Nenhum resultado</p>
+                      <EmptyState variant="bare" title="Nenhum resultado" role="none" className="task-lead-empty-state" />
                     )}
                   </div>
                 )}
@@ -987,7 +1011,8 @@ export default function Tasks() {
           opacity: 0.95;
         }
         .task-filters { display: flex; gap: 8px; flex-wrap: wrap; }
-        .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius); border: 1px dashed var(--border-mid); }
+        .task-lead-empty-state { padding: 8px 10px !important; }
+        .task-lead-empty-state .navi-empty__title { font-size: 12px !important; font-weight: 500 !important; }
         .tasks-lists-wrap { display: flex; flex-direction: column; gap: 24px; }
         .task-group-title { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; }
         .task-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1093,7 +1118,6 @@ export default function Tasks() {
         .task-lead-option:hover { background: var(--v50); }
         .task-lead-name { font-size: 13px; font-weight: 500; color: var(--ink); }
         .task-lead-phone { font-size: 11px; color: var(--faint); font-family: var(--ff-mono); }
-        .task-lead-empty { padding: 10px 12px; font-size: 12px; color: var(--faint); margin: 0; }
 
         /* ── Footer do modal ── */
         .task-modal-footer {

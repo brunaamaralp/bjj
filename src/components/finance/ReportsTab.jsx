@@ -3,6 +3,8 @@ import { databases, DB_ID, JOURNAL_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import { fmt } from './financeFmt.js';
+import { BarChart3 } from 'lucide-react';
+import EmptyState from '../shared/EmptyState.jsx';
 
 function downloadCSV(prefix, headers, rows) {
   const csv = [headers, ...rows]
@@ -147,21 +149,14 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
         </div>
       </div>
       {showPeriodEmpty ? (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '32px 20px',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
-          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-            Nenhum movimento no período
-          </div>
-          <div style={{ fontSize: 12 }}>
-            Selecione um período com lançamentos registrados.
-          </div>
-        </div>
+        <EmptyState
+          variant="default"
+          tone="dashed"
+          icon={BarChart3}
+          title="Nenhum movimento no período"
+          description="Selecione um período com lançamentos registrados."
+          role="status"
+        />
       ) : (
         <>
           <div className="finance-reports-block">

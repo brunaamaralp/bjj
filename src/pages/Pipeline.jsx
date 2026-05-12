@@ -23,6 +23,7 @@ import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useTerms, TERMS } from '../lib/terminology.js';
 import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
+import EmptyState from '../components/shared/EmptyState.jsx';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -522,8 +523,8 @@ const MobileLeadList = React.memo(function MobileLeadList({
                         {isOpen ? (
                             <div style={{ borderTop: '0.5px solid var(--border-light)' }}>
                                 {stageLeads.length === 0 ? (
-                                    <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)' }}>
-                                        {emptyStageHint}
+                                    <div style={{ padding: '8px 12px 12px' }}>
+                                        <EmptyState variant="compact" tone="dashed" title={emptyStageHint} role="none" />
                                     </div>
                                 ) : (
                                     stageLeads.map((lead, li) => (
@@ -1922,10 +1923,13 @@ const Pipeline = () => {
                                         hint = 'Nenhum resultado para nome ou telefone. Ajuste a busca ou a etapa em “Buscar em”.';
                                     }
                                     return (
-                                        <div className="col-empty">
-                                            <p>{`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}</p>
-                                            <p className="col-empty-hint">{hint}</p>
-                                        </div>
+                                        <EmptyState
+                                            variant="column"
+                                            tone="dashed"
+                                            title={`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}
+                                            description={hint}
+                                            role="none"
+                                        />
                                     );
                                 })()}
                             </Column>
@@ -2340,13 +2344,6 @@ const Pipeline = () => {
           flex-shrink: 0;
         }
         .lead-meta { font-size: 0.72rem; color: var(--text-secondary); }
-        .col-empty { 
-          padding: 16px 12px; text-align: center; color: var(--text-muted); 
-          font-size: 0.82rem; border: 1.5px dashed var(--border); 
-          border-radius: var(--radius-sm); 
-        }
-        .col-empty p { margin: 0; font-weight: 600; color: var(--text-secondary); }
-        .col-empty-hint { margin-top: 8px !important; font-weight: 500 !important; font-size: 0.75rem !important; line-height: 1.35; color: var(--text-muted) !important; }
         .lead-inbox-link {
           font-size: 0.72rem; font-weight: 700; color: var(--accent);
           text-decoration: none; margin-left: 4px;

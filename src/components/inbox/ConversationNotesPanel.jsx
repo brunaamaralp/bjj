@@ -5,6 +5,7 @@ import { useNoteNotifications } from '../../hooks/useNoteNotifications';
 import { Loader2, Trash2, Pencil, Check, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import EmptyState from '../shared/EmptyState.jsx';
 
 const MAX_LEN = 4000;
 
@@ -271,8 +272,8 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
           {notes.length === 0 && featureOn && (
-            <li className="text-small" style={{ color: 'var(--text-secondary)' }}>
-              Nenhuma nota ainda.
+            <li style={{ listStyle: 'none' }}>
+              <EmptyState variant="compact" tone="dashed" title="Nenhuma nota ainda." role="status" />
             </li>
           )}
           {notes.map((n) => (

@@ -4,6 +4,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import { teams, createSessionJwt } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
+import EmptyState from '../shared/EmptyState.jsx';
 
 /** Appwrite pode ocultar userName/userEmail (privacidade do time); usar fallbacks. */
 function membershipPrimaryLabel(m) {
@@ -279,7 +280,7 @@ const EquipeSection = ({ academy, academyId }) => {
                                         );
                                     })}
                                     {members.length === 0 && (
-                                        <div className="navi-subtitle" style={{ marginTop: 0 }}>Nenhum membro listado.</div>
+                                        <EmptyState variant="compact" tone="dashed" title="Nenhum membro listado." role="status" />
                                     )}
                                 </div>
                             )}
