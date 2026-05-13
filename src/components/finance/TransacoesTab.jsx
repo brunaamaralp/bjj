@@ -33,6 +33,8 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
   });
   const [savingTx, setSavingTx] = useState(false);
   const [cancelLoadingId, setCancelLoadingId] = useState('');
+  const [editingTxId, setEditingTxId] = useState('');
+  const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
 
@@ -60,6 +62,46 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
       return name.includes(q) || (qd.length >= 2 && phone.includes(qd));
     }).slice(0, 12);
   }, [leads, studentQuery]);
+
+  const resetTxModal = () => {
+    setShowTxModal(false);
+    setEditingTxId('');
+    setEditPreservedSaleId('');
+    setTxForm(initialTxForm());
+    setStudentQuery('');
+    setStudentPickerOpen(false);
+  };
+
+  const requestCloseTxModal = () => {
+    if (savingTx) return;
+    resetTxModal();
+  };
+
+  const openEditModal = (tx) => {
+    if (String(tx.status || '').toLowerCase() !== 'pending') return;
+    const gross = Number(tx.gross);
+    let feeInput = '';
+    if (tx.type !== 'expense' && Number.isFinite(gross) && gross > 0 && Number(tx.fee) > 0) {
+      const pct = (Number(tx.fee) / gross) * 100;
+      feeInput = Number.isFinite(pct) ? String(Math.round(pct * 100) / 100) : '';
+    }
+    setEditingTxId(tx.id);
+    setEditPreservedSaleId(String(tx.saleId || '').trim());
+    setTxForm({
+      type: tx.type || 'plan',
+      planName: tx.planName || '',
+      method: tx.method || 'pix',
+      gross: Number.isFinite(gross) && gross > 0 ? gross : '',
+      fee: feeInput,
+      installments: Math.min(12, Math.max(1, Number(tx.installments) || 1)),
+      note: tx.note || '',
+      lead_id: tx.lead_id || '',
+    });
+    const lead = (leads || []).find((l) => l.id === tx.lead_id);
+    setStudentQuery(lead?.name ? String(lead.name) : '');
+    setStudentPickerOpen(false);
+    setShowTxModal(true);
+  };
 
   useEffect(() => {
     let active = true;
@@ -244,6 +286,43 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
               teamId: scopedTeamId,
             })
           : null;
+
+      if (editingTxId) {
+        const patch = {
+          saleId: editPreservedSaleId || '',
+          lead_id: txForm.lead_id || '',
+          method: txForm.method,
+          installments,
+          type: txForm.type,
+          planName: txForm.planName || '',
+          gross: grossNum,
+          fee: feeVal,
+          net: netVal,
+          note: txForm.note || '',
+        };
+        const doc = await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, editingTxId, patch);
+        const row = {
+          id: doc.$id,
+          saleId: doc.saleId || editPreservedSaleId || '',
+          lead_id: doc.lead_id || txForm.lead_id || '',
+          method: doc.method || txForm.method,
+          installments: Number(doc.installments || installments),
+          type: doc.type || txForm.type,
+          planName: doc.planName || txForm.planName || '',
+          gross: Number(doc.gross ?? grossNum),
+          fee: Number(doc.fee ?? feeVal),
+          net: Number(doc.net ?? netVal),
+          status: doc.status || 'pending',
+          createdAt: doc.$createdAt,
+          settledAt: doc.settledAt || '',
+          note: doc.note || txForm.note || '',
+        };
+        setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
+        addToast({ type: 'success', message: 'Transação atualizada.' });
+        resetTxModal();
+        return;
+      }
+
       const payload = {
         academyId,
         saleId: '',
@@ -276,14 +355,11 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
         status: doc.status || 'pending',
         createdAt: doc.$createdAt,
         settledAt: doc.settledAt || '',
-        note: doc.note || txForm.note || ''
+        note: doc.note || txForm.note || '',
       };
       setTransactions((prev) => [row, ...prev]);
-      setShowTxModal(false);
-      setTxForm(initialTxForm());
-      setStudentQuery('');
-      setStudentPickerOpen(false);
       addToast({ type: 'success', message: 'Transação registrada.' });
+      resetTxModal();
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -311,6 +387,8 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
             <button
               type="button"
               onClick={() => {
+                setEditingTxId('');
+                setEditPreservedSaleId('');
                 setTxForm(initialTxForm());
                 setStudentQuery('');
                 setStudentPickerOpen(false);
@@ -344,7 +422,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   <th className="finance-num">Taxa</th>
                   <th className="finance-num">Líquido</th>
                   <th>Status</th>
-                  <th className="finance-num" style={{ minWidth: 128 }}>Ação</th>
+                  <th className="finance-num" style={{ minWidth: 148 }}>Ação</th>
                 </tr>
               </thead>
               <tbody>
@@ -410,6 +488,14 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                             <button
                               type="button"
                               className="btn-outline"
+                              onClick={() => openEditModal(tx)}
+                              disabled={rowBusy}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-outline"
                               onClick={() => void settle(tx.id)}
                               disabled={rowBusy}
                             >
@@ -445,7 +531,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
           aria-modal="true"
           aria-labelledby="finance-tx-modal-title"
           onClick={() => {
-            if (!savingTx) setShowTxModal(false);
+            requestCloseTxModal();
           }}
         >
           <div
@@ -453,7 +539,14 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 20 }}
           >
-            <h3 id="finance-tx-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>Nova transação</h3>
+            <h3 id="finance-tx-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>
+              {editingTxId ? 'Editar transação' : 'Nova transação'}
+            </h3>
+            {editingTxId ? (
+              <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>
+                Só é possível editar enquanto o lançamento estiver pendente. Valores liquidados no razão não são alterados automaticamente.
+              </p>
+            ) : null}
             <div className="flex-col gap-3">
               <div className="form-group">
                 <label>Tipo</label>
@@ -664,7 +757,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                 className="btn-outline"
                 disabled={savingTx}
                 onClick={() => {
-                  if (!savingTx) setShowTxModal(false);
+                  requestCloseTxModal();
                 }}
               >
                 Cancelar
