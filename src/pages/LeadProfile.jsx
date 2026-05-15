@@ -24,6 +24,7 @@ import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -359,8 +360,9 @@ const LeadProfile = () => {
         return () => window.removeEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
     }, [id, refreshTimeline]);
 
-    // Academy-level labels list (for the selector dropdown)
-    const [allLabels, setAllLabels] = useState([]);
+    const { allLabels } = useAcademyLabels(academyId, {
+        onLoadError: () => addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
+    });
 
     const [note, setNote] = useState('');
     const [editing, setEditing] = useState(false);
@@ -397,25 +399,6 @@ const LeadProfile = () => {
         };
     }, [academyId]);
 
-    useEffect(() => {
-        if (!academyId) return;
-        (async () => {
-            try {
-                const jwt = await account.createJWT();
-                const token = String(jwt?.jwt || '').trim();
-                const res = await fetch('/api/labels', {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'x-academy-id': academyId,
-                    },
-                });
-                const data = await res.json();
-                if (data?.sucesso) setAllLabels(data.labels || []);
-            } catch {
-                addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' });
-            }
-        })();
-    }, [academyId, addToast]);
     const [form, setForm] = useState({
         name: '',
         phone: '',
@@ -939,8 +922,8 @@ const LeadProfile = () => {
         try {
             await updateLead(id, { label_ids: newIds });
             addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
-        } catch {
-            addToast({ type: 'error', message: friendlyError(null, 'save') });
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
         }
     };
 

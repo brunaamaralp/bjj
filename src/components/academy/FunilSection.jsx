@@ -555,7 +555,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                         </div>
                                     ) : (
                                         <>
-                                            <LabelPill label={label} />
+                                            <LabelPill label={label} showDot={false} />
                                             {role === 'owner' && (
                                                 <div className="flex gap-1" style={{ marginLeft: 'auto', flexShrink: 0 }}>
                                                     <button

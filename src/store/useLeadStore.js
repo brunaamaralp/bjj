@@ -446,7 +446,9 @@ export const useLeadStore = create(
   updateLead: async (id, updates) => {
     try {
       const currentLead = get().leads.find((l) => l.id === id);
-      if (!currentLead) return;
+      if (!currentLead) {
+        throw new Error('Registro não encontrado. Recarregue a página.');
+      }
 
       const normalizedUpdates = { ...updates };
       if (

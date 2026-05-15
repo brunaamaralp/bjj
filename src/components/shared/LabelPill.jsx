@@ -3,9 +3,9 @@ import { X } from 'lucide-react';
 
 /**
  * Displays a colored label pill.
- * @param {{ label: { name: string, color: string }, onRemove?: () => void, small?: boolean }} props
+ * @param {{ label: { name: string, color: string }, onRemove?: () => void, small?: boolean, showDot?: boolean }} props
  */
-const LabelPill = ({ label, onRemove, small = false }) => {
+const LabelPill = ({ label, onRemove, small = false, showDot = true }) => {
   if (!label) return null;
 
   const color = String(label.color || '#8E8E8E');
@@ -30,15 +30,17 @@ const LabelPill = ({ label, onRemove, small = false }) => {
         overflow: 'hidden',
       }}
     >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: color,
-          flexShrink: 0,
-        }}
-      />
+      {showDot ? (
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: color,
+            flexShrink: 0,
+          }}
+        />
+      ) : null}
       <span
         style={{
           overflow: 'hidden',

@@ -22,6 +22,9 @@ import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import LabelPill from '../components/shared/LabelPill';
+import LabelSelector from '../components/shared/LabelSelector';
+import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -187,6 +190,20 @@ export default function StudentProfile() {
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
     const terms = useTerms();
+
+    const { allLabels } = useAcademyLabels(academyId, {
+        onLoadError: () => addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
+    });
+
+    const handleLabelsChange = async (newIds) => {
+        if (!id) return;
+        try {
+            await updateLead(id, { label_ids: newIds });
+            addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        }
+    };
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -1013,6 +1030,35 @@ export default function StudentProfile() {
                                 {student.type}
                             </span>
                         ) : null}
+                    </div>
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 6,
+                            justifyContent: 'center',
+                            marginTop: 12,
+                            width: '100%',
+                        }}
+                    >
+                        {(student.labelIds || []).map((labelId) => {
+                            const label = allLabels.find((l) => l.$id === labelId);
+                            if (!label) return null;
+                            return (
+                                <LabelPill
+                                    key={labelId}
+                                    label={label}
+                                    onRemove={() =>
+                                        handleLabelsChange((student.labelIds || []).filter((x) => x !== labelId))
+                                    }
+                                />
+                            );
+                        })}
+                        <LabelSelector
+                            allLabels={allLabels}
+                            selectedIds={student.labelIds || []}
+                            onChange={handleLabelsChange}
+                        />
                     </div>
                 </div>
 
