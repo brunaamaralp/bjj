@@ -7,7 +7,7 @@ import { Query } from 'appwrite';
 import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check } from 'lucide-react';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -49,6 +49,7 @@ const Dashboard = () => {
     const [listModalType, setListModalType] = useState('');
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
+    const [removingFollowupIds, setRemovingFollowupIds] = useState({});
     const [savingTaskDone, setSavingTaskDone] = useState({});
     const [dashboardWeekOffset, setDashboardWeekOffset] = useState(0);
     const hiddenAtRef = useRef(null);
@@ -440,8 +441,11 @@ const Dashboard = () => {
     };
 
     const markFollowupDone = async (lead) => {
-        if (!lead?.id || savingFollowupDone[lead.id]) return;
-        setSavingFollowupDone((prev) => ({ ...prev, [lead.id]: true }));
+        const leadId = String(lead?.id || '').trim();
+        if (!leadId || savingFollowupDone[leadId] || removingFollowupIds[leadId]) return;
+        setRemovingFollowupIds((prev) => ({ ...prev, [leadId]: true }));
+        await new Promise((resolve) => setTimeout(resolve, 320));
+        setSavingFollowupDone((prev) => ({ ...prev, [leadId]: true }));
         try {
             const st = useLeadStore.getState();
             const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
@@ -456,14 +460,19 @@ const Dashboard = () => {
                 permissionContext: permCtx,
                 payloadJson: { source: 'dashboard', status: lead.status || '', scheduledDate: lead.scheduledDate || '' },
             });
-            setFollowupDoneAtByLead((prev) => ({ ...prev, [lead.id]: nowIso }));
+            setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
             addToast({ type: 'success', message: 'Follow-up marcado como feito.' });
         } catch {
             addToast({ type: 'error', message: 'Erro ao marcar follow-up como feito.' });
+            setRemovingFollowupIds((prev) => {
+                const next = { ...prev };
+                delete next[leadId];
+                return next;
+            });
         } finally {
             setSavingFollowupDone((prev) => {
                 const next = { ...prev };
-                delete next[lead.id];
+                delete next[leadId];
                 return next;
             });
         }
@@ -488,15 +497,15 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="container reception-dashboard" style={{ paddingTop: 20, paddingBottom: 28 }}>
+        <div className="container reception-dashboard" style={{ paddingTop: 12, paddingBottom: 28 }}>
             <div className="reception-agenda-inner reception-agenda-inner--wide">
             <header className="reception-page-header reception-page-header--split animate-in">
                 <div className="reception-page-header__intro">
                     <h1 className="navi-page-title">Agenda da Recepção</h1>
-                    <p className="navi-subtitle" style={{ marginTop: 2 }}>{receptionSubtitle}</p>
+                    <p className="reception-subtitle">{receptionSubtitle}</p>
                 </div>
                 <div className="reception-page-header__actions">
-                    <div className="reception-header-ai">
+                    <div className="reception-header-ai reception-command-bar">
                         <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                     </div>
                     <button type="button" className="btn-primary reception-header-new-lead" onClick={() => navigate('/new-lead')}>
@@ -522,7 +531,7 @@ const Dashboard = () => {
                 </div>
             )}
 
-            <div className="agenda-kpi-grid mt-4 animate-in" style={{ animationDelay: '0.05s' }} aria-busy={loading}>
+            <div className="agenda-kpi-grid reception-kpi-grid animate-in" style={{ animationDelay: '0.05s' }} aria-busy={loading}>
                 {loading ? (
                     [1, 2, 3, 4].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 148 }} />)
                 ) : (
@@ -533,7 +542,7 @@ const Dashboard = () => {
                             count: todayScheduled.length,
                             cta: 'Ver agenda',
                             Icon: Calendar,
-                            variant: 'default',
+                            kind: 'info',
                         },
                         {
                             key: 'week',
@@ -541,7 +550,7 @@ const Dashboard = () => {
                             count: weekScheduled.length,
                             cta: 'Ver lista',
                             Icon: LayoutGrid,
-                            variant: 'default',
+                            kind: 'info',
                         },
                         {
                             key: 'followup',
@@ -549,7 +558,8 @@ const Dashboard = () => {
                             count: followUps.length,
                             cta: 'Ver abaixo',
                             Icon: ChevronDown,
-                            variant: 'followup',
+                            kind: 'attention',
+                            attentionTone: 'danger',
                         },
                         {
                             key: 'tasks',
@@ -557,34 +567,77 @@ const Dashboard = () => {
                             count: pendingTasks.length,
                             cta: 'Ver tarefas',
                             Icon: CheckSquare,
-                            variant: 'default',
+                            kind: 'attention',
+                            attentionTone: 'primary',
                         },
-                    ].map((card) => (
+                    ].map((card) => {
+                        const isAttention = card.kind === 'attention';
+                        const isOk = card.count === 0;
+                        const hasValue = card.count > 0;
+                        const kpiClass = [
+                            'agenda-kpi-card',
+                            'agenda-kpi-card--clickable',
+                            isAttention && hasValue ? `agenda-kpi-card--attention agenda-kpi-card--attention-${card.attentionTone}` : '',
+                            isAttention && isOk ? 'agenda-kpi-card--ok' : '',
+                            !isAttention && isOk ? 'agenda-kpi-card--muted' : '',
+                            card.key === 'followup' && hasValue ? 'agenda-kpi-card--followup' : '',
+                        ]
+                            .filter(Boolean)
+                            .join(' ');
+                        return (
                         <button
                             key={card.key}
                             type="button"
-                            className={`agenda-kpi-card agenda-kpi-card--clickable${card.variant === 'followup' ? ' agenda-kpi-card--followup' : ''}`}
+                            className={kpiClass}
                             onClick={() => setListModalType(card.key)}
                         >
                             <div className="agenda-kpi-card-stack">
                                 <div className="agenda-kpi-label">{card.title}</div>
-                                <div className={`agenda-kpi-value${card.variant === 'followup' ? ' agenda-kpi-value--followup' : ''}`}>{card.count}</div>
+                                {isOk ? (
+                                        <div className="agenda-kpi-ok" aria-label="Tudo em dia">
+                                            <Check size={22} strokeWidth={2.5} aria-hidden />
+                                            <span>Tudo em dia!</span>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className={`agenda-kpi-value${
+                                                isAttention && hasValue ? ' agenda-kpi-value--attention' : ''
+                                            }${card.key === 'followup' && hasValue ? ' agenda-kpi-value--followup' : ''}`}
+                                        >
+                                            {card.count}
+                                        </div>
+                                    )}
+                                    {!isOk && isAttention ? (
+                                        <p className="agenda-kpi-context">
+                                            {card.count === 1 ? '1 pendente' : `${card.count} pendentes`}
+                                        </p>
+                                    ) : null}
+                                    {!isOk && !isAttention ? (
+                                        <p className="agenda-kpi-context agenda-kpi-context--info">
+                                            {card.key === 'today'
+                                                ? 'agendadas para hoje'
+                                                : 'nos próximos 7 dias'}
+                                        </p>
+                                    ) : null}
                             </div>
                             <div
                                 className={`agenda-kpi-trend agenda-kpi-cta${
-                                    card.variant === 'followup' ? ' agenda-kpi-trend--followup' : ' agenda-kpi-trend--cta'
+                                    card.key === 'followup' && hasValue
+                                            ? ' agenda-kpi-trend--followup'
+                                            : ' agenda-kpi-trend--cta'
                                 }`}
                             >
                                 <card.Icon size={16} strokeWidth={2} />
-                                <span>{card.cta}</span>
+                                <span>{isOk ? 'Ver detalhes' : card.cta}</span>
                             </div>
                         </button>
-                    ))
+                        );
+                    })
                 )}
             </div>
 
             <div className="agenda-page-stack">
-            <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.23s' }}>
+            <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.15s' }}>
                 <div className="reception-week-panel__head flex flex-wrap justify-between items-center gap-3">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <h3 className="navi-section-heading reception-section-heading reception-week-panel__title">
@@ -641,6 +694,7 @@ const Dashboard = () => {
                 <p className="reception-calendar-hint">Clique em um horário para abrir o lead</p>
             </section>
 
+            <div className="agenda-section-divider" aria-hidden />
             <section className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
                 <div className="reception-section-head flex justify-between items-center">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -665,7 +719,9 @@ const Dashboard = () => {
                         return (
                             <div
                                 key={lead.id}
-                                className={`fu-row animate-in${i === followUps.length - 1 ? ' fu-row--last' : ''}`}
+                                className={`fu-row animate-in${lead.daysAgo === 0 ? ' fu-row--today' : ''}${
+                                    removingFollowupIds[lead.id] ? ' fu-row--removing' : ''
+                                }${i === followUps.length - 1 ? ' fu-row--last' : ''}`}
                                 style={{ animationDelay: `${0.04 * i}s` }}
                             >
                                 <span
@@ -730,25 +786,40 @@ const Dashboard = () => {
                             <EmptyState
                                 variant="compact"
                                 tone="dashed"
-                                title="Nada pendente por agora."
+                                title="Ótimo trabalho — nenhum follow-up pendente."
                                 description={
                                     followUpsKanbanOnlyCount > 0 ? (
-                                        <span className="text-xs text-light" style={{ display: 'block', lineHeight: 1.35 }}>
-                                            {followUpsKanbanOnlyCount}{' '}
-                                            {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
-                                            {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
-                                        </span>
-                                    ) : undefined
+                                        <>
+                                            Quando alguém comparecer ou faltar, os retornos aparecem aqui.{' '}
+                                            <span className="text-xs text-light" style={{ display: 'block', lineHeight: 1.35, marginTop: 6 }}>
+                                                {followUpsKanbanOnlyCount}{' '}
+                                                {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
+                                                {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
+                                            </span>
+                                        </>
+                                    ) : (
+                                        'Quando alguém comparecer ou faltar, os retornos aparecem aqui.'
+                                    )
                                 }
                                 role="status"
                             />
                         </div>
                     )}
                 </div>
-                {followUps.length > 0 && followUpsKanbanOnlyCount > 0 && (
-                    <p className="text-xs text-light mt-2" style={{ lineHeight: 1.35 }}>
-                        + {followUpsKanbanOnlyCount} no Kanban (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a{' '}
-                        {vertical === 'physio' ? 'avaliação' : 'aula'}).
+                {followUpsKanbanOnlyCount > 0 && (
+                    <p className="fu-kanban-more mt-2">
+                        <button
+                            type="button"
+                            className="fu-kanban-link"
+                            onClick={() => navigate('/pipeline?followup=kanban')}
+                        >
+                            + {followUpsKanbanOnlyCount} no Kanban
+                        </button>
+                        <span className="fu-kanban-more-hint">
+                            {' '}
+                            (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a{' '}
+                            {vertical === 'physio' ? 'avaliação' : 'aula'})
+                        </span>
                     </p>
                 )}
             </section>
@@ -901,9 +972,33 @@ const Dashboard = () => {
         .reception-page-header--split {
           display: flex;
           flex-wrap: wrap;
-          align-items: flex-end;
+          align-items: flex-start;
           justify-content: space-between;
-          gap: 16px 24px;
+          gap: 10px 16px;
+          margin-bottom: 4px;
+        }
+        .reception-subtitle {
+          margin: 4px 0 0;
+          font-size: 14px;
+          line-height: 1.45;
+          color: var(--text-secondary);
+          font-weight: 500;
+        }
+        .reception-kpi-grid {
+          margin-top: 14px !important;
+        }
+        .reception-command-bar button {
+          border-color: var(--border-mid) !important;
+          color: var(--text-secondary) !important;
+          background: var(--surface) !important;
+          box-shadow: var(--shadow-sm);
+        }
+        .reception-command-bar button:hover {
+          border-color: var(--border-strong) !important;
+          color: var(--ink) !important;
+        }
+        .reception-command-bar button span:last-of-type {
+          color: var(--text-secondary);
         }
         .reception-page-header__intro {
           flex: 1 1 220px;
@@ -1035,7 +1130,22 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
           border: 1.5px solid #5B3FBF;
-          background: #fff !important;
+          background: #EEEDFE !important;
+          box-shadow: 0 2px 10px rgba(91, 63, 191, 0.12);
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--empty {
+          opacity: 0.72;
+          background: rgba(255, 255, 255, 0.55);
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--empty .agenda-week-col-empty {
+          font-size: 11px;
+          opacity: 0.5;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col:hover {
+          border-color: #AFA9EC;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-col--today:hover {
+          border-color: #5B3FBF;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col-head {
           padding: 0 0 8px;
@@ -1100,6 +1210,16 @@ const Dashboard = () => {
           font-weight: 500;
           color: #534AB7;
         }
+        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          margin-bottom: 4px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--confirmed { background: #5B3FBF; }
+        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--pending { background: #d97706; }
+        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--attended { background: #16a34a; }
+        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--missed { background: #e24b4a; }
         .reception-agenda-inner .reception-week-embed .agenda-week-name {
           font-size: 12px;
           font-weight: 500;
@@ -1157,6 +1277,51 @@ const Dashboard = () => {
         .fu-row--last {
           border-bottom: none;
         }
+        .fu-row--today {
+          margin: 0 -12px;
+          padding: 9px 12px;
+          background: rgba(133, 79, 11, 0.06);
+          border-radius: var(--radius-sm);
+          border-bottom-color: transparent;
+        }
+        .fu-row--removing {
+          animation: fu-row-out 0.32s ease forwards;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        @keyframes fu-row-out {
+          to {
+            opacity: 0;
+            transform: translateY(-6px);
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+          }
+        }
+        .fu-kanban-more {
+          font-size: 12px;
+          line-height: 1.45;
+          color: var(--text-secondary);
+        }
+        .fu-kanban-link {
+          background: none;
+          border: none;
+          padding: 0;
+          font: inherit;
+          font-weight: 700;
+          color: var(--v500);
+          cursor: pointer;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .fu-kanban-link:hover {
+          color: var(--v700);
+        }
+        .fu-kanban-more-hint {
+          font-weight: 400;
+        }
         .fu-dot {
           width: 8px;
           height: 8px;
@@ -1206,11 +1371,13 @@ const Dashboard = () => {
         }
         .fu-type-badge--recover {
           background: #FCEBEB;
-          color: #A32D2D;
+          color: #8B1E1E;
+          border: 1px solid rgba(163, 45, 45, 0.35);
         }
         .fu-type-badge--post {
-          background: #EAF3DE;
-          color: #3B6D11;
+          background: #E8F5E0;
+          color: #2D5A0A;
+          border: 1px solid rgba(59, 109, 17, 0.35);
         }
         .fu-actions {
           display: flex;
@@ -1231,13 +1398,13 @@ const Dashboard = () => {
         }
         .fu-btn-wa:hover { filter: brightness(0.96); }
         .fu-btn-done {
-          background: var(--surface-hover);
+          background: transparent;
           color: var(--text-secondary);
           border: 1px solid var(--border-mid);
           padding: 5px 10px;
           font-size: 11px;
           border-radius: 6px;
-          font-weight: 600;
+          font-weight: 500;
           cursor: pointer;
           font-family: inherit;
         }
@@ -1268,6 +1435,52 @@ const Dashboard = () => {
         }
         .agenda-kpi-card--clickable:hover .agenda-kpi-trend--cta svg {
           color: var(--v500);
+        }
+        .agenda-kpi-card--attention {
+          border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+        }
+        .agenda-kpi-card--attention-danger {
+          border-left: 4px solid #e24b4a;
+        }
+        .agenda-kpi-card--attention-primary {
+          border-left: 4px solid var(--v500);
+        }
+        .agenda-kpi-card--ok,
+        .agenda-kpi-card--muted {
+          background: var(--surface-hover);
+          border-color: var(--border-light);
+        }
+        .agenda-kpi-card--ok .agenda-kpi-label,
+        .agenda-kpi-card--muted .agenda-kpi-label {
+          color: var(--text-secondary);
+        }
+        .agenda-kpi-ok {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--text-secondary);
+          font-size: 15px;
+          font-weight: 600;
+          margin-top: 2px;
+        }
+        .agenda-kpi-ok svg {
+          color: var(--success-text, #3b6d11);
+          flex-shrink: 0;
+        }
+        .agenda-kpi-value--attention {
+          font-size: 2.35rem !important;
+          line-height: 1;
+        }
+        .agenda-kpi-context {
+          margin: 0;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          line-height: 1.3;
+        }
+        .agenda-kpi-context--info {
+          font-weight: 500;
+          color: var(--text-muted);
         }
         .agenda-kpi-card--followup {
           border-left: 3px solid #e24b4a;
@@ -1356,7 +1569,12 @@ const Dashboard = () => {
           align-items: stretch;
           gap: 22px;
           width: 100%;
-          margin-top: 26px;
+          margin-top: 18px;
+        }
+        .agenda-section-divider {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--border-mid), transparent);
+          margin: 4px 0 2px;
         }
         .agenda-top-row {
           display: grid;
@@ -1389,7 +1607,7 @@ const Dashboard = () => {
           align-items: stretch;
           justify-content: space-between;
           min-height: 152px;
-          padding: 18px 16px 14px;
+          padding: 20px 18px 16px;
           border-radius: var(--radius-sm);
           background: var(--surface);
           border: 1px solid var(--border-mid);

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { formatBRL, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 
 export default function SalesCart({
@@ -12,46 +12,66 @@ export default function SalesCart({
   descGeralMasked,
   totalMasked,
 }) {
-  if (!cart.length) return null;
+  const [removingIdx, setRemovingIdx] = useState(null);
+
+  const handleRemove = (idx) => {
+    if (removingIdx != null) return;
+    setRemovingIdx(idx);
+    window.setTimeout(() => {
+      onRemove(idx);
+      setRemovingIdx(null);
+    }, 280);
+  };
 
   return (
-    <div className="mt-3">
-      <h4 className="navi-section-heading" style={{ marginBottom: 8 }}>Carrinho</h4>
-      <div className="sales-cart-list">
-        {cart.map((it, idx) => {
-          const subtotal = Number(it.quantidade) * Number(it.preco_unitario || 0);
-          const priceCents =
-            it.preco_unitario != null && it.preco_unitario !== ''
-              ? Math.round(Number(it.preco_unitario) * 100)
-              : null;
-          const priceDisplay =
-            priceCents != null && priceCents > 0 ? formatBRLFromCents(priceCents) : '';
+    <section className="sales-cart" aria-label="Carrinho">
+      <h4 className="sales-cart__heading">Carrinho</h4>
 
-          return (
-            <div
-              className="sales-cart-row card"
-              key={`${it.item_estoque_id}-${idx}`}
-              style={{ padding: 12, marginBottom: 8 }}
-            >
-              <div className="flex justify-between items-start gap-2">
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600 }}>{it.display_label}</div>
-                  {it.variacao ? <div className="text-small text-muted">{it.variacao}</div> : null}
+      {cart.length === 0 ? (
+        <div className="sales-cart-empty" role="status">
+          <ShoppingBag size={28} strokeWidth={1.5} aria-hidden />
+          <p>Adicione produtos ao carrinho</p>
+        </div>
+      ) : (
+        <ul className="sales-cart-list">
+          {cart.map((it, idx) => {
+            const subtotal = Number(it.quantidade) * Number(it.preco_unitario || 0);
+            const priceCents =
+              it.preco_unitario != null && it.preco_unitario !== ''
+                ? Math.round(Number(it.preco_unitario) * 100)
+                : null;
+            const priceDisplay =
+              priceCents != null && priceCents > 0 ? formatBRLFromCents(priceCents) : '';
+            const isRemoving = removingIdx === idx;
+
+            return (
+              <li
+                key={`${it.item_estoque_id}-${idx}`}
+                className={`sales-cart-row${isRemoving ? ' sales-cart-row--removing' : ''}`}
+              >
+                <div className="sales-cart-row__head">
+                  <div className="sales-cart-row__info">
+                    <span className="sales-cart-row__name">{it.display_label}</span>
+                    {it.variacao ? <span className="sales-cart-row__var">{it.variacao}</span> : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost sales-cart-row__remove"
+                    onClick={() => handleRemove(idx)}
+                    title="Remover"
+                    aria-label="Remover item"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <button type="button" className="btn-ghost" onClick={() => onRemove(idx)} title="Remover" aria-label="Remover">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-              <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ margin: 0, minWidth: 100 }}>
-                  <label className="text-xs">Qtd</label>
-                  <div className="flex items-center gap-1">
+                <div className="sales-cart-row__controls">
+                  <div className="sales-cart-qty">
                     <button
                       type="button"
                       className="btn-outline btn-sm"
                       onClick={() => onQtyChange(idx, Number(it.quantidade) - 1)}
                       disabled={Number(it.quantidade) <= 1}
-                      aria-label="Diminuir"
+                      aria-label="Diminuir quantidade"
                     >
                       <Minus size={14} />
                     </button>
@@ -59,52 +79,58 @@ export default function SalesCart({
                       type="number"
                       min={1}
                       max={it.disponivel > 0 ? it.disponivel : undefined}
-                      className="form-input"
-                      style={{ width: 56, textAlign: 'center' }}
+                      className="form-input sales-cart-qty__input"
                       value={it.quantidade}
                       onChange={(e) => onQtyChange(idx, e.target.value)}
+                      aria-label="Quantidade"
                     />
                     <button
                       type="button"
                       className="btn-outline btn-sm"
                       onClick={() => onQtyChange(idx, Number(it.quantidade) + 1)}
                       disabled={it.disponivel > 0 && Number(it.quantidade) >= it.disponivel}
-                      aria-label="Aumentar"
+                      aria-label="Aumentar quantidade"
                     >
                       <Plus size={14} />
                     </button>
                   </div>
-                </div>
-                <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 120 }}>
-                  <label className="text-xs">Preço unit.</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    inputMode="numeric"
-                    placeholder="R$ 0,00"
-                    value={priceDisplay}
-                    disabled={lockPriceEdit}
-                    onChange={(e) => onPriceChange(idx, parseMaskToCents(e.target.value))}
-                  />
-                </div>
-                <div className="form-group" style={{ margin: 0, minWidth: 100 }}>
-                  <label className="text-xs">Subtotal</label>
-                  <div className="form-input" style={{ background: 'var(--surface-2)', fontWeight: 600 }}>
-                    {formatBRL(subtotal)}
+                  <div className="sales-cart-row__price">
+                    <label className="text-xs">Unit.</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      inputMode="numeric"
+                      placeholder="R$ 0,00"
+                      value={priceDisplay}
+                      disabled={lockPriceEdit}
+                      onChange={(e) => onPriceChange(idx, parseMaskToCents(e.target.value))}
+                    />
+                  </div>
+                  <div className="sales-cart-row__subtotal">
+                    <span className="text-xs">Subtotal</span>
+                    <strong>{formatBRL(subtotal)}</strong>
                   </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex sales-cart-totals" style={{ justifyContent: 'flex-end', marginTop: 8, gap: 16, flexWrap: 'wrap' }}>
-        <div><strong>Subtotal: </strong>{subtotalMasked}</div>
-        <div><strong>Desconto geral: </strong>{descGeralMasked}</div>
-        <div><strong>Total: </strong>{totalMasked}</div>
-      </div>
-    </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <footer className="sales-cart-footer">
+        <div className="sales-cart-footer__row">
+          <span>Subtotal</span>
+          <span>{subtotalMasked}</span>
+        </div>
+        <div className="sales-cart-footer__row sales-cart-footer__row--muted">
+          <span>Desconto geral</span>
+          <span>{descGeralMasked}</span>
+        </div>
+        <div className="sales-cart-footer__row sales-cart-footer__total">
+          <span>Total</span>
+          <strong>{totalMasked}</strong>
+        </div>
+      </footer>
+    </section>
   );
 }
-
-

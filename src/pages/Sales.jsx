@@ -14,12 +14,12 @@ const Sales = () => {
         </p>
       </div>
 
-      <div className="finance-tabs mt-4" role="tablist" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="sales-page-tabs mt-4" role="tablist" aria-label="Vendas">
         <button
           type="button"
           role="tab"
           aria-selected={tab === 'new'}
-          className={`finance-tab${tab === 'new' ? ' finance-tab--active' : ''}`}
+          className={`sales-page-tab${tab === 'new' ? ' sales-page-tab--active' : ''}`}
           onClick={() => setTab('new')}
         >
           Nova venda
@@ -28,7 +28,7 @@ const Sales = () => {
           type="button"
           role="tab"
           aria-selected={tab === 'history'}
-          className={`finance-tab${tab === 'history' ? ' finance-tab--active' : ''}`}
+          className={`sales-page-tab${tab === 'history' ? ' sales-page-tab--active' : ''}`}
           onClick={() => setTab('history')}
         >
           Histórico
@@ -41,4 +41,3 @@ const Sales = () => {
 };
 
 export default Sales;
-

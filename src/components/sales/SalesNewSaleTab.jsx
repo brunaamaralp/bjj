@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSalesStore } from '../../store/useSalesStore';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, X } from 'lucide-react';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
@@ -37,6 +37,8 @@ export default function SalesNewSaleTab() {
 
   const [cart, setCart] = useState([]);
   const [localError, setLocalError] = useState('');
+  const [flashProductId, setFlashProductId] = useState(null);
+  const [mobilePanel, setMobilePanel] = useState('catalog');
 
   const [descGeralTipo, setDescGeralTipo] = useState('valor');
   const [descGeralCents, setDescGeralCents] = useState(0);
@@ -173,22 +175,24 @@ export default function SalesNewSaleTab() {
         }
         next[idx] = { ...next[idx], quantidade: newQ };
         setCart(next);
-        return;
+      } else {
+        setCart((prev) => [
+          ...prev,
+          {
+            item_estoque_id: product.id,
+            display_label: product.display_label,
+            variacao: product.Tamanho || '',
+            quantidade: 1,
+            preco_unitario: unit,
+            sale_price: product.sale_price,
+            cost_price: product.cost_price,
+            disponivel: product.current_quantity,
+          },
+        ]);
       }
 
-      setCart((prev) => [
-        ...prev,
-        {
-          item_estoque_id: product.id,
-          display_label: product.display_label,
-          variacao: product.Tamanho || '',
-          quantidade: 1,
-          preco_unitario: unit,
-          sale_price: product.sale_price,
-          cost_price: product.cost_price,
-          disponivel: product.current_quantity,
-        },
-      ]);
+      setFlashProductId(product.id);
+      window.setTimeout(() => setFlashProductId(null), 420);
     },
     [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast]
   );
@@ -275,6 +279,12 @@ export default function SalesNewSaleTab() {
     setAlunoSearchText('');
   };
 
+  const clearAluno = () => {
+    setAlunoId('');
+    setAlunoNomeSel('');
+    setAlunoSearchText('');
+  };
+
   const clientDisplayName = alunoNomeSel || clienteNome.trim() || 'Cliente avulso';
 
   const submit = async (e) => {
@@ -352,6 +362,7 @@ export default function SalesNewSaleTab() {
     setCart([]);
     setDescGeralCents(0);
     setDescGeralPct(0);
+    setMobilePanel('catalog');
     void reloadCatalog();
   };
 
@@ -364,147 +375,214 @@ export default function SalesNewSaleTab() {
     }
   };
 
+  const cartCount = cart.reduce((n, it) => n + Number(it.quantidade || 0), 0);
+
   return (
     <>
-      <form className="card mt-4 animate-in" onSubmit={submit}>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ flex: '1 1 220px' }}>
-            <label>Aluno (opcional)</label>
-            <input
-              className="form-input"
-              value={alunoSearchText}
-              onChange={(e) => setAlunoSearchText(e.target.value)}
-              placeholder="Buscar por nome ou celular"
+      <form className="sales-new-sale animate-in" onSubmit={submit}>
+        <div className="sales-mobile-tabs" role="tablist" aria-label="Catálogo e carrinho">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'catalog'}
+            className={`sales-mobile-tab${mobilePanel === 'catalog' ? ' sales-mobile-tab--active' : ''}`}
+            onClick={() => setMobilePanel('catalog')}
+          >
+            Catálogo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'cart'}
+            className={`sales-mobile-tab${mobilePanel === 'cart' ? ' sales-mobile-tab--active' : ''}`}
+            onClick={() => setMobilePanel('cart')}
+          >
+            Carrinho
+            {cartCount > 0 ? <span className="sales-mobile-tab__badge">{cartCount}</span> : null}
+          </button>
+        </div>
+
+        <div className="sales-layout">
+          <div
+            className={`sales-layout__catalog sales-panel${
+              mobilePanel === 'catalog' ? ' sales-panel--active' : ''
+            }`}
+          >
+            <SalesCatalogPicker
+              products={products}
+              loading={catalogLoading}
+              onPick={pickProduct}
+              flashProductId={flashProductId}
             />
-            {alunoSuggestions.length > 0 && (
-              <div className="suggestions" style={{ marginTop: 6 }}>
-                {alunoSuggestions.map((s) => (
-                  <div key={s.id} className="suggestion" onClick={() => chooseAluno(s)}>
-                    <div style={{ flex: 1 }}>{s.nome}</div>
-                    <div className="text-small" style={{ opacity: 0.8 }}>
-                      {s.phone}
-                    </div>
+          </div>
+
+          <aside
+            className={`sales-layout__checkout sales-panel${
+              mobilePanel === 'cart' ? ' sales-panel--active' : ''
+            }`}
+          >
+            <div className="sales-checkout card">
+              <h3 className="sales-checkout__title">Checkout</h3>
+
+              <div className="form-group sales-checkout__field">
+                <label>Aluno (opcional)</label>
+                <input
+                  className="form-input"
+                  value={alunoSearchText}
+                  onChange={(e) => setAlunoSearchText(e.target.value)}
+                  placeholder="Buscar por nome ou celular"
+                  disabled={Boolean(alunoId)}
+                />
+                {alunoSuggestions.length > 0 && (
+                  <div className="sales-suggestions">
+                    {alunoSuggestions.map((s) => (
+                      <button key={s.id} type="button" className="sales-suggestion" onClick={() => chooseAluno(s)}>
+                        <span>{s.nome}</span>
+                        {s.phone ? <span className="text-small text-muted">{s.phone}</span> : null}
+                      </button>
+                    ))}
                   </div>
-                ))}
+                )}
+                {alunoBusy && <div className="text-small text-muted mt-1">Buscando…</div>}
+                {alunoNomeSel ? (
+                  <div className="sales-aluno-pill">
+                    <span>{alunoNomeSel}</span>
+                    <button type="button" className="sales-aluno-pill__clear" onClick={clearAluno} aria-label="Remover aluno">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : null}
               </div>
-            )}
-            {alunoBusy && <div className="text-small text-muted mt-1">Buscando…</div>}
-            {alunoNomeSel ? (
-              <div className="text-small mt-1">
-                <strong>Selecionado:</strong> {alunoNomeSel}
+
+              <div
+                className={`sales-guest-fields${
+                  alunoId ? ' sales-guest-fields--hidden' : ' sales-guest-fields--visible'
+                }`}
+                aria-hidden={Boolean(alunoId)}
+              >
+                <div className="form-group sales-checkout__field">
+                  <label>Cliente avulso — nome</label>
+                  <input
+                    className="form-input"
+                    maxLength={128}
+                    value={clienteNome}
+                    onChange={(e) => setClienteNome(e.target.value)}
+                    placeholder="Nome do cliente"
+                    tabIndex={alunoId ? -1 : 0}
+                  />
+                </div>
+                <div className="form-group sales-checkout__field">
+                  <label>Cliente avulso — telefone</label>
+                  <input
+                    className="form-input"
+                    maxLength={20}
+                    value={clienteTelefone}
+                    onChange={(e) => setClienteTelefone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    tabIndex={alunoId ? -1 : 0}
+                  />
+                </div>
               </div>
-            ) : null}
-          </div>
 
-          <div className="form-group" style={{ flex: '1 1 160px' }}>
-            <label>Canal</label>
-            <select className="form-input" value={canal} onChange={(e) => setCanal(e.target.value)}>
-              {SALES_CHANNEL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="sales-checkout__row">
+                <div className="form-group sales-checkout__field">
+                  <label>Canal</label>
+                  <select className="form-input" value={canal} onChange={(e) => setCanal(e.target.value)}>
+                    {SALES_CHANNEL_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group sales-checkout__field">
+                  <label>Pagamento</label>
+                  <select className="form-input" value={forma} onChange={(e) => setForma(e.target.value)}>
+                    <option value="pix">PIX</option>
+                    <option value="debito">Débito</option>
+                    <option value="credito">Crédito</option>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="transferencia">Transferência</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+              </div>
 
-          <div className="form-group" style={{ flex: '1 1 160px' }}>
-            <label>Pagamento</label>
-            <select className="form-input" value={forma} onChange={(e) => setForma(e.target.value)}>
-              <option value="pix">PIX</option>
-              <option value="debito">Débito</option>
-              <option value="credito">Crédito</option>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="transferencia">Transferência</option>
-              <option value="outro">Outro</option>
-            </select>
-          </div>
+              <SalesCart
+                cart={cart}
+                lockPriceEdit={salesSettings.lockPriceEdit}
+                onQtyChange={updateCartQty}
+                onPriceChange={updateCartPrice}
+                onRemove={removeFromCart}
+                subtotalMasked={subtotalMasked}
+                descGeralMasked={descGeralMaskedOut}
+                totalMasked={totalMasked}
+              />
+
+              <div className="sales-checkout__discount">
+                <div className="form-group sales-checkout__field">
+                  <label className="text-xs">Desconto geral</label>
+                  <select className="form-input" value={descGeralTipo} onChange={(e) => setDescGeralTipo(e.target.value)}>
+                    <option value="valor">R$</option>
+                    <option value="percent">%</option>
+                  </select>
+                </div>
+                {descGeralTipo === 'valor' ? (
+                  <div className="form-group sales-checkout__field">
+                    <label className="text-xs">Valor</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={descGeralMasked}
+                      onChange={(e) => setDescGeralCents(parseMaskToCents(e.target.value))}
+                    />
+                  </div>
+                ) : (
+                  <div className="form-group sales-checkout__field">
+                    <label className="text-xs">%</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="form-input"
+                      value={descGeralPct}
+                      onChange={(e) => setDescGeralPct(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="sales-collab-toggle">
+                <label className="sales-collab-toggle__label">
+                  <input
+                    type="checkbox"
+                    className="sales-collab-toggle__input"
+                    checked={vendaColaborador}
+                    onChange={(e) => setVendaColaborador(e.target.checked)}
+                  />
+                  <span className="sales-collab-toggle__track" aria-hidden />
+                  <span>Aplicar preço de custo (colaborador)</span>
+                </label>
+                {vendaColaborador ? (
+                  <p className="sales-collab-toggle__hint">
+                    Os preços serão substituídos pelo preço de custo cadastrado.
+                  </p>
+                ) : null}
+              </div>
+
+              <button
+                type="submit"
+                className="btn-primary sales-submit-btn"
+                disabled={creating || cart.length === 0}
+              >
+                <ShoppingCart size={18} aria-hidden />
+                <span>
+                  {creating ? 'Registrando venda…' : cart.length === 0 ? 'Concluir venda' : `Concluir venda — ${totalMasked}`}
+                </span>
+              </button>
+            </div>
+          </aside>
         </div>
-
-        {!alunoId && (
-          <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
-            <div className="form-group" style={{ flex: 1, minWidth: 160 }}>
-              <label>Nome do cliente</label>
-              <input
-                className="form-input"
-                maxLength={128}
-                value={clienteNome}
-                onChange={(e) => setClienteNome(e.target.value)}
-                placeholder="Cliente avulso"
-              />
-            </div>
-            <div className="form-group" style={{ flex: 1, minWidth: 140 }}>
-              <label>Telefone</label>
-              <input
-                className="form-input"
-                maxLength={20}
-                value={clienteTelefone}
-                onChange={(e) => setClienteTelefone(e.target.value)}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-          </div>
-        )}
-
-        <label className="flex items-center gap-2 mt-2" style={{ fontSize: 14 }}>
-          <input
-            type="checkbox"
-            checked={vendaColaborador}
-            onChange={(e) => setVendaColaborador(e.target.checked)}
-          />
-          Venda para colaborador (usa preço de custo quando cadastrado)
-        </label>
-
-        <hr style={{ margin: '16px 0', border: 0, borderTop: '1px solid var(--border-light)' }} />
-
-        <SalesCatalogPicker products={products} loading={catalogLoading} onPick={pickProduct} />
-
-        <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
-            <label className="text-xs">Desconto geral</label>
-            <select className="form-input" value={descGeralTipo} onChange={(e) => setDescGeralTipo(e.target.value)}>
-              <option value="valor">R$</option>
-              <option value="percent">%</option>
-            </select>
-          </div>
-          {descGeralTipo === 'valor' ? (
-            <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 120 }}>
-              <label className="text-xs">Valor</label>
-              <input
-                type="text"
-                className="form-input"
-                value={descGeralMasked}
-                onChange={(e) => setDescGeralCents(parseMaskToCents(e.target.value))}
-              />
-            </div>
-          ) : (
-            <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 80 }}>
-              <label className="text-xs">%</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className="form-input"
-                value={descGeralPct}
-                onChange={(e) => setDescGeralPct(e.target.value)}
-              />
-            </div>
-          )}
-        </div>
-
-        <SalesCart
-          cart={cart}
-          lockPriceEdit={salesSettings.lockPriceEdit}
-          onQtyChange={updateCartQty}
-          onPriceChange={updateCartPrice}
-          onRemove={removeFromCart}
-          subtotalMasked={subtotalMasked}
-          descGeralMasked={descGeralMaskedOut}
-          totalMasked={totalMasked}
-        />
-
-        <button type="submit" className="btn-secondary mt-3" disabled={creating || cart.length === 0}>
-          <ShoppingCart size={16} /> <span style={{ marginLeft: 6 }}>Concluir venda</span>
-        </button>
       </form>
 
       {(localError || error) && (
@@ -528,36 +606,7 @@ export default function SalesNewSaleTab() {
           {'venda_id' in lastSale && <div>Venda: {lastSale.venda_id}</div>}
         </div>
       )}
-
-      <style>{`
-        .sales-catalog__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-        .sales-catalog__chip {
-          border: 1px solid var(--border);
-          background: var(--surface-1, transparent);
-          border-radius: 999px;
-          padding: 6px 12px;
-          font-size: 13px;
-          cursor: pointer;
-        }
-        .sales-catalog__chip.active { background: var(--primary); color: var(--primary-contrast, #fff); border-color: var(--primary); }
-        .sales-catalog__group { margin-bottom: 16px; }
-        .sales-catalog__group-title { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
-        .sales-catalog__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
-        .sales-catalog__card {
-          display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-          padding: 10px 12px; border-radius: 8px; border: 2px solid var(--border);
-          background: var(--card-bg, var(--surface-1));
-          text-align: left; width: 100%;
-        }
-        .sales-catalog__card-name { font-weight: 600; font-size: 14px; }
-        .sales-catalog__card-meta { display: flex; justify-content: space-between; width: 100%; font-size: 12px; gap: 8px; flex-wrap: wrap; }
-        .suggestions { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-        .suggestion { display: flex; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: center; }
-        .suggestion:hover { background: var(--bg-hover); }
-        .btn-ghost { background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--text); }
-      `}</style>
     </>
   );
 }
-
 

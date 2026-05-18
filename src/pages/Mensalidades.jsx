@@ -9,12 +9,14 @@ import MonthlyPaymentGrid from '../components/finance/MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from '../components/finance/PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ChevronDown } from 'lucide-react';
+import MensalidadesListTable from '../components/finance/MensalidadesListTable.jsx';
+import { analyzePaymentException } from '../lib/paymentExceptions.js';
+import { expectedAmountForStudent } from '../lib/paymentStatus.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { useTerms } from '../lib/terminology.js';
 import { isStudentRecord, isActiveStudent } from '../lib/studentStatus.js';
-import EmptyState from '../components/shared/EmptyState.jsx';
 import {
   parseOverdueLabel,
   resolveCollectionStage,
@@ -162,6 +164,7 @@ export default function Mensalidades() {
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [nlOpen, setNlOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list');
+  const [reguaFiltersOpen, setReguaFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!showModal || typeof document === 'undefined') return undefined;
@@ -409,10 +412,16 @@ export default function Mensalidades() {
           if (!overdueLabelId) return false;
           return (s.labelIds || []).includes(overdueLabelId);
         }
+        if (String(filter || '').startsWith('regua_')) {
+          const day = Number(String(filter).replace('regua_', ''));
+          const meta = studentOverdueMeta[s.id];
+          if (!meta || !Number.isFinite(day)) return false;
+          return Number(meta.stage?.day) === day;
+        }
         return filter === 'all' || getStatus(s) === filter;
       })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, search, getStatus, overdueLabelId]);
+  }, [students, filter, search, getStatus, overdueLabelId, studentOverdueMeta]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -451,6 +460,11 @@ export default function Mensalidades() {
     return { paid, pending, soon, totalReceived };
   }, [students, payments, getStatus]);
 
+  const progressPct = useMemo(() => {
+    if (!students.length) return 0;
+    return Math.min(100, Math.round((summary.paid / students.length) * 100));
+  }, [summary.paid, students.length]);
+
   const filterCounts = useMemo(() => {
     const c = {
       all: students.length,
@@ -467,6 +481,37 @@ export default function Mensalidades() {
     }
     return c;
   }, [students, getStatus]);
+
+  const reguaFilterChips = useMemo(() => {
+    const rules = (collectionRules || []).filter((r) => r.day >= 1 && r.day <= 30);
+    const pick = rules.length ? rules.slice(0, 3) : [{ day: 1 }, { day: 7 }, { day: 15 }];
+    return pick.map((rule) => {
+      const day = rule.day;
+      const count = students.filter((s) => {
+        const meta = studentOverdueMeta[s.id];
+        return meta && Number(meta.stage?.day) === day;
+      }).length;
+      return { id: `regua_${day}`, label: `Régua D+${day}`, count };
+    });
+  }, [collectionRules, students, studentOverdueMeta]);
+
+  const exceptionCount = useMemo(
+    () =>
+      students.filter((s) => {
+        const analysis = analyzePaymentException(s, paymentMap[s.id], currentMonth, financeConfig);
+        return analysis.isException;
+      }).length,
+    [students, paymentMap, currentMonth, financeConfig]
+  );
+
+  const expectedTotal = useMemo(() => {
+    let sum = 0;
+    for (const s of students) {
+      const amt = expectedAmountForStudent(s, financeConfig);
+      if (Number.isFinite(amt) && amt > 0) sum += amt;
+    }
+    return sum;
+  }, [students, financeConfig]);
 
   const openPaymentModal = (student) => {
     const day = studentDueDay(student);
@@ -771,99 +816,140 @@ export default function Mensalidades() {
         `}
       </style>
 
-      <header>
-        <h1 className="navi-page-title">Mensalidades</h1>
-        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-          Controle de pagamentos{academyName ? ` · ${academyName}` : ''}
-        </p>
-        <div className="page-header-card">
-          <div className="page-header-row">
-            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-            <div className="page-header-sep" />
-            <div className="page-header-search">
-              <input
-                type="search"
-                placeholder={`Buscar ${terms.student.toLowerCase()}...`}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+      <header className="mensal-header">
+        <div className="mensal-header__top">
+          <div>
+            <h1 className="navi-page-title">Mensalidades</h1>
+            <p className="navi-eyebrow mensal-header__eyebrow">
+              Controle de pagamentos{academyName ? ` · ${academyName}` : ''}
+            </p>
+          </div>
+          <div className="mensal-month-picker" aria-label="Selecionar mês">
+            <button type="button" className="mensal-month-picker__btn" onClick={prevMonth} aria-label="Mês anterior">
+              <ChevronLeft size={18} strokeWidth={2} />
+            </button>
+            <span className="mensal-month-picker__label">{formatMonthTitleCapitalized(currentMonth)}</span>
+            <button
+              type="button"
+              className="mensal-month-picker__btn"
+              onClick={nextMonth}
+              disabled={isCurrentMonth}
+              aria-label="Próximo mês"
+            >
+              <ChevronRight size={18} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+
+        {modules?.finance === true ? (
+          <div className="mensal-page-tabs" role="tablist" aria-label="Visualização">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'list'}
+              className={`mensal-page-tab${viewMode === 'list' ? ' mensal-page-tab--active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'grid'}
+              className={`mensal-page-tab${viewMode === 'grid' ? ' mensal-page-tab--active' : ''}`}
+              onClick={() => setViewMode('grid')}
+            >
+              Grade do mês
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'exceptions'}
+              className={`mensal-page-tab${viewMode === 'exceptions' ? ' mensal-page-tab--active' : ''}`}
+              onClick={() => setViewMode('exceptions')}
+            >
+              Exceções
+              {exceptionCount > 0 ? <span className="mensal-page-tab__badge">{exceptionCount}</span> : null}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mensal-toolbar">
+          <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+          <input
+            type="search"
+            className="form-input mensal-search"
+            placeholder="Buscar aluno..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {viewMode === 'list' ? (
+          <div className="mensal-filters">
+            <div className="mensal-filters__primary" role="tablist" aria-label="Status">
+              {[
+                { id: 'all', label: 'Todos', count: filterCounts.all },
+                { id: 'paid', label: 'Pagos', count: filterCounts.paid },
+                { id: 'awaiting', label: 'Aguardando', count: filterCounts.awaiting },
+                { id: 'partial', label: 'Parcial', count: filterCounts.partial },
+                { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
+                { id: 'soon', label: 'A vencer', count: filterCounts.soon },
+                { id: 'none', label: 'Sem registro', count: filterCounts.none },
+              ].map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`mensal-chip${filter === c.id ? ' mensal-chip--active' : ''}`}
+                  onClick={() => setFilter(c.id)}
+                >
+                  {c.label} <span className="mensal-chip__count">({c.count})</span>
+                </button>
+              ))}
             </div>
-            <div style={{ flex: 1 }} />
-            {modules?.finance === true ? (
-              <div className="flex gap-1" style={{ marginRight: 8 }}>
+            {reguaFilterChips.length > 0 || overdueLabelId ? (
+              <div className="mensal-filters__regua">
                 <button
                   type="button"
-                  className={viewMode === 'list' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
-                  onClick={() => setViewMode('list')}
+                  className="mensal-filters__regua-toggle"
+                  onClick={() => setReguaFiltersOpen((o) => !o)}
+                  aria-expanded={reguaFiltersOpen}
                 >
-                  Lista
+                  <ChevronDown size={14} className={reguaFiltersOpen ? 'mensal-filters__chev--open' : ''} />
+                  Régua de cobrança
                 </button>
-                <button
-                  type="button"
-                  className={viewMode === 'grid' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
-                  onClick={() => setViewMode('grid')}
-                >
-                  Grade do mês
-                </button>
-                <button
-                  type="button"
-                  className={viewMode === 'exceptions' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
-                  onClick={() => setViewMode('exceptions')}
-                >
-                  Exceções
-                </button>
+                {reguaFiltersOpen ? (
+                  <div className="mensal-filters__regua-chips">
+                    {reguaFilterChips.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`mensal-chip mensal-chip--regua${filter === c.id ? ' mensal-chip--active' : ''}`}
+                        onClick={() => setFilter(c.id)}
+                      >
+                        {c.label} <span className="mensal-chip__count">({c.count})</span>
+                      </button>
+                    ))}
+                    {overdueLabelId ? (
+                      <button
+                        type="button"
+                        className={`mensal-chip mensal-chip--regua${
+                          filter === 'overdue_label' ? ' mensal-chip--active' : ''
+                        }`}
+                        onClick={() => setFilter('overdue_label')}
+                      >
+                        {parseOverdueLabel(overdueLabelName)}{' '}
+                        <span className="mensal-chip__count">
+                          ({students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length})
+                        </span>
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                background: 'var(--surface-hover)',
-                borderRadius: 8,
-                padding: '4px 10px'
-              }}
-            >
-              <button type="button" className="btn-action-ghost" onClick={prevMonth} style={{ padding: '2px 6px' }} aria-label="Mês anterior">
-                <ChevronLeft size={16} strokeWidth={2} />
-              </button>
-              <span style={{ fontSize: 14, fontWeight: 500, minWidth: 130, textAlign: 'center' }}>
-                {formatMonthTitleCapitalized(currentMonth)}
-              </span>
-              <button type="button" className="btn-action-ghost" onClick={nextMonth} style={{ padding: '2px 6px' }} disabled={isCurrentMonth} aria-label="Próximo mês">
-                <ChevronRight size={16} strokeWidth={2} />
-              </button>
-            </div>
           </div>
-          {viewMode === 'list' ? (
-          <div className="page-header-row">
-            {[
-              { id: 'all', label: 'Todos', count: filterCounts.all },
-              { id: 'paid', label: 'Pagos', count: filterCounts.paid },
-              { id: 'awaiting', label: 'Aguardando', count: filterCounts.awaiting },
-              { id: 'partial', label: 'Parcial', count: filterCounts.partial },
-              { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
-              { id: 'soon', label: 'A vencer', count: filterCounts.soon },
-              { id: 'none', label: 'Sem registro', count: filterCounts.none },
-              {
-                id: 'overdue_label',
-                label: parseOverdueLabel(overdueLabelName),
-                count: overdueLabelId
-                  ? students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length
-                  : 0,
-              },
-            ].map((c) => (
-              <span
-                key={c.id}
-                className={`date-chip${filter === c.id ? ' active' : ''}`}
-                onClick={() => setFilter(c.id)}
-              >
-                {c.label} ({c.count})
-              </span>
-            ))}
-          </div>
-          ) : null}
-        </div>
+        ) : null}
       </header>
 
       {viewMode === 'list' && collectionDashboard.total > 0 ? (
@@ -950,289 +1036,70 @@ export default function Mensalidades() {
 
       {viewMode === 'list' ? (
       <>
-      <div
-        className="mensal-summary-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
-        <div
-          style={{
-            background: 'var(--surface, #fff)',
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            borderRadius: 10,
-            padding: '14px 16px',
-          }}
-        >
-          <div style={{ fontSize: 24, fontWeight: 600, color: '#3B6D11' }}>{summary.paid}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Pagos</div>
+      <section className="mensal-summary-block">
+        <div className="mensal-summary-grid">
+          <div className="mensal-summary-card mensal-summary-card--paid">
+            <div className="mensal-summary-card__value">{summary.paid}</div>
+            <div className="mensal-summary-card__label">Pagos</div>
+          </div>
+          <div className={`mensal-summary-card mensal-summary-card--pending${summary.pending === 0 ? ' mensal-summary-card--ok-zero' : ''}`}>
+            {summary.pending === 0 ? (
+              <span className="mensal-summary-card__zero-icon" aria-hidden>
+                <Check size={22} strokeWidth={2.5} />
+              </span>
+            ) : (
+              <div className="mensal-summary-card__value">{summary.pending}</div>
+            )}
+            <div className="mensal-summary-card__label">Inadimplentes</div>
+          </div>
+          <div className="mensal-summary-card mensal-summary-card--soon">
+            <div className="mensal-summary-card__value">{summary.soon}</div>
+            <div className="mensal-summary-card__label">A vencer</div>
+          </div>
+          <div className="mensal-summary-card mensal-summary-card--total">
+            <div className="mensal-summary-card__value mensal-summary-card__value--money">
+              {fmtMoney(summary.totalReceived)}
+            </div>
+            <div className="mensal-summary-card__label">Recebido</div>
+            {expectedTotal > 0 ? (
+              <div className="mensal-summary-card__sub">de {fmtMoney(expectedTotal)} esperados</div>
+            ) : null}
+          </div>
         </div>
-        <div
-          style={{
-            background: 'var(--surface, #fff)',
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            borderRadius: 10,
-            padding: '14px 16px',
-          }}
-        >
-          <div style={{ fontSize: 24, fontWeight: 600, color: '#A32D2D' }}>{summary.pending}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Inadimplentes</div>
+        <div className="mensal-progress" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}>
+          <div className="mensal-progress__bar" style={{ width: `${progressPct}%` }} />
         </div>
-        <div
-          style={{
-            background: 'var(--surface, #fff)',
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            borderRadius: 10,
-            padding: '14px 16px',
-          }}
-        >
-          <div style={{ fontSize: 24, fontWeight: 600, color: '#B45309' }}>{summary.soon}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>A vencer</div>
-        </div>
-        <div
-          style={{
-            background: 'var(--surface, #fff)',
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            borderRadius: 10,
-            padding: '14px 16px',
-          }}
-        >
-          <div style={{ fontSize: 24, fontWeight: 600, color: '#5B3FBF' }}>{fmtMoney(summary.totalReceived)}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Recebido</div>
-        </div>
-      </div>
+        <p className="mensal-progress__label">
+          {summary.paid}/{students.length} pagos · {progressPct}%
+        </p>
+      </section>
 
       {loadingError ? (
-        <div
-          style={{
-            background: '#FCEBEB',
-            border: '0.5px solid #F7C1C1',
-            borderRadius: 8,
-            padding: '10px 14px',
-            marginBottom: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: 13,
-            color: '#A32D2D',
-            flexWrap: 'wrap',
-            gap: 8,
-          }}
-        >
+        <div className="mensal-error-banner">
           <span>Erro ao carregar pagamentos do mês.</span>
-          <button
-            type="button"
-            onClick={() => void recarregarMes()}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#A32D2D',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              fontSize: 13,
-            }}
-          >
+          <button type="button" onClick={() => void recarregarMes()}>
             Tentar novamente
           </button>
         </div>
       ) : null}
 
-      <div className="mensal-table-wrap">
-        <table className="mensal-table">
-          <thead>
-            <tr>
-              <th>{terms.student}</th>
-              <th>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDueSortOrder((prev) => (prev === null ? 'asc' : prev === 'asc' ? 'desc' : null))
-                  }
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    border: 'none',
-                    background:
-                      dueSortOrder == null
-                        ? 'transparent'
-                        : 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
-                    color:
-                      dueSortOrder == null
-                        ? 'var(--color-text-secondary, var(--text-secondary))'
-                        : '#5B3FBF',
-                    cursor: 'pointer',
-                    padding: '4px 6px',
-                    marginLeft: -6,
-                    borderRadius: 6,
-                    font: 'inherit',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  <span>Vencimento</span>
-                  <span
-                    className={`ti ${
-                      dueSortOrder === 'asc'
-                        ? 'ti-chevron-up'
-                        : dueSortOrder === 'desc'
-                          ? 'ti-chevron-down'
-                          : 'ti-selector'
-                    }`}
-                    style={{ fontSize: 14, lineHeight: 1 }}
-                    aria-hidden
-                  />
-                </button>
-              </th>
-              <th>Valor</th>
-              <th>Pagamento habitual</th>
-              <th>Status</th>
-              <th style={{ minWidth: 140 }}>Ação</th>
-            </tr>
-          </thead>
-          <tbody className="mensal-tbody">
-            {loading ? (
-              <tr>
-                <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-                  Carregando…
-                </td>
-              </tr>
-            ) : displayedStudents.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: 24, textAlign: 'center', verticalAlign: 'middle' }}>
-                  <EmptyState
-                    variant="table-cell"
-                    tone="solid"
-                    icon={Users}
-                    title={`Nenhum ${terms.student.toLowerCase()} encontrado`}
-                    description="Tente ajustar os filtros ou a busca"
-                    role="status"
-                  />
-                </td>
-              </tr>
-            ) : (
-              displayedStudents.map((student) => {
-                const payment = paymentMap[student.id];
-                const row = getRowStatus(student, payment, currentMonth);
-                const today0 = startOfLocalDay(new Date());
-                const venc = row.dueDate;
-                let vencCell = '—';
-                let vencStyle = { color: 'var(--text-secondary)', fontWeight: 400 };
-                if (row.status === 'paid' && row.paidAt) {
-                  vencCell = `Pago em ${formatDdMm(row.paidAt)}`;
-                  vencStyle = { color: 'var(--text-secondary)', fontWeight: 500 };
-                } else if (venc && !Number.isNaN(venc.getTime())) {
-                  const diff = Math.ceil((today0 - startOfLocalDay(venc)) / 86400000);
-                  if (diff > 0) {
-                    vencCell = `${formatDdMm(venc)} · ${diff} dias em atraso`;
-                    vencStyle = { color: '#A32D2D', fontWeight: 500 };
-                  } else if (diff <= 0 && diff >= -7) {
-                    const until = Math.abs(diff);
-                    vencCell = `${formatDdMm(venc)} · vence em ${until} dias`;
-                    vencStyle = { color: '#B45309', fontWeight: 500 };
-                  } else {
-                    vencCell = formatDdMm(venc);
-                    vencStyle = { color: 'var(--text-secondary)', fontWeight: 400 };
-                  }
-                }
-
-                const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
-                const valorCell =
-                  amountNum != null && Number.isFinite(amountNum) && amountNum > 0 ? fmtMoney(amountNum) : '—';
-
-                const prefM = student.preferredPaymentMethod;
-                const prefA = student.preferredPaymentAccount;
-
-                const badgeBase = {
-                  fontSize: 10,
-                  padding: '3px 9px',
-                  borderRadius: 20,
-                  whiteSpace: 'nowrap',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                };
-
-                let badge = null;
-                if (payment?.status === 'awaiting') {
-                  badge = (
-                    <span style={{ ...badgeBase, background: '#FEF3C7', color: '#B45309' }}>
-                      ◷ Aguardando
-                    </span>
-                  );
-                } else if (payment?.status === 'partial') {
-                  badge = (
-                    <span style={{ ...badgeBase, background: '#FFEDD5', color: '#C2410C' }}>
-                      ◑ Parcial
-                    </span>
-                  );
-                } else if (row.status === 'paid' && payment) {
-                  const m = METHOD_LABELS[payment.method] || payment.method;
-                  const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
-                  badge = (
-                    <span style={{ ...badgeBase, background: '#EAF3DE', color: '#3B6D11' }}>
-                      ✓ Pago · {m}
-                      {pd ? ` · ${pd}` : ''}
-                    </span>
-                  );
-                } else if (row.status === 'pending') {
-                  badge = (
-                    <span style={{ ...badgeBase, background: '#FCEBEB', color: '#A32D2D' }}>
-                      ● Inadimplente
-                    </span>
-                  );
-                } else if (row.status === 'soon') {
-                  badge = (
-                    <span style={{ ...badgeBase, background: '#FEF3C7', color: '#B45309' }}>
-                      ⚠ A vencer
-                    </span>
-                  );
-                } else {
-                  badge = (
-                    <span style={{ ...badgeBase, background: '#f0f0f8', color: 'var(--text-secondary)' }}>Sem registro</span>
-                  );
-                }
-
-                return (
-                  <tr key={student.id}>
-                    <td>
-                      <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-primary, var(--text))' }}>{student.name || '—'}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{student.plan || '—'}</div>
-                    </td>
-                    <td style={vencStyle}>{vencCell}</td>
-                    <td style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary, var(--text))' }}>{valorCell}</td>
-                    <td>
-                      {prefM ? (
-                        <>
-                          <div style={{ fontWeight: 500, fontSize: 12 }}>{METHOD_LABELS[prefM] || prefM}</div>
-                          {prefA ? <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{prefA}</div> : null}
-                        </>
-                      ) : (
-                        <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: 11 }}>Não definido</span>
-                      )}
-                    </td>
-                    <td>{badge}</td>
-                    <td>
-                      {row.status === 'paid' && payment?.status === 'paid' ? (
-                        <button type="button" className="mensal-btn-estornar" onClick={() => handleEstornar(payment)}>
-                          Estornar
-                        </button>
-                      ) : (
-                        <button type="button" className="mensal-btn-pay" onClick={() => openPaymentModal(student, payment)}>
-                          Registrar pagamento
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-      </>
+      <MensalidadesListTable
+        loading={loading}
+        displayedStudents={displayedStudents}
+        terms={terms}
+        paymentMap={paymentMap}
+        currentMonth={currentMonth}
+        getRowStatus={getRowStatus}
+        startOfLocalDay={startOfLocalDay}
+        formatDdMm={formatDdMm}
+        parseYmdLocal={parseYmdLocal}
+        fmtMoney={fmtMoney}
+        METHOD_LABELS={METHOD_LABELS}
+        dueSortOrder={dueSortOrder}
+        setDueSortOrder={setDueSortOrder}
+        openPaymentModal={openPaymentModal}
+        handleEstornar={handleEstornar}
+      />      </>
       ) : null}
 
       {showModal && selectedStudent && typeof document !== 'undefined'

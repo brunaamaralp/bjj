@@ -1,6 +1,23 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Calendar } from 'lucide-react';
+import { LEAD_STATUS } from '../store/useLeadStore';
 import EmptyState from './shared/EmptyState.jsx';
+
+function getSlotStatusKey(lead) {
+    const status = String(lead?.status || '').trim();
+    if (status === LEAD_STATUS.COMPLETED) return 'attended';
+    if (status === LEAD_STATUS.MISSED) return 'missed';
+    if (status === LEAD_STATUS.SCHEDULED && lead?.scheduledDate) return 'confirmed';
+    return 'pending';
+}
+
+function buildSlotTooltip(lead, modalityLabel) {
+    const name = String(lead?.name || 'Lead').trim();
+    const type = modalityLabel || 'Aula experimental';
+    const time =
+        lead?.scheduledTime && String(lead.scheduledTime).trim() ? lead.scheduledTime : 'Horário não definido';
+    return `${name} · ${type} · ${time}`;
+}
 
 const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
@@ -168,6 +185,7 @@ export default function AgendaCalendarWeek({
                             const colLeads = weekLeadsByYmd[key] || [];
                             const isToday = key === todayYmd;
                             const isDenseColumn = colLeads.length >= 6;
+                            const isEmptyColumn = colLeads.length === 0;
                             const dow = WEEKDAY_SHORT[(dayDate.getDay() + 6) % 7];
                             const dayNum = dayDate.getDate();
 
@@ -175,7 +193,9 @@ export default function AgendaCalendarWeek({
                                 <div
                                     key={key}
                                     ref={isToday ? todayColRef : null}
-                                    className={`agenda-week-col${isToday ? ' agenda-week-col--today' : ''}${isDenseColumn ? ' agenda-week-col--dense' : ''}`}
+                                    className={`agenda-week-col${isToday ? ' agenda-week-col--today' : ''}${
+                                        isDenseColumn ? ' agenda-week-col--dense' : ''
+                                    }${isEmptyColumn ? ' agenda-week-col--empty' : ''}`}
                                 >
                                     <div className="agenda-week-col-head">
                                         <span className="agenda-week-dow">{dow}</span>
@@ -193,20 +213,28 @@ export default function AgendaCalendarWeek({
                                         ) : null}
                                         {colLeads.map((lead) => {
                                             const modality = String(lead?.type || '').trim();
-                                            const attendedSelected = lead?.status === 'Compareceu';
-                                            const missedSelected = lead?.status === 'Não Compareceu';
+                                            const attendedSelected = lead?.status === LEAD_STATUS.COMPLETED;
+                                            const missedSelected = lead?.status === LEAD_STATUS.MISSED;
+                                            const slotStatus = getSlotStatusKey(lead);
+                                            const tooltip = buildSlotTooltip(lead, modality);
                                             return (
                                                 <div
                                                     key={lead.id}
                                                     className={`agenda-week-card agenda-week-card--lead card${
                                                         attendedSelected ? ' agenda-week-card--attended' : ''
                                                     }${missedSelected ? ' agenda-week-card--missed' : ''}`}
+                                                    title={tooltip}
                                                 >
                                                     <button
                                                         type="button"
                                                         className="agenda-week-card-head"
                                                         onClick={() => onOpenLead?.(lead)}
+                                                        title={tooltip}
                                                     >
+                                                        <span
+                                                            className={`agenda-week-status-dot agenda-week-status-dot--${slotStatus}`}
+                                                            aria-hidden
+                                                        />
                                                         <span className="agenda-week-time">
                                                             {lead.scheduledTime && String(lead.scheduledTime).trim()
                                                                 ? lead.scheduledTime
@@ -291,15 +319,29 @@ export default function AgendaCalendarWeek({
           border-radius: var(--radius-sm);
           border: 1px solid var(--border-mid);
           background: var(--surface);
-          min-height: 0;
+          min-height: 140px;
           overflow: hidden;
           box-shadow: var(--shadow-sm);
           display: flex;
           flex-direction: column;
+          transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        .agenda-week-col:hover {
+          border-color: rgba(91, 63, 191, 0.28);
+          box-shadow: 0 2px 8px rgba(91, 63, 191, 0.08);
         }
         .agenda-week-col--today {
-          background: rgba(91, 63, 191, 0.04);
-          border-color: rgba(91, 63, 191, 0.25);
+          background: rgba(91, 63, 191, 0.1);
+          border-color: rgba(91, 63, 191, 0.35);
+          box-shadow: inset 0 0 0 1px rgba(91, 63, 191, 0.08);
+        }
+        .agenda-week-col--empty {
+          opacity: 0.78;
+        }
+        .agenda-week-col--empty .agenda-week-col-empty {
+          font-size: 11px;
+          opacity: 0.45;
+          font-weight: 500;
         }
         .agenda-week-col-head {
           padding: 12px 8px 10px;
@@ -348,7 +390,7 @@ export default function AgendaCalendarWeek({
           flex-direction: column;
           gap: 8px;
           flex: 1 1 auto;
-          min-height: 56px;
+          min-height: 88px;
         }
         .agenda-week-col-empty {
           margin: auto 0;
@@ -411,6 +453,17 @@ export default function AgendaCalendarWeek({
         .agenda-week-col--dense .agenda-week-mod {
           font-size: 0.7rem;
         }
+        .agenda-week-status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+          margin-bottom: 2px;
+        }
+        .agenda-week-status-dot--confirmed { background: var(--v500); }
+        .agenda-week-status-dot--pending { background: #d97706; }
+        .agenda-week-status-dot--attended { background: #16a34a; }
+        .agenda-week-status-dot--missed { background: #e24b4a; }
         .agenda-week-card-head {
           display: flex;
           flex-direction: column;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap } from 'lucide-react';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
@@ -691,6 +691,8 @@ const Pipeline = () => {
         buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
     );
     const [originFilter, setOriginFilter] = useState('all'); // all | origin
+    const [searchParams] = useSearchParams();
+    const followupKanbanFilter = searchParams.get('followup') === 'kanban';
     const [kanbanSearch, setKanbanSearch] = useState('');
     const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
     const [searchStageScope, setSearchStageScope] = useState('all');
@@ -1344,8 +1346,14 @@ const Pipeline = () => {
             list = list.filter((l) => mapLeadToStageId(l) === searchStageScope);
         }
 
+        if (followupKanbanFilter) {
+            list = list.filter(
+                (l) => l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED
+            );
+        }
+
         return list;
-    }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate]);
+    }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
     const handleDragStart = (event) => {
