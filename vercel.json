@@ -30,6 +30,7 @@
     { "source": "/api/cron/tasks-due", "destination": "/api/cron/reset-usage.js?action=tasks-due" },
     { "source": "/api/cron/collection-overdue", "destination": "/api/cron/reset-usage.js?action=collection-overdue" },
     { "source": "/api/inventory", "destination": "/api/leads.js?route=inventory" },
+    { "source": "/api/products", "destination": "/api/leads.js?route=products" },
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }

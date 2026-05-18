@@ -9,6 +9,7 @@ import { assertBillingActive, sendBillingGateError } from '../lib/server/billing
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import labelsHandler from '../lib/server/labelsHandler.js';
 import inventoryHandler from '../lib/server/inventoryHandler.js';
+import productsHandler from '../lib/server/productsHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -202,6 +203,7 @@ async function runBirthdayCron() {
 export default async function handler(req, res) {
   if (req.query.route === 'labels') return labelsHandler(req, res);
   if (req.query.route === 'inventory') return inventoryHandler(req, res);
+  if (req.query.route === 'products') return productsHandler(req, res);
 
   // Rota de presença Control iD (rewrite de /api/control-id/attendance)
   if (req.query.route === 'control-id-attendance') {

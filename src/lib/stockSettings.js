@@ -54,6 +54,20 @@ export function academyHasInventoryModule(academyDoc) {
   }
 }
 
+export function academyHasSalesModule(academyDoc) {
+  try {
+    const mods = typeof academyDoc?.modules === 'string' ? JSON.parse(academyDoc.modules) : academyDoc?.modules;
+    return mods?.sales === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Catálogo de produtos: estoque e/ou vendas. */
+export function academyHasProductsAccess(academyDoc) {
+  return academyHasInventoryModule(academyDoc) || academyHasSalesModule(academyDoc);
+}
+
 export function academyHasFinanceModule(academyDoc) {
   try {
     const mods = typeof academyDoc?.modules === 'string' ? JSON.parse(academyDoc.modules) : academyDoc?.modules;

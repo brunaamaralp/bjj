@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Pencil } from 'lucide-react';
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
+import { formatBRL } from '../../lib/moneyBr';
 import EmptyState from '../shared/EmptyState.jsx';
 
 const STATUS_STYLES = {
@@ -19,6 +21,8 @@ export default function InventoryBalanceView({
 }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [forSaleOnly, setForSaleOnly] = useState(false);
+  const [showPrices, setShowPrices] = useState(false);
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -33,17 +37,24 @@ export default function InventoryBalanceView({
     return items.filter((it) => {
       if (statusFilter !== 'all' && it.status !== statusFilter) return false;
       if (categoryFilter !== 'all' && String(it.categoria || '') !== categoryFilter) return false;
+      if (forSaleOnly && it.is_for_sale === false) return false;
       return true;
     });
-  }, [items, statusFilter, categoryFilter]);
+  }, [items, statusFilter, categoryFilter, forSaleOnly]);
 
   return (
     <section className="mt-4 animate-in">
       <div className="flex justify-between items-center gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
         <h2 className="navi-section-heading" style={{ margin: 0 }}>Saldo atual</h2>
-        <button type="button" className="btn-outline btn-sm" onClick={() => void onRefresh()} disabled={loading}>
-          {loading ? 'Atualizando…' : 'Atualizar'}
-        </button>
+        <div className="flex gap-2 items-center" style={{ flexWrap: 'wrap' }}>
+          <label className="text-small flex items-center gap-1" style={{ cursor: 'pointer' }}>
+            <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} />
+            Mostrar preços
+          </label>
+          <button type="button" className="btn-outline btn-sm" onClick={() => void onRefresh()} disabled={loading}>
+            {loading ? 'Atualizando…' : 'Atualizar'}
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 12 }}>
@@ -66,6 +77,13 @@ export default function InventoryBalanceView({
               ))}
             </select>
           </div>
+          <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
+            <label className="text-xs">&nbsp;</label>
+            <label className="form-input flex items-center gap-2" style={{ cursor: 'pointer', minHeight: 38 }}>
+              <input type="checkbox" checked={forSaleOnly} onChange={(e) => setForSaleOnly(e.target.checked)} />
+              Somente produtos para venda
+            </label>
+          </div>
         </div>
 
         {filtered.length === 0 ? (
@@ -73,17 +91,23 @@ export default function InventoryBalanceView({
             variant="compact"
             tone="dashed"
             title={items.length === 0 ? 'Nenhum item cadastrado' : 'Nenhum item neste filtro'}
-            description="Cadastre itens no estoque ou ajuste os filtros."
+            description={
+              items.length === 0
+                ? 'Cadastre produtos em Produtos ou ajuste os filtros.'
+                : 'Ajuste os filtros.'
+            }
             role="status"
           />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="navi-table" style={{ width: '100%', minWidth: 640 }}>
+            <table className="navi-table" style={{ width: '100%', minWidth: showPrices ? 800 : 640 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Item</th>
                   <th>Categoria</th>
                   <th>Unidade</th>
+                  {showPrices ? <th>Preço venda</th> : null}
+                  {showPrices ? <th>Preço custo</th> : null}
                   <th>Saldo</th>
                   <th>Mín.</th>
                   <th>Status</th>
@@ -94,11 +118,18 @@ export default function InventoryBalanceView({
                 {filtered.map((it) => {
                   const st = STATUS_STYLES[it.status] || STATUS_STYLES.ok;
                   const StIcon = st.Icon;
+                  const label = it.Tamanho ? `${it.nome} · ${it.Tamanho}` : it.nome;
                   return (
                     <tr key={it.id}>
-                      <td style={{ fontWeight: 600 }}>{it.nome}</td>
+                      <td style={{ fontWeight: 600 }}>{label}</td>
                       <td className="text-small text-muted">{it.categoria || '—'}</td>
                       <td className="text-small">{it.unit}</td>
+                      {showPrices ? (
+                        <td className="text-small">{it.sale_price != null ? formatBRL(it.sale_price) : '—'}</td>
+                      ) : null}
+                      {showPrices ? (
+                        <td className="text-small">{it.cost_price != null ? formatBRL(it.cost_price) : '—'}</td>
+                      ) : null}
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>{it.current_quantity}</td>
                       <td className="text-small text-muted">{it.minimum_level > 0 ? it.minimum_level : '—'}</td>
                       <td>
@@ -109,6 +140,9 @@ export default function InventoryBalanceView({
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="flex gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <Link to={`/produtos?edit=${it.id}`} className="btn-outline btn-sm" title="Editar produto">
+                            <Pencil size={14} aria-hidden />
+                          </Link>
                           <button type="button" className="btn-outline btn-sm" onClick={() => onRegisterEntry(it)} title="Registrar entrada">
                             <PackagePlus size={14} aria-hidden />
                           </button>

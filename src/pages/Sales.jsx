@@ -5,6 +5,7 @@ import { databases, DB_ID, STOCK_ITEMS_COL, LEADS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
+import { resolveCurrentQuantity } from '../lib/stockInventory';
 
 const Sales = () => {
   const { createSale, cancelSale, creating, cancelling, lastSale, error } = useSalesStore();
@@ -167,10 +168,11 @@ const Sales = () => {
     setLookupLoading(true);
     try {
       const doc = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, itemId);
-      const total = Number(doc.quantidade_total || 0);
-      const vendida = Number(doc.quantidade_vendida || 0);
-      const alugada = Number(doc.quantidade_alugada || 0);
-      const disponivel = total - vendida - alugada;
+      if (doc.is_active === false || doc.is_for_sale === false) {
+        setLocalError('Produto indisponível para venda');
+        return;
+      }
+      const disponivel = resolveCurrentQuantity(doc);
       setLookup({
         id: doc.$id,
         nome: doc.nome || doc.descricao || '',
@@ -212,11 +214,9 @@ const Sales = () => {
           }
         }
         if (!active) return;
-        const mapped = docs.map((d) => {
-          const total = Number(d.quantidade_total || 0);
-          const vendida = Number(d.quantidade_vendida || 0);
-          const alugada = Number(d.quantidade_alugada || 0);
-          const disponivel = total - vendida - alugada;
+        const sellable = docs.filter((d) => d.is_active !== false && d.is_for_sale !== false);
+        const mapped = sellable.map((d) => {
+          const disponivel = resolveCurrentQuantity(d);
           return {
             id: d.$id,
             nome: d.nome || d.descricao || d.$id,

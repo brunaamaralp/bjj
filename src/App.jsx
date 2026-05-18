@@ -6,6 +6,7 @@ import {
   User,
   ShoppingBag,
   Boxes,
+  Package,
   BarChart3,
   MessageCircle,
   LogOut,
@@ -43,6 +44,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import Inventory from './pages/Inventory';
+import Products from './pages/Products';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Caixa from './pages/Caixa';
@@ -203,6 +205,9 @@ const App = () => {
     const opsItems = [];
     if (modules.inventory === true) {
       opsItems.push({ to: '/estoque', label: 'Estoque', Icon: Boxes });
+    }
+    if (modules.inventory === true || modules.sales === true) {
+      opsItems.push({ to: '/produtos', label: 'Produtos', Icon: Package });
     }
     if (modules.sales === true) {
       opsItems.push({ to: '/vendas', label: 'Vendas', Icon: ShoppingBag });
@@ -940,6 +945,16 @@ const App = () => {
                     <span className="navi-side-link-label">Estoque</span>
                   </NavLink>
                 )}
+                {(modules.inventory === true || modules.sales === true) && (
+                  <NavLink
+                    to="/produtos"
+                    className={sideLinkClass}
+                    title={sidebarCollapsed ? 'Produtos' : undefined}
+                  >
+                    <Package size={18} strokeWidth={1.75} />
+                    <span className="navi-side-link-label">Produtos</span>
+                  </NavLink>
+                )}
                 {modules.sales === true && (
                   <NavLink
                     to="/vendas"
@@ -1046,6 +1061,9 @@ const App = () => {
               {modules.finance === true && <Route path="/finance" element={<RequireFinanceOwner />} />}
               {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
               {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
+              {(modules.inventory === true || modules.sales === true) && (
+                <Route path="/produtos" element={<Products />} />
+              )}
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
               <Route path="/tarefas" element={<Tasks />} />
