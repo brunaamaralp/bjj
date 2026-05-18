@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
@@ -8,12 +9,6 @@ import {
   parseStudentExitReasons,
   serializeStudentExitReasons,
 } from '../../lib/studentExitConfig.js';
-import {
-  DEFAULT_OFFBOARDING_CHECKLIST,
-  parseOffboardingChecklist,
-  serializeOffboardingChecklist,
-} from '../../lib/studentOffboarding.js';
-
 function EditableStringList({
   title,
   hint,
@@ -125,36 +120,22 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
   const canEdit = role === 'owner' || role === 'admin';
 
   const [newReason, setNewReason] = useState('');
-  const [newChecklistItem, setNewChecklistItem] = useState('');
   const [savingReasons, setSavingReasons] = useState(false);
-  const [savingChecklist, setSavingChecklist] = useState(false);
   const [savedReasonsDigest, setSavedReasonsDigest] = useState('');
-  const [savedChecklistDigest, setSavedChecklistDigest] = useState('');
 
   const reasons = useMemo(
     () => parseStudentExitReasons(academy.studentExitReasons),
     [academy.studentExitReasons]
   );
 
-  const checklist = useMemo(
-    () => parseOffboardingChecklist(academy.studentOffboardingChecklist),
-    [academy.studentOffboardingChecklist]
-  );
-
   useEffect(() => {
     if (!academyId) return;
     setSavedReasonsDigest(serializeStudentExitReasons(academy.studentExitReasons));
-    setSavedChecklistDigest(serializeOffboardingChecklist(academy.studentOffboardingChecklist));
   }, [academyId, academyDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasUnsavedReasons = useMemo(
     () => serializeStudentExitReasons(academy.studentExitReasons) !== savedReasonsDigest,
     [academy.studentExitReasons, savedReasonsDigest]
-  );
-
-  const hasUnsavedChecklist = useMemo(
-    () => serializeOffboardingChecklist(academy.studentOffboardingChecklist) !== savedChecklistDigest,
-    [academy.studentOffboardingChecklist, savedChecklistDigest]
   );
 
   const saveReasons = async (list) => {
@@ -172,24 +153,6 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
       addToast({ type: 'error', message: 'Não foi possível salvar os motivos de saída.' });
     } finally {
       setSavingReasons(false);
-    }
-  };
-
-  const saveChecklist = async (list) => {
-    if (!academyId || !canEdit) return;
-    setSavingChecklist(true);
-    try {
-      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        student_offboarding_checklist: serializeOffboardingChecklist(list),
-      });
-      setAcademy((a) => ({ ...a, studentOffboardingChecklist: list }));
-      setSavedChecklistDigest(serializeOffboardingChecklist(list));
-      addToast({ type: 'success', message: 'Checklist de desligamento salvo.' });
-    } catch (e) {
-      console.error('save offboarding checklist:', e);
-      addToast({ type: 'error', message: 'Não foi possível salvar o checklist.' });
-    } finally {
-      setSavingChecklist(false);
     }
   };
 
@@ -217,38 +180,14 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     setAcademy((a) => ({ ...a, studentExitReasons: next }));
   };
 
-  const handleAddChecklistItem = () => {
-    const label = String(newChecklistItem || '').trim();
-    if (!label) return;
-    const lower = label.toLowerCase();
-    if (checklist.some((r) => r.toLowerCase() === lower)) {
-      addToast({ type: 'warning', message: 'Esta tarefa já existe no checklist.' });
-      return;
-    }
-    setAcademy((a) => ({
-      ...a,
-      studentOffboardingChecklist: [...parseOffboardingChecklist(a.studentOffboardingChecklist), label],
-    }));
-    setNewChecklistItem('');
-  };
-
-  const removeChecklistItem = (idx) => {
-    const next = checklist.filter((_, i) => i !== idx);
-    if (next.length === 0) {
-      addToast({ type: 'warning', message: 'Mantenha pelo menos uma tarefa no checklist.' });
-      return;
-    }
-    setAcademy((a) => ({ ...a, studentOffboardingChecklist: next }));
-  };
-
   return (
     <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
       <div className="card">
         <div className="mb-3">
           <h3 className="navi-section-heading">Alunos</h3>
           <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
-            Configure o que aparece ao desligar um aluno e quais tarefas são criadas automaticamente no módulo
-            Tarefas.
+            Motivos de saída no desligamento. As tarefas automáticas ao desligar ou matricular são configuradas em{' '}
+            <strong>Configurações → Tarefas → Templates</strong>.
           </p>
         </div>
 
@@ -272,25 +211,13 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           resetLabel="Restaurar motivos padrão"
         />
 
-        <EditableStringList
-          title="Checklist de desligamento"
-          hint="Cada item vira uma tarefa vinculada ao aluno, com prazo na data de saída, ao confirmar o desligamento."
-          items={checklist}
-          canEdit={canEdit}
-          saving={savingChecklist}
-          hasUnsaved={hasUnsavedChecklist}
-          newValue={newChecklistItem}
-          onNewValueChange={setNewChecklistItem}
-          onAdd={handleAddChecklistItem}
-          onRemove={removeChecklistItem}
-          onSave={() => void saveChecklist(checklist)}
-          onResetDefaults={() =>
-            setAcademy((a) => ({ ...a, studentOffboardingChecklist: [...DEFAULT_OFFBOARDING_CHECKLIST] }))
-          }
-          placeholder="Nova tarefa do checklist"
-          saveLabel="Salvar checklist"
-          resetLabel="Restaurar checklist padrão"
-        />
+        <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 16, lineHeight: 1.45 }}>
+          Template <strong>Desligamento de aluno</strong> (gatilho automático ao desligar): edite em{' '}
+          <Link to="/empresa?tab=tarefas" className="edit-link">
+            Configurações → Tarefas
+          </Link>
+          .
+        </p>
       </div>
     </section>
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { account, databases, DB_ID, FINANCIAL_TX_COL } from '../lib/appwrite';
+import { account, databases, DB_ID, FINANCIAL_TX_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { getMonthlyPayments, createPayment, updatePayment } from '../lib/studentPayments';
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
@@ -12,6 +12,15 @@ import { DateInput } from '../components/DateInput';
 import { useTerms } from '../lib/terminology.js';
 import { isStudentRecord, isActiveStudent } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import {
+  parseOverdueLabel,
+  resolveCollectionStage,
+  readCollectionSettingsFromFinanceConfig,
+  readCollectionSettingsFromAcademy,
+  mergeCollectionIntoFinanceConfig,
+} from '../lib/collectionRules.js';
+import { getPaymentRowStatus, openAmountForStudent } from '../lib/collectionOverdue.js';
+import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -129,8 +138,11 @@ export default function Mensalidades() {
   const storeTeamId = useLeadStore((s) => s.teamId);
   const userId = useLeadStore((s) => s.userId);
   const updateLead = useLeadStore((s) => s.updateLead);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
+  const financeConfigAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
   const addToast = useUiStore((s) => s.addToast);
   const terms = useTerms();
+  const { allLabels: academyLabels } = useAcademyLabels(academyId);
 
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [payments, setPayments] = useState([]);
@@ -187,6 +199,38 @@ export default function Mensalidades() {
       setLoading(false);
     }
   }, [academyId, currentMonth]);
+
+  const { collectionRules, overdueLabel: overdueLabelName } = useMemo(
+    () => readCollectionSettingsFromFinanceConfig(financeConfig),
+    [financeConfig]
+  );
+
+  useEffect(() => {
+    if (!academyId || financeConfigAcademyId === academyId) return;
+    let active = true;
+    databases
+      .getDocument(DB_ID, ACADEMIES_COL, academyId)
+      .then((doc) => {
+        if (!active || academyId !== useLeadStore.getState().academyId) return;
+        let cfg = null;
+        try {
+          cfg = doc.financeConfig
+            ? typeof doc.financeConfig === 'string'
+              ? JSON.parse(doc.financeConfig)
+              : doc.financeConfig
+            : null;
+        } catch {
+          cfg = null;
+        }
+        const coll = readCollectionSettingsFromAcademy(doc);
+        const merged = mergeCollectionIntoFinanceConfig(cfg || {}, coll);
+        useLeadStore.getState().setFinanceConfig(merged);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [academyId, financeConfigAcademyId]);
 
   useEffect(() => {
     let c = false;
@@ -308,12 +352,55 @@ export default function Mensalidades() {
     [paymentMap, currentMonth]
   );
 
+  const overdueLabelId = useMemo(() => {
+    const name = parseOverdueLabel(overdueLabelName).toLowerCase();
+    const found = (academyLabels || []).find((l) => String(l.name || '').trim().toLowerCase() === name);
+    return found?.$id || found?.id || null;
+  }, [academyLabels, overdueLabelName]);
+
+  const studentOverdueMeta = useMemo(() => {
+    const map = {};
+    for (const s of students) {
+      const p = paymentMap[s.id];
+      const row = getPaymentRowStatus(s, p, currentMonth);
+      if (row.status !== 'pending' || row.daysOverdue < 1) continue;
+      const stage = resolveCollectionStage(row.daysOverdue, collectionRules);
+      map[s.id] = {
+        daysOverdue: row.daysOverdue,
+        stage,
+        amount: openAmountForStudent(s, p, financeConfig),
+      };
+    }
+    return map;
+  }, [students, paymentMap, currentMonth, collectionRules, financeConfig]);
+
+  const collectionDashboard = useMemo(() => {
+    const byStage = {};
+    let total = 0;
+    let totalOpen = 0;
+    for (const s of students) {
+      const meta = studentOverdueMeta[s.id];
+      if (!meta) continue;
+      total += 1;
+      totalOpen += meta.amount || 0;
+      const key = String(meta.stage?.day ?? 'outros');
+      byStage[key] = (byStage[key] || 0) + 1;
+    }
+    return { total, totalOpen, byStage };
+  }, [students, studentOverdueMeta]);
+
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
     return students
-      .filter((s) => filter === 'all' || getStatus(s) === filter)
+      .filter((s) => {
+        if (filter === 'overdue_label') {
+          if (!overdueLabelId) return false;
+          return (s.labelIds || []).includes(overdueLabelId);
+        }
+        return filter === 'all' || getStatus(s) === filter;
+      })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, search, getStatus]);
+  }, [students, filter, search, getStatus, overdueLabelId]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -711,6 +798,13 @@ export default function Mensalidades() {
               { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
               { id: 'soon', label: 'A vencer', count: filterCounts.soon },
               { id: 'none', label: 'Sem registro', count: filterCounts.none },
+              {
+                id: 'overdue_label',
+                label: parseOverdueLabel(overdueLabelName),
+                count: overdueLabelId
+                  ? students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length
+                  : 0,
+              },
             ].map((c) => (
               <span
                 key={c.id}
@@ -723,6 +817,48 @@ export default function Mensalidades() {
           </div>
         </div>
       </header>
+
+      {collectionDashboard.total > 0 ? (
+        <section
+          style={{
+            marginBottom: 20,
+            padding: '14px 16px',
+            borderRadius: 10,
+            border: '0.5px solid var(--border-light, #e8e8ef)',
+            background: 'var(--surface, #fff)',
+          }}
+        >
+          <h2 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+            Régua de cobrança · {formatMonthTitleCapitalized(currentMonth)}
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: 10,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: '#A32D2D' }}>{collectionDashboard.total}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Inadimplentes (D+1+)</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 600 }}>{fmtMoney(collectionDashboard.totalOpen)}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Valor em aberto</div>
+            </div>
+            {collectionRules.map((rule) => (
+              <div key={rule.day}>
+                <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>
+                  {collectionDashboard.byStage[String(rule.day)] || 0}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  D+{rule.day} · {rule.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div
         className="mensal-summary-grid"

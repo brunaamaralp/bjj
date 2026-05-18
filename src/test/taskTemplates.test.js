@@ -1,0 +1,49 @@
+import { describe, it, expect } from 'vitest';
+import {
+  addDaysToYmd,
+  parseTemplateItems,
+  progressLabelForLead,
+  buildTemplateTaskDescription,
+  parseTemplateTaskMeta,
+} from '../lib/taskTemplates.js';
+
+describe('taskTemplates', () => {
+  it('adds days to ymd', () => {
+    expect(addDaysToYmd('2026-05-10', 1)).toBe('2026-05-11');
+    expect(addDaysToYmd('2026-05-10', 30)).toBe('2026-06-09');
+  });
+
+  it('parses template items', () => {
+    const items = parseTemplateItems('[{"title":"A","offset_days":0,"order":0}]');
+    expect(items[0].title).toBe('A');
+  });
+
+  it('computes progress label', () => {
+    const batch = 'batch-1';
+    const desc = buildTemplateTaskDescription({
+      templateId: 't1',
+      batchId: batch,
+      templateName: 'Test',
+      itemOrder: 0,
+      notes: '',
+    });
+    const tasks = [
+      { lead_id: 'L1', status: 'done', description: desc },
+      { lead_id: 'L1', status: 'pending', description: desc },
+    ];
+    expect(progressLabelForLead('L1', tasks)).toBe('1 de 2 concluídas');
+  });
+
+  it('round-trips task meta in description', () => {
+    const d = buildTemplateTaskDescription({
+      templateId: 'x',
+      batchId: 'b',
+      templateName: 'Nome',
+      itemOrder: 2,
+      notes: 'instr',
+    });
+    const m = parseTemplateTaskMeta(d);
+    expect(m.templateId).toBe('x');
+    expect(m.notes).toBe('instr');
+  });
+});

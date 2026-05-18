@@ -61,6 +61,9 @@ function mapTask(d) {
     created_by: d.created_by ? String(d.created_by) : '',
     created_at: String(d.created_at || d.$createdAt || ''),
     updated_at: String(d.updated_at || d.$updatedAt || ''),
+    template_id: d.template_id ? String(d.template_id) : '',
+    template_batch_id: d.template_batch_id ? String(d.template_batch_id) : '',
+    template_name: d.template_name ? String(d.template_name) : '',
   };
 }
 
@@ -141,16 +144,40 @@ export default async function handler(req, res) {
       updated_at: nowIso,
     };
 
+    const tplId = String(req.body.template_id || '').trim();
+    const tplBatch = String(req.body.template_batch_id || '').trim();
+    const tplName = String(req.body.template_name || '').trim();
+    if (tplId) payload.template_id = tplId;
+    if (tplBatch) payload.template_batch_id = tplBatch;
+    if (tplName) payload.template_name = tplName.slice(0, 128);
+
     if (!payload.created_by) {
       return json(res, 400, { sucesso: false, erro: 'created_by obrigatório' });
     }
 
     try {
-      const doc = await databases.createDocument(DB_ID, TASKS_COL, ID.unique(), payload, [
-        Permission.read(Role.users()),
-        Permission.update(Role.users()),
-        Permission.delete(Role.users()),
-      ]);
+      let doc;
+      try {
+        doc = await databases.createDocument(DB_ID, TASKS_COL, ID.unique(), payload, [
+          Permission.read(Role.users()),
+          Permission.update(Role.users()),
+          Permission.delete(Role.users()),
+        ]);
+      } catch (createErr) {
+        const msg = String(createErr?.message || '');
+        if (msg.includes('Unknown attribute') && (tplId || tplBatch || tplName)) {
+          delete payload.template_id;
+          delete payload.template_batch_id;
+          delete payload.template_name;
+          doc = await databases.createDocument(DB_ID, TASKS_COL, ID.unique(), payload, [
+            Permission.read(Role.users()),
+            Permission.update(Role.users()),
+            Permission.delete(Role.users()),
+          ]);
+        } else {
+          throw createErr;
+        }
+      }
 
       if (
         NOTE_NOTIFICATIONS_COL &&

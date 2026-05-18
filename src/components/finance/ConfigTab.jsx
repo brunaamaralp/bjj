@@ -4,6 +4,15 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { Wallet2, CreditCard, Banknote, Trash2 } from 'lucide-react';
+import CollectionRulesSection from './CollectionRulesSection.jsx';
+import {
+  parseCollectionRules,
+  parseOverdueLabel,
+  DEFAULT_COLLECTION_RULES,
+  readCollectionSettingsFromFinanceConfig,
+  readCollectionSettingsFromAcademy,
+  mergeCollectionIntoFinanceConfig,
+} from '../../lib/collectionRules.js';
 
 const defaultFinanceConfig = () => ({
   cardFees: {
@@ -21,12 +30,17 @@ export default function ConfigTab({ academyId }) {
   const [saving, setSaving] = useState(false);
   const [configDirty, setConfigDirty] = useState(false);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
+  const [collectionRules, setCollectionRules] = useState(() => DEFAULT_COLLECTION_RULES.map((r) => ({ ...r })));
+  const [overdueLabel, setOverdueLabel] = useState('Inadimplente');
 
   useEffect(() => {
     if (!academyId) return;
     const st = useLeadStore.getState();
     if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
       setFinanceConfig(st.financeConfig);
+      const coll = readCollectionSettingsFromFinanceConfig(st.financeConfig);
+      setCollectionRules(coll.collectionRules);
+      setOverdueLabel(coll.overdueLabel);
       setConfigDirty(false);
       return;
     }
@@ -56,9 +70,13 @@ export default function ConfigTab({ academyId }) {
             };
           }
         }
-        setFinanceConfig(cfg);
+        const coll = readCollectionSettingsFromAcademy(doc);
+        const mergedCfg = mergeCollectionIntoFinanceConfig(cfg, coll);
+        setFinanceConfig(mergedCfg);
+        setCollectionRules(coll.collectionRules);
+        setOverdueLabel(coll.overdueLabel);
         setConfigDirty(false);
-        useLeadStore.getState().setFinanceConfig(cfg);
+        useLeadStore.getState().setFinanceConfig(mergedCfg);
       })
       .catch((e) => {
         console.error(e);
@@ -70,10 +88,12 @@ export default function ConfigTab({ academyId }) {
     if (!academyId) return;
     setSaving(true);
     try {
+      const mergedCfg = mergeCollectionIntoFinanceConfig(financeConfig, { collectionRules, overdueLabel });
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        financeConfig: JSON.stringify(financeConfig || {})
+        financeConfig: JSON.stringify(mergedCfg),
       });
-      useLeadStore.getState().setFinanceConfig(financeConfig || {});
+      setFinanceConfig(mergedCfg);
+      useLeadStore.getState().setFinanceConfig(mergedCfg);
       setConfigDirty(false);
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
     } catch (e) {
@@ -283,6 +303,19 @@ export default function ConfigTab({ academyId }) {
           </div>
         </div>
       </section>
+
+      <CollectionRulesSection
+        collectionRules={collectionRules}
+        overdueLabel={overdueLabel}
+        onRulesChange={(rules) => {
+          setConfigDirty(true);
+          setCollectionRules(rules);
+        }}
+        onOverdueLabelChange={(v) => {
+          setConfigDirty(true);
+          setOverdueLabel(v);
+        }}
+      />
 
       <div className="flex gap-2 mt-4" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
         {configDirty ? (

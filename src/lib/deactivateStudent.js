@@ -1,27 +1,10 @@
 import { addLeadEvent } from './leadEvents.js';
 import { STUDENT_STATUS } from './studentStatus.js';
-import {
-  formatDeactivateNote,
-  parseOffboardingChecklist,
-  readOffboardingChecklistFromAcademyDoc,
-  todayYmdLocal,
-} from './studentOffboarding.js';
-import { readStudentExitReasonsFromAcademyDoc } from './studentExitConfig.js';
+import { formatDeactivateNote, todayYmdLocal } from './studentOffboarding.js';
+import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';
 
 /**
- * Desliga aluno: status, motivo, data, nota na timeline e tarefas de checklist.
- * @param {object} opts
- * @param {object} opts.student — lead/aluno atual
- * @param {string} opts.leadId
- * @param {string} opts.academyId
- * @param {string} opts.userId
- * @param {object} opts.permCtx
- * @param {string} opts.exitReason
- * @param {string} opts.exitDate — YYYY-MM-DD
- * @param {string} [opts.exitNotes]
- * @param {object} [opts.academyDoc] — documento academia (motivos/checklist)
- * @param {function} opts.updateLead — useLeadStore updateLead
- * @param {function} opts.createTask — useTaskStore createTask
+ * Desliga aluno: status, motivo, data, nota na timeline e tarefas do template student_exit.
  */
 export async function deactivateStudent({
   student,
@@ -32,9 +15,7 @@ export async function deactivateStudent({
   exitReason,
   exitDate,
   exitNotes = '',
-  academyDoc,
   updateLead,
-  createTask,
 }) {
   const ymd = String(exitDate || '').trim().slice(0, 10) || todayYmdLocal();
 
@@ -55,24 +36,25 @@ export async function deactivateStudent({
   });
   await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
 
-  const checklist = readOffboardingChecklistFromAcademyDoc(academyDoc);
   const studentName = String(student?.name || '').trim();
-  const due = ymd;
+  let tasksCreated = 0;
+  let templateName = '';
 
-  for (const title of checklist) {
-    try {
-      await createTask({
-        title: String(title).trim(),
-        description: `Checklist de desligamento — ${studentName}`,
-        status: 'pending',
-        due_date: due,
-        lead_id: leadId,
-        lead_name: studentName,
-      });
-    } catch (e) {
-      console.warn('[deactivateStudent] falha ao criar tarefa:', title, e);
-    }
+  try {
+    const applied = await applyTaskTemplateForTrigger({
+      academyId,
+      trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_EXIT,
+      leadId,
+      leadName: studentName,
+      anchorDate: ymd,
+    });
+    tasksCreated = applied.created;
+    templateName = applied.templateName;
+  } catch (e) {
+    console.warn('[deactivateStudent] template student_exit:', e?.message || e);
   }
+
+  return { tasksCreated, templateName };
 }
 
 /**
@@ -102,5 +84,3 @@ export async function reactivateStudent({
   });
   await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
 }
-
-export { readStudentExitReasonsFromAcademyDoc };

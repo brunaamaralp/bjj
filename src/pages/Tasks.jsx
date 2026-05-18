@@ -4,8 +4,16 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList, LayoutList, Kanban, CalendarDays, AlertTriangle } from 'lucide-react';
+import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList, LayoutList, Kanban, CalendarDays, AlertTriangle, Users } from 'lucide-react';
+import { progressLabelForLead } from '../lib/taskTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import CollectionResultModal from '../components/CollectionResultModal.jsx';
+import {
+  isCollectionTask,
+  parseCollectionTaskDescription,
+  formatCollectionAttemptText,
+} from '../lib/collectionRules.js';
+import { addLeadEvent } from '../lib/leadEvents.js';
 
 const VIEW_STORAGE_KEY = 'nave_tasks_view';
 
@@ -36,7 +44,7 @@ function isDueInCurrentWeek(dueStr) {
 
 export default function Tasks() {
   const navigate = useNavigate();
-  const { academyId, teamId, leads } = useLeadStore();
+  const { academyId, teamId, leads, userId, academyList } = useLeadStore();
   const { tasks, loading, error, filters, setFilter, fetchTasks, createTask, updateTask, deleteTask } = useTaskStore();
   const addToast = useUiStore((s) => s.addToast);
 
@@ -45,6 +53,8 @@ export default function Tasks() {
   const initNew = searchParams.get('new') === '1';
 
   const [members, setMembers] = useState([]);
+  const [collectionModalTask, setCollectionModalTask] = useState(null);
+  const [collectionSaving, setCollectionSaving] = useState(false);
   const [showModal, setShowModal] = useState(initNew);
   const [editingTask, setEditingTask] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', due_date: '', assigned_to: '', lead_id: initLeadId });
@@ -56,7 +66,7 @@ export default function Tasks() {
   const [viewMode, setViewMode] = useState(() => {
     try {
       const v = localStorage.getItem(VIEW_STORAGE_KEY);
-      if (v === 'kanban' || v === 'calendar') return v;
+      if (v === 'kanban' || v === 'calendar' || v === 'by_student') return v;
       return 'list';
     } catch {
       return 'list';
@@ -160,6 +170,25 @@ export default function Tasks() {
     }
     return map;
   }, [filteredTasks]);
+
+  const tasksByLead = useMemo(() => {
+    const map = {};
+    for (const t of filteredTasks) {
+      const lid = String(t.lead_id || '').trim();
+      if (!lid) continue;
+      if (!map[lid]) {
+        map[lid] = {
+          leadId: lid,
+          leadName: String(t.lead_name || '').trim() || leads.find((l) => l.id === lid)?.name || 'Aluno',
+          tasks: [],
+        };
+      }
+      map[lid].tasks.push(t);
+    }
+    return Object.values(map).sort((a, b) =>
+      String(a.leadName).localeCompare(String(b.leadName), 'pt-BR')
+    );
+  }, [filteredTasks, leads]);
 
   const kanbanColumns = useMemo(() => {
     const atrasadas = [];
@@ -283,12 +312,59 @@ export default function Tasks() {
     setShowModal(true);
   };
 
+  const permCtx = useMemo(() => {
+    const acad = (academyList || []).find((a) => a.id === academyId) || {};
+    return { ownerId: acad.ownerId, teamId: acad.teamId || teamId, userId: userId || '' };
+  }, [academyList, academyId, teamId, userId]);
+
   const toggleDone = async (t) => {
+    if (t.status !== 'done' && isCollectionTask(t)) {
+      setCollectionModalTask(t);
+      return;
+    }
     const newStatus = t.status === 'done' ? 'pending' : 'done';
     try {
       await updateTask(t.id, { status: newStatus });
     } catch (e) {
       addToast({ type: 'error', message: 'Erro ao atualizar status' });
+    }
+  };
+
+  const handleCollectionConfirm = async ({ result, notes }) => {
+    const t = collectionModalTask;
+    if (!t?.id || !academyId) return;
+    const meta = parseCollectionTaskDescription(t.description);
+    setCollectionSaving(true);
+    try {
+      await updateTask(t.id, { status: 'done' });
+      if (t.lead_id) {
+        await addLeadEvent({
+          academyId,
+          leadId: t.lead_id,
+          type: 'collection_attempt',
+          text: formatCollectionAttemptText({
+            stage: meta?.stage || t.title,
+            result,
+            notes,
+          }),
+          createdBy: userId || 'user',
+          payloadJson: {
+            date: new Date().toISOString(),
+            stage: meta?.stage || '',
+            stage_day: meta?.day ?? null,
+            result,
+            notes: notes || '',
+            task_id: t.id,
+          },
+          permissionContext: permCtx,
+        });
+      }
+      setCollectionModalTask(null);
+      addToast({ type: 'success', message: 'Tarefa concluída e resultado registrado.' });
+    } catch (e) {
+      addToast({ type: 'error', message: 'Erro ao registrar cobrança' });
+    } finally {
+      setCollectionSaving(false);
     }
   };
 
@@ -333,7 +409,7 @@ export default function Tasks() {
           <span className={`task-title ${t.status === 'done' ? 'line-through' : ''}`}>{t.title}</span>
           {!compact ? (
             <div className="task-meta">
-              {t.lead_id ? (
+              {t.lead_id && !opts.hideLead ? (
                 <span
                   className="task-badge lead-badge"
                   role="link"
@@ -471,6 +547,13 @@ export default function Tasks() {
           >
             <CalendarDays size={18} strokeWidth={2} /> Calendário
           </button>
+          <button
+            type="button"
+            className={`tasks-view-btn ${viewMode === 'by_student' ? 'tasks-view-btn--active' : ''}`}
+            onClick={() => setViewMode('by_student')}
+          >
+            <Users size={18} strokeWidth={2} /> Por aluno
+          </button>
         </div>
         
         <div className="task-filters">
@@ -563,6 +646,52 @@ export default function Tasks() {
             role="status"
             className="mt-2"
           />
+        ) : viewMode === 'by_student' ? (
+          <div className="tasks-by-lead-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {tasksByLead.length === 0 ? (
+              <EmptyState variant="compact" tone="dashed" title="Nenhuma tarefa vinculada a alunos neste filtro." />
+            ) : (
+              tasksByLead.map((group) => {
+                const progress = progressLabelForLead(group.leadId, filteredTasks);
+                return (
+                  <section key={group.leadId} className="tasks-lead-group">
+                    <div
+                      className="tasks-lead-group-head"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginBottom: 10,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        style={{ fontWeight: 700, fontSize: 14, padding: 0 }}
+                        onClick={() => navigate(`/student/${group.leadId}`)}
+                      >
+                        {group.leadName}
+                      </button>
+                      {progress ? (
+                        <span
+                          className="badge-secondary"
+                          style={{ fontSize: 11, borderRadius: 999, padding: '2px 10px' }}
+                          title="Progresso do checklist de template"
+                        >
+                          {progress}
+                        </span>
+                      ) : null}
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        {group.tasks.length} tarefa{group.tasks.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <div className="task-list">{group.tasks.map((t) => renderOneTaskCard(t, { compact: true, hideLead: true }))}</div>
+                  </section>
+                );
+              })
+            )}
+          </div>
         ) : viewMode === 'list' ? (
           <div className="tasks-lists-wrap">
             {renderTaskList(groupedTasks.vencidas, 'Vencidas', 'var(--danger)')}
@@ -914,6 +1043,14 @@ export default function Tasks() {
           </aside>
         </>
       ) : null}
+
+      <CollectionResultModal
+        open={Boolean(collectionModalTask)}
+        stageLabel={parseCollectionTaskDescription(collectionModalTask?.description)?.stage || ''}
+        saving={collectionSaving}
+        onCancel={() => !collectionSaving && setCollectionModalTask(null)}
+        onConfirm={handleCollectionConfirm}
+      />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes tasksSkeletonShimmer {

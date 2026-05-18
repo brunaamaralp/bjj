@@ -3,6 +3,7 @@ import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useTaskStore } from '../store/useTaskStore';
+import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
 import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
@@ -172,6 +173,7 @@ const LeadProfile = () => {
     const [nlOpen, setNlOpen] = useState(false);
     const [studentPayments, setStudentPayments] = useState([]);
     const [leadTasks, setLeadTasks] = useState([]);
+    const leadTaskProgress = useMemo(() => progressLabelForLead(id, leadTasks), [id, leadTasks]);
 
     useEffect(() => {
         if (!id || !academyId) return;
@@ -1319,7 +1321,14 @@ const LeadProfile = () => {
                     {/* Tarefas */}
                     <div className="profile-section">
                         <div className="flex justify-between items-center mb-2">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <h3 className="section-title" style={{ margin: 0 }}>Tarefas</h3>
+                            {leadTaskProgress ? (
+                                <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 999, padding: '2px 8px' }}>
+                                    {leadTaskProgress}
+                                </span>
+                            ) : null}
+                            </div>
                             {leadTasks.length > 0 && (
                                 <button
                                     type="button"

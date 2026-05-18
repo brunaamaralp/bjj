@@ -16,6 +16,7 @@ import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isInactiveStudent } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from '../lib/applyTaskTemplateClient.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
@@ -1221,8 +1222,23 @@ const Pipeline = () => {
                 waOutbound,
                 academyRaw: academyAutomationsRaw,
             }).catch(console.error);
-            setToast(terms.pipelineEnrollmentSuccessToast);
-            setTimeout(() => setToast(''), 2000);
+            let toastMsg = terms.pipelineEnrollmentSuccessToast;
+            try {
+                const applied = await applyTaskTemplateForTrigger({
+                    academyId,
+                    trigger: TASK_TEMPLATE_TRIGGERS.ENROLLMENT,
+                    leadId: lead.id,
+                    leadName: String(lead.name || ''),
+                    anchorDate: new Date().toISOString().slice(0, 10),
+                });
+                if (applied.created > 0) {
+                    toastMsg += ` ${applied.created} tarefa${applied.created === 1 ? '' : 's'} de boas-vindas criadas.`;
+                }
+            } catch (tplErr) {
+                console.warn('[Pipeline] template enrollment:', tplErr?.message || tplErr);
+            }
+            setToast(toastMsg);
+            setTimeout(() => setToast(''), 3500);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
             throw err;

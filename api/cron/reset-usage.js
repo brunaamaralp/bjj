@@ -11,6 +11,7 @@ import {
   DEFAULT_WHATSAPP_TEMPLATES,
   applyWhatsappTemplatePlaceholders,
 } from '../../lib/whatsappTemplateDefaults.js';
+import { runCollectionOverdue } from '../../lib/server/runCollectionOverdueCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -363,6 +364,12 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runTasksDue(databases);
     return res.status(200).json({ mode: 'tasks-due', ...out });
+  }
+  if (action === 'collection-overdue') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const out = await runCollectionOverdue(databases, DB_ID);
+    return res.status(200).json({ mode: 'collection-overdue', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

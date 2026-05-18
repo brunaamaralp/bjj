@@ -4,7 +4,8 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare } from 'lucide-react';
+import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
 import { parseOffboardingChecklist } from '../lib/studentOffboarding.js';
@@ -27,6 +28,7 @@ const TABS_ALL = [
     { id: 'alunos', label: 'Alunos', Icon: UserRound },
     { id: 'automacoes', label: 'Automações', Icon: Settings },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
+    { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare },
     { id: 'equipe', label: 'Equipe', Icon: Users },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
 ];
@@ -533,6 +535,8 @@ const AcademySettings = () => {
                     <ConfigTab academyId={academyId} />
                 </div>
             )}
+
+            {activeTab === 'tarefas' && academyId && <TaskTemplatesSection academyId={academyId} />}
 
             {activeTab === 'equipe' && (
                 <EquipeSection

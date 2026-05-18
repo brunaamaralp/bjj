@@ -21,12 +21,12 @@ import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } fr
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
+import { formatCollectionResultLabel } from '../lib/collectionRules.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
-import { useTaskStore } from '../store/useTaskStore.js';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
@@ -73,6 +73,10 @@ const TIMELINE_EVENT_LABELS = {
     lost: 'Perda',
     inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
+    collection_attempt: 'Cobrança',
+    collection_escalated: 'Cobrança escalada',
+    task_created: 'Tarefa criada',
+    task_done: 'Tarefa concluída',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {
@@ -192,7 +196,6 @@ export default function StudentProfile() {
     const academyList = useLeadStore((s) => s.academyList);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const updateLead = useLeadStore((s) => s.updateLead);
-    const createTask = useTaskStore((s) => s.createTask);
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
     const terms = useTerms();
@@ -586,6 +589,25 @@ export default function StudentProfile() {
         [timelineEvents, eventTypeFilter]
     );
 
+    const collectionAttempts = useMemo(() => {
+        return (timelineEvents || [])
+            .filter((ev) => ev.type === 'collection_attempt' || ev.type === 'collection_escalated')
+            .map((ev) => {
+                let payload = {};
+                try {
+                    payload =
+                        typeof ev.payload_json === 'string'
+                            ? JSON.parse(ev.payload_json || '{}')
+                            : ev.payload_json || {};
+                } catch {
+                    payload = {};
+                }
+                return { ...ev, payload };
+            })
+            .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
+            .slice(0, 8);
+    }, [timelineEvents]);
+
     const cancelDataEdit = useCallback(() => {
         if (!student) return;
         setDataForm({
@@ -702,7 +724,7 @@ export default function StudentProfile() {
             if (academyId) {
                 academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
             }
-            await deactivateStudent({
+            const { tasksCreated } = await deactivateStudent({
                 student,
                 leadId,
                 academyId,
@@ -711,12 +733,14 @@ export default function StudentProfile() {
                 exitReason,
                 exitDate,
                 exitNotes,
-                academyDoc,
                 updateLead,
-                createTask,
             });
             setDeactivateOpen(false);
-            addToast({ type: 'success', message: `${terms.student} desligado com sucesso.` });
+            let msg = `${terms.student} desligado com sucesso.`;
+            if (tasksCreated > 0) {
+                msg += ` ${tasksCreated} tarefa${tasksCreated === 1 ? '' : 's'} de desligamento foram criadas.`;
+            }
+            addToast({ type: 'success', message: msg });
             void refreshTimeline();
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -1218,6 +1242,55 @@ export default function StudentProfile() {
                         </span>
                     )}
                 </div>
+
+                {collectionAttempts.length > 0 ? (
+                    <div
+                        style={{
+                            marginBottom: 16,
+                            padding: '12px 14px',
+                            borderRadius: 10,
+                            border: '0.5px solid var(--border-light)',
+                            background: 'var(--surface-hover)',
+                        }}
+                    >
+                        <p
+                            style={{
+                                margin: '0 0 8px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.08em',
+                            }}
+                        >
+                            Tentativas de cobrança
+                        </p>
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {collectionAttempts.map((ev) => {
+                                const when = new Date(ev.at || Date.now()).toLocaleDateString('pt-BR');
+                                const isEscalation = ev.type === 'collection_escalated';
+                                const resultLabel = ev.payload?.result
+                                    ? formatCollectionResultLabel(ev.payload.result)
+                                    : null;
+                                return (
+                                    <li key={ev.$id || `${ev.at}-${ev.type}`} style={{ fontSize: 12, lineHeight: 1.45 }}>
+                                        <strong>{when}</strong>
+                                        {isEscalation ? (
+                                            <span style={{ color: 'var(--text-secondary)' }}> · {ev.text || 'Escalada'}</span>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-secondary)' }}>
+                                                {' '}
+                                                · {ev.payload?.stage || 'Cobrança'}
+                                                {resultLabel ? ` · ${resultLabel}` : ''}
+                                                {ev.payload?.notes ? ` — ${ev.payload.notes}` : ''}
+                                            </span>
+                                        )}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                ) : null}
 
                 <button
                     type="button"
