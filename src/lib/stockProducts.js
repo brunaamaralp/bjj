@@ -56,12 +56,24 @@ const PRODUCT_API_KEYS = [
   'item_id',
 ];
 
+const PRODUCT_API_FORBIDDEN = [
+  'item_estoque_id',
+  'venda_id',
+  'quantidade',
+  'preco_unitario',
+  'action',
+  'academy_id',
+];
+
 /** Remove campos de outras coleções (ex.: item_estoque_id de SALE_ITEMS). */
 export function pickProductApiBody(payload, { isEdit = false } = {}) {
   const src = payload && typeof payload === 'object' ? payload : {};
   const out = {};
   for (const key of PRODUCT_API_KEYS) {
     if (src[key] !== undefined) out[key] = src[key];
+  }
+  for (const key of PRODUCT_API_FORBIDDEN) {
+    delete out[key];
   }
   if (!isEdit) delete out.item_id;
   return out;

@@ -18,6 +18,7 @@ import {
 import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
+import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 
 function displayNote(note, max = 80) {
   const s = String(note || '').trim();
@@ -47,7 +48,7 @@ export default function PaymentExceptionsView({
     [financeConfig]
   );
 
-  const [statusFilter, setStatusFilter] = useState(() => new Set(EXCEPTION_STATUS_KEYS));
+  const [statusFilter, setStatusFilter] = useState('all');
   const [turmaFilter, setTurmaFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [onlyWithDiff, setOnlyWithDiff] = useState(false);
@@ -94,10 +95,34 @@ export default function PaymentExceptionsView({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [exceptionRows]);
 
+  const statusFilterOptions = useMemo(() => {
+    const counts = { all: exceptionRows.length };
+    for (const key of EXCEPTION_STATUS_KEYS) counts[key] = 0;
+    for (const row of exceptionRows) {
+      for (const r of row.reasons) {
+        if (counts[r] != null) counts[r] += 1;
+      }
+    }
+    return [
+      { id: 'all', label: 'Todos', count: counts.all },
+      ...EXCEPTION_STATUS_KEYS.map((key) => ({
+        id: key,
+        label: labelForExceptionStatus(key, statusLabels),
+        count: counts[key],
+      })),
+    ];
+  }, [exceptionRows, statusLabels]);
+
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return exceptionRows.filter((row) => {
-      if (statusFilter.size > 0 && !row.reasons.some((r) => statusFilter.has(r))) return false;
+      if (
+        statusFilter !== 'all' &&
+        !row.reasons.includes(statusFilter) &&
+        row.primaryStatus !== statusFilter
+      ) {
+        return false;
+      }
       if (turmaFilter !== 'all' && row.turma !== turmaFilter) return false;
       if (platformFilter !== 'all' && row.platform !== platformFilter) return false;
       if (onlyWithDiff && row.difference <= 0.009) return false;
@@ -276,16 +301,6 @@ export default function PaymentExceptionsView({
     }
   };
 
-  const toggleStatusFilter = (key) => {
-    setStatusFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      if (next.size === 0) return new Set(EXCEPTION_STATUS_KEYS);
-      return next;
-    });
-  };
-
   const mapPopoverInitialStatus = (row) => {
     const k = row.primaryStatus;
     if (k === 'none') return 'pending';
@@ -343,28 +358,14 @@ export default function PaymentExceptionsView({
 
       <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
-          <label className="text-xs">Status</label>
-          <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-            {EXCEPTION_STATUS_KEYS.map((key) => {
-              const active = statusFilter.has(key);
-              const colors = colorsForExceptionStatus(key);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className="btn-outline btn-sm"
-                  style={
-                    active
-                      ? { background: colors.bg, color: colors.color, borderColor: colors.color }
-                      : undefined
-                  }
-                  onClick={() => toggleStatusFilter(key)}
-                >
-                  {labelForExceptionStatus(key, statusLabels)}
-                </button>
-              );
-            })}
-          </div>
+          <label className="text-xs">Tipo</label>
+          <CompactStatusFilter
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={statusFilterOptions}
+            placeholder="Todos os tipos"
+            showCounts={false}
+          />
         </div>
         {turmas.length > 0 ? (
           <div className="form-group" style={{ margin: 0, minWidth: 130 }}>

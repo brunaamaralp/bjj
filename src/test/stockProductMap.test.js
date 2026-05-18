@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildProductPayloadFromBody, sanitizeStockItemDocument } from '../../lib/server/stockProductMap.js';
+import {
+  buildProductPayloadFromBody,
+  sanitizeStockItemDocument,
+  stripForeignStockItemKeys,
+} from '../../lib/server/stockProductMap.js';
 
 describe('stockProductMap', () => {
   it('buildProductPayloadFromBody ignores item_estoque_id and other foreign keys', () => {
@@ -19,6 +23,17 @@ describe('stockProductMap', () => {
     expect(built.payload.venda_id).toBeUndefined();
     expect(built.payload.nome).toBe('Kimono');
     expect(built.initial_quantity).toBe(2);
+  });
+
+  it('stripForeignStockItemKeys removes sale fields', () => {
+    const clean = stripForeignStockItemKeys({
+      nome: 'X',
+      item_estoque_id: 'bad',
+      action: 'create',
+    });
+    expect(clean.nome).toBe('X');
+    expect(clean.item_estoque_id).toBeUndefined();
+    expect(clean.action).toBeUndefined();
   });
 
   it('sanitizeStockItemDocument keeps only STOCK_ITEMS fields', () => {
