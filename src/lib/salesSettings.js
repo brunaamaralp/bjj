@@ -53,6 +53,8 @@ export function paymentLabel(forma) {
     pix: 'PIX',
     debito: 'Débito',
     credito: 'Crédito',
+    cartao_credito: 'Cartão de crédito',
+    cartao_debito: 'Cartão de débito',
     dinheiro: 'Dinheiro',
     transferencia: 'Transferência',
     outro: 'Outro',

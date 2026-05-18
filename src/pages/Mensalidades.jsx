@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -28,6 +29,9 @@ import {
 } from '../lib/collectionRules.js';
 import { getPaymentRowStatus, openAmountForStudent } from '../lib/collectionOverdue.js';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
+import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
+import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
+import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -151,6 +155,7 @@ export default function Mensalidades() {
   const addToast = useUiStore((s) => s.addToast);
   const terms = useTerms();
   const { allLabels: academyLabels } = useAcademyLabels(academyId);
+  const [searchParams] = useSearchParams();
 
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [payments, setPayments] = useState([]);
@@ -159,6 +164,11 @@ export default function Mensalidades() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 200);
+
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q) setSearch(q);
+  }, [searchParams]);
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -214,6 +224,10 @@ export default function Mensalidades() {
     () => readCollectionSettingsFromFinanceConfig(financeConfig),
     [financeConfig]
   );
+
+  useEffect(() => {
+    if (academyId) void prefetchFinanceConfig(academyId);
+  }, [academyId]);
 
   useEffect(() => {
     if (!academyId || financeConfigAcademyId === academyId) return;
@@ -313,6 +327,7 @@ export default function Mensalidades() {
       const rank = (st) => {
         const s = String(st || '').toLowerCase();
         if (s === 'paid') return 5;
+        if (s === 'covered') return 5;
         if (s === 'partial') return 4;
         if (s === 'awaiting') return 3;
         if (s === 'pending') return 2;
@@ -448,12 +463,13 @@ export default function Mensalidades() {
     let totalReceived = 0;
     for (const s of students) {
       const st = getStatus(s);
-      if (st === 'paid') paid += 1;
+      if (st === 'paid' || st === 'covered') paid += 1;
       if (st === 'pending') pending += 1;
       if (st === 'soon') soon += 1;
     }
     for (const p of payments || []) {
       const st = String(p.status || '').toLowerCase();
+      if (st === 'covered') continue;
       if (st === 'paid' || st === 'partial') {
         const amt = Number(p.paid_amount ?? p.amount);
         if (Number.isFinite(amt) && amt > 0) totalReceived += amt;
@@ -471,6 +487,7 @@ export default function Mensalidades() {
     const c = {
       all: students.length,
       paid: 0,
+      covered: 0,
       awaiting: 0,
       partial: 0,
       pending: 0,
@@ -508,11 +525,12 @@ export default function Mensalidades() {
   const expectedTotal = useMemo(() => {
     let sum = 0;
     for (const s of students) {
-      const amt = expectedAmountForStudent(s, financeConfig);
+      const p = paymentMap[s.id];
+      const amt = expectedAmountForStudent(s, financeConfig, p);
       if (Number.isFinite(amt) && amt > 0) sum += amt;
     }
     return sum;
-  }, [students, financeConfig]);
+  }, [students, financeConfig, paymentMap]);
 
   const openPaymentModal = (student) => {
     const day = studentDueDay(student);
@@ -550,6 +568,11 @@ export default function Mensalidades() {
     const dueDayValid = Number.isFinite(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
     if (String(payForm.due_day || '').trim() && !dueDayValid) {
       addToast({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
+      return;
+    }
+    const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
+    if (!accountCheck.ok) {
+      addToast({ type: 'error', message: accountCheck.message });
       return;
     }
 
@@ -1335,18 +1358,23 @@ export default function Mensalidades() {
                       })()}
                     </div>
                   </div>
-                  <div>
-                    <label className="mensal-modal-field-label" htmlFor="mensal-pay-account">
-                      Conta
-                    </label>
-                    <input
-                      id="mensal-pay-account"
-                      className="mensal-modal-in mensal-modal-account"
-                      value={payForm.account}
-                      onChange={(e) => setPayForm((f) => ({ ...f, account: e.target.value }))}
-                      placeholder="Ex.: Sicoob, Nubank"
-                    />
-                  </div>
+                  <BankAccountSelect
+                    id="mensal-pay-account"
+                    academyId={academyId}
+                    financeConfig={financeConfig}
+                    value={payForm.account}
+                    onChange={(v) => setPayForm((f) => ({ ...f, account: v }))}
+                    label="Conta"
+                    required
+                    className="mensal-modal-in mensal-modal-account"
+                    labelStyle={{
+                      display: 'block',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: 'var(--text-secondary, var(--text-muted))',
+                      marginBottom: 6,
+                    }}
+                  />
                   <label className="mensal-modal-checkbox-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: 0 }}>
                     <input
                       type="checkbox"

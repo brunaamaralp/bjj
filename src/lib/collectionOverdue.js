@@ -36,7 +36,7 @@ export function getPaymentRowStatus(student, payment, currentMonth, today = new 
   const today0 = startOfLocalDay(today);
   const dbStatus = String(payment?.status || '').toLowerCase();
 
-  if (payment && dbStatus === 'paid') {
+  if (payment && (dbStatus === 'paid' || dbStatus === 'covered')) {
     const paidAt = payment.paid_at ? parseYmdLocal(String(payment.paid_at).slice(0, 10)) : null;
     return { status: 'paid', dueDate: null, paidAt, daysOverdue: 0 };
   }

@@ -4,10 +4,11 @@
  */
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
 
-export const PAYMENT_DB_STATUSES = ['paid', 'pending', 'awaiting', 'partial', 'cancelled'];
+export const PAYMENT_DB_STATUSES = ['paid', 'pending', 'awaiting', 'partial', 'cancelled', 'covered'];
 
 export const GRID_STATUS_LABELS = {
   paid: 'Pago',
+  covered: 'Coberto',
   awaiting: 'Aguardando',
   partial: 'Parcial',
   pending: 'Pendente',
@@ -17,6 +18,7 @@ export const GRID_STATUS_LABELS = {
 
 export const GRID_STATUS_COLORS = {
   paid: { bg: '#EAF3DE', color: '#3B6D11' },
+  covered: { bg: 'var(--v50, #f3f0ff)', color: 'var(--v700, #5B3FBF)' },
   awaiting: { bg: '#FEF3C7', color: '#B45309' },
   partial: { bg: '#FFEDD5', color: '#C2410C' },
   pending: { bg: '#FCEBEB', color: '#A32D2D' },
@@ -26,6 +28,7 @@ export const GRID_STATUS_COLORS = {
 
 export const HISTORY_BADGE = {
   paid: 'P',
+  covered: 'C',
   awaiting: 'A',
   partial: 'Pa',
   pending: '—',
@@ -34,6 +37,8 @@ export const HISTORY_BADGE = {
 };
 
 export function expectedAmountForStudent(student, financeConfig, payment) {
+  const st = String(payment?.status || '').toLowerCase();
+  if (st === 'covered') return 0;
   const fromPayment = Number(payment?.expected_amount);
   if (Number.isFinite(fromPayment) && fromPayment > 0) return fromPayment;
   return openAmountForStudent(student, payment, financeConfig);
@@ -42,6 +47,7 @@ export function expectedAmountForStudent(student, financeConfig, payment) {
 export function receivedAmountForPayment(payment) {
   if (!payment) return 0;
   const st = String(payment.status || '').toLowerCase();
+  if (st === 'covered') return 0;
   if (st === 'paid' || st === 'partial') {
     const paid = Number(payment.paid_amount);
     if (Number.isFinite(paid) && paid >= 0) return paid;
@@ -66,6 +72,15 @@ export function resolveGridDisplayStatus(student, payment, currentMonth, today =
 
   if (db === 'paid') {
     return { key: 'paid', label: GRID_STATUS_LABELS.paid, dbStatus: 'paid', row };
+  }
+  if (db === 'covered') {
+    return {
+      key: 'covered',
+      label: GRID_STATUS_LABELS.covered,
+      dbStatus: 'covered',
+      row,
+      bundleOriginId: String(payment.bundle_origin_id || '').trim() || null,
+    };
   }
   if (db === 'awaiting') {
     return { key: 'awaiting', label: GRID_STATUS_LABELS.awaiting, dbStatus: 'awaiting', row };
@@ -124,6 +139,7 @@ export function historyStatusForMonth(student, payment, ym) {
   }
   const db = String(payment.status || '').toLowerCase();
   if (db === 'paid') return 'paid';
+  if (db === 'covered') return 'covered';
   if (db === 'awaiting') return 'awaiting';
   if (db === 'partial') return 'partial';
   if (db === 'pending') return 'pending';

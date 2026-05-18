@@ -24,6 +24,17 @@ describe('paymentStatus', () => {
     expect(r.key).toBe('partial');
   });
 
+  it('resolveGridDisplayStatus covered', () => {
+    const payment = { status: 'covered', bundle_origin_id: 'anc-1', amount: 200 };
+    const r = resolveGridDisplayStatus(student, payment, '2026-05');
+    expect(r.key).toBe('covered');
+    expect(r.label).toBe('Coberto');
+  });
+
+  it('expectedAmountForStudent retorna 0 para covered', () => {
+    expect(expectedAmountForStudent(student, financeConfig, { status: 'covered' })).toBe(0);
+  });
+
   it('expectedAmountForStudent from plan', () => {
     expect(expectedAmountForStudent(student, financeConfig, null)).toBe(200);
   });

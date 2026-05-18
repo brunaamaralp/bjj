@@ -7,7 +7,12 @@ import {
     createPayment,
     getPaymentStatus,
     updatePayment as _updatePayment,
+    cancelBundleCoverageFromMonth,
+    PAYMENT_CATEGORY,
 } from '../lib/studentPayments.js';
+import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
+import StudentPaymentModal, { buildDefaultPayForm } from '../components/student/StudentPaymentModal.jsx';
+import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -30,6 +35,14 @@ import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
+import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
+import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
+import {
+    applyRegisteredEmergencyToForm,
+    emergencyMatchesRegistered,
+} from '../lib/studentEmergencyContact.js';
+import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
+import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -157,12 +170,6 @@ const PAYMENT_HABIT_FIELDS = [
         min: 1,
         max: 31,
     },
-    {
-        key: 'preferredPaymentAccount',
-        label: 'Conta habitual',
-        type: 'text',
-        placeholder: 'Ex: Sicoob, Nubank, Caixa físico',
-    },
 ];
 
 const BG_SECONDARY = 'var(--surface-hover)';
@@ -215,6 +222,7 @@ export default function StudentProfile() {
     const student = useLeadStore((s) => s.leads.find((l) => l.id === id));
     const loading = useLeadStore((s) => s.loading);
     const academyId = useLeadStore((s) => s.academyId);
+    const financeConfig = useLeadStore((s) => s.financeConfig);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
     const deleteLead = useLeadStore((s) => s.deleteLead);
@@ -283,6 +291,7 @@ export default function StudentProfile() {
     const [reactivateBusy, setReactivateBusy] = useState(false);
     const [exitReasons, setExitReasons] = useState([]);
     const [editingData, setEditingData] = useState(false);
+    const [emergencySameAsRegistered, setEmergencySameAsRegistered] = useState(false);
     const [dataForm, setDataForm] = useState({
         name: '',
         type: 'Adulto',
@@ -325,28 +334,24 @@ export default function StudentProfile() {
     /** Código HTTP do Appwrite (ex.: 401 permissão). */
     const [freqErrorCode, setFreqErrorCode] = useState(null);
     const [payments, setPayments] = useState([]);
+    const [sales, setSales] = useState([]);
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [paymentsError, setPaymentsError] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState(null);
-    const [payForm, setPayForm] = useState({
-        reference_month: new Date().toISOString().slice(0, 7),
-        amount: '',
-        method: 'pix',
-        account: '',
-        status: 'paid',
-        paid_at: new Date().toISOString().slice(0, 10),
-        due_date: '',
-        plan_name: '',
-        note: '',
-    });
+    const [payForm, setPayForm] = useState(() => buildDefaultPayForm(null));
     const [savingPayment, setSavingPayment] = useState(false);
+    const [cancellingCoverage, setCancellingCoverage] = useState(false);
     const [viewportStacked, setViewportStacked] = useState(
         () => typeof window !== 'undefined' && window.innerWidth < 1024
     );
     const stackedLayout = viewportStacked;
 
     const leadId = id || '';
+
+    useEffect(() => {
+        if (academyId) void prefetchFinanceConfig(academyId);
+    }, [academyId]);
 
     useEffect(() => {
         const mq = window.matchMedia('(max-width: 1023px)');
@@ -363,21 +368,49 @@ export default function StudentProfile() {
             type: student.type || 'Adulto',
             turma: String(student.turma || student.className || '').trim(),
             plan: student.plan || '',
-            enrollmentDate: student.enrollmentDate || '',
+            enrollmentDate: defaultEnrollmentDateIso(student),
             birthDate: student.birthDate || '',
             phone: maskPhone(String(student.phone || '')),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
-            emergencyPhone: student.emergencyPhone || '',
+            emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
             preferredPaymentMethod: student.preferredPaymentMethod || '',
             preferredPaymentAccount: student.preferredPaymentAccount || '',
             dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
         });
+        setEmergencySameAsRegistered(
+            emergencyMatchesRegistered({
+                type: student.type,
+                name: student.name,
+                responsavel: student.responsavel,
+                phone: student.phone,
+                emergencyContact: student.emergencyContact,
+                emergencyPhone: student.emergencyPhone,
+            })
+        );
         setEditingData(false);
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
     }, [student?.id]);
+
+    useEffect(() => {
+        if (!emergencySameAsRegistered || !editingData) return;
+        setDataForm((p) => {
+            const next = applyRegisteredEmergencyToForm(p);
+            return {
+                ...next,
+                emergencyPhone: maskPhone(next.emergencyPhone || ''),
+            };
+        });
+    }, [
+        emergencySameAsRegistered,
+        editingData,
+        dataForm.name,
+        dataForm.phone,
+        dataForm.responsavel,
+        dataForm.type,
+    ]);
 
     useEffect(() => {
         if (searchParams.get('edit') === 'enrollment' && student) {
@@ -440,6 +473,7 @@ export default function StudentProfile() {
     const loadPayments = useCallback(async () => {
         if (!leadId || !academyId) {
             setPayments([]);
+            setSales([]);
             setPaymentStatus({ status: 'none', payment: null });
             setLoadingPayments(false);
             setPaymentsError(false);
@@ -448,16 +482,22 @@ export default function StudentProfile() {
         setLoadingPayments(true);
         setPaymentsError(false);
         try {
-            const [docs, status] = await Promise.all([
+            const [docs, status, salesList] = await Promise.all([
                 getStudentPayments(leadId, academyId),
                 getPaymentStatus(leadId, academyId),
+                getSalesByStudent(leadId, { limit: 50 }).catch((err) => {
+                    console.warn('getSalesByStudent:', err);
+                    return [];
+                }),
             ]);
             setPayments(docs);
             setPaymentStatus(status);
+            setSales(salesList);
         } catch (e) {
             console.error(e);
             setPaymentsError(true);
             setPayments([]);
+            setSales([]);
             setPaymentStatus({ status: 'none', payment: null });
         } finally {
             setLoadingPayments(false);
@@ -653,17 +693,27 @@ export default function StudentProfile() {
             type: student.type || 'Adulto',
             turma: String(student.turma || student.className || '').trim(),
             plan: student.plan || '',
-            enrollmentDate: student.enrollmentDate || '',
+            enrollmentDate: defaultEnrollmentDateIso(student),
             birthDate: student.birthDate || '',
             phone: maskPhone(String(student.phone || '')),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
             emergencyContact: student.emergencyContact || '',
-            emergencyPhone: student.emergencyPhone || '',
+            emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
             preferredPaymentMethod: student.preferredPaymentMethod || '',
             preferredPaymentAccount: student.preferredPaymentAccount || '',
             dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
         });
+        setEmergencySameAsRegistered(
+            emergencyMatchesRegistered({
+                type: student.type,
+                name: student.name,
+                responsavel: student.responsavel,
+                phone: student.phone,
+                emergencyContact: student.emergencyContact,
+                emergencyPhone: student.emergencyPhone,
+            })
+        );
         setEditingData(false);
     }, [student]);
 
@@ -689,7 +739,7 @@ export default function StudentProfile() {
                 birthDate: dataForm.birthDate,
                 responsavel: dataForm.responsavel,
                 emergencyContact: dataForm.emergencyContact,
-                emergencyPhone: dataForm.emergencyPhone,
+                emergencyPhone: String(dataForm.emergencyPhone || '').replace(/\D/g, ''),
                 preferredPaymentMethod: dataForm.preferredPaymentMethod,
                 preferredPaymentAccount: dataForm.preferredPaymentAccount,
                 dueDay,
@@ -872,29 +922,39 @@ export default function StudentProfile() {
         }
     };
 
-    const openPaymentModal = useCallback(() => {
+    const openPaymentModal = useCallback((presetType = PAYMENT_CATEGORY.PLAN) => {
         if (!student) return;
-        setPayForm({
-            reference_month: new Date().toISOString().slice(0, 7),
-            amount: student.plan_price != null && student.plan_price !== '' ? String(student.plan_price) : '',
-            method: 'pix',
-            account: '',
-            status: 'paid',
-            paid_at: new Date().toISOString().slice(0, 10),
-            due_date: '',
-            plan_name: student.plan || '',
-            note: '',
-        });
+        setPayForm({ ...buildDefaultPayForm(student), payment_type: presetType });
         setShowPaymentModal(true);
     }, [student]);
 
     const saveStudentPayment = useCallback(async () => {
         if (!student || !academyId || savingPayment) return;
+        const paymentType = payForm.payment_type || PAYMENT_CATEGORY.PLAN;
+        const desc = String(payForm.note || '').trim();
+
+        if (paymentType === PAYMENT_CATEGORY.FEE && !desc) {
+            addToast({ type: 'error', message: 'Informe a descrição da taxa (ex.: taxa de competição).' });
+            return;
+        }
+
         const amountNum = parseFloat(String(payForm.amount || '').replace(',', '.'));
         if (!Number.isFinite(amountNum) || amountNum <= 0) {
             addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
             return;
         }
+
+        const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
+        if (!accountCheck.ok) {
+            addToast({ type: 'error', message: accountCheck.message });
+            return;
+        }
+
+        const paidAtIso =
+            payForm.status === 'paid' && payForm.paid_at
+                ? new Date(payForm.paid_at).toISOString()
+                : null;
+
         const data = {
             lead_id: student.id,
             academy_id: academyId,
@@ -903,19 +963,56 @@ export default function StudentProfile() {
             account: payForm.account || '',
             plan_name: payForm.plan_name || student.plan || '',
             status: payForm.status,
-            reference_month: payForm.reference_month,
-            due_date: payForm.status === 'pending' && payForm.due_date ? new Date(payForm.due_date).toISOString() : null,
-            paid_at: payForm.status === 'paid' && payForm.paid_at ? new Date(payForm.paid_at).toISOString() : null,
+            payment_category: paymentType,
+            due_date:
+                payForm.status === 'pending' && payForm.due_date
+                    ? new Date(payForm.due_date).toISOString()
+                    : null,
+            paid_at: paidAtIso,
             registered_by: userId || '',
             registered_by_name: sessionUserName,
-            note: payForm.note || '',
+            note: desc,
         };
+
+        if (paymentType === PAYMENT_CATEGORY.BUNDLE) {
+            data.bundle_months = Number(payForm.bundle_months) || 12;
+            data.coverage_start_month = payForm.bundle_start_month;
+            data.reference_month = payForm.bundle_start_month;
+        } else if (paymentType === PAYMENT_CATEGORY.FEE || paymentType === PAYMENT_CATEGORY.OTHER) {
+            data.reference_month = null;
+        } else {
+            data.reference_month = payForm.reference_month;
+        }
+
         setSavingPayment(true);
         try {
             const doc = await createPayment(data);
-            setPayments((prev) => [doc, ...prev]);
+            if (paymentType === PAYMENT_CATEGORY.BUNDLE) {
+                await loadPayments();
+            } else {
+                setPayments((prev) => {
+                    const ref = doc.reference_month;
+                    const filtered = prev.filter((p) => {
+                        if (p.$id === doc.$id) return false;
+                        if (
+                            ref &&
+                            p.reference_month === ref &&
+                            (p.payment_category === PAYMENT_CATEGORY.PLAN ||
+                                p.payment_category === PAYMENT_CATEGORY.BUNDLE ||
+                                !p.payment_category)
+                        ) {
+                            return false;
+                        }
+                        return true;
+                    });
+                    return [doc, ...filtered];
+                });
+            }
             const localYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-            if (doc.reference_month === localYm) {
+            if (
+                doc.reference_month === localYm &&
+                (paymentType === PAYMENT_CATEGORY.PLAN || paymentType === PAYMENT_CATEGORY.BUNDLE)
+            ) {
                 if (doc.status === 'paid') setPaymentStatus({ status: 'paid', payment: doc });
                 else setPaymentStatus({ status: 'pending', payment: doc });
             }
@@ -926,7 +1023,44 @@ export default function StudentProfile() {
         } finally {
             setSavingPayment(false);
         }
-    }, [student, academyId, savingPayment, payForm, userId, sessionUserName, addToast]);
+    }, [
+        student,
+        academyId,
+        savingPayment,
+        payForm,
+        userId,
+        sessionUserName,
+        addToast,
+        financeConfig,
+        loadPayments,
+    ]);
+
+    const handleCancelCoverage = useCallback(
+        async ({ anchor_id, from_reference_month, refundAmount }) => {
+            if (!student || !academyId || cancellingCoverage) return;
+            setCancellingCoverage(true);
+            try {
+                await cancelBundleCoverageFromMonth({
+                    lead_id: student.id,
+                    academy_id: academyId,
+                    anchor_id,
+                    from_reference_month,
+                    payments,
+                    registered_by: userId || '',
+                    registered_by_name: sessionUserName,
+                    refundAmount,
+                    note: `Cancelamento cobertura a partir de ${from_reference_month}`,
+                });
+                await loadPayments();
+                addToast({ type: 'success', message: 'Cobertura cancelada.' });
+            } catch (e) {
+                addToast({ type: 'error', message: friendlyError(e, 'save') });
+            } finally {
+                setCancellingCoverage(false);
+            }
+        },
+        [student, academyId, cancellingCoverage, payments, userId, sessionUserName, loadPayments, addToast]
+    );
 
     const inputStyle = {
         padding: '9px 12px',
@@ -1061,7 +1195,7 @@ export default function StudentProfile() {
                 <select
                     id={`student-data-${field.key}`}
                     className="student-profile-data-input"
-                    disabled={savingData}
+                    disabled={savingData || field.disabled}
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => setDataForm((p) => ({ ...p, [field.key]: e.target.value }))}
                     style={{ ...dataFormInputStyle, cursor: 'pointer' }}
@@ -1079,7 +1213,7 @@ export default function StudentProfile() {
                     type={field.type}
                     className="student-profile-data-input"
                     placeholder={field.placeholder}
-                    disabled={savingData}
+                    disabled={savingData || field.disabled}
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => {
                         let v = e.target.value;
@@ -1090,6 +1224,11 @@ export default function StudentProfile() {
                     style={dataFormInputStyle}
                 />
             )}
+            {field.key === 'enrollmentDate' ? (
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    Padrão: data do cadastro. Altere se a matrícula for retroativa.
+                </p>
+            ) : null}
         </div>
     );
 
@@ -1510,12 +1649,90 @@ export default function StudentProfile() {
 
                 <div style={{ marginBottom: 22 }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Contato de emergência</h3>
-                    {editingData ? EMERGENCY_FIELDS.map(renderStudentDataEditRow) : EMERGENCY_FIELDS.map(renderStudentDataViewRow)}
+                    {editingData ? (
+                        <>
+                            <label
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 10,
+                                    marginBottom: 12,
+                                    fontSize: 13,
+                                    cursor: savingData ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={emergencySameAsRegistered}
+                                    disabled={savingData}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setEmergencySameAsRegistered(checked);
+                                        if (checked) {
+                                            setDataForm((p) => {
+                                                const next = applyRegisteredEmergencyToForm(p);
+                                                return {
+                                                    ...next,
+                                                    emergencyPhone: maskPhone(next.emergencyPhone || ''),
+                                                };
+                                            });
+                                        }
+                                    }}
+                                    style={{ marginTop: 2 }}
+                                />
+                                <span>Mesmo contato do cadastro (nome e telefone do {terms.student.toLowerCase()})</span>
+                            </label>
+                            {EMERGENCY_FIELDS.map((field) =>
+                                renderStudentDataEditRow({
+                                    ...field,
+                                    disabled: emergencySameAsRegistered,
+                                })
+                            )}
+                        </>
+                    ) : (
+                        EMERGENCY_FIELDS.map(renderStudentDataViewRow)
+                    )}
                 </div>
 
                 <div style={{ marginBottom: 22 }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Pagamento habitual</h3>
-                    {editingData ? PAYMENT_HABIT_FIELDS.map(renderStudentDataEditRow) : PAYMENT_HABIT_FIELDS.map(renderStudentDataViewRow)}
+                    {editingData ? (
+                        <>
+                            {PAYMENT_HABIT_FIELDS.map(renderStudentDataEditRow)}
+                            <BankAccountSelect
+                                id="student-preferred-account"
+                                academyId={academyId}
+                                financeConfig={financeConfig}
+                                value={dataForm.preferredPaymentAccount}
+                                onChange={(v) => setDataForm((p) => ({ ...p, preferredPaymentAccount: v }))}
+                                label="Conta habitual"
+                                allowEmpty
+                                emptyLabel="Nenhuma (opcional)"
+                                disabled={savingData}
+                                className="student-profile-data-input"
+                                style={dataFormInputStyle}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            {PAYMENT_HABIT_FIELDS.map(renderStudentDataViewRow)}
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    padding: '10px 0',
+                                    borderBottom: '0.5px solid var(--border-light)',
+                                }}
+                            >
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Conta habitual</span>
+                                <span style={{ fontSize: 13, color: 'var(--text)', textAlign: 'right' }}>
+                                    {student.preferredPaymentAccount || '—'}
+                                </span>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {editingData ? (
@@ -1849,144 +2066,26 @@ export default function StudentProfile() {
                     </div>
                 ) : null}
 
-                {activeTab === 'payments' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 120 }}>
-                        <button
-                            type="button"
-                            onClick={() => openPaymentModal()}
-                            style={{
-                                width: '100%',
-                                marginBottom: 12,
-                                padding: '12px 14px',
-                                borderRadius: 10,
-                                border: 'none',
-                                background: '#5B3FBF',
-                                color: '#fff',
-                                fontSize: 13,
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                            }}
-                        >
-                            + Registrar pagamento
-                        </button>
-                        {loadingPayments ? (
-                            <div
-                                style={{
-                                    textAlign: 'center',
-                                    color: 'var(--text-secondary)',
-                                    padding: 24,
-                                    fontSize: 14,
-                                }}
-                            >
-                                Carregando pagamentos...
-                            </div>
-                        ) : paymentsError ? (
-                            <div
-                                style={{
-                                    textAlign: 'center',
-                                    color: 'var(--text-secondary)',
-                                    padding: 24,
-                                    fontSize: 14,
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                Erro ao carregar ·{' '}
-                                <button
-                                    type="button"
-                                    onClick={() => void loadPayments()}
-                                    style={{
-                                        border: 'none',
-                                        background: 'none',
-                                        color: 'var(--accent)',
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        textDecoration: 'underline',
-                                        fontFamily: 'inherit',
-                                        fontSize: 14,
-                                        padding: 0,
-                                    }}
-                                >
-                                    Tentar novamente
-                                </button>
-                            </div>
-                        ) : payments.length === 0 ? (
-                            <EmptyState variant="compact" tone="dashed" title="Nenhum pagamento registrado" role="status" />
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {payments.map((payment) => {
-                                    const st = String(payment.status || '');
-                                    const leftBorder =
-                                        st === 'pending'
-                                            ? '2px solid var(--danger)'
-                                            : st === 'paid'
-                                              ? '2px solid var(--success)'
-                                              : '2px solid var(--border)';
-                                    const amountColor =
-                                        st === 'paid'
-                                            ? 'var(--success)'
-                                            : st === 'pending'
-                                              ? 'var(--danger)'
-                                              : 'var(--text-muted)';
-                                    const monthTitle = formatReferenceMonthLong(payment.reference_month);
-                                    const subLine =
-                                        st === 'paid'
-                                            ? `${METHOD_PAYMENT_LABELS[payment.method] || payment.method} · pago em ${formatDdMmYyyyFromIso(payment.paid_at)}`
-                                            : st === 'pending'
-                                              ? `Pendente · ${
-                                                    payment.due_date
-                                                        ? `vence ${formatDdMmYyyyFromIso(payment.due_date)}`
-                                                        : 'sem vencimento'
-                                                }`
-                                              : '';
-                                    return (
-                                        <div
-                                            key={payment.$id}
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                gap: 12,
-                                                padding: '8px 12px',
-                                                background: 'var(--surface)',
-                                                border: '0.5px solid var(--border-light)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                borderLeft: leftBorder,
-                                            }}
-                                        >
-                                            <div style={{ minWidth: 0, textAlign: 'left' }}>
-                                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{monthTitle}</div>
-                                                {subLine ? (
-                                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                                                        {subLine}
-                                                    </div>
-                                                ) : null}
-                                                {payment.account ? (
-                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                                                        {payment.account}
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                            <div
-                                                style={{
-                                                    fontSize: 14,
-                                                    fontWeight: 800,
-                                                    color: amountColor,
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                R${' '}
-                                                {Number(payment.amount || 0).toLocaleString('pt-BR', {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
+                {activeTab === 'payments' && student ? (
+                    <StudentFinancialTimeline
+                        student={student}
+                        financeConfig={financeConfig}
+                        payments={payments}
+                        sales={sales}
+                        paymentStatus={paymentStatus}
+                        loading={loadingPayments}
+                        error={paymentsError}
+                        onRetry={() => void loadPayments()}
+                        onRegisterPayment={(presetType) => openPaymentModal(presetType)}
+                        onGoMensalidades={() => {
+                            const q = encodeURIComponent(String(student.name || '').trim());
+                            navigate(q ? `/mensalidades?search=${q}` : '/mensalidades');
+                        }}
+                        onGoSales={() => navigate('/vendas?tab=history')}
+                        onCancelCoverage={handleCancelCoverage}
+                        cancellingCoverage={cancellingCoverage}
+                        hasSales={sales.length > 0}
+                    />
                 ) : null}
 
                 {activeTab === 'timeline' ? (
@@ -2290,245 +2389,18 @@ export default function StudentProfile() {
                 />
             ) : null}
 
-            {showPaymentModal && student ? (
-                <div
-                    className="navi-modal-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="student-payment-modal-title"
-                    onClick={() => (savingPayment ? undefined : setShowPaymentModal(false))}
-                >
-                    <div
-                        className="card"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ maxWidth: 480, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 20 }}
-                    >
-                        <h3 id="student-payment-modal-title" style={{ margin: '0 0 14px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                            Registrar pagamento
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <div>
-                                <DateInput
-                                    label="Mês de referência"
-                                    type="month"
-                                    className="form-input"
-                                    style={{ width: '100%' }}
-                                    value={payForm.reference_month}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, reference_month: e.target.value }))}
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Status
-                                </label>
-                                <select
-                                    className="form-input"
-                                    style={{ ...inputStyle, width: '100%' }}
-                                    value={payForm.status}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, status: e.target.value }))}
-                                >
-                                    <option value="paid">Pago</option>
-                                    <option value="pending">Pendente</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Valor (R$)
-                                </label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    placeholder="0,00"
-                                    className="form-input"
-                                    style={{ ...inputStyle, width: '100%' }}
-                                    value={payForm.amount}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
-                                />
-                            </div>
-                            {payForm.status === 'paid' ? (
-                                <div>
-                                    <DateInput
-                                        label="Data do pagamento"
-                                        type="date"
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                        value={payForm.paid_at}
-                                        onChange={(e) => setPayForm((p) => ({ ...p, paid_at: e.target.value }))}
-                                        required
-                                    />
-                                </div>
-                            ) : null}
-                            {payForm.status === 'pending' ? (
-                                <div>
-                                    <DateInput
-                                        label="Data de vencimento"
-                                        type="date"
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                        value={payForm.due_date}
-                                        onChange={(e) => setPayForm((p) => ({ ...p, due_date: e.target.value }))}
-                                        required
-                                    />
-                                </div>
-                            ) : null}
-                            <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Forma de pagamento
-                                </label>
-                                <select
-                                    className="form-input"
-                                    style={{ ...inputStyle, width: '100%' }}
-                                    value={payForm.method}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, method: e.target.value }))}
-                                >
-                                    <option value="pix">PIX</option>
-                                    <option value="dinheiro">Dinheiro</option>
-                                    <option value="cartão_débito">Cartão débito</option>
-                                    <option value="cartão_crédito">Cartão crédito</option>
-                                    <option value="transferência">Transferência</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Conta (opcional)
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    style={{ ...inputStyle, width: '100%' }}
-                                    placeholder="Ex: Caixa físico, Banco Inter"
-                                    value={payForm.account}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, account: e.target.value }))}
-                                />
-                            </div>
-                            <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Plano
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    style={{ ...inputStyle, width: '100%' }}
-                                    value={payForm.plan_name}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, plan_name: e.target.value }))}
-                                />
-                            </div>
-                            <div>
-                                <label
-                                    style={{
-                                        display: 'block',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted)',
-                                        marginBottom: 6,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.06em',
-                                    }}
-                                >
-                                    Observação
-                                </label>
-                                <textarea
-                                    rows={2}
-                                    className="form-input"
-                                    style={{ ...inputStyle, width: '100%', resize: 'vertical', minHeight: 64 }}
-                                    value={payForm.note}
-                                    onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-                            <button
-                                type="button"
-                                disabled={savingPayment}
-                                onClick={() => setShowPaymentModal(false)}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 12px',
-                                    borderRadius: 10,
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface)',
-                                    fontWeight: 700,
-                                    cursor: savingPayment ? 'not-allowed' : 'pointer',
-                                    fontFamily: 'inherit',
-                                    color: 'var(--text-secondary)',
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                disabled={savingPayment}
-                                onClick={() => void saveStudentPayment()}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 12px',
-                                    borderRadius: 10,
-                                    border: 'none',
-                                    background: '#5B3FBF',
-                                    color: '#fff',
-                                    fontWeight: 700,
-                                    cursor: savingPayment ? 'not-allowed' : 'pointer',
-                                    fontFamily: 'inherit',
-                                }}
-                            >
-                                {savingPayment ? 'Salvando...' : 'Registrar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            <StudentPaymentModal
+                open={showPaymentModal}
+                student={student}
+                academyId={academyId}
+                financeConfig={financeConfig}
+                payForm={payForm}
+                setPayForm={setPayForm}
+                saving={savingPayment}
+                inputStyle={inputStyle}
+                onClose={() => setShowPaymentModal(false)}
+                onSave={saveStudentPayment}
+            />
         </div>
     );
 }

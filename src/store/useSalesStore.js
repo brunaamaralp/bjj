@@ -12,6 +12,7 @@ export const useSalesStore = create((set) => ({
   createSale: async ({
     aluno_id = null,
     forma_pagamento,
+    pagamentos,
     cliente_nome = null,
     cliente_telefone = null,
     venda_colaborador = false,
@@ -27,13 +28,17 @@ export const useSalesStore = create((set) => ({
       const academyId = useLeadStore.getState().academyId || null;
       const payload = {
         aluno_id,
-        forma_pagamento,
         cliente_nome,
         cliente_telefone,
         venda_colaborador,
         itens,
         academy_id: academyId,
       };
+      if (Array.isArray(pagamentos) && pagamentos.length > 0) {
+        payload.pagamentos = pagamentos;
+      } else {
+        payload.forma_pagamento = forma_pagamento;
+      }
       if (idempotency_key) payload.idempotency_key = idempotency_key;
       const exec = await functions.createExecution(SALES_CREATE_FN_ID, JSON.stringify(payload), false);
       const code = exec.responseStatusCode || 200;

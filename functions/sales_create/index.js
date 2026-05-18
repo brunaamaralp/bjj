@@ -1,5 +1,11 @@
 import sdk from "node-appwrite";
 import { resolveCurrentQuantity, itemDisplayName } from "../stockBalance.mjs";
+import {
+  normalizePagamentosInput,
+  validatePagamentosAgainstTotal,
+  buildFormaPagamentoResumo,
+  roundMoney,
+} from "../salePayments.mjs";
 
 export default async function (req, res) {
   try {
@@ -7,6 +13,7 @@ export default async function (req, res) {
     const {
       aluno_id = null,
       forma_pagamento,
+      pagamentos: pagamentosRaw,
       itens,
       idempotency_key = null,
       academy_id = null,
@@ -14,7 +21,12 @@ export default async function (req, res) {
       cliente_nome = null,
       cliente_telefone = null,
     } = body;
-    if (!Array.isArray(itens) || itens.length === 0 || !forma_pagamento) {
+
+    const hasPagamentos = Array.isArray(pagamentosRaw) && pagamentosRaw.length > 0;
+    if (!Array.isArray(itens) || itens.length === 0) {
+      return res.json({ error: "invalid_payload" }, 400);
+    }
+    if (!hasPagamentos && !forma_pagamento) {
       return res.json({ error: "invalid_payload" }, 400);
     }
     for (const it of itens) {
@@ -43,18 +55,7 @@ export default async function (req, res) {
       return res.json({ error: "missing_env" }, 500);
     }
 
-    async function mirrorSaleToFinancialTx(vendaId, totalVenda) {
-      if (!FINANCIAL_TX_COL || !vendaId) return null;
-      try {
-        const existing = await databases.listDocuments(DB_ID, FINANCIAL_TX_COL, [
-          sdk.Query.equal("saleId", vendaId),
-          sdk.Query.limit(1),
-        ]);
-        if (existing.total > 0) return existing.documents[0].$id;
-      } catch (e) {
-        console.warn("sale mirror lookup failed", e?.message || e);
-      }
-
+    async function buildSaleDescription() {
       const parts = [];
       for (const it of itens) {
         try {
@@ -65,36 +66,148 @@ export default async function (req, res) {
           parts.push(it.quantidade > 1 ? `Produto x${it.quantidade}` : "Produto");
         }
       }
-      const description = parts.join(", ") || "Venda de produtos";
-      const settledAt = new Date().toISOString();
-      const payload = {
-        academyId: academy_id || "",
-        saleId: vendaId,
-        lead_id: aluno_id || "",
-        method: forma_pagamento,
-        installments: 1,
-        type: "product",
-        planName: description,
-        gross: totalVenda,
-        fee: 0,
-        net: totalVenda,
-        status: "settled",
-        settledAt,
-        note: description,
-      };
+      return parts.join(", ") || "Venda de produtos";
+    }
+
+    async function listSaleFinancialTx(vendaId) {
+      if (!FINANCIAL_TX_COL || !vendaId) return [];
       try {
-        const doc = await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), payload);
-        return doc.$id;
+        const res = await databases.listDocuments(DB_ID, FINANCIAL_TX_COL, [
+          sdk.Query.equal("saleId", vendaId),
+          sdk.Query.limit(25),
+        ]);
+        return res.documents || [];
+      } catch (e) {
+        console.warn("sale financial_tx list failed", e?.message || e);
+        return [];
+      }
+    }
+
+    async function createFinancialTx(payload) {
+      try {
+        return await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), payload);
       } catch (e) {
         const msg = String(e?.message || e);
         if (msg.includes("Unknown attribute")) {
           delete payload.lead_id;
-          const doc = await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), payload);
-          return doc.$id;
+          return await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), payload);
         }
-        console.warn("sale financial_tx mirror failed", msg);
-        return null;
+        throw e;
       }
+    }
+
+    async function mirrorLegacySingleTx(vendaId, totalVenda, method, description) {
+      if (!FINANCIAL_TX_COL || !vendaId) return { warnings: [] };
+      const existing = await listSaleFinancialTx(vendaId);
+      if (existing.some((d) => String(d.type || "") === "product")) {
+        return { warnings: [] };
+      }
+      const settledAt = new Date().toISOString();
+      try {
+        await createFinancialTx({
+          academyId: academy_id || "",
+          saleId: vendaId,
+          lead_id: aluno_id || "",
+          method: method || "pix",
+          installments: 1,
+          type: "product",
+          planName: description,
+          gross: totalVenda,
+          fee: 0,
+          net: totalVenda,
+          status: "settled",
+          settledAt,
+          note: description,
+        });
+      } catch (e) {
+        console.warn("sale financial_tx mirror failed", e?.message || e);
+      }
+      return { warnings: [] };
+    }
+
+    async function mirrorMixedPayments(vendaId, pagamentosNorm, description) {
+      const warnings = [];
+      if (!FINANCIAL_TX_COL || !vendaId) return { warnings };
+
+      const existing = await listSaleFinancialTx(vendaId);
+      const settledAt = new Date().toISOString();
+      const shortId = String(vendaId).slice(-4).toUpperCase();
+
+      for (const p of pagamentosNorm) {
+        const gross = roundMoney(p.valor);
+        const already = existing.some(
+          (d) =>
+            String(d.type || "") === "product" &&
+            String(d.method || "") === p.forma &&
+            Math.abs(Number(d.gross || 0) - gross) < 0.01
+        );
+        if (already) continue;
+        try {
+          const doc = await createFinancialTx({
+            academyId: academy_id || "",
+            saleId: vendaId,
+            lead_id: aluno_id || "",
+            method: p.forma,
+            installments: 1,
+            type: "product",
+            planName: description,
+            gross,
+            fee: 0,
+            net: gross,
+            status: "settled",
+            settledAt,
+            note: description,
+          });
+          existing.push(doc);
+        } catch (e) {
+          console.warn("sale payment mirror failed", p.forma, e?.message || e);
+          warnings.push(`Não foi possível registrar no caixa: ${p.forma}`);
+        }
+      }
+
+      for (const p of pagamentosNorm) {
+        const troco = roundMoney(p.troco || 0);
+        if (troco <= 0) continue;
+        const formaTroco = p.forma_troco || "pix";
+        const note = `Troco — venda #${shortId}`;
+        const already = existing.some(
+          (d) =>
+            String(d.type || "") === "expense" &&
+            String(d.method || "") === formaTroco &&
+            Math.abs(Number(d.gross || 0) - troco) < 0.01
+        );
+        if (already) continue;
+        try {
+          const doc = await createFinancialTx({
+            academyId: academy_id || "",
+            saleId: vendaId,
+            lead_id: aluno_id || "",
+            method: formaTroco,
+            installments: 1,
+            type: "expense",
+            planName: note,
+            gross: troco,
+            fee: 0,
+            net: troco,
+            status: "settled",
+            settledAt,
+            note,
+          });
+          existing.push(doc);
+        } catch (e) {
+          console.warn("sale troco mirror failed", e?.message || e);
+          warnings.push(`Troco (${formaTroco}) não registrado no caixa — confira manualmente.`);
+        }
+      }
+
+      return { warnings };
+    }
+
+    async function mirrorSaleFinancials(vendaId, totalVenda, pagamentosNorm, formaLegacy, description) {
+      if (pagamentosNorm?.length) {
+        return mirrorMixedPayments(vendaId, pagamentosNorm, description);
+      }
+      return mirrorLegacySingleTx(vendaId, totalVenda, formaLegacy, description);
     }
 
     if (idempotency_key) {
@@ -106,7 +219,22 @@ export default async function (req, res) {
         if (existing.total > 0) {
           const doc = existing.documents[0];
           if (String(doc.status || "") === "concluida") {
-            await mirrorSaleToFinancialTx(doc.$id, Number(doc.total || 0));
+            const description = await buildSaleDescription();
+            let pagamentosNorm = [];
+            if (doc.pagamentos_json) {
+              try {
+                pagamentosNorm = normalizePagamentosInput(JSON.parse(doc.pagamentos_json));
+              } catch {
+                pagamentosNorm = [];
+              }
+            }
+            await mirrorSaleFinancials(
+              doc.$id,
+              Number(doc.total || 0),
+              pagamentosNorm,
+              doc.forma_pagamento,
+              description
+            );
           }
           console.log(JSON.stringify({ level: "info", action: "sales_create_idempotent_hit", venda_id: doc.$id, status: doc.status }));
           return res.json({ ok: true, venda_id: doc.$id, total: Number(doc.total || 0), status: String(doc.status || "") }, 200);
@@ -135,16 +263,46 @@ export default async function (req, res) {
     }
 
     const totalVenda = itens.reduce((acc, it) => acc + it.preco_unitario * it.quantidade, 0);
+    const totalRounded = roundMoney(totalVenda);
+
+    let pagamentosNorm = [];
+    let formaFinal = String(forma_pagamento || "").trim();
+    let pagamentosJson = null;
+
+    if (hasPagamentos) {
+      pagamentosNorm = normalizePagamentosInput(pagamentosRaw);
+      if (!pagamentosNorm.length) {
+        return res.json({ error: "invalid_pagamentos" }, 400);
+      }
+      const check = validatePagamentosAgainstTotal(pagamentosNorm, totalRounded);
+      if (!check.ok) {
+        return res.json(
+          {
+            error: "pagamentos_total_mismatch",
+            expected: totalRounded,
+            received: check.net,
+          },
+          400
+        );
+      }
+      formaFinal = buildFormaPagamentoResumo(pagamentosNorm);
+      pagamentosJson = JSON.stringify(pagamentosNorm);
+      if (pagamentosJson.length > 1024) {
+        return res.json({ error: "pagamentos_json_too_large" }, 400);
+      }
+    }
+
     const vendaId = sdk.ID.unique();
     const salePayload = {
       academyId: academy_id || null,
       aluno_id: aluno_id || null,
-      total: totalVenda,
-      forma_pagamento,
+      total: totalRounded,
+      forma_pagamento: formaFinal,
       status: "rascunho",
       idempotency_key: idempotency_key || null,
       canal: String(canal || "presencial").slice(0, 32),
     };
+    if (pagamentosJson) salePayload.pagamentos_json = pagamentosJson;
     if (cliente_nome) salePayload.cliente_nome = String(cliente_nome).slice(0, 128);
     if (cliente_telefone) salePayload.cliente_telefone = String(cliente_telefone).slice(0, 20);
 
@@ -157,6 +315,7 @@ export default async function (req, res) {
         delete salePayload.canal;
         delete salePayload.cliente_nome;
         delete salePayload.cliente_telefone;
+        if (msg.includes("pagamentos_json")) delete salePayload.pagamentos_json;
         vendaDoc = await databases.createDocument(DB_ID, SALES_COL, vendaId, salePayload);
       } else {
         throw e;
@@ -201,17 +360,35 @@ export default async function (req, res) {
       }
 
       await databases.updateDocument(DB_ID, SALES_COL, vendaDoc.$id, { status: "concluida" });
-      await mirrorSaleToFinancialTx(vendaDoc.$id, totalVenda);
+      const description = await buildSaleDescription();
+      const mirrorResult = await mirrorSaleFinancials(
+        vendaDoc.$id,
+        totalRounded,
+        pagamentosNorm,
+        formaFinal,
+        description
+      );
+
       console.log(JSON.stringify({
         level: "info",
         action: "sales_create",
         venda_id: vendaDoc.$id,
         items_count: itens.length,
-        total: totalVenda,
+        total: totalRounded,
+        payments_count: pagamentosNorm.length || 1,
         user_id: req.headers["x-user-id"] || "",
         idempotency_key: idempotency_key || null,
       }));
-      return res.json({ ok: true, venda_id: vendaDoc.$id, total: totalVenda, status: "concluida" }, 200);
+      return res.json(
+        {
+          ok: true,
+          venda_id: vendaDoc.$id,
+          total: totalRounded,
+          status: "concluida",
+          troco_warnings: mirrorResult.warnings || [],
+        },
+        200
+      );
     } catch (err) {
       for (const it of itens) {
         try {

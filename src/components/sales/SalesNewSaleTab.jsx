@@ -12,7 +12,15 @@ import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import SalesCatalogPicker from './SalesCatalogPicker';
 import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
+import SalesPaymentBlock from './SalesPaymentBlock';
 import Hint from '../shared/Hint.jsx';
+import {
+  createEmptyPaymentRow,
+  serializePagamentosForApi,
+  paymentsUiValid,
+  buildFormaPagamentoResumo,
+  rebalancePaymentsForTotal,
+} from '../../lib/salePayments';
 
 export default function SalesNewSaleTab() {
   const { createSale, creating, lastSale, error } = useSalesStore();
@@ -32,8 +40,8 @@ export default function SalesNewSaleTab() {
   const [clienteNome, setClienteNome] = useState('');
   const [clienteTelefone, setClienteTelefone] = useState('');
 
-  const [forma, setForma] = useState('pix');
   const [vendaColaborador, setVendaColaborador] = useState(false);
+  const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
 
   const [cart, setCart] = useState([]);
   const [localError, setLocalError] = useState('');
@@ -135,6 +143,25 @@ export default function SalesNewSaleTab() {
     const rest = totalCart - descontoGeralValor;
     return rest > 0 ? rest / totalCart : 0;
   }, [descontoGeralValor, totalCart]);
+
+  const totalFinalCents = useMemo(
+    () => Math.max(0, Math.round(round2(totalCart * fatorGeral) * 100)),
+    [totalCart, fatorGeral]
+  );
+
+  const paymentValid = useMemo(
+    () => paymentsUiValid(payments, totalFinalCents),
+    [payments, totalFinalCents]
+  );
+
+  useEffect(() => {
+    setPayments((prev) => {
+      if (prev.length === 1) {
+        return [{ ...prev[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents }];
+      }
+      return rebalancePaymentsForTotal(prev, totalFinalCents);
+    });
+  }, [totalFinalCents]);
 
   const totalMasked = useMemo(() => {
     const val = round2(totalCart * fatorGeral);
@@ -307,6 +334,10 @@ export default function SalesNewSaleTab() {
       setLocalError('Adicione pelo menos um item');
       return;
     }
+    if (!paymentValid.ok) {
+      setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+      return;
+    }
     for (const it of cart) {
       const unit = Number(it.preco_unitario);
       if (!Number.isFinite(unit) || unit <= 0) {
@@ -333,9 +364,11 @@ export default function SalesNewSaleTab() {
     });
 
     const now = new Date();
+    const pagamentos = serializePagamentosForApi(payments);
+
     await createSale({
       aluno_id: alunoId || null,
-      forma_pagamento: forma,
+      pagamentos,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? clienteTelefone.trim() || null : null,
       venda_colaborador: vendaColaborador,
@@ -354,6 +387,7 @@ export default function SalesNewSaleTab() {
     const totalFinal = round2(totalCart * fatorGeral);
     const dateStr = now.toLocaleDateString('pt-BR');
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const trocoWarnings = Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [];
 
     setReceipt({
       vendaId,
@@ -361,7 +395,9 @@ export default function SalesNewSaleTab() {
       time: timeStr,
       canal: 'presencial',
       clientName: clientDisplayName,
-      forma,
+      forma: buildFormaPagamentoResumo(pagamentos),
+      pagamentos,
+      trocoWarnings,
       items: cart.map((it) => ({
         display_label: it.display_label,
         quantidade: Number(it.quantidade),
@@ -372,6 +408,7 @@ export default function SalesNewSaleTab() {
     });
 
     setCart([]);
+    setPayments([createEmptyPaymentRow(0)]);
     setDescGeralCents(0);
     setDescGeralPct(0);
     setMobilePanel('catalog');
@@ -497,17 +534,12 @@ export default function SalesNewSaleTab() {
                 </div>
               </div>
 
-              <div className="form-group sales-checkout__field">
-                <label>Pagamento</label>
-                <select className="form-input" value={forma} onChange={(e) => setForma(e.target.value)}>
-                  <option value="pix">PIX</option>
-                  <option value="debito">Débito</option>
-                  <option value="credito">Crédito</option>
-                  <option value="dinheiro">Dinheiro</option>
-                  <option value="transferencia">Transferência</option>
-                  <option value="outro">Outro</option>
-                </select>
-              </div>
+              <SalesPaymentBlock
+                totalCents={totalFinalCents}
+                payments={payments}
+                onChange={setPayments}
+                disabled={creating || cart.length === 0}
+              />
 
               <SalesCart
                 cart={cart}
@@ -578,7 +610,7 @@ export default function SalesNewSaleTab() {
               <button
                 type="submit"
                 className="btn-primary sales-submit-btn"
-                disabled={creating || cart.length === 0}
+                disabled={creating || cart.length === 0 || !paymentValid.ok}
               >
                 <ShoppingCart size={18} aria-hidden />
                 <span>

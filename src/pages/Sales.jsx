@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
 
 const Sales = () => {
-  const [tab, setTab] = useState('new');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => {
+    const t = searchParams.get('tab');
+    return t === 'history' || t === 'historico' ? 'history' : 'new';
+  });
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'history' || t === 'historico') setTab('history');
+  }, [searchParams]);
 
   return (
     <div className="container sales-page" style={{ paddingTop: 20, paddingBottom: 20 }}>

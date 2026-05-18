@@ -1,4 +1,5 @@
 import { channelLabel, paymentLabel } from './salesSettings.js';
+import { formatSalePaymentHistoryLabel } from './salePayments.js';
 import { formatBRL } from './moneyBr.js';
 import { productDisplayLabel } from './stockProducts.js';
 
@@ -119,7 +120,7 @@ export function mapSaleListRow(sale) {
     total: sale.total,
     total_label: formatBRL(sale.total),
     forma_pagamento: sale.forma_pagamento,
-    payment_label: paymentLabel(sale.forma_pagamento),
+    payment_label: formatSalePaymentHistoryLabel(sale),
     status: sale.status,
     is_cancelled: String(sale.status).toLowerCase() === 'cancelada',
   };

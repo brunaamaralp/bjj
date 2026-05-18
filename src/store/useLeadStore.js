@@ -390,6 +390,8 @@ export const useLeadStore = create(
         belt: lead.belt || '',
         custom_answers_json: JSON.stringify(lead.customAnswers || {}),
         birth_date: String(lead.birthDate || '').slice(0, 10),
+        enrollmentDate:
+          String(lead.enrollmentDate || '').trim().slice(0, 10) || new Date().toISOString().slice(0, 10),
         pipeline_stage: lead.pipelineStage || 'Novo',
         pipeline_stage_changed_at: nowIso,
         status_changed_at: nowIso,

@@ -3069,6 +3069,34 @@ input[type='datetime-local'].form-input:focus {
   margin: 0;
 }
 
+.sales-payment-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.sales-payment-block__add {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.sales-payment-row__main {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.1fr) minmax(100px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.sales-payment-row__cash {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--border-light);
+}
+
 .sales-checkout__row,
 .sales-checkout__discount {
   display: grid;
@@ -3935,6 +3963,12 @@ input[type='datetime-local'].form-input:focus {
   color: #3b6d11;
 }
 
+.mensal-status-badge--covered {
+  background: var(--v50, #f3f0ff);
+  color: var(--v700, #5b3fbf);
+  border: 1px solid var(--v200, #ddd6fe);
+}
+
 .mensal-status-badge--awaiting {
   background: #fef3c7;
   color: #b45309;
@@ -4362,6 +4396,12 @@ input[type='datetime-local'].form-input:focus {
 .grid-status-badge--paid {
   background: #eaf3de;
   color: #3b6d11;
+}
+
+.grid-status-badge--covered {
+  background: var(--v50, #f3f0ff);
+  color: var(--v700, #5b3fbf);
+  border: 1px solid var(--v200, #ddd6fe);
 }
 
 .grid-status-badge--awaiting {

@@ -183,6 +183,9 @@ export default function MensalidadesListTable({
     } else if (payment?.status === 'partial') {
       badgeVariant = 'partial';
       badgeLabel = 'Parcial';
+    } else if (payment?.status === 'covered' || statusKey === 'covered') {
+      badgeVariant = 'covered';
+      badgeLabel = 'Coberto';
     } else if (statusKey === 'paid' && payment) {
       badgeVariant = 'paid';
       const m = METHOD_LABELS[payment.method] || payment.method;
@@ -315,6 +318,9 @@ export default function MensalidadesListTable({
     } else if (payment?.status === 'partial') {
       badgeVariant = 'partial';
       badgeLabel = 'Parcial';
+    } else if (payment?.status === 'covered' || statusKey === 'covered') {
+      badgeVariant = 'covered';
+      badgeLabel = 'Coberto';
     } else if (statusKey === 'paid' && payment) {
       badgeVariant = 'paid';
       badgeLabel = 'Pago';

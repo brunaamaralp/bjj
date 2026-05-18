@@ -1,6 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronRight, MessageSquare, Check, Clock, CircleAlert, CircleDashed } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  MessageSquare,
+  Check,
+  Clock,
+  CircleAlert,
+  CircleDashed,
+  CalendarCheck,
+} from 'lucide-react';
 import PaymentStatusPopover from './PaymentStatusPopover.jsx';
 import { getStudentPayments, saveMonthlyPayment } from '../../lib/studentPayments';
 import {
@@ -14,6 +23,7 @@ import {
   resolveGridDisplayStatus,
   mapDbStatusFromGridForm,
 } from '../../lib/paymentStatus';
+import { formatReferenceMonthShort } from '../../lib/bundleCoverage.js';
 import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import { Users } from 'lucide-react';
@@ -33,6 +43,7 @@ function studentTurma(student) {
 
 const GRID_BADGE_ICONS = {
   paid: Check,
+  covered: CalendarCheck,
   awaiting: Clock,
   pending: CircleAlert,
   partial: CircleDashed,
@@ -144,9 +155,9 @@ export default function MonthlyPaymentGrid({
       const exp = row.expected || 0;
       expectedTotal += exp;
       const st = row.display.key;
-      if (st === 'paid' || st === 'partial') {
+      if (st === 'paid' || st === 'covered' || st === 'partial') {
         receivedTotal += row.received || 0;
-        if (st === 'paid') paidCount += 1;
+        if (st === 'paid' || st === 'covered') paidCount += 1;
       }
       if (st === 'awaiting' || st === 'partial' || st === 'pending') problemCount += 1;
 
@@ -396,7 +407,15 @@ export default function MonthlyPaymentGrid({
 
                 return (
                   <React.Fragment key={student.id}>
-                    <tr className={savingId === student.id ? 'grid-row-saving' : ''}>
+                    <tr
+                      className={[
+                        savingId === student.id ? 'grid-row-saving' : '',
+                        display.key === 'covered' ? 'grid-row-covered' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={display.key === 'covered' ? { opacity: 0.85 } : undefined}
+                    >
                       <td>
                         <button
                           type="button"
@@ -429,8 +448,19 @@ export default function MonthlyPaymentGrid({
                         <button
                           type="button"
                           className={`grid-status-badge grid-status-badge--${display.key}`}
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: display.key === 'covered' ? 'default' : 'pointer' }}
+                          title={
+                            display.key === 'covered' && payment?.note
+                              ? String(payment.note)
+                              : display.key === 'covered'
+                                ? 'Coberto por plano com cobertura'
+                                : undefined
+                          }
                           onClick={(e) => {
+                            if (display.key === 'covered') {
+                              toggleExpand(row);
+                              return;
+                            }
                             const rect = e.currentTarget.getBoundingClientRect();
                             setPopover({
                               row,
