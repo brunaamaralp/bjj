@@ -114,14 +114,6 @@ export default function NaviSidebarNav({
   return (
     <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
       <SidebarSection collapsed={collapsed}>
-        <SideNavLink to="/" end label="Início" Icon={LayoutGrid} collapsed={collapsed} className={sideLinkClass} />
-        <SideNavLink
-          to="/pipeline"
-          label={labels.pipeline || 'Funil'}
-          Icon={Kanban}
-          collapsed={collapsed}
-          className={sideLinkClass}
-        />
         <SideNavLink
           to="/new-lead"
           label={newLeadLabel}
@@ -129,6 +121,14 @@ export default function NaviSidebarNav({
           collapsed={collapsed}
           className={sideLinkClass}
           action
+        />
+        <SideNavLink to="/" end label="Início" Icon={LayoutGrid} collapsed={collapsed} className={sideLinkClass} />
+        <SideNavLink
+          to="/pipeline"
+          label={labels.pipeline || 'Funil'}
+          Icon={Kanban}
+          collapsed={collapsed}
+          className={sideLinkClass}
         />
         <SideNavLink
           to="/students"

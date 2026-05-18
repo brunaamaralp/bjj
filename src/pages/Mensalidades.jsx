@@ -8,10 +8,12 @@ import { resolveGridDisplayStatus } from '../lib/paymentStatus';
 import MonthlyPaymentGrid from '../components/finance/MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from '../components/finance/PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
+import useDebounce from '../hooks/useDebounce';
 import { friendlyError } from '../lib/errorMessages';
-import { ChevronLeft, ChevronRight, Check, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import MensalidadesListTable from '../components/finance/MensalidadesListTable.jsx';
-import { analyzePaymentException } from '../lib/paymentExceptions.js';
+import { isRealPaymentException } from '../lib/paymentExceptions.js';
+import MensalidadesStatusFilter from '../components/finance/MensalidadesStatusFilter.jsx';
 import { expectedAmountForStudent } from '../lib/paymentStatus.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
@@ -156,6 +158,7 @@ export default function Mensalidades() {
   const [loadingError, setLoadingError] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 200);
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -164,7 +167,6 @@ export default function Mensalidades() {
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [nlOpen, setNlOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list');
-  const [reguaFiltersOpen, setReguaFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!showModal || typeof document === 'undefined') return undefined;
@@ -405,7 +407,7 @@ export default function Mensalidades() {
   }, [students, studentOverdueMeta]);
 
   const filteredStudents = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return students
       .filter((s) => {
         if (filter === 'overdue_label') {
@@ -421,7 +423,7 @@ export default function Mensalidades() {
         return filter === 'all' || getStatus(s) === filter;
       })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, search, getStatus, overdueLabelId, studentOverdueMeta]);
+  }, [students, filter, debouncedSearch, getStatus, overdueLabelId, studentOverdueMeta]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -491,16 +493,15 @@ export default function Mensalidades() {
         const meta = studentOverdueMeta[s.id];
         return meta && Number(meta.stage?.day) === day;
       }).length;
-      return { id: `regua_${day}`, label: `Régua D+${day}`, count };
+      return { id: `regua_${day}`, label: `D+${day}`, count };
     });
   }, [collectionRules, students, studentOverdueMeta]);
 
   const exceptionCount = useMemo(
     () =>
-      students.filter((s) => {
-        const analysis = analyzePaymentException(s, paymentMap[s.id], currentMonth, financeConfig);
-        return analysis.isException;
-      }).length,
+      students.filter((s) =>
+        isRealPaymentException(s, paymentMap[s.id], currentMonth, financeConfig)
+      ).length,
     [students, paymentMap, currentMonth, financeConfig]
   );
 
@@ -551,10 +552,41 @@ export default function Mensalidades() {
       addToast({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
       return;
     }
+
+    const student = selectedStudent;
+    const payFormSnapshot = { ...payForm };
+    const previousPayments = payments;
+    const optimisticId = `optimistic-${student.id}-${Date.now()}`;
+    const paidAtIso = new Date(paidAtMs).toISOString();
+    const optimisticDoc = {
+      $id: optimisticId,
+      lead_id: student.id,
+      academy_id: academyId,
+      team_id: teamIdForPayments,
+      amount: amountNum,
+      paid_amount: amountNum,
+      method: payForm.method,
+      account: payForm.account || '',
+      status: 'paid',
+      reference_month: currentMonth,
+      paid_at: paidAtIso,
+      plan_name: payForm.plan_name || student.plan || '',
+      note: payForm.note || '',
+      registered_by: userId || '',
+      registered_by_name: sessionUserName,
+    };
+
+    setShowModal(false);
+    setSelectedStudent(null);
+    setPayments((prev) => [
+      ...(prev || []).filter((p) => String(p.lead_id) !== String(student.id)),
+      optimisticDoc,
+    ]);
     setSavingPayment(true);
+
     try {
       const doc = await createPayment({
-        lead_id: selectedStudent.id,
+        lead_id: student.id,
         academy_id: academyId,
         team_id: teamIdForPayments,
         amount: amountNum,
@@ -562,28 +594,38 @@ export default function Mensalidades() {
         account: payForm.account || '',
         status: 'paid',
         reference_month: currentMonth,
-        paid_at: new Date(paidAtMs).toISOString(),
+        paid_at: paidAtIso,
         due_date: null,
         registered_by: userId || '',
         registered_by_name: sessionUserName,
-        plan_name: payForm.plan_name || selectedStudent.plan || '',
+        plan_name: payForm.plan_name || student.plan || '',
         note: payForm.note || '',
       });
       if (payForm.saveAsPreferred) {
-        await updateLead(selectedStudent.id, {
+        await updateLead(student.id, {
           preferredPaymentMethod: payForm.method,
           preferredPaymentAccount: payForm.account || '',
           dueDay: dueDayValid ? dueDayNum : null,
         });
-      } else if (dueDayValid || String(selectedStudent?.dueDay || '').trim()) {
-        await updateLead(selectedStudent.id, { dueDay: dueDayValid ? dueDayNum : null });
+      } else if (dueDayValid || String(student?.dueDay || '').trim()) {
+        await updateLead(student.id, { dueDay: dueDayValid ? dueDayNum : null });
       }
-      setPayments((prev) => [...(prev || []).filter((p) => String(p.lead_id) !== String(selectedStudent.id)), doc]);
-      setShowModal(false);
-      setSelectedStudent(null);
+      setPayments((prev) => [
+        ...(prev || []).filter(
+          (p) => String(p.lead_id) !== String(student.id) && p.$id !== optimisticId
+        ),
+        doc,
+      ]);
       addToast({ type: 'success', message: 'Pagamento registrado.' });
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      setPayments(previousPayments);
+      setSelectedStudent(student);
+      setPayForm(payFormSnapshot);
+      setShowModal(true);
+      addToast({
+        type: 'error',
+        message: 'Não foi possível registrar o pagamento. Tente novamente.',
+      });
     } finally {
       setSavingPayment(false);
     }
@@ -592,7 +634,8 @@ export default function Mensalidades() {
   const handleEstornar = async (payment) => {
     const id = payment?.$id;
     if (!id) return;
-    if (!window.confirm('Estornar este pagamento? O status será alterado para cancelado.')) return;
+    const previousPayments = payments;
+    setPayments((prev) => prev.map((p) => (p.$id === id ? { ...p, status: 'cancelled' } : p)));
     try {
       await updatePayment(id, { status: 'cancelled' });
       const txId = String(payment?.financial_tx_id || '').trim();
@@ -601,12 +644,32 @@ export default function Mensalidades() {
           .updateDocument(DB_ID, FINANCIAL_TX_COL, txId, { status: 'cancelled' })
           .catch((err) => console.error('financial_tx estorno sync failed:', err));
       }
-      setPayments((prev) => prev.map((p) => (p.$id === id ? { ...p, status: 'cancelled' } : p)));
       addToast({ type: 'success', message: 'Pagamento estornado.' });
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      setPayments(previousPayments);
+      addToast({
+        type: 'error',
+        message: 'Não foi possível estornar o pagamento.',
+      });
+      throw e;
     }
   };
+
+  const clearFilters = useCallback(() => {
+    setFilter('all');
+    setSearch('');
+    setDueSortOrder(null);
+  }, []);
+
+  const hasStudentsWithPlan = useMemo(
+    () => students.some((s) => String(s.plan || '').trim()),
+    [students]
+  );
+
+  const hasActiveFilters = useMemo(
+    () => filter !== 'all' || search.trim().length > 0,
+    [filter, search]
+  );
 
   const fmtMoney = (n) => {
     try {
@@ -867,9 +930,14 @@ export default function Mensalidades() {
               aria-selected={viewMode === 'exceptions'}
               className={`mensal-page-tab${viewMode === 'exceptions' ? ' mensal-page-tab--active' : ''}`}
               onClick={() => setViewMode('exceptions')}
+              title="Alunos com pagamento em atraso, parcial ou divergente"
             >
               Exceções
-              {exceptionCount > 0 ? <span className="mensal-page-tab__badge">{exceptionCount}</span> : null}
+              {exceptionCount > 0 ? (
+                <span className="mensal-page-tab__badge" title="Alunos com pagamento em atraso, parcial ou divergente">
+                  {exceptionCount}
+                </span>
+              ) : null}
             </button>
           </div>
         ) : null}
@@ -879,77 +947,23 @@ export default function Mensalidades() {
           <input
             type="search"
             className="form-input mensal-search"
-            placeholder="Buscar aluno..."
+            placeholder={`Buscar ${terms.student.toLowerCase()}...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {viewMode === 'list' ? (
+            <MensalidadesStatusFilter
+              filter={filter}
+              onFilterChange={setFilter}
+              filterCounts={filterCounts}
+              reguaFilterChips={reguaFilterChips}
+              overdueLabelName={parseOverdueLabel(overdueLabelName)}
+              overdueLabelCount={students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length}
+              overdueLabelId={overdueLabelId}
+            />
+          ) : null}
         </div>
 
-        {viewMode === 'list' ? (
-          <div className="mensal-filters">
-            <div className="mensal-filters__primary" role="tablist" aria-label="Status">
-              {[
-                { id: 'all', label: 'Todos', count: filterCounts.all },
-                { id: 'paid', label: 'Pagos', count: filterCounts.paid },
-                { id: 'awaiting', label: 'Aguardando', count: filterCounts.awaiting },
-                { id: 'partial', label: 'Parcial', count: filterCounts.partial },
-                { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
-                { id: 'soon', label: 'A vencer', count: filterCounts.soon },
-                { id: 'none', label: 'Sem registro', count: filterCounts.none },
-              ].map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`mensal-chip${filter === c.id ? ' mensal-chip--active' : ''}`}
-                  onClick={() => setFilter(c.id)}
-                >
-                  {c.label} <span className="mensal-chip__count">({c.count})</span>
-                </button>
-              ))}
-            </div>
-            {reguaFilterChips.length > 0 || overdueLabelId ? (
-              <div className="mensal-filters__regua">
-                <button
-                  type="button"
-                  className="mensal-filters__regua-toggle"
-                  onClick={() => setReguaFiltersOpen((o) => !o)}
-                  aria-expanded={reguaFiltersOpen}
-                >
-                  <ChevronDown size={14} className={reguaFiltersOpen ? 'mensal-filters__chev--open' : ''} />
-                  Régua de cobrança
-                </button>
-                {reguaFiltersOpen ? (
-                  <div className="mensal-filters__regua-chips">
-                    {reguaFilterChips.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`mensal-chip mensal-chip--regua${filter === c.id ? ' mensal-chip--active' : ''}`}
-                        onClick={() => setFilter(c.id)}
-                      >
-                        {c.label} <span className="mensal-chip__count">({c.count})</span>
-                      </button>
-                    ))}
-                    {overdueLabelId ? (
-                      <button
-                        type="button"
-                        className={`mensal-chip mensal-chip--regua${
-                          filter === 'overdue_label' ? ' mensal-chip--active' : ''
-                        }`}
-                        onClick={() => setFilter('overdue_label')}
-                      >
-                        {parseOverdueLabel(overdueLabelName)}{' '}
-                        <span className="mensal-chip__count">
-                          ({students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length})
-                        </span>
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
       </header>
 
       {viewMode === 'list' && collectionDashboard.total > 0 ? (
@@ -995,6 +1009,8 @@ export default function Mensalidades() {
       ) : null}
 
       {viewMode === 'grid' && modules?.finance === true ? (
+        <>
+        <p className="mensal-tab-subtitle">Marque pagamentos enquanto confere o extrato</p>
         <MonthlyPaymentGrid
           students={students}
           paymentMap={paymentMap}
@@ -1013,9 +1029,12 @@ export default function Mensalidades() {
           friendlyError={friendlyError}
           loading={loading}
         />
+        </>
       ) : null}
 
       {viewMode === 'exceptions' && modules?.finance === true ? (
+        <>
+        <p className="mensal-tab-subtitle">Casos que precisam de atenção ativa</p>
         <PaymentExceptionsView
           students={students}
           paymentMap={paymentMap}
@@ -1032,10 +1051,13 @@ export default function Mensalidades() {
           friendlyError={friendlyError}
           loading={loading}
         />
+        </>
       ) : null}
 
       {viewMode === 'list' ? (
       <>
+      <p className="mensal-tab-subtitle">Visão geral de todos os alunos do mês</p>
+      {!loading ? (
       <section className="mensal-summary-block">
         <div className="mensal-summary-grid">
           <div className="mensal-summary-card mensal-summary-card--paid">
@@ -1070,9 +1092,14 @@ export default function Mensalidades() {
           <div className="mensal-progress__bar" style={{ width: `${progressPct}%` }} />
         </div>
         <p className="mensal-progress__label">
-          {summary.paid}/{students.length} pagos · {progressPct}%
+          <strong>{progressPct}% pagos</strong>
+          <span className="mensal-progress__label-sub">
+            {' '}
+            · {summary.paid}/{students.length} {terms.student.toLowerCase()}s
+          </span>
         </p>
       </section>
+      ) : null}
 
       {loadingError ? (
         <div className="mensal-error-banner">
@@ -1086,6 +1113,9 @@ export default function Mensalidades() {
       <MensalidadesListTable
         loading={loading}
         displayedStudents={displayedStudents}
+        hasStudentsWithPlan={hasStudentsWithPlan}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
         terms={terms}
         paymentMap={paymentMap}
         currentMonth={currentMonth}

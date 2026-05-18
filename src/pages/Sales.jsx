@@ -35,7 +35,7 @@ const Sales = () => {
         </button>
       </div>
 
-      {tab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab />}
+      {tab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab onSwitchTab={setTab} />}
     </div>
   );
 };

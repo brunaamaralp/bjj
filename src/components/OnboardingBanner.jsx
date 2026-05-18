@@ -14,21 +14,27 @@ import {
   ONBOARDING_STEP_TITLES,
 } from '../lib/onboardingChecklist.js';
 import { useTerms } from '../lib/terminology.js';
+import { useProductsStore } from '../store/useProductsStore';
+import { useInventoryStore } from '../store/useInventoryStore';
 
 const ONBOARDING_BANNER_HEADLINE = 'Vamos deixar seu CRM pronto?';
 
 export default function OnboardingBanner() {
   const terms = useTerms();
   const navigate = useNavigate();
-  const { academyId, checklist, billingAccess, reopenNonce, academyList } = useLeadStore(
+  const { academyId, checklist, billingAccess, reopenNonce, academyList, modules, financeConfig } = useLeadStore(
     useShallow((s) => ({
       academyId: s.academyId,
       checklist: s.onboardingChecklist,
       billingAccess: s.billingAccess,
       reopenNonce: s.onboardingChecklistReopenNonce,
       academyList: s.academyList,
+      modules: s.modules,
+      financeConfig: s.financeConfig,
     }))
   );
+  const products = useProductsStore((s) => s.products);
+  const inventoryItems = useInventoryStore((s) => s.items);
   const completeOnboardingStepIds = useLeadStore((s) => s.completeOnboardingStepIds);
   const addToast = useUiStore((s) => s.addToast);
   const [dismissed, setDismissed] = useState(false);
@@ -56,9 +62,42 @@ export default function OnboardingBanner() {
   const installPwaRow = list.find((it) => it.id === 'install_pwa');
   const installPwaPending = Boolean(installPwaRow && !installPwaRow.done);
 
+  const onboardingCtx = useMemo(
+    () => ({
+      modules: modules || {},
+      financeConfig,
+      hasProducts: (products || []).length > 0,
+      hasStockMoves: (inventoryItems || []).some((it) => Number(it?.current_quantity) > 0),
+    }),
+    [modules, financeConfig, products, inventoryItems]
+  );
+
+  useEffect(() => {
+    if (!academyId) return;
+    if ((modules?.sales || modules?.inventory) && products.length === 0) {
+      void useProductsStore.getState().loadProducts();
+    }
+    if (modules?.inventory && inventoryItems.length === 0) {
+      void useInventoryStore.getState().loadItems();
+    }
+  }, [academyId, modules?.sales, modules?.inventory, modules?.finance, products.length, inventoryItems.length]);
+
+  useEffect(() => {
+    const ids = [];
+    if (onboardingCtx.hasProducts) ids.push('first_product');
+    if (onboardingCtx.hasStockMoves) ids.push('first_stock_entry');
+    if ((onboardingCtx.financeConfig?.plans?.length || 0) > 0) ids.push('setup_finance');
+    if (ids.length) void completeOnboardingStepIds(ids);
+  }, [
+    onboardingCtx.hasProducts,
+    onboardingCtx.hasStockMoves,
+    onboardingCtx.financeConfig?.plans?.length,
+    completeOnboardingStepIds,
+  ]);
+
   const effectiveCore = useMemo(
-    () => buildEffectiveCoreSteps(list, billingAccess, isBillingLive()),
-    [list, billingAccess]
+    () => buildEffectiveCoreSteps(list, billingAccess, isBillingLive(), onboardingCtx),
+    [list, billingAccess, onboardingCtx]
   );
 
   const { pendingCore, totalCore, allCoreDone } = useMemo(() => {
@@ -291,6 +330,7 @@ export default function OnboardingBanner() {
                     onClick={() => handleStepNav(s.id)}
                     disabled={stepBlocked(s.id)}
                     className="text-small"
+                    title={s.description || undefined}
                     style={{
                       border: '1px solid var(--border-light)',
                       background: stepBlocked(s.id) ? 'var(--surface-hover)' : 'var(--surface)',

@@ -4,6 +4,8 @@ import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Pe
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
 import { formatBRL } from '../../lib/moneyBr';
 import EmptyState from '../shared/EmptyState.jsx';
+import Hint from '../shared/Hint.jsx';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
 
 const STATUS_STYLES = {
   ok: { color: 'var(--success)', Icon: CheckCircle2, label: STOCK_STATUS_LABELS.ok },
@@ -86,7 +88,9 @@ export default function InventoryBalanceView({
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading && items.length === 0 ? (
+          <PageSkeleton variant="table" rows={6} columns={showPrices ? 9 : 7} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             variant="compact"
             tone="dashed"
@@ -110,7 +114,15 @@ export default function InventoryBalanceView({
                   {showPrices ? <th>Preço custo</th> : null}
                   <th>Saldo</th>
                   <th>Mín.</th>
-                  <th>Status</th>
+                  <th>
+                    <span className="inventory-th-with-hint">
+                      Status
+                      <Hint
+                        text="OK: acima do mínimo. Atenção: no mínimo. Crítico: abaixo do estoque mínimo."
+                        position="top"
+                      />
+                    </span>
+                  </th>
                   <th style={{ textAlign: 'right' }}>Ações</th>
                 </tr>
               </thead>

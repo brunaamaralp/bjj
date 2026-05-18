@@ -4,9 +4,27 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckSquare, PlusCircle, Pencil, Trash2, Calendar, User, X, ClipboardList, LayoutList, Kanban, CalendarDays, AlertTriangle, Users } from 'lucide-react';
+import {
+  CheckSquare,
+  PlusCircle,
+  Pencil,
+  Trash2,
+  Calendar,
+  User,
+  X,
+  ClipboardList,
+  LayoutList,
+  Kanban,
+  CalendarDays,
+  AlertTriangle,
+  Users,
+  Loader2,
+} from 'lucide-react';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import { friendlyError } from '../lib/errorMessages';
+import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import CollectionResultModal from '../components/CollectionResultModal.jsx';
 import {
   isCollectionTask,
@@ -44,8 +62,12 @@ function isDueInCurrentWeek(dueStr) {
 
 export default function Tasks() {
   const navigate = useNavigate();
+  const terms = useTerms();
+  const labels = useLeadStore((s) => s.labels);
+  const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
   const { academyId, teamId, leads, userId, academyList } = useLeadStore();
-  const { tasks, loading, error, filters, setFilter, fetchTasks, createTask, updateTask, deleteTask } = useTaskStore();
+  const { tasks, loading, error, filters, setFilter, fetchTasks, createTask, updateTask, deleteTask, patchTaskLocal, isUpdating } =
+    useTaskStore();
   const addToast = useUiStore((s) => s.addToast);
 
   const [searchParams] = useSearchParams();
@@ -322,10 +344,14 @@ export default function Tasks() {
       setCollectionModalTask(t);
       return;
     }
-    const newStatus = t.status === 'done' ? 'pending' : 'done';
+    if (isUpdating(t.id)) return;
+    const previousStatus = t.status;
+    const newStatus = previousStatus === 'done' ? 'pending' : 'done';
+    patchTaskLocal(t.id, { status: newStatus });
     try {
       await updateTask(t.id, { status: newStatus });
-    } catch (e) {
+    } catch {
+      patchTaskLocal(t.id, { status: previousStatus });
       addToast({ type: 'error', message: 'Erro ao atualizar status' });
     }
   };
@@ -387,13 +413,19 @@ export default function Tasks() {
         key={t.id}
         className={`task-card ${compact ? 'task-card--compact' : ''} ${t.status === 'done' ? 'done' : ''}`}
       >
-        <input
-          type="checkbox"
-          checked={t.status === 'done'}
-          onChange={() => toggleDone(t)}
-          className="task-checkbox"
-          onClick={(e) => e.stopPropagation()}
-        />
+        <span className="task-checkbox-wrap" onClick={(e) => e.stopPropagation()}>
+          {isUpdating(t.id) ? (
+            <Loader2 size={16} className="navi-async-btn__spin task-checkbox-spinner" aria-hidden />
+          ) : (
+            <input
+              type="checkbox"
+              checked={t.status === 'done'}
+              onChange={() => void toggleDone(t)}
+              className="task-checkbox"
+              aria-label={t.status === 'done' ? 'Marcar como pendente' : 'Marcar como concluída'}
+            />
+          )}
+        </span>
         <div
           className="task-content"
           role="button"
@@ -597,10 +629,7 @@ export default function Tasks() {
       </header>
 
       {error ? (
-        <div className="dashboard-error-banner mt-3">
-          <span>{error}</span>
-          <button type="button" className="btn-secondary" onClick={() => fetchTasks(academyId, { reset: true })}>Tentar novamente</button>
-        </div>
+        <ErrorBanner className="mt-3" message={friendlyError(error, 'load')} onRetry={() => fetchTasks(academyId, { reset: true })} />
       ) : null}
 
       {tasks.length >= 500 ? (
@@ -874,7 +903,7 @@ export default function Tasks() {
 
               {/* Vincular aluno / lead */}
               <div className="task-field" ref={leadDropRef} style={{ position: 'relative' }}>
-                <label className="task-field-label">Vincular aluno / lead</label>
+                <label className="task-field-label">{`Vincular ${terms.student.toLowerCase()} / ${contactLabel.toLowerCase()}`}</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
@@ -1001,7 +1030,7 @@ export default function Tasks() {
                 </p>
               </div>
               <div className="task-drawer-field">
-                <span className="task-drawer-label">Lead vinculado</span>
+                <span className="task-drawer-label">{`${contactLabel} vinculado`}</span>
                 {detailTask.lead_id ? (
                   <button
                     type="button"
@@ -1156,7 +1185,17 @@ export default function Tasks() {
         .task-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: var(--transition); }
         .task-card:hover { border-color: var(--border-mid); }
         .task-card.done { opacity: 0.7; background: var(--surface-hover); }
-        .task-checkbox { margin-top: 3px; width: 16px; height: 16px; cursor: pointer; accent-color: var(--success); }
+        .task-checkbox-wrap {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          margin-top: 3px;
+          flex-shrink: 0;
+        }
+        .task-checkbox-spinner { color: var(--v500); }
+        .task-checkbox { margin-top: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--success); }
         .task-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
         .task-title { font-weight: 600; font-size: 14px; color: var(--text); }
         .task-title.line-through { text-decoration: line-through; color: var(--text-muted); }

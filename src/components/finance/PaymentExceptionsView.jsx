@@ -17,6 +17,7 @@ import {
 } from '../../lib/paymentExceptions';
 import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import Hint from '../shared/Hint.jsx';
 
 function displayNote(note, max = 80) {
   const s = String(note || '').trim();
@@ -412,7 +413,15 @@ export default function PaymentExceptionsView({
               <th>Recebido</th>
               <th>Diferença</th>
               <th>Vencimento</th>
-              <th>Conferir em</th>
+              <th>
+                <span className="mensal-th-with-hint">
+                  Conferir em
+                  <Hint
+                    text="Canal ou sistema onde o pagamento deve ser conferido (caixa, Pix, planilha, etc.)."
+                    position="top"
+                  />
+                </span>
+              </th>
               <th>Status</th>
               <th>Observação</th>
               <th>Ações</th>

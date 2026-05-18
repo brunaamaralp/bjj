@@ -8,7 +8,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
-import { useTerms } from '../../lib/terminology.js';
+import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
 
 async function getJwt() {
     const jwt = await account.createJWT();
@@ -68,6 +68,8 @@ const cardBase = {
 
 const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const terms = useTerms();
+    const labels = useLeadStore((s) => s.labels);
+    const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const addToast = useUiStore((s) => s.addToast);
     const academyIdRef = useRef(academyId);
     useEffect(() => { academyIdRef.current = academyId; }, [academyId]);
@@ -478,7 +480,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         Detalhes para suporte
                     </summary>
                     <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
-                        O assistente também recebe dados estruturados do lead (formato JSON) junto com o texto. Use <strong>Ver como a IA recebe</strong> abaixo para inspecionar o conteúdo completo.
+                        {`O assistente também recebe dados estruturados do ${contactLabel.toLowerCase()} (formato JSON) junto com o texto. Use `}
+                        <strong>Ver como a IA recebe</strong> abaixo para inspecionar o conteúdo completo.
                     </p>
                 </details>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -487,7 +490,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         onClick={() => void handlePreviewFullPrompt()}
                         className="btn btn-outline"
                         disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                        title="Mostra o texto completo enviado ao modelo, incluindo dados estruturados do lead"
+                        title={`Mostra o texto completo enviado ao modelo, incluindo dados estruturados do ${contactLabel.toLowerCase()}`}
                     >
                         {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
                     </button>
@@ -848,7 +851,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         void handleSend();
                                     }
                                 }}
-                                placeholder="Simule uma mensagem de um lead…"
+                                placeholder={`Simule uma mensagem de um ${contactLabel.toLowerCase()}…`}
                                 rows={2}
                                 disabled={sending}
                                 style={{ flex: 1 }}
@@ -1218,7 +1221,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     </button>
                                     {!!zap.waInfo?.instance_id && zap.waInfo?.status === 'offline' && (
                                         <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.powerOnInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                            Ligar instância
+                                            Conectar WhatsApp
                                         </button>
                                     )}
                                     {!!zap.waInfo?.instance_id && (

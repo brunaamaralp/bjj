@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { Routes, Route, Link, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -38,23 +38,25 @@ import LeadProfile from './pages/LeadProfile';
 import StudentProfile from './pages/StudentProfile';
 import NewLead from './pages/NewLead';
 import Students from './pages/Students';
-import UserAccount from './pages/UserAccount';
-import AcademySettings from './pages/AcademySettings';
+import Tasks from './pages/Tasks';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
-import Inventory from './pages/Inventory';
-import Products from './pages/Products';
-import Sales from './pages/Sales';
-import Reports from './pages/Reports';
-import Caixa from './pages/Caixa';
 import RequireFinanceOwner from './components/finance/RequireFinanceOwner.jsx';
-import Mensalidades from './pages/Mensalidades';
-import Templates from './pages/Templates';
-import Inbox from './pages/Inbox';
-import Plans from './pages/Plans';
-import AIAgentSettings from './pages/AIAgentSettings';
-import Tasks from './pages/Tasks';
+import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
+
+const Inbox = React.lazy(() => import('./pages/Inbox'));
+const Reports = React.lazy(() => import('./pages/Reports'));
+const AIAgentSettings = React.lazy(() => import('./pages/AIAgentSettings'));
+const UserAccount = React.lazy(() => import('./pages/UserAccount'));
+const AcademySettings = React.lazy(() => import('./pages/AcademySettings'));
+const Plans = React.lazy(() => import('./pages/Plans'));
+const Templates = React.lazy(() => import('./pages/Templates'));
+const Mensalidades = React.lazy(() => import('./pages/Mensalidades'));
+const Caixa = React.lazy(() => import('./pages/Caixa'));
+const Inventory = React.lazy(() => import('./pages/Inventory'));
+const Products = React.lazy(() => import('./pages/Products'));
+const Sales = React.lazy(() => import('./pages/Sales'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -65,6 +67,9 @@ import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
 import { getNewLeadLabel, buildMobileDrawerSections } from './lib/naviMenu.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
+import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
+import RouteFallback from './components/shared/RouteFallback.jsx';
+import PageSkeleton from './components/shared/PageSkeleton.jsx';
 
 
 function defaultAiNameFromUser(user) {
@@ -85,7 +90,8 @@ const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [sessionChecking, setSessionChecking] = useState(true);
+  const [academyReady, setAcademyReady] = useState(false);
   const setAcademyId = useLeadStore((s) => s.setAcademyId);
   const labels = useLeadStore((s) => s.labels);
   const setLabels = useLeadStore((s) => s.setLabels);
@@ -185,16 +191,21 @@ const App = () => {
     };
   }, [mobileMenuOpen]);
 
+  const bootModules = useMemo(
+    () => (academyReady ? modules : { sales: true, inventory: true, finance: true }),
+    [academyReady, modules]
+  );
+
   const mobileMenuSections = useMemo(
     () =>
       buildMobileDrawerSections({
-        modules,
+        modules: bootModules,
         navRole,
         canConfigureAgenteIa,
         myWorkspaceLabel: terms.myWorkspace,
         pipelineLabel: labels.pipeline || 'Funil',
       }),
-    [modules, navRole, canConfigureAgenteIa, terms.myWorkspace, labels.pipeline]
+    [bootModules, navRole, canConfigureAgenteIa, terms.myWorkspace, labels.pipeline]
   );
 
   const mobileDrawerIconMap = useMemo(
@@ -379,9 +390,11 @@ const App = () => {
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
+          setAcademyReady(false);
           try { useLeadStore.getState().setUserId(currentUser.$id); } catch (e) { void e; }
           try { await authService.refreshJwt(); } catch (e) { void e; }
-          await setupAcademy(currentUser);
+          setSessionChecking(false);
+          void setupAcademy(currentUser).finally(() => setAcademyReady(true));
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
           navigate('/', { replace: true });
         } else {
@@ -398,7 +411,7 @@ const App = () => {
           navigate('/', { replace: true });
         }
       } finally {
-        setLoading(false);
+        setSessionChecking(false);
       }
     };
     init();
@@ -617,7 +630,12 @@ const App = () => {
       }
       // Fetch leads after academy is set
       useLeadStore.getState().setAcademyId(academyId);
-      await useLeadStore.getState().fetchLeads();
+      const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
+      const leadsPromise = useLeadStore.getState().fetchLeads();
+      if (financeEnabled && academyId) {
+        void prefetchFinanceConfig(academyId);
+      }
+      await leadsPromise;
       await syncBilling(academyId);
     } catch (e) {
       console.error('Erro ao carregar academia:', e);
@@ -643,9 +661,11 @@ const App = () => {
       return;
     }
     setUser(u);
+    setAcademyReady(false);
     try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
     try { await authService.refreshJwt(); } catch (e) { void e; }
     await setupAcademy(u, opts);
+    setAcademyReady(true);
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
     navigate('/', { replace: true });
   };
@@ -658,37 +678,69 @@ const App = () => {
     }
     await authService.logout();
     setUser(null);
+    setAcademyReady(false);
     useLeadStore.getState().setAcademyId(null);
     useLeadStore.getState().setAcademyList([]);
     useLeadStore.getState().setInboxUnreadConversations(0);
     useLeadStore.setState({ leads: [] });
   };
 
-  if (loading) {
+  if (sessionChecking) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 20,
-          background: 'var(--v900)',
-        }}
-      >
-        <NaviLogo size={48} variant="white" />
-        <div className="navi-loading-spinner" aria-hidden />
+      <div className="navi-bootstrap-loader" role="status" aria-live="polite" aria-label="Iniciando">
+        <div className="navi-bootstrap-loader__brand">
+          <NaviLogo size={48} variant="white" />
+          <NaviWordmark fontSize={20} variant="light" />
+        </div>
+        <div className="navi-bootstrap-loader__track" aria-hidden>
+          <div className="navi-bootstrap-loader__bar" />
+        </div>
         <style dangerouslySetInnerHTML={{
           __html: `
-          .navi-loading-spinner {
-            width: 32px; height: 32px;
-            border: 3px solid rgba(123, 99, 212, 0.35);
-            border-top-color: var(--v200);
-            border-radius: 50%;
-            animation: navi-spin 0.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+          .navi-bootstrap-loader {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 32px 24px;
+            background: var(--v900);
           }
-          @keyframes navi-spin { to { transform: rotate(360deg); } }
+          .navi-bootstrap-loader__brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            animation: naviBootstrapPulse 2s ease-in-out infinite;
+          }
+          @keyframes naviBootstrapPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+          }
+          .navi-bootstrap-loader__track {
+            width: min(220px, 72vw);
+            height: 3px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            overflow: hidden;
+          }
+          .navi-bootstrap-loader__bar {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: var(--v500);
+            animation: naviBootstrapProgress 2s ease-in-out infinite;
+          }
+          @keyframes naviBootstrapProgress {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 72%; margin-left: 14%; }
+            100% { width: 100%; margin-left: 0; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .navi-bootstrap-loader__brand { animation: none; opacity: 1; }
+            .navi-bootstrap-loader__bar { width: 100%; animation: none; }
+          }
         `}} />
       </div>
     );
@@ -767,6 +819,7 @@ const App = () => {
   );
 
   return (
+    <ErrorBoundary>
     <div className="app-container navi-authed">
       <div className="navi-shell">
         <aside
@@ -816,7 +869,7 @@ const App = () => {
             labels={labels}
             navStudentsLabel={navStudentsLabel}
             newLeadLabel={newLeadLabel}
-            modules={modules}
+            modules={bootModules}
             navRole={navRole}
             canConfigureAgenteIa={canConfigureAgenteIa}
             myWorkspaceLabel={terms.myWorkspace}
@@ -882,35 +935,41 @@ const App = () => {
 
           <main className="main-content">
             <OnboardingBanner />
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/login" element={<Navigate to="/" replace />} />
-              <Route path="/register" element={<Navigate to="/" replace />} />
-              <Route path="/cadastro" element={<Navigate to="/" replace />} />
-              <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/inbox" element={<Inbox />} />
-              <Route path="/agente-ia" element={<AIAgentSettings />} />
-              <Route path="/lead/:id" element={<LeadProfile />} />
-              <Route path="/student/:id" element={<StudentProfile />} />
-              <Route path="/new-lead" element={<NewLead />} />
-              <Route path="/reports" element={<Reports />} />
-              {modules.finance === true && <Route path="/caixa" element={<Caixa />} />}
-              {modules.finance === true && <Route path="/finance" element={<RequireFinanceOwner />} />}
-              {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
-              {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
-              {(modules.inventory === true || modules.sales === true) && (
-                <Route path="/produtos" element={<Products />} />
-              )}
-              {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
-              <Route path="/students" element={<Students />} />
-              <Route path="/tarefas" element={<Tasks />} />
-              <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
-              <Route path="/planos" element={<Plans user={user} />} />
-              <Route path="/empresa" element={<AcademySettings />} />
-              <Route path="/profile" element={<Navigate to="/conta" replace />} />
-              <Route path="/templates" element={<Templates />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            {!academyReady ? (
+              <PageSkeleton variant="cards" />
+            ) : (
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/login" element={<Navigate to="/" replace />} />
+                  <Route path="/register" element={<Navigate to="/" replace />} />
+                  <Route path="/cadastro" element={<Navigate to="/" replace />} />
+                  <Route path="/pipeline" element={<Pipeline />} />
+                  <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/agente-ia" element={<AIAgentSettings />} />
+                  <Route path="/lead/:id" element={<LeadProfile />} />
+                  <Route path="/student/:id" element={<StudentProfile />} />
+                  <Route path="/new-lead" element={<NewLead />} />
+                  <Route path="/reports" element={<Reports />} />
+                  {modules.finance === true && <Route path="/caixa" element={<Caixa />} />}
+                  {modules.finance === true && <Route path="/finance" element={<RequireFinanceOwner />} />}
+                  {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
+                  {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
+                  {(modules.inventory === true || modules.sales === true) && (
+                    <Route path="/produtos" element={<Products />} />
+                  )}
+                  {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
+                  <Route path="/students" element={<Students />} />
+                  <Route path="/tarefas" element={<Tasks />} />
+                  <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
+                  <Route path="/planos" element={<Plans user={user} />} />
+                  <Route path="/empresa" element={<AcademySettings />} />
+                  <Route path="/profile" element={<Navigate to="/conta" replace />} />
+                  <Route path="/templates" element={<Templates />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            )}
           </main>
         </div>
       </div>
@@ -997,7 +1056,7 @@ const App = () => {
           <GraduationCap size={22} strokeWidth={1.75} />
           <span>{navStudentsLabel}</span>
         </Link>
-        {modules.finance === true ? (
+        {bootModules.finance === true ? (
           <Link to="/mensalidades" className={`navi-nav-item${isActive('/mensalidades') ? ' active' : ''}`}>
             <Users size={22} strokeWidth={1.75} />
             <span>Mensalidades</span>
@@ -1079,6 +1138,7 @@ const App = () => {
           }
         `}} />
     </div>
+    </ErrorBoundary>
   );
 };
 

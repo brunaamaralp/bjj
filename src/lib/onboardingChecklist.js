@@ -8,17 +8,34 @@
 
 export const ONBOARDING_STEP_TITLES = {
   first_lead: 'Criar seu primeiro lead',
-  setup_ai: 'Configurar o assistente de IA',
   connect_whatsapp: 'Conectar o WhatsApp',
+  setup_ai: 'Configurar o assistente de IA',
+  setup_finance: 'Configurar financeiro',
+  first_product: 'Cadastrar primeiro produto',
+  first_stock_entry: 'Registrar estoque inicial',
   company_tax: 'Atualizar CPF/CNPJ da empresa',
   install_pwa: 'Instalar atalho no celular',
+};
+
+export const ONBOARDING_STEP_DESCRIPTIONS = {
+  first_lead: 'Adicione um contato para acompanhar até a matrícula.',
+  connect_whatsapp: 'Receba e responda mensagens pelo Nave.',
+  setup_ai: 'Defina como o assistente atende seus contatos.',
+  setup_finance: 'Adicione planos e configure as mensalidades.',
+  first_product: 'Adicione produtos para usar nas vendas.',
+  first_stock_entry: 'Informe as quantidades dos seus produtos.',
+  company_tax: 'Dados fiscais para faturamento.',
+  install_pwa: 'Atalho na tela inicial do celular.',
 };
 
 /** Ordem persistida por defeito (sem company_tax — injetado na UI quando necessário). */
 export const DEFAULT_ONBOARDING_CHECKLIST = [
   { id: 'first_lead', title: ONBOARDING_STEP_TITLES.first_lead, done: false },
-  { id: 'setup_ai', title: ONBOARDING_STEP_TITLES.setup_ai, done: false },
   { id: 'connect_whatsapp', title: ONBOARDING_STEP_TITLES.connect_whatsapp, done: false },
+  { id: 'setup_ai', title: ONBOARDING_STEP_TITLES.setup_ai, done: false },
+  { id: 'setup_finance', title: ONBOARDING_STEP_TITLES.setup_finance, done: false },
+  { id: 'first_product', title: ONBOARDING_STEP_TITLES.first_product, done: false },
+  { id: 'first_stock_entry', title: ONBOARDING_STEP_TITLES.first_stock_entry, done: false },
   { id: 'install_pwa', title: ONBOARDING_STEP_TITLES.install_pwa, done: false },
 ];
 
@@ -107,7 +124,15 @@ export function parseOnboardingChecklist(raw) {
 }
 
 /** Passos que contam para “Faltam X de Y” e conclusão do banner principal. */
-export const CORE_ONBOARDING_IDS = ['first_lead', 'setup_ai', 'connect_whatsapp', 'company_tax'];
+export const CORE_ONBOARDING_IDS = [
+  'first_lead',
+  'connect_whatsapp',
+  'setup_ai',
+  'setup_finance',
+  'first_product',
+  'first_stock_entry',
+  'company_tax',
+];
 
 /** Só PWA; chips / dica separada. */
 export const SECONDARY_ONBOARDING_IDS = ['install_pwa'];
@@ -117,9 +142,17 @@ export const SECONDARY_ONBOARDING_IDS = ['install_pwa'];
  * @param {{ companyTaxOk?: boolean, accessLevel?: string } | null} billingAccess
  * @param {boolean} billingLive — isBillingLive() no cliente
  */
-export function buildEffectiveCoreSteps(list, billingAccess, billingLive) {
+/**
+ * @param {object} [ctx]
+ * @param {object} [ctx.modules] — { finance, sales, inventory }
+ * @param {object|null} [ctx.financeConfig]
+ * @param {boolean} [ctx.hasProducts]
+ * @param {boolean} [ctx.hasStockMoves]
+ */
+export function buildEffectiveCoreSteps(list, billingAccess, billingLive, ctx = {}) {
   const arr = Array.isArray(list) ? list : [];
   const byId = new Map(arr.map((x) => [x.id, x]));
+  const modules = ctx.modules || {};
   const showTax =
     Boolean(billingLive) &&
     billingAccess &&
@@ -128,21 +161,33 @@ export function buildEffectiveCoreSteps(list, billingAccess, billingLive) {
     billingAccess.accessLevel !== 'none' &&
     billingAccess.companyTaxOk === false;
 
-  const ids = ['first_lead', 'setup_ai', 'connect_whatsapp'];
+  const ids = ['first_lead', 'connect_whatsapp', 'setup_ai'];
+  if (modules.finance) ids.push('setup_finance');
+  if (modules.sales || modules.inventory) ids.push('first_product');
+  if (modules.inventory) ids.push('first_stock_entry');
   if (showTax) ids.push('company_tax');
+
+  const computedDone = {
+    setup_finance: (ctx.financeConfig?.plans?.length || 0) > 0,
+    first_product: Boolean(ctx.hasProducts),
+    first_stock_entry: Boolean(ctx.hasStockMoves),
+  };
 
   return ids.map((id) => {
     const row = byId.get(id);
+    const persisted = Boolean(row?.done);
+    const auto = Boolean(computedDone[id]);
     return {
       id,
       title: ONBOARDING_STEP_TITLES[id] || row?.title || 'Passo',
-      done: Boolean(row?.done),
+      description: ONBOARDING_STEP_DESCRIPTIONS[id] || '',
+      done: persisted || auto,
     };
   });
 }
 
-export function isEffectiveOnboardingComplete(list, billingAccess, billingLive) {
-  const core = buildEffectiveCoreSteps(list, billingAccess, billingLive);
+export function isEffectiveOnboardingComplete(list, billingAccess, billingLive, ctx = {}) {
+  const core = buildEffectiveCoreSteps(list, billingAccess, billingLive, ctx);
   return core.length > 0 && core.every((s) => s.done);
 }
 
@@ -169,7 +214,10 @@ export function onboardingDismissStorageKey(academyId) {
   return `navi_onboarding_dismissed_${String(academyId || '').trim()}`;
 }
 
-const MERGE_ORDER = [...DEFAULT_ORDER_IDS, 'company_tax'];
+const MERGE_ORDER = [
+  ...DEFAULT_ORDER_IDS,
+  'company_tax',
+];
 
 /**
  * Garante todos os passos padrão e marca ids como done.

@@ -1,10 +1,11 @@
 import React from 'react';
-import * as XLSX from 'xlsx';
 import { Download } from 'lucide-react';
 
 const ExportButton = ({ leads, fileName = 'bjj-crm-export', label = 'Exportar', title }) => {
-    const handleExport = () => {
+    const handleExport = async () => {
         if (!leads || leads.length === 0) return;
+
+        const XLSX = await import('xlsx');
 
         const data = leads.map(l => ({
             'Nome': l.name || '',

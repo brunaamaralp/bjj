@@ -17,13 +17,28 @@ function buildQueryString(academyId, filters) {
   return qs.toString();
 }
 
+function withoutUpdatingId(ids, taskId) {
+  return (ids || []).filter((x) => x !== taskId);
+}
+
 export const useTaskStore = create((set, get) => ({
   tasks: [],
   loading: false,
   error: null,
+  updatingTaskIds: [],
   filters: { status: 'all', assigned_to: null, lead_id: null },
 
+  isUpdating: (id) => get().updatingTaskIds.includes(String(id || '').trim()),
+
   setFilter: (key, value) => set((state) => ({ filters: { ...state.filters, [key]: value } })),
+
+  patchTaskLocal: (id, patch) => {
+    const taskId = String(id || '').trim();
+    if (!taskId) return;
+    set((state) => ({
+      tasks: (state.tasks || []).map((t) => (t.id === taskId ? { ...t, ...patch } : t)),
+    }));
+  },
 
   fetchTasks: async (academyId, opts = {}) => {
     const academy = String(academyId || '').trim();
@@ -117,7 +132,13 @@ export const useTaskStore = create((set, get) => ({
     const taskId = String(id || '').trim();
     if (!taskId) throw new Error('id_missing');
 
-    set({ loading: true, error: null });
+    set((state) => ({
+      updatingTaskIds: state.updatingTaskIds.includes(taskId)
+        ? state.updatingTaskIds
+        : [...state.updatingTaskIds, taskId],
+      error: null,
+    }));
+
     try {
       const jwt = await createSessionJwt();
       if (!jwt) throw new Error('jwt_missing');
@@ -137,14 +158,17 @@ export const useTaskStore = create((set, get) => ({
       const updated = data.task;
       set((state) => ({
         tasks: (state.tasks || []).map((t) => (t.id === taskId ? updated : t)),
-        loading: false,
+        updatingTaskIds: withoutUpdatingId(state.updatingTaskIds, taskId),
         error: null,
       }));
 
       return updated;
     } catch (e) {
       console.error('[useTaskStore] updateTask error:', e);
-      set({ loading: false, error: e?.message || 'Erro ao atualizar tarefa' });
+      set((state) => ({
+        updatingTaskIds: withoutUpdatingId(state.updatingTaskIds, taskId),
+        error: e?.message || 'Erro ao atualizar tarefa',
+      }));
       throw e;
     }
   },
@@ -180,4 +204,3 @@ export const useTaskStore = create((set, get) => ({
     }
   },
 }));
-

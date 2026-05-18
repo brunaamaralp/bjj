@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { PRODUCT_UNIT_OPTIONS } from '../../lib/stockProducts';
+import {
+  PRODUCT_UNIT_OPTIONS,
+  PRODUCT_SKU_PRESETS,
+  PRODUCT_SKU_OTHER,
+  parseSkuFormFields,
+  resolveSkuFromForm,
+} from '../../lib/stockProducts';
 import { centsToNumber, formatBRLFromCents, maskFromNumber, parseMaskToCents } from '../../lib/moneyBr';
 
 const NEW_CAT = '__nova__';
@@ -18,13 +24,15 @@ function emptyForm() {
     initial_quantity: '',
     minimum_level: '3',
     unit: 'unidade',
-    sku: '',
+    skuSelect: '',
+    skuOther: '',
     image_url: '',
     notes: '',
   };
 }
 
 function formFromProduct(p, { isDuplicate }) {
+  const skuFields = isDuplicate ? { skuSelect: '', skuOther: '' } : parseSkuFormFields(p?.sku);
   return {
     nome: p?.nome || '',
     categoria: p?.categoria || '',
@@ -38,7 +46,7 @@ function formFromProduct(p, { isDuplicate }) {
     initial_quantity: '',
     minimum_level: String(p?.minimum_level ?? 3),
     unit: p?.unit || 'unidade',
-    sku: p?.sku || '',
+    ...skuFields,
     image_url: p?.image_url || '',
     notes: p?.notes || '',
   };
@@ -112,7 +120,7 @@ export default function ProductFormModal({
       is_active: form.is_active,
       minimum_level: Math.max(0, Math.trunc(Number(form.minimum_level) || 0)),
       unit: form.unit,
-      sku: form.sku.trim(),
+      sku: resolveSkuFromForm(form.skuSelect, form.skuOther),
       image_url: form.image_url.trim(),
       notes: form.notes.trim(),
     };
@@ -229,8 +237,29 @@ export default function ProductFormModal({
             </Field>
           </div>
 
-          <Field label="SKU">
-            <input className="form-input" maxLength={64} value={form.sku} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} />
+          <Field label="Código / Referência">
+            <select
+              className="form-input"
+              value={form.skuSelect}
+              onChange={(e) => setForm((f) => ({ ...f, skuSelect: e.target.value }))}
+            >
+              <option value="">Selecionar…</option>
+              {PRODUCT_SKU_PRESETS.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+              <option value={PRODUCT_SKU_OTHER}>Outro (digitar)</option>
+            </select>
+            {form.skuSelect === PRODUCT_SKU_OTHER ? (
+              <input
+                className="form-input mt-1"
+                maxLength={64}
+                placeholder="Ex: A5, XL, 42…"
+                value={form.skuOther}
+                onChange={(e) => setForm((f) => ({ ...f, skuOther: e.target.value }))}
+              />
+            ) : null}
           </Field>
 
           <Field label="URL da imagem">
@@ -248,7 +277,9 @@ export default function ProductFormModal({
               <span style={{ marginRight: 'auto' }} />
             )}
             <button type="button" className="btn-outline" onClick={onClose} disabled={loading}>Cancelar</button>
-            <button type="submit" className="btn-secondary" disabled={loading}>{loading ? 'Salvando…' : 'Salvar'}</button>
+            <button type="submit" className="btn-secondary" disabled={loading}>
+              {loading ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar produto'}
+            </button>
           </div>
         </form>
       </div>

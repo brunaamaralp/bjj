@@ -1,11 +1,12 @@
 /** Backlog: filtros (turma/plano); virtualização para listas muito longas. */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
+import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
@@ -50,6 +51,8 @@ const Students = () => {
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
     const leadsError = useLeadStore((s) => s.leadsError);
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 200);
+    const listScrollRef = useRef(null);
     const [filtroTipo, setFiltroTipo] = useState('Todos');
     const [filtroOrigem, setFiltroOrigem] = useState('Todas');
     const [ordenacao, setOrdenacao] = useState('az');
@@ -80,8 +83,8 @@ const Students = () => {
     );
 
     const filteredStudents = useMemo(() => {
-        const q = searchTerm.trim().toLowerCase();
-        const qPhone = normalizePhone(searchTerm);
+        const q = debouncedSearch.trim().toLowerCase();
+        const qPhone = normalizePhone(debouncedSearch);
 
         return statusFilteredStudents
             .filter((s) => {
@@ -109,7 +112,15 @@ const Students = () => {
                 if (ordenacao === 'antigos') return dA.localeCompare(dB);
                 return 0;
             });
-    }, [statusFilteredStudents, searchTerm, filtroTipo, filtroOrigem, ordenacao]);
+    }, [statusFilteredStudents, debouncedSearch, filtroTipo, filtroOrigem, ordenacao]);
+
+    const shouldVirtualizeStudents = filteredStudents.length > 50;
+    const studentVirtualizer = useVirtualizer({
+        count: shouldVirtualizeStudents ? filteredStudents.length : 0,
+        getScrollElement: () => listScrollRef.current,
+        estimateSize: () => 88,
+        overscan: 8,
+    });
 
     const limparFiltros = () => {
         setSearchTerm('');
@@ -233,6 +244,8 @@ const Students = () => {
                 return;
             }
 
+            const XLSX = await import('xlsx');
+
             const data = allStudents.map((l) => ({
                 'Nome': l.name || '',
                 'Telefone': l.phone || '',
@@ -281,6 +294,101 @@ const Students = () => {
     const exportTooltip = terms.exportStudentsTooltip
         .replace(/\{students\}/g, studentPlural.toLowerCase())
         .replace(/\{student\}/g, terms.student);
+
+    const renderStudentCard = (student, animIndex = 0) => {
+        const digits = normalizePhone(student.phone);
+        return (
+            <div
+                className="card student-card animate-in"
+                style={shouldVirtualizeStudents ? { marginBottom: 8 } : { animationDelay: `${0.03 * animIndex}s` }}
+            >
+                <div className="flex justify-between items-center">
+                    <div
+                        className="student-card-main"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigate(`/student/${student.id}`);
+                            }
+                        }}
+                        onClick={() => navigate(`/student/${student.id}`)}
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            border: 'none',
+                            background: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            color: 'inherit',
+                        }}
+                    >
+                        <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
+                        <p className="text-small" style={{ margin: 0 }}>
+                            {[normalizeLeadProfileType(student.type) || student.type, student.phone]
+                                .filter((p) => p && String(p).trim())
+                                .join(' • ') || '—'}
+                        </p>
+                        {(student.plan || student.enrollmentDate) && (
+                            <div
+                                className="student-card-meta"
+                                style={{
+                                    display: 'flex',
+                                    gap: '12px',
+                                    marginTop: '4px',
+                                    fontSize: '0.75rem',
+                                    color: 'var(--text-muted)',
+                                }}
+                            >
+                                {student.plan && <span className="student-meta-item">📋 {student.plan}</span>}
+                                {student.enrollmentDate && (
+                                    <span className="student-meta-item">
+                                        📅 Desde {formatDate(student.enrollmentDate)}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 student-card-actions">
+                        {digits ? (
+                            <Link
+                                to={`/inbox?phone=${encodeURIComponent(digits)}`}
+                                className="student-inbox-link students-touch-hit"
+                                draggable={false}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                Atendimento
+                            </Link>
+                        ) : null}
+                        <button
+                            type="button"
+                            className="quick-action-btn students-touch-hit"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`https://wa.me/55${digits}`, '_blank');
+                            }}
+                            disabled={!digits}
+                            title="WhatsApp"
+                        >
+                            <MessageCircle size={16} color="#25D366" />
+                        </button>
+                        <Link
+                            to={`/student/${student.id}`}
+                            className="student-profile-chevron students-touch-hit"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`Perfil do ${studentSingular.toLowerCase()}`}
+                            aria-label={`Abrir perfil do ${studentSingular.toLowerCase()}`}
+                        >
+                            <ChevronRight size={16} color="var(--text-muted)" />
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
@@ -498,7 +606,11 @@ const Students = () => {
                 );
             })()}
 
-            <div className="flex-col gap-2 mt-4">
+            <div
+                className="flex-col gap-2 mt-4"
+                ref={listScrollRef}
+                style={shouldVirtualizeStudents ? { maxHeight: 'calc(100vh - 260px)', overflow: 'auto' } : undefined}
+            >
                 {leadsLoading && students.length === 0 ? (
                     <div className="students-skeleton-list mt-4" role="status" aria-live="polite" aria-busy="true">
                         {[1, 2, 3].map((i) => (
@@ -538,95 +650,30 @@ const Students = () => {
                             role="status"
                         />
                     </div>
-                ) : (
-                    filteredStudents.map((student, i) => {
-                        const digits = normalizePhone(student.phone);
-                        return (
-                            <div
-                                key={student.id}
-                                className="card student-card animate-in"
-                                style={{ animationDelay: `${0.03 * i}s` }}
-                            >
-                                <div className="flex justify-between items-center">
-                                    <div
-                                        className="student-card-main"
-                                        role="button"
-                                        tabIndex={0}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                navigate(`/student/${student.id}`);
-                                            }
-                                        }}
-                                        onClick={() => navigate(`/student/${student.id}`)}
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 0,
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            border: 'none',
-                                            background: 'none',
-                                            padding: 0,
-                                            font: 'inherit',
-                                            color: 'inherit',
-                                        }}
-                                    >
-                                        <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
-                                        <p className="text-small" style={{ margin: 0 }}>
-                                            {[normalizeLeadProfileType(student.type) || student.type, student.phone].filter((p) => p && String(p).trim()).join(' • ') || '—'}
-                                        </p>
-                                        {(student.plan || student.enrollmentDate) && (
-                                            <div className="student-card-meta" style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                {student.plan && (
-                                                    <span className="student-meta-item">
-                                                        📋 {student.plan}
-                                                    </span>
-                                                )}
-                                                {student.enrollmentDate && (
-                                                    <span className="student-meta-item">
-                                                        📅 Desde {formatDate(student.enrollmentDate)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2 student-card-actions">
-                                        {digits ? (
-                                            <Link
-                                                to={`/inbox?phone=${encodeURIComponent(digits)}`}
-                                                className="student-inbox-link students-touch-hit"
-                                                draggable={false}
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                Atendimento
-                                            </Link>
-                                        ) : null}
-                                        <button
-                                            type="button"
-                                            className="quick-action-btn students-touch-hit"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                window.open(`https://wa.me/55${digits}`, '_blank');
-                                            }}
-                                            disabled={!digits}
-                                            title="WhatsApp"
-                                        >
-                                            <MessageCircle size={16} color="#25D366" />
-                                        </button>
-                                        <Link
-                                            to={`/student/${student.id}`}
-                                            className="student-profile-chevron students-touch-hit"
-                                            onClick={(e) => e.stopPropagation()}
-                                            title={`Perfil do ${studentSingular.toLowerCase()}`}
-                                            aria-label={`Abrir perfil do ${studentSingular.toLowerCase()}`}
-                                        >
-                                            <ChevronRight size={16} color="var(--text-muted)" />
-                                        </Link>
-                                    </div>
+                ) : shouldVirtualizeStudents ? (
+                    <div style={{ height: studentVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+                        {studentVirtualizer.getVirtualItems().map((vi) => {
+                            const student = filteredStudents[vi.index];
+                            return (
+                                <div
+                                    key={student.id}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        transform: `translateY(${vi.start}px)`,
+                                    }}
+                                >
+                                    {renderStudentCard(student, vi.index)}
                                 </div>
-                            </div>
-                        );
-                    })
+                            );
+                        })}
+                    </div>
+                ) : (
+                    filteredStudents.map((student, i) => (
+                        <React.Fragment key={student.id}>{renderStudentCard(student, i)}</React.Fragment>
+                    ))
                 )}
             </div>
 

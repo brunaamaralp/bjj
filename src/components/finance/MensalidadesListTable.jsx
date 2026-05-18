@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Check,
   Clock,
@@ -8,10 +9,14 @@ import {
   Banknote,
   ChevronDown,
   ChevronRight,
+  Loader2,
+  Users,
 } from 'lucide-react';
 import { isCriancaProfileType } from '../../../lib/leadTypeNormalize.js';
+import { getPaymentRowStatus } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
-import { Users } from 'lucide-react';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 const GROUP_ORDER = ['Kids', 'Juniores', 'Adultos', 'Outros'];
 
@@ -38,12 +43,12 @@ function StatusBadge({ variant, children }) {
     partial: CircleDashed,
     pending: CircleAlert,
     soon: AlertTriangle,
-    none: CircleDashed,
+    none: null,
   };
-  const Icon = icons[variant] || CircleDashed;
+  const Icon = icons[variant];
   return (
     <span className={`mensal-status-badge mensal-status-badge--${variant}`}>
-      <Icon size={12} strokeWidth={2.25} aria-hidden />
+      {Icon ? <Icon size={12} strokeWidth={2.25} aria-hidden /> : null}
       <span>{children}</span>
     </span>
   );
@@ -52,6 +57,9 @@ function StatusBadge({ variant, children }) {
 export default function MensalidadesListTable({
   loading,
   displayedStudents,
+  hasStudentsWithPlan,
+  hasActiveFilters,
+  onClearFilters,
   terms,
   paymentMap,
   currentMonth,
@@ -67,6 +75,36 @@ export default function MensalidadesListTable({
   handleEstornar,
 }) {
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [confirmPayment, setConfirmPayment] = useState(null);
+  const [reversingPaymentId, setReversingPaymentId] = useState(null);
+  const mobileListRef = useRef(null);
+  const shouldVirtualizeMobile = displayedStudents.length > 50;
+  const mobileVirtualizer = useVirtualizer({
+    count: shouldVirtualizeMobile ? displayedStudents.length : 0,
+    getScrollElement: () => mobileListRef.current,
+    estimateSize: () => 168,
+    overscan: 5,
+  });
+
+  const requestEstornar = (payment) => {
+    if (!payment?.$id || reversingPaymentId) return;
+    setConfirmPayment(payment);
+  };
+
+  const confirmEstornar = async () => {
+    const payment = confirmPayment;
+    const id = payment?.$id;
+    if (!id) return;
+    setConfirmPayment(null);
+    setReversingPaymentId(id);
+    try {
+      await handleEstornar(payment);
+    } catch {
+      /* toast no pai */
+    } finally {
+      setReversingPaymentId(null);
+    }
+  };
 
   const studentsByGroup = useMemo(() => {
     const map = new Map();
@@ -102,14 +140,18 @@ export default function MensalidadesListTable({
 
   const renderStudentRow = (student, rowIndex) => {
     const payment = paymentMap[student.id];
-    const row = getRowStatus(student, payment, currentMonth);
+    const rowMeta = getRowStatus(student, payment, currentMonth);
+    const statusKey = rowMeta?.status || 'none';
+    const calendar = getPaymentRowStatus(student, payment, currentMonth);
+    const dbStatus = String(payment?.status || '').toLowerCase();
     const today0 = startOfLocalDay(new Date());
-    const venc = row.dueDate;
+    const venc = calendar.dueDate;
     let vencCell = '—';
     let vencIsEmpty = true;
     let vencStyle = {};
-    if (row.status === 'paid' && row.paidAt) {
-      vencCell = `Pago em ${formatDdMm(row.paidAt)}`;
+    if (statusKey === 'paid' && payment?.paid_at) {
+      const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
+      vencCell = paidAt ? `Pago em ${formatDdMm(paidAt)}` : 'Pago';
       vencIsEmpty = false;
     } else if (venc && !Number.isNaN(venc.getTime())) {
       vencIsEmpty = false;
@@ -141,28 +183,23 @@ export default function MensalidadesListTable({
     } else if (payment?.status === 'partial') {
       badgeVariant = 'partial';
       badgeLabel = 'Parcial';
-    } else if (row.status === 'paid' && payment) {
+    } else if (statusKey === 'paid' && payment) {
       badgeVariant = 'paid';
       const m = METHOD_LABELS[payment.method] || payment.method;
       const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
       badgeLabel = `Pago · ${m}${pd ? ` · ${pd}` : ''}`;
-    } else if (row.status === 'pending') {
+    } else if (statusKey === 'pending') {
       badgeVariant = 'pending';
       badgeLabel = 'Inadimplente';
-    } else if (row.status === 'soon') {
+    } else if (statusKey === 'soon') {
       badgeVariant = 'soon';
       badgeLabel = 'A vencer';
     }
 
-    const isPaid = row.status === 'paid' && payment?.status === 'paid';
-    const needsAction =
-      !isPaid &&
-      (row.status === 'pending' ||
-        row.status === 'none' ||
-        row.status === 'soon' ||
-        payment?.status === 'awaiting' ||
-        payment?.status === 'partial');
-    const rowTone = isPaid ? 'paid' : row.status === 'pending' ? 'pending' : row.status === 'none' ? 'none' : 'default';
+    const isPaid = statusKey === 'paid' && payment?.status === 'paid';
+    const isActiveAttention = dbStatus === 'awaiting' || dbStatus === 'partial';
+    const isHoverPayOnly = !isPaid && !isActiveAttention && (statusKey === 'none' || statusKey === 'pending');
+    const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
 
     const paidTooltip =
       isPaid && payment
@@ -177,16 +214,21 @@ export default function MensalidadesListTable({
       'mensal-row',
       rowIndex % 2 === 1 ? 'mensal-row--zebra' : '',
       `mensal-row--${rowTone}`,
-      needsAction ? 'mensal-row--actionable' : '',
+      isHoverPayOnly ? 'mensal-row--hover-pay' : '',
+      isActiveAttention ? 'mensal-row--attention' : '',
     ]
       .filter(Boolean)
       .join(' ');
 
+    const displayName = String(student.name || '').trim() || '—';
+
     return (
-      <tr key={student.id} className={rowClass} title={paidTooltip}>
+      <tr key={student.id} className={rowClass} title={isPaid ? paidTooltip : undefined}>
         <td>
           <div className="mensal-cell-name">
-            <span className="mensal-cell-name__title">{student.name || '—'}</span>
+            <span className="mensal-cell-name__title" title={displayName !== '—' ? displayName : undefined}>
+              {displayName}
+            </span>
             <span className="mensal-cell-name__plan">{student.plan || '—'}</span>
           </div>
         </td>
@@ -203,7 +245,7 @@ export default function MensalidadesListTable({
               {prefA ? <span className="mensal-cell-pref__sub">{prefA}</span> : null}
             </div>
           ) : (
-            <span className="mensal-cell-empty">Não definido</span>
+            <span className="mensal-cell-faint">—</span>
           )}
         </td>
         <td>
@@ -213,29 +255,41 @@ export default function MensalidadesListTable({
           {isPaid ? (
             <div className="mensal-action-paid" title={paidTooltip}>
               <span className="mensal-action-check" aria-label="Pago">
-                <Check size={18} strokeWidth={2.5} />
+                <Check size={16} strokeWidth={2.5} />
               </span>
               <button
                 type="button"
                 className="mensal-btn-estornar mensal-btn-estornar--hover"
-                onClick={() => handleEstornar(payment)}
+                onClick={() => requestEstornar(payment)}
+                disabled={reversingPaymentId === payment.$id}
               >
+                {reversingPaymentId === payment.$id ? (
+                  <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
+                ) : null}
                 Estornar
+              </button>
+            </div>
+          ) : isActiveAttention ? (
+            <div className="mensal-action-attention">
+              <button
+                type="button"
+                className="mensal-btn-pay mensal-btn-pay--compact"
+                onClick={() => openPaymentModal(student)}
+              >
+                <Banknote size={14} strokeWidth={2} /> Registrar
               </button>
             </div>
           ) : (
             <div className="mensal-action-pay-wrap">
+              <span className="mensal-pending-icon" aria-hidden>
+                <CircleDashed size={16} strokeWidth={2} />
+              </span>
               <button
                 type="button"
-                className="mensal-btn-pay-icon"
+                className="mensal-btn-pay mensal-btn-pay--hover mensal-btn-pay--compact"
                 onClick={() => openPaymentModal(student)}
-                aria-label="Registrar pagamento"
-                title="Registrar pagamento"
               >
-                <Banknote size={16} strokeWidth={2} />
-              </button>
-              <button type="button" className="mensal-btn-pay mensal-btn-pay--hover" onClick={() => openPaymentModal(student)}>
-                Registrar pagamento
+                Registrar
               </button>
             </div>
           )}
@@ -246,78 +300,112 @@ export default function MensalidadesListTable({
 
   const renderMobileCard = (student) => {
     const payment = paymentMap[student.id];
-    const row = getRowStatus(student, payment, currentMonth);
-    const isPaid = row.status === 'paid' && payment?.status === 'paid';
-    const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
-    const hasValor = amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
+    const rowMeta = getRowStatus(student, payment, currentMonth);
+    const statusKey = rowMeta?.status || 'none';
+    const calendar = getPaymentRowStatus(student, payment, currentMonth);
+    const isPaid = statusKey === 'paid' && payment?.status === 'paid';
+    const prefM = student.preferredPaymentMethod;
+    const prefA = student.preferredPaymentAccount;
 
     let badgeVariant = 'none';
     let badgeLabel = 'Sem registro';
     if (payment?.status === 'awaiting') {
       badgeVariant = 'awaiting';
       badgeLabel = 'Aguardando';
-    } else if (row.status === 'paid' && payment) {
+    } else if (payment?.status === 'partial') {
+      badgeVariant = 'partial';
+      badgeLabel = 'Parcial';
+    } else if (statusKey === 'paid' && payment) {
       badgeVariant = 'paid';
       badgeLabel = 'Pago';
-    } else if (row.status === 'pending') {
+    } else if (statusKey === 'pending') {
       badgeVariant = 'pending';
       badgeLabel = 'Inadimplente';
-    } else if (row.status === 'soon') {
+    } else if (statusKey === 'soon') {
       badgeVariant = 'soon';
       badgeLabel = 'A vencer';
     }
 
-    const rowTone = isPaid ? 'paid' : row.status === 'pending' ? 'pending' : row.status === 'none' ? 'none' : 'default';
+    const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
+    const displayName = String(student.name || '').trim() || '—';
+    let vencLabel = '—';
+    if (statusKey === 'paid' && payment?.paid_at) {
+      const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
+      vencLabel = paidAt ? `Pago em ${formatDdMm(paidAt)}` : 'Pago';
+    } else if (calendar.dueDate && !Number.isNaN(calendar.dueDate.getTime())) {
+      vencLabel = formatDdMm(calendar.dueDate);
+    }
 
     return (
       <article key={student.id} className={`mensal-mobile-card mensal-mobile-card--${rowTone}`}>
         <div className="mensal-mobile-card__head">
-          <div>
-            <div className="mensal-mobile-card__name">{student.name}</div>
-            <div className="mensal-mobile-card__meta">{student.plan || '—'}</div>
+          <div className="mensal-mobile-card__head-text">
+            <div className="mensal-mobile-card__name" title={displayName !== '—' ? displayName : undefined}>
+              {displayName}
+            </div>
+            <div className="mensal-mobile-card__meta">
+              {student.plan || '—'} · {vencLabel}
+            </div>
+            <div className="mensal-mobile-card__platform">
+              {prefM ? (
+                <>
+                  {METHOD_LABELS[prefM] || prefM}
+                  {prefA ? ` · ${prefA}` : ''}
+                </>
+              ) : (
+                <span className="mensal-cell-faint">—</span>
+              )}
+            </div>
           </div>
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </div>
-        <div className="mensal-mobile-card__row">
-          <span>Valor</span>
-          <strong className={hasValor ? '' : 'mensal-cell-empty'}>{hasValor ? fmtMoney(amountNum) : '—'}</strong>
-        </div>
-        <div className="mensal-mobile-card__actions">
-          {isPaid ? (
-            <>
-              <span className="mensal-action-check mensal-action-check--solo" aria-hidden>
-                <Check size={20} strokeWidth={2.5} />
-              </span>
-              <button type="button" className="mensal-btn-estornar" onClick={() => handleEstornar(payment)}>
-                Estornar
-              </button>
-            </>
-          ) : (
+        {!isPaid ? (
+          <div className="mensal-mobile-card__actions">
             <button type="button" className="btn-primary mensal-mobile-pay" onClick={() => openPaymentModal(student)}>
-              <Banknote size={16} /> Registrar pagamento
+              <Banknote size={16} /> Registrar
             </button>
-          )}
-        </div>
+          </div>
+        ) : null}
       </article>
     );
   };
 
   if (loading) {
-    return (
-      <p className="mensal-loading text-small text-muted" role="status">
-        Carregando…
-      </p>
-    );
+    return <PageSkeleton variant="table" rows={8} columns={6} />;
   }
 
   if (displayedStudents.length === 0) {
+    if (!hasStudentsWithPlan) {
+      return (
+        <EmptyState
+          variant="default"
+          tone="dashed"
+          icon={Users}
+          title={`Nenhum ${terms.student.toLowerCase()} com plano ativo neste mês`}
+          description="Configure os planos na empresa e associe um plano a cada aluno para acompanhar as mensalidades."
+          primaryAction={{ label: 'Configurar planos', href: '/empresa?tab=financeiro' }}
+          role="status"
+        />
+      );
+    }
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          variant="compact"
+          tone="dashed"
+          icon={Users}
+          title="Nenhum resultado para os filtros aplicados"
+          secondaryAction={{ label: 'Limpar filtros', onClick: onClearFilters, variant: 'link' }}
+          role="status"
+        />
+      );
+    }
     return (
       <EmptyState
         variant="compact"
         tone="dashed"
         icon={Users}
         title={`Nenhum ${terms.student.toLowerCase()} encontrado`}
-        description="Tente ajustar os filtros ou a busca"
         role="status"
       />
     );
@@ -327,6 +415,18 @@ export default function MensalidadesListTable({
 
   return (
     <>
+      <ConfirmDialog
+        open={Boolean(confirmPayment)}
+        title="Estornar pagamento"
+        description="O pagamento será marcado como cancelado e o valor será estornado no Caixa. Esta ação não pode ser desfeita."
+        confirmLabel="Estornar"
+        confirmVariant="danger"
+        loading={Boolean(reversingPaymentId)}
+        onClose={() => {
+          if (!reversingPaymentId) setConfirmPayment(null);
+        }}
+        onConfirm={() => void confirmEstornar()}
+      />
       <div className="mensal-table-wrap mensal-table-wrap--desktop">
         <table className="mensal-table">
           <thead>
@@ -347,7 +447,7 @@ export default function MensalidadesListTable({
                 </button>
               </th>
               <th className="mensal-th-num">Valor</th>
-              <th>Pagamento habitual</th>
+              <th>Conta / Plataforma</th>
               <th>Status</th>
               <th className="mensal-th-action">Ação</th>
             </tr>
@@ -390,8 +490,44 @@ export default function MensalidadesListTable({
         </table>
       </div>
 
-      <div className="mensal-mobile-list">
-        {displayedStudents.map((student) => renderMobileCard(student))}
+      <div
+        className="mensal-mobile-list"
+        ref={mobileListRef}
+        style={shouldVirtualizeMobile ? { maxHeight: '70vh', overflow: 'auto' } : undefined}
+      >
+        {shouldVirtualizeMobile ? (
+          <div style={{ height: mobileVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+            {mobileVirtualizer.getVirtualItems().map((vi) => {
+              const student = displayedStudents[vi.index];
+              return (
+                <div
+                  key={student.id}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${vi.start}px)`,
+                    paddingBottom: 10,
+                  }}
+                >
+                  {renderMobileCard(student)}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          studentsByGroup.map((group) => (
+            <React.Fragment key={group.key}>
+              {studentsByGroup.length > 1 ? (
+                <div className="mensal-mobile-group-label" role="presentation">
+                  {group.key}
+                </div>
+              ) : null}
+              {group.students.map((student) => renderMobileCard(student))}
+            </React.Fragment>
+          ))
+        )}
       </div>
     </>
   );

@@ -1,5 +1,4 @@
 import React, { useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Loader2, RefreshCcw, Upload, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import { createSessionJwt } from '../../lib/appwrite';
@@ -55,6 +54,7 @@ export default function ImportFinanceModal({
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+        const XLSX = await import('xlsx');
         const wb = XLSX.read(evt.target.result, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const jsonRows = XLSX.utils.sheet_to_json(ws, { defval: '' });

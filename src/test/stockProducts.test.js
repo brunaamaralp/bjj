@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { filterProductsClient, mapStockProductDoc, productDisplayLabel } from '../lib/stockProducts';
+import {
+  filterProductsClient,
+  mapStockProductDoc,
+  productDisplayLabel,
+  parseSkuFormFields,
+  resolveSkuFromForm,
+  pickProductApiBody,
+  PRODUCT_SKU_OTHER,
+} from '../lib/stockProducts';
 
 describe('stockProducts', () => {
   it('productDisplayLabel includes size when set', () => {
@@ -33,6 +41,23 @@ describe('stockProducts', () => {
       is_active: false,
     });
     expect(off.lifecycle).toBe('inativo');
+  });
+
+  it('parseSkuFormFields and resolveSkuFromForm', () => {
+    expect(parseSkuFormFields('M')).toEqual({ skuSelect: 'M', skuOther: '' });
+    expect(parseSkuFormFields('custom')).toEqual({ skuSelect: PRODUCT_SKU_OTHER, skuOther: 'custom' });
+    expect(resolveSkuFromForm('G', '')).toBe('G');
+    expect(resolveSkuFromForm(PRODUCT_SKU_OTHER, 'XL')).toBe('XL');
+  });
+
+  it('pickProductApiBody strips item_estoque_id', () => {
+    const body = pickProductApiBody({
+      nome: 'X',
+      categoria: 'C',
+      item_estoque_id: 'evil',
+    });
+    expect(body.nome).toBe('X');
+    expect(body.item_estoque_id).toBeUndefined();
   });
 
   it('filterProductsClient applies filters', () => {

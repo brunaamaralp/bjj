@@ -1,14 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Bell, MessageSquare, CheckSquare, Banknote, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNoteNotifications } from '../../hooks/useNoteNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import EmptyState from '../shared/EmptyState.jsx';
+import { useLeadStore } from '../../store/useLeadStore';
+import { useTaskStore } from '../../store/useTaskStore';
+import { buildProactiveHubItems, proactiveHubTotalCount } from '../../lib/proactiveHub.js';
+
+const PROACTIVE_ICONS = {
+  tasks_due: CheckSquare,
+  payments_overdue: Banknote,
+  followups: UserCheck,
+};
 
 export default function NotificationBell({ academyId, userId }) {
   const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, startPolling, stopPolling } = useNoteNotifications(academyId, userId);
+  const leads = useLeadStore((s) => s.leads);
+  const modules = useLeadStore((s) => s.modules);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
+  const tasks = useTaskStore((s) => s.tasks);
+  const proactiveItems = useMemo(
+    () => buildProactiveHubItems({ tasks, leads, modules, financeConfig }),
+    [tasks, leads, modules, financeConfig]
+  );
+  const proactiveCount = proactiveHubTotalCount(proactiveItems);
+  const totalBadgeCount = unreadCount + proactiveCount;
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -46,7 +65,7 @@ export default function NotificationBell({ academyId, userId }) {
     return raw.replace(/[^\d]/g, '');
   }
 
-  const badgeText = unreadCount > 9 ? '9+' : unreadCount;
+  const badgeText = totalBadgeCount > 9 ? '9+' : totalBadgeCount;
 
   return (
     <div className="notification-bell-container" ref={dropdownRef} style={{ position: 'relative' }}>
@@ -68,7 +87,7 @@ export default function NotificationBell({ academyId, userId }) {
         }}
       >
         <Bell size={20} strokeWidth={2} />
-        {unreadCount > 0 && (
+        {totalBadgeCount > 0 && (
           <span
             className="notification-badge"
             style={{
@@ -148,7 +167,56 @@ export default function NotificationBell({ academyId, userId }) {
               overflowY: 'auto'
             }}
           >
-            {notifications.length === 0 ? (
+            {proactiveItems.map((item) => {
+              const Icon = PROACTIVE_ICONS[item.id] || CheckSquare;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate(item.href);
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '12px 16px',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: '1px solid var(--border-light)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    gap: '12px',
+                    transition: 'background 0.2s',
+                    outline: 'none',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '16px',
+                      background: 'rgba(91, 63, 191, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon size={16} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text)', lineHeight: 1.4, fontWeight: 600 }}>
+                      {item.label}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+            {notifications.length === 0 && proactiveItems.length === 0 ? (
               <div style={{ padding: '16px 12px' }}>
                 <EmptyState variant="compact" tone="dashed" icon={Bell} title="Nenhuma notificação nova" role="status" />
               </div>
@@ -156,6 +224,7 @@ export default function NotificationBell({ academyId, userId }) {
               notifications.map((n) => (
                 <button
                   key={n.id}
+                  type="button"
                   onClick={() => handleItemClick(n)}
                   style={{
                     width: '100%',

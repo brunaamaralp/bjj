@@ -3,6 +3,7 @@ import {
   analyzePaymentException,
   amountMatchesAnyPlan,
   isPaymentExceptionResolved,
+  isRealPaymentException,
   readExceptionStatusLabels,
   mergeExceptionLabelsIntoFinanceConfig,
 } from '../lib/paymentExceptions.js';
@@ -70,6 +71,26 @@ describe('paymentExceptions', () => {
   it('amountMatchesAnyPlan', () => {
     expect(amountMatchesAnyPlan(financeConfig, 79.9)).toBe(true);
     expect(amountMatchesAnyPlan(financeConfig, 150)).toBe(false);
+  });
+
+  it('isRealPaymentException excludes student without plan', () => {
+    const noPlan = { ...student, plan: '' };
+    expect(
+      isRealPaymentException(noPlan, null, '2026-05', financeConfig, new Date('2026-05-20'))
+    ).toBe(false);
+  });
+
+  it('isRealPaymentException includes overdue with plan', () => {
+    const payment = { status: 'pending', expected_amount: 200, paid_amount: 0 };
+    expect(
+      isRealPaymentException(student, payment, '2026-05', financeConfig, new Date('2026-05-20'))
+    ).toBe(true);
+  });
+
+  it('isRealPaymentException excludes none before due with plan', () => {
+    expect(
+      isRealPaymentException(student, null, '2026-05', financeConfig, new Date('2026-05-03'))
+    ).toBe(false);
   });
 
   it('read and merge exception labels', () => {

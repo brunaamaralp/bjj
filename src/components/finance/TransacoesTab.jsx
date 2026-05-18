@@ -11,6 +11,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
 
 export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
   const leads = useLeadStore((s) => s.leads);
@@ -410,6 +411,9 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
             </button>
           </div>
           <div className="finance-table-wrap">
+            {txLoading ? (
+              <PageSkeleton variant="table" rows={6} columns={10} />
+            ) : (
             <table className="finance-table">
               <thead>
                 <tr>
@@ -426,11 +430,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                 </tr>
               </thead>
               <tbody>
-                {txLoading ? (
-                  <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 12px' }}>Carregando...</td>
-                  </tr>
-                ) : transactions.length === 0 ? (
+                {transactions.length === 0 ? (
                   <tr>
                     <td colSpan={10} style={{ padding: 16, verticalAlign: 'middle' }}>
                       <EmptyState
@@ -520,6 +520,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                 })}
               </tbody>
             </table>
+            )}
           </div>
         </div>
       </section>

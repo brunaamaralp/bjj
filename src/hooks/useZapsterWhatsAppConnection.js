@@ -391,7 +391,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           await fetchWaInfo({ silent: true });
           useUiStore.getState().addToast({
             type: 'success',
-            message: recoverData.recovered ? 'Instância existente recuperada com sucesso!' : 'Instância já estava vinculada.'
+            message: recoverData.recovered ? 'Conexão do WhatsApp recuperada com sucesso!' : 'WhatsApp já estava vinculado.'
           });
           return;
         }
@@ -428,11 +428,11 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         setWaPersistFailed(true);
         useUiStore.getState().addToast({
           type: 'warning',
-          message: String(data.aviso || 'Instância criada na Zapster, mas falhou salvar na base. Use Verificar e corrigir.')
+          message: String(data.aviso || 'Conexão criada, mas falhou salvar no sistema. Use Verificar e corrigir.')
         });
       } else {
         setWaPersistFailed(false);
-        useUiStore.getState().addToast({ type: 'success', message: 'Instância criada' });
+        useUiStore.getState().addToast({ type: 'success', message: 'Preparando conexão do WhatsApp' });
       }
       setWaTokenMissing(false);
       setWaQrError(false);
@@ -558,7 +558,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       if (errMsg) {
         useUiStore.getState().addToast({ type: 'error', message: errMsg });
       } else {
-        useUiStore.getState().addToast({ type: 'warning', message: 'Nenhuma instância órfã encontrada para esta academia.' });
+        useUiStore.getState().addToast({ type: 'warning', message: 'Nenhuma conexão pendente encontrada para esta academia.' });
       }
     } catch (e) {
       useUiStore.getState().addToast({ type: 'error', message: e?.message || 'Erro ao recuperar' });
@@ -586,7 +586,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (resp.status === 403) {
           useUiStore.getState().addToast({
             type: 'error',
-            message: 'Esta instância não pertence a esta academia.'
+            message: 'Esta conexão não pertence a esta academia.'
           });
           await fetchWaInfo({ silent: true });
           return;
@@ -644,9 +644,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao ligar instância'));
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao conectar o WhatsApp'));
       }
-      useUiStore.getState().addToast({ type: 'success', message: 'Instância ligada' });
+      useUiStore.getState().addToast({ type: 'success', message: 'WhatsApp conectado' });
       await fetchWaInfo({ silent: true });
       await new Promise((r) => setTimeout(r, 3000));
       try {
@@ -684,9 +684,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao desligar instância'));
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao desconectar o WhatsApp'));
       }
-      useUiStore.getState().addToast({ type: 'success', message: 'Instância desligada' });
+      useUiStore.getState().addToast({ type: 'success', message: 'WhatsApp desconectado' });
       await fetchWaInfo({ silent: true });
     } catch (e) {
       setConnectionError(String(e?.message || '') || 'Erro');
@@ -716,9 +716,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         const raw = await resp.text();
         const errData = safeParseJson(raw) || {};
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
-        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar instância'));
+        throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar o WhatsApp'));
       }
-      useUiStore.getState().addToast({ type: 'success', message: 'Reiniciando instância…' });
+      useUiStore.getState().addToast({ type: 'success', message: 'Reiniciando WhatsApp…' });
       setTimeout(() => {
         fetchWaInfo({ silent: true });
       }, 1200);

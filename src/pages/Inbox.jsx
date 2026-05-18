@@ -12,7 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
-import { useTerms } from '../lib/terminology.js';
+import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
@@ -178,6 +178,8 @@ export default function Inbox() {
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
   const { waInfo, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId);
   const terms = useTerms();
+  const labels = useLeadStore((s) => s.labels);
+  const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1424,7 +1426,7 @@ export default function Inbox() {
       }
       listMetaRef.current = nextMeta;
     } catch (e) {
-      if (!silent) setError(e?.message || 'Erro');
+      if (!silent) setError(friendlyError(e, 'load'));
     } finally {
       loadingListRef.current = false;
       if (reset && !silent) setLoading(false);
@@ -1572,7 +1574,7 @@ export default function Inbox() {
       }
     } catch (e) {
       if (e?.name === 'AbortError') return;
-      if (!silent) setError(e?.message || 'Erro');
+      if (!silent) setError(friendlyError(e, 'load'));
     } finally {
       if (reqSeq === threadRequestSeqRef.current) {
         setThreadLoading(false);
@@ -1756,7 +1758,7 @@ export default function Inbox() {
       }
       return true;
     } catch (e) {
-      if (!silent) setError(e?.message || 'Erro');
+      if (!silent) setError(friendlyError(e, 'load'));
       return false;
     }
   }
@@ -1863,7 +1865,7 @@ export default function Inbox() {
         void 0;
       }
     } catch (e) {
-      setError(e?.message || 'Erro');
+      setError(friendlyError(e, 'action'));
     } finally {
       setSending(false);
     }
@@ -1902,7 +1904,7 @@ export default function Inbox() {
         void 0;
       }
     } catch (e) {
-      setError(e?.message || 'Erro ao melhorar');
+      setError(friendlyError(e, 'action'));
     } finally {
       setImprovingDraft(false);
     }
@@ -1977,11 +1979,11 @@ export default function Inbox() {
         };
       });
       await loadList({ reset: true, silent: true });
-      addToast({ type: 'success', message: 'Lead associado' });
+      addToast({ type: 'success', message: `${contactLabel} associado` });
       setLeadPanel(null);
       setLeadSearch('');
     } catch (e) {
-      setError(e?.message || 'Erro');
+      setError(friendlyError(e, 'action'));
     } finally {
       setLinkingLead(false);
     }
@@ -2035,7 +2037,7 @@ export default function Inbox() {
       setEditingContactName(false);
       addToast({ type: 'success', message: savedName ? 'Nome do contato salvo' : 'Nome do contato removido' });
     } catch (e) {
-      setError(e?.message || 'Erro ao salvar nome');
+      setError(friendlyError(e, 'save'));
     } finally {
       setSavingContactName(false);
     }
@@ -2090,10 +2092,13 @@ export default function Inbox() {
       const leadId = String(data?.id || '').trim();
       if (!leadId) throw new Error('ID do lead ausente');
       await linkLeadToConversation({ leadId });
-      addToast({ type: 'success', message: data?.ja_existe ? 'Lead já existente' : 'Lead criado' });
+      addToast({
+        type: 'success',
+        message: data?.ja_existe ? `${contactLabel} já existente` : `${contactLabel} criado`,
+      });
       navigate(`/lead/${encodeURIComponent(leadId)}`);
     } catch (e) {
-      setError(e?.message || 'Erro');
+      setError(friendlyError(e, 'action'));
     } finally {
       setLinkingLead(false);
     }
@@ -2607,7 +2612,7 @@ export default function Inbox() {
       }
       return true;
     } catch (e) {
-      setError(e?.message || 'Erro');
+      setError(friendlyError(e, 'action'));
       return false;
     } finally {
       setTicketUpdating(false);
@@ -3039,7 +3044,7 @@ export default function Inbox() {
                     setExtraFiltersMenuOpen(false);
                   }}
                 >
-                  Lead quente
+                  Contato quente
                 </button>
                 <button
                   type="button"
@@ -3102,6 +3107,7 @@ export default function Inbox() {
           groupedItems={groupedFilteredItems}
           loading={loading}
           totalItems={items.length}
+          whatsAppConnected={waChatConnected}
           loadingMore={loadingMore}
           onSelectConversation={handleSelectConversation}
           selectedPhone={selectedPhone}
@@ -3329,7 +3335,7 @@ export default function Inbox() {
                       maxWidth: '100%',
                       boxSizing: 'border-box'
                     }}
-                    title="Sugestão com base no lead"
+                    title={`Sugestão com base no ${contactLabel.toLowerCase()}`}
                   >
                     Vale a pena alguém da equipe ver esta conversa
                   </span>
@@ -4254,7 +4260,14 @@ export default function Inbox() {
               </button>
             )}
             <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
-              {sending ? 'Enviando…' : 'Enviar'}
+              {sending ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Loader2 size={16} className="navi-async-btn__spin" aria-hidden />
+                  Enviar
+                </span>
+              ) : (
+                'Enviar'
+              )}
             </button>
             <button
               type="button"
@@ -4374,7 +4387,7 @@ export default function Inbox() {
         return (
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
             <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-              Contato / Lead
+              {`Contato / ${contactLabel}`}
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
@@ -4410,10 +4423,10 @@ export default function Inbox() {
                 {!selected?.lead_id && (
                   <>
                     <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))} disabled={!selectedPhone || linkingLead}>
-                      Converter em lead
+                      Converter em contato
                     </button>
                     <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))} disabled={!selectedPhone || linkingLead}>
-                      Associar lead
+                      Associar contato
                     </button>
                   </>
                 )}
@@ -4425,7 +4438,7 @@ export default function Inbox() {
                       onClick={() => navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`)}
                       type="button"
                     >
-                      Ver lead
+                      {`Ver ${contactLabel.toLowerCase()}`}
                     </button>
                     <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => navigate('/pipeline')} type="button">
                       Kanban
@@ -4451,7 +4464,7 @@ export default function Inbox() {
       {leadPanel === 'convert' && !selected?.lead_id && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
           <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Converter em lead
+            {`Converter em ${contactLabel.toLowerCase()}`}
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
             <div>
@@ -4485,7 +4498,7 @@ export default function Inbox() {
       {leadPanel === 'associate' && !selected?.lead_id && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
           <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Associar lead
+            Associar contato
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
             <input className="input" value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="Buscar por nome ou telefone" style={{ flex: 1, minWidth: 220 }} />
@@ -4493,9 +4506,9 @@ export default function Inbox() {
               Atualizar
             </button>
           </div>
-          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando leads…</div>}
+          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
           {!leadsLoading && leadCandidates.length === 0 && (
-            <EmptyState variant="compact" tone="dashed" title="Nenhum lead encontrado." role="status" />
+            <EmptyState variant="compact" tone="dashed" title="Nenhuma conversa encontrada." role="status" />
           )}
           {!leadsLoading && leadCandidates.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -4854,12 +4867,14 @@ export default function Inbox() {
 
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
         <div>
-          <h2 className="navi-page-title" style={{ margin: 0 }}>Atendimento</h2>
+          <h2 className="navi-page-title" style={{ margin: 0 }}>Conversas</h2>
           <div className="navi-eyebrow" style={{ marginTop: 6, whiteSpace: 'nowrap', textTransform: 'none' }}>
+            Mensagens e atendimento via WhatsApp
             {loading ? (
-              'Carregando…'
+              ' · Carregando…'
             ) : (
               <>
+                {' · '}
                 <span className="navi-ui-count">{items.length}</span> conversas
                 {lastUpdatedAt ? (
                   <>
@@ -5237,7 +5252,7 @@ export default function Inbox() {
                         }}
                         disabled={!phone || linkingLead}
                       >
-                        Converter em lead
+                        Converter em contato
                         <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                           CRM
                         </span>
@@ -5253,7 +5268,7 @@ export default function Inbox() {
                         }}
                         disabled={!phone || linkingLead}
                       >
-                        Associar lead
+                        Associar contato
                         <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                           CRM
                         </span>
@@ -5270,7 +5285,7 @@ export default function Inbox() {
                       closeMenu();
                     }}
                   >
-                    Ver lead
+                    {`Ver ${contactLabel.toLowerCase()}`}
                         <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                           Perfil
                         </span>

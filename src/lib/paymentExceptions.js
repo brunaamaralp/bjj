@@ -126,6 +126,15 @@ export function isPaymentExceptionResolved(student, payment, currentMonth, finan
   return !analyzePaymentException(student, payment, currentMonth, financeConfig, today).isException;
 }
 
+/** Contagem do badge da aba Exceções: com plano + problema financeiro real (não só dado incompleto). */
+export function isRealPaymentException(student, payment, currentMonth, financeConfig, today = new Date()) {
+  if (!String(student?.plan || '').trim()) return false;
+  const analysis = analyzePaymentException(student, payment, currentMonth, financeConfig, today);
+  if (!analysis.isException) return false;
+  if (analysis.primaryStatus === 'none' && analysis.row.daysOverdue <= 0) return false;
+  return true;
+}
+
 export function readExceptionStatusLabels(financeConfig) {
   const cfg = financeConfig && typeof financeConfig === 'object' ? financeConfig : {};
   const raw = cfg.exceptionStatusLabels || cfg.exception_status_labels || {};

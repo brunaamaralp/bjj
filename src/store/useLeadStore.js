@@ -158,6 +158,7 @@ export const useLeadStore = create(
   loadingMore: false,
   leadsHasMore: false,
   leadsCursor: null,
+  leadsLastFetchedAt: null,
   academyId: null,
   teamId: null,
   userId: null,
@@ -191,6 +192,7 @@ export const useLeadStore = create(
         leads: [],
         leadsCursor: null,
         leadsHasMore: false,
+        leadsLastFetchedAt: null,
         labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
         vertical: 'fitness',
         onboardingChecklist: null,
@@ -208,6 +210,7 @@ export const useLeadStore = create(
          leads: [],
          leadsCursor: null,
          leadsHasMore: false,
+         leadsLastFetchedAt: null,
          vertical: 'fitness',
          onboardingChecklist: null,
          billingAccess: null,
@@ -301,7 +304,8 @@ export const useLeadStore = create(
             loading: false,
             leadsError: false,
             leadsHasMore: pageFull,
-            leadsCursor: pageFull && lastId ? lastId : null
+            leadsCursor: pageFull && lastId ? lastId : null,
+            leadsLastFetchedAt: Date.now(),
           };
         });
       } else {
@@ -313,7 +317,8 @@ export const useLeadStore = create(
             loadingMore: false,
             leadsError: false,
             leadsHasMore: pageFull,
-            leadsCursor: pageFull && lastId ? lastId : null
+            leadsCursor: pageFull && lastId ? lastId : null,
+            leadsLastFetchedAt: Date.now(),
           };
         });
       }

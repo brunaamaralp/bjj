@@ -10,7 +10,18 @@ export default defineConfig(({ mode }) => {
 
   return {
     build: {
-      chunkSizeWarningLimit: 2000,
+      chunkSizeWarningLimit: 500,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-charts': ['recharts'],
+            'vendor-xlsx': ['xlsx'],
+            'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            'vendor-appwrite': ['appwrite'],
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          },
+        },
+      },
     },
     plugins: [
       react(),

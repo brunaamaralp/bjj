@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Package } from 'lucide-react';
+import { Search, ShoppingCart } from 'lucide-react';
 import { filterCatalogProducts, groupByCategory } from '../../lib/salesCatalog';
 import { formatBRL } from '../../lib/moneyBr';
 
@@ -80,11 +80,11 @@ export default function SalesCatalogPicker({ products, loading, onPick, flashPro
       ) : catalogEmpty ? (
         <div className="sales-catalog-empty">
           <div className="sales-catalog-empty__icon" aria-hidden>
-            <Package size={40} strokeWidth={1.5} />
+            <ShoppingCart size={40} strokeWidth={1.5} />
           </div>
-          <h4 className="sales-catalog-empty__title">Nenhum produto cadastrado ainda</h4>
+          <h4 className="sales-catalog-empty__title">Nenhum produto disponível para venda</h4>
           <p className="sales-catalog-empty__hint">
-            Produtos cadastrados em Loja → Produtos aparecem aqui automaticamente.
+            Cadastre os produtos da academia para começar a registrar vendas.
           </p>
           <Link to="/produtos" className="btn-primary sales-catalog-empty__cta">
             Cadastrar produtos

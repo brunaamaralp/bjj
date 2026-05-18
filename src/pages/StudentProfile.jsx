@@ -17,7 +17,7 @@ import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
-import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
+import { useTerms, contactLabelSingular, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
@@ -208,6 +208,7 @@ export default function StudentProfile() {
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
     const terms = useTerms();
+    const contactLabel = useMemo(() => contactLabelSingular(uiLabels), [uiLabels]);
 
     const { allLabels } = useAcademyLabels(academyId, {
         onLoadError: () => addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
@@ -546,9 +547,9 @@ export default function StudentProfile() {
         if (t === 'missed') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.MISSED, at, text: d.text, $id: d.$id, is_pinned: d.is_pinned };
         if (t === 'converted') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.CONVERTED, at, text: d.text, $id: d.$id, is_pinned: d.is_pinned };
         if (t === 'lost') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.LOST, at, text: d.text, $id: d.$id, is_pinned: d.is_pinned };
-        if (t === 'lead_criado') return { type: 'lead_created', at, text: d.text || 'Lead cadastrado no CRM', $id: d.$id, is_pinned: d.is_pinned };
+        if (t === 'lead_criado') return { type: 'lead_created', at, text: d.text || `${contactLabel} cadastrado no CRM`, $id: d.$id, is_pinned: d.is_pinned };
         return { type: t, ...base };
-    }, []);
+    }, [contactLabel]);
 
     const refreshTimeline = useCallback(async () => {
         if (!leadId || !academyId) return;

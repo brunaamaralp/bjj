@@ -24,9 +24,12 @@ import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
-import { useTerms, TERMS } from '../lib/terminology.js';
+import { useTerms, TERMS, contactLabelSingular } from '../lib/terminology.js';
 import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import Hint from '../components/shared/Hint.jsx';
+import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -59,7 +62,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     const slaClass =
         slaAlert?.urgency === 'critical'
@@ -69,9 +72,11 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, navigate, 
               : '';
     return (
         <div
-            className={`card lead-card ${slaClass} ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
+            className={`card lead-card ${slaClass} ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isMoving ? 'lead-card--moving' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
             style={{
                 zIndex: isCardOverlayOpen ? 5000 : 1,
+                opacity: isMoving ? 0.7 : undefined,
+                cursor: isMoving ? 'wait' : undefined,
                 ...props.style
             }}
             onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
@@ -310,6 +315,7 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
                     <div className="flex items-center gap-2">
                         <span className="col-dot" style={{ background: color.color }} />
                         <h3 className="navi-section-heading pipeline-col-heading">{col.label}</h3>
+                        <Hint text={hintForPipelineStage(col.id, col.label)} position="top" />
                     </div>
                 </div>
                 <span className="col-count" style={{ background: color.bg, color: color.color }}>
@@ -499,6 +505,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                 >
                                     {stage.label}
                                 </span>
+                                <Hint text={hintForPipelineStage(stage.id, stage.label)} position="left" />
                             </span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                 <span
@@ -651,6 +658,7 @@ const Pipeline = () => {
     const labels = useLeadStore((s) => s.labels);
     const vertical = useLeadStore((s) => s.vertical);
     const terms = useTerms();
+    const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const academyId = useLeadStore((s) => s.academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
@@ -658,6 +666,28 @@ const Pipeline = () => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
+
+    const patchLeadLocal = useCallback((leadId, patch) => {
+        useLeadStore.setState((state) => ({
+            leads: state.leads.map((l) => (l.id === leadId ? { ...l, ...patch } : l)),
+        }));
+    }, []);
+
+    const beginLeadMove = useCallback((leadId) => {
+        setMovingLeadIds((prev) => new Set([...prev, leadId]));
+    }, []);
+
+    const endLeadMove = useCallback((leadId) => {
+        setMovingLeadIds((prev) => {
+            const next = new Set(prev);
+            next.delete(leadId);
+            return next;
+        });
+    }, []);
+
+    const revertLeads = useCallback((previousLeads) => {
+        useLeadStore.setState({ leads: previousLeads });
+    }, []);
     const leadsLoading = useLeadStore((s) => s.loading);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
     const loadingMore = useLeadStore((s) => s.loadingMore);
@@ -667,7 +697,7 @@ const Pipeline = () => {
     const lastDragClientXRef = useRef(null);
     const [showImport, setShowImport] = useState(false);
     const [pipelineQuickTimes, setPipelineQuickTimes] = useState([]);
-    const [toast, setToast] = useState('');
+    const [movingLeadIds, setMovingLeadIds] = useState(() => new Set());
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const [noteOpen, setNoteOpen] = useState(false);
@@ -831,14 +861,13 @@ const Pipeline = () => {
         e.stopPropagation();
         setOpenMenuId(null);
         setConfirmModal({
-            title: 'Excluir lead?',
-            description: 'Esta ação remove o lead permanentemente.',
+            title: `Excluir ${contactLabel.toLowerCase()}?`,
+            description: `Esta ação remove o ${contactLabel.toLowerCase()} permanentemente.`,
             confirmLabel: 'Excluir',
             onConfirm: async () => {
                 try {
                     await deleteLead(leadId);
-                    setToast('Lead excluído');
-                    setTimeout(() => setToast(''), 2500);
+                    addToast({ type: 'success', message: `${contactLabel} excluído` });
                 } catch (err) {
                     addToast({ type: 'error', message: friendlyError(err, 'delete') });
                 } finally {
@@ -937,7 +966,7 @@ const Pipeline = () => {
         importLeads(rows);
     };
     const singular = (plural) => {
-        if (!plural) return 'Lead';
+        if (!plural) return contactLabel;
         const p = String(plural).trim();
         if (p.toLowerCase().endsWith('s') && p.length > 1) return p.slice(0, -1);
         return p;
@@ -1043,8 +1072,7 @@ const Pipeline = () => {
             templatesMap: waOutbound.templates,
             zapsterInstanceId: waOutbound.zapster_instance_id,
             onToast: (t) => {
-                setToast(t.message);
-                setTimeout(() => setToast(''), 3200);
+                addToast({ type: 'success', message: t.message });
             }
         });
     };
@@ -1081,8 +1109,7 @@ const Pipeline = () => {
         e.stopPropagation();
         const digits = normalizeKanbanPhone(lead?.phone);
         if (!digits) {
-            setToast('Lead sem telefone cadastrado');
-            setTimeout(() => setToast(''), 3200);
+            addToast({ type: 'error', message: `${contactLabel} sem telefone cadastrado` });
             return;
         }
         navigate(`/inbox?phone=${encodeURIComponent(digits)}`);
@@ -1121,8 +1148,7 @@ const Pipeline = () => {
                 await updateLead(lead.id, { pendingAutomations: nextPending, hasPendingAutomations: true });
             }
         }
-        setToast(`Reagendado para ${ymd} ${time}`);
-        setTimeout(() => setToast(''), 2500);
+        addToast({ type: 'success', message: `Reagendado para ${ymd} ${time}` });
     };
 
     const onConfirmSchedulePipeline = async ({ date, time, note }) => {
@@ -1136,7 +1162,7 @@ const Pipeline = () => {
     };
     const openLostModal = (leadId, onConfirm) => {
         const lead = getLeadById(leadId);
-        setLostModal({ leadId, leadName: lead?.name || 'Lead', onConfirm });
+        setLostModal({ leadId, leadName: lead?.name || contactLabel, onConfirm });
     };
     const handleConfirmPresence = async (e, lead) => {
         e.stopPropagation();
@@ -1162,9 +1188,8 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            setToast(`${terms.attendance} confirmada`);
+            addToast({ type: 'success', message: `${terms.attendance} confirmada` });
             setOpenMenuId(null);
-            setTimeout(() => setToast(''), 2000);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
         }
@@ -1196,10 +1221,9 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            setToast('Lead movido para Não compareceu');
+            addToast({ type: 'success', message: `${contactLabel} movido para Não compareceu` });
             setMissedModalLead(null);
             setOpenMenuId(null);
-            setTimeout(() => setToast(''), 2000);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
         }
@@ -1222,8 +1246,10 @@ const Pipeline = () => {
                     extraToast = msg;
                 },
             });
-            setToast(terms.pipelineEnrollmentSuccessToast + (extraToast ? ` ${extraToast}` : ''));
-            setTimeout(() => setToast(''), 3500);
+            addToast({
+                type: 'success',
+                message: terms.pipelineEnrollmentSuccessToast + (extraToast ? ` ${extraToast}` : ''),
+            });
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
             throw err;
@@ -1427,11 +1453,15 @@ const Pipeline = () => {
                     lostReason,
                     lostAt: new Date().toISOString()
                 });
-                setToast('Marcado como perdido');
-                setTimeout(() => setToast(''), 2000);
+                addToast({ type: 'success', message: 'Marcado como perdido' });
             });
             return;
         }
+
+        const previousLeads = useLeadStore.getState().leads;
+        const payload = getStageUpdatePayload(status);
+        beginLeadMove(leadId);
+        patchLeadLocal(leadId, payload);
 
         try {
             await addLeadEvent({
@@ -1443,7 +1473,6 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            const payload = getStageUpdatePayload(status);
             await updateLead(leadId, payload);
             if (status === PIPELINE_WAITING_DECISION_STAGE) {
                 const cfg = automationConfig?.waiting_decision;
@@ -1454,10 +1483,12 @@ const Pipeline = () => {
                     await updateLead(leadId, { pendingAutomations: nextPending, hasPendingAutomations: true });
                 }
             }
-            setToast('Movido no pipeline');
-            setTimeout(() => setToast(''), 2000);
+            addToast({ type: 'success', message: 'Movido no pipeline' });
         } catch (err) {
-            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            revertLeads(previousLeads);
+            addToast({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
+        } finally {
+            endLeadMove(leadId);
         }
     };
 
@@ -1508,11 +1539,15 @@ const Pipeline = () => {
                     lostAt: new Date().toISOString()
                 });
                 setMoverOpenId(null);
-                setToast('Marcado como perdido');
-                setTimeout(() => setToast(''), 2000);
+                addToast({ type: 'success', message: 'Marcado como perdido' });
             });
             return;
         }
+
+        const previousLeads = useLeadStore.getState().leads;
+        const payload = getStageUpdatePayload(toStage);
+        beginLeadMove(leadId);
+        patchLeadLocal(leadId, payload);
 
         try {
             if (fromStage !== toStage) {
@@ -1526,7 +1561,6 @@ const Pipeline = () => {
                     permissionContext: permCtx
                 });
             }
-            const payload = getStageUpdatePayload(toStage);
             await updateLead(leadId, payload);
             if (toStage === PIPELINE_WAITING_DECISION_STAGE) {
                 const cfg = automationConfig?.waiting_decision;
@@ -1537,13 +1571,16 @@ const Pipeline = () => {
                     await updateLead(leadId, { pendingAutomations: nextPending, hasPendingAutomations: true });
                 }
             }
+            addToast({ type: 'success', message: 'Movido no pipeline' });
         } catch (err) {
-            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            revertLeads(previousLeads);
+            addToast({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
+            setMoverOpenId(null);
             return;
+        } finally {
+            endLeadMove(leadId);
         }
         setMoverOpenId(null);
-        setToast('Movido no pipeline');
-        setTimeout(() => setToast(''), 2000);
     };
 
     const handleSplitWaMain = (e, lead) => {
@@ -1582,8 +1619,7 @@ const Pipeline = () => {
         });
         await updateLead(noteLead.id, { lastNoteAt: new Date().toISOString() });
         setNoteOpen(false);
-        setToast('Observação salva');
-        setTimeout(() => setToast(''), 2000);
+        addToast({ type: 'success', message: 'Observação salva' });
     };
 
     return (
@@ -1788,12 +1824,10 @@ const Pipeline = () => {
             </div>
             {leadsError ? (
                 <div className="container" style={{ paddingTop: 10 }}>
-                    <div className="dashboard-error-banner" role="alert">
-                        <span>Não foi possível carregar os leads do funil.</span>
-                        <button type="button" className="btn-secondary" onClick={() => void fetchLeads({ reset: true })}>
-                            Tentar novamente
-                        </button>
-                    </div>
+                    <ErrorBanner
+                        message="Não foi possível carregar os leads do funil."
+                        onRetry={() => void fetchLeads({ reset: true })}
+                    />
                 </div>
             ) : null}
 
@@ -1889,6 +1923,7 @@ const Pipeline = () => {
                                         <SortableLeadCard
                                             key={lead.id}
                                             lead={lead}
+                                            isMoving={movingLeadIds.has(lead.id)}
                                             slaAlert={slaAlerts[lead.id]}
                                             navigate={navigate}
                                             openNote={openNote}
@@ -2006,8 +2041,7 @@ const Pipeline = () => {
                         try {
                             await lostModal.onConfirm(reason);
                         } catch (err) {
-                            setToast(err?.message || 'Erro ao salvar');
-                            setTimeout(() => setToast(''), 3500);
+                            addToast({ type: 'error', message: err?.message || 'Erro ao salvar' });
                         } finally {
                             setLostModal(null);
                         }
@@ -2096,7 +2130,7 @@ const Pipeline = () => {
             {lostModalLead && (
                 <LostReasonModal
                     isOpen={!!lostModalLead}
-                    leadName={lostModalLead?.name || 'Lead'}
+                    leadName={lostModalLead?.name || contactLabel}
                     onClose={() => setLostModalLead(null)}
                     onConfirm={async (reason) => {
                         const cur = lostModalLead;
@@ -2119,8 +2153,7 @@ const Pipeline = () => {
                                 lostReason: reason,
                                 lostAt: new Date().toISOString()
                             });
-                            setToast('Marcado como perdido');
-                            setTimeout(() => setToast(''), 2000);
+                            addToast({ type: 'success', message: 'Marcado como perdido' });
                         } catch (e) {
                             console.error(e);
                         }
@@ -2488,8 +2521,8 @@ const Pipeline = () => {
         .lead-card--dragging { opacity: 0.4; border: 2px dashed var(--border-secondary); background: var(--surface-hover); cursor: grabbing; }
         .lead-card--overlay { opacity: 0.95; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2); transform: rotate(2deg) scale(1.02); cursor: grabbing; z-index: 500; pointer-events: none; }
         .lead-card--placeholder { height: 80px; border: 2px dashed var(--border); background: var(--surface-hover); border-radius: var(--radius-sm); opacity: 0.5; margin-bottom: 8px; }
+        .lead-card--moving { pointer-events: none; }
       `}} />
-            {toast && <div className="toast">{toast}</div>}
             {confirmModal && (
                 <div className="note-overlay" onClick={() => setConfirmModal(null)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>

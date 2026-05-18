@@ -8,6 +8,65 @@ export const PRODUCT_UNIT_OPTIONS = [
   { value: 'outro', label: 'Outro' },
 ];
 
+/** Opções predefinidas para o campo sku (UI: Código / Referência). */
+export const PRODUCT_SKU_PRESETS = [
+  'PP',
+  'P',
+  'M',
+  'G',
+  'GG',
+  'XGG',
+  'A0',
+  'A1',
+  'A2',
+  'A3',
+  'A4',
+  'Único',
+];
+
+export const PRODUCT_SKU_OTHER = '__other__';
+
+export function parseSkuFormFields(sku) {
+  const v = String(sku || '').trim();
+  if (!v) return { skuSelect: '', skuOther: '' };
+  if (PRODUCT_SKU_PRESETS.includes(v)) return { skuSelect: v, skuOther: '' };
+  return { skuSelect: PRODUCT_SKU_OTHER, skuOther: v };
+}
+
+export function resolveSkuFromForm(skuSelect, skuOther) {
+  if (skuSelect === PRODUCT_SKU_OTHER) return String(skuOther || '').trim().slice(0, 64);
+  return String(skuSelect || '').trim().slice(0, 64);
+}
+
+const PRODUCT_API_KEYS = [
+  'nome',
+  'categoria',
+  'Tamanho',
+  'descricao',
+  'sale_price',
+  'cost_price',
+  'is_for_sale',
+  'is_active',
+  'minimum_level',
+  'unit',
+  'sku',
+  'image_url',
+  'notes',
+  'initial_quantity',
+  'item_id',
+];
+
+/** Remove campos de outras coleções (ex.: item_estoque_id de SALE_ITEMS). */
+export function pickProductApiBody(payload, { isEdit = false } = {}) {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const out = {};
+  for (const key of PRODUCT_API_KEYS) {
+    if (src[key] !== undefined) out[key] = src[key];
+  }
+  if (!isEdit) delete out.item_id;
+  return out;
+}
+
 export function productDisplayLabel(doc) {
   const nome = itemDisplayName(doc);
   const tam = String(doc?.Tamanho ?? doc?.tamanho ?? '').trim();

@@ -19,7 +19,7 @@ import {
     X,
     Loader2,
 } from 'lucide-react';
-import { useTerms } from '../lib/terminology.js';
+import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 
 const presets = [
@@ -206,9 +206,16 @@ const pctVar = (cur, prev) => {
 
 const Reports = () => {
     const terms = useTerms();
+    const labels = useLeadStore((s) => s.labels);
+    const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
+    const contactsPlural = String(labels?.leads || 'Contatos').trim() || 'Contatos';
     const drillLabels = useMemo(
-        () => ({ ...DRILL_LABELS, converted: terms.reportsDrillConvertedTitle }),
-        [terms.reportsDrillConvertedTitle]
+        () => ({
+            ...DRILL_LABELS,
+            converted: terms.reportsDrillConvertedTitle,
+            newLeads: `Novos ${contactsPlural.toLowerCase()} no período`,
+        }),
+        [terms.reportsDrillConvertedTitle, contactsPlural]
     );
     const { leads, fetchLeads, fetchMoreLeads } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
@@ -669,8 +676,8 @@ const Reports = () => {
                         insideCard
                         variant="compact"
                         tone="solid"
-                        title="Nenhum lead carregado"
-                        description={`Volte ao início ou ao funil e aguarde o carregamento. Se a ${terms.workspaceNoun} ainda não tiver leads, cadastre o primeiro no menu.`}
+                        title={`Nenhum ${contactLabel.toLowerCase()} carregado`}
+                        description={`Volte ao início ou ao funil e aguarde o carregamento. Se a ${terms.workspaceNoun} ainda não tiver ${contactsPlural.toLowerCase()}, cadastre o primeiro no menu.`}
                         role="status"
                     />
                 </div>
@@ -872,7 +879,7 @@ const Reports = () => {
                         <div className="reports-timing-grid">
                             <div className="reports-timing-col">
                                 <div className="reports-timing-value">{reportData.funnelTiming.createdToScheduled ?? '—'}d</div>
-                                <div className="reports-timing-label">Lead → Agendamento</div>
+                                <div className="reports-timing-label">{`${contactLabel} → Agendamento`}</div>
                             </div>
                             <div className="reports-timing-col">
                                 <div className="reports-timing-value">{reportData.funnelTiming.scheduledToAttended ?? '—'}d</div>
@@ -941,7 +948,13 @@ const Reports = () => {
                             ))}
                         </ul>
                         {drillList.length === 0 ? (
-                            <EmptyState variant="compact" tone="dashed" title="Nenhum registro" role="status" />
+                            <EmptyState
+                                variant="compact"
+                                tone="dashed"
+                                title="Nenhum dado no período selecionado"
+                                description="Tente ajustar o intervalo de datas."
+                                role="status"
+                            />
                         ) : null}
                     </div>
                 </div>

@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUserRole } from '../../lib/useUserRole';
-import Finance from '../../pages/Finance';
+import RouteFallback from '../shared/RouteFallback.jsx';
+
+const Finance = React.lazy(() => import('../../pages/Finance'));
 
 /** Rota /finance (Contabilidade): apenas dono da academia; demais perfis vão para /caixa. */
 export default function RequireFinanceOwner() {
@@ -18,5 +20,9 @@ export default function RequireFinanceOwner() {
   if (role !== 'owner') {
     return <Navigate to="/caixa" replace />;
   }
-  return <Finance />;
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <Finance />
+    </Suspense>
+  );
 }

@@ -25,7 +25,7 @@ function safeGrouped(groupedItems) {
   return arr.map((g) => ({
     key: String(g?.key ?? ''),
     label: String(g?.label ?? ''),
-    items: normalizeGroupItems(g?.items)
+    items: normalizeGroupItems(g?.items),
   }));
 }
 
@@ -34,6 +34,7 @@ export default function ConversationList(props) {
     groupedItems,
     loading,
     totalItems,
+    whatsAppConnected = true,
     loadingMore,
     onSelectConversation,
     selectedPhone,
@@ -85,9 +86,30 @@ export default function ConversationList(props) {
           })}
         </div>
       ))}
-      {!loading && totalItems === 0 && (
+      {!loading && totalItems === 0 && !whatsAppConnected && (
         <div style={{ padding: 12 }}>
-          <EmptyState variant="compact" tone="dashed" title="Nenhuma conversa encontrada." role="status" />
+          <EmptyState
+            variant="default"
+            tone="dashed"
+            title="Conecte seu WhatsApp para receber e enviar mensagens diretamente pelo Nave."
+            description="Configure a conexão na página do Agente IA."
+            primaryAction={{
+              label: 'Configurar WhatsApp',
+              href: '/agente-ia',
+            }}
+            role="status"
+          />
+        </div>
+      )}
+      {!loading && totalItems === 0 && whatsAppConnected && (
+        <div style={{ padding: 12 }}>
+          <EmptyState
+            variant="compact"
+            tone="dashed"
+            title="Nenhuma conversa ainda"
+            description="Quando seus contatos enviarem mensagens, elas aparecerão aqui."
+            role="status"
+          />
         </div>
       )}
       {!loading && totalItems > 0 && flatCount === 0 && (
@@ -95,10 +117,10 @@ export default function ConversationList(props) {
           <EmptyState
             variant="compact"
             tone="dashed"
-            title="Nenhuma conversa com este filtro ou busca."
+            title="Nenhuma conversa encontrada para esse filtro."
             secondaryAction={
               typeof onClearListFilters === 'function'
-                ? { label: 'Limpar filtros', onClick: () => onClearListFilters() }
+                ? { label: 'Limpar filtros', onClick: () => onClearListFilters(), variant: 'link' }
                 : undefined
             }
             role="status"

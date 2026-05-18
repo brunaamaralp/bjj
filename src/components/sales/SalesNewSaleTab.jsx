@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSalesStore } from '../../store/useSalesStore';
 import { ShoppingCart, X } from 'lucide-react';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../../lib/appwrite';
@@ -7,11 +7,12 @@ import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
 import { suggestUnitPrice } from '../../lib/salesCatalog';
-import { readSalesSettings, SALES_CHANNEL_OPTIONS } from '../../lib/salesSettings';
+import { readSalesSettings } from '../../lib/salesSettings';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import SalesCatalogPicker from './SalesCatalogPicker';
 import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
+import Hint from '../shared/Hint.jsx';
 
 export default function SalesNewSaleTab() {
   const { createSale, creating, lastSale, error } = useSalesStore();
@@ -32,7 +33,6 @@ export default function SalesNewSaleTab() {
   const [clienteTelefone, setClienteTelefone] = useState('');
 
   const [forma, setForma] = useState('pix');
-  const [canal, setCanal] = useState('presencial');
   const [vendaColaborador, setVendaColaborador] = useState(false);
 
   const [cart, setCart] = useState([]);
@@ -45,6 +45,19 @@ export default function SalesNewSaleTab() {
   const [descGeralPct, setDescGeralPct] = useState(0);
 
   const [receipt, setReceipt] = useState(null);
+
+  const idempotencyKeyRef = useRef(
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`
+  );
+
+  const resetSaleSession = useCallback(() => {
+    idempotencyKeyRef.current =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+  }, []);
 
   const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
@@ -323,12 +336,11 @@ export default function SalesNewSaleTab() {
     await createSale({
       aluno_id: alunoId || null,
       forma_pagamento: forma,
-      canal,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? clienteTelefone.trim() || null : null,
       venda_colaborador: vendaColaborador,
       itens,
-      idempotency_key: `${alunoId || clienteNome || 'anon'}:${Date.now()}:${cart.length}`,
+      idempotency_key: idempotencyKeyRef.current,
     });
 
     const st = useSalesStore.getState();
@@ -347,7 +359,7 @@ export default function SalesNewSaleTab() {
       vendaId,
       date: dateStr,
       time: timeStr,
-      canal,
+      canal: 'presencial',
       clientName: clientDisplayName,
       forma,
       items: cart.map((it) => ({
@@ -363,6 +375,7 @@ export default function SalesNewSaleTab() {
     setDescGeralCents(0);
     setDescGeralPct(0);
     setMobilePanel('catalog');
+    resetSaleSession();
     void reloadCatalog();
   };
 
@@ -484,28 +497,16 @@ export default function SalesNewSaleTab() {
                 </div>
               </div>
 
-              <div className="sales-checkout__row">
-                <div className="form-group sales-checkout__field">
-                  <label>Canal</label>
-                  <select className="form-input" value={canal} onChange={(e) => setCanal(e.target.value)}>
-                    {SALES_CHANNEL_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group sales-checkout__field">
-                  <label>Pagamento</label>
-                  <select className="form-input" value={forma} onChange={(e) => setForma(e.target.value)}>
-                    <option value="pix">PIX</option>
-                    <option value="debito">Débito</option>
-                    <option value="credito">Crédito</option>
-                    <option value="dinheiro">Dinheiro</option>
-                    <option value="transferencia">Transferência</option>
-                    <option value="outro">Outro</option>
-                  </select>
-                </div>
+              <div className="form-group sales-checkout__field">
+                <label>Pagamento</label>
+                <select className="form-input" value={forma} onChange={(e) => setForma(e.target.value)}>
+                  <option value="pix">PIX</option>
+                  <option value="debito">Débito</option>
+                  <option value="credito">Crédito</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="transferencia">Transferência</option>
+                  <option value="outro">Outro</option>
+                </select>
               </div>
 
               <SalesCart
@@ -561,7 +562,11 @@ export default function SalesNewSaleTab() {
                     onChange={(e) => setVendaColaborador(e.target.checked)}
                   />
                   <span className="sales-collab-toggle__track" aria-hidden />
-                  <span>Aplicar preço de custo (colaborador)</span>
+                  <span className="sales-collab-toggle__text">Aplicar preço de custo (colaborador)</span>
+                  <Hint
+                    text="Vendas internas: substitui o preço de venda pelo custo cadastrado do produto."
+                    position="top"
+                  />
                 </label>
                 {vendaColaborador ? (
                   <p className="sales-collab-toggle__hint">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DateInput } from './DateInput';
 import { todayYmdLocal } from '../lib/studentOffboarding.js';
+import { useTerms } from '../lib/terminology.js';
 
 export default function DeactivateStudentModal({
   studentName,
@@ -9,6 +10,8 @@ export default function DeactivateStudentModal({
   onCancel,
   busy = false,
 }) {
+  const terms = useTerms();
+  const studentLabel = terms.student.toLowerCase();
   const [selectedReason, setSelectedReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [exitDate, setExitDate] = useState(() => todayYmdLocal());
@@ -65,10 +68,10 @@ export default function DeactivateStudentModal({
           id="deactivate-student-title"
           style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
         >
-          Desligar aluno
+          Desligar {studentLabel}
         </h3>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-          Confirme o desligamento de <strong>{studentName}</strong>. O histórico será mantido; o aluno deixa de
+          Confirme o desligamento de <strong>{studentName}</strong>. O histórico será mantido; o {studentLabel} deixa de
           aparecer em cobranças ativas e no funil.
         </p>
 
@@ -166,7 +169,7 @@ export default function DeactivateStudentModal({
               opacity: canConfirm ? 1 : 0.7,
             }}
           >
-            {busy ? 'Salvando…' : 'Confirmar desligamento'}
+            {busy ? 'Salvando…' : `Desligar ${studentLabel}`}
           </button>
         </div>
       </div>

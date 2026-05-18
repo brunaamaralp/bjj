@@ -8,6 +8,10 @@ import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrit
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import NaviLogo from '../components/NaviLogo.jsx';
+import Hint from '../components/shared/Hint.jsx';
+import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -19,20 +23,25 @@ import AgendaCalendarWeek, { formatWeekRangeLabel, getWeekStart } from '../compo
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { leads, loading, fetchLeads, academyId, academyList, leadsError } = useLeadStore();
+    const { leads, loading, fetchLeads, academyId, academyList, leadsError, leadsLastFetchedAt } = useLeadStore();
     const vertical = useLeadStore((s) => s.vertical);
     const terms = useTerms();
+    const labels = useLeadStore((s) => s.labels);
+    const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
     const receptionSubtitle =
         vertical === 'physio' ? 'Controle de avaliações e retornos' : 'Controle de aulas experimentais e retornos';
     const tasks = useTaskStore((s) => s.tasks);
     const fetchTasks = useTaskStore((s) => s.fetchTasks);
     const updateTask = useTaskStore((s) => s.updateTask);
+    const patchTaskLocal = useTaskStore((s) => s.patchTaskLocal);
+    const isUpdatingTask = useTaskStore((s) => s.isUpdating);
     const addToast = useUiStore((s) => s.addToast);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
@@ -50,7 +59,6 @@ const Dashboard = () => {
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds, setRemovingFollowupIds] = useState({});
-    const [savingTaskDone, setSavingTaskDone] = useState({});
     const [dashboardWeekOffset, setDashboardWeekOffset] = useState(0);
     const hiddenAtRef = useRef(null);
 
@@ -81,10 +89,13 @@ const Dashboard = () => {
     }, [academyList, academyId]);
 
     useEffect(() => {
-        if (academyId) {
-            fetchLeads();
+        if (!academyId) return;
+        const STALE_MS = 5 * 60 * 1000;
+        if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) {
+            return;
         }
-    }, [academyId]);
+        void fetchLeads({ reset: true });
+    }, [academyId, leads.length, leadsLastFetchedAt, fetchLeads]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -307,6 +318,8 @@ const Dashboard = () => {
             return tb - ta;
         });
 
+    const isZeroState = !loading && leads.length === 0 && (tasks || []).length === 0;
+
     const pendingTasks = (tasks || [])
         .filter((t) => String(t?.status || '').trim().toLowerCase() !== 'done')
         .sort((a, b) => {
@@ -480,19 +493,15 @@ const Dashboard = () => {
 
     const markTaskAsDone = async (task) => {
         const taskId = String(task?.id || '').trim();
-        if (!taskId || savingTaskDone[taskId]) return;
-        setSavingTaskDone((prev) => ({ ...prev, [taskId]: true }));
+        if (!taskId || isUpdatingTask(taskId)) return;
+        const previousStatus = task.status;
+        patchTaskLocal(taskId, { status: 'done' });
         try {
             await updateTask(taskId, { status: 'done' });
             addToast({ type: 'success', message: 'Tarefa concluída.' });
         } catch {
+            patchTaskLocal(taskId, { status: previousStatus });
             addToast({ type: 'error', message: 'Erro ao concluir tarefa.' });
-        } finally {
-            setSavingTaskDone((prev) => {
-                const next = { ...prev };
-                delete next[taskId];
-                return next;
-            });
         }
     };
 
@@ -523,12 +532,10 @@ const Dashboard = () => {
             </header>
 
             {leadsError && (
-                <div className="dashboard-error-banner" role="alert">
-                    <span>Não foi possível carregar os dados.</span>
-                    <button type="button" className="btn-secondary" onClick={() => void fetchLeads()}>
-                        Tentar novamente
-                    </button>
-                </div>
+                <ErrorBanner
+                    message="Não foi possível carregar os dados."
+                    onRetry={() => void fetchLeads()}
+                />
             )}
 
             <div className="agenda-kpi-grid reception-kpi-grid animate-in" style={{ animationDelay: '0.05s' }} aria-busy={loading}>
@@ -592,7 +599,16 @@ const Dashboard = () => {
                             onClick={() => setListModalType(card.key)}
                         >
                             <div className="agenda-kpi-card-stack">
-                                <div className="agenda-kpi-label">{card.title}</div>
+                                <div className="agenda-kpi-label">
+                                    <span>{card.title}</span>
+                                    {card.key === 'today' ? (
+                                        <Hint
+                                            text={`${contactLabel}s com ${terms.trialShort.toLowerCase()} agendada para hoje`}
+                                            position="top"
+                                            className="agenda-kpi-hint"
+                                        />
+                                    ) : null}
+                                </div>
                                 {isOk ? (
                                         <div className="agenda-kpi-ok" aria-label="Tudo em dia">
                                             <Check size={22} strokeWidth={2.5} aria-hidden />
@@ -635,6 +651,27 @@ const Dashboard = () => {
                     })
                 )}
             </div>
+
+            {isZeroState ? (
+                <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
+                    <div className="dashboard-zero-welcome__icon" aria-hidden>
+                        <NaviLogo size={40} />
+                    </div>
+                    <h2 className="dashboard-zero-welcome__title">Bem-vindo à Nave!</h2>
+                    <p className="dashboard-zero-welcome__text">
+                        Comece adicionando o primeiro {contactLabel.toLowerCase()} para acompanhar a jornada até a matrícula.
+                    </p>
+                    <div className="dashboard-zero-welcome__actions">
+                        <button type="button" className="btn-primary" onClick={() => navigate('/new-lead')}>
+                            <Plus size={18} strokeWidth={2.25} aria-hidden />
+                            Adicionar primeiro {contactLabel.toLowerCase()}
+                        </button>
+                        <Link to="/pipeline" className="dashboard-zero-welcome__link">
+                            Ver como funciona o funil →
+                        </Link>
+                    </div>
+                </section>
+            ) : null}
 
             <div className="agenda-page-stack">
             <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.15s' }}>
@@ -691,11 +728,11 @@ const Dashboard = () => {
                         hideNav
                     />
                 </div>
-                <p className="reception-calendar-hint">Clique em um horário para abrir o lead</p>
+                <p className="reception-calendar-hint">Clique em um horário para abrir o contato</p>
             </section>
 
             <div className="agenda-section-divider" aria-hidden />
-            <section className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
+            <section id="follow-ups" className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
                 <div className="reception-section-head flex justify-between items-center">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <h3 className="navi-section-heading reception-section-heading">
@@ -847,7 +884,7 @@ const Dashboard = () => {
                                     const isTasks = listModalType === 'tasks';
                                     const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
                                     const followupBusy = Boolean(savingFollowupDone[lead.id]);
-                                    const taskBusy = Boolean(savingTaskDone[String(lead?.id || '').trim()]);
+                                    const taskBusy = isUpdatingTask(String(lead?.id || '').trim());
                                     return (
                                         <div key={`${lead.id || lead.$id || i}-${i}`} className="card follow-card">
                                             <div

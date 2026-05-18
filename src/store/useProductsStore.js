@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
+import { pickProductApiBody } from '../lib/stockProducts';
 import { useLeadStore } from './useLeadStore';
 
 async function productsFetch(path, options = {}) {
@@ -46,7 +47,7 @@ export const useProductsStore = create((set) => ({
     try {
       const data = await productsFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ action: 'create', ...payload }),
+        body: JSON.stringify({ action: 'create', ...pickProductApiBody(payload) }),
       });
       set({ loading: false });
       return data.product;
@@ -61,7 +62,7 @@ export const useProductsStore = create((set) => ({
     try {
       const data = await productsFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ action: 'update', ...payload }),
+        body: JSON.stringify({ action: 'update', ...pickProductApiBody(payload, { isEdit: true }) }),
       });
       set({ loading: false });
       return data.product;

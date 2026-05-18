@@ -1,5 +1,33 @@
+/**
+ * Glossário de termos canônicos do Nave
+ *
+ * Regras:
+ * - Pessoa pré-matrícula: labels.leads (configurável por academia) — use contactLabelSingular()
+ * - Pessoa matriculada: terms.student / terms.students
+ * - Cliente sem vínculo (venda): "Cliente avulso" (fixo)
+ * - Salvar edição: "Salvar"
+ * - Confirmar ação irreversível: "Confirmar [ação]"
+ * - Registrar evento pontual: "Registrar"
+ * - Concluir fluxo: "Concluir [fluxo]"
+ * - Criar item novo: "Criar [item]"
+ * - Fechar sem salvar: "Cancelar"
+ * - Voltar de página: "Voltar"
+ * - Excluir registro permanentemente: "Excluir"
+ * - Desativar sem excluir: "Desativar" (produto) / "Desligar" (aluno/paciente)
+ * - WhatsApp conectado: "WhatsApp conectado" (não "Instância ligada")
+ */
+
 import { useLeadStore } from '../store/useLeadStore';
 import { LEAD_STATUS } from './leadStatus.js';
+
+/** Singular do rótulo de contato pré-matrícula (ex.: "Leads" → "Lead"). */
+export function contactLabelSingular(labels) {
+  const plural = String(labels?.leads || 'Contatos').trim() || 'Contatos';
+  if (plural.toLowerCase().endsWith('s') && plural.length > 1) {
+    return plural.slice(0, -1);
+  }
+  return plural;
+}
 
 /** Rótulo de status operacional (valor salvo pode ser «Matriculado»). */
 export function operationalStatusDisplayLabel(terms, status) {
@@ -45,8 +73,8 @@ export const TERMS = {
     convertedStatusUi: 'Matriculado',
     /** Coluna do funil com id «Matriculado». */
     pipelineEnrolledColumnLabel: 'Matrícula',
-    leadMarkedConvertedToast: 'Lead marcado como matriculado.',
-    pipelineEnrollmentSuccessToast: 'Lead matriculado com sucesso!',
+    leadMarkedConvertedToast: 'Marcado como matriculado.',
+    pipelineEnrollmentSuccessToast: 'Matrícula registrada com sucesso!',
     matriculaModalTitle: 'Matricular aluno',
     matriculaModalSubtitle: 'Como deseja registrar a matrícula?',
     matriculaModalSimpleCta: 'Só matricular',
@@ -89,8 +117,8 @@ export const TERMS = {
       'Exporta {students} já em acompanhamento ou como tipo de contato {student} (mesmo critério da lista). Até 5000 por critério no servidor.',
     convertedStatusUi: 'Em acompanhamento',
     pipelineEnrolledColumnLabel: 'Acompanhamento',
-    leadMarkedConvertedToast: 'Lead marcado como em acompanhamento.',
-    pipelineEnrollmentSuccessToast: 'Paciente registrado em acompanhamento com sucesso!',
+    leadMarkedConvertedToast: 'Marcado como em acompanhamento.',
+    pipelineEnrollmentSuccessToast: 'Acompanhamento registrado com sucesso!',
     matriculaModalTitle: 'Iniciar acompanhamento',
     matriculaModalSubtitle: 'Como deseja registrar o início de acompanhamento?',
     matriculaModalSimpleCta: 'Só registrar',

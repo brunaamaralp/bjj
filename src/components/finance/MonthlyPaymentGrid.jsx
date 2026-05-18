@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageSquare, Check, Clock, CircleAlert, CircleDashed } from 'lucide-react';
 import PaymentStatusPopover from './PaymentStatusPopover.jsx';
 import { getStudentPayments, saveMonthlyPayment } from '../../lib/studentPayments';
 import {
   expectedAmountForStudent,
   formatDueDayLabel,
-  GRID_STATUS_COLORS,
   GRID_STATUS_LABELS,
   HISTORY_BADGE,
   historyStatusForMonth,
@@ -30,6 +29,24 @@ function studentTurma(student) {
   return String(
     student?.turma || student?.className || student?.class_name || student?.classId || ''
   ).trim();
+}
+
+const GRID_BADGE_ICONS = {
+  paid: Check,
+  awaiting: Clock,
+  pending: CircleAlert,
+  partial: CircleDashed,
+  none: null,
+};
+
+function GridStatusBadgeContent({ statusKey, label }) {
+  const Icon = GRID_BADGE_ICONS[statusKey];
+  return (
+    <>
+      {Icon ? <Icon size={12} strokeWidth={2.25} aria-hidden /> : null}
+      <span>{label}</span>
+    </>
+  );
 }
 
 export default function MonthlyPaymentGrid({
@@ -57,7 +74,7 @@ export default function MonthlyPaymentGrid({
   const [expandedId, setExpandedId] = useState(null);
   const [historyByLead, setHistoryByLead] = useState({});
   const [historyLoading, setHistoryLoading] = useState(null);
-  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [notePopoverId, setNotePopoverId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
 
   const turmas = useMemo(() => {
@@ -119,23 +136,42 @@ export default function MonthlyPaymentGrid({
     let receivedTotal = 0;
     let paidCount = 0;
     let problemCount = 0;
+    let pendingTotal = 0;
+    let noneWithPlanCount = 0;
+    let delinquentAmount = 0;
     const active = students.length;
     for (const row of rows) {
-      expectedTotal += row.expected || 0;
+      const exp = row.expected || 0;
+      expectedTotal += exp;
       const st = row.display.key;
       if (st === 'paid' || st === 'partial') {
         receivedTotal += row.received || 0;
         if (st === 'paid') paidCount += 1;
       }
       if (st === 'awaiting' || st === 'partial' || st === 'pending') problemCount += 1;
+
+      const hasPlan = Boolean(String(row.student.plan || '').trim());
+      if (st === 'none' && hasPlan) {
+        noneWithPlanCount += 1;
+        pendingTotal += exp;
+      } else if (st === 'pending' || st === 'awaiting') {
+        pendingTotal += exp;
+        if (st === 'pending') delinquentAmount += exp;
+      } else if (st === 'partial') {
+        pendingTotal += Math.max(0, exp - (row.received || 0));
+        delinquentAmount += Math.max(0, exp - (row.received || 0));
+      }
     }
+    const pendingTone =
+      noneWithPlanCount > 0 && delinquentAmount <= 0 ? 'attention' : delinquentAmount > 0 ? 'danger' : 'neutral';
     return {
       expectedTotal,
       receivedTotal,
-      pendingTotal: Math.max(0, expectedTotal - receivedTotal),
+      pendingTotal,
       paidCount,
       active,
       problemCount,
+      pendingTone,
     };
   }, [rows, students.length]);
 
@@ -200,7 +236,7 @@ export default function MonthlyPaymentGrid({
 
   const saveNoteInline = async (row) => {
     const note = noteDraft.trim();
-    setEditingNoteId(null);
+    setNotePopoverId(null);
     const payment = row.payment;
     const dbStatus = payment
       ? String(payment.status || 'pending')
@@ -282,7 +318,12 @@ export default function MonthlyPaymentGrid({
           <div className="text-xs text-muted">Total recebido</div>
         </div>
         <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 20, fontWeight: 600, color: '#A32D2D' }}>{fmtMoney(totals.pendingTotal)}</div>
+          <div
+            className={`monthly-grid-pending-total monthly-grid-pending-total--${totals.pendingTone}`}
+            style={{ fontSize: 20, fontWeight: 600 }}
+          >
+            {fmtMoney(totals.pendingTotal)}
+          </div>
           <div className="text-xs text-muted">Total pendente</div>
         </div>
         <div className="card" style={{ padding: '12px 14px' }}>
@@ -320,7 +361,7 @@ export default function MonthlyPaymentGrid({
         </div>
       </div>
 
-      <div className="mensal-table-wrap" style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
+      <div className="mensal-table-wrap mensal-table-wrap--scroll-hint" style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
         <table className="mensal-table monthly-grid-table" style={{ minWidth: 960 }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover, #f4f4f8)' }}>
             <tr>
@@ -331,7 +372,7 @@ export default function MonthlyPaymentGrid({
               <th>Vencimento</th>
               <th>Conta / plataforma</th>
               <th>Status</th>
-              <th>Observação</th>
+              <th className="mensal-th-note" aria-label="Nota" />
             </tr>
           </thead>
           <tbody>
@@ -350,7 +391,6 @@ export default function MonthlyPaymentGrid({
             ) : (
               sortedRows.map((row) => {
                 const { student, payment, expected, display, note } = row;
-                const colors = GRID_STATUS_COLORS[display.key] || GRID_STATUS_COLORS.none;
                 const isExpanded = expandedId === student.id;
                 const hist = historyByLead[student.id];
 
@@ -368,29 +408,28 @@ export default function MonthlyPaymentGrid({
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         </button>
                       </td>
-                      <td style={{ fontWeight: 500, fontSize: 13 }}>{student.name || '—'}</td>
+                      <td className="mensal-cell-name mensal-cell-name--grid">
+                        <span className="mensal-cell-name__title" title={student.name || undefined}>
+                          {student.name || '—'}
+                        </span>
+                      </td>
                       <td className="text-small">{student.plan || payment?.plan_name || '—'}</td>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
                         {expected > 0 ? fmtMoney(expected) : '—'}
                       </td>
                       <td className="text-small">{formatDueDayLabel(student)}</td>
                       <td className="text-small">
-                        {student.preferredPaymentAccount || payment?.account || '—'}
+                        {student.preferredPaymentAccount || payment?.account ? (
+                          student.preferredPaymentAccount || payment?.account
+                        ) : (
+                          <span className="mensal-cell-faint">—</span>
+                        )}
                       </td>
                       <td>
                         <button
                           type="button"
-                          className="grid-status-badge"
-                          style={{
-                            background: colors.bg,
-                            color: colors.color,
-                            border: 'none',
-                            borderRadius: 20,
-                            padding: '4px 10px',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
+                          className={`grid-status-badge grid-status-badge--${display.key}`}
+                          style={{ cursor: 'pointer' }}
                           onClick={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             setPopover({
@@ -399,11 +438,11 @@ export default function MonthlyPaymentGrid({
                             });
                           }}
                         >
-                          {display.label}
+                          <GridStatusBadgeContent statusKey={display.key} label={display.label} />
                         </button>
                       </td>
                       <td className="text-small" style={{ maxWidth: 200 }}>
-                        {editingNoteId === student.id ? (
+                        {notePopoverId === student.id ? (
                           <input
                             className="form-input"
                             style={{ fontSize: 12, padding: '4px 8px' }}
@@ -412,38 +451,30 @@ export default function MonthlyPaymentGrid({
                             onBlur={() => void saveNoteInline(row)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') void saveNoteInline(row);
-                              if (e.key === 'Escape') setEditingNoteId(null);
+                              if (e.key === 'Escape') setNotePopoverId(null);
                             }}
                             autoFocus
                           />
                         ) : (
                           <button
                             type="button"
-                            className="grid-note-btn"
                             onClick={() => {
-                              setEditingNoteId(student.id);
+                              setNotePopoverId(student.id);
                               setNoteDraft(note);
                             }}
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              padding: 0,
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              color: note ? 'var(--text)' : 'var(--text-secondary)',
-                              fontStyle: note ? 'normal' : 'italic',
-                              fontSize: 12,
-                            }}
-                            title={note || 'Adicionar observação'}
+                            className={`grid-note-icon-btn${note ? ' grid-note-icon-btn--has-note' : ''}`}
+                            title={note || 'Adicionar nota'}
+                            aria-label={note ? 'Ver ou editar nota' : 'Adicionar nota'}
                           >
-                            {note ? truncateNote(note) : 'Adicionar…'}
+                            <MessageSquare size={14} />
+                            {note ? <span className="grid-note-icon-btn__dot" aria-hidden /> : null}
                           </button>
                         )}
                       </td>
                     </tr>
                     {isExpanded ? (
-                      <tr>
-                        <td colSpan={8} style={{ padding: '8px 16px 12px 40px', background: 'var(--surface-hover)' }}>
+                      <tr className="grid-history-row">
+                        <td colSpan={8} className="grid-history-panel">
                           {historyLoading === student.id ? (
                             <span className="text-xs text-muted">Carregando histórico…</span>
                           ) : (

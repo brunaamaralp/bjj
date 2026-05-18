@@ -9,6 +9,9 @@ import { formatBRL } from '../lib/moneyBr';
 import ProductThumb from '../components/products/ProductThumb';
 import ProductFormModal from '../components/products/ProductFormModal';
 import EmptyState from '../components/shared/EmptyState';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import { friendlyError } from '../lib/errorMessages';
 
 const LIFECYCLE_LABELS = {
   ativo: 'Ativo',
@@ -158,7 +161,11 @@ export default function Products() {
       </div>
 
       {error ? (
-        <p className="text-small mt-2" style={{ color: 'var(--danger)' }} role="alert">{error}</p>
+        <ErrorBanner
+          className="mt-2"
+          message={friendlyError(error, 'load')}
+          onRetry={() => void refresh()}
+        />
       ) : null}
 
       <div className="card mt-4" style={{ padding: 12 }}>
@@ -170,7 +177,7 @@ export default function Products() {
               <input
                 className="form-input"
                 style={{ paddingLeft: 30 }}
-                placeholder="Nome, SKU, categoria…"
+                placeholder="Nome, código, categoria…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -204,14 +211,27 @@ export default function Products() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
-          <EmptyState
-            variant="compact"
-            tone="dashed"
-            title={products.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto neste filtro'}
-            description="Cadastre o primeiro produto ou ajuste os filtros."
-            role="status"
-          />
+        {loading ? (
+          <PageSkeleton variant="cards" rows={6} />
+        ) : filtered.length === 0 && !error ? (
+          products.length === 0 ? (
+            <EmptyState
+              variant="default"
+              tone="dashed"
+              title="Nenhum produto cadastrado ainda"
+              description="Cadastre os produtos da academia para usá-los nas vendas e no controle de estoque."
+              primaryAction={{ label: 'Cadastrar primeiro produto', onClick: openCreate }}
+              role="status"
+            />
+          ) : (
+            <EmptyState
+              variant="compact"
+              tone="dashed"
+              title="Nenhum produto neste filtro"
+              description="Ajuste os filtros ou cadastre um novo produto."
+              role="status"
+            />
+          )
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="navi-table" style={{ width: '100%', minWidth: 720 }}>

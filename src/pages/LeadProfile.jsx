@@ -24,7 +24,12 @@ import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
-import { useTerms, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
+import {
+  useTerms,
+  contactLabelSingular,
+  operationalStatusDisplayLabel,
+  pipelineStageDisplayLabel,
+} from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 
@@ -134,6 +139,8 @@ const LeadProfile = () => {
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
     const terms = useTerms();
+    const labels = useLeadStore((s) => s.labels);
+    const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -308,9 +315,9 @@ const LeadProfile = () => {
         if (t === 'missed') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.MISSED, at, text: d.text };
         if (t === 'converted') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.CONVERTED, at, text: d.text };
         if (t === 'lost') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.LOST, at, text: d.text };
-        if (t === 'lead_criado') return { type: 'lead_created', at, text: d.text || 'Lead cadastrado no CRM' };
+        if (t === 'lead_criado') return { type: 'lead_created', at, text: d.text || `${contactLabel} cadastrado no CRM` };
         return { type: t, ...base };
-    }, []);
+    }, [contactLabel]);
 
     const refreshTimeline = useCallback(async () => {
         if (!id || !academyId) return;
@@ -575,7 +582,7 @@ const LeadProfile = () => {
     if (!lead) {
         return (
             <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
-                <p className="text-light">Lead não encontrado.</p>
+                <p className="text-light">{contactLabel} não encontrado.</p>
                 <button type="button" className="btn-primary mt-4" onClick={() => navigate('/')}>Voltar</button>
             </div>
         );
@@ -852,7 +859,7 @@ const LeadProfile = () => {
         setDeletingLead(true);
         try {
             await deleteLead(id);
-            addToast({ type: 'success', message: 'Lead excluído com sucesso.' });
+            addToast({ type: 'success', message: `${contactLabel} excluído com sucesso.` });
             navigate(-1);
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'delete') });
@@ -863,8 +870,8 @@ const LeadProfile = () => {
 
     const openDeleteLeadConfirm = () => {
         setConfirmModal({
-            title: 'Excluir lead?',
-            description: 'Esta ação não pode ser desfeita. Todos os dados do lead serão removidos.',
+            title: `Excluir ${contactLabel.toLowerCase()}?`,
+            description: `Esta ação não pode ser desfeita. Todos os dados do ${contactLabel.toLowerCase()} serão removidos.`,
             confirmLabel: 'Excluir',
             danger: true,
             onConfirm: deleteLeadExecute,
@@ -1177,7 +1184,7 @@ const LeadProfile = () => {
                             <span
                                 className="lead-contact-label"
                             >
-                                {contactType === 'student' ? terms.student : 'Lead'}
+                                {contactType === 'student' ? terms.student : contactLabel}
                             </span>
                             <span
                                 className="status-tag"
@@ -1456,7 +1463,7 @@ const LeadProfile = () => {
                         disabled={deletingLead}
                     >
                         <span className="ti ti-trash" aria-hidden style={{ fontSize: 14, lineHeight: 1 }} />
-                        Excluir lead
+                        {`Excluir ${contactLabel.toLowerCase()}`}
                     </button>
                 </div>
 
@@ -1485,7 +1492,7 @@ const LeadProfile = () => {
                         <textarea
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
-                            placeholder="Adicione uma observação sobre este lead..."
+                            placeholder={`Adicione uma observação sobre este ${contactLabel.toLowerCase()}...`}
                             className="timeline-textarea"
                             rows={3}
                         />
@@ -1616,7 +1623,7 @@ const LeadProfile = () => {
             />
             {lostModalOpen && (
                 <LostReasonModal
-                    leadName={lead.name || 'Lead'}
+                    leadName={lead.name || contactLabel}
                     onCancel={() => setLostModalOpen(false)}
                     onConfirm={async (reason) => {
                         try {

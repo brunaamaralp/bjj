@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ShoppingBag } from 'lucide-react';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
+import EmptyState from '../shared/EmptyState.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -14,11 +17,12 @@ import {
   saleStatusLabel,
 } from '../../lib/salesHistory';
 import { formatBRL } from '../../lib/moneyBr';
+import { friendlyError } from '../../lib/errorMessages';
 import SaleDetailModal from './SaleDetailModal';
 import SalesCancelModal from './SalesCancelModal';
 import CancelReceiptPanel from './CancelReceiptPanel';
 
-export default function SalesHistoryTab() {
+export default function SalesHistoryTab({ onSwitchTab }) {
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
   const { fetchSalesList, fetchSaleDetail, cancelSale, cancelling, error } = useSalesStore();
@@ -208,13 +212,31 @@ export default function SalesHistoryTab() {
 
       <div className="card mt-3" style={{ overflowX: 'auto' }}>
         {loading ? (
-          <p className="text-small text-muted p-3">Carregando vendas…</p>
+          <div className="p-3">
+            <PageSkeleton variant="list" rows={5} />
+          </div>
         ) : loadError || error ? (
-          <p className="text-small p-3" style={{ color: 'var(--danger)' }}>
-            {loadError || error}
-          </p>
+          <div className="p-3">
+            <ErrorBanner
+              message={friendlyError(loadError || error, 'load')}
+              onRetry={() => void loadSales()}
+            />
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="text-small text-muted p-3">Nenhuma venda no período.</p>
+          <div className="p-3">
+            <EmptyState
+              variant="default"
+              tone="dashed"
+              icon={ShoppingBag}
+              title="Nenhuma venda neste período"
+              description="Registre uma venda pela aba Nova venda e ela aparecerá aqui."
+              primaryAction={{
+                label: 'Registrar venda',
+                onClick: () => onSwitchTab?.('new'),
+              }}
+              role="status"
+            />
+          </div>
         ) : (
           <table className="sales-table">
             <thead>

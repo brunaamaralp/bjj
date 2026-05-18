@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
@@ -67,8 +66,9 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
         setError('');
 
         const reader = new FileReader();
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
             try {
+                const XLSX = await import('xlsx');
                 const wb = XLSX.read(evt.target.result, { type: 'array' });
                 const ws = wb.Sheets[wb.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(ws, { defval: '' });
