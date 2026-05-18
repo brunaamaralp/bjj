@@ -46,11 +46,15 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
   const whatsappLeadQuenteRaw = String(doc.whatsapp_lead_quente || '').trim().toLowerCase();
   const hotLead = whatsappLeadQuenteRaw === 'sim';
 
+  const turmaRaw = String(doc.turma ?? doc.class_name ?? doc.className ?? '').trim();
+
   return {
     id: doc.$id,
     name: doc.name,
     phone: doc.phone,
     type: doc.type || 'Adulto',
+    turma: turmaRaw,
+    className: turmaRaw,
     origin: doc.origin || '',
     contact_type: doc.contact_type ?? 'lead',
     status,

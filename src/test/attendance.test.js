@@ -10,6 +10,7 @@ vi.mock('appwrite', () => ({
   ID: { unique: vi.fn(() => 'check-1') },
   Query: {
     equal: (k, v) => ({ op: 'eq', k, v }),
+    or: (queries) => ({ op: 'or', queries }),
     orderDesc: (k) => ({ op: 'desc', k }),
     limit: (n) => ({ op: 'limit', n })
   }
@@ -35,12 +36,13 @@ describe('Registro de presença', () => {
   });
 
   describe('createCheckin', () => {
-    it('cria documento com lead_id, academy_id e checked_in_at', async () => {
+    it('cria documento com student_id, academy_id e checked_in_at', async () => {
       attendanceMocks.createDocument.mockResolvedValueOnce({ $id: 'c1' });
       const { createCheckin } = await import('../lib/attendance.js');
       await createCheckin({ lead_id: 'lead-1', academy_id: 'acad-1', checked_in_by: 'u1', checked_in_by_name: 'Ana' });
       const payload = attendanceMocks.createDocument.mock.calls[0][3];
-      expect(payload.lead_id).toBe('lead-1');
+      expect(payload.student_id).toBe('lead-1');
+      expect(payload.lead_id).toBeUndefined();
       expect(payload.academy_id).toBe('acad-1');
       expect(typeof payload.checked_in_at).toBe('string');
     });

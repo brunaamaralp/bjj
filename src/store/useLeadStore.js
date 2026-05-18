@@ -61,6 +61,15 @@ const LEAD_DUE_DAY_APPWRITE_KEY = (() => {
   return null;
 })();
 
+/** Atributo opcional de turma/horário (texto livre). Só grava se `VITE_APPWRITE_LEAD_TURMA_ATTR` estiver definido (ex.: `turma`). */
+const LEAD_TURMA_APPWRITE_KEY = (() => {
+  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_TURMA_ATTR || '').trim();
+  const lower = raw.toLowerCase();
+  if (!raw || ['off', 'false', '0', 'no', 'none'].includes(lower)) return null;
+  if (lower === 'class_name' || lower === 'classname') return 'class_name';
+  return raw;
+})();
+
 /**
  * Converte updates camelCase (UI) → payload Appwrite (snake novos + camel legados).
  * Não inclui `notes` (deprecado).
@@ -77,6 +86,12 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.name !== undefined) copyIf('name', u.name);
   if (u.phone !== undefined) copyIf('phone', u.phone);
   if (u.type !== undefined) copyIf('type', u.type);
+  if (u.turma !== undefined && LEAD_TURMA_APPWRITE_KEY) {
+    patch[LEAD_TURMA_APPWRITE_KEY] = String(u.turma || '').trim().slice(0, 64);
+  }
+  if (u.className !== undefined && LEAD_TURMA_APPWRITE_KEY === 'class_name') {
+    patch.class_name = String(u.className || '').trim().slice(0, 64);
+  }
   if (u.origin !== undefined) copyIf('origin', u.origin);
   if (u.contact_type !== undefined) copyIf('contact_type', u.contact_type);
   if (u.status !== undefined) copyIf('status', u.status);

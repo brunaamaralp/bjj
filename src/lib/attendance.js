@@ -28,6 +28,16 @@ function ymFromDate(d) {
     return `${y}-${m}`;
 }
 
+function personIdFromData(data) {
+    return String(data.lead_id || data.student_id || data.leadId || data.studentId || '').trim();
+}
+
+/** Filtro por aluno: coleção pode usar student_id (Control iD) e/ou lead_id (manual legado). */
+function personQuery(leadId) {
+    const lid = String(leadId || '').trim();
+    return Query.or([Query.equal('student_id', lid), Query.equal('lead_id', lid)]);
+}
+
 /**
  * Lista presenças com fallback: ordenar por `checked_in_at` exige índice; tentamos `$createdAt`;
  * por fim buscamos sem ordenação e ordenamos no cliente (até 500 linhas).
@@ -36,7 +46,7 @@ function ymFromDate(d) {
  * @param {number} limit
  */
 async function listAttendanceDocuments(lid, aid, limit) {
-    const eq = [Query.equal('lead_id', lid), Query.equal('academy_id', aid)];
+    const eq = [Query.equal('academy_id', aid), personQuery(lid)];
     try {
         return await databases.listDocuments(DB_ID, ATTENDANCE_COL, [...eq, Query.orderDesc('checked_in_at'), Query.limit(limit)]);
     } catch {
@@ -68,7 +78,8 @@ export async function getAttendance(leadId, academyId, opts = {}) {
 
 /**
  * @param {{
- *   lead_id: string;
+ *   lead_id?: string;
+ *   student_id?: string;
  *   academy_id: string;
  *   checked_in_by: string;
  *   checked_in_by_name: string;
@@ -79,13 +90,13 @@ export async function createCheckin(data, permissionContext = {}) {
     if (!ATTENDANCE_COL) {
         throw new Error('Coleção de presença não configurada.');
     }
-    const lead_id = String(data.lead_id || '').trim();
+    const personId = personIdFromData(data);
     const academy_id = String(data.academy_id || '').trim();
-    if (!lead_id || !academy_id) {
+    if (!personId || !academy_id) {
         throw new Error('Dados de presença incompletos.');
     }
     const doc = {
-        lead_id,
+        student_id: personId,
         academy_id,
         checked_in_at: new Date().toISOString(),
         checked_in_by: String(data.checked_in_by || 'user').trim().slice(0, 128),

@@ -106,7 +106,21 @@ function humanizeTimelineStage(value, stages = [], terms) {
     return t.replace(/_/g, ' ');
 }
 
+const PROFILE_TYPE_OPTIONS = [
+    { value: 'Adulto', label: 'Adulto' },
+    { value: 'Criança', label: 'Criança' },
+    { value: 'Juniores', label: 'Juniores' },
+];
+
 const STUDENT_DATA_FIELDS = [
+    { key: 'name', label: 'Nome', type: 'text', placeholder: 'Nome completo' },
+    {
+        key: 'type',
+        label: 'Perfil',
+        type: 'select',
+        options: PROFILE_TYPE_OPTIONS,
+    },
+    { key: 'turma', label: 'Turma / horário', type: 'text', placeholder: 'Ex.: Kids 18h, Adultos noite' },
     { key: 'plan', label: 'Plano', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
     { key: 'enrollmentDate', label: 'Ingresso', type: 'date', placeholder: '' },
     { key: 'birthDate', label: 'Nascimento', type: 'date', placeholder: '' },
@@ -270,6 +284,9 @@ export default function StudentProfile() {
     const [exitReasons, setExitReasons] = useState([]);
     const [editingData, setEditingData] = useState(false);
     const [dataForm, setDataForm] = useState({
+        name: '',
+        type: 'Adulto',
+        turma: '',
         plan: '',
         enrollmentDate: '',
         birthDate: '',
@@ -342,6 +359,9 @@ export default function StudentProfile() {
     useEffect(() => {
         if (!student) return;
         setDataForm({
+            name: String(student.name || '').trim(),
+            type: student.type || 'Adulto',
+            turma: String(student.turma || student.className || '').trim(),
             plan: student.plan || '',
             enrollmentDate: student.enrollmentDate || '',
             birthDate: student.birthDate || '',
@@ -629,6 +649,9 @@ export default function StudentProfile() {
     const cancelDataEdit = useCallback(() => {
         if (!student) return;
         setDataForm({
+            name: String(student.name || '').trim(),
+            type: student.type || 'Adulto',
+            turma: String(student.turma || student.className || '').trim(),
             plan: student.plan || '',
             enrollmentDate: student.enrollmentDate || '',
             birthDate: student.birthDate || '',
@@ -646,6 +669,11 @@ export default function StudentProfile() {
 
     const handleSaveData = useCallback(async () => {
         if (!student || savingData) return;
+        const name = String(dataForm.name || '').trim();
+        if (!name) {
+            addToast({ type: 'error', message: 'Informe o nome do aluno.' });
+            return;
+        }
         setSavingData(true);
         try {
             const dueRaw = String(dataForm.dueDay ?? '').trim();
@@ -653,7 +681,17 @@ export default function StudentProfile() {
             const dueDay =
                 dueNum != null && Number.isFinite(dueNum) && dueNum >= 1 && dueNum <= 31 ? Math.trunc(dueNum) : null;
             await updateLead(leadId, {
-                ...dataForm,
+                name,
+                type: dataForm.type || 'Adulto',
+                turma: String(dataForm.turma || '').trim(),
+                plan: dataForm.plan,
+                enrollmentDate: dataForm.enrollmentDate,
+                birthDate: dataForm.birthDate,
+                responsavel: dataForm.responsavel,
+                emergencyContact: dataForm.emergencyContact,
+                emergencyPhone: dataForm.emergencyPhone,
+                preferredPaymentMethod: dataForm.preferredPaymentMethod,
+                preferredPaymentAccount: dataForm.preferredPaymentAccount,
                 dueDay,
                 cpf: String(dataForm.cpf || '').replace(/\D/g, ''),
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
@@ -1134,7 +1172,9 @@ export default function StudentProfile() {
                     >
                         <User size={22} style={{ opacity: 0.4, color: 'var(--text-muted)' }} strokeWidth={1.75} />
                     </div>
-                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{student.name || 'Sem nome'}</h2>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
+                        {editingData ? (String(dataForm.name || '').trim() || 'Sem nome') : student.name || 'Sem nome'}
+                    </h2>
                     <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
                     {isInactiveStudent(student) && (student.exitReason || student.exitDate) ? (
                         <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
