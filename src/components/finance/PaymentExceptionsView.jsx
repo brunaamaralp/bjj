@@ -1,0 +1,575 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertCircle } from 'lucide-react';
+import PaymentStatusPopover from './PaymentStatusPopover.jsx';
+import { saveMonthlyPayment } from '../../lib/studentPayments';
+import { mapDbStatusFromGridForm } from '../../lib/paymentStatus';
+import {
+  analyzePaymentException,
+  isPaymentExceptionResolved,
+  readExceptionStatusLabels,
+  labelForExceptionStatus,
+  colorsForExceptionStatus,
+  formatExceptionDueLabel,
+  studentTurma,
+  studentPaymentPlatform,
+  EXCEPTION_STATUS_KEYS,
+} from '../../lib/paymentExceptions';
+import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
+import EmptyState from '../shared/EmptyState.jsx';
+
+function displayNote(note, max = 80) {
+  const s = String(note || '').trim();
+  if (!s) return '';
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 1)}…`;
+}
+
+export default function PaymentExceptionsView({
+  students,
+  paymentMap,
+  setPayments,
+  currentMonth,
+  financeConfig,
+  academyId,
+  teamIdForPayments,
+  userId,
+  sessionUserName,
+  search,
+  terms,
+  addToast,
+  friendlyError,
+  loading,
+}) {
+  const statusLabels = useMemo(
+    () => readExceptionStatusLabels(financeConfig),
+    [financeConfig]
+  );
+
+  const [statusFilter, setStatusFilter] = useState(() => new Set(EXCEPTION_STATUS_KEYS));
+  const [turmaFilter, setTurmaFilter] = useState('all');
+  const [platformFilter, setPlatformFilter] = useState('all');
+  const [onlyWithDiff, setOnlyWithDiff] = useState(false);
+  const [sortBy, setSortBy] = useState('difference');
+  const [popover, setPopover] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [resolvedFlash, setResolvedFlash] = useState(() => new Set());
+  const [resolvedSnapshot, setResolvedSnapshot] = useState({});
+
+  const exceptionRows = useMemo(() => {
+    return students
+      .map((student) => {
+        const payment = paymentMap[student.id];
+        const analysis = analyzePaymentException(student, payment, currentMonth, financeConfig);
+        if (!analysis.isException) return null;
+        return {
+          student,
+          payment,
+          ...analysis,
+          note: String(payment?.note || '').trim(),
+          turma: studentTurma(student),
+          platform: studentPaymentPlatform(student, payment),
+          plan: student.plan || payment?.plan_name || '—',
+        };
+      })
+      .filter(Boolean);
+  }, [students, paymentMap, currentMonth, financeConfig]);
+
+  const turmas = useMemo(() => {
+    const set = new Set();
+    for (const r of exceptionRows) {
+      if (r.turma) set.add(r.turma);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [exceptionRows]);
+
+  const platforms = useMemo(() => {
+    const set = new Set();
+    for (const r of exceptionRows) {
+      if (r.platform && r.platform !== '—') set.add(r.platform);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [exceptionRows]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return exceptionRows.filter((row) => {
+      if (statusFilter.size > 0 && !row.reasons.some((r) => statusFilter.has(r))) return false;
+      if (turmaFilter !== 'all' && row.turma !== turmaFilter) return false;
+      if (platformFilter !== 'all' && row.platform !== platformFilter) return false;
+      if (onlyWithDiff && row.difference <= 0.009) return false;
+      if (q && !String(row.student.name || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [exceptionRows, statusFilter, turmaFilter, platformFilter, onlyWithDiff, search]);
+
+  const sortedRows = useMemo(() => {
+    const copy = [...filteredRows];
+    copy.sort((a, b) => {
+      if (sortBy === 'difference') return b.difference - a.difference;
+      if (sortBy === 'due') {
+        const ad = a.row?.daysOverdue ?? 0;
+        const bd = b.row?.daysOverdue ?? 0;
+        return bd - ad;
+      }
+      if (sortBy === 'status') {
+        return a.primaryStatus.localeCompare(b.primaryStatus, 'pt-BR');
+      }
+      return String(a.student.name || '').localeCompare(String(b.student.name || ''), 'pt-BR');
+    });
+    return copy;
+  }, [filteredRows, sortBy]);
+
+  const displayRows = useMemo(() => {
+    const byId = new Map(sortedRows.map((r) => [r.student.id, r]));
+    for (const [id, row] of Object.entries(resolvedSnapshot)) {
+      if (resolvedFlash.has(id) && !byId.has(id)) byId.set(id, row);
+    }
+    return Array.from(byId.values());
+  }, [sortedRows, resolvedSnapshot, resolvedFlash]);
+
+  const totals = useMemo(() => {
+    const byStatus = {};
+    for (const k of EXCEPTION_STATUS_KEYS) byStatus[k] = 0;
+    let openValue = 0;
+    for (const row of displayRows) {
+      if (resolvedFlash.has(row.student.id)) continue;
+      openValue += Math.max(0, row.difference);
+      byStatus[row.primaryStatus] = (byStatus[row.primaryStatus] || 0) + 1;
+    }
+    return {
+      count: displayRows.filter((r) => !resolvedFlash.has(r.student.id)).length,
+      openValue,
+      byStatus,
+    };
+  }, [displayRows, resolvedFlash]);
+
+  const fmtMoney = (n) => {
+    try {
+      return Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch {
+      return `R$ ${Number(n || 0).toFixed(2)}`;
+    }
+  };
+
+  const upsertPaymentInState = useCallback(
+    (doc, studentId) => {
+      const lid = String(doc.lead_id || studentId || '').trim();
+      setPayments((prev) => {
+        const rest = (prev || []).filter((p) => String(p.lead_id) !== lid);
+        return [...rest, doc];
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('navi-student-payment-updated', {
+            detail: { referenceMonth: currentMonth, leadId: lid },
+          })
+        );
+      }
+    },
+    [setPayments, currentMonth]
+  );
+
+  const checkResolvedAfterSave = useCallback(
+    (student, doc, rowSnapshot) => {
+      if (!isPaymentExceptionResolved(student, doc, currentMonth, financeConfig)) return;
+      const sid = student.id;
+      if (rowSnapshot) {
+        setResolvedSnapshot((prev) => ({ ...prev, [sid]: rowSnapshot }));
+      }
+      setResolvedFlash((prev) => new Set(prev).add(sid));
+      window.setTimeout(() => {
+        setResolvedFlash((prev) => {
+          const next = new Set(prev);
+          next.delete(sid);
+          return next;
+        });
+        setResolvedSnapshot((prev) => {
+          const next = { ...prev };
+          delete next[sid];
+          return next;
+        });
+      }, 1000);
+    },
+    [currentMonth, financeConfig]
+  );
+
+  const handlePopoverSave = async ({ gridStatus, dbStatus, paid_amount, expected_amount, paid_at, note }) => {
+    if (!popover) return;
+    const { student, payment } = popover.row;
+    setSavingId(student.id);
+    try {
+      const doc = await saveMonthlyPayment({
+        paymentId: payment?.$id,
+        lead_id: student.id,
+        academy_id: academyId,
+        team_id: teamIdForPayments,
+        reference_month: currentMonth,
+        status: dbStatus,
+        paid_amount,
+        expected_amount,
+        paid_at,
+        due_date:
+          dbStatus === 'pending' && studentDueDay(student)
+            ? dueDateInMonth(currentMonth, studentDueDay(student))?.toISOString() || null
+            : payment?.due_date || null,
+        method: payment?.method || student.preferredPaymentMethod || 'pix',
+        account: payment?.account || student.preferredPaymentAccount || '',
+        plan_name: payment?.plan_name || student.plan || '',
+        note,
+        registered_by: userId || '',
+        registered_by_name: sessionUserName,
+        financial_tx_id: payment?.financial_tx_id,
+      });
+      upsertPaymentInState(doc, student.id);
+      checkResolvedAfterSave(student, doc, popover.row);
+      setPopover(null);
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const saveNoteInline = async (row) => {
+    const note = noteDraft.trim();
+    const sid = row.student.id;
+    if (note === String(row.note || '').trim()) {
+      setEditingNoteId(null);
+      return;
+    }
+    setEditingNoteId(null);
+    setSavingId(sid);
+    const payment = row.payment;
+    const dbStatus = payment
+      ? String(payment.status || 'pending')
+      : mapDbStatusFromGridForm(row.primaryStatus);
+    try {
+      const doc = await saveMonthlyPayment({
+        paymentId: payment?.$id,
+        lead_id: sid,
+        academy_id: academyId,
+        team_id: teamIdForPayments,
+        reference_month: currentMonth,
+        status: dbStatus,
+        paid_amount: row.received,
+        expected_amount: row.expected,
+        paid_at: payment?.paid_at || null,
+        due_date: payment?.due_date || null,
+        method: payment?.method || row.student.preferredPaymentMethod || 'pix',
+        account: payment?.account || row.student.preferredPaymentAccount || '',
+        plan_name: payment?.plan_name || row.plan || '',
+        note,
+        registered_by: userId || payment?.registered_by || '',
+        registered_by_name: sessionUserName || payment?.registered_by_name || '',
+        financial_tx_id: payment?.financial_tx_id,
+      });
+      upsertPaymentInState(doc, sid);
+      checkResolvedAfterSave(row.student, doc, row);
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const toggleStatusFilter = (key) => {
+    setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      if (next.size === 0) return new Set(EXCEPTION_STATUS_KEYS);
+      return next;
+    });
+  };
+
+  const mapPopoverInitialStatus = (row) => {
+    const k = row.primaryStatus;
+    if (k === 'none') return 'pending';
+    if (k === 'divergence') return 'partial';
+    return k;
+  };
+
+  return (
+    <div className="payment-exceptions-view">
+      <div
+        className="mensal-summary-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>{totals.count}</div>
+          <div className="text-xs text-muted">Total de casos</div>
+        </div>
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: 22, fontWeight: 600, color: '#A32D2D' }}>{fmtMoney(totals.openValue)}</div>
+          <div className="text-xs text-muted">Valor em aberto</div>
+        </div>
+        <div className="card" style={{ padding: '12px 14px', gridColumn: 'span 2' }}>
+          <div className="text-xs text-muted" style={{ marginBottom: 8 }}>
+            Por status
+          </div>
+          <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+            {EXCEPTION_STATUS_KEYS.map((key) => {
+              const n = totals.byStatus[key] || 0;
+              if (!n) return null;
+              const colors = colorsForExceptionStatus(key);
+              return (
+                <span
+                  key={key}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    borderRadius: 20,
+                    background: colors.bg,
+                    color: colors.color,
+                  }}
+                >
+                  {n} {labelForExceptionStatus(key, statusLabels)}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
+          <label className="text-xs">Status</label>
+          <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+            {EXCEPTION_STATUS_KEYS.map((key) => {
+              const active = statusFilter.has(key);
+              const colors = colorsForExceptionStatus(key);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className="btn-outline btn-sm"
+                  style={
+                    active
+                      ? { background: colors.bg, color: colors.color, borderColor: colors.color }
+                      : undefined
+                  }
+                  onClick={() => toggleStatusFilter(key)}
+                >
+                  {labelForExceptionStatus(key, statusLabels)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {turmas.length > 0 ? (
+          <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
+            <label className="text-xs">Turma</label>
+            <select className="form-input" value={turmaFilter} onChange={(e) => setTurmaFilter(e.target.value)}>
+              <option value="all">Todas</option>
+              {turmas.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {platforms.length > 0 ? (
+          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+            <label className="text-xs">Plataforma</label>
+            <select className="form-input" value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
+              <option value="all">Todas</option>
+              {platforms.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <label className="flex items-center gap-2 text-small" style={{ marginBottom: 8, cursor: 'pointer' }}>
+          <input type="checkbox" checked={onlyWithDiff} onChange={(e) => setOnlyWithDiff(e.target.checked)} />
+          Só com diferença &gt; 0
+        </label>
+        <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+          <label className="text-xs">Ordenar por</label>
+          <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="difference">Diferença (maior)</option>
+            <option value="due">Vencimento (atraso)</option>
+            <option value="name">Nome</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="mensal-table-wrap" style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
+        <table className="mensal-table" style={{ minWidth: 980 }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover, #f4f4f8)' }}>
+            <tr>
+              <th>Nome</th>
+              <th>Plano</th>
+              <th>Esperado</th>
+              <th>Recebido</th>
+              <th>Diferença</th>
+              <th>Vencimento</th>
+              <th>Conferir em</th>
+              <th>Status</th>
+              <th>Observação</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={10} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  Carregando…
+                </td>
+              </tr>
+            ) : displayRows.length === 0 ? (
+              <tr>
+                <td colSpan={10} style={{ padding: 24 }}>
+                  <EmptyState
+                    variant="table-cell"
+                    icon={AlertCircle}
+                    title="Nenhuma pendência este mês"
+                    description={
+                      exceptionRows.length === 0
+                        ? 'Todos os pagamentos estão em dia ou aguardando confirmação conforme esperado.'
+                        : 'Nenhum caso corresponde aos filtros selecionados.'
+                    }
+                  />
+                </td>
+              </tr>
+            ) : (
+              displayRows.map((row) => {
+                const colors = colorsForExceptionStatus(row.primaryStatus);
+                const flash = resolvedFlash.has(row.student.id);
+                const diffColor =
+                  row.primaryStatus === 'awaiting'
+                    ? '#B45309'
+                    : row.primaryStatus === 'partial'
+                      ? '#C2410C'
+                      : row.difference < -0.009
+                        ? '#6D28D9'
+                        : row.difference > 0.009
+                          ? '#A32D2D'
+                          : 'var(--text-secondary)';
+                return (
+                  <tr
+                    key={row.student.id}
+                    style={{
+                      background: flash ? '#EAF3DE' : undefined,
+                      transition: 'background 0.3s ease',
+                      opacity: savingId === row.student.id ? 0.6 : 1,
+                    }}
+                  >
+                    <td style={{ fontWeight: 600, fontSize: 13 }}>{row.student.name || '—'}</td>
+                    <td className="text-small">{row.plan}</td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(row.expected)}</td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(row.received)}</td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: diffColor }}>
+                      {fmtMoney(row.difference)}
+                    </td>
+                    <td className="text-small">{formatExceptionDueLabel(row.student, row.row, currentMonth)}</td>
+                    <td className="text-small">{row.platform}</td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '4px 10px',
+                          borderRadius: 20,
+                          background: colors.bg,
+                          color: colors.color,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {labelForExceptionStatus(row.primaryStatus, statusLabels)}
+                      </span>
+                    </td>
+                    <td style={{ maxWidth: 220, minWidth: 140 }}>
+                      {editingNoteId === row.student.id ? (
+                        <input
+                          className="form-input"
+                          style={{ fontSize: 12, padding: '6px 8px', width: '100%' }}
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          onBlur={() => void saveNoteInline(row)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveNoteInline(row);
+                            }
+                            if (e.key === 'Escape') setEditingNoteId(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingNoteId(row.student.id);
+                            setNoteDraft(row.note);
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontSize: 12,
+                            fontWeight: row.note ? 500 : 400,
+                            color: row.note ? 'var(--text)' : 'var(--text-secondary)',
+                            fontStyle: row.note ? 'normal' : 'italic',
+                            lineHeight: 1.35,
+                            maxWidth: '100%',
+                          }}
+                          title={row.note || 'Clique para adicionar observação'}
+                        >
+                          {row.note ? displayNote(row.note, 80) : 'Clique para anotar…'}
+                        </button>
+                      )}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-outline btn-sm"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setPopover({ row, anchorRect: rect });
+                        }}
+                      >
+                        Atualizar
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {popover && typeof document !== 'undefined'
+        ? createPortal(
+            <PaymentStatusPopover
+              anchorRect={popover.anchorRect}
+              initialStatus={mapPopoverInitialStatus(popover.row)}
+              initialPaidAmount={popover.row.received}
+              expectedAmount={popover.row.expected}
+              initialNote={popover.row.note}
+              initialPaidAt={popover.row.payment?.paid_at}
+              saving={savingId === popover.row.student.id}
+              onSave={handlePopoverSave}
+              onClose={() => setPopover(null)}
+            />,
+            document.body
+          )
+        : null}
+
+      <style>{`
+        .payment-exceptions-view .grid-note-btn:hover { text-decoration: underline; }
+      `}</style>
+    </div>
+  );
+}

@@ -4,6 +4,9 @@ import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { account, databases, DB_ID, FINANCIAL_TX_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { getMonthlyPayments, createPayment, updatePayment } from '../lib/studentPayments';
+import { resolveGridDisplayStatus } from '../lib/paymentStatus';
+import MonthlyPaymentGrid from '../components/finance/MonthlyPaymentGrid.jsx';
+import PaymentExceptionsView from '../components/finance/PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../lib/masks';
 import { friendlyError } from '../lib/errorMessages';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
@@ -140,6 +143,7 @@ export default function Mensalidades() {
   const updateLead = useLeadStore((s) => s.updateLead);
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const financeConfigAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
+  const modules = useLeadStore((s) => s.modules);
   const addToast = useUiStore((s) => s.addToast);
   const terms = useTerms();
   const { allLabels: academyLabels } = useAcademyLabels(academyId);
@@ -157,6 +161,7 @@ export default function Mensalidades() {
   const [payForm, setPayForm] = useState({});
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [nlOpen, setNlOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list');
 
   useEffect(() => {
     if (!showModal || typeof document === 'undefined') return undefined;
@@ -300,8 +305,15 @@ export default function Mensalidades() {
         map[lid] = p;
         continue;
       }
-      if (p.status === 'paid') map[lid] = p;
-      else if (cur.status !== 'paid') map[lid] = p;
+      const rank = (st) => {
+        const s = String(st || '').toLowerCase();
+        if (s === 'paid') return 5;
+        if (s === 'partial') return 4;
+        if (s === 'awaiting') return 3;
+        if (s === 'pending') return 2;
+        return 1;
+      };
+      if (!cur || rank(p.status) >= rank(cur.status)) map[lid] = p;
     }
     return map;
   }, [payments]);
@@ -347,7 +359,7 @@ export default function Mensalidades() {
   const getStatus = useCallback(
     (student) => {
       const p = paymentMap[student.id];
-      return getRowStatus(student, p, currentMonth).status;
+      return resolveGridDisplayStatus(student, p, currentMonth).key;
     },
     [paymentMap, currentMonth]
   );
@@ -430,21 +442,28 @@ export default function Mensalidades() {
       if (st === 'soon') soon += 1;
     }
     for (const p of payments || []) {
-      if (p.status === 'paid' && Number(p.amount) > 0) {
-        totalReceived += Number(p.amount) || 0;
+      const st = String(p.status || '').toLowerCase();
+      if (st === 'paid' || st === 'partial') {
+        const amt = Number(p.paid_amount ?? p.amount);
+        if (Number.isFinite(amt) && amt > 0) totalReceived += amt;
       }
     }
     return { paid, pending, soon, totalReceived };
   }, [students, payments, getStatus]);
 
   const filterCounts = useMemo(() => {
-    const c = { all: students.length, paid: 0, pending: 0, soon: 0, none: 0 };
+    const c = {
+      all: students.length,
+      paid: 0,
+      awaiting: 0,
+      partial: 0,
+      pending: 0,
+      soon: 0,
+      none: 0,
+    };
     for (const s of students) {
       const st = getStatus(s);
-      if (st === 'paid') c.paid += 1;
-      else if (st === 'pending') c.pending += 1;
-      else if (st === 'soon') c.soon += 1;
-      else if (st === 'none') c.none += 1;
+      if (c[st] != null) c[st] += 1;
     }
     return c;
   }, [students, getStatus]);
@@ -770,6 +789,31 @@ export default function Mensalidades() {
               />
             </div>
             <div style={{ flex: 1 }} />
+            {modules?.finance === true ? (
+              <div className="flex gap-1" style={{ marginRight: 8 }}>
+                <button
+                  type="button"
+                  className={viewMode === 'list' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
+                  onClick={() => setViewMode('list')}
+                >
+                  Lista
+                </button>
+                <button
+                  type="button"
+                  className={viewMode === 'grid' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
+                  onClick={() => setViewMode('grid')}
+                >
+                  Grade do mês
+                </button>
+                <button
+                  type="button"
+                  className={viewMode === 'exceptions' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
+                  onClick={() => setViewMode('exceptions')}
+                >
+                  Exceções
+                </button>
+              </div>
+            ) : null}
             <div
               style={{
                 display: 'flex',
@@ -791,10 +835,13 @@ export default function Mensalidades() {
               </button>
             </div>
           </div>
+          {viewMode === 'list' ? (
           <div className="page-header-row">
             {[
               { id: 'all', label: 'Todos', count: filterCounts.all },
               { id: 'paid', label: 'Pagos', count: filterCounts.paid },
+              { id: 'awaiting', label: 'Aguardando', count: filterCounts.awaiting },
+              { id: 'partial', label: 'Parcial', count: filterCounts.partial },
               { id: 'pending', label: 'Inadimplentes', count: filterCounts.pending },
               { id: 'soon', label: 'A vencer', count: filterCounts.soon },
               { id: 'none', label: 'Sem registro', count: filterCounts.none },
@@ -815,10 +862,11 @@ export default function Mensalidades() {
               </span>
             ))}
           </div>
+          ) : null}
         </div>
       </header>
 
-      {collectionDashboard.total > 0 ? (
+      {viewMode === 'list' && collectionDashboard.total > 0 ? (
         <section
           style={{
             marginBottom: 20,
@@ -860,6 +908,48 @@ export default function Mensalidades() {
         </section>
       ) : null}
 
+      {viewMode === 'grid' && modules?.finance === true ? (
+        <MonthlyPaymentGrid
+          students={students}
+          paymentMap={paymentMap}
+          payments={payments}
+          setPayments={setPayments}
+          currentMonth={currentMonth}
+          financeConfig={financeConfig}
+          academyId={academyId}
+          teamIdForPayments={teamIdForPayments}
+          userId={userId}
+          sessionUserName={sessionUserName}
+          search={search}
+          filter={filter}
+          terms={terms}
+          addToast={addToast}
+          friendlyError={friendlyError}
+          loading={loading}
+        />
+      ) : null}
+
+      {viewMode === 'exceptions' && modules?.finance === true ? (
+        <PaymentExceptionsView
+          students={students}
+          paymentMap={paymentMap}
+          setPayments={setPayments}
+          currentMonth={currentMonth}
+          financeConfig={financeConfig}
+          academyId={academyId}
+          teamIdForPayments={teamIdForPayments}
+          userId={userId}
+          sessionUserName={sessionUserName}
+          search={search}
+          terms={terms}
+          addToast={addToast}
+          friendlyError={friendlyError}
+          loading={loading}
+        />
+      ) : null}
+
+      {viewMode === 'list' ? (
+      <>
       <div
         className="mensal-summary-grid"
         style={{
@@ -1066,7 +1156,19 @@ export default function Mensalidades() {
                 };
 
                 let badge = null;
-                if (row.status === 'paid' && payment) {
+                if (payment?.status === 'awaiting') {
+                  badge = (
+                    <span style={{ ...badgeBase, background: '#FEF3C7', color: '#B45309' }}>
+                      ◷ Aguardando
+                    </span>
+                  );
+                } else if (payment?.status === 'partial') {
+                  badge = (
+                    <span style={{ ...badgeBase, background: '#FFEDD5', color: '#C2410C' }}>
+                      ◑ Parcial
+                    </span>
+                  );
+                } else if (row.status === 'paid' && payment) {
                   const m = METHOD_LABELS[payment.method] || payment.method;
                   const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
                   badge = (
@@ -1130,6 +1232,8 @@ export default function Mensalidades() {
           </tbody>
         </table>
       </div>
+      </>
+      ) : null}
 
       {showModal && selectedStudent && typeof document !== 'undefined'
         ? createPortal(

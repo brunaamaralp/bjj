@@ -34,10 +34,33 @@ export function dueDateInMonth(currentMonth, dayOfMonth) {
  */
 export function getPaymentRowStatus(student, payment, currentMonth, today = new Date()) {
   const today0 = startOfLocalDay(today);
+  const dbStatus = String(payment?.status || '').toLowerCase();
 
-  if (payment && String(payment.status || '').toLowerCase() === 'paid') {
+  if (payment && dbStatus === 'paid') {
     const paidAt = payment.paid_at ? parseYmdLocal(String(payment.paid_at).slice(0, 10)) : null;
     return { status: 'paid', dueDate: null, paidAt, daysOverdue: 0 };
+  }
+
+  if (payment && dbStatus === 'awaiting') {
+    const dueDate =
+      payment.due_date ? parseYmdLocal(String(payment.due_date).slice(0, 10)) : dueDateInMonth(currentMonth, studentDueDay(student));
+    return { status: 'soon', dueDate: dueDate || null, paidAt: null, daysOverdue: 0 };
+  }
+
+  if (payment && dbStatus === 'partial') {
+    const dueDate =
+      payment.due_date ? parseYmdLocal(String(payment.due_date).slice(0, 10)) : dueDateInMonth(currentMonth, studentDueDay(student));
+    let daysOverdue = 0;
+    if (dueDate) {
+      const due0 = startOfLocalDay(dueDate);
+      if (due0 < today0) daysOverdue = Math.floor((today0 - due0) / 86400000);
+    }
+    return {
+      status: daysOverdue > 0 ? 'pending' : 'soon',
+      dueDate: dueDate || null,
+      paidAt: null,
+      daysOverdue,
+    };
   }
 
   let dueDate = null;

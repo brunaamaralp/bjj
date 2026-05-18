@@ -28,8 +28,63 @@ export default async function (req, res) {
     const STOCK_MOVES_COL = process.env.STOCK_MOVES_COL;
     const SALES_COL = process.env.SALES_COL;
     const SALE_ITEMS_COL = process.env.SALE_ITEMS_COL;
+    const FINANCIAL_TX_COL = process.env.FINANCIAL_TX_COL;
     if (!DB_ID || !STOCK_ITEMS_COL || !STOCK_MOVES_COL || !SALES_COL || !SALE_ITEMS_COL) {
       return res.json({ error: "missing_env" }, 500);
+    }
+
+    async function mirrorSaleToFinancialTx(vendaId, totalVenda) {
+      if (!FINANCIAL_TX_COL || !vendaId) return null;
+      try {
+        const existing = await databases.listDocuments(DB_ID, FINANCIAL_TX_COL, [
+          sdk.Query.equal("saleId", vendaId),
+          sdk.Query.limit(1),
+        ]);
+        if (existing.total > 0) return existing.documents[0].$id;
+      } catch (e) {
+        console.warn("sale mirror lookup failed", e?.message || e);
+      }
+
+      const parts = [];
+      for (const it of itens) {
+        try {
+          const stock = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
+          const name = String(stock.nome || stock.name || "Produto").trim();
+          parts.push(it.quantidade > 1 ? `${name} x${it.quantidade}` : name);
+        } catch {
+          parts.push(it.quantidade > 1 ? `Produto x${it.quantidade}` : "Produto");
+        }
+      }
+      const description = parts.join(", ") || "Venda de produtos";
+      const settledAt = new Date().toISOString();
+      const payload = {
+        academyId: academy_id || "",
+        saleId: vendaId,
+        lead_id: aluno_id || "",
+        method: forma_pagamento,
+        installments: 1,
+        type: "product",
+        planName: description,
+        gross: totalVenda,
+        fee: 0,
+        net: totalVenda,
+        status: "settled",
+        settledAt,
+        note: description,
+      };
+      try {
+        const doc = await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), payload);
+        return doc.$id;
+      } catch (e) {
+        const msg = String(e?.message || e);
+        if (msg.includes("Unknown attribute")) {
+          delete payload.lead_id;
+          const doc = await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), payload);
+          return doc.$id;
+        }
+        console.warn("sale financial_tx mirror failed", msg);
+        return null;
+      }
     }
 
     // Idempotência: retornar venda já criada para a mesma chave
@@ -41,6 +96,9 @@ export default async function (req, res) {
         ]);
         if (existing.total > 0) {
           const doc = existing.documents[0];
+          if (String(doc.status || "") === "concluida") {
+            await mirrorSaleToFinancialTx(doc.$id, Number(doc.total || 0));
+          }
           console.log(JSON.stringify({ level: "info", action: "sales_create_idempotent_hit", venda_id: doc.$id, status: doc.status }));
           return res.json({ ok: true, venda_id: doc.$id, total: Number(doc.total || 0), status: String(doc.status || "") }, 200);
         }
@@ -91,9 +149,19 @@ export default async function (req, res) {
 
         const snap = stockSnapshots[it.item_estoque_id];
         const novaVendida = snap.vendida + it.quantidade;
-        await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, {
-          quantidade_vendida: novaVendida
-        });
+        const itemDoc = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
+        const prevQty =
+          itemDoc.current_quantity !== undefined && itemDoc.current_quantity !== null && itemDoc.current_quantity !== ""
+            ? Number(itemDoc.current_quantity)
+            : Number(itemDoc.quantidade_total || 0) - Number(itemDoc.quantidade_vendida || 0) - Number(itemDoc.quantidade_alugada || 0);
+        const stockPatch = {
+          quantidade_vendida: novaVendida,
+          last_updated: new Date().toISOString(),
+        };
+        if (Number.isFinite(prevQty)) {
+          stockPatch.current_quantity = Math.max(0, prevQty - it.quantidade);
+        }
+        await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, stockPatch);
         updatedStockIds.push(it.item_estoque_id);
 
         const move = await databases.createDocument(DB_ID, STOCK_MOVES_COL, sdk.ID.unique(), {
@@ -109,6 +177,7 @@ export default async function (req, res) {
 
       // 4) Finalizar venda
       await databases.updateDocument(DB_ID, SALES_COL, vendaDoc.$id, { status: "concluida" });
+      await mirrorSaleToFinancialTx(vendaDoc.$id, totalVenda);
       console.log(JSON.stringify({
         level: "info",
         action: "sales_create",

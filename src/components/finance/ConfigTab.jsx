@@ -5,6 +5,11 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { Wallet2, CreditCard, Banknote, Trash2 } from 'lucide-react';
 import CollectionRulesSection from './CollectionRulesSection.jsx';
+import ExceptionStatusLabelsSection from './ExceptionStatusLabelsSection.jsx';
+import {
+  readExceptionStatusLabels,
+  mergeExceptionLabelsIntoFinanceConfig,
+} from '../../lib/paymentExceptions.js';
 import {
   parseCollectionRules,
   parseOverdueLabel,
@@ -32,6 +37,7 @@ export default function ConfigTab({ academyId }) {
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
   const [collectionRules, setCollectionRules] = useState(() => DEFAULT_COLLECTION_RULES.map((r) => ({ ...r })));
   const [overdueLabel, setOverdueLabel] = useState('Inadimplente');
+  const [exceptionLabels, setExceptionLabels] = useState(() => readExceptionStatusLabels(null));
 
   useEffect(() => {
     if (!academyId) return;
@@ -41,6 +47,7 @@ export default function ConfigTab({ academyId }) {
       const coll = readCollectionSettingsFromFinanceConfig(st.financeConfig);
       setCollectionRules(coll.collectionRules);
       setOverdueLabel(coll.overdueLabel);
+      setExceptionLabels(readExceptionStatusLabels(st.financeConfig));
       setConfigDirty(false);
       return;
     }
@@ -75,6 +82,7 @@ export default function ConfigTab({ academyId }) {
         setFinanceConfig(mergedCfg);
         setCollectionRules(coll.collectionRules);
         setOverdueLabel(coll.overdueLabel);
+        setExceptionLabels(readExceptionStatusLabels(mergedCfg));
         setConfigDirty(false);
         useLeadStore.getState().setFinanceConfig(mergedCfg);
       })
@@ -88,7 +96,8 @@ export default function ConfigTab({ academyId }) {
     if (!academyId) return;
     setSaving(true);
     try {
-      const mergedCfg = mergeCollectionIntoFinanceConfig(financeConfig, { collectionRules, overdueLabel });
+      let mergedCfg = mergeCollectionIntoFinanceConfig(financeConfig, { collectionRules, overdueLabel });
+      mergedCfg = mergeExceptionLabelsIntoFinanceConfig(mergedCfg, exceptionLabels);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         financeConfig: JSON.stringify(mergedCfg),
       });
@@ -314,6 +323,14 @@ export default function ConfigTab({ academyId }) {
         onOverdueLabelChange={(v) => {
           setConfigDirty(true);
           setOverdueLabel(v);
+        }}
+      />
+
+      <ExceptionStatusLabelsSection
+        labels={exceptionLabels}
+        onChange={(next) => {
+          setConfigDirty(true);
+          setExceptionLabels(next);
         }}
       />
 

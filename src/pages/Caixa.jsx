@@ -4,6 +4,7 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages';
 import TransacoesTab from '../components/finance/TransacoesTab.jsx';
+import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { FINANCE_PAGE_CSS } from '../components/finance/financePageStyles.js';
 
@@ -21,6 +22,8 @@ const defaultFinanceConfig = () => ({
 export default function Caixa() {
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
+  const modules = useLeadStore((s) => s.modules);
+  const [caixaTab, setCaixaTab] = useState('transactions');
   const addToast = useUiStore((s) => s.addToast);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
   const [nlOpen, setNlOpen] = useState(false);
@@ -90,11 +93,41 @@ export default function Caixa() {
             </div>
           </div>
         </div>
-        {academyId ? (
+        <div className="finance-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={caixaTab === 'transactions'}
+            className={`finance-tab${caixaTab === 'transactions' ? ' finance-tab--active' : ''}`}
+            onClick={() => setCaixaTab('transactions')}
+          >
+            Lançamentos
+          </button>
+          {modules?.finance === true ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={caixaTab === 'closing'}
+              className={`finance-tab${caixaTab === 'closing' ? ' finance-tab--active' : ''}`}
+              onClick={() => setCaixaTab('closing')}
+            >
+              Fechamento Mensal
+            </button>
+          ) : null}
+        </div>
+        {academyId && caixaTab === 'transactions' ? (
           <TransacoesTab
             academyId={academyId}
             financeConfig={financeConfig}
             onTransactionsChange={setTransactionsForNl}
+          />
+        ) : null}
+        {academyId && caixaTab === 'closing' && modules?.finance === true ? (
+          <MonthlyClosingTab
+            academyId={academyId}
+            academyName={academyName}
+            financeConfig={financeConfig}
+            modules={modules}
           />
         ) : null}
       </div>
