@@ -13,6 +13,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
+import { performEnrollment } from '../lib/performEnrollment.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { getStudentPayments } from '../lib/studentPayments';
 import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
@@ -372,6 +373,9 @@ const LeadProfile = () => {
     const [deletingLead, setDeletingLead] = useState(false);
     const [lostModalOpen, setLostModalOpen] = useState(false);
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
+    const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
+    const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
+    const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
     const [waCtx, setWaCtx] = useState({
         name: '',
         zapster: '',
@@ -491,6 +495,8 @@ const LeadProfile = () => {
                     zapster: String(doc?.zapster_instance_id || '').trim(),
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
                 });
+                setAcademySettingsRaw(doc.settings ?? null);
+                setAcademyAutomationsRaw(String(doc?.automations_config || ''));
                 try {
                     const normalized = normalizeQuestions(doc.customLeadQuestions);
                     setCustomQuestions(normalized.questions);
@@ -759,28 +765,57 @@ const LeadProfile = () => {
         setMatriculaModalOpen(true);
     };
 
-    const handleConfirmSimple = () => {
-        setMatriculaModalOpen(false);
-        void handleUpdateStatus(LEAD_STATUS.CONVERTED);
+    const runEnrollment = async (customAnswers = {}) => {
+        let extraToast = '';
+        await performEnrollment({
+            lead,
+            academyId,
+            userId,
+            permissionContext: permCtx,
+            updateLead,
+            customQuestions,
+            customAnswers,
+            academySettingsRaw,
+            waAutomation: {
+                waOutbound: {
+                    name: waCtx.name,
+                    zapster_instance_id: waCtx.zapster,
+                    templates: waCtx.templates,
+                },
+                academyRaw: academyAutomationsRaw,
+            },
+            onToast: (msg) => {
+                extraToast = msg;
+            },
+        });
+        addToast({
+            type: 'success',
+            message: terms.leadMarkedConvertedToast + (extraToast ? ` ${extraToast}` : ''),
+        });
     };
 
-    const handleConfirmFull = async () => {
+    const handleConfirmSimple = async () => {
         setMatriculaModalOpen(false);
+        setMatriculaSubmitting(true);
         try {
-            await handleUpdateStatus(LEAD_STATUS.CONVERTED);
-            const fresh = useLeadStore.getState().leads.find((l) => l.id === id);
-            if (fresh) {
-                fillFormFromLead(fresh);
-            } else {
-                fillFormFromLead({
-                    ...lead,
-                    status: LEAD_STATUS.CONVERTED,
-                    contact_type: 'student',
-                });
-            }
-            setEditing(true);
-        } catch {
-            // erro já tratado com toast no handleUpdateStatus
+            await runEnrollment({});
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'action') });
+        } finally {
+            setMatriculaSubmitting(false);
+        }
+    };
+
+    const handleConfirmFull = async (customAnswers) => {
+        setMatriculaSubmitting(true);
+        try {
+            await runEnrollment(customAnswers);
+            setMatriculaModalOpen(false);
+            navigate(`/student/${id}?edit=enrollment`);
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'action') });
+        } finally {
+            setMatriculaSubmitting(false);
         }
     };
 
@@ -1570,7 +1605,12 @@ const LeadProfile = () => {
 
             <MatriculaModal
                 isOpen={matriculaModalOpen}
-                onClose={() => setMatriculaModalOpen(false)}
+                enrollmentQuestions={customQuestions}
+                submitting={matriculaSubmitting}
+                onClose={() => {
+                    if (matriculaSubmitting) return;
+                    setMatriculaModalOpen(false);
+                }}
                 onConfirmSimple={handleConfirmSimple}
                 onConfirmFull={handleConfirmFull}
             />

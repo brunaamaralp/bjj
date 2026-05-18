@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
@@ -136,6 +136,14 @@ const PAYMENT_HABIT_FIELDS = [
         options: PREFERRED_PAYMENT_SELECT_OPTIONS,
     },
     {
+        key: 'dueDay',
+        label: 'Dia de vencimento',
+        type: 'number',
+        placeholder: '1 a 31',
+        min: 1,
+        max: 31,
+    },
+    {
         key: 'preferredPaymentAccount',
         label: 'Conta habitual',
         type: 'text',
@@ -189,6 +197,7 @@ const METHOD_PAYMENT_LABELS = {
 export default function StudentProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const student = useLeadStore((s) => s.leads.find((l) => l.id === id));
     const loading = useLeadStore((s) => s.loading);
     const academyId = useLeadStore((s) => s.academyId);
@@ -270,6 +279,7 @@ export default function StudentProfile() {
         emergencyPhone: '',
         preferredPaymentMethod: '',
         preferredPaymentAccount: '',
+        dueDay: '',
     });
     const [savingData, setSavingData] = useState(false);
     const [timelineOpen, setTimelineOpen] = useState(true);
@@ -341,11 +351,18 @@ export default function StudentProfile() {
             emergencyPhone: student.emergencyPhone || '',
             preferredPaymentMethod: student.preferredPaymentMethod || '',
             preferredPaymentAccount: student.preferredPaymentAccount || '',
+            dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
         });
         setEditingData(false);
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
     }, [student?.id]);
+
+    useEffect(() => {
+        if (searchParams.get('edit') === 'enrollment' && student) {
+            setEditingData(true);
+        }
+    }, [searchParams, student?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         setTemplateMenuOpen(false);
@@ -621,6 +638,7 @@ export default function StudentProfile() {
             emergencyPhone: student.emergencyPhone || '',
             preferredPaymentMethod: student.preferredPaymentMethod || '',
             preferredPaymentAccount: student.preferredPaymentAccount || '',
+            dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
         });
         setEditingData(false);
     }, [student]);
@@ -629,8 +647,13 @@ export default function StudentProfile() {
         if (!student || savingData) return;
         setSavingData(true);
         try {
+            const dueRaw = String(dataForm.dueDay ?? '').trim();
+            const dueNum = dueRaw === '' ? null : Number(dueRaw.replace(/[^\d]/g, ''));
+            const dueDay =
+                dueNum != null && Number.isFinite(dueNum) && dueNum >= 1 && dueNum <= 31 ? Math.trunc(dueNum) : null;
             await updateLead(leadId, {
                 ...dataForm,
+                dueDay,
                 cpf: String(dataForm.cpf || '').replace(/\D/g, ''),
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
             });
@@ -928,6 +951,10 @@ export default function StudentProfile() {
         if (key === 'preferredPaymentMethod') {
             const v = String(raw ?? '').trim();
             return v ? METHOD_PAYMENT_LABELS[v] || v : '';
+        }
+        if (key === 'dueDay') {
+            const n = Number(raw);
+            return Number.isFinite(n) && n >= 1 && n <= 31 ? `Dia ${Math.trunc(n)}` : '';
         }
         return raw != null && String(raw).trim() ? String(raw).trim() : '';
     };

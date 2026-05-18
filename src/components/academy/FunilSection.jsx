@@ -351,6 +351,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                         <option value="text">Texto</option>
                                         <option value="number">Número</option>
                                         <option value="boolean">Sim/Não</option>
+                                        <option value="checkbox">Checkbox (sim/não)</option>
                                         <option value="select">Lista</option>
                                     </select>
                                     {(q?.type === 'select') && (

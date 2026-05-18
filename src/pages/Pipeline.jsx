@@ -16,7 +16,8 @@ import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isInactiveStudent } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
-import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from '../lib/applyTaskTemplateClient.js';
+import { performEnrollment } from '../lib/performEnrollment.js';
+import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
@@ -712,6 +713,9 @@ const Pipeline = () => {
         templates: { ...DEFAULT_WHATSAPP_TEMPLATES },
     }));
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
+    const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
+    const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
+    const { questions: enrollmentQuestions } = useCustomLeadQuestions(academyId);
     const [noteError, setNoteError] = useState('');
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
     const [nlOpen, setNlOpen] = useState(false);
@@ -986,6 +990,7 @@ const Pipeline = () => {
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
                 });
                 setAcademyAutomationsRaw(String(doc?.automations_config || ''));
+                setAcademySettingsRaw(doc?.settings ?? null);
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(doc));
                 try {
                     if (doc.stagesConfig) {
@@ -1198,46 +1203,24 @@ const Pipeline = () => {
         }
     };
 
-    const executeMatricula = async (lead) => {
+    const executeMatricula = async (lead, customAnswers = {}) => {
         try {
-            await addLeadEvent({
+            let extraToast = '';
+            await performEnrollment({
+                lead,
                 academyId,
-                leadId: lead.id,
-                type: 'converted',
-                from: lead.pipelineStage || '',
-                to: LEAD_STATUS.CONVERTED,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
+                userId,
+                permissionContext: permCtx,
+                updateLead,
+                customQuestions: enrollmentQuestions,
+                customAnswers,
+                academySettingsRaw,
+                waAutomation: { waOutbound, academyRaw: academyAutomationsRaw },
+                onToast: (msg) => {
+                    extraToast = msg;
+                },
             });
-            await updateLead(lead.id, {
-                status: LEAD_STATUS.CONVERTED,
-                contact_type: 'student',
-                pipelineStage: 'Matriculado',
-                convertedAt: new Date().toISOString(),
-                studentStatus: 'active',
-            });
-            void triggerImmediateAutomation('converted', {
-                lead: { ...lead, status: LEAD_STATUS.CONVERTED, contact_type: 'student', pipelineStage: 'Matriculado' },
-                academyId,
-                waOutbound,
-                academyRaw: academyAutomationsRaw,
-            }).catch(console.error);
-            let toastMsg = terms.pipelineEnrollmentSuccessToast;
-            try {
-                const applied = await applyTaskTemplateForTrigger({
-                    academyId,
-                    trigger: TASK_TEMPLATE_TRIGGERS.ENROLLMENT,
-                    leadId: lead.id,
-                    leadName: String(lead.name || ''),
-                    anchorDate: new Date().toISOString().slice(0, 10),
-                });
-                if (applied.created > 0) {
-                    toastMsg += ` ${applied.created} tarefa${applied.created === 1 ? '' : 's'} de boas-vindas criadas.`;
-                }
-            } catch (tplErr) {
-                console.warn('[Pipeline] template enrollment:', tplErr?.message || tplErr);
-            }
-            setToast(toastMsg);
+            setToast(terms.pipelineEnrollmentSuccessToast + (extraToast ? ` ${extraToast}` : ''));
             setTimeout(() => setToast(''), 3500);
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
@@ -2034,29 +2017,39 @@ const Pipeline = () => {
 
             <MatriculaModal
                 isOpen={matriculaModalOpen}
+                enrollmentQuestions={enrollmentQuestions}
+                submitting={matriculaSubmitting}
                 onClose={() => {
+                    if (matriculaSubmitting) return;
                     setMatriculaModalOpen(false);
                     setDragTargetLead(null);
                 }}
                 onConfirmSimple={async () => {
                     setMatriculaModalOpen(false);
                     if (!dragTargetLead) return;
+                    setMatriculaSubmitting(true);
                     try {
                         await executeMatricula(dragTargetLead);
                         setDragTargetLead(null);
                     } catch {
-                        // Mantém o comportamento atual: modal já fechado no fluxo "Só matricular".
+                        // Modal já fechado no fluxo "Só matricular".
+                    } finally {
+                        setMatriculaSubmitting(false);
                     }
                 }}
-                onConfirmFull={async () => {
+                onConfirmFull={async (customAnswers) => {
                     if (!dragTargetLead) return;
+                    setMatriculaSubmitting(true);
                     try {
-                        await executeMatricula(dragTargetLead);
-                        navigate(`/lead/${dragTargetLead.id}`);
+                        await executeMatricula(dragTargetLead, customAnswers);
+                        const studentId = dragTargetLead.id;
                         setMatriculaModalOpen(false);
                         setDragTargetLead(null);
+                        navigate(`/student/${studentId}?edit=enrollment`);
                     } catch {
-                        // Em erro, não navega e mantém modal aberto para nova tentativa.
+                        // Em erro, mantém modal aberto para nova tentativa.
+                    } finally {
+                        setMatriculaSubmitting(false);
                     }
                 }}
             />

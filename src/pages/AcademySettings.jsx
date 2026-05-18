@@ -7,6 +7,7 @@ import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwri
 import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package } from 'lucide-react';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
+import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
 import { parseOffboardingChecklist } from '../lib/studentOffboarding.js';
@@ -546,7 +547,12 @@ const AcademySettings = () => {
                 </div>
             )}
 
-            {activeTab === 'tarefas' && academyId && <TaskTemplatesSection academyId={academyId} />}
+            {activeTab === 'tarefas' && academyId && (
+                <>
+                    <TaskTemplatesSection academyId={academyId} />
+                    <EnrollmentFollowUpSection academyId={academyId} />
+                </>
+            )}
 
             {activeTab === 'estoque' && academyId && (
                 <StockSettingsSection academyId={academyId} modules={academy.modules} />
