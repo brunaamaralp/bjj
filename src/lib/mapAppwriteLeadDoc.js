@@ -1,4 +1,5 @@
 import { LEAD_STATUS } from './leadStatus.js';
+import { normalizeStudentStatus } from './studentStatus.js';
 
 function parseCustomAnswersJson(raw) {
   if (!raw || typeof raw !== 'string') return {};
@@ -94,6 +95,9 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     responsavel: doc.responsavel || '',
     preferredPaymentMethod: doc.preferred_payment_method || '',
     preferredPaymentAccount: doc.preferred_payment_account || '',
-    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : []
+    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
+    studentStatus: normalizeStudentStatus(doc.student_status ?? doc.studentStatus),
+    exitReason: String(doc.exit_reason ?? doc.exitReason ?? '').trim(),
+    exitDate: String(doc.exit_date ?? doc.exitDate ?? '').trim().slice(0, 10),
   };
 }

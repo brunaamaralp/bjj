@@ -130,6 +130,15 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.whatsappLeadQuente !== undefined) copyIf('whatsapp_lead_quente', u.whatsappLeadQuente);
   if (u.needHuman !== undefined) copyIf('need_human', Boolean(u.needHuman));
 
+  if (u.studentStatus !== undefined) {
+    copyIf('student_status', String(u.studentStatus || '').trim() || 'active');
+  }
+  if (u.exitReason !== undefined) copyIf('exit_reason', String(u.exitReason || '').trim());
+  if (u.exitDate !== undefined) {
+    const ed = String(u.exitDate || '').trim().slice(0, 10);
+    copyIf('exit_date', ed);
+  }
+
   const nowIso = new Date().toISOString();
   if (typeof u.status !== 'undefined' && u.status !== currentLead.status) {
     patch.status_changed_at = nowIso;
@@ -363,7 +372,11 @@ export const useLeadStore = create(
         birth_date: String(lead.birthDate || '').slice(0, 10),
         pipeline_stage: lead.pipelineStage || 'Novo',
         pipeline_stage_changed_at: nowIso,
-        status_changed_at: nowIso
+        status_changed_at: nowIso,
+        student_status:
+          lead.contact_type === 'student' || lead.status === LEAD_STATUS.CONVERTED
+            ? String(lead.studentStatus || 'active').trim() || 'active'
+            : 'active',
       };
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
@@ -403,6 +416,10 @@ export const useLeadStore = create(
         id: doc.$id,
         ...lead,
         pipelineStage: lead.pipelineStage || 'Novo',
+        studentStatus:
+          lead.contact_type === 'student' || lead.status === LEAD_STATUS.CONVERTED
+            ? String(lead.studentStatus || 'active').trim() || 'active'
+            : 'active',
         notes: [],
         createdAt: doc.$createdAt,
         pipelineStageChangedAt: nowIso,
@@ -555,7 +572,11 @@ export const useLeadStore = create(
             birth_date: String(lead.birthDate || '').slice(0, 10),
             is_first_experience: lead.isFirstExperience || 'Sim',
             belt: lead.belt || '',
-            custom_answers_json: JSON.stringify(lead.customAnswers || {})
+            custom_answers_json: JSON.stringify(lead.customAnswers || {}),
+            student_status:
+              contactType === 'student' || lead.status === LEAD_STATUS.CONVERTED
+                ? String(lead.studentStatus || 'active').trim() || 'active'
+                : 'active',
           };
         const doc = await databases.createDocument(
           DB_ID,

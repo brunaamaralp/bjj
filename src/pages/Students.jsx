@@ -1,4 +1,4 @@
-/** Backlog: aluno inativo/trancado; filtros (turma/plano); virtualização para listas muito longas. */
+/** Backlog: filtros (turma/plano); virtualização para listas muito longas. */
 import React, { useState, useMemo } from 'react';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -10,6 +10,7 @@ import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
+import { isStudentRecord, filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 
 function normalizePhone(v) {
@@ -58,6 +59,7 @@ const Students = () => {
     const [importing, setImporting] = useState(false);
     const [creatingStudent, setCreatingStudent] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [showInactive, setShowInactive] = useState(false);
     const [newStudent, setNewStudent] = useState({
         name: '',
         phone: '',
@@ -67,13 +69,21 @@ const Students = () => {
         age: '',
     });
 
-    const students = leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student');
+    const students = useMemo(
+        () => leads.filter((l) => isStudentRecord(l)),
+        [leads]
+    );
+
+    const statusFilteredStudents = useMemo(
+        () => filterStudentsByStatus(students, showInactive),
+        [students, showInactive]
+    );
 
     const filteredStudents = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
         const qPhone = normalizePhone(searchTerm);
 
-        return students
+        return statusFilteredStudents
             .filter((s) => {
                 const matchBusca =
                     (!q && !qPhone) ||
@@ -99,20 +109,22 @@ const Students = () => {
                 if (ordenacao === 'antigos') return dA.localeCompare(dB);
                 return 0;
             });
-    }, [students, searchTerm, filtroTipo, filtroOrigem, ordenacao]);
+    }, [statusFilteredStudents, searchTerm, filtroTipo, filtroOrigem, ordenacao]);
 
     const limparFiltros = () => {
         setSearchTerm('');
         setFiltroTipo('Todos');
         setFiltroOrigem('Todas');
         setOrdenacao('az');
+        setShowInactive(false);
     };
 
     const filtrosAtivos =
         Boolean(searchTerm.trim()) ||
         filtroTipo !== 'Todos' ||
         filtroOrigem !== 'Todas' ||
-        ordenacao !== 'az';
+        ordenacao !== 'az' ||
+        showInactive;
 
     const studentPlural = terms.students;
     const studentSingular = terms.student;
@@ -123,6 +135,7 @@ const Students = () => {
             ...r,
             status: LEAD_STATUS.CONVERTED,
             contact_type: 'student',
+            studentStatus: STUDENT_STATUS.ACTIVE,
         }));
         try {
             await importLeads(withStatus);
@@ -172,6 +185,7 @@ const Students = () => {
                 pipelineStage: 'Matriculado',
                 dueDay: new Date().getDate(),
                 enrollmentDate: new Date().toISOString().slice(0, 10),
+                studentStatus: STUDENT_STATUS.ACTIVE,
             });
             addToast({ type: 'success', message: `${terms.student} cadastrado com sucesso.` });
             setShowCreateStudent(false);
@@ -219,12 +233,15 @@ const Students = () => {
                 return;
             }
 
-            const data = allStudents.map(l => ({
+            const data = allStudents.map((l) => ({
                 'Nome': l.name || '',
                 'Telefone': l.phone || '',
                 'Tipo': normalizeLeadProfileType(l.type) || l.type || '',
                 'Origem': l.origin || '',
-                'Status': l.status || '',
+                'Status operacional': l.status || '',
+                'Situação aluno': l.student_status || l.studentStatus || 'active',
+                'Motivo saída': l.exit_reason || l.exitReason || '',
+                'Data saída': l.exit_date || l.exitDate ? formatDate(l.exit_date || l.exitDate) : '',
                 'Plano': l.plan || '',
                 'Data Ingresso': l.enrollmentDate ? formatDate(l.enrollmentDate) : '',
                 'Criado em': l.$createdAt ? new Date(l.$createdAt).toLocaleDateString('pt-BR') : '',
@@ -261,7 +278,6 @@ const Students = () => {
     const studentLabel = terms.students;
     const pipelineName = labels.pipeline || 'Funil';
 
-    // TODO: quando existir status inativo, adicionar filtro "Ativos/Inativos" aqui.
     const exportTooltip = terms.exportStudentsTooltip
         .replace(/\{students\}/g, studentPlural.toLowerCase())
         .replace(/\{student\}/g, terms.student);
@@ -316,6 +332,34 @@ const Students = () => {
                         </button>
                     </div>
                     <div className="page-header-row">
+                        <span
+                            className={`date-chip${!showInactive ? ' active' : ''}`}
+                            onClick={() => setShowInactive(false)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setShowInactive(false);
+                                }
+                            }}
+                        >
+                            Ativos
+                        </span>
+                        <span
+                            className={`date-chip${showInactive ? ' active' : ''}`}
+                            onClick={() => setShowInactive(true)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setShowInactive(true);
+                                }
+                            }}
+                        >
+                            Inativos
+                        </span>
                         <div className="filter-group">
                             <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
                                 <option value="Todos">Todos os perfis</option>

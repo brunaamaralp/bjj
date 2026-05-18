@@ -25,6 +25,11 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
+import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
+import { useTaskStore } from '../store/useTaskStore.js';
+import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
+import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
+import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -187,6 +192,7 @@ export default function StudentProfile() {
     const academyList = useLeadStore((s) => s.academyList);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const updateLead = useLeadStore((s) => s.updateLead);
+    const createTask = useTaskStore((s) => s.createTask);
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
     const terms = useTerms();
@@ -245,6 +251,10 @@ export default function StudentProfile() {
         [terms.plan]
     );
 
+    const [deactivateOpen, setDeactivateOpen] = useState(false);
+    const [deactivateBusy, setDeactivateBusy] = useState(false);
+    const [reactivateBusy, setReactivateBusy] = useState(false);
+    const [exitReasons, setExitReasons] = useState([]);
     const [editingData, setEditingData] = useState(false);
     const [dataForm, setDataForm] = useState({
         plan: '',
@@ -472,9 +482,11 @@ export default function StudentProfile() {
                     zapster: String(doc?.zapster_instance_id || '').trim(),
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed },
                 });
+                setExitReasons(parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons));
             })
             .catch(() => {
                 setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
+                setExitReasons(parseStudentExitReasons(null));
             });
     }, [academyId]);
 
@@ -679,6 +691,57 @@ export default function StudentProfile() {
             addToast({ type: 'error', message: friendlyError(e, 'delete') });
         } finally {
             setDeleteBusy(false);
+        }
+    };
+
+    const handleConfirmDeactivate = async ({ exitReason, exitDate, exitNotes }) => {
+        if (deactivateBusy || !student) return;
+        setDeactivateBusy(true);
+        try {
+            let academyDoc = null;
+            if (academyId) {
+                academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+            }
+            await deactivateStudent({
+                student,
+                leadId,
+                academyId,
+                userId,
+                permCtx,
+                exitReason,
+                exitDate,
+                exitNotes,
+                academyDoc,
+                updateLead,
+                createTask,
+            });
+            setDeactivateOpen(false);
+            addToast({ type: 'success', message: `${terms.student} desligado com sucesso.` });
+            void refreshTimeline();
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setDeactivateBusy(false);
+        }
+    };
+
+    const handleReactivate = async () => {
+        if (reactivateBusy || !student) return;
+        setReactivateBusy(true);
+        try {
+            await reactivateStudent({
+                leadId,
+                academyId,
+                userId,
+                permCtx,
+                updateLead,
+            });
+            addToast({ type: 'success', message: `${terms.student} reativado com sucesso.` });
+            void refreshTimeline();
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setReactivateBusy(false);
         }
     };
 
@@ -1021,10 +1084,32 @@ export default function StudentProfile() {
                     </div>
                     <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{student.name || 'Sem nome'}</h2>
                     <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
+                    {isInactiveStudent(student) && (student.exitReason || student.exitDate) ? (
+                        <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                            {student.exitReason ? <>Motivo: {student.exitReason}</> : null}
+                            {student.exitReason && student.exitDate ? ' · ' : null}
+                            {student.exitDate ? <>Saída: {formatDateBR(student.exitDate)}</> : null}
+                        </p>
+                    ) : null}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 10 }}>
-                        <span className="badge-success" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
-                            {terms.convertedStatusUi}
-                        </span>
+                        {isInactiveStudent(student) ? (
+                            <span
+                                style={{
+                                    fontSize: 11,
+                                    borderRadius: 6,
+                                    padding: '2px 8px',
+                                    background: '#f1f5f9',
+                                    color: '#64748b',
+                                    fontWeight: 600,
+                                }}
+                            >
+                                Inativo
+                            </span>
+                        ) : (
+                            <span className="badge-success" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
+                                {terms.convertedStatusUi}
+                            </span>
+                        )}
                         {student.type && String(student.type).trim() ? (
                             <span className="badge-purple" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
                                 {student.type}
@@ -1328,6 +1413,57 @@ export default function StudentProfile() {
                     >
                         Mais ações
                     </p>
+                    {isActiveStudent(student) ? (
+                        <button
+                            type="button"
+                            onClick={() => setDeactivateOpen(true)}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                padding: '10px 12px',
+                                marginBottom: 8,
+                                borderRadius: 10,
+                                border: '1px solid var(--border)',
+                                background: 'var(--surface)',
+                                color: 'var(--text)',
+                                fontWeight: 700,
+                                fontSize: 13,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                            }}
+                        >
+                            <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
+                        </button>
+                    ) : isInactiveStudent(student) ? (
+                        <button
+                            type="button"
+                            onClick={() => void handleReactivate()}
+                            disabled={reactivateBusy}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                padding: '10px 12px',
+                                marginBottom: 8,
+                                borderRadius: 10,
+                                border: '1px solid var(--success)',
+                                background: 'var(--success-light)',
+                                color: 'var(--success)',
+                                fontWeight: 700,
+                                fontSize: 13,
+                                cursor: reactivateBusy ? 'not-allowed' : 'pointer',
+                                fontFamily: 'inherit',
+                                opacity: reactivateBusy ? 0.7 : 1,
+                            }}
+                        >
+                            {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         onClick={() => setConfirmDeleteOpen(true)}
@@ -2001,6 +2137,16 @@ export default function StudentProfile() {
                         </div>
                     </div>
                 </div>
+            ) : null}
+
+            {deactivateOpen && student ? (
+                <DeactivateStudentModal
+                    studentName={student.name || terms.student}
+                    exitReasons={exitReasons}
+                    busy={deactivateBusy}
+                    onCancel={() => !deactivateBusy && setDeactivateOpen(false)}
+                    onConfirm={handleConfirmDeactivate}
+                />
             ) : null}
 
             {showPaymentModal && student ? (

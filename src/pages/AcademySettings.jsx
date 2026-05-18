@@ -4,7 +4,10 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2 } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound } from 'lucide-react';
+import StudentsSection from '../components/academy/StudentsSection.jsx';
+import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
+import { parseOffboardingChecklist } from '../lib/studentOffboarding.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
 import EquipeSection from '../components/academy/EquipeSection';
@@ -21,6 +24,7 @@ import { useTerms } from '../lib/terminology.js';
 const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2 },
     { id: 'funil', label: 'Funil', Icon: Filter },
+    { id: 'alunos', label: 'Alunos', Icon: UserRound },
     { id: 'automacoes', label: 'Automações', Icon: Settings },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
     { id: 'equipe', label: 'Equipe', Icon: Users },
@@ -62,6 +66,8 @@ const AcademySettings = () => {
         uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
         modules: { sales: false, inventory: false, finance: false },
         customLeadQuestions: [],
+        studentExitReasons: [],
+        studentOffboardingChecklist: [],
         automationsConfigRaw: '',
         whatsappTemplates: '',
         teamId: '',
@@ -207,6 +213,10 @@ const AcademySettings = () => {
                     teamId: doc.teamId || '',
                     ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
+                    studentExitReasons: parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons),
+                    studentOffboardingChecklist: parseOffboardingChecklist(
+                      doc.student_offboarding_checklist ?? doc.studentOffboardingChecklist
+                    ),
                 });
                 try {
                     useLeadStore.getState().setVertical(vertical);
@@ -421,6 +431,15 @@ const AcademySettings = () => {
 
             {activeTab === 'funil' && (
                 <FunilSection
+                    academy={academy}
+                    setAcademy={setAcademy}
+                    academyId={academyId}
+                    academyDataVersion={academyDataVersion}
+                />
+            )}
+
+            {activeTab === 'alunos' && (
+                <StudentsSection
                     academy={academy}
                     setAcademy={setAcademy}
                     academyId={academyId}

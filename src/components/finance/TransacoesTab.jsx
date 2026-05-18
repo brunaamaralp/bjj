@@ -4,6 +4,7 @@ import { buildClientDocumentPermissions } from '../../lib/clientDocumentPermissi
 import { useLeadStore } from '../../store/useLeadStore';
 import { Query, ID } from 'appwrite';
 import { LEAD_STATUS } from '../../lib/leadStatus';
+import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
 import { Receipt } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
@@ -52,8 +53,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
     if (q.length < 2) return [];
-    const isStudentLike = (l) =>
-      l.status === LEAD_STATUS.CONVERTED || String(l.contact_type || '').trim() === 'student';
+    const isStudentLike = (l) => isStudentRecord(l) && isActiveStudent(l);
     return (leads || []).filter((l) => {
       if (!isStudentLike(l)) return false;
       const name = String(l.name || '').toLowerCase();

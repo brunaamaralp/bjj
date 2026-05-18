@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { useTerms } from '../lib/terminology.js';
+import { isStudentRecord, isActiveStudent } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 
 const PAY_METHODS = [
@@ -165,7 +166,7 @@ export default function Mensalidades() {
   }, [academyList, academyId, storeTeamId]);
 
   const students = useMemo(
-    () => leads.filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student'),
+    () => leads.filter((l) => isStudentRecord(l) && isActiveStudent(l)),
     [leads]
   );
 

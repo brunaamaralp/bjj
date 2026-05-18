@@ -13,6 +13,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { isInactiveStudent } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
@@ -355,6 +356,7 @@ const leadMatchesProfileFilter = (lead, profileFilter) => {
 };
 
 const leadMatchesContactType = (lead) => {
+    if (isInactiveStudent(lead)) return false;
     const contactType = String(lead?.contact_type || '').trim();
     if (!contactType || contactType === 'lead') return true;
     if (contactType === 'student' && lead?.status === LEAD_STATUS.CONVERTED) return true;
@@ -1210,7 +1212,8 @@ const Pipeline = () => {
                 status: LEAD_STATUS.CONVERTED,
                 contact_type: 'student',
                 pipelineStage: 'Matriculado',
-                convertedAt: new Date().toISOString()
+                convertedAt: new Date().toISOString(),
+                studentStatus: 'active',
             });
             void triggerImmediateAutomation('converted', {
                 lead: { ...lead, status: LEAD_STATUS.CONVERTED, contact_type: 'student', pipelineStage: 'Matriculado' },
