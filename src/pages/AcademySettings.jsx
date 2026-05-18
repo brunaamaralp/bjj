@@ -4,7 +4,8 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package } from 'lucide-react';
+import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
@@ -29,6 +30,7 @@ const TABS_ALL = [
     { id: 'automacoes', label: 'Automações', Icon: Settings },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
     { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare },
+    { id: 'estoque', label: 'Estoque', Icon: Package },
     { id: 'equipe', label: 'Equipe', Icon: Users },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
 ];
@@ -83,7 +85,15 @@ const AcademySettings = () => {
 
     const role = useUserRole(academy);
 
-    const TABS = useMemo(() => TABS_ALL.filter((t) => t.id !== 'financeiro' || role === 'owner'), [role]);
+    const TABS = useMemo(
+        () =>
+            TABS_ALL.filter((t) => {
+                if (t.id === 'financeiro' && role !== 'owner') return false;
+                if (t.id === 'estoque' && academy.modules?.inventory !== true) return false;
+                return true;
+            }),
+        [role, academy.modules?.inventory]
+    );
     const VALID_TABS = useMemo(() => new Set(TABS.map((t) => t.id)), [TABS]);
 
     const rawTab = searchParams.get('tab') || '';
@@ -537,6 +547,10 @@ const AcademySettings = () => {
             )}
 
             {activeTab === 'tarefas' && academyId && <TaskTemplatesSection academyId={academyId} />}
+
+            {activeTab === 'estoque' && academyId && (
+                <StockSettingsSection academyId={academyId} modules={academy.modules} />
+            )}
 
             {activeTab === 'equipe' && (
                 <EquipeSection

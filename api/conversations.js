@@ -6,6 +6,7 @@ import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/con
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
 import notificationsHandler from '../lib/server/notificationsHandler.js';
+import messageFlagsHandler from '../lib/server/messageFlagsHandler.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -149,6 +150,7 @@ function ensureJsonBody(req, res) {
 export default async function handler(req, res) {
   if (req.query.route === 'notes') return conversationNotesHandler(req, res);
   if (req.query.route?.startsWith('notifications')) return notificationsHandler(req, res);
+  if (req.query.route === 'message-flags') return messageFlagsHandler(req, res);
 
 
   if (!ensureConfig(res)) return;

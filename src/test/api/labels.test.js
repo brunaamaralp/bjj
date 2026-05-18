@@ -73,7 +73,7 @@ describe('GET /api/labels', () => {
         { $id: 'l1', name: 'Alpha', color: '#aabbcc', academy_id: 'acad-1' }
       ]
     });
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = { method: 'GET', headers: { authorization: 'Bearer t' } };
     const res = mockRes();
     await handler(req, res);
@@ -87,13 +87,13 @@ describe('GET /api/labels', () => {
 
   it('não retorna etiquetas de outra academia (query restrita)', async () => {
     hoisted.listDocuments.mockResolvedValueOnce({ documents: [] });
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = { method: 'GET', headers: { authorization: 'Bearer t' } };
     const res = mockRes();
     await handler(req, res);
     const qArg = hoisted.listDocuments.mock.calls[0][2];
     const academyClause = qArg.find((q) => q.type === 'equal' && q.a === 'academy_id');
-    expect(academyClause.b).toEqual(['acad-1']);
+    expect(academyClause.b).toBe('acad-1');
   });
 });
 
@@ -114,7 +114,7 @@ describe('POST /api/labels', () => {
       color: '#00FFAA',
       academy_id: 'acad-1'
     });
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = {
       method: 'POST',
       headers: { authorization: 'Bearer t', 'content-type': 'application/json' },
@@ -128,7 +128,7 @@ describe('POST /api/labels', () => {
   });
 
   it('retorna 400 para nome vazio', async () => {
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = {
       method: 'POST',
       headers: { authorization: 'Bearer t', 'content-type': 'application/json' },
@@ -140,7 +140,7 @@ describe('POST /api/labels', () => {
   });
 
   it('retorna 400 para cor inválida', async () => {
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = {
       method: 'POST',
       headers: { authorization: 'Bearer t', 'content-type': 'application/json' },
@@ -170,7 +170,7 @@ describe('DELETE /api/labels/:id', () => {
     hoisted.getDocument.mockResolvedValueOnce({ $id: 'lab-1', academy_id: 'acad-1', name: 'X', color: '#000000' });
     hoisted.listDocuments.mockResolvedValueOnce({ documents: [] });
     hoisted.deleteDocument.mockResolvedValueOnce({});
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = {
       method: 'DELETE',
       headers: { authorization: 'Bearer t' },
@@ -185,7 +185,7 @@ describe('DELETE /api/labels/:id', () => {
 
   it('retorna 404 para etiqueta inexistente', async () => {
     hoisted.getDocument.mockRejectedValueOnce({ code: '404', type: 'document_not_found' });
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = {
       method: 'DELETE',
       headers: { authorization: 'Bearer t' },
@@ -209,7 +209,7 @@ describe('DELETE /api/labels/:id', () => {
       ]
     });
     hoisted.deleteDocument.mockResolvedValueOnce({});
-    const { default: handler } = await import('../../../api/labels.js');
+    const { default: handler } = await import('../../../lib/server/labelsHandler.js');
     const req = {
       method: 'DELETE',
       headers: { authorization: 'Bearer t' },

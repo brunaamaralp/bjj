@@ -1,6 +1,7 @@
 import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
+import taskTemplatesHandler from '../lib/server/taskTemplatesHandler.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -83,6 +84,8 @@ function dueSortKey(value) {
 }
 
 export default async function handler(req, res) {
+  if (req.query.route === 'task-templates') return taskTemplatesHandler(req, res);
+
   const method = req.method?.toUpperCase();
 
   if (!DB_ID) return json(res, 500, { sucesso: false, erro: 'Database não configurado' });

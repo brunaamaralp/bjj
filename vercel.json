@@ -11,15 +11,16 @@
     { "source": "/api/zapster/instances", "destination": "/api/zapster.js?route=instances" },
     { "source": "/api/conversations", "destination": "/api/conversations.js" },
     { "source": "/api/conversations/:phone(.*)", "destination": "/api/conversations.js?phone=$1" },
-    { "source": "/api/message-flags/:message_id(.*)", "destination": "/api/message-flags.js?message_id=$1" },
-    { "source": "/api/message-flags", "destination": "/api/message-flags.js" },
+    { "source": "/api/message-flags/:message_id(.*)", "destination": "/api/conversations.js?route=message-flags&message_id=$1" },
+    { "source": "/api/message-flags", "destination": "/api/conversations.js?route=message-flags" },
     { "source": "/api/tasks/:id(.*)", "destination": "/api/tasks.js?id=$1" },
     { "source": "/api/tasks", "destination": "/api/tasks.js" },
-    { "source": "/api/task-templates/:id(.*)", "destination": "/api/task-templates.js?id=$1" },
-    { "source": "/api/task-templates", "destination": "/api/task-templates.js" },
+    { "source": "/api/task-templates/:id(.*)", "destination": "/api/tasks.js?route=task-templates&id=$1" },
+    { "source": "/api/task-templates", "destination": "/api/tasks.js?route=task-templates" },
     { "source": "/api/conversation-notes/:note_id(.*)", "destination": "/api/conversations.js?route=notes&note_id=$1" },
     { "source": "/api/conversation-notes", "destination": "/api/conversations.js?route=notes" },
-    { "source": "/api/labels/:id", "destination": "/api/labels.js?id=:id" },
+    { "source": "/api/labels", "destination": "/api/leads.js?route=labels" },
+    { "source": "/api/labels/:id", "destination": "/api/leads.js?route=labels&id=:id" },
     { "source": "/api/control-id/attendance", "destination": "/api/leads.js?route=control-id-attendance" },
     { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },
     { "source": "/v1/webhooks/asaas", "destination": "/api/v1/webhooks/asaas" },
@@ -28,6 +29,8 @@
     { "source": "/api/cron/automations", "destination": "/api/cron/reset-usage.js?action=automations" },
     { "source": "/api/cron/tasks-due", "destination": "/api/cron/reset-usage.js?action=tasks-due" },
     { "source": "/api/cron/collection-overdue", "destination": "/api/cron/reset-usage.js?action=collection-overdue" },
+    { "source": "/api/inventory", "destination": "/api/leads.js?route=inventory" },
+    { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
@@ -51,6 +54,10 @@
     {
       "path": "/api/cron/collection-overdue",
       "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/stock-inventory",
+      "schedule": "0 12 * * *"
     }
   ]
 }

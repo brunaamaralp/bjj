@@ -84,6 +84,10 @@ vi.mock('../../lib/server/academyAccess.js', () => ({
   ensureAcademyAccess: vi.fn(async () => ({ academyId: 'acad-1' }))
 }));
 
+vi.mock('../../lib/server/ensureConversationInAcademy.js', () => ({
+  ensureConversationBelongsToAcademy: vi.fn(async () => ({ ok: true }))
+}));
+
 describe('inbox — message flags (API)', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -105,7 +109,7 @@ describe('inbox — message flags (API)', () => {
       message_id: 'm1',
       type: 'pinned'
     });
-    const { default: handler } = await import('../../api/message-flags.js');
+    const { default: handler } = await import('../../lib/server/messageFlagsHandler.js');
     const req = {
       method: 'POST',
       headers: { authorization: 'Bearer t', 'content-type': 'application/json' },
@@ -136,7 +140,7 @@ describe('inbox — message flags (API)', () => {
         }
       ]
     });
-    const { default: handler } = await import('../../api/message-flags.js');
+    const { default: handler } = await import('../../lib/server/messageFlagsHandler.js');
     const req = {
       method: 'GET',
       headers: { authorization: 'Bearer t' },
@@ -156,7 +160,7 @@ describe('inbox — message flags (API)', () => {
       documents: [{ $id: 'flag-row-1', message_id: 'm1', type: 'pinned' }]
     });
     hoisted.deleteDocument.mockResolvedValueOnce({});
-    const { default: handler } = await import('../../api/message-flags.js');
+    const { default: handler } = await import('../../lib/server/messageFlagsHandler.js');
     const req = {
       method: 'DELETE',
       headers: { authorization: 'Bearer t' },

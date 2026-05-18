@@ -14,10 +14,11 @@ Coleções (Collections)
   - Atributos: ownerId (string), name (string), phone (string), email (string), address (string), quickTimes (array<string> ou string)
   - Índices sugeridos: equality em ownerId
 - STOCK_ITEMS_COL (Itens de Estoque)
-  - Atributos: nome (string), descricao (string), quantidade_total (integer), quantidade_vendida (integer), quantidade_alugada (integer)
-  - Índices sugeridos: full‑text em nome (e opcionalmente descricao) para autocomplete; equality por $id (padrão)
+  - Atributos: nome (string), descricao (string), quantidade_total (integer), quantidade_vendida (integer), quantidade_alugada (integer), current_quantity (integer), minimum_level (integer, padrão 0), unit (string), last_updated (datetime), last_checked (datetime), notes (string), academy_id (string)
+  - Índices sugeridos: full‑text em nome (e opcionalmente descricao) para autocomplete; equality em academy_id
 - STOCK_MOVES_COL (Movimentações de Estoque)
-  - Atributos: item_estoque_id (string), tipo (string: "entrada" | "saida_venda" | "reversao_venda" etc.), quantidade (number), referencia_id (string), motivo (string), usuario_id (string), $createdAt (padrão)
+  - Atributos: item_estoque_id (string), tipo (string: "entrada" | "saida_venda" | "reversao_venda" etc.), quantidade (number), referencia_id (string), motivo (string), usuario_id (string), purchase_price (float, opcional em entrada), academy_id (string), $createdAt (padrão)
+- ACADEMIES_COL — atributo `settings` (string JSON, até 8k): `stockCheckSchedule` (enabled, dayOfWeek, taskTitle), `stockPurchaseExpenseCategory`
 - SALES_COL (Vendas)
   - Atributos: aluno_id (string|null), total (number), forma_pagamento (string), status (string: "rascunho" | "concluida" | "cancelada"), idempotency_key (string|null), cancelada_em (string ISO), cancel_motivo (string|null)
   - Índices sugeridos: equality em idempotency_key

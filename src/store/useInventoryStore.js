@@ -1,29 +1,89 @@
 import { create } from 'zustand';
-import { functions, INVENTORY_MOVE_FN_ID } from '../lib/appwrite';
+import { createSessionJwt } from '../lib/appwrite';
+import { useLeadStore } from './useLeadStore';
+
+async function inventoryFetch(path, options = {}) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+  const academyId = useLeadStore.getState().academyId;
+  if (!academyId) throw new Error('academy_required');
+
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'Content-Type': 'application/json',
+      'x-academy-id': academyId,
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.erro || data.error || `error_${res.status}`);
+  }
+  return data;
+}
 
 export const useInventoryStore = create((set) => ({
+  items: [],
   lastResult: null,
   loading: false,
   error: null,
 
-  inventoryMove: async (payload) => {
-    if (!INVENTORY_MOVE_FN_ID) {
-      set({ error: 'INVENTORY_MOVE_FN_ID not set', lastResult: null });
-      return;
-    }
+  loadItems: async () => {
     set({ loading: true, error: null });
     try {
-      const exec = await functions.createExecution(INVENTORY_MOVE_FN_ID, JSON.stringify(payload), false);
-      const code = exec.responseStatusCode || 200;
-      let body = {};
-      try { body = JSON.parse(exec.responseBody || '{}'); } catch { body = { raw: exec.responseBody }; }
-      if (code >= 400) {
-        set({ error: body.error || `error_${code}`, lastResult: null, loading: false });
-        return;
-      }
-      set({ lastResult: body, loading: false });
+      const data = await inventoryFetch('/api/inventory');
+      set({ items: data.items || [], loading: false });
+      return data.items || [];
     } catch (e) {
-      set({ error: String(e && e.message ? e.message : e), loading: false });
+      set({ error: String(e?.message || e), loading: false, items: [] });
+      return [];
+    }
+  },
+
+  inventoryMove: async (payload) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await inventoryFetch('/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'move', ...payload }),
+      });
+      set({ lastResult: data, loading: false });
+      return data;
+    } catch (e) {
+      set({ error: String(e?.message || e), lastResult: null, loading: false });
+      return null;
+    }
+  },
+
+  updateItem: async (payload) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await inventoryFetch('/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'update_item', ...payload }),
+      });
+      set({ loading: false });
+      return data.item;
+    } catch (e) {
+      set({ error: String(e?.message || e), loading: false });
+      return null;
+    }
+  },
+
+  checkItem: async (item_estoque_id) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await inventoryFetch('/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'check', item_estoque_id }),
+      });
+      set({ loading: false });
+      return data;
+    } catch (e) {
+      set({ error: String(e?.message || e), loading: false });
+      return null;
     }
   },
 }));
