@@ -63,6 +63,8 @@ import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
+import { getNewLeadLabel, buildMobileDrawerSections } from './lib/naviMenu.js';
+import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 
 
 function defaultAiNameFromUser(user) {
@@ -117,6 +119,7 @@ const App = () => {
   const terms = useTerms();
   /** Menu: em physio, uiLabels pode ainda ter "Alunos" gravado — forçar terminologia da vertical. */
   const navStudentsLabel = vertical === 'physio' ? terms.students : labels.students;
+  const newLeadLabel = useMemo(() => getNewLeadLabel(labels.leads), [labels.leads]);
 
   const topbarTrialChip = useMemo(() => {
     if (!isBillingLive() || billingAccessTop?.status !== 'trial' || !billingAccessTop?.currentPeriodEnd) {
@@ -182,46 +185,36 @@ const App = () => {
     };
   }, [mobileMenuOpen]);
 
-  const mobileMenuSections = useMemo(() => {
-    const sections = [];
-    sections.push({
-      title: 'Gestão',
-      items: [
-        { to: '/tarefas', label: 'Tarefas', Icon: CheckSquare },
-        { to: '/planos', label: 'Planos', Icon: CreditCard },
-      ],
-    });
-    const financeItems = [];
-    if (modules.finance === true) {
-      financeItems.push({ to: '/mensalidades', label: 'Mensalidades', Icon: Users });
-      financeItems.push({ to: '/caixa', label: 'Caixa', Icon: Wallet });
-      if (navRole === 'owner') {
-        financeItems.push({ to: '/finance', label: 'Contabilidade', Icon: BookOpen });
-      }
-    }
-    if (financeItems.length > 0) {
-      sections.push({ title: 'Financeiro', items: financeItems });
-    }
-    const opsItems = [];
-    if (modules.inventory === true) {
-      opsItems.push({ to: '/estoque', label: 'Estoque', Icon: Boxes });
-    }
-    if (modules.inventory === true || modules.sales === true) {
-      opsItems.push({ to: '/produtos', label: 'Produtos', Icon: Package });
-    }
-    if (modules.sales === true) {
-      opsItems.push({ to: '/vendas', label: 'Vendas', Icon: ShoppingBag });
-    }
-    opsItems.push({ to: '/templates', label: 'Templates', Icon: FileText });
-    sections.push({ title: 'Operacional', items: opsItems });
-    const cfgItems = [{ to: '/empresa', label: terms.myWorkspace, Icon: Building2 }];
-    if (canConfigureAgenteIa) {
-      cfgItems.push({ to: '/agente-ia', label: 'Agente IA', Icon: Bot });
-    }
-    cfgItems.push({ to: '/reports', label: 'Relatórios', Icon: BarChart3 });
-    sections.push({ title: 'Configurações', items: cfgItems });
-    return sections;
-  }, [modules.finance, modules.inventory, modules.sales, navRole, canConfigureAgenteIa, terms.myWorkspace]);
+  const mobileMenuSections = useMemo(
+    () =>
+      buildMobileDrawerSections({
+        modules,
+        navRole,
+        canConfigureAgenteIa,
+        myWorkspaceLabel: terms.myWorkspace,
+        pipelineLabel: labels.pipeline || 'Funil',
+      }),
+    [modules, navRole, canConfigureAgenteIa, terms.myWorkspace, labels.pipeline]
+  );
+
+  const mobileDrawerIconMap = useMemo(
+    () => ({
+      pipeline: Kanban,
+      tarefas: CheckSquare,
+      templates: FileText,
+      agente: Bot,
+      caixa: Wallet,
+      contabilidade: BookOpen,
+      vendas: ShoppingBag,
+      produtos: Package,
+      estoque: Boxes,
+      reports: BarChart3,
+      conta: User,
+      planos: CreditCard,
+      empresa: Building2,
+    }),
+    []
+  );
 
   const closeMobileDrawer = () => setMobileMenuOpen(false);
 
@@ -817,176 +810,20 @@ const App = () => {
             )}
           </div>
 
-          <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
-            <div className="navi-side-section">
-              <span className="navi-side-section-title">CRM</span>
-              <NavLink
-                to="/"
-                end
-                className={sideLinkClass}
-                title={sidebarCollapsed ? 'Início' : undefined}
-              >
-                <LayoutGrid size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Início</span>
-              </NavLink>
-              <NavLink
-                to="/pipeline"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? (labels.pipeline || 'Funil') : undefined}
-              >
-                <Kanban size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">{labels.pipeline || 'Funil'}</span>
-              </NavLink>
-              <NavLink
-                to="/students"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? navStudentsLabel : undefined}
-              >
-                <GraduationCap size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">{navStudentsLabel}</span>
-              </NavLink>
-              <NavLink
-                to="/tarefas"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? 'Tarefas' : undefined}
-              >
-                <CheckSquare size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Tarefas</span>
-              </NavLink>
-              <NavLink
-                to="/reports"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? 'Relatórios' : undefined}
-              >
-                <BarChart3 size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Relatórios</span>
-              </NavLink>
-            </div>
-
-            <div className="navi-side-section">
-              <span className="navi-side-section-title">Atendimento</span>
-              <Link
-                to="/inbox"
-                className={`navi-side-link${isInboxConversasNavActive ? ' active' : ''}`}
-                title={sidebarCollapsed ? 'Conversas' : undefined}
-              >
-                <MessageCircle size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Conversas</span>
-                {inboxUnread > 0 && (
-                  <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
-                )}
-              </Link>
-              {canConfigureAgenteIa && (
-                <Link
-                  to="/agente-ia"
-                  className={`navi-side-link${isAgenteIaPage ? ' active' : ''}`}
-                  title={sidebarCollapsed ? 'Agente IA' : undefined}
-                >
-                  <Bot size={18} strokeWidth={1.75} />
-                  <span className="navi-side-link-label">Agente IA</span>
-                </Link>
-              )}
-              <NavLink
-                to="/templates"
-                className={sideLinkClass}
-                title={sidebarCollapsed ? 'Templates' : undefined}
-              >
-                <FileText size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Templates</span>
-              </NavLink>
-            </div>
-
-            {modules.finance === true && (
-              <div className="navi-side-section">
-                <span className="navi-side-section-title">Financeiro</span>
-                <NavLink
-                  to="/mensalidades"
-                  className={sideLinkClass}
-                  title={sidebarCollapsed ? 'Mensalidades' : undefined}
-                >
-                  <Users size={18} strokeWidth={1.75} />
-                  <span className="navi-side-link-label">Mensalidades</span>
-                </NavLink>
-                <NavLink
-                  to="/caixa"
-                  className={sideLinkClass}
-                  title={sidebarCollapsed ? 'Caixa' : undefined}
-                >
-                  <Wallet size={18} strokeWidth={1.75} />
-                  <span className="navi-side-link-label">Caixa</span>
-                </NavLink>
-              </div>
-            )}
-
-            {modules.finance === true && navRole === 'owner' && (
-              <div className="navi-side-section">
-                <span className="navi-side-section-title">Contabilidade</span>
-                <NavLink
-                  to="/finance"
-                  className={sideLinkClass}
-                  title={sidebarCollapsed ? 'Contabilidade' : undefined}
-                >
-                  <BookOpen size={18} strokeWidth={1.75} />
-                  <span className="navi-side-link-label">Contabilidade</span>
-                </NavLink>
-              </div>
-            )}
-
-            {((modules.inventory === true) || (modules.sales === true)) && (
-              <div className="navi-side-section">
-                <span className="navi-side-section-title">Operações</span>
-                {modules.inventory === true && (
-                  <NavLink
-                    to="/estoque"
-                    className={sideLinkClass}
-                    title={sidebarCollapsed ? 'Estoque' : undefined}
-                  >
-                    <Boxes size={18} strokeWidth={1.75} />
-                    <span className="navi-side-link-label">Estoque</span>
-                  </NavLink>
-                )}
-                {(modules.inventory === true || modules.sales === true) && (
-                  <NavLink
-                    to="/produtos"
-                    className={sideLinkClass}
-                    title={sidebarCollapsed ? 'Produtos' : undefined}
-                  >
-                    <Package size={18} strokeWidth={1.75} />
-                    <span className="navi-side-link-label">Produtos</span>
-                  </NavLink>
-                )}
-                {modules.sales === true && (
-                  <NavLink
-                    to="/vendas"
-                    className={sideLinkClass}
-                    title={sidebarCollapsed ? 'Vendas' : undefined}
-                  >
-                    <ShoppingBag size={18} strokeWidth={1.75} />
-                    <span className="navi-side-link-label">Vendas</span>
-                  </NavLink>
-                )}
-              </div>
-            )}
-
-            <div className="navi-side-section">
-              <NavLink
-                to="/empresa"
-                className={({ isActive }) => `navi-side-link${isActive ? ' active' : ''}`}
-                title={sidebarCollapsed ? terms.myWorkspace : undefined}
-              >
-                <Building2 size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">{terms.myWorkspace}</span>
-              </NavLink>
-              <NavLink
-                to="/conta"
-                className={({ isActive }) => `navi-side-link${isActive ? ' active' : ''}`}
-                title={sidebarCollapsed ? 'Conta' : undefined}
-              >
-                <User size={18} strokeWidth={1.75} />
-                <span className="navi-side-link-label">Conta</span>
-              </NavLink>
-            </div>
-          </nav>
+          <NaviSidebarNav
+            collapsed={sidebarCollapsed}
+            sideLinkClass={sideLinkClass}
+            labels={labels}
+            navStudentsLabel={navStudentsLabel}
+            newLeadLabel={newLeadLabel}
+            modules={modules}
+            navRole={navRole}
+            canConfigureAgenteIa={canConfigureAgenteIa}
+            myWorkspaceLabel={terms.myWorkspace}
+            isInboxConversasNavActive={isInboxConversasNavActive}
+            isAgenteIaPage={isAgenteIaPage}
+            inboxUnread={inboxUnread}
+          />
         </aside>
 
         <div className="navi-main-stack">
@@ -1067,8 +904,6 @@ const App = () => {
               {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
               <Route path="/students" element={<Students />} />
               <Route path="/tarefas" element={<Tasks />} />
-              {/* Presença / Control iD: oculto até finalizar integração da catraca */}
-              <Route path="/presenca" element={<Navigate to="/" replace />} />
               <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
               <Route path="/planos" element={<Plans user={user} />} />
               <Route path="/empresa" element={<AcademySettings />} />
@@ -1112,11 +947,13 @@ const App = () => {
                 </button>
               </div>
               <nav className="navi-mobile-drawer__nav" aria-label="Rotas adicionais">
-                {mobileMenuSections.map((sec) => (
-                  <div key={sec.title} className="navi-mobile-drawer__section">
-                    <div className="navi-mobile-drawer__section-title">{sec.title}</div>
+                {mobileMenuSections.map((sec, secIdx) => (
+                  <div key={sec.title || `sec-${secIdx}`} className="navi-mobile-drawer__section">
+                    {sec.title ? (
+                      <div className="navi-mobile-drawer__section-title">{sec.title}</div>
+                    ) : null}
                     {sec.items.map((item) => {
-                      const Icon = item.Icon;
+                      const Icon = mobileDrawerIconMap[item.iconKey] || LayoutGrid;
                       const active =
                         location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
                       return (
@@ -1140,40 +977,48 @@ const App = () => {
       ) : null}
 
       <nav className="navi-bottom-nav" aria-label="Navegação">
-        <Link to="/" className={`navi-nav-item ${isActive('/') ? 'active' : ''}`}>
+        <Link to="/" className={`navi-nav-item${isActive('/') ? ' active' : ''}`}>
           <LayoutGrid size={22} strokeWidth={1.75} />
           <span>Início</span>
         </Link>
-        <Link to="/pipeline" className={`navi-nav-item ${isActive('/pipeline') ? 'active' : ''}`}>
-          <Kanban size={22} strokeWidth={1.75} />
-          <span>{labels.pipeline || 'Funil'}</span>
-        </Link>
-        <Link to="/inbox" className={`navi-nav-item ${isInboxPath ? 'active' : ''}`}>
+        <Link to="/inbox" className={`navi-nav-item${isInboxPath ? ' active' : ''}`}>
           <MessageCircle size={22} strokeWidth={1.75} />
           {inboxUnread > 0 && (
             <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
           )}
           <span>Conversas</span>
         </Link>
-        <Link to="/new-lead" className="navi-nav-item navi-nav-fab">
+        <Link to="/new-lead" className="navi-nav-item navi-nav-fab" aria-label={newLeadLabel}>
           <div className="navi-fab-btn">
             <PlusCircle size={28} strokeWidth={1.75} />
           </div>
         </Link>
-        <Link to="/students" className={`navi-nav-item ${isActive('/students') ? 'active' : ''}`}>
+        <Link to="/students" className={`navi-nav-item${isActive('/students') ? ' active' : ''}`}>
           <GraduationCap size={22} strokeWidth={1.75} />
           <span>{navStudentsLabel}</span>
         </Link>
-        {modules.sales === true && (
-          <Link to="/vendas" className={`navi-nav-item ${isActive('/vendas') ? 'active' : ''}`}>
-            <ShoppingBag size={22} strokeWidth={1.75} />
-            <span>Loja</span>
+        {modules.finance === true ? (
+          <Link to="/mensalidades" className={`navi-nav-item${isActive('/mensalidades') ? ' active' : ''}`}>
+            <Users size={22} strokeWidth={1.75} />
+            <span>Mensalidades</span>
+          </Link>
+        ) : (
+          <Link to="/tarefas" className={`navi-nav-item${isActive('/tarefas') ? ' active' : ''}`}>
+            <CheckSquare size={22} strokeWidth={1.75} />
+            <span>Tarefas</span>
           </Link>
         )}
-        <Link to="/conta" className={`navi-nav-item ${location.pathname === '/conta' ? 'active' : ''}`}>
-          <User size={22} strokeWidth={1.75} />
-          <span>Conta</span>
-        </Link>
+        <button
+          type="button"
+          className={`navi-nav-item navi-nav-item--menu${mobileMenuOpen ? ' active' : ''}`}
+          onClick={() => setMobileMenuOpen(true)}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="navi-mobile-drawer-panel"
+          aria-label="Abrir menu"
+        >
+          <Menu size={22} strokeWidth={1.75} />
+          <span>Menu</span>
+        </button>
       </nav>
 
       <NaviToasts />
@@ -1238,3 +1083,4 @@ const App = () => {
 };
 
 export default App;
+

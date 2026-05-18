@@ -86,7 +86,7 @@ export function formatPaymentMethod(method, account = '', installments = 1) {
 function mapTxTypeToOrigin(type) {
   const t = String(type || '').toLowerCase();
   if (t === 'enrollment' || t === 'matricula' || t === 'matrícula') return 'matricula';
-  if (t === 'product' || t === 'sale' || t === 'produto') return 'produto';
+  if (t === 'product' || t === 'sale' || t === 'produto' || t === 'refund') return 'produto';
   if (t === 'plan') return 'mensalidade';
   return 'outro';
 }
@@ -166,8 +166,8 @@ export function buildClosingRows({ payments = [], transactions = [], leadById = 
 
   for (const tx of transactions) {
     const st = String(tx.status || '').toLowerCase();
-    if (st === 'cancelled') continue;
     const type = String(tx.type || '').toLowerCase();
+    if (st === 'cancelled' && type !== 'refund') continue;
     if (type === 'expense') continue;
     if (linkedTxIds.has(String(tx.id || ''))) continue;
 

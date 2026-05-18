@@ -11,6 +11,7 @@ export const DEFAULT_STOCK_CHECK_SCHEDULE = {
 
 export const DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY = 'Estoque / Insumos';
 
+/** DEPRECATED: usar current_quantity. Fallback de leitura para itens não migrados. */
 export function legacyAvailable(item) {
   const total = Number(item?.quantidade_total ?? 0);
   const vendida = Number(item?.quantidade_vendida ?? 0);

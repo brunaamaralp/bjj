@@ -607,6 +607,12 @@ button:active {
   gap: 0;
 }
 
+.navi-side-section--footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--border-light);
+}
+
 .navi-main-stack {
   grid-column: 1;
   grid-row: 1;
@@ -1474,6 +1480,13 @@ button:active {
 
 .navi-nav-fab {
   margin-top: -20px;
+}
+
+.navi-nav-item--menu {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
 }
 
 .navi-fab-btn {

@@ -9,6 +9,8 @@
     "lint": "eslint src",
     "preview": "vite preview",
     "provision:stock": "node scripts/provision_stock_schema.js",
+    "migrate:stock-balance": "node scripts/migrate_stock_balance.js",
+    "provision:sales": "node scripts/provision_sales_schema.js",
     "provision:core": "node scripts/setup-appwrite.mjs",
     "migrate:perms": "node scripts/migrate-permissions.mjs",
     "migrate:ai-plans": "node scripts/migrate-ai-plans-appwrite.mjs",

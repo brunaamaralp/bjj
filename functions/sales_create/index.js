@@ -1,9 +1,19 @@
 import sdk from "node-appwrite";
+import { resolveCurrentQuantity, itemDisplayName } from "../stockBalance.mjs";
 
 export default async function (req, res) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const { aluno_id = null, forma_pagamento, itens, idempotency_key = null, academy_id = null } = body;
+    const {
+      aluno_id = null,
+      forma_pagamento,
+      itens,
+      idempotency_key = null,
+      academy_id = null,
+      canal = "presencial",
+      cliente_nome = null,
+      cliente_telefone = null,
+    } = body;
     if (!Array.isArray(itens) || itens.length === 0 || !forma_pagamento) {
       return res.json({ error: "invalid_payload" }, 400);
     }
@@ -49,7 +59,7 @@ export default async function (req, res) {
       for (const it of itens) {
         try {
           const stock = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
-          const name = String(stock.nome || stock.name || "Produto").trim();
+          const name = itemDisplayName(stock);
           parts.push(it.quantidade > 1 ? `${name} x${it.quantidade}` : name);
         } catch {
           parts.push(it.quantidade > 1 ? `Produto x${it.quantidade}` : "Produto");
@@ -87,7 +97,6 @@ export default async function (req, res) {
       }
     }
 
-    // Idempotência: retornar venda já criada para a mesma chave
     if (idempotency_key) {
       try {
         const existing = await databases.listDocuments(DB_ID, SALES_COL, [
@@ -107,37 +116,57 @@ export default async function (req, res) {
       }
     }
 
-    // 1) Disponibilidade
     const stockSnapshots = {};
     for (const it of itens) {
       const item = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
-      const total = Number(item.quantidade_total || 0);
-      const vendida = Number(item.quantidade_vendida || 0);
-      const alugada = Number(item.quantidade_alugada || 0);
-      const disponivel = total - vendida - alugada;
+      const disponivel = resolveCurrentQuantity(item);
       if (disponivel < it.quantidade) {
-        return res.json({ error: "no_stock", item_estoque_id: it.item_estoque_id, disponivel }, 409);
+        return res.json(
+          {
+            error: "no_stock",
+            item_estoque_id: it.item_estoque_id,
+            disponivel,
+            nome: itemDisplayName(item),
+          },
+          409
+        );
       }
-      stockSnapshots[it.item_estoque_id] = { total, vendida, alugada };
+      stockSnapshots[it.item_estoque_id] = { current_quantity: disponivel };
     }
 
-    // 2) Criar venda (rascunho)
-    const totalVenda = itens.reduce((acc, it) => acc + (it.preco_unitario * it.quantidade), 0);
+    const totalVenda = itens.reduce((acc, it) => acc + it.preco_unitario * it.quantidade, 0);
     const vendaId = sdk.ID.unique();
-    const vendaDoc = await databases.createDocument(DB_ID, SALES_COL, vendaId, {
+    const salePayload = {
       academyId: academy_id || null,
       aluno_id: aluno_id || null,
       total: totalVenda,
       forma_pagamento,
       status: "rascunho",
       idempotency_key: idempotency_key || null,
-    });
+      canal: String(canal || "presencial").slice(0, 32),
+    };
+    if (cliente_nome) salePayload.cliente_nome = String(cliente_nome).slice(0, 128);
+    if (cliente_telefone) salePayload.cliente_telefone = String(cliente_telefone).slice(0, 20);
+
+    let vendaDoc;
+    try {
+      vendaDoc = await databases.createDocument(DB_ID, SALES_COL, vendaId, salePayload);
+    } catch (e) {
+      const msg = String(e?.message || "");
+      if (msg.includes("Unknown attribute")) {
+        delete salePayload.canal;
+        delete salePayload.cliente_nome;
+        delete salePayload.cliente_telefone;
+        vendaDoc = await databases.createDocument(DB_ID, SALES_COL, vendaId, salePayload);
+      } else {
+        throw e;
+      }
+    }
 
     const createdItems = [];
     const createdMoves = [];
     const updatedStockIds = [];
     try {
-      // 3) Criar itens da venda (snapshot) e baixar estoque
       for (const it of itens) {
         const saleItem = await databases.createDocument(DB_ID, SALE_ITEMS_COL, sdk.ID.unique(), {
           venda_id: vendaDoc.$id,
@@ -148,20 +177,14 @@ export default async function (req, res) {
         createdItems.push(saleItem.$id);
 
         const snap = stockSnapshots[it.item_estoque_id];
-        const novaVendida = snap.vendida + it.quantidade;
         const itemDoc = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
-        const prevQty =
-          itemDoc.current_quantity !== undefined && itemDoc.current_quantity !== null && itemDoc.current_quantity !== ""
-            ? Number(itemDoc.current_quantity)
-            : Number(itemDoc.quantidade_total || 0) - Number(itemDoc.quantidade_vendida || 0) - Number(itemDoc.quantidade_alugada || 0);
-        const stockPatch = {
-          quantidade_vendida: novaVendida,
+        const prevQty = resolveCurrentQuantity(itemDoc);
+        const newQty = Math.max(0, prevQty - it.quantidade);
+
+        await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, {
+          current_quantity: newQty,
           last_updated: new Date().toISOString(),
-        };
-        if (Number.isFinite(prevQty)) {
-          stockPatch.current_quantity = Math.max(0, prevQty - it.quantidade);
-        }
-        await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, stockPatch);
+        });
         updatedStockIds.push(it.item_estoque_id);
 
         const move = await databases.createDocument(DB_ID, STOCK_MOVES_COL, sdk.ID.unique(), {
@@ -171,11 +194,12 @@ export default async function (req, res) {
           referencia_id: vendaDoc.$id,
           motivo: "venda",
           usuario_id: req.headers["x-user-id"] || "",
+          academy_id: academy_id || itemDoc.academy_id || null,
         });
         createdMoves.push(move.$id);
+        snap.current_quantity_after = newQty;
       }
 
-      // 4) Finalizar venda
       await databases.updateDocument(DB_ID, SALES_COL, vendaDoc.$id, { status: "concluida" });
       await mirrorSaleToFinancialTx(vendaDoc.$id, totalVenda);
       console.log(JSON.stringify({
@@ -185,31 +209,40 @@ export default async function (req, res) {
         items_count: itens.length,
         total: totalVenda,
         user_id: req.headers["x-user-id"] || "",
-        idempotency_key: idempotency_key || null
+        idempotency_key: idempotency_key || null,
       }));
       return res.json({ ok: true, venda_id: vendaDoc.$id, total: totalVenda, status: "concluida" }, 200);
     } catch (err) {
-      // Best-effort rollback
       for (const it of itens) {
         try {
           const snap = stockSnapshots[it.item_estoque_id];
-          if (updatedStockIds.includes(it.item_estoque_id)) {
-            const backVendida = Math.max(0, snap.vendida);
-            await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, { quantidade_vendida: backVendida });
+          if (updatedStockIds.includes(it.item_estoque_id) && snap) {
+            await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, {
+              current_quantity: snap.current_quantity,
+              last_updated: new Date().toISOString(),
+            });
           }
         } catch (e) {
           console.warn("rollback stock error", e);
         }
       }
       for (const id of createdItems) {
-        try { await databases.deleteDocument(DB_ID, SALE_ITEMS_COL, id); } catch (e) { console.warn("rollback sale_item delete error", e); }
+        try {
+          await databases.deleteDocument(DB_ID, SALE_ITEMS_COL, id);
+        } catch (e) {
+          console.warn("rollback sale_item delete error", e);
+        }
       }
-      try { await databases.deleteDocument(DB_ID, SALES_COL, vendaDoc.$id); } catch (e) { console.warn("rollback sale delete error", e); }
+      try {
+        await databases.deleteDocument(DB_ID, SALES_COL, vendaDoc.$id);
+      } catch (e) {
+        console.warn("rollback sale delete error", e);
+      }
       console.error(JSON.stringify({
         level: "error",
         action: "sales_create_failed",
         venda_id: vendaDoc?.$id || null,
-        error: String(err && err.message ? err.message : err)
+        error: String(err && err.message ? err.message : err),
       }));
       return res.json({ error: "create_failed", detail: String(err && err.message ? err.message : err) }, 500);
     }
@@ -217,7 +250,7 @@ export default async function (req, res) {
     console.error(JSON.stringify({
       level: "error",
       action: "sales_create_server_error",
-      error: String(e && e.message ? e.message : e)
+      error: String(e && e.message ? e.message : e),
     }));
     return res.json({ error: "server_error", detail: String(e && e.message ? e.message : e) }, 500);
   }

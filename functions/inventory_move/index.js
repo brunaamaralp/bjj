@@ -1,45 +1,9 @@
 import sdk from "node-appwrite";
-
-/** Espelho simplificado do handler Vercel (Appwrite Function). */
-function legacyAvailable(item) {
-  const total = Number(item.quantidade_total || 0);
-  const vendida = Number(item.quantidade_vendida || 0);
-  const alugada = Number(item.quantidade_alugada || 0);
-  return total - vendida - alugada;
-}
-
-function resolveCurrentQuantity(item) {
-  const raw = item.current_quantity;
-  if (raw !== undefined && raw !== null && raw !== "") {
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return legacyAvailable(item);
-}
-
-function quantityDelta(tipo, quantidade) {
-  const q = Number(quantidade);
-  if (!Number.isFinite(q) || q === 0) return 0;
-  switch (String(tipo || "").toLowerCase()) {
-    case "entrada":
-    case "devolucao":
-    case "reversao_venda":
-      return q > 0 ? q : 0;
-    case "ajuste":
-      return q;
-    case "saida_venda":
-    case "saida_aluguel":
-      return q > 0 ? -q : 0;
-    default:
-      return 0;
-  }
-}
+import { resolveCurrentQuantity, quantityDeltaForMoveType, itemDisplayName } from "../stockBalance.mjs";
 
 const RESTOCK_MARKER = "[stock_restock]";
 
-function itemName(item) {
-  return String(item.nome || item.name || item.descricao || item.$id || "").trim() || "Item";
-}
+const itemName = itemDisplayName;
 
 function parseItemIdFromDesc(desc) {
   const m = String(desc || "").match(/^item_id:\s*(\S+)/m);
@@ -103,48 +67,24 @@ export default async function (req, res) {
 
     const item = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, item_estoque_id);
     const academyId = String(academy_id || item.academy_id || "").trim();
-    const delta = quantityDelta(tipo, quantidade);
+    const delta = quantityDeltaForMoveType(tipo, quantidade);
     const prevQty = resolveCurrentQuantity(item);
     if (delta < 0 && prevQty + delta < 0) {
       return res.json({ error: "no_stock" }, 409);
     }
 
-    const total = Number(item.quantidade_total || 0);
-    const vendida = Number(item.quantidade_vendida || 0);
-    const alugada = Number(item.quantidade_alugada || 0);
-    const disponivel = total - vendida - alugada;
-    let updates = { last_updated: new Date().toISOString() };
-
-    if (tipo === "entrada") {
-      if (quantidade < 0) return res.json({ error: "invalid_quantity" }, 400);
-      updates.quantidade_total = total + quantidade;
-    } else if (tipo === "ajuste") {
-      updates.quantidade_total = total + quantidade;
-    } else if (tipo === "saida_venda") {
-      if (quantidade < 0) return res.json({ error: "invalid_quantity" }, 400);
-      if (disponivel < quantidade) return res.json({ error: "no_stock" }, 409);
-      updates.quantidade_vendida = vendida + quantidade;
-    } else if (tipo === "saida_aluguel") {
-      if (quantidade < 0) return res.json({ error: "invalid_quantity" }, 400);
-      if (disponivel < quantidade) return res.json({ error: "no_stock" }, 409);
-      updates.quantidade_alugada = alugada + quantidade;
-    } else if (tipo === "devolucao") {
-      if (quantidade < 0) return res.json({ error: "invalid_quantity" }, 400);
-      const novaAlugada = alugada - quantidade;
-      if (novaAlugada < 0) return res.json({ error: "invalid_return" }, 409);
-      updates.quantidade_alugada = novaAlugada;
-    } else if (tipo === "reversao_venda") {
-      if (quantidade < 0) return res.json({ error: "invalid_quantity" }, 400);
-      const novaVendida = vendida - quantidade;
-      if (novaVendida < 0) return res.json({ error: "invalid_reversal" }, 409);
-      updates.quantidade_vendida = novaVendida;
-    } else if (tipo === "avulso") {
-      updates.status_par = status_par || item.status_par || "completo";
-    } else {
+    const known = ["entrada", "ajuste", "saida_venda", "saida_aluguel", "devolucao", "reversao_venda", "avulso"];
+    if (!known.includes(String(tipo || "").toLowerCase())) {
       return res.json({ error: "invalid_tipo" }, 400);
     }
+    if (["entrada", "saida_venda", "saida_aluguel", "devolucao", "reversao_venda"].includes(tipo) && quantidade < 0) {
+      return res.json({ error: "invalid_quantity" }, 400);
+    }
 
-    if (tipo !== "avulso") {
+    const updates = { last_updated: new Date().toISOString() };
+    if (tipo === "avulso") {
+      updates.status_par = status_par || item.status_par || "completo";
+    } else {
       updates.current_quantity = prevQty + delta;
     }
 
@@ -237,10 +177,6 @@ export default async function (req, res) {
       }
     }
 
-    const novoTotal = Number(updated.quantidade_total || 0);
-    const novaVendida = Number(updated.quantidade_vendida || 0);
-    const novaAlugada = Number(updated.quantidade_alugada || 0);
-
     return res.json(
       {
         ok: true,
@@ -248,10 +184,6 @@ export default async function (req, res) {
         financial_tx_id,
         saldos: {
           current_quantity: newQty,
-          total: novoTotal,
-          vendida: novaVendida,
-          alugada: novaAlugada,
-          disponivel: novoTotal - novaVendida - novaAlugada,
         },
       },
       200

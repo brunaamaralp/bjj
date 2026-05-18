@@ -138,6 +138,41 @@ describe('monthlyClosing', () => {
     expect(rows).toHaveLength(0);
   });
 
+  it('includes product refund as negative received', () => {
+    const { rows } = buildClosingRows({
+      payments: [],
+      transactions: [
+        {
+          id: 'txp',
+          type: 'product',
+          gross: 100,
+          net: 100,
+          status: 'cancelled',
+          settledAt: '2026-05-12T12:00:00Z',
+          saleId: 'sale1',
+          createdAt: '2026-05-12T12:00:00Z',
+        },
+        {
+          id: 'txr',
+          type: 'refund',
+          gross: -100,
+          net: -100,
+          status: 'settled',
+          settledAt: '2026-05-13T12:00:00Z',
+          planName: 'Estorno venda #SALE1',
+          saleId: 'sale1',
+          createdAt: '2026-05-13T12:00:00Z',
+        },
+      ],
+      leadById: new Map(),
+      financeConfig,
+      referenceMonth: '2026-05',
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].origin).toBe('produto');
+    expect(rows[0].received).toBe(-100);
+  });
+
   it('filterClosingRows by origin', () => {
     const rows = [
       { origin: 'mensalidade', situation: 'recebido', paymentMethodKey: 'pix|' },

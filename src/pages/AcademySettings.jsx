@@ -4,7 +4,8 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package, ShoppingBag } from 'lucide-react';
+import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
@@ -32,6 +33,7 @@ const TABS_ALL = [
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
     { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare },
     { id: 'estoque', label: 'Estoque', Icon: Package },
+    { id: 'vendas', label: 'Vendas', Icon: ShoppingBag },
     { id: 'equipe', label: 'Equipe', Icon: Users },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
 ];
@@ -91,6 +93,7 @@ const AcademySettings = () => {
             TABS_ALL.filter((t) => {
                 if (t.id === 'financeiro' && role !== 'owner') return false;
                 if (t.id === 'estoque' && academy.modules?.inventory !== true) return false;
+                if (t.id === 'vendas' && academy.modules?.sales !== true) return false;
                 return true;
             }),
         [role, academy.modules?.inventory]
@@ -556,6 +559,10 @@ const AcademySettings = () => {
 
             {activeTab === 'estoque' && academyId && (
                 <StockSettingsSection academyId={academyId} modules={academy.modules} />
+            )}
+
+            {activeTab === 'vendas' && academyId && (
+                <SalesSettingsSection academyId={academyId} />
             )}
 
             {activeTab === 'equipe' && (
