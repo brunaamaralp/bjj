@@ -148,7 +148,7 @@ const Inventory = () => {
               <input
                 className="form-input"
                 value={configForm.unit}
-                onChange={(e) => setConfigForm((f) => ({ ...f, unit: e.target.value })}
+                onChange={(e) => setConfigForm((f) => ({ ...f, unit: e.target.value }))}
                 placeholder="unidade, pacote, kg…"
               />
             </div>
