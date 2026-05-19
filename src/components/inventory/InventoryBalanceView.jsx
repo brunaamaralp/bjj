@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Pencil, Trash2 } from 'lucide-react';
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
@@ -16,6 +16,7 @@ const STATUS_STYLES = {
 export default function InventoryBalanceView({
   items,
   loading,
+  highlightItemId = '',
   onRefresh,
   onRegisterEntry,
   onCheckItem,
@@ -23,6 +24,7 @@ export default function InventoryBalanceView({
   onDeleteItem,
   deleteBusyId = null,
 }) {
+  const highlightRef = useRef(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [forSaleOnly, setForSaleOnly] = useState(false);
@@ -45,6 +47,13 @@ export default function InventoryBalanceView({
       return true;
     });
   }, [items, statusFilter, categoryFilter, forSaleOnly]);
+
+  useEffect(() => {
+    if (!highlightItemId || loading) return;
+    const row = highlightRef.current;
+    if (!row) return;
+    row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [highlightItemId, loading, filtered.length]);
 
   return (
     <section className="mt-4 animate-in">
@@ -143,14 +152,20 @@ export default function InventoryBalanceView({
                   const st = STATUS_STYLES[it.status] || STATUS_STYLES.ok;
                   const StIcon = st.Icon;
                   const label = it.Tamanho ? `${it.nome} · ${it.Tamanho}` : it.nome;
-                  const rowClass =
-                    it.status === 'critical'
-                      ? 'inventory-row--critical'
-                      : it.status === 'attention'
-                        ? 'inventory-row--attention'
-                        : '';
+                  const rowClass = [
+                    it.status === 'critical' ? 'inventory-row--critical' : '',
+                    it.status === 'attention' ? 'inventory-row--attention' : '',
+                    highlightItemId === it.id ? 'inventory-row--highlight' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
                   return (
-                    <tr key={it.id} className={rowClass}>
+                    <tr
+                      key={it.id}
+                      ref={highlightItemId === it.id ? highlightRef : undefined}
+                      className={rowClass || undefined}
+                      data-item-id={it.id}
+                    >
                       <td style={{ fontWeight: 600 }}>{label}</td>
                       <td className="text-small text-muted">{it.categoria || '—'}</td>
                       <td className="text-small">{it.unit}</td>
@@ -283,6 +298,9 @@ export default function InventoryBalanceView({
         }
         .inventory-row--attention {
           border-left: 3px solid var(--warning, #c9a227);
+        }
+        .inventory-row--highlight td {
+          background: color-mix(in srgb, var(--v500) 8%, transparent);
         }
         .inventory-table__actions {
           text-align: right;

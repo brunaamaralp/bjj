@@ -1123,6 +1123,18 @@ button:active {
   color: var(--faint);
 }
 
+/* Select nativo: opções legíveis quando o SO está em tema escuro */
+select.form-input {
+  color-scheme: light;
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+select.form-input option {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
 .error {
   color: var(--c500);
   font-size: 0.75rem;

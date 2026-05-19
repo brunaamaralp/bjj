@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useLeadStore } from '../store/useLeadStore';
@@ -9,6 +10,8 @@ import InventoryMovesForm from '../components/inventory/InventoryMovesForm.jsx';
 import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
 
 const Inventory = () => {
+  const [searchParams] = useSearchParams();
+  const highlightItemId = searchParams.get('item') || '';
   const modules = useLeadStore((s) => s.modules);
   const { items, loadItems, inventoryMove, checkItem, updateItem, lastResult, loading, error } = useInventoryStore();
   const { checkDeleteProduct, deleteProduct, deactivateProduct } = useProductsStore();
@@ -160,6 +163,7 @@ const Inventory = () => {
         <InventoryBalanceView
           items={items}
           loading={loading}
+          highlightItemId={highlightItemId}
           onRefresh={refresh}
           onRegisterEntry={handleRegisterEntry}
           onCheckItem={handleCheckItem}

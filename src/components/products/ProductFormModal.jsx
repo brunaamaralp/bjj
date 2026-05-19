@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import {
   PRODUCT_UNIT_OPTIONS,
   PRODUCT_SKU_PRESETS,
@@ -87,6 +87,7 @@ export default function ProductFormModal({
   loading,
   onSave,
   onDeactivate,
+  onRequestDelete,
 }) {
   const isEdit = mode === 'edit';
   const isDuplicate = mode === 'duplicate';
@@ -313,10 +314,32 @@ export default function ProductFormModal({
             <ToggleRow label="Ativo" checked={form.is_active} onChange={(v) => setForm((f) => ({ ...f, is_active: v }))} />
 
             <div className="flex gap-2 justify-end mt-4" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-              {isEdit && product?.is_active && onDeactivate ? (
-                <button type="button" className="btn-outline" style={{ marginRight: 'auto', color: 'var(--danger)' }} onClick={() => onDeactivate(product.id)} disabled={loading}>
-                  Desativar produto
-                </button>
+              {isEdit && product ? (
+                <div style={{ marginRight: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {product.is_active && onDeactivate ? (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      style={{ color: 'var(--warning, #c9a227)' }}
+                      onClick={() => onDeactivate(product.id)}
+                      disabled={loading}
+                    >
+                      Desativar produto
+                    </button>
+                  ) : null}
+                  {onRequestDelete ? (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      style={{ color: 'var(--status-danger-text, var(--danger))' }}
+                      onClick={() => onRequestDelete(product)}
+                      disabled={loading}
+                    >
+                      <Trash2 size={14} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+                      Excluir produto
+                    </button>
+                  ) : null}
+                </div>
               ) : (
                 <span style={{ marginRight: 'auto' }} />
               )}

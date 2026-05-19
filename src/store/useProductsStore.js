@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { pickProductApiBody } from '../lib/stockProducts';
 import { useLeadStore } from './useLeadStore';
+import { useInventoryStore } from './useInventoryStore';
 
 async function productsFetch(path, options = {}) {
   const jwt = await createSessionJwt();
@@ -83,6 +84,9 @@ export const useProductsStore = create((set) => ({
         loading: false,
         products: state.products.map((p) => (p.id === item_id ? data.product : p)),
       }));
+      useInventoryStore.setState((state) => ({
+        items: state.items.map((it) => (it.id === item_id ? { ...it, is_active: false } : it)),
+      }));
       return data.product;
     } catch (e) {
       set({ error: String(e?.message || e), loading: false });
@@ -117,6 +121,9 @@ export const useProductsStore = create((set) => ({
       set((state) => ({
         loading: false,
         products: state.products.filter((p) => p.id !== item_id),
+      }));
+      useInventoryStore.setState((state) => ({
+        items: state.items.filter((it) => it.id !== item_id),
       }));
       return true;
     } catch (e) {

@@ -247,6 +247,7 @@ export default function Products() {
     }
     addToast({ type: 'success', message: 'Produto excluído' });
     closeDeleteDialog();
+    closeModal();
     await refreshStockStores();
   };
 
@@ -421,9 +422,10 @@ export default function Products() {
         product={activeProduct}
         categories={categories}
         mode={modalMode}
-        loading={loading}
+        loading={loading || deleteBusy}
         onSave={handleSave}
         onDeactivate={handleDeactivate}
+        onRequestDelete={(p) => void openDeleteDialog(p)}
       />
 
       <ProductDeleteDialog
@@ -444,7 +446,7 @@ export default function Products() {
           text-align: right;
           white-space: nowrap;
           width: 1%;
-          min-width: 168px;
+          min-width: 200px;
           padding-right: 8px;
         }
         .products-table__actions-inner {
