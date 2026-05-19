@@ -1,5 +1,6 @@
 import type { CreateDocumentParams, AutentiqueDocument } from './types.js';
 import type { SignerInput } from '../contracts/types.js';
+import { normalizePhoneForAutentique } from '../contracts/normalizePhone.js';
 
 const GRAPHQL_URL = 'https://api.autentique.com.br/v2/graphql';
 
@@ -52,7 +53,10 @@ function normalizeSigners(signers: SignerInput[]): SignerInput[] {
     const row: SignerInput = { action: String(s.action || 'SIGN').toUpperCase() };
     if (s.email) row.email = String(s.email).trim();
     if (s.name) row.name = String(s.name).trim();
-    if (s.phone) row.phone = String(s.phone).trim();
+    if (s.phone) {
+      const normalized = normalizePhoneForAutentique(s.phone);
+      if (normalized) row.phone = normalized;
+    }
     if (s.delivery_method) row.delivery_method = String(s.delivery_method).trim();
     if (!row.email && !row.name && !row.phone) {
       throw new Error('signer_must_have_email_name_or_phone');
@@ -122,4 +126,40 @@ export async function createDocument({
   const doc = data?.data?.createDocument;
   if (!doc?.id) throw new Error('autentique_empty_response');
   return doc;
+}
+
+const DELETE_DOCUMENT_MUTATION = `mutation DeleteDocument($id: UUID!) {
+  deleteDocument(id: $id) {
+    id
+  }
+}`;
+
+/** Remove documento na Autentique (rollback após falha no Appwrite). Retorna false se a API não suportar ou falhar. */
+export async function deleteDocument(documentId: string): Promise<boolean> {
+  const id = String(documentId || '').trim();
+  if (!id) return false;
+
+  const res = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getApiToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: DELETE_DOCUMENT_MUTATION,
+      variables: { id },
+    }),
+  });
+
+  const text = await res.text();
+  let data: { data?: { deleteDocument?: { id?: string } }; errors?: Array<{ message?: string }> } | null =
+    null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    return false;
+  }
+
+  if (!res.ok || data?.errors?.length) return false;
+  return Boolean(data?.data?.deleteDocument?.id);
 }

@@ -1,3 +1,5 @@
+import type { SignerLinkEntry } from './signersLinks.js';
+
 export interface SignerInput {
   email?: string;
   name?: string;
@@ -13,6 +15,8 @@ export interface ContractCreateInput {
   sandbox?: boolean;
   academy_id?: string;
   lead_id?: string;
+  template_id?: string;
+  signers_links?: string;
 }
 
 export interface SignerSaveInput {
@@ -30,10 +34,12 @@ export interface ContractRecord {
   $id: string;
   academyId: string | null;
   leadId: string | null;
+  templateId: string | null;
   autentiqueId: string | null;
   name: string;
   status: string;
   sandbox: boolean;
+  signersLinks?: SignerLinkEntry[];
   createdAt: string | null;
   updatedAt: string | null;
   signersTotal?: number;
@@ -70,10 +76,12 @@ export interface ContractWithSigners extends ContractRecord {
 }
 
 export interface ListContractsFilters {
-  status?: string;
+  /** Status de exibição (pending, partial, completed, cancelled) */
+  display_status?: string;
   page?: number;
   limit?: number;
   academy_id?: string;
+  lead_id?: string;
 }
 
 export interface PaginatedContracts {
@@ -89,6 +97,7 @@ export interface SignContractData {
   sandbox?: boolean;
   academy_id?: string;
   lead_id?: string;
+  template_id?: string;
 }
 
 export interface SignContractResult {

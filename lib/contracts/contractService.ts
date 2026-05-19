@@ -10,6 +10,8 @@ import type {
   SignerRecord,
   SignerSaveInput,
 } from './types.js';
+import { mapContractDisplayStatus } from './displayStatus.js';
+import { parseSignersLinks } from './signersLinks.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '';
@@ -67,10 +69,12 @@ function mapContractDoc(doc: Models.Document | null): ContractRecord | null {
     $id: doc.$id,
     academyId: doc.academy_id ? String(doc.academy_id) : null,
     leadId: doc.lead_id ? String(doc.lead_id) : null,
+    templateId: doc.template_id ? String(doc.template_id) : null,
     autentiqueId: doc.autentique_id ? String(doc.autentique_id) : null,
     name: doc.name ? String(doc.name) : '',
     status: doc.status ? String(doc.status) : 'pending',
     sandbox: doc.sandbox === true || doc.sandbox === 'true',
+    signersLinks: parseSignersLinks(doc.signers_links),
     createdAt: doc.$createdAt ?? null,
     updatedAt: doc.$updatedAt ?? null,
   };
@@ -102,7 +106,9 @@ export async function createContract(data: ContractCreateInput): Promise<Contrac
   };
   if (data.academy_id) payload.academy_id = String(data.academy_id);
   if (data.lead_id) payload.lead_id = String(data.lead_id);
+  if (data.template_id) payload.template_id = String(data.template_id);
   if (data.autentique_id) payload.autentique_id = String(data.autentique_id);
+  if (data.signers_links) payload.signers_links = String(data.signers_links).slice(0, 2048);
 
   const doc = await databases.createDocument(DB_ID, CONTRACTS_COL(), ID.unique(), payload, docPerms());
   const mapped = mapContractDoc(doc);
@@ -258,19 +264,44 @@ export async function listContracts(filters: ListContractsFilters = {}): Promise
   const databases = requireDb();
   const page = Math.max(1, Number(filters.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(filters.limit) || 20));
+  const displayStatus = filters.display_status ? String(filters.display_status).trim() : '';
 
-  const queries = [
-    Query.orderDesc('$createdAt'),
-    Query.limit(limit),
-    Query.offset((page - 1) * limit),
-  ];
+  const queries: string[] = [Query.orderDesc('$createdAt')];
 
-  if (filters.status) {
-    queries.unshift(Query.equal('status', [String(filters.status)]));
-  }
   if (filters.academy_id) {
     queries.unshift(Query.equal('academy_id', [String(filters.academy_id)]));
   }
+  if (filters.lead_id) {
+    queries.unshift(Query.equal('lead_id', [String(filters.lead_id)]));
+  }
+
+  if (displayStatus) {
+    queries.push(Query.limit(500));
+    const list = await databases.listDocuments(DB_ID, CONTRACTS_COL(), queries);
+    const mapped = (list.documents || [])
+      .map((d) => mapContractDoc(d))
+      .filter((c): c is ContractRecord => Boolean(c));
+    const withStats = await attachSignerStats(mapped);
+    const filtered = withStats.filter((c) => {
+      const display = mapContractDisplayStatus(
+        c.status,
+        c.signersSigned ?? 0,
+        c.signersTotal ?? 0
+      );
+      return display === displayStatus;
+    });
+    const total = filtered.length;
+    const offset = (page - 1) * limit;
+    return {
+      data: filtered.slice(offset, offset + limit),
+      page,
+      limit,
+      total,
+    };
+  }
+
+  queries.push(Query.limit(limit));
+  queries.push(Query.offset((page - 1) * limit));
 
   const list = await databases.listDocuments(DB_ID, CONTRACTS_COL(), queries);
   const mapped = (list.documents || []).map((d) => mapContractDoc(d)).filter((c): c is ContractRecord => Boolean(c));

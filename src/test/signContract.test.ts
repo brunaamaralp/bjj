@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../lib/autentique/autentiqueService.js', () => ({
   createDocument: vi.fn(),
+  deleteDocument: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('../../lib/contracts/contractService.js', () => ({

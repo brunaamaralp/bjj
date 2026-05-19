@@ -9,10 +9,16 @@ export default function MatriculaModal({
   onConfirmFull,
   enrollmentQuestions = [],
   submitting = false,
+  leadId = '',
+  showContractPrompt = false,
+  onSendContract,
+  onSkipAfterEnroll,
 }) {
   const terms = useTerms();
   const [step, setStep] = useState('choose');
   const [answers, setAnswers] = useState({});
+  const [enrolledLeadId, setEnrolledLeadId] = useState('');
+  const [enrollMode, setEnrollMode] = useState('simple');
 
   const hasQuestions = Array.isArray(enrollmentQuestions) && enrollmentQuestions.length > 0;
 
@@ -20,6 +26,8 @@ export default function MatriculaModal({
     if (!isOpen) {
       setStep('choose');
       setAnswers({});
+      setEnrolledLeadId('');
+      setEnrollMode('simple');
     }
   }, [isOpen]);
 
@@ -38,8 +46,24 @@ export default function MatriculaModal({
     setAnswers((prev) => ({ ...prev, [qid]: value }));
   };
 
+  const goToSuccess = (id) => {
+    const resolvedId = String(id || leadId || '').trim();
+    if (showContractPrompt && resolvedId) {
+      setEnrolledLeadId(resolvedId);
+      setStep('success');
+      return;
+    }
+    if (enrollMode === 'full' && onSkipAfterEnroll) {
+      onSkipAfterEnroll(resolvedId);
+      return;
+    }
+    onClose();
+  };
+
   const runFull = async () => {
+    setEnrollMode('full');
     await onConfirmFull(answers);
+    goToSuccess(leadId);
   };
 
   const handleChooseFull = () => {
@@ -48,6 +72,20 @@ export default function MatriculaModal({
       return;
     }
     void runFull();
+  };
+
+  const handleConfirmSimple = async () => {
+    setEnrollMode('simple');
+    await onConfirmSimple();
+    goToSuccess(leadId);
+  };
+
+  const handleSkipContract = () => {
+    if (onSkipAfterEnroll) {
+      onSkipAfterEnroll(enrolledLeadId || leadId);
+    } else {
+      onClose();
+    }
   };
 
   return (
@@ -85,7 +123,37 @@ export default function MatriculaModal({
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {step === 'choose' ? (
+        {step === 'success' ? (
+          <>
+            <h3
+              id="matricula-modal-title"
+              style={{ margin: '0 0 8px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
+            >
+              ✓ Aluno matriculado!
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              Deseja enviar o contrato agora?
+            </p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => onSendContract?.(enrolledLeadId || leadId)}
+              >
+                Enviar contrato
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={handleSkipContract}
+              >
+                Pular
+              </button>
+            </div>
+          </>
+        ) : step === 'choose' ? (
           <>
             <h3
               id="matricula-modal-title"
@@ -110,11 +178,11 @@ export default function MatriculaModal({
               <button
                 type="button"
                 className="btn-outline"
-                onClick={onConfirmSimple}
+                onClick={() => void handleConfirmSimple()}
                 disabled={submitting}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                {terms.matriculaModalSimpleCta}
+                {submitting ? 'Salvando…' : terms.matriculaModalSimpleCta}
               </button>
               <button
                 type="button"
@@ -161,7 +229,7 @@ export default function MatriculaModal({
                 disabled={submitting}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                {submitting ? 'Salvando…' : 'Continuar para o perfil do aluno'}
+                {submitting ? 'Salvando…' : 'Continuar'}
               </button>
               <button
                 type="button"

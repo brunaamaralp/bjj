@@ -1,29 +1,72 @@
 import { z } from 'zod';
 
-export const signerSchema = z.object({
-  name: z.string().min(1, 'Nome obrigatório'),
-  email: z.string().email('E-mail inválido'),
-  phone: z.string().optional(),
-  action: z.enum(['SIGN', 'APPROVE', 'RECOGNIZE']),
-  delivery_method: z.enum([
-    'DELIVERY_METHOD_EMAIL',
-    'DELIVERY_METHOD_WHATSAPP',
-    'DELIVERY_METHOD_SMS',
-  ]),
-});
+const deliveryMethodEnum = z.enum([
+  'DELIVERY_METHOD_EMAIL',
+  'DELIVERY_METHOD_WHATSAPP',
+  'DELIVERY_METHOD_SMS',
+]);
 
-export const createContractSchema = z.object({
-  name: z.string().min(1, 'Nome do contrato é obrigatório'),
-  sandbox: z.boolean(),
-  signers: z.array(signerSchema).min(1, 'Adicione pelo menos um signatário'),
-  file: z
-    .custom<File>((v) => v instanceof File, 'PDF obrigatório')
-    .refine((f) => f.size > 0, 'PDF obrigatório')
-    .refine(
-      (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'),
-      'O arquivo deve ser PDF'
-    ),
-});
+export const signerSchema = z
+  .object({
+    name: z.string().min(1, 'Nome obrigatório'),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    action: z.enum(['SIGN', 'APPROVE', 'RECOGNIZE']),
+    delivery_method: deliveryMethodEnum,
+  })
+  .superRefine((data, ctx) => {
+    const needsPhone =
+      data.delivery_method === 'DELIVERY_METHOD_WHATSAPP' ||
+      data.delivery_method === 'DELIVERY_METHOD_SMS';
+    if (needsPhone) {
+      const digits = String(data.phone || '').replace(/\D/g, '');
+      if (digits.length < 10) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Telefone obrigatório para WhatsApp',
+          path: ['phone'],
+        });
+      }
+      return;
+    }
+    const email = String(data.email || '').trim();
+    if (!email) {
+      ctx.addIssue({ code: 'custom', message: 'E-mail obrigatório', path: ['email'] });
+      return;
+    }
+    if (!z.string().email().safeParse(email).success) {
+      ctx.addIssue({ code: 'custom', message: 'E-mail inválido', path: ['email'] });
+    }
+  });
+
+export const createContractSchema = z
+  .object({
+    name: z.string().min(1, 'Nome do contrato é obrigatório'),
+    sandbox: z.boolean(),
+    signers: z.array(signerSchema).min(1, 'Adicione pelo menos um signatário'),
+    pdfSource: z.enum(['template', 'upload']),
+    templateId: z.string().optional(),
+    file: z.custom<File>((v) => v === undefined || v instanceof File).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.pdfSource === 'upload') {
+      if (!(data.file instanceof File) || data.file.size <= 0) {
+        ctx.addIssue({ code: 'custom', message: 'PDF obrigatório', path: ['file'] });
+        return;
+      }
+      if (data.file.type !== 'application/pdf' && !data.file.name.toLowerCase().endsWith('.pdf')) {
+        ctx.addIssue({ code: 'custom', message: 'O arquivo deve ser PDF', path: ['file'] });
+      }
+      return;
+    }
+    if (!String(data.templateId || '').trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Selecione um modelo de contrato',
+        path: ['templateId'],
+      });
+    }
+  });
 
 export type CreateContractFormValues = z.infer<typeof createContractSchema>;
 

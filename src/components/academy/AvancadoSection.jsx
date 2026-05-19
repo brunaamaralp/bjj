@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { useTerms } from '../../lib/terminology.js';
 import ExportButton from '../ExportButton';
+import ContractsAutentiqueSection from './ContractsAutentiqueSection.jsx';
 
 const AvancadoSection = ({ academy, leads }) => {
     const terms = useTerms();
@@ -145,6 +146,8 @@ const AvancadoSection = ({ academy, leads }) => {
                     </div>
                 </div>
             )}
+
+            {role === 'owner' ? <ContractsAutentiqueSection /> : null}
         </section>
     );
 };

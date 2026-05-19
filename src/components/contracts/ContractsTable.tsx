@@ -7,6 +7,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 interface ContractsTableProps {
   rows: ContractListItem[];
   onOpen: (id: string) => void;
+  filtered?: boolean;
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -15,13 +16,17 @@ function formatDate(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
 }
 
-export default function ContractsTable({ rows, onOpen }: ContractsTableProps) {
+export default function ContractsTable({ rows, onOpen, filtered = false }: ContractsTableProps) {
   if (!rows.length) {
     return (
       <EmptyState
         variant="embedded"
-        title="Nenhum contrato encontrado"
-        description="Envie o primeiro contrato para assinatura digital."
+        title={filtered ? 'Nenhum contrato neste filtro' : 'Nenhum contrato encontrado'}
+        description={
+          filtered
+            ? 'Tente outro status ou outro aluno.'
+            : 'Envie o primeiro contrato para assinatura digital.'
+        }
       />
     );
   }

@@ -59,6 +59,7 @@ const Inventory = React.lazy(() => import('./pages/Inventory'));
 const Products = React.lazy(() => import('./pages/Products'));
 const Sales = React.lazy(() => import('./pages/Sales'));
 const Contratos = React.lazy(() => import('./pages/Contratos'));
+const ContractTemplatesPage = React.lazy(() => import('./components/contracts/ContractTemplatesPage'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -962,6 +963,16 @@ const App = () => {
                       element={
                         <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={6} />}>
                           <Contratos />
+                        </Suspense>
+                      }
+                    />
+                  )}
+                  {modules.finance === true && (
+                    <Route
+                      path="/contratos/modelos"
+                      element={
+                        <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={4} />}>
+                          <ContractTemplatesPage />
                         </Suspense>
                       }
                     />

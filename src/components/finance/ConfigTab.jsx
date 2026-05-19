@@ -10,6 +10,7 @@ import {
   readExceptionStatusLabels,
   mergeExceptionLabelsIntoFinanceConfig,
 } from '../../lib/paymentExceptions.js';
+import { useContractTemplates } from '../../features/contracts/queries.js';
 import {
   parseCollectionRules,
   parseOverdueLabel,
@@ -32,6 +33,8 @@ const defaultFinanceConfig = () => ({
 
 export default function ConfigTab({ academyId }) {
   const addToast = useUiStore((s) => s.addToast);
+  const { data: contractTemplatesData } = useContractTemplates(true);
+  const contractTemplates = contractTemplatesData?.templates || [];
   const [saving, setSaving] = useState(false);
   const [configDirty, setConfigDirty] = useState(false);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
@@ -291,6 +294,31 @@ export default function ConfigTab({ academyId }) {
                     <option value="nao">Não</option>
                   </select>
                 </div>
+                {contractTemplates.length > 0 ? (
+                  <div className="form-group" style={{ flex: 2, minWidth: 180 }}>
+                    <label>Modelo de contrato</label>
+                    <select
+                      className="form-input"
+                      value={pl.contractTemplateId || ''}
+                      onChange={(e) => {
+                        setConfigDirty(true);
+                        const arr = [...(financeConfig.plans || [])];
+                        arr[idx] = {
+                          ...(arr[idx] || {}),
+                          contractTemplateId: e.target.value || undefined,
+                        };
+                        setFinanceConfig({ ...financeConfig, plans: arr });
+                      }}
+                    >
+                      <option value="">— automático —</option>
+                      {contractTemplates.map((t) => (
+                        <option key={t.$id} value={t.$id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <button type="button" className="btn-ghost" title="Remover" onClick={() => {
                   setConfigDirty(true);
                   const arr = [...(financeConfig.plans || [])];

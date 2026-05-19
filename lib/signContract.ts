@@ -1,5 +1,6 @@
-import { createDocument } from './autentique/autentiqueService.js';
+import { createDocument, deleteDocument } from './autentique/autentiqueService.js';
 import { createContract, saveSigners } from './contracts/contractService.js';
+import { buildSignersLinks } from './contracts/signersLinks.js';
 import type { SignContractData, SignContractResult, SignerInput, SignerSaveInput } from './contracts/types.js';
 import type { AutentiqueDocument, AutentiqueSignature } from './autentique/types.js';
 
@@ -41,6 +42,8 @@ export async function signContract(
   });
 
   try {
+    const signersLinks = buildSignersLinks(autentiqueDocument, contractData.signers);
+
     const contract = await createContract({
       name: contractData.name,
       autentique_id: autentiqueDocument.id,
@@ -48,6 +51,8 @@ export async function signContract(
       sandbox: Boolean(contractData.sandbox),
       academy_id: contractData.academy_id,
       lead_id: contractData.lead_id,
+      template_id: contractData.template_id,
+      signers_links: JSON.stringify(signersLinks),
     });
 
     const signers = await saveSigners(
@@ -58,10 +63,29 @@ export async function signContract(
     return { contract, autentiqueDocument, signers };
   } catch (appwriteErr) {
     const message = appwriteErr instanceof Error ? appwriteErr.message : String(appwriteErr);
-    console.error('[signContract] Appwrite falhou após criar na Autentique', {
-      autentiqueId: autentiqueDocument.id,
-      error: message,
-    });
+    try {
+      const rolledBack = await deleteDocument(autentiqueDocument.id);
+      if (!rolledBack) {
+        console.error('[contracts] appwrite_save_failed', {
+          autentiqueId: autentiqueDocument.id,
+          academyId: contractData.academy_id ?? null,
+          leadId: contractData.lead_id ?? null,
+          error: message,
+          rolledBack: false,
+        });
+      }
+    } catch (rollbackErr) {
+      const rollbackMessage =
+        rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
+      console.error('[contracts] appwrite_save_failed', {
+        autentiqueId: autentiqueDocument.id,
+        academyId: contractData.academy_id ?? null,
+        leadId: contractData.lead_id ?? null,
+        error: message,
+        rollbackFailed: true,
+        rollbackError: rollbackMessage,
+      });
+    }
     return {
       contract: null,
       autentiqueDocument,

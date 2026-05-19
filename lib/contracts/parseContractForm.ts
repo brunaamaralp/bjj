@@ -1,10 +1,14 @@
 import type { SignerInput } from './types.js';
 
+export const MAX_CONTRACT_PDF_BYTES = 10 * 1024 * 1024;
+
 export interface ParsedContractForm {
   name: string;
   signers: SignerInput[];
-  file: Buffer;
+  file?: Buffer;
+  template_id?: string;
   sandbox: boolean;
+  lead_id?: string;
 }
 
 export class ContractFormError extends Error {
@@ -52,15 +56,29 @@ export async function parseContractFormData(formData: FormData): Promise<ParsedC
 
   const signers = parseSignersJson(formData.get('signers'));
 
+  const templateRaw = formData.get('template_id');
+  const template_id =
+    templateRaw != null && String(templateRaw).trim() ? String(templateRaw).trim() : undefined;
+
   const fileEntry = formData.get('file');
-  if (!fileEntry || typeof fileEntry === 'string') {
-    throw new ContractFormError('file (PDF) é obrigatório');
+  let file: Buffer | undefined;
+  if (fileEntry && typeof fileEntry !== 'string') {
+    file = await fileToBuffer(fileEntry as File | Blob);
+    if (!file.length) throw new ContractFormError('file está vazio');
+    if (file.length > MAX_CONTRACT_PDF_BYTES) {
+      throw new ContractFormError('PDF muito grande. Tamanho máximo: 10 MB.');
+    }
   }
 
-  const file = await fileToBuffer(fileEntry as File | Blob);
-  if (!file.length) throw new ContractFormError('file está vazio');
+  if (!file && !template_id) {
+    throw new ContractFormError('Informe um PDF ou selecione um modelo de contrato');
+  }
 
   const sandbox = parseSandbox(formData.get('sandbox'));
 
-  return { name, signers, file, sandbox };
+  const leadRaw = formData.get('lead_id');
+  const lead_id =
+    leadRaw != null && String(leadRaw).trim() ? String(leadRaw).trim() : undefined;
+
+  return { name, signers, file, template_id, sandbox, lead_id };
 }

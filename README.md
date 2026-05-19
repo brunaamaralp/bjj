@@ -4,6 +4,10 @@ CRM e atendimento para estúdios (luta, dança, yoga e afins). Produto: **Nave**
 
 Stack: React + Vite (abaixo, notas do template original).
 
+### Contratos digitais (Autentique)
+
+Configuração de webhook, variáveis de ambiente e APIs autenticadas: [docs/contracts-autentique.md](docs/contracts-autentique.md).
+
 ---
 
 # React + Vite

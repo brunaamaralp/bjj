@@ -1,27 +1,39 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, FileSignature } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, ChevronLeft, ChevronRight, FileSignature, RefreshCw, FileText } from 'lucide-react';
 import { useContractsList } from '../../features/contracts/queries.js';
 import { mapContractDisplayStatus, CONTRACT_STATUS_FILTER_OPTIONS } from '../../features/contracts/status.js';
 import type { ContractListItem, ContractDisplayStatus } from '../../features/contracts/types.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
+import { useUserRole } from '../../lib/useUserRole.js';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ContractsTable from './ContractsTable.js';
 import CreateContractModal from './CreateContractModal.js';
 import ContractDetailsDrawer from './ContractDetailsDrawer.js';
+import ContractLeadFilter from './ContractLeadFilter.js';
+import EmptyState from '../shared/EmptyState.jsx';
 import './contracts.css';
 
 const PAGE_SIZE = 20;
 
 export default function ContractsPageContent() {
   const leads = useLeadStore((s) => s.leads);
+  const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const academyDoc = academyList.find((a) => a.id === academyId) || null;
+  const navRole = useUserRole(academyDoc);
   const [statusFilter, setStatusFilter] = useState<'all' | ContractDisplayStatus>('all');
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [leadFilterId, setLeadFilterId] = useState('');
+  const [leadFilterLabel, setLeadFilterLabel] = useState('');
 
-  const { data, isLoading, isError, error, refetch } = useContractsList({
+  const { data, isLoading, isError, error, refetch, isFetching } = useContractsList({
+    status: statusFilter,
+    leadId: leadFilterId || undefined,
     page,
     limit: PAGE_SIZE,
   });
@@ -36,34 +48,34 @@ export default function ContractsPageContent() {
 
   const rows: ContractListItem[] = useMemo(() => {
     const raw = data?.data || [];
-    return raw
-      .map((c) => {
-        const signersSigned = c.signersSigned ?? 0;
-        const signersTotal = c.signersTotal ?? 0;
-        const displayStatus = mapContractDisplayStatus(c.status, signersSigned, signersTotal);
-        return {
-          ...c,
-          signersSigned,
-          signersTotal,
-          displayStatus,
-          studentName: c.leadId ? leadNameById.get(c.leadId) || null : null,
-        };
-      })
-      .filter((c) => statusFilter === 'all' || c.displayStatus === statusFilter);
-  }, [data?.data, leadNameById, statusFilter]);
+    return raw.map((c) => {
+      const signersSigned = c.signersSigned ?? 0;
+      const signersTotal = c.signersTotal ?? 0;
+      const displayStatus = mapContractDisplayStatus(c.status, signersSigned, signersTotal);
+      return {
+        ...c,
+        signersSigned,
+        signersTotal,
+        displayStatus,
+        studentName: c.leadId ? leadNameById.get(c.leadId) || null : null,
+      };
+    });
+  }, [data?.data, leadNameById]);
 
   const filterOptions = useMemo(
     () =>
       CONTRACT_STATUS_FILTER_OPTIONS.map((o) => ({
         id: o.id,
         label: o.label,
-        count: o.id === 'all' ? data?.total : rows.filter((r) => r.displayStatus === o.id).length,
+        count: o.id === 'all' ? data?.total : undefined,
       })),
-    [data?.total, rows]
+    [data?.total]
   );
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hasActiveFilters = statusFilter !== 'all' || Boolean(leadFilterId);
+  const showEmptyCta = !isLoading && !isError && total === 0 && !hasActiveFilters;
 
   return (
     <div className="container contracts-page">
@@ -77,13 +89,31 @@ export default function ContractsPageContent() {
             Envie contratos para assinatura via Autentique e acompanhe o status
           </p>
         </div>
-        <button type="button" className="btn-primary contracts-new-btn" onClick={() => setCreateOpen(true)}>
-          <Plus size={18} />
-          Novo contrato
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            title="Atualizar lista (útil se o webhook ainda não estiver configurado)"
+          >
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : undefined} />
+            Atualizar
+          </button>
+          {navRole === 'owner' ? (
+            <Link to="/contratos/modelos" className="btn-outline flex items-center gap-1">
+              <FileText size={14} />
+              Modelos
+            </Link>
+          ) : null}
+          <button type="button" className="btn-primary contracts-new-btn" onClick={() => setCreateOpen(true)}>
+            <Plus size={18} />
+            Novo contrato
+          </button>
+        </div>
       </div>
 
-      <div className="contracts-toolbar card">
+      <div className="contracts-toolbar card contracts-toolbar--split">
         <CompactStatusFilter
           value={statusFilter}
           onChange={(v) => {
@@ -93,6 +123,15 @@ export default function ContractsPageContent() {
           options={filterOptions}
           placeholder="Filtrar por status"
           showCounts={false}
+        />
+        <ContractLeadFilter
+          leadId={leadFilterId}
+          leadLabel={leadFilterLabel}
+          onChange={(id, label) => {
+            setLeadFilterId(id);
+            setLeadFilterLabel(label);
+            setPage(1);
+          }}
         />
       </div>
 
@@ -104,8 +143,16 @@ export default function ContractsPageContent() {
             message={error instanceof Error ? error.message : 'Não foi possível carregar os contratos'}
             onRetry={() => refetch()}
           />
+        ) : showEmptyCta ? (
+          <EmptyState
+            variant="embedded"
+            title="Nenhum contrato ainda"
+            description="Crie e envie contratos digitais para seus alunos assinarem."
+            icon={FileSignature}
+            primaryAction={{ label: 'Criar primeiro contrato', onClick: () => setCreateOpen(true) }}
+          />
         ) : (
-          <ContractsTable rows={rows} onOpen={setSelectedId} />
+          <ContractsTable rows={rows} onOpen={setSelectedId} filtered={hasActiveFilters} />
         )}
       </div>
 

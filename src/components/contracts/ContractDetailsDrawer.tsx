@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { X, ExternalLink, FileSignature } from 'lucide-react';
+import React, { useEffect, useMemo } from 'react';
+import { X, ExternalLink, FileSignature, Copy } from 'lucide-react';
 import { useContractDetail } from '../../features/contracts/queries.js';
 import ContractStatusBadge, { SignerStatusBadge } from './ContractStatusBadge.js';
 import {
@@ -7,6 +7,8 @@ import {
   eventTypeLabel,
   autentiqueSignedDocumentUrl,
 } from '../../features/contracts/status.js';
+import { resolveSignerShortLink } from '../../../lib/contracts/signersLinks.js';
+import { useUiStore } from '../../store/useUiStore.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 
@@ -21,8 +23,23 @@ function formatDateTime(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('pt-BR');
 }
 
+function isSignerPending(status: string): boolean {
+  const s = String(status || '').toLowerCase();
+  return s !== 'signed' && s !== 'accepted' && s !== 'rejected' && s !== 'removed';
+}
+
 export default function ContractDetailsDrawer({ contractId, onClose }: ContractDetailsDrawerProps) {
+  const addToast = useUiStore((s) => s.addToast);
   const { data: contract, isLoading, isError, error, refetch } = useContractDetail(contractId, Boolean(contractId));
+
+  useEffect(() => {
+    if (!contractId) return undefined;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [contractId, onClose]);
 
   const displayStatus = useMemo(() => {
     if (!contract) return 'pending' as const;
@@ -33,14 +50,17 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
     );
   }, [contract]);
 
-  const signedCount = contract?.signers?.filter((s) => {
-    const st = String(s.status || '').toLowerCase();
-    return st === 'signed' || st === 'accepted';
-  }).length ?? 0;
+  const signedCount =
+    contract?.signers?.filter((s) => {
+      const st = String(s.status || '').toLowerCase();
+      return st === 'signed' || st === 'accepted';
+    }).length ?? 0;
 
   const totalSigners = contract?.signers?.length ?? 0;
   const signedUrl = autentiqueSignedDocumentUrl(contract?.autentiqueId);
   const showSignedDoc = displayStatus === 'completed' && signedUrl;
+  const showCopyLinks = displayStatus === 'pending' || displayStatus === 'partial';
+  const signerLinks = contract?.signersLinks || [];
 
   const timeline = useMemo(() => {
     const events = contract?.events || [];
@@ -50,6 +70,15 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
       return tb - ta;
     });
   }, [contract?.events]);
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      addToast({ type: 'success', message: 'Link copiado!' });
+    } catch {
+      addToast({ type: 'error', message: 'Não foi possível copiar o link' });
+    }
+  };
 
   if (!contractId) return null;
 
@@ -78,13 +107,9 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
                 <h3 className="contracts-drawer-name">{contract.name}</h3>
                 <div className="contracts-drawer-meta">
                   <ContractStatusBadge status={displayStatus} />
-                  <span className="text-small text-muted">
-                    Criado em {formatDateTime(contract.createdAt)}
-                  </span>
+                  <span className="text-small text-muted">Criado em {formatDateTime(contract.createdAt)}</span>
                 </div>
-                {contract.sandbox ? (
-                  <span className="contracts-sandbox-tag">Sandbox (teste)</span>
-                ) : null}
+                {contract.sandbox ? <span className="contracts-sandbox-tag">Sandbox (teste)</span> : null}
               </div>
 
               {showSignedDoc ? (
@@ -100,23 +125,39 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
               ) : null}
 
               <div className="contracts-drawer-section">
-                <h4 className="navi-section-heading contracts-subheading">Signatários ({signedCount}/{totalSigners})</h4>
+                <h4 className="navi-section-heading contracts-subheading">
+                  Signatários ({signedCount}/{totalSigners})
+                </h4>
                 <ul className="contracts-signers-list">
-                  {(contract.signers || []).map((s) => (
-                    <li key={s.$id} className="contracts-signer-row">
-                      <div>
-                        <strong>{s.name || s.email || 'Signatário'}</strong>
-                        {s.email ? <p className="text-small text-muted">{s.email}</p> : null}
-                        {s.phone ? <p className="text-small text-muted">{s.phone}</p> : null}
-                      </div>
-                      <div className="contracts-signer-row-meta">
-                        <SignerStatusBadge status={s.status} />
-                        {s.signedAt ? (
-                          <span className="text-small text-muted">Assinado {formatDateTime(s.signedAt)}</span>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
+                  {(contract.signers || []).map((s) => {
+                    const pending = isSignerPending(s.status);
+                    const shortLink = resolveSignerShortLink(s, signerLinks);
+                    return (
+                      <li key={s.$id} className="contracts-signer-row">
+                        <div>
+                          <strong>{s.name || s.email || 'Signatário'}</strong>
+                          {s.email ? <p className="text-small text-muted">{s.email}</p> : null}
+                          {s.phone ? <p className="text-small text-muted">{s.phone}</p> : null}
+                        </div>
+                        <div className="contracts-signer-row-meta">
+                          <SignerStatusBadge status={s.status} />
+                          {s.signedAt ? (
+                            <span className="text-small text-muted">Assinado {formatDateTime(s.signedAt)}</span>
+                          ) : null}
+                          {showCopyLinks && pending && shortLink ? (
+                            <button
+                              type="button"
+                              className="btn-outline contracts-copy-link-btn"
+                              onClick={() => void copyLink(shortLink)}
+                            >
+                              <Copy size={14} />
+                              Copiar link
+                            </button>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 

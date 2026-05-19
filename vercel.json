@@ -27,6 +27,8 @@
     { "source": "/api/webhooks/autentique", "destination": "/api/webhooks.js?provider=autentique" },
     { "source": "/api/contracts", "destination": "/api/contracts.js" },
     { "source": "/api/contracts/:id", "destination": "/api/contracts.js?id=$1" },
+    { "source": "/api/contract-templates/:id(.*)", "destination": "/api/contracts.js?route=templates&id=$1" },
+    { "source": "/api/contract-templates", "destination": "/api/contracts.js?route=templates" },
     { "source": "/api/notifications/:action(.*)", "destination": "/api/conversations.js?route=notifications/$1" },
     { "source": "/api/notifications", "destination": "/api/conversations.js?route=notifications" },
     { "source": "/api/cron/automations", "destination": "/api/cron/reset-usage.js?action=automations" },
