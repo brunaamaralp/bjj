@@ -177,7 +177,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                   {navRole === 'owner' ? (
                     <>
                       {' '}
-                      <Link to="/contratos/modelos">Criar modelo no editor</Link>
+                      <Link to="/contratos?tab=modelos">Criar modelo no editor</Link>
                     </>
                   ) : (
                     ' Peça ao proprietário da academia para criar um modelo.'
@@ -201,7 +201,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                 </select>
                 {navRole === 'owner' ? (
                   <p className="text-small text-muted" style={{ marginTop: 6 }}>
-                    <Link to="/contratos/modelos">Gerenciar modelos no editor</Link>
+                    <Link to="/contratos?tab=modelos">Gerenciar modelos no editor</Link>
                   </p>
                 ) : null}
               </>

@@ -1,4 +1,4 @@
-/** Estilos compartilhados das páginas Caixa / Contabilidade (ex-Finance). */
+/** Estilos compartilhados do hub Caixa. */
 export const FINANCE_PAGE_CSS = `
           .finance-page-root { width: 100%; box-sizing: border-box; }
           .finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 24px; box-sizing: border-box; padding-bottom: 40px; }

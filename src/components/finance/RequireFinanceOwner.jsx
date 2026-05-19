@@ -6,7 +6,7 @@ import RouteFallback from '../shared/RouteFallback.jsx';
 
 const Finance = React.lazy(() => import('../../pages/Finance'));
 
-/** Rota /finance (Contabilidade): apenas dono da academia; demais perfis vão para /caixa. */
+/** Legado: redireciona para /caixa (abas owner ficam no hub Caixa). */
 export default function RequireFinanceOwner() {
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);

@@ -21,7 +21,9 @@ import './contracts.css';
 
 type EditorMode = 'create' | 'edit' | null;
 
-export default function ContractTemplatesPage() {
+type ContractTemplatesPageProps = { embedded?: boolean };
+
+export default function ContractTemplatesPage({ embedded = false }: ContractTemplatesPageProps) {
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -142,7 +144,7 @@ export default function ContractTemplatesPage() {
     return (
       <div className="container contracts-page">
         <p className="text-muted">Apenas o proprietário da academia pode gerenciar modelos de contrato.</p>
-        <Link to="/contratos" className="btn-outline" style={{ marginTop: 12 }}>
+        <Link to={embedded ? '/contratos?tab=lista' : '/contratos'} className="btn-outline" style={{ marginTop: 12 }}>
           Voltar aos contratos
         </Link>
       </div>
@@ -152,12 +154,14 @@ export default function ContractTemplatesPage() {
   const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="container contracts-page">
+    <div className={embedded ? 'contracts-page' : 'container contracts-page'}>
       <div className="contracts-page-header animate-in">
         <div>
-          <Link to="/contratos" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8 }}>
-            <ArrowLeft size={14} /> Contratos
-          </Link>
+          {!embedded ? (
+            <Link to="/contratos" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8 }}>
+              <ArrowLeft size={14} /> Contratos
+            </Link>
+          ) : null}
           <h1 className="navi-page-title flex items-center gap-2">
             <FileText size={26} strokeWidth={1.75} aria-hidden />
             Modelos de contrato

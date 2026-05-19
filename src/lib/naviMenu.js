@@ -13,7 +13,6 @@ export function buildMobileDrawerSections({
   modules,
   navRole,
   canConfigureAgenteIa,
-  myWorkspaceLabel,
   pipelineLabel = 'Funil',
 }) {
   const sections = [];
@@ -33,37 +32,26 @@ export function buildMobileDrawerSections({
   sections.push({ title: 'Atendimento', items: atendimento });
 
   if (modules.finance === true) {
-    const financeItems = [{ to: '/caixa', label: 'Caixa', iconKey: 'caixa' }];
-    if (navRole === 'owner') {
-      financeItems.push({ to: '/finance', label: 'Contabilidade', iconKey: 'contabilidade' });
-    }
-    sections.push({ title: 'Financeiro', items: financeItems });
+    sections.push({
+      title: 'Financeiro',
+      items: [
+        { to: '/mensalidades', label: 'Mensalidades', iconKey: 'mensalidades' },
+        { to: '/contratos', label: 'Contratos', iconKey: 'contratos' },
+        { to: '/caixa', label: 'Caixa', iconKey: 'caixa' },
+      ],
+    });
   }
 
   if (modules.inventory === true || modules.sales === true) {
-    const loja = [];
-    if (modules.sales === true) {
-      loja.push({ to: '/vendas', label: 'Vendas', iconKey: 'vendas' });
-    }
-    if (modules.inventory === true || modules.sales === true) {
-      loja.push({ to: '/produtos', label: 'Produtos', iconKey: 'produtos' });
-    }
-    if (modules.inventory === true) {
-      loja.push({ to: '/estoque', label: 'Estoque', iconKey: 'estoque' });
-    }
-    if (loja.length > 0) {
-      sections.push({ title: 'Loja', items: loja });
-    }
+    sections.push({
+      title: 'Loja',
+      items: [{ to: '/loja', label: 'Loja', iconKey: 'loja' }],
+    });
   }
 
   sections.push({
-    title: 'Conta & Plataforma',
-    items: [
-      { to: '/reports', label: 'Relatórios', iconKey: 'reports' },
-      { to: '/conta', label: 'Conta', iconKey: 'conta' },
-      { to: '/planos', label: 'Planos', iconKey: 'planos' },
-      { to: '/empresa', label: myWorkspaceLabel, iconKey: 'empresa' },
-    ],
+    title: null,
+    items: [{ to: '/reports', label: 'Relatórios', iconKey: 'reports' }],
   });
 
   return sections;

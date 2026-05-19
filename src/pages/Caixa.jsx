@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages';
+import { resolveHubTab, caixaLegacyTabToSlug } from '../lib/hubTabs';
+import { useUserRole } from '../lib/useUserRole';
 import TransacoesTab from '../components/finance/TransacoesTab.jsx';
 import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
+import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { FINANCE_PAGE_CSS } from '../components/finance/financePageStyles.js';
 
@@ -13,21 +18,47 @@ const defaultFinanceConfig = () => ({
     pix: { percent: 0, fixed: 0 },
     debito: { percent: 0, fixed: 0 },
     credito_avista: { percent: 0, fixed: 0 },
-    credito_parcelado: { '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '11': 0, '12': 0 }
+    credito_parcelado: { '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '11': 0, '12': 0 },
   },
   bankAccounts: [],
-  plans: []
+  plans: [],
 });
 
+const MEMBER_TABS = new Set(['movimentacoes', 'fechamento']);
+const OWNER_EXTRA = ['plano', 'razao', 'dre'];
+const OWNER_TABS = new Set([...MEMBER_TABS, ...OWNER_EXTRA]);
+
+const TAB_SUBTITLES = {
+  movimentacoes: 'Movimentações e lançamentos do dia a dia',
+  fechamento: 'Fechamento mensal',
+  plano: 'Plano de contas',
+  razao: 'Livro razão',
+  dre: 'Demonstrações DRE e DFC',
+};
+
 export default function Caixa() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const modules = useLeadStore((s) => s.modules);
-  const [caixaTab, setCaixaTab] = useState('transactions');
   const addToast = useUiStore((s) => s.addToast);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
   const [nlOpen, setNlOpen] = useState(false);
   const [transactionsForNl, setTransactionsForNl] = useState([]);
+
+  const academyDoc = useMemo(() => {
+    if (!academyId) return null;
+    const a = (academyList || []).find((x) => x.id === academyId);
+    if (!a) return null;
+    return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
+  }, [academyList, academyId]);
+
+  const navRole = useUserRole(academyDoc);
+  const isOwner = navRole === 'owner';
+  const allowedTabs = isOwner ? OWNER_TABS : MEMBER_TABS;
+
+  const rawTab = caixaLegacyTabToSlug(searchParams.get('tab'));
+  const activeTab = resolveHubTab(rawTab, allowedTabs, 'movimentacoes');
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -35,26 +66,41 @@ export default function Caixa() {
   }, [academyList, academyId]);
 
   useEffect(() => {
+    const normalized = caixaLegacyTabToSlug(searchParams.get('tab'));
+    if (!allowedTabs.has(normalized) || normalized !== activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true });
+    }
+  }, [activeTab, allowedTabs, searchParams, setSearchParams]);
+
+  useEffect(() => {
     if (!academyId) return;
     const st = useLeadStore.getState();
     if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
-      const cached = st.financeConfig;
-      Promise.resolve().then(() => setFinanceConfig(cached));
+      Promise.resolve().then(() => setFinanceConfig(st.financeConfig));
       return;
     }
     const loadAid = academyId;
-    databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
+    databases
+      .getDocument(DB_ID, ACADEMIES_COL, academyId)
       .then((doc) => {
         if (loadAid !== useLeadStore.getState().academyId) return;
         let cfg = null;
         try {
-          cfg = doc.financeConfig ? (typeof doc.financeConfig === 'string' ? JSON.parse(doc.financeConfig) : doc.financeConfig) : null;
+          cfg = doc.financeConfig
+            ? typeof doc.financeConfig === 'string'
+              ? JSON.parse(doc.financeConfig)
+              : doc.financeConfig
+            : null;
         } catch {
           cfg = null;
         }
         if (!cfg) {
           cfg = defaultFinanceConfig();
-          if (typeof doc.debitPercentage !== 'undefined' || typeof doc.creditPercentage !== 'undefined' || typeof doc.creditInstallmentPercentage !== 'undefined') {
+          if (
+            typeof doc.debitPercentage !== 'undefined' ||
+            typeof doc.creditPercentage !== 'undefined' ||
+            typeof doc.creditInstallmentPercentage !== 'undefined'
+          ) {
             const deb = Number(doc.debitPercentage ?? 0) || 0;
             const cre = Number(doc.creditPercentage ?? 0) || 0;
             const crePar = Number(doc.creditInstallmentPercentage ?? 0) || 0;
@@ -64,7 +110,7 @@ export default function Caixa() {
               pix: { percent: 0, fixed: 0 },
               debito: { percent: deb, fixed: 0 },
               credito_avista: { percent: cre, fixed: 0 },
-              credito_parcelado: parcelasMap
+              credito_parcelado: parcelasMap,
             };
           }
         }
@@ -76,7 +122,26 @@ export default function Caixa() {
         console.error(e);
         addToast({ type: 'error', message: friendlyError(e, 'action') });
       });
-  }, [academyId]);
+  }, [academyId, addToast]);
+
+  const tabs = useMemo(() => {
+    const items = [
+      { id: 'movimentacoes', label: 'Movimentações' },
+      ...(modules?.finance === true ? [{ id: 'fechamento', label: 'Fechamento mensal' }] : []),
+    ];
+    if (isOwner) {
+      items.push(
+        { id: 'plano', label: 'Plano de contas' },
+        { id: 'razao', label: 'Razão' },
+        { id: 'dre', label: 'DRE / DFC' }
+      );
+    }
+    return items;
+  }, [modules?.finance, isOwner]);
+
+  const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
+
+  const subtitle = TAB_SUBTITLES[activeTab] || TAB_SUBTITLES.movimentacoes;
 
   return (
     <div className="finance-page-root">
@@ -84,51 +149,38 @@ export default function Caixa() {
         <div className="animate-in">
           <h1 className="navi-page-title">Caixa</h1>
           <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-            Lançamentos e movimentações financeiras{academyName ? ` · ${academyName}` : ''}
+            {subtitle}
+            {academyName ? ` · ${academyName}` : ''}
           </p>
-          <div className="page-header-card">
-            <div className="page-header-row">
-              <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-              <div style={{ flex: 1 }} />
+          {activeTab === 'movimentacoes' && (
+            <div className="page-header-card">
+              <div className="page-header-row">
+                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                <div style={{ flex: 1 }} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        <div className="finance-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={caixaTab === 'transactions'}
-            className={`finance-tab${caixaTab === 'transactions' ? ' finance-tab--active' : ''}`}
-            onClick={() => setCaixaTab('transactions')}
-          >
-            Lançamentos
-          </button>
-          {modules?.finance === true ? (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={caixaTab === 'closing'}
-              className={`finance-tab${caixaTab === 'closing' ? ' finance-tab--active' : ''}`}
-              onClick={() => setCaixaTab('closing')}
-            >
-              Fechamento Mensal
-            </button>
-          ) : null}
-        </div>
-        {academyId && caixaTab === 'transactions' ? (
+
+        <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Caixa" />
+
+        {academyId && activeTab === 'movimentacoes' ? (
           <TransacoesTab
             academyId={academyId}
             financeConfig={financeConfig}
             onTransactionsChange={setTransactionsForNl}
           />
         ) : null}
-        {academyId && caixaTab === 'closing' && modules?.finance === true ? (
+        {academyId && activeTab === 'fechamento' && modules?.finance === true ? (
           <MonthlyClosingTab
             academyId={academyId}
             academyName={academyName}
             financeConfig={financeConfig}
             modules={modules}
           />
+        ) : null}
+        {isOwner && OWNER_EXTRA.includes(activeTab) ? (
+          <CaixaAccountingPanel activeTab={activeTab} onGoToRazao={() => setTab('razao')} />
         ) : null}
       </div>
       <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />

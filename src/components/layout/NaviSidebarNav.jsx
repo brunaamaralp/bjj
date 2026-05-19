@@ -13,14 +13,8 @@ import {
   Bot,
   Users,
   Wallet,
-  BookOpen,
-  ShoppingBag,
-  Package,
-  Boxes,
   BarChart3,
-  User,
-  CreditCard,
-  Building2,
+  Store,
 } from 'lucide-react';
 
 function SidebarSection({ title, children, collapsed, footer = false, showDivider = false }) {
@@ -104,7 +98,6 @@ export default function NaviSidebarNav({
   modules,
   navRole,
   canConfigureAgenteIa,
-  myWorkspaceLabel,
   isInboxConversasNavActive,
   isAgenteIaPage,
   inboxUnread,
@@ -191,47 +184,18 @@ export default function NaviSidebarNav({
             className={sideLinkClass}
           />
           <SideNavLink to="/caixa" label="Caixa" Icon={Wallet} collapsed={collapsed} className={sideLinkClass} />
-          {navRole === 'owner' ? (
-            <SideNavLink
-              to="/finance"
-              label="Contabilidade"
-              Icon={BookOpen}
-              collapsed={collapsed}
-              className={sideLinkClass}
-            />
-          ) : null}
         </SidebarSection>
       ) : null}
 
       {showLoja ? (
         <SidebarSection title="Loja" collapsed={collapsed} showDivider>
-          {modules.sales === true ? (
-            <SideNavLink
-              to="/vendas"
-              label="Vendas"
-              Icon={ShoppingBag}
-              collapsed={collapsed}
-              className={sideLinkClass}
-            />
-          ) : null}
-          {modules.inventory === true || modules.sales === true ? (
-            <SideNavLink
-              to="/produtos"
-              label="Produtos"
-              Icon={Package}
-              collapsed={collapsed}
-              className={sideLinkClass}
-            />
-          ) : null}
-          {modules.inventory === true ? (
-            <SideNavLink
-              to="/estoque"
-              label="Estoque"
-              Icon={Boxes}
-              collapsed={collapsed}
-              className={sideLinkClass}
-            />
-          ) : null}
+          <SideNavLink
+            to="/loja"
+            label="Loja"
+            Icon={Store}
+            collapsed={collapsed}
+            className={sideLinkClass}
+          />
         </SidebarSection>
       ) : null}
 
@@ -241,16 +205,6 @@ export default function NaviSidebarNav({
           to="/reports"
           label="Relatórios"
           Icon={BarChart3}
-          collapsed={collapsed}
-          className={sideLinkClass}
-          footer
-        />
-        <SideNavLink to="/conta" label="Conta" Icon={User} collapsed={collapsed} className={sideLinkClass} footer />
-        <SideNavLink to="/planos" label="Planos" Icon={CreditCard} collapsed={collapsed} className={sideLinkClass} footer />
-        <SideNavLink
-          to="/empresa"
-          label={myWorkspaceLabel}
-          Icon={Building2}
           collapsed={collapsed}
           className={sideLinkClass}
           footer

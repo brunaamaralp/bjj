@@ -1,7 +1,7 @@
 import { useUiStore } from '../store/useUiStore';
 
 /**
- * Se a resposta for 402 (billing), mostra toast e redireciona para /planos.
+ * Se a resposta for 402 (billing), mostra toast e redireciona para assinatura em /conta.
  * @param {Response} res
  * @returns {Promise<boolean>} true se o fluxo deve parar (billing bloqueado)
  */
@@ -25,7 +25,7 @@ export async function consumeBillingBlockedResponse(res) {
     void 0;
   }
   setTimeout(() => {
-    if (typeof window !== 'undefined') window.location.assign('/planos');
+    if (typeof window !== 'undefined') window.location.assign('/conta?tab=assinatura');
   }, 2000);
   return true;
 }

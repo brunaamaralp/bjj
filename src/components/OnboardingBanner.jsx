@@ -261,7 +261,7 @@ export default function OnboardingBanner() {
           {needsPlanLine ? (
             <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
               Depois do trial, escolha um plano:{' '}
-              <Link to="/planos" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              <Link to="/conta?tab=assinatura" style={{ color: 'var(--accent)', fontWeight: 600 }}>
                 Ver planos
               </Link>
               {' · '}

@@ -3,7 +3,6 @@ import { Routes, Route, Link, NavLink, useNavigate, useLocation, Navigate } from
 import {
   LayoutGrid,
   PlusCircle,
-  User,
   ShoppingBag,
   Boxes,
   Package,
@@ -12,7 +11,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Building2,
   Kanban,
   GraduationCap,
   Bot,
@@ -20,10 +18,9 @@ import {
   FileSignature,
   Wallet,
   Users,
-  BookOpen,
   CheckSquare,
   Menu,
-  CreditCard,
+  Store,
   X
 } from 'lucide-react';
 import { authService } from './lib/auth';
@@ -43,23 +40,23 @@ import Tasks from './pages/Tasks';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
-import RequireFinanceOwner from './components/finance/RequireFinanceOwner.jsx';
 import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
+import NaviUserMenu from './components/layout/NaviUserMenu.jsx';
+import { PlanosRedirect, FinanceRedirect, ContratosModelosRedirect, LojaTabRedirect } from './components/routing/LegacyRedirects.jsx';
 
 const Inbox = React.lazy(() => import('./pages/Inbox'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const AIAgentSettings = React.lazy(() => import('./pages/AIAgentSettings'));
 const UserAccount = React.lazy(() => import('./pages/UserAccount'));
 const AcademySettings = React.lazy(() => import('./pages/AcademySettings'));
-const Plans = React.lazy(() => import('./pages/Plans'));
 const Templates = React.lazy(() => import('./pages/Templates'));
 const Mensalidades = React.lazy(() => import('./pages/Mensalidades'));
 const Caixa = React.lazy(() => import('./pages/Caixa'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
 const Products = React.lazy(() => import('./pages/Products'));
 const Sales = React.lazy(() => import('./pages/Sales'));
+const Loja = React.lazy(() => import('./pages/Loja'));
 const Contratos = React.lazy(() => import('./pages/Contratos'));
-const ContractTemplatesPage = React.lazy(() => import('./components/contracts/ContractTemplatesPage'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -136,23 +133,18 @@ const App = () => {
     }
     const d = trialDaysRemaining(billingAccessTop.currentPeriodEnd);
     if (d == null) return null;
+    const endLabel = new Date(billingAccessTop.currentPeriodEnd).toLocaleDateString('pt-BR');
     return (
-      <span
-        className="text-small"
-        style={{
-          color: 'rgba(255,255,255,0.92)',
-          fontWeight: 600,
-          padding: '4px 10px',
-          borderRadius: 8,
-          background: 'rgba(255,255,255,0.12)',
-          whiteSpace: 'nowrap',
-        }}
-        title={`Trial até ${new Date(billingAccessTop.currentPeriodEnd).toLocaleDateString('pt-BR')}`}
+      <button
+        type="button"
+        className="navi-topbar-trial-chip"
+        onClick={() => navigate('/conta?tab=assinatura')}
+        title={`Trial até ${endLabel}. Clique para ver planos.`}
       >
         Trial: {d} dia{d === 1 ? '' : 's'}
-      </span>
+      </button>
     );
-  }, [billingAccessTop]);
+  }, [billingAccessTop, navigate]);
 
   const isAgenteIaPage = location.pathname === '/agente-ia';
   const isInboxConversasNavActive = location.pathname === '/inbox';
@@ -205,10 +197,9 @@ const App = () => {
         modules: bootModules,
         navRole,
         canConfigureAgenteIa,
-        myWorkspaceLabel: terms.myWorkspace,
         pipelineLabel: labels.pipeline || 'Funil',
       }),
-    [bootModules, navRole, canConfigureAgenteIa, terms.myWorkspace, labels.pipeline]
+    [bootModules, navRole, canConfigureAgenteIa, labels.pipeline]
   );
 
   const mobileDrawerIconMap = useMemo(
@@ -217,15 +208,11 @@ const App = () => {
       tarefas: CheckSquare,
       templates: FileText,
       agente: Bot,
+      mensalidades: Users,
+      contratos: FileSignature,
       caixa: Wallet,
-      contabilidade: BookOpen,
-      vendas: ShoppingBag,
-      produtos: Package,
-      estoque: Boxes,
+      loja: Store,
       reports: BarChart3,
-      conta: User,
-      planos: CreditCard,
-      empresa: Building2,
     }),
     []
   );
@@ -234,6 +221,59 @@ const App = () => {
 
   const sideLinkClass = ({ isActive: navIsActive }) =>
     `navi-side-link${navIsActive ? ' active navi-side-link--active' : ''}`;
+
+  const handleAcademyChange = React.useCallback(
+    async (id) => {
+      if (!id) return;
+      setAcademyId(id);
+      useLeadStore.getState().setInboxUnreadConversations(0);
+      localStorage.setItem('activeAcademyId', id);
+      useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
+      try {
+        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
+        let uiLabels = null;
+        let mods = null;
+        try {
+          if (doc.uiLabels) {
+            uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
+          }
+          if (doc.modules) {
+            mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
+          }
+        } catch {
+          uiLabels = null;
+          mods = null;
+        }
+        const labelVerticalSwitch = String(doc.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
+        if (uiLabels && typeof uiLabels === 'object') {
+          setLabels({
+            leads: uiLabels.leads || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Leads'),
+            students: uiLabels.students || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Alunos'),
+            classes: uiLabels.classes || (labelVerticalSwitch === 'physio' ? 'Atendimentos' : 'Aulas'),
+            pipeline: uiLabels.pipeline || 'Funil',
+          });
+        }
+        try {
+          useLeadStore.getState().setVertical(doc.vertical || 'fitness');
+        } catch (e2) {
+          void e2;
+        }
+        if (mods && typeof mods === 'object') {
+          setModules({
+            sales: Boolean(mods.sales),
+            inventory: Boolean(mods.inventory),
+            finance: Boolean(mods.finance),
+          });
+        }
+        useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
+      } catch (e) {
+        void e;
+        useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
+      }
+      await useLeadStore.getState().fetchLeads();
+    },
+    [setAcademyId, setLabels, setModules]
+  );
 
   /** Garante trial no servidor (chamar uma vez após definir academia). */
   const syncBilling = async (academyId) => {
@@ -259,7 +299,10 @@ const App = () => {
    */
   const applyBillingNeedsPlanNudge = React.useCallback(
     (data) => {
-      if (!data?.sucesso || !data.needsPlan || location.pathname === '/planos') return;
+      const onAssinatura =
+        location.pathname === '/planos' ||
+        (location.pathname === '/conta' && new URLSearchParams(location.search).get('tab') === 'assinatura');
+      if (!data?.sucesso || !data.needsPlan || onAssinatura) return;
       let hits = 0;
       try {
         hits = parseInt(sessionStorage.getItem('navi_billing_needsplan_navs') || '0', 10);
@@ -280,9 +323,9 @@ const App = () => {
         }
         return;
       }
-      navigate('/planos');
+      navigate('/conta?tab=assinatura');
     },
-    [location.pathname, navigate]
+    [location.pathname, location.search, navigate]
   );
 
   useEffect(() => {
@@ -764,63 +807,6 @@ const App = () => {
     );
   }
 
-  const academySelect = academyList && academyList.length > 1 && (
-    <select
-      className="navi-topbar-select"
-      value={useLeadStore.getState().academyId || ''}
-      onChange={async (e) => {
-        const id = e.target.value;
-        setAcademyId(id);
-        useLeadStore.getState().setInboxUnreadConversations(0);
-        localStorage.setItem('activeAcademyId', id);
-        useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
-        try {
-          const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
-          let uiLabels = null;
-          let mods = null;
-          try {
-            if (doc.uiLabels) {
-              uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
-            }
-            if (doc.modules) {
-              mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
-            }
-          } catch { uiLabels = null; mods = null; }
-          const labelVerticalSwitch = String(doc.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
-          if (uiLabels && typeof uiLabels === 'object') {
-            setLabels({
-              leads: uiLabels.leads || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Leads'),
-              students: uiLabels.students || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Alunos'),
-              classes: uiLabels.classes || (labelVerticalSwitch === 'physio' ? 'Atendimentos' : 'Aulas'),
-              pipeline: uiLabels.pipeline || 'Funil',
-            });
-          }
-          try {
-            useLeadStore.getState().setVertical(doc.vertical || 'fitness');
-          } catch (e2) {
-            void e2;
-          }
-          if (mods && typeof mods === 'object') {
-            setModules({
-              sales: Boolean(mods.sales),
-              inventory: Boolean(mods.inventory),
-              finance: Boolean(mods.finance),
-            });
-          }
-          useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
-        } catch (e) {
-          void e;
-          useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
-        }
-        await useLeadStore.getState().fetchLeads();
-      }}
-    >
-      {academyList.map((a) => (
-        <option key={a.id} value={a.id}>{a.name}</option>
-      ))}
-    </select>
-  );
-
   return (
     <ErrorBoundary>
     <div className="app-container navi-authed">
@@ -875,7 +861,6 @@ const App = () => {
             modules={bootModules}
             navRole={navRole}
             canConfigureAgenteIa={canConfigureAgenteIa}
-            myWorkspaceLabel={terms.myWorkspace}
             isInboxConversasNavActive={isInboxConversasNavActive}
             isAgenteIaPage={isAgenteIaPage}
             inboxUnread={inboxUnread}
@@ -900,16 +885,16 @@ const App = () => {
             <div className="navi-topbar-spacer" aria-hidden="true" />
             <div className="navi-topbar-actions">
               {topbarTrialChip}
-              {academySelect}
-              {academyName ? (
-                <span className="navi-topbar-academy-name" title={academyName}>
-                  {academyName}
-                </span>
-              ) : null}
               <NotificationBell academyId={academyIdStore} userId={user?.$id} />
-              <button type="button" className="navi-topbar-logout" onClick={handleLogout} title="Sair">
-                <LogOut size={16} aria-hidden />
-              </button>
+              <NaviUserMenu
+                user={user}
+                onLogout={handleLogout}
+                myWorkspaceLabel={terms.myWorkspace}
+                academyList={academyList}
+                academyId={academyIdStore}
+                academyName={academyName}
+                onAcademyChange={handleAcademyChange}
+              />
             </div>
           </header>
 
@@ -955,7 +940,7 @@ const App = () => {
                   <Route path="/new-lead" element={<NewLead />} />
                   <Route path="/reports" element={<Reports />} />
                   {modules.finance === true && <Route path="/caixa" element={<Caixa />} />}
-                  {modules.finance === true && <Route path="/finance" element={<RequireFinanceOwner />} />}
+                  {modules.finance === true && <Route path="/finance" element={<FinanceRedirect />} />}
                   {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
                   {modules.finance === true && (
                     <Route
@@ -968,24 +953,20 @@ const App = () => {
                     />
                   )}
                   {modules.finance === true && (
-                    <Route
-                      path="/contratos/modelos"
-                      element={
-                        <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={4} />}>
-                          <ContractTemplatesPage />
-                        </Suspense>
-                      }
-                    />
+                    <Route path="/contratos/modelos" element={<ContratosModelosRedirect />} />
                   )}
-                  {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
                   {(modules.inventory === true || modules.sales === true) && (
-                    <Route path="/produtos" element={<Products />} />
+                    <Route path="/loja" element={<Loja />} />
                   )}
-                  {modules.sales === true && <Route path="/vendas" element={<Sales />} />}
+                  {modules.inventory === true && <Route path="/estoque" element={<LojaTabRedirect tab="estoque" />} />}
+                  {(modules.inventory === true || modules.sales === true) && (
+                    <Route path="/produtos" element={<LojaTabRedirect tab="produtos" />} />
+                  )}
+                  {modules.sales === true && <Route path="/vendas" element={<LojaTabRedirect tab="vendas" />} />}
                   <Route path="/students" element={<Students />} />
                   <Route path="/tarefas" element={<Tasks />} />
                   <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
-                  <Route path="/planos" element={<Plans user={user} />} />
+                  <Route path="/planos" element={<PlanosRedirect />} />
                   <Route path="/empresa" element={<AcademySettings />} />
                   <Route path="/profile" element={<Navigate to="/conta" replace />} />
                   <Route path="/templates" element={<Templates />} />

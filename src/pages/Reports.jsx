@@ -1,6 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { resolveHubTab } from '../lib/hubTabs';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
+import { useUserRole } from '../lib/useUserRole';
 import { hasAnyActivity } from '../lib/reportActivity.js';
 import { account } from '../lib/appwrite';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
@@ -204,6 +207,16 @@ const pctVar = (cur, prev) => {
     return Math.round(((cur - prev) / prev) * 100);
 };
 
+const REPORT_TABS = new Set(['visao-geral', 'funil', 'financeiro', 'loja', 'equipe']);
+
+const REPORT_TAB_ITEMS = [
+    { id: 'visao-geral', label: 'Visão geral' },
+    { id: 'funil', label: 'Funil' },
+    { id: 'financeiro', label: 'Financeiro' },
+    { id: 'loja', label: 'Loja' },
+    { id: 'equipe', label: 'Equipe' },
+];
+
 const Reports = () => {
     const terms = useTerms();
     const labels = useLeadStore((s) => s.labels);
@@ -242,6 +255,30 @@ const Reports = () => {
         typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 260
     );
     const academyId = useLeadStore((s) => s.academyId);
+    const academyList = useLeadStore((s) => s.academyList);
+    const modules = useLeadStore((s) => s.modules);
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const academyDoc = useMemo(() => {
+        if (!academyId) return null;
+        const a = (academyList || []).find((x) => x.id === academyId);
+        if (!a) return null;
+        return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
+    }, [academyList, academyId]);
+    const navRole = useUserRole(academyDoc);
+    const isOwner = navRole === 'owner';
+    const hasFinance = modules?.finance === true;
+    const hasLoja = modules?.sales === true || modules?.inventory === true;
+
+    const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, 'visao-geral');
+
+    useEffect(() => {
+        const t = String(searchParams.get('tab') || '').trim().toLowerCase();
+        if (!REPORT_TABS.has(t)) {
+            setSearchParams({ tab: activeTab }, { replace: true });
+        }
+    }, [activeTab, searchParams, setSearchParams]);
 
     const showInitialLoad = loading && !reportData;
     const showRefreshing = loading && reportData;
@@ -547,6 +584,12 @@ const Reports = () => {
                         </>
                     ) : null}
                 </p>
+                <HubTabBar
+                    tabs={REPORT_TAB_ITEMS}
+                    activeId={activeTab}
+                    onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
+                    ariaLabel="Relatórios"
+                />
             </div>
 
             {showRefreshing ? (
@@ -565,7 +608,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {showInitialLoad ? (
+            {showInitialLoad && (activeTab === 'visao-geral' || activeTab === 'funil') ? (
                 <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={i} className="reports-kpi-card reports-kpi-skeleton" style={{ minHeight: 100 }} />
@@ -573,6 +616,8 @@ const Reports = () => {
                 </div>
             ) : null}
 
+            {(activeTab === 'visao-geral' || activeTab === 'funil') ? (
+            <>
             <div className="page-header-card">
                 <div className="page-header-row reports-filters-row">
                     <div className="reports-period-block">
@@ -694,7 +739,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {!error && !showInitialLoad && reportData?.metrics ? (
+            {activeTab === 'visao-geral' && !error && !showInitialLoad && reportData?.metrics ? (
             <div className="reports-funnel-card mt-4 animate-in">
                 <div className="reports-funnel-row">
                     {funnelStages.map((stage) => (
@@ -736,7 +781,7 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {!error && !showInitialLoad && reportData?.chart ? (
+            {activeTab === 'funil' && !error && !showInitialLoad && reportData?.chart ? (
             <div className="card reports-evo-card mt-4">
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução no período</h3>
@@ -800,7 +845,7 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {!error && !showInitialLoad ? (
+            {activeTab === 'funil' && !error && !showInitialLoad ? (
             <div className="card reports-evo-card mt-4">
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução da taxa de conversão</h3>
@@ -829,7 +874,7 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {!error && !showInitialLoad ? (
+            {activeTab === 'funil' && !error && !showInitialLoad ? (
             <div className="reports-aux-grid mt-4">
                 <div className="card reports-evo-card">
                     <div className="evo-header">
@@ -899,7 +944,7 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {!error && !showInitialLoad ? (
+            {activeTab === 'funil' && !error && !showInitialLoad ? (
                 <details className="reports-methodology mt-4">
                     <summary className="reports-methodology-summary">
                         <Info size={16} aria-hidden />
@@ -910,6 +955,73 @@ const Reports = () => {
                         <p>Filtros de origem e perfil são aplicados tanto nos totais quanto no gráfico.</p>
                     </div>
                 </details>
+            ) : null}
+            </>
+            ) : null}
+
+            {activeTab === 'financeiro' ? (
+                <div className="reports-empty card mt-4">
+                    <EmptyState
+                        insideCard
+                        variant="compact"
+                        tone="solid"
+                        title="Relatórios financeiros no Caixa"
+                        description={
+                            hasFinance
+                                ? isOwner
+                                    ? 'Demonstrações DRE/DFC, razão e plano de contas estão no hub Caixa.'
+                                    : 'Movimentações e fechamento mensal estão no hub Caixa.'
+                                : 'Ative o módulo financeiro nas configurações da academia para ver relatórios no Caixa.'
+                        }
+                        role="status"
+                        primaryAction={{
+                            label: hasFinance ? 'Abrir Caixa' : 'Configurar financeiro',
+                            onClick: () =>
+                                navigate(
+                                    hasFinance
+                                        ? isOwner
+                                            ? '/caixa?tab=dre'
+                                            : '/caixa?tab=movimentacoes'
+                                        : '/empresa?tab=financeiro'
+                                ),
+                        }}
+                    />
+                </div>
+            ) : null}
+
+            {activeTab === 'loja' ? (
+                <div className="reports-empty card mt-4">
+                    <EmptyState
+                        insideCard
+                        variant="compact"
+                        tone="solid"
+                        title="Relatórios da loja"
+                        description={
+                            hasLoja
+                                ? 'Vendas, produtos e estoque estão no hub Loja.'
+                                : 'Ative vendas ou estoque nas configurações da academia para usar a Loja.'
+                        }
+                        role="status"
+                        primaryAction={{
+                            label: hasLoja ? 'Abrir Loja' : 'Configurar módulos',
+                            onClick: () =>
+                                navigate(hasLoja ? '/loja?tab=vendas' : '/empresa?tab=vendas'),
+                        }}
+                    />
+                </div>
+            ) : null}
+
+            {activeTab === 'equipe' ? (
+                <div className="reports-empty card mt-4">
+                    <EmptyState
+                        insideCard
+                        variant="compact"
+                        tone="solid"
+                        title="Relatórios de equipe"
+                        description="Indicadores por responsável e desempenho da equipe estarão disponíveis em breve."
+                        role="status"
+                    />
+                </div>
             ) : null}
 
             {drillKey ? (

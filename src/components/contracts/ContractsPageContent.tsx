@@ -101,7 +101,7 @@ export default function ContractsPageContent() {
             Atualizar
           </button>
           {navRole === 'owner' ? (
-            <Link to="/contratos/modelos" className="btn-outline flex items-center gap-1">
+            <Link to="/contratos?tab=modelos" className="btn-outline flex items-center gap-1">
               <FileText size={14} />
               Modelos
             </Link>
