@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import '../contracts/contracts.css';
 import { Plus, Eye, FileSignature } from 'lucide-react';
 import { useContractsList } from '../../features/contracts/queries.js';
 import { mapContractDisplayStatus } from '../../features/contracts/status.js';
