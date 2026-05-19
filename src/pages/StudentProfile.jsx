@@ -11,7 +11,6 @@ import {
     PAYMENT_CATEGORY,
 } from '../lib/studentPayments.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
-import StudentContractsSection from '../components/student/StudentContractsSection.jsx';
 import PlanFreezeModal from '../components/student/PlanFreezeModal.jsx';
 import {
     startPlanFreeze,
@@ -2128,7 +2127,6 @@ export default function StudentProfile() {
             >
                 {tabBtn('frequency', 'Frequência')}
                 {tabBtn('payments', 'Pagamentos')}
-                {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}
                 {tabBtn('timeline', 'Linha do tempo')}
             </div>
 
@@ -2285,10 +2283,6 @@ export default function StudentProfile() {
                         onEndFreeze={() => void handleEndFreezeEarly()}
                         endFreezeBusy={endFreezeBusy}
                     />
-                ) : null}
-
-                {activeTab === 'contracts' && modules?.finance === true && student ? (
-                    <StudentContractsSection leadId={student.id} />
                 ) : null}
 
                 {activeTab === 'timeline' ? (
