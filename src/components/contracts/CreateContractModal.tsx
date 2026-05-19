@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { X, Plus, Trash2, Upload, FileText } from 'lucide-react';
+import { X, Plus, Trash2, FileText } from 'lucide-react';
 import {
   createContractSchema,
   defaultSigner,
@@ -22,13 +23,10 @@ interface CreateContractModalProps {
 }
 
 export default function CreateContractModal({ open, onClose, onSuccess, leadId }: CreateContractModalProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = React.useState('');
   const addToast = useUiStore((s) => s.addToast);
   const createMutation = useCreateContract();
-  const { data: templatesData } = useContractTemplates(true);
+  const { data: templatesData, isLoading: templatesLoading } = useContractTemplates(true);
   const templates = templatesData?.templates || [];
   const templatesConfigured = templatesData?.configured !== false;
   const leads = useLeadStore((s) => s.leads);
@@ -51,15 +49,12 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
       name: '',
       sandbox: false,
       signers: [defaultSigner()],
-      pdfSource: 'template',
       templateId: '',
-      file: undefined,
     },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'signers' });
   const sandbox = watch('sandbox');
-  const pdfSource = watch('pdfSource');
   const templateId = watch('templateId');
 
   useEffect(() => {
@@ -68,11 +63,9 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
     const lead = leadId ? (leads || []).find((l) => String(l.id) === String(leadId)) : null;
     const planName = lead?.plan ? String(lead.plan) : '';
     const suggestedTemplateId =
-      templatesConfigured && templates.length
+      templates.length > 0
         ? resolveTemplateIdForPlan(planName, templates, financeConfig?.plans || []) || ''
         : '';
-
-    const useTemplate = Boolean(suggestedTemplateId);
 
     reset({
       name: lead?.name ? `Contrato — ${String(lead.name).trim()}` : '',
@@ -89,35 +82,17 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
             },
           ]
         : [defaultSigner()],
-      pdfSource: useTemplate ? 'template' : templates.length ? 'template' : 'upload',
       templateId: suggestedTemplateId,
-      file: undefined,
     });
-    setFileName('');
     setFormError('');
-  }, [open, leadId, leads, reset, templates, templatesConfigured, financeConfig?.plans]);
+  }, [open, leadId, leads, reset, templates, financeConfig?.plans]);
 
   const close = useCallback(() => {
     if (createMutation.isPending) return;
-    reset({
-      name: '',
-      sandbox: false,
-      signers: [defaultSigner()],
-      pdfSource: templates.length ? 'template' : 'upload',
-      templateId: '',
-      file: undefined,
-    });
-    setFileName('');
+    reset({ name: '', sandbox: false, signers: [defaultSigner()], templateId: '' });
     setFormError('');
     onClose();
-  }, [createMutation.isPending, onClose, reset, templates.length]);
-
-  const applyFile = (file: File | undefined) => {
-    if (!file) return;
-    setValue('file', file, { shouldValidate: true });
-    setValue('pdfSource', 'upload');
-    setFileName(file.name);
-  };
+  }, [createMutation.isPending, onClose, reset]);
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError('');
@@ -138,9 +113,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
           action: s.action,
           delivery_method: s.delivery_method,
         })),
-        file: parsed.data.pdfSource === 'upload' ? parsed.data.file : undefined,
-        templateId:
-          parsed.data.pdfSource === 'template' ? String(parsed.data.templateId || '').trim() : undefined,
+        templateId: parsed.data.templateId,
         sandbox: navRole === 'owner' ? parsed.data.sandbox : false,
         leadId,
       });
@@ -188,124 +161,55 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
             {errors.name ? <p className="contracts-field-error">{errors.name.message}</p> : null}
           </div>
 
-          {templatesConfigured && templates.length > 0 ? (
-            <div className="contracts-form-block">
-              <span className="task-field-label">Documento</span>
-              <div className="flex gap-2" style={{ marginBottom: 10 }}>
-                <label className="contracts-sandbox" style={{ margin: 0 }}>
-                  <input
-                    type="radio"
-                    value="template"
-                    checked={pdfSource === 'template'}
-                    onChange={() => {
-                      setValue('pdfSource', 'template');
-                      setValue('file', undefined);
-                      setFileName('');
-                    }}
-                  />
-                  <span>Usar modelo</span>
-                </label>
-                <label className="contracts-sandbox" style={{ margin: 0 }}>
-                  <input
-                    type="radio"
-                    value="upload"
-                    checked={pdfSource === 'upload'}
-                    onChange={() => setValue('pdfSource', 'upload')}
-                  />
-                  <span>Enviar PDF</span>
-                </label>
-              </div>
-
-              {pdfSource === 'template' ? (
-                <>
-                  <select
-                    className="form-input"
-                    value={templateId || ''}
-                    onChange={(e) => setValue('templateId', e.target.value, { shouldValidate: true })}
-                  >
-                    <option value="">Selecione um modelo…</option>
-                    {templates.map((t) => (
-                      <option key={t.$id} value={t.$id}>
-                        {t.name}
-                        {t.isDefault ? ' (padrão)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.templateId ? (
-                    <p className="contracts-field-error">{errors.templateId.message}</p>
-                  ) : null}
-                </>
-              ) : (
-                <div
-                  className={`contracts-upload-zone${dragOver ? ' contracts-upload-zone--active' : ''}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOver(false);
-                    applyFile(e.dataTransfer.files?.[0]);
-                  }}
-                  onClick={() => fileRef.current?.click()}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click();
-                  }}
-                >
-                  <Upload size={28} strokeWidth={1.5} aria-hidden />
-                  <p className="contracts-upload-title">
-                    {fileName ? fileName : 'Arraste o PDF ou clique para selecionar'}
-                  </p>
-                  <p className="text-small text-muted">Apenas arquivos .pdf</p>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    hidden
-                    onChange={(e) => applyFile(e.target.files?.[0])}
-                  />
-                </div>
-              )}
-              {errors.file ? <p className="contracts-field-error">{String(errors.file.message)}</p> : null}
-            </div>
-          ) : (
-            <div className="contracts-form-block">
-              <input type="hidden" {...register('pdfSource')} value="upload" />
-              <span className="task-field-label">Arquivo PDF</span>
-              <div
-                className={`contracts-upload-zone${dragOver ? ' contracts-upload-zone--active' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  applyFile(e.dataTransfer.files?.[0]);
-                }}
-                onClick={() => fileRef.current?.click()}
-                role="button"
-                tabIndex={0}
-              >
-                <Upload size={28} strokeWidth={1.5} aria-hidden />
-                <p className="contracts-upload-title">
-                  {fileName ? fileName : 'Arraste o PDF ou clique para selecionar'}
+          <div className="contracts-form-block">
+            <span className="task-field-label">Modelo de contrato</span>
+            {templatesLoading ? (
+              <p className="text-small text-muted">Carregando modelos…</p>
+            ) : !templatesConfigured ? (
+              <p className="text-small text-muted">
+                Modelos não configurados no servidor. Peça ao administrador para definir as variáveis de
+                ambiente.
+              </p>
+            ) : templates.length === 0 ? (
+              <div className="card" style={{ padding: 12, marginTop: 8 }}>
+                <p className="text-small" style={{ margin: 0 }}>
+                  Nenhum modelo cadastrado.
+                  {navRole === 'owner' ? (
+                    <>
+                      {' '}
+                      <Link to="/contratos/modelos">Criar modelo no editor</Link>
+                    </>
+                  ) : (
+                    ' Peça ao proprietário da academia para criar um modelo.'
+                  )}
                 </p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  hidden
-                  onChange={(e) => applyFile(e.target.files?.[0])}
-                />
               </div>
-              {errors.file ? <p className="contracts-field-error">{String(errors.file.message)}</p> : null}
-            </div>
-          )}
+            ) : (
+              <>
+                <select
+                  className="form-input"
+                  value={templateId || ''}
+                  onChange={(e) => setValue('templateId', e.target.value, { shouldValidate: true })}
+                >
+                  <option value="">Selecione um modelo…</option>
+                  {templates.map((t) => (
+                    <option key={t.$id} value={t.$id}>
+                      {t.name}
+                      {t.isDefault ? ' (padrão)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {navRole === 'owner' ? (
+                  <p className="text-small text-muted" style={{ marginTop: 6 }}>
+                    <Link to="/contratos/modelos">Gerenciar modelos no editor</Link>
+                  </p>
+                ) : null}
+              </>
+            )}
+            {errors.templateId ? (
+              <p className="contracts-field-error">{errors.templateId.message}</p>
+            ) : null}
+          </div>
 
           <div className="contracts-form-block">
             <div className="contracts-signers-head">
@@ -403,7 +307,11 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
             <button type="button" className="btn-outline" onClick={close} disabled={createMutation.isPending}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={createMutation.isPending || templates.length === 0}
+            >
               {createMutation.isPending ? 'Enviando…' : 'Enviar para assinatura'}
             </button>
           </div>
@@ -412,6 +320,3 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
     </div>
   );
 }
-
-
-

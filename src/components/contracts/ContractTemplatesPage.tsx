@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   useContractTemplates,
   useCreateContractTemplate,
@@ -10,12 +10,18 @@ import {
 import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
+import {
+  DEFAULT_CONTRACT_TEMPLATE_HTML,
+  formatContractDate,
+} from '../../lib/contractTemplateVariables.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import ContractTemplateEditor from './ContractTemplateEditor.js';
 import './contracts.css';
 
+type EditorMode = 'create' | 'edit' | null;
+
 export default function ContractTemplatesPage() {
-  const fileRef = useRef<HTMLInputElement>(null);
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -27,11 +33,110 @@ export default function ContractTemplatesPage() {
   const updateMutation = useUpdateContractTemplate();
   const deleteMutation = useDeleteContractTemplate();
 
+  const [editorMode, setEditorMode] = useState<EditorMode>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [planNames, setPlanNames] = useState('');
   const [isDefault, setIsDefault] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [bodyHtml, setBodyHtml] = useState(DEFAULT_CONTRACT_TEMPLATE_HTML);
+
+  const templates = data?.templates || [];
+  const configured = data?.configured !== false;
+
+  const previewVars = useMemo(
+    () => ({
+      nome_aluno: 'João da Silva',
+      email_aluno: 'joao@email.com',
+      telefone_aluno: '(11) 99999-0000',
+      plano: 'Mensal',
+      nome_academia: String(academyDoc?.name || 'Sua academia'),
+      data_hoje: formatContractDate(),
+    }),
+    [academyDoc?.name]
+  );
+
+  const resetEditor = () => {
+    setEditorMode(null);
+    setEditingId(null);
+    setName('');
+    setDescription('');
+    setPlanNames('');
+    setIsDefault(false);
+    setBodyHtml(DEFAULT_CONTRACT_TEMPLATE_HTML);
+  };
+
+  const openCreate = () => {
+    resetEditor();
+    setEditorMode('create');
+  };
+
+  const openEdit = (t: (typeof templates)[number]) => {
+    setEditorMode('edit');
+    setEditingId(t.$id);
+    setName(t.name);
+    setDescription(t.description || '');
+    setPlanNames((t.planNames || []).join(', '));
+    setIsDefault(t.isDefault);
+    setBodyHtml(t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      addToast({ type: 'error', message: 'Informe o nome do modelo.' });
+      return;
+    }
+    if (!bodyHtml.trim()) {
+      addToast({ type: 'error', message: 'Escreva o conteúdo do contrato.' });
+      return;
+    }
+    const plans = planNames
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    try {
+      if (editorMode === 'edit' && editingId) {
+        await updateMutation.mutateAsync({
+          id: editingId,
+          patch: {
+            name: name.trim(),
+            description: description.trim() || undefined,
+            planNames: plans,
+            isDefault,
+            bodyHtml,
+          },
+        });
+        addToast({ type: 'success', message: 'Modelo atualizado.' });
+      } else {
+        await createMutation.mutateAsync({
+          name: name.trim(),
+          description: description.trim() || undefined,
+          planNames: plans,
+          isDefault,
+          bodyHtml,
+        });
+        addToast({ type: 'success', message: 'Modelo criado.' });
+      }
+      resetEditor();
+      refetch();
+    } catch (err) {
+      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao salvar' });
+    }
+  };
+
+  const handleDelete = async (id: string, label: string) => {
+    if (!window.confirm(`Excluir o modelo "${label}"?`)) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      addToast({ type: 'success', message: 'Modelo excluído.' });
+      if (editingId === id) resetEditor();
+      refetch();
+    } catch (err) {
+      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao excluir' });
+    }
+  };
 
   if (navRole !== 'owner') {
     return (
@@ -44,77 +149,7 @@ export default function ContractTemplatesPage() {
     );
   }
 
-  const templates = data?.templates || [];
-  const configured = data?.configured !== false;
-
-  const resetForm = () => {
-    setName('');
-    setDescription('');
-    setPlanNames('');
-    setIsDefault(false);
-    setFile(null);
-    if (fileRef.current) fileRef.current.value = '';
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) {
-      addToast({ type: 'error', message: 'Selecione um PDF para o modelo.' });
-      return;
-    }
-    if (!name.trim()) {
-      addToast({ type: 'error', message: 'Informe o nome do modelo.' });
-      return;
-    }
-    try {
-      const plans = planNames
-        .split(',')
-        .map((p) => p.trim())
-        .filter(Boolean);
-      await createMutation.mutateAsync({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        planNames: plans,
-        isDefault,
-        file,
-      });
-      addToast({ type: 'success', message: 'Modelo criado.' });
-      resetForm();
-      refetch();
-    } catch (err) {
-      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao criar modelo' });
-    }
-  };
-
-  const toggleActive = async (id: string, active: boolean) => {
-    try {
-      await updateMutation.mutateAsync({ id, patch: { active: !active } });
-      refetch();
-    } catch (err) {
-      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar' });
-    }
-  };
-
-  const setAsDefault = async (id: string) => {
-    try {
-      await updateMutation.mutateAsync({ id, patch: { isDefault: true } });
-      addToast({ type: 'success', message: 'Modelo padrão atualizado.' });
-      refetch();
-    } catch (err) {
-      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro' });
-    }
-  };
-
-  const handleDelete = async (id: string, label: string) => {
-    if (!window.confirm(`Excluir o modelo "${label}"?`)) return;
-    try {
-      await deleteMutation.mutateAsync(id);
-      addToast({ type: 'success', message: 'Modelo excluído.' });
-      refetch();
-    } catch (err) {
-      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao excluir' });
-    }
-  };
+  const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="container contracts-page">
@@ -128,73 +163,75 @@ export default function ContractTemplatesPage() {
             Modelos de contrato
           </h1>
           <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-            PDFs reutilizáveis para envio via Autentique. Vincule a planos em Financeiro → Configurações.
+            Editor de contratos com variáveis. Vincule planos em Financeiro → Configurações.
           </p>
         </div>
+        {!editorMode ? (
+          <button type="button" className="btn-primary" onClick={openCreate} disabled={!configured}>
+            <Plus size={16} /> Novo modelo
+          </button>
+        ) : null}
       </div>
 
       {!configured ? (
         <div className="card mt-4" style={{ padding: 16 }}>
           <p className="text-small text-muted">
-            Modelos não configurados no servidor. Defina{' '}
-            <code>APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID</code> e{' '}
-            <code>APPWRITE_CONTRACT_TEMPLATES_BUCKET_ID</code> e execute{' '}
-            <code>npm run provision:contract-templates</code>.
+            Defina <code>APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID=contract_templates</code> no servidor e
+            rode <code>npm run provision:contract-templates</code>.
           </p>
         </div>
       ) : null}
 
-      <section className="card mt-4 animate-in">
-        <h2 className="navi-section-heading" style={{ marginBottom: 12 }}>
-          <Plus size={18} /> Novo modelo
-        </h2>
-        <form className="flex-col" style={{ gap: 12 }} onSubmit={handleCreate}>
-          <div className="form-group">
-            <label className="task-field-label">Nome</label>
-            <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label className="task-field-label">Descrição (opcional)</label>
-            <input
-              className="form-input"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+      {editorMode ? (
+        <section className="card mt-4 animate-in">
+          <h2 className="navi-section-heading" style={{ marginBottom: 12 }}>
+            {editorMode === 'edit' ? 'Editar modelo' : 'Novo modelo'}
+          </h2>
+          <form className="flex-col" style={{ gap: 12 }} onSubmit={handleSave}>
+            <div className="form-group">
+              <label className="task-field-label">Nome</label>
+              <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label className="task-field-label">Descrição (opcional)</label>
+              <input
+                className="form-input"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="task-field-label">Planos vinculados (nomes separados por vírgula)</label>
+              <input
+                className="form-input"
+                value={planNames}
+                onChange={(e) => setPlanNames(e.target.value)}
+                placeholder="Mensal, Anual"
+              />
+            </div>
+            <label className="contracts-sandbox">
+              <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+              <span>Modelo padrão</span>
+            </label>
+
+            <ContractTemplateEditor
+              bodyHtml={bodyHtml}
+              onChange={setBodyHtml}
+              previewVars={previewVars}
+              disabled={saving}
             />
-          </div>
-          <div className="form-group">
-            <label className="task-field-label">Planos vinculados (nomes separados por vírgula)</label>
-            <input
-              className="form-input"
-              value={planNames}
-              onChange={(e) => setPlanNames(e.target.value)}
-              placeholder="Mensal, Anual"
-            />
-          </div>
-          <label className="contracts-sandbox">
-            <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
-            <span>Modelo padrão (quando não houver vínculo por plano)</span>
-          </label>
-          <div
-            className="contracts-upload-zone"
-            onClick={() => fileRef.current?.click()}
-            role="button"
-            tabIndex={0}
-          >
-            <Upload size={24} />
-            <p>{file ? file.name : 'PDF do modelo'}</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              hidden
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-          </div>
-          <button type="submit" className="btn-primary" disabled={createMutation.isPending || !configured}>
-            {createMutation.isPending ? 'Salvando…' : 'Salvar modelo'}
-          </button>
-        </form>
-      </section>
+
+            <div className="flex gap-2" style={{ marginTop: 8 }}>
+              <button type="button" className="btn-outline" onClick={resetEditor} disabled={saving}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? 'Salvando…' : 'Salvar modelo'}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="mt-4 animate-in">
         <h2 className="navi-section-heading mb-2">Biblioteca</h2>
@@ -206,7 +243,9 @@ export default function ContractTemplatesPage() {
           />
         ) : null}
         {!isLoading && !isError && templates.length === 0 ? (
-          <p className="text-muted text-small">Nenhum modelo cadastrado.</p>
+          <p className="text-muted text-small">
+            Nenhum modelo ainda. Clique em <strong>Novo modelo</strong> para criar o primeiro.
+          </p>
         ) : null}
         {!isLoading && templates.length > 0 ? (
           <div className="card">
@@ -235,23 +274,29 @@ export default function ContractTemplatesPage() {
                     </td>
                     <td>{t.active ? 'Ativo' : 'Inativo'}</td>
                     <td className="contracts-table-actions">
-                      {!t.isDefault ? (
-                        <button type="button" className="btn-ghost text-small" onClick={() => setAsDefault(t.$id)}>
-                          Tornar padrão
-                        </button>
-                      ) : null}
+                      <button type="button" className="btn-ghost text-small" onClick={() => openEdit(t)}>
+                        <Pencil size={14} /> Editar
+                      </button>
                       <button
                         type="button"
                         className="btn-ghost text-small"
-                        onClick={() => toggleActive(t.$id, t.active)}
+                        onClick={async () => {
+                          try {
+                            await updateMutation.mutateAsync({
+                              id: t.$id,
+                              patch: { active: !t.active },
+                            });
+                            refetch();
+                          } catch (err) {
+                            addToast({
+                              type: 'error',
+                              message: err instanceof Error ? err.message : 'Erro',
+                            });
+                          }
+                        }}
                       >
                         {t.active ? 'Desativar' : 'Ativar'}
                       </button>
-                      {t.fileUrl ? (
-                        <a href={t.fileUrl} target="_blank" rel="noreferrer" className="btn-ghost text-small">
-                          Ver PDF
-                        </a>
-                      ) : null}
                       <button
                         type="button"
                         className="btn-ghost"

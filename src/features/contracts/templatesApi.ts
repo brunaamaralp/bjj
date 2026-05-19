@@ -7,6 +7,7 @@ export interface ContractTemplateItem {
   name: string;
   description: string | null;
   kind: string;
+  bodyHtml: string | null;
   storageFileId: string | null;
   fileUrl: string | null;
   planNames: string[];
@@ -22,6 +23,42 @@ export interface ContractTemplatesListResponse {
   template?: ContractTemplateItem;
   configured?: boolean;
   error?: string;
+}
+
+function mapTemplate(raw: Record<string, unknown>): ContractTemplateItem {
+  const planNamesRaw = raw.planNames ?? raw.plan_names;
+  let planNames: string[] = [];
+  if (Array.isArray(planNamesRaw)) {
+    planNames = planNamesRaw.map((x) => String(x).trim()).filter(Boolean);
+  } else if (planNamesRaw != null && String(planNamesRaw).trim()) {
+    try {
+      const p = JSON.parse(String(planNamesRaw));
+      planNames = Array.isArray(p) ? p.map((x) => String(x).trim()).filter(Boolean) : [];
+    } catch {
+      planNames = [];
+    }
+  }
+
+  return {
+    $id: String(raw.$id || ''),
+    academyId: String(raw.academyId ?? raw.academy_id ?? ''),
+    name: String(raw.name || ''),
+    description: raw.description ? String(raw.description) : null,
+    kind: String(raw.kind || 'html_editor'),
+    bodyHtml: raw.bodyHtml != null ? String(raw.bodyHtml) : raw.body_html != null ? String(raw.body_html) : null,
+    storageFileId:
+      raw.storageFileId != null
+        ? String(raw.storageFileId)
+        : raw.storage_file_id != null
+          ? String(raw.storage_file_id)
+          : null,
+    fileUrl: raw.fileUrl != null ? String(raw.fileUrl) : raw.file_url != null ? String(raw.file_url) : null,
+    planNames,
+    isDefault: raw.isDefault === true || raw.is_default === true,
+    active: raw.active !== false && raw.active !== 'false',
+    createdAt: raw.createdAt != null ? String(raw.createdAt) : raw.$createdAt != null ? String(raw.$createdAt) : null,
+    updatedAt: raw.updatedAt != null ? String(raw.updatedAt) : raw.$updatedAt != null ? String(raw.$updatedAt) : null,
+  };
 }
 
 async function templatesFetch(path: string, options: RequestInit = {}): Promise<Response> {
@@ -45,12 +82,16 @@ export async function fetchContractTemplates(opts: { activeOnly?: boolean } = {}
   const qs = new URLSearchParams();
   if (opts.activeOnly) qs.set('activeOnly', 'true');
   const res = await templatesFetch(`/api/contract-templates?${qs.toString()}`);
-  const data = (await res.json()) as ContractTemplatesListResponse;
+  const data = (await res.json()) as ContractTemplatesListResponse & {
+    templates?: Record<string, unknown>[];
+    template?: Record<string, unknown>;
+  };
   if (!res.ok || !data.ok) {
     throw new Error(data.error || `Erro HTTP ${res.status}`);
   }
+  const templates = (data.templates || []).map((t) => mapTemplate(t as Record<string, unknown>));
   return {
-    templates: data.templates || [],
+    templates,
     configured: data.configured !== false,
   };
 }
@@ -60,21 +101,24 @@ export async function createContractTemplateRequest(input: {
   description?: string;
   planNames?: string[];
   isDefault?: boolean;
-  file: File;
+  bodyHtml: string;
 }): Promise<ContractTemplateItem> {
-  const formData = new FormData();
-  formData.append('name', input.name);
-  if (input.description) formData.append('description', input.description);
-  if (input.planNames?.length) formData.append('plan_names', JSON.stringify(input.planNames));
-  formData.append('is_default', input.isDefault ? 'true' : 'false');
-  formData.append('file', input.file, input.file.name || 'template.pdf');
-
-  const res = await templatesFetch('/api/contract-templates', { method: 'POST', body: formData });
-  const data = (await res.json()) as ContractTemplatesListResponse;
+  const res = await templatesFetch('/api/contract-templates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: input.name,
+      description: input.description,
+      plan_names: input.planNames,
+      is_default: input.isDefault,
+      body_html: input.bodyHtml,
+    }),
+  });
+  const data = (await res.json()) as ContractTemplatesListResponse & { template?: Record<string, unknown> };
   if (!res.ok || !data.ok || !data.template) {
     throw new Error(data.error || `Erro HTTP ${res.status}`);
   }
-  return data.template;
+  return mapTemplate(data.template as Record<string, unknown>);
 }
 
 export async function updateContractTemplateRequest(
@@ -85,29 +129,9 @@ export async function updateContractTemplateRequest(
     planNames?: string[];
     isDefault?: boolean;
     active?: boolean;
-    file?: File;
+    bodyHtml?: string;
   }
 ): Promise<ContractTemplateItem> {
-  if (patch.file) {
-    const formData = new FormData();
-    if (patch.name) formData.append('name', patch.name);
-    if (patch.description !== undefined) formData.append('description', patch.description);
-    if (patch.planNames) formData.append('plan_names', JSON.stringify(patch.planNames));
-    if (patch.isDefault !== undefined) formData.append('is_default', patch.isDefault ? 'true' : 'false');
-    if (patch.active !== undefined) formData.append('active', patch.active ? 'true' : 'false');
-    formData.append('file', patch.file, patch.file.name || 'template.pdf');
-
-    const res = await templatesFetch(`/api/contract-templates?id=${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      body: formData,
-    });
-    const data = (await res.json()) as ContractTemplatesListResponse;
-    if (!res.ok || !data.ok || !data.template) {
-      throw new Error(data.error || `Erro HTTP ${res.status}`);
-    }
-    return data.template;
-  }
-
   const res = await templatesFetch(`/api/contract-templates?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -117,13 +141,14 @@ export async function updateContractTemplateRequest(
       plan_names: patch.planNames,
       is_default: patch.isDefault,
       active: patch.active,
+      body_html: patch.bodyHtml,
     }),
   });
-  const data = (await res.json()) as ContractTemplatesListResponse;
+  const data = (await res.json()) as ContractTemplatesListResponse & { template?: Record<string, unknown> };
   if (!res.ok || !data.ok || !data.template) {
     throw new Error(data.error || `Erro HTTP ${res.status}`);
   }
-  return data.template;
+  return mapTemplate(data.template as Record<string, unknown>);
 }
 
 export async function deleteContractTemplateRequest(id: string): Promise<void> {

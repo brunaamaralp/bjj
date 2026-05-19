@@ -5,8 +5,7 @@ export const MAX_CONTRACT_PDF_BYTES = 10 * 1024 * 1024;
 export interface ParsedContractForm {
   name: string;
   signers: SignerInput[];
-  file?: Buffer;
-  template_id?: string;
+  template_id: string;
   sandbox: boolean;
   lead_id?: string;
 }
@@ -43,11 +42,6 @@ function parseSignersJson(raw: FormDataEntryValue | null): SignerInput[] {
   return parsed as SignerInput[];
 }
 
-async function fileToBuffer(file: File | Blob): Promise<Buffer> {
-  const arrayBuffer = await file.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
 /** Converte FormData (Next.js / Web API) para payload de signContract. */
 export async function parseContractFormData(formData: FormData): Promise<ParsedContractForm> {
   const nameRaw = formData.get('name');
@@ -57,21 +51,9 @@ export async function parseContractFormData(formData: FormData): Promise<ParsedC
   const signers = parseSignersJson(formData.get('signers'));
 
   const templateRaw = formData.get('template_id');
-  const template_id =
-    templateRaw != null && String(templateRaw).trim() ? String(templateRaw).trim() : undefined;
-
-  const fileEntry = formData.get('file');
-  let file: Buffer | undefined;
-  if (fileEntry && typeof fileEntry !== 'string') {
-    file = await fileToBuffer(fileEntry as File | Blob);
-    if (!file.length) throw new ContractFormError('file está vazio');
-    if (file.length > MAX_CONTRACT_PDF_BYTES) {
-      throw new ContractFormError('PDF muito grande. Tamanho máximo: 10 MB.');
-    }
-  }
-
-  if (!file && !template_id) {
-    throw new ContractFormError('Informe um PDF ou selecione um modelo de contrato');
+  const template_id = templateRaw != null ? String(templateRaw).trim() : '';
+  if (!template_id) {
+    throw new ContractFormError('Selecione um modelo de contrato');
   }
 
   const sandbox = parseSandbox(formData.get('sandbox'));
@@ -80,5 +62,5 @@ export async function parseContractFormData(formData: FormData): Promise<ParsedC
   const lead_id =
     leadRaw != null && String(leadRaw).trim() ? String(leadRaw).trim() : undefined;
 
-  return { name, signers, file, template_id, sandbox, lead_id };
+  return { name, signers, template_id, sandbox, lead_id };
 }

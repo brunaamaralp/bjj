@@ -55,16 +55,14 @@ export async function fetchContractById(id: string): Promise<ContractDetailRespo
 export async function createContractRequest(input: {
   name: string;
   signers: SignerInput[];
-  file?: File;
-  templateId?: string;
+  templateId: string;
   sandbox: boolean;
   leadId?: string;
 }): Promise<CreateContractResponse> {
   const formData = new FormData();
   formData.append('name', input.name);
   formData.append('signers', JSON.stringify(input.signers));
-  if (input.file) formData.append('file', input.file, input.file.name || 'contrato.pdf');
-  if (input.templateId) formData.append('template_id', input.templateId);
+  formData.append('template_id', input.templateId);
   formData.append('sandbox', input.sandbox ? 'true' : 'false');
   if (input.leadId) formData.append('lead_id', input.leadId);
 

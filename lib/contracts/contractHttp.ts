@@ -45,7 +45,7 @@ export async function handlePostContract(
     const { buffer, templateId } = await resolveContractPdfBuffer({
       academyId: auth.academyId,
       templateId: parsed.template_id,
-      uploadFile: parsed.file,
+      leadId: parsed.lead_id,
     });
 
     const result = await signContract(

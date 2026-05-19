@@ -94,8 +94,8 @@ async function handleTemplatesVercel(req, res, auth) {
 
   if (req.method === 'POST' && !templateId) {
     try {
-      const formData = await incomingToFormData(req);
-      return responseToVercel(res, await handlePostContractTemplate(formData, auth));
+      const body = await readJsonBody(req);
+      return responseToVercel(res, await handlePostContractTemplate(body, auth));
     } catch (err) {
       console.error('[api/contracts templates POST]', err);
       const message = err instanceof Error ? err.message : String(err);
@@ -104,25 +104,8 @@ async function handleTemplatesVercel(req, res, auth) {
   }
 
   if (req.method === 'PATCH' && templateId) {
-    const ct = String(req.headers['content-type'] || '');
-    let body = {};
-    let formData = null;
-    if (ct.includes('multipart/form-data')) {
-      formData = await incomingToFormData(req);
-      body = {
-        name: formData.get('name') ?? undefined,
-        description: formData.get('description') ?? undefined,
-        plan_names: formData.get('plan_names') ?? undefined,
-        is_default: formData.get('is_default') ?? undefined,
-        active: formData.get('active') ?? undefined,
-      };
-    } else {
-      body = await readJsonBody(req);
-    }
-    return responseToVercel(
-      res,
-      await handlePatchContractTemplate(templateId, body, auth, formData)
-    );
+    const body = await readJsonBody(req);
+    return responseToVercel(res, await handlePatchContractTemplate(templateId, body, auth));
   }
 
   if (req.method === 'DELETE' && templateId) {

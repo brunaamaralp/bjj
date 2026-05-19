@@ -24,12 +24,12 @@ Na coleção **contracts**, atributos opcionais:
 - `signers_links` (String, até 2048) — JSON com `[{ name, email, public_id, short_link }]` para copiar links de assinatura no drawer
 - `template_id` (String) — referência ao modelo usado na criação (se houver)
 
-## Modelos de contrato (Fase 1)
+## Modelos de contrato (editor HTML)
 
-- **UI:** `/contratos/modelos` (somente owner) — upload de PDF estático por academia
-- **API:** `GET/POST/PATCH/DELETE /api/contract-templates` (mesma function `api/contracts.js`, rota `?route=templates`)
-- **Criação de contrato:** no modal, escolher modelo **ou** enviar PDF; o servidor baixa o PDF do Storage quando `template_id` é enviado
-- **Vínculo com planos:** em Financeiro → Configurações → Planos, campo **Modelo de contrato** (salvo em `financeConfig.plans[].contractTemplateId`); nomes de plano também podem ser listados no modelo (`plan_names`)
+- **UI:** `/contratos/modelos` (somente owner) — CRUD com editor HTML e variáveis (`{{nome_aluno}}`, `{{plano}}`, etc.)
+- **API:** `GET/POST/PATCH/DELETE /api/contract-templates` (JSON com `body_html`)
+- **Criação de contrato:** apenas seleção de modelo; o servidor mescla variáveis do aluno e gera o PDF para a Autentique
+- **Vínculo com planos:** Financeiro → Configurações → Planos → **Modelo de contrato**
 
 ## Checklist de produção — webhook
 

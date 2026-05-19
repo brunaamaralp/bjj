@@ -38,8 +38,7 @@ export function useCreateContract() {
     mutationFn: (input: {
       name: string;
       signers: SignerInput[];
-      file?: File;
-      templateId?: string;
+      templateId: string;
       sandbox: boolean;
       leadId?: string;
     }) => createContractRequest(input),

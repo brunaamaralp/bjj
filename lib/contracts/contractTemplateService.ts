@@ -29,13 +29,7 @@ function requireDb(): Databases {
 }
 
 export function isContractTemplatesConfigured(): boolean {
-  return Boolean(
-    PROJECT_ID &&
-      API_KEY &&
-      DB_ID &&
-      TEMPLATES_COL() &&
-      isContractTemplateStorageConfigured()
-  );
+  return Boolean(PROJECT_ID && API_KEY && DB_ID && TEMPLATES_COL());
 }
 
 function docPerms() {
@@ -52,6 +46,7 @@ export interface ContractTemplateRecord {
   name: string;
   description: string | null;
   kind: string;
+  bodyHtml: string | null;
   storageFileId: string | null;
   fileUrl: string | null;
   planNames: string[];
@@ -78,7 +73,8 @@ function mapTemplateDoc(doc: Models.Document | null): ContractTemplateRecord | n
     academyId: String(doc.academy_id || ''),
     name: String(doc.name || ''),
     description: doc.description ? String(doc.description) : null,
-    kind: String(doc.kind || 'pdf_static'),
+    kind: String(doc.kind || 'html_editor'),
+    bodyHtml: doc.body_html ? String(doc.body_html) : null,
     storageFileId: doc.storage_file_id ? String(doc.storage_file_id) : null,
     fileUrl: doc.file_url ? String(doc.file_url) : null,
     planNames: parsePlanNames(doc.plan_names),
@@ -137,13 +133,27 @@ export async function getContractTemplateById(
 
 export async function getContractTemplatePdfBuffer(
   templateId: string,
-  academyId: string
+  academyId: string,
+  variableMap?: import('./contractVariables.js').ContractVariableMap
 ): Promise<{ buffer: Buffer; template: ContractTemplateRecord }> {
   const template = await getContractTemplateById(templateId, academyId);
   if (!template) throw new Error('contract_template_not_found');
   if (!template.active) throw new Error('contract_template_inactive');
-  if (!template.storageFileId) throw new Error('contract_template_file_missing');
 
+  const { mergeContractTemplateHtml } = await import('./contractVariables.js');
+  const { htmlToPdfBuffer } = await import('./htmlToPdf.js');
+
+  if (template.bodyHtml?.trim() || template.kind === 'html_editor') {
+    const html = mergeContractTemplateHtml(
+      template.bodyHtml || '',
+      variableMap || { data_hoje: new Date().toLocaleDateString('pt-BR') }
+    );
+    const buffer = await htmlToPdfBuffer(html);
+    if (!buffer.length) throw new Error('contract_template_render_empty');
+    return { buffer, template };
+  }
+
+  if (!template.storageFileId) throw new Error('contract_template_content_missing');
   const buffer = await downloadTemplatePdf(template.storageFileId);
   if (!buffer.length) throw new Error('contract_template_file_empty');
   return { buffer, template };
@@ -179,11 +189,11 @@ export async function createContractTemplate(input: {
   description?: string;
   plan_names?: string[];
   is_default?: boolean;
-  file: Buffer;
-  filename?: string;
+  body_html: string;
 }): Promise<ContractTemplateRecord> {
   const databases = requireDb();
-  const { fileId, viewUrl } = await uploadTemplatePdf(input.file, input.filename || 'template.pdf');
+  const body = String(input.body_html || '').trim();
+  if (!body) throw new Error('contract_template_body_required');
 
   if (input.is_default) await clearOtherDefaults(input.academy_id);
 
@@ -191,9 +201,8 @@ export async function createContractTemplate(input: {
     academy_id: String(input.academy_id),
     name: String(input.name || '').trim(),
     description: input.description ? String(input.description).slice(0, 500) : '',
-    kind: 'pdf_static',
-    storage_file_id: fileId,
-    file_url: viewUrl,
+    kind: 'html_editor',
+    body_html: body.slice(0, 28000),
     plan_names: JSON.stringify(input.plan_names || []),
     is_default: Boolean(input.is_default),
     active: true,
@@ -220,6 +229,7 @@ export async function updateContractTemplate(
     plan_names?: string[];
     is_default?: boolean;
     active?: boolean;
+    body_html?: string;
   }
 ): Promise<ContractTemplateRecord | null> {
   const databases = requireDb();
@@ -234,6 +244,10 @@ export async function updateContractTemplate(
   if (patch.plan_names !== undefined) data.plan_names = JSON.stringify(patch.plan_names);
   if (patch.is_default !== undefined) data.is_default = Boolean(patch.is_default);
   if (patch.active !== undefined) data.active = Boolean(patch.active);
+  if (patch.body_html !== undefined) {
+    data.body_html = String(patch.body_html).slice(0, 28000);
+    data.kind = 'html_editor';
+  }
 
   const doc = await databases.updateDocument(DB_ID, TEMPLATES_COL(), id, data);
   return mapTemplateDoc(doc);

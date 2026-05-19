@@ -278,6 +278,33 @@
   gap: 8px;
 }
 
+.contract-template-editor-vars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.contract-template-editor-textarea {
+  min-height: 280px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.contract-template-preview-body {
+  font-size: 14px;
+  line-height: 1.6;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.contract-template-preview-body h1 {
+  font-size: 1.25rem;
+  margin: 0 0 12px;
+}
+
 .contracts-upload-zone {
   border: 2px dashed var(--border, #d4d0e4);
   border-radius: 12px;

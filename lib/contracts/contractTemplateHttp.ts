@@ -6,47 +6,32 @@ import {
   getContractTemplateById,
   isContractTemplatesConfigured,
   listContractTemplates,
-  replaceContractTemplateFile,
   updateContractTemplate,
 } from './contractTemplateService.js';
-import { MAX_CONTRACT_PDF_BYTES, ContractFormError } from './parseContractForm.js';
 
-function parsePlanNamesField(raw: FormDataEntryValue | null | string[] | undefined): string[] {
+function parsePlanNamesField(raw: unknown): string[] {
   if (raw == null) return [];
-  const s = Array.isArray(raw) ? raw.join(',') : String(raw);
-  const trimmed = s.trim();
-  if (!trimmed) return [];
-  if (trimmed.startsWith('[')) {
+  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
+  const s = String(raw).trim();
+  if (!s) return [];
+  if (s.startsWith('[')) {
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed = JSON.parse(s);
       return Array.isArray(parsed) ? parsed.map((x) => String(x).trim()).filter(Boolean) : [];
     } catch {
       return [];
     }
   }
-  return trimmed
+  return s
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean);
 }
 
-function parseBoolField(raw: FormDataEntryValue | null | unknown): boolean {
+function parseBoolField(raw: unknown): boolean {
   if (raw == null) return false;
   const s = String(raw).trim().toLowerCase();
   return s === 'true' || s === '1' || s === 'yes';
-}
-
-async function fileEntryToBuffer(entry: FormDataEntryValue | null): Promise<Buffer> {
-  if (!entry || typeof entry === 'string') {
-    throw new ContractFormError('file (PDF) é obrigatório');
-  }
-  const arrayBuffer = await (entry as File | Blob).arrayBuffer();
-  const buf = Buffer.from(arrayBuffer);
-  if (!buf.length) throw new ContractFormError('file está vazio');
-  if (buf.length > MAX_CONTRACT_PDF_BYTES) {
-    throw new ContractFormError('PDF muito grande. Tamanho máximo: 10 MB.');
-  }
-  return buf;
 }
 
 function requireOwner(auth: ContractAuthContext): Response | null {
@@ -84,7 +69,7 @@ export async function handleGetContractTemplates(
 }
 
 export async function handlePostContractTemplate(
-  formData: FormData,
+  body: Record<string, unknown>,
   auth: ContractAuthContext
 ): Promise<Response> {
   const denied = requireOwner(auth);
@@ -95,33 +80,23 @@ export async function handlePostContractTemplate(
   }
 
   try {
-    const name = String(formData.get('name') || '').trim();
+    const name = String(body.name || '').trim();
     if (!name) return jsonResponse({ ok: false, error: 'name_required' }, 400);
 
-    const description = String(formData.get('description') || '').trim();
-    const plan_names = parsePlanNamesField(formData.get('plan_names'));
-    const is_default = parseBoolField(formData.get('is_default'));
-    const file = await fileEntryToBuffer(formData.get('file'));
-    const filename =
-      formData.get('filename') != null
-        ? String(formData.get('filename'))
-        : 'template.pdf';
+    const body_html = String(body.body_html || body.bodyHtml || '').trim();
+    if (!body_html) return jsonResponse({ ok: false, error: 'body_html_required' }, 400);
 
     const template = await createContractTemplate({
       academy_id: auth.academyId,
       name,
-      description: description || undefined,
-      plan_names,
-      is_default,
-      file,
-      filename,
+      description: String(body.description || '').trim() || undefined,
+      plan_names: parsePlanNamesField(body.plan_names ?? body.planNames),
+      is_default: parseBoolField(body.is_default ?? body.isDefault),
+      body_html,
     });
 
     return jsonResponse({ ok: true, template });
   } catch (err) {
-    if (err instanceof ContractFormError) {
-      return jsonResponse({ ok: false, error: err.message }, err.statusCode);
-    }
     console.error('[contract-templates POST]', err);
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
@@ -131,8 +106,7 @@ export async function handlePostContractTemplate(
 export async function handlePatchContractTemplate(
   id: string,
   body: Record<string, unknown>,
-  auth: ContractAuthContext,
-  formData?: FormData | null
+  auth: ContractAuthContext
 ): Promise<Response> {
   const denied = requireOwner(auth);
   if (denied) return denied;
@@ -148,33 +122,26 @@ export async function handlePatchContractTemplate(
       plan_names?: string[];
       is_default?: boolean;
       active?: boolean;
+      body_html?: string;
     } = {};
 
     if (body.name !== undefined) patch.name = String(body.name);
     if (body.description !== undefined) patch.description = String(body.description);
-    if (body.plan_names !== undefined) {
-      patch.plan_names = Array.isArray(body.plan_names)
-        ? body.plan_names.map((x) => String(x).trim()).filter(Boolean)
-        : parsePlanNamesField(String(body.plan_names));
+    if (body.plan_names !== undefined || body.planNames !== undefined) {
+      patch.plan_names = parsePlanNamesField(body.plan_names ?? body.planNames);
     }
-    if (body.is_default !== undefined) patch.is_default = parseBoolField(body.is_default as FormDataEntryValue);
-    if (body.active !== undefined) patch.active = parseBoolField(body.active as FormDataEntryValue);
-
-    let template = await updateContractTemplate(id, auth.academyId, patch);
-
-    if (formData?.get('file')) {
-      const file = await fileEntryToBuffer(formData.get('file'));
-      const filename =
-        formData.get('filename') != null ? String(formData.get('filename')) : 'template.pdf';
-      template = await replaceContractTemplateFile(id, auth.academyId, file, filename);
+    if (body.is_default !== undefined || body.isDefault !== undefined) {
+      patch.is_default = parseBoolField(body.is_default ?? body.isDefault);
+    }
+    if (body.active !== undefined) patch.active = parseBoolField(body.active);
+    if (body.body_html !== undefined || body.bodyHtml !== undefined) {
+      patch.body_html = String(body.body_html ?? body.bodyHtml ?? '');
     }
 
+    const template = await updateContractTemplate(id, auth.academyId, patch);
     if (!template) return jsonResponse({ ok: false, error: 'not_found' }, 404);
     return jsonResponse({ ok: true, template });
   } catch (err) {
-    if (err instanceof ContractFormError) {
-      return jsonResponse({ ok: false, error: err.message }, err.statusCode);
-    }
     console.error('[contract-templates PATCH]', err);
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
