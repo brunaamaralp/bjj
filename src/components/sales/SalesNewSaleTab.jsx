@@ -20,7 +20,9 @@ import {
   paymentsUiValid,
   buildFormaPagamentoResumo,
   rebalancePaymentsForTotal,
+  normalizePaymentForma,
 } from '../../lib/salePayments';
+import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 
 export default function SalesNewSaleTab() {
   const { createSale, creating, lastSale, error } = useSalesStore();
@@ -68,6 +70,49 @@ export default function SalesNewSaleTab() {
   }, []);
 
   const round2 = (n) => Math.round(Number(n) * 100) / 100;
+
+  useEffect(() => {
+    const onNlPrefill = (ev) => {
+      const d = ev?.detail || {};
+      setLocalError('');
+      setReceipt(null);
+      setAlunoId(String(d.aluno_id || '').trim());
+      setAlunoNomeSel(String(d.aluno_nome || '').trim());
+      setAlunoSearchText(String(d.aluno_nome || d.customer_name || '').trim());
+      setClienteNome(d.aluno_id ? '' : String(d.customer_name || '').trim());
+      setClienteTelefone(String(d.customer_phone || '').trim());
+
+      const product = (products || []).find((p) => String(p.id) === String(d.stock_item_id || '').trim());
+      const qty = Math.max(1, Math.trunc(Number(d.quantity) || 1));
+      const unit = Number(d.unit_price);
+      if (product && Number.isFinite(unit) && unit > 0) {
+        setCart([
+          {
+            item_estoque_id: product.id,
+            display_label: product.display_label,
+            variacao: product.Tamanho || '',
+            quantidade: qty,
+            preco_unitario: unit,
+            sale_price: product.sale_price,
+            cost_price: product.cost_price,
+            disponivel: product.current_quantity,
+          },
+        ]);
+        const totalCents = Math.round(unit * qty * 100);
+        const forma = normalizePaymentForma(d.payment_form || 'pix');
+        setPayments([
+          {
+            ...createEmptyPaymentRow(totalCents),
+            forma,
+            recebidoCents: forma === 'dinheiro' ? totalCents : totalCents,
+          },
+        ]);
+        setMobilePanel('catalog');
+      }
+    };
+    window.addEventListener(NL_SALE_PREFILL_EVENT, onNlPrefill);
+    return () => window.removeEventListener(NL_SALE_PREFILL_EVENT, onNlPrefill);
+  }, [products]);
 
   useEffect(() => {
     if (!academyId || !ACADEMIES_COL || !DB_ID) return;

@@ -2,6 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useNlAction } from '../hooks/useNlAction';
 import { useTerms } from '../lib/terminology.js';
+import {
+  buildPaymentPrefillFromParsed,
+  buildSalePrefillFromParsed,
+  dispatchNlPaymentPrefill,
+  dispatchNlSalePrefill,
+} from '../lib/nlCorrect.js';
+import { paymentFormLabel } from '../lib/salePayments.js';
 
 function formatRefMonth(ym) {
   if (!ym) return '—';
@@ -12,6 +19,29 @@ function formatRefMonth(ym) {
   } catch {
     return ym;
   }
+}
+
+function formatBrl(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  try {
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  } catch {
+    return `R$ ${n.toFixed(2)}`.replace('.', ',');
+  }
+}
+
+const PAYMENT_METHOD_LABELS = {
+  pix: 'PIX',
+  dinheiro: 'Dinheiro',
+  cartão_débito: 'Cartão débito',
+  cartão_crédito: 'Cartão crédito',
+  transferência: 'Transferência',
+};
+
+function formatNlPaymentMethod(method) {
+  const k = String(method || '').trim().toLowerCase();
+  return PAYMENT_METHOD_LABELS[k] || (k ? k : '—');
 }
 
 export function NlCommandBarTrigger({ onClick }) {
@@ -53,7 +83,7 @@ export function NlCommandBarTrigger({ onClick }) {
 }
 
 /**
- * @param {{ open: boolean, onOpenChange: (open: boolean) => void, academyName?: string, context?: 'financeiro'|'funil'|'perfil', pipelineStages?: { id: string, label?: string }[], pendingTransactions?: object[], recentPayments?: object[] }} props
+ * @param {{ open: boolean, onOpenChange: (open: boolean) => void, academyName?: string, context?: 'financeiro'|'funil'|'perfil'|'vendas', pipelineStages?: { id: string, label?: string }[], pendingTransactions?: object[], recentPayments?: object[], onCorrect?: (parsed: object) => void }} props
  */
 export default function NlCommandBar({
   open,
@@ -62,7 +92,8 @@ export default function NlCommandBar({
   context = 'financeiro',
   pipelineStages = [],
   pendingTransactions = [],
-  recentPayments = []
+  recentPayments = [],
+  onCorrect,
 }) {
   const [state, setState] = useState('idle');
   const [text, setText] = useState('');
@@ -138,7 +169,18 @@ export default function NlCommandBar({
     setState('executing');
     setErrorMsg('');
     try {
-      await execute(parsed);
+      const result = await execute(parsed);
+      let successSummary = parsed.summary || '';
+      if (parsed.action === 'register_payment') {
+        const name = parsed.data?.student_name || 'Aluno';
+        const ref = formatRefMonth(parsed.data?.reference_month);
+        successSummary = `Pagamento de ${ref} registrado para ${name} ✓`;
+      }
+      if (parsed.action === 'register_sale' && result?.receipt_summary) {
+        const r = result.receipt_summary;
+        successSummary = `Venda registrada: ${r.product} · ${formatBrl(r.total)} · ${paymentFormLabel(r.payment_form)}`;
+      }
+      setParsed((prev) => (prev ? { ...prev, summary: successSummary } : prev));
       setState('success');
       setTimeout(() => onOpenChange(false), 2500);
     } catch (err) {
@@ -146,6 +188,20 @@ export default function NlCommandBar({
       setState('error');
     }
   }, [parsed, execute, onOpenChange]);
+
+  const handleCorrect = useCallback(() => {
+    if (!parsed?.action) return;
+    if (parsed.action === 'register_sale') {
+      const detail = buildSalePrefillFromParsed(parsed);
+      if (onCorrect) onCorrect(parsed, detail);
+      else dispatchNlSalePrefill(detail);
+    } else if (parsed.action === 'register_payment') {
+      const detail = buildPaymentPrefillFromParsed(parsed);
+      if (onCorrect) onCorrect(parsed, detail);
+      else dispatchNlPaymentPrefill(detail);
+    }
+    onOpenChange(false);
+  }, [parsed, onCorrect, onOpenChange]);
 
   const inputDisabled = state === 'loading' || state === 'executing' || state === 'success';
   const missingBlock = Array.isArray(parsed?.missing) && parsed.missing.length > 0;
@@ -155,6 +211,7 @@ export default function NlCommandBar({
     !missingBlock &&
     (
       parsed.action === 'register_payment' ||
+      parsed.action === 'register_sale' ||
       parsed.action === 'register_expense' ||
       parsed.action === 'add_note' ||
       parsed.action === 'mark_attended' ||
@@ -344,36 +401,84 @@ export default function NlCommandBar({
                   Faltam: {parsed.missing.join(', ')}
                 </div>
               ) : null}
+              {Array.isArray(parsed.warnings) && parsed.warnings.length > 0 ? (
+                <div style={{ marginBottom: 12 }}>
+                  {parsed.warnings.map((w) => (
+                    <div
+                      key={String(w).slice(0, 64)}
+                      style={{
+                        marginBottom: 6,
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: '#fff8e6',
+                        color: '#8a6b1a',
+                        fontSize: 12,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      ⚠ {w}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div style={{ background: '#EEEDFE', borderRadius: 10, padding: 16 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#5B3FBF', letterSpacing: '0.08em', marginBottom: 8 }}>
-                  ✦ AÇÃO IDENTIFICADA
+                  ✦ CONFIRMAR
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>{parsed.summary}</div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                   {parsed.action === 'register_payment' ? (
                     <>
                       <li>
-                        <strong style={{ color: 'var(--text)' }}>Aluno(a):</strong>{' '}
+                        <strong style={{ color: 'var(--text)' }}>Aluno:</strong>{' '}
                         {parsed.data?.student_name || '—'}
                       </li>
                       <li>
-                        <strong style={{ color: 'var(--text)' }}>Mês:</strong> {formatRefMonth(parsed.data?.reference_month)}
+                        <strong style={{ color: 'var(--text)' }}>Referência:</strong>{' '}
+                        {formatRefMonth(parsed.data?.reference_month)}
                       </li>
                       <li>
                         <strong style={{ color: 'var(--text)' }}>Valor:</strong>{' '}
-                        {parsed.data?.amount != null && parsed.data?.amount !== '' ? (
-                          String(parsed.data.amount)
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>Não mencionado · usar valor habitual</span>
+                        {parsed.data?.amount != null && parsed.data?.amount !== ''
+                          ? formatBrl(parsed.data.amount)
+                          : parsed.data?.expected_amount
+                            ? formatBrl(parsed.data.expected_amount)
+                            : '—'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Pagamento:</strong>{' '}
+                        {parsed.data?.method ? formatNlPaymentMethod(parsed.data.method) : 'PIX (padrão)'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Status:</strong> Pago
+                      </li>
+                    </>
+                  ) : parsed.action === 'register_sale' ? (
+                    <>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Produto:</strong>{' '}
+                        {parsed.data?.product_name || '—'}
+                        {parsed.data?.variation ? ` · ${parsed.data.variation}` : ''}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Aluno:</strong>{' '}
+                        {parsed.data?.student_name ||
+                          parsed.data?.customer_name ||
+                          (parsed.data?.student_id ? '—' : 'Cliente avulso')}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Quantidade:</strong>{' '}
+                        {parsed.data?.quantity != null ? String(parsed.data.quantity) : '1'}
+                      </li>
+                      <li>
+                        <strong style={{ color: 'var(--text)' }}>Valor:</strong>{' '}
+                        {formatBrl(
+                          Number(parsed.data?.unit_price || 0) * Number(parsed.data?.quantity || 1)
                         )}
                       </li>
                       <li>
-                        <strong style={{ color: 'var(--text)' }}>Método:</strong>{' '}
-                        {parsed.data?.method ? (
-                          String(parsed.data.method)
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>Não mencionado · usar valor habitual</span>
-                        )}
+                        <strong style={{ color: 'var(--text)' }}>Pagamento:</strong>{' '}
+                        {paymentFormLabel(parsed.data?.payment_form || parsed.data?.method || 'pix')}
                       </li>
                     </>
                   ) : parsed.action === 'add_note' ? (
@@ -563,12 +668,12 @@ export default function NlCommandBar({
                   )}
                 </ul>
               </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
                   style={{
-                    flex: 1,
+                    flex: '1 1 90px',
                     padding: '10px 12px',
                     borderRadius: 10,
                     border: '1px solid var(--border)',
@@ -576,17 +681,36 @@ export default function NlCommandBar({
                     fontWeight: 700,
                     cursor: 'pointer',
                     fontFamily: 'inherit',
-                    color: 'var(--text)'
+                    color: 'var(--text)',
                   }}
                 >
                   Cancelar
                 </button>
+                {parsed.action === 'register_sale' || parsed.action === 'register_payment' ? (
+                  <button
+                    type="button"
+                    onClick={handleCorrect}
+                    style={{
+                      flex: '1 1 90px',
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: '1px solid #5B3FBF',
+                      background: 'var(--surface)',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      color: '#5B3FBF',
+                    }}
+                  >
+                    Corrigir
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={!canConfirm}
                   onClick={() => void handleExecute()}
                   style={{
-                    flex: 1,
+                    flex: '1 1 120px',
                     padding: '10px 12px',
                     borderRadius: 10,
                     border: 'none',
@@ -595,10 +719,10 @@ export default function NlCommandBar({
                     fontWeight: 700,
                     cursor: canConfirm ? 'pointer' : 'not-allowed',
                     opacity: canConfirm ? 1 : 0.5,
-                    fontFamily: 'inherit'
+                    fontFamily: 'inherit',
                   }}
                 >
-                  Confirmar e executar
+                  Confirmar
                 </button>
               </div>
             </div>
@@ -679,7 +803,13 @@ export default function NlCommandBar({
             }}
           >
             <span>
-              {context === 'funil' ? 'Funil de Vendas' : context === 'perfil' ? 'Perfil (finanças + funil)' : 'Módulo Financeiro'}
+              {context === 'funil'
+                ? 'Funil de Vendas'
+                : context === 'perfil'
+                  ? 'Perfil (finanças + funil)'
+                  : context === 'vendas'
+                    ? 'Vendas'
+                    : 'Módulo Financeiro'}
               {academyName ? ` · ${academyName}` : ''}
             </span>
             <kbd

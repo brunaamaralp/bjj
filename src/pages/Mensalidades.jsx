@@ -534,25 +534,41 @@ export default function Mensalidades() {
     return sum;
   }, [students, financeConfig, paymentMap]);
 
-  const openPaymentModal = (student) => {
+  const openPaymentModal = (student, preset = {}) => {
+    const refMonth = String(preset.reference_month || currentMonth).trim() || currentMonth;
     const day = studentDueDay(student);
-    const dueDate = dueDateInMonth(currentMonth, day);
+    const dueDate = dueDateInMonth(refMonth, day);
     setSelectedStudent(student);
+    const amountNum = Number(preset.amount);
     setPayForm({
-      reference_month: currentMonth,
-      amount: '',
-      method: student.preferredPaymentMethod || 'pix',
+      reference_month: refMonth,
+      amount:
+        Number.isFinite(amountNum) && amountNum > 0
+          ? maskCurrency(String(Math.round(amountNum * 100)))
+          : '',
+      method: preset.method || student.preferredPaymentMethod || 'pix',
       account: student.preferredPaymentAccount || '',
       status: 'paid',
       paid_at: new Date().toISOString().slice(0, 10),
       due_date: dueDate ? dueDate.toISOString().slice(0, 10) : '',
       due_day: day ? String(day) : '',
-      plan_name: student.plan || '',
-      note: '',
+      plan_name: preset.plan_name || student.plan || '',
+      note: preset.note || '',
       saveAsPreferred: !String(student.preferredPaymentMethod || '').trim(),
     });
     setShowModal(true);
   };
+
+  const handleNlCorrect = useCallback(
+    (_parsed, detail) => {
+      const sid = String(detail?.student_id || '').trim();
+      const student = students.find((s) => String(s.id || '').trim() === sid);
+      if (!student) return;
+      openPaymentModal(student, detail);
+      setNlOpen(false);
+    },
+    [students, currentMonth]
+  );
 
   const handleSavePayment = async () => {
     if (!selectedStudent || !academyId || savingPayment) return;
@@ -1453,7 +1469,13 @@ export default function Mensalidades() {
             document.body
           )
         : null}
-      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} recentPayments={recentPaymentsForNl} />
+      <NlCommandBar
+        open={nlOpen}
+        onOpenChange={setNlOpen}
+        academyName={academyName}
+        recentPayments={recentPaymentsForNl}
+        onCorrect={handleNlCorrect}
+      />
     </div>
   );
 }

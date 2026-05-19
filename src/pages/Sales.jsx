@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
+import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { useLeadStore } from '../store/useLeadStore';
 
 const Sales = () => {
   const [searchParams] = useSearchParams();
+  const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const [nlOpen, setNlOpen] = useState(false);
+  const academyName = useMemo(() => {
+    const cur = (academyList || []).find((a) => a.id === academyId);
+    return String(cur?.name || '').trim();
+  }, [academyList, academyId]);
   const [tab, setTab] = useState(() => {
     const t = searchParams.get('tab');
     return t === 'history' || t === 'historico' ? 'history' : 'new';
@@ -22,6 +31,9 @@ const Sales = () => {
         <p className="navi-eyebrow" style={{ marginTop: 6 }}>
           {tab === 'new' ? 'Catálogo, carrinho e comprovante' : 'Histórico e cancelamentos'}
         </p>
+        <div className="page-header-card" style={{ marginTop: 12 }}>
+          <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+        </div>
       </div>
 
       <div className="sales-page-tabs mt-4" role="tablist" aria-label="Vendas">
@@ -46,6 +58,12 @@ const Sales = () => {
       </div>
 
       {tab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab onSwitchTab={setTab} />}
+      <NlCommandBar
+        open={nlOpen}
+        onOpenChange={setNlOpen}
+        academyName={academyName}
+        context="vendas"
+      />
     </div>
   );
 };

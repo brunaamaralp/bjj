@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
+import { useSalesStore } from '../store/useSalesStore';
 import { account, createSessionJwt } from '../lib/appwrite';
 import { createPayment, updatePayment } from '../lib/studentPayments';
+import { useSalesCatalog } from './useSalesCatalog';
+import { catalogProductsForNl } from '../../lib/nlStockMatch.js';
+import { normalizePaymentForma } from '../lib/salePayments';
 import { createExpenseTransaction } from '../lib/financeExpense';
 import { createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js';
@@ -48,6 +52,29 @@ function normalizePaymentMethod(m) {
   return 'pix';
 }
 
+function mapNlPaymentFormToSale(form) {
+  const raw = String(form || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  const map = {
+    pix: 'pix',
+    dinheiro: 'dinheiro',
+    cartão_débito: 'cartao_debito',
+    cartao_debito: 'cartao_debito',
+    'cartão_débito': 'cartao_debito',
+    cartão_crédito: 'cartao_credito',
+    cartao_credito: 'cartao_credito',
+    'cartão_crédito': 'cartao_credito',
+    transferência: 'transferencia',
+    transferencia: 'transferencia',
+    link_pagbank: 'outro',
+    pagbank: 'outro',
+    outro: 'outro',
+  };
+  return normalizePaymentForma(map[raw] || raw || 'pix');
+}
+
 export function useNlAction() {
   const terms = useTerms();
   const leads = useLeadStore((s) => s.leads);
@@ -55,8 +82,11 @@ export function useNlAction() {
   const userId = useLeadStore((s) => s.userId);
   const academyList = useLeadStore((s) => s.academyList);
   const storeTeamId = useLeadStore((s) => s.teamId);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
   const updateLead = useLeadStore((s) => s.updateLead);
   const addLead = useLeadStore((s) => s.addLead);
+  const createSale = useSalesStore((s) => s.createSale);
+  const { products: stockProducts } = useSalesCatalog(academyId);
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -143,6 +173,17 @@ export function useNlAction() {
           account: String(p.account || '').trim()
         }));
 
+      const stockProductsPayload = catalogProductsForNl(
+        Array.isArray(opts.stockProducts) && opts.stockProducts.length
+          ? opts.stockProducts
+          : stockProducts
+      );
+
+      const financePlansPayload = (financeConfig?.plans || []).map((p) => ({
+        name: String(p?.name || '').trim(),
+        price: Number(p?.price),
+      }));
+
       const jwt = await createSessionJwt();
       if (!jwt) throw new Error('Sessão inválida. Faça login novamente.');
 
@@ -161,7 +202,9 @@ export function useNlAction() {
           context,
           pipelineStages: pipelineStagesPayload,
           pendingTransactions: pendingTransactionsPayload,
-          recentPayments: recentPaymentsPayload
+          recentPayments: recentPaymentsPayload,
+          stockProducts: stockProductsPayload,
+          financePlans: financePlansPayload
         })
       });
 
@@ -172,7 +215,7 @@ export function useNlAction() {
       }
       return data;
     },
-    [leads, academyId, academyName]
+    [leads, academyId, academyName, stockProducts, financeConfig]
   );
 
   const execute = useCallback(
@@ -186,15 +229,24 @@ export function useNlAction() {
         if (!leadId) throw new Error('Aluno não identificado');
         const ym = String(d.reference_month || '').trim();
         if (!ym) throw new Error('Mês de referência ausente');
-        const amountNum = d.amount != null && d.amount !== '' ? Number(d.amount) : 0;
+        const student = (leads || []).find((l) => String(l.id || '').trim() === leadId);
+        let amountNum = d.amount != null && d.amount !== '' ? Number(d.amount) : 0;
+        if (!Number.isFinite(amountNum) || amountNum <= 0) {
+          const expected = Number(d.expected_amount);
+          if (Number.isFinite(expected) && expected > 0) amountNum = expected;
+        }
+        if (!Number.isFinite(amountNum) || amountNum <= 0) {
+          throw new Error('Informe o valor do pagamento ou cadastre o preço do plano.');
+        }
         const method = normalizePaymentMethod(d.method);
+        const planName = String(d.plan_name || student?.plan || '').trim();
         const doc = await createPayment({
           lead_id: leadId,
           academy_id: academyId,
-          amount: Number.isFinite(amountNum) ? amountNum : 0,
+          amount: amountNum,
           method,
           account: '',
-          plan_name: '',
+          plan_name: planName,
           status: 'paid',
           reference_month: ym,
           paid_at: new Date().toISOString(),
@@ -211,6 +263,58 @@ export function useNlAction() {
           );
         }
         return doc;
+      }
+
+      if (parsed.action === 'register_sale') {
+        const d = parsed.data || {};
+        const stockId = String(d.stock_item_id || '').trim();
+        if (!stockId) throw new Error('Produto não identificado');
+        const qty = Math.max(1, Math.trunc(Number(d.quantity) || 1));
+        const unit = Number(d.unit_price);
+        if (!Number.isFinite(unit) || unit <= 0) throw new Error('Preço da venda inválido');
+
+        const forma = mapNlPaymentFormToSale(d.payment_form || d.method);
+        const pagamentos = [
+          {
+            forma,
+            valor: Math.round(unit * qty * 100) / 100,
+          },
+        ];
+
+        const body = await createSale({
+          aluno_id: d.student_id ? String(d.student_id).trim() : null,
+          cliente_nome: d.student_id ? null : String(d.customer_name || d.student_name || '').trim() || null,
+          cliente_telefone: d.customer_phone ? String(d.customer_phone).trim() : null,
+          venda_colaborador: false,
+          itens: [
+            {
+              item_estoque_id: stockId,
+              quantidade: qty,
+              preco_unitario: unit,
+            },
+          ],
+          pagamentos,
+        });
+
+        if (!body) {
+          const err = useSalesStore.getState().error;
+          throw new Error(err || 'Não foi possível registrar a venda.');
+        }
+
+        return {
+          ...body,
+          receipt_summary: {
+            product: d.product_name,
+            quantity: qty,
+            unit_price: unit,
+            total: Math.round(unit * qty * 100) / 100,
+            payment_form: forma,
+            client:
+              d.student_name ||
+              d.customer_name ||
+              (d.student_id ? 'Aluno cadastrado' : 'Cliente avulso'),
+          },
+        };
       }
 
       if (parsed.action === 'add_note') {
@@ -554,7 +658,7 @@ export function useNlAction() {
 
       throw new Error('Ação não suportada');
     },
-    [academyId, userId, sessionUserName, permissionContext, updateLead, leads, addLead, terms.nlPipelineMoveForbiddenHint]
+    [academyId, userId, sessionUserName, permissionContext, updateLead, leads, addLead, createSale, terms.nlPipelineMoveForbiddenHint]
   );
 
   return { interpret, execute, academyName };

@@ -32,6 +32,8 @@ import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 import { useTerms, contactLabelSingular, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { NL_PAYMENT_PREFILL_EVENT } from '../lib/nlCorrect.js';
+import { formatBRLFromCents } from '../lib/moneyBr';
 import { DateInput } from '../components/DateInput';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import { formatCollectionResultLabel } from '../lib/collectionRules.js';
@@ -386,6 +388,31 @@ export default function StudentProfile() {
         setViewportStacked(mq.matches);
         return () => mq.removeEventListener('change', onChange);
     }, []);
+
+    useEffect(() => {
+        const onNlPaymentPrefill = (ev) => {
+            const d = ev?.detail || {};
+            if (!student || String(d.student_id || '').trim() !== String(student.id || '').trim()) return;
+            const base = buildDefaultPayForm(student);
+            const amountNum = Number(d.amount);
+            setPayForm({
+                ...base,
+                reference_month: String(d.reference_month || base.reference_month).trim() || base.reference_month,
+                amount:
+                    Number.isFinite(amountNum) && amountNum > 0
+                        ? formatBRLFromCents(Math.round(amountNum * 100))
+                        : base.amount,
+                method: d.method || base.method,
+                plan_name: d.plan_name || base.plan_name,
+                note: d.note || '',
+                status: 'paid',
+            });
+            setShowPaymentModal(true);
+            setNlOpen(false);
+        };
+        window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
+        return () => window.removeEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
+    }, [student]);
 
     useEffect(() => {
         if (!student) return;

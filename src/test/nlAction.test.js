@@ -5,6 +5,7 @@ const nlMocks = vi.hoisted(() => ({
   createSessionJwt: vi.fn(),
   accountGet: vi.fn(),
   createPayment: vi.fn(),
+  createSale: vi.fn(),
   addLeadEvent: vi.fn(),
   updateLead: vi.fn(),
   addLead: vi.fn(),
@@ -63,6 +64,18 @@ vi.mock('../lib/leadTimelineEvents.js', () => ({
   emitLeadsRefresh: vi.fn()
 }));
 
+vi.mock('../store/useSalesStore.js', () => ({
+  useSalesStore: (selector) =>
+    selector({
+      createSale: nlMocks.createSale,
+      error: null,
+    }),
+}));
+
+vi.mock('../hooks/useSalesCatalog.js', () => ({
+  useSalesCatalog: () => ({ products: [], loading: false, reload: vi.fn() }),
+}));
+
 vi.mock('../../lib/server/academyAccess.js', () => ({
   ensureAuth: nlMocks.ensureAuth,
   ensureAcademyAccess: nlMocks.ensureAcademyAccess
@@ -92,6 +105,7 @@ describe('Assistente de linguagem natural', () => {
     nlMocks.createSessionJwt.mockResolvedValue('jwt-1');
     nlMocks.accountGet.mockResolvedValue({ name: 'Usuário' });
     nlMocks.createPayment.mockResolvedValue({ $id: 'pay-1' });
+    nlMocks.createSale.mockResolvedValue({ venda_id: 'sale-1' });
     nlMocks.addLeadEvent.mockResolvedValue({ $id: 'evt-1' });
     nlMocks.useLeadState.leads = [
       { id: 's1', name: 'Aluno 1', status: 'CONVERTED', contact_type: 'student', plan: 'Mensal' },
@@ -179,6 +193,28 @@ describe('Assistente de linguagem natural', () => {
         data: { student_id: 's1', reference_month: '2026-05', amount: 150, method: 'pix' }
       });
       expect(nlMocks.createPayment).toHaveBeenCalledWith(expect.objectContaining({ status: 'paid' }));
+    });
+
+    it('register_sale chama createSale com itens e pagamentos', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'register_sale',
+        data: {
+          student_id: 's1',
+          student_name: 'Aluno 1',
+          stock_item_id: 'stock-1',
+          product_name: 'Kimono',
+          quantity: 1,
+          unit_price: 50,
+          payment_form: 'pix',
+        },
+      });
+      expect(nlMocks.createSale).toHaveBeenCalledWith(
+        expect.objectContaining({
+          aluno_id: 's1',
+          itens: [{ item_estoque_id: 'stock-1', quantidade: 1, preco_unitario: 50 }],
+        })
+      );
     });
 
     it('lança erro para action não suportada', async () => {
