@@ -6,6 +6,74 @@ export const FINANCE_PAGE_CSS = `
           .finance-tab { border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); font-family: inherit; transition: background 0.15s ease, color 0.15s ease; }
           .finance-tab--active { background: #5B3FBF; color: #fff; }
           .finance-tx-toolbar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+          .finance-tx-totals {
+            display: grid;
+            gap: 6px;
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            background: var(--surface-hover);
+            border: 0.5px solid var(--border-light);
+          }
+          .finance-tx-totals__row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+          }
+          .finance-tx-totals__row strong {
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+          }
+          .navi-mobile-list { display: none; flex-direction: column; }
+          .navi-mobile-card {
+            border-bottom: 0.5px solid var(--border-light);
+            background: var(--surface);
+          }
+          .navi-mobile-card:last-child { border-bottom: none; }
+          .navi-mobile-card__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: flex-end;
+          }
+          .finance-mobile-list { border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); overflow: hidden; }
+          .finance-mobile-card { padding: 12px 14px; }
+          .finance-mobile-card__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 6px;
+          }
+          .finance-mobile-card__date { font-size: 13px; color: var(--text-secondary); }
+          .finance-mobile-card__amount { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+          .finance-mobile-card__name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+          .finance-mobile-card__meta { margin-bottom: 8px; }
+          .finance-mobile-card__actions { margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--border-light); }
+          .finance-tx-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+          }
+          .finance-tx-badge--plan {
+            background: color-mix(in srgb, var(--v500) 14%, transparent);
+            color: var(--v700);
+          }
+          .finance-tx-badge--product {
+            background: var(--surface-hover);
+            color: var(--text-secondary);
+          }
+          @media (max-width: 767px) {
+            .finance-desktop-table-wrap { display: none !important; }
+            .finance-mobile-list { display: flex; }
+          }
           .finance-table-wrap { width: 100%; overflow-x: auto; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
           .finance-table { width: 100%; border-collapse: collapse; font-size: 13px; }
           .finance-table thead th { text-align: left; padding: 10px 12px; background: var(--surface-hover); border-bottom: 1px solid var(--border-light); font-weight: 600; color: var(--mid); white-space: nowrap; }

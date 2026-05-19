@@ -1,10 +1,12 @@
 /** Backlog: filtros (turma/plano); virtualização para listas muito longas. */
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, ChevronRight, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
+import { Search, MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
+
+const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
 import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
 import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
@@ -69,6 +71,13 @@ const Students = () => {
     const [creatingStudent, setCreatingStudent] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [showInactive, setShowInactive] = useState(false);
+    const [filtersExpanded, setFiltersExpanded] = useState(() => {
+        try {
+            return sessionStorage.getItem(STUDENTS_FILTERS_EXPANDED_KEY) === '1';
+        } catch {
+            return false;
+        }
+    });
     const [newStudent, setNewStudent] = useState({
         name: '',
         phone: '',
@@ -147,6 +156,23 @@ const Students = () => {
         filtroTurma !== 'Todas' ||
         ordenacao !== 'az' ||
         showInactive;
+
+    const collapsibleFilterCount = useMemo(() => {
+        let n = 0;
+        if (filtroTipo !== 'Todos') n += 1;
+        if (filtroOrigem !== 'Todas') n += 1;
+        if (filtroTurma !== 'Todas') n += 1;
+        if (ordenacao !== 'az') n += 1;
+        return n;
+    }, [filtroTipo, filtroOrigem, filtroTurma, ordenacao]);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(STUDENTS_FILTERS_EXPANDED_KEY, filtersExpanded ? '1' : '0');
+        } catch {
+            /* ignore */
+        }
+    }, [filtersExpanded]);
 
     const studentPlural = terms.students;
     const studentSingular = terms.student;
@@ -431,9 +457,9 @@ const Students = () => {
                         : ''}
                     {leadsHasMore ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)` : ''}
                 </p>
-                <div className="page-header-card">
-                    <div className="page-header-row">
-                        <div className="page-header-search">
+                <div className="page-header-card students-page-header">
+                    <div className="page-header-row students-header-row-search">
+                        <div className="page-header-search students-header-search">
                             <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                             <input
                                 type="text"
@@ -442,7 +468,7 @@ const Students = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div style={{ flex: 1 }} />
+                        <div className="students-header-actions">
                         <button
                             type="button"
                             className="btn-action-ghost"
@@ -468,8 +494,94 @@ const Students = () => {
                         <button type="button" className="btn-action-primary" onClick={() => setShowImport(true)}>
                             <Upload size={14} /> Importar
                         </button>
+                        </div>
                     </div>
-                    <div className="page-header-row">
+                    <div className="students-mobile-filter-bar">
+                        <button
+                            type="button"
+                            className="students-filters-toggle"
+                            onClick={() => setFiltersExpanded((v) => !v)}
+                            aria-expanded={filtersExpanded}
+                        >
+                            Filtros
+                            {collapsibleFilterCount > 0
+                                ? ` (${collapsibleFilterCount} ativo${collapsibleFilterCount > 1 ? 's' : ''})`
+                                : ''}
+                            <ChevronDown
+                                size={14}
+                                className={`students-filters-toggle__chev${filtersExpanded ? ' students-filters-toggle__chev--open' : ''}`}
+                                aria-hidden
+                            />
+                        </button>
+                        {filtrosAtivos ? (
+                            <button type="button" className="students-filters-clear-mobile" onClick={limparFiltros}>
+                                Limpar
+                            </button>
+                        ) : null}
+                    </div>
+                    <div className={`students-mobile-filters-panel${filtersExpanded ? ' is-open' : ''}`}>
+                        <div className="students-mobile-filters-chips">
+                            <span
+                                className={`date-chip${!showInactive ? ' active' : ''}`}
+                                onClick={() => setShowInactive(false)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setShowInactive(false);
+                                    }
+                                }}
+                            >
+                                Ativos
+                            </span>
+                            <span
+                                className={`date-chip${showInactive ? ' active' : ''}`}
+                                onClick={() => setShowInactive(true)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setShowInactive(true);
+                                    }
+                                }}
+                            >
+                                Inativos
+                            </span>
+                        </div>
+                        <div className="filter-group students-mobile-filter-group">
+                            <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+                                <option value="Todos">Todos os perfis</option>
+                                <option value="Adulto">Adulto</option>
+                                <option value="Criança">Criança</option>
+                                <option value="Juniores">Juniores</option>
+                            </select>
+                            <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
+                                <option value="Todas">Todas as origens</option>
+                                {LEAD_ORIGIN.map((o) => (
+                                    <option key={o} value={o}>{o}</option>
+                                ))}
+                            </select>
+                            <select value={filtroTurma} onChange={(e) => setFiltroTurma(e.target.value)}>
+                                <option value="Todas">Todas as turmas</option>
+                                <option value="Sem turma">Sem turma</option>
+                                {turmasConfig.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <select
+                            className="students-mobile-sort"
+                            value={ordenacao}
+                            onChange={(e) => setOrdenacao(e.target.value)}
+                        >
+                            <option value="az">Nome A-Z</option>
+                            <option value="za">Nome Z-A</option>
+                            <option value="recentes">Mais recente</option>
+                        </select>
+                    </div>
+                    <div className="page-header-row students-header-row-filters">
                         <span
                             className={`date-chip${!showInactive ? ' active' : ''}`}
                             onClick={() => setShowInactive(false)}
@@ -1152,6 +1264,69 @@ const Students = () => {
           display: flex;
           justify-content: flex-end;
           gap: 8px;
+        }
+        .students-mobile-filter-bar,
+        .students-mobile-filters-panel { display: none; }
+        .students-filters-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border-radius: var(--radius-sm);
+          border: 0.5px solid var(--border-light);
+          background: var(--surface);
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .students-filters-toggle__chev { transition: transform 0.2s ease; }
+        .students-filters-toggle__chev--open { transform: rotate(180deg); }
+        .students-filters-clear-mobile {
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--accent);
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .students-mobile-filters-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .students-mobile-filter-group { width: 100%; flex-direction: column; align-items: stretch; }
+        .students-mobile-filter-group select { border-right: none; border-bottom: 0.5px solid var(--border-light); width: 100%; }
+        .students-mobile-filter-group select:last-child { border-bottom: none; }
+        .students-mobile-sort {
+          width: 100%;
+          padding: 8px 10px;
+          font-size: 12px;
+          border: 0.5px solid var(--border-light);
+          border-radius: 8px;
+          color: var(--text-secondary);
+          background: var(--surface);
+        }
+        @media (max-width: 767px) {
+          .students-header-row-filters { display: none !important; }
+          .students-mobile-filter-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding-top: 4px;
+            border-top: 0.5px solid var(--border-light);
+          }
+          .students-mobile-filters-panel {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            padding-top: 10px;
+            border-top: 0.5px solid var(--border-light);
+          }
+          .students-mobile-filters-panel.is-open { display: flex; }
+          .students-header-row-search { flex-direction: column; align-items: stretch; }
+          .students-header-search { flex: 1 1 100%; max-width: none; min-width: 0; }
+          .students-header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
         }
         @media (max-width: 640px) {
           .students-create-grid {

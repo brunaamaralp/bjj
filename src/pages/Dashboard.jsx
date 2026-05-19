@@ -67,7 +67,19 @@ const Dashboard = () => {
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds, setRemovingFollowupIds] = useState({});
     const [dashboardWeekOffset, setDashboardWeekOffset] = useState(0);
+    const [isDashboardMobile, setIsDashboardMobile] = useState(
+        () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    );
     const hiddenAtRef = useRef(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.matchMedia) return;
+        const mq = window.matchMedia('(max-width: 767px)');
+        const onChange = () => setIsDashboardMobile(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
 
     const closeListModal = () => setListModalType('');
 
@@ -536,9 +548,11 @@ const Dashboard = () => {
                     <p className="reception-subtitle">{receptionSubtitle}</p>
                 </div>
                 <div className="reception-page-header__actions">
-                    <div className="reception-header-ai reception-command-bar">
-                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                    </div>
+                    {!isDashboardMobile ? (
+                        <div className="reception-header-ai reception-command-bar">
+                            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                        </div>
+                    ) : null}
                     {controlIdCfg.enabled && (
                         <button
                             type="button"
@@ -651,7 +665,9 @@ const Dashboard = () => {
                                         <div
                                             className={`agenda-kpi-value${
                                                 isAttention && hasValue ? ' agenda-kpi-value--attention' : ''
-                                            }${card.key === 'followup' && hasValue ? ' agenda-kpi-value--followup' : ''}`}
+                                            }${card.key === 'followup' && hasValue ? ' agenda-kpi-value--followup' : ''}${
+                                                card.key === 'tasks' && hasValue ? ' agenda-kpi-value--tasks' : ''
+                                            }`}
                                         >
                                             {card.count}
                                         </div>
@@ -684,6 +700,12 @@ const Dashboard = () => {
                     })
                 )}
             </div>
+
+            {isDashboardMobile ? (
+                <div className="reception-header-ai-mobile reception-command-bar animate-in" style={{ animationDelay: '0.08s' }}>
+                    <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                </div>
+            ) : null}
 
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
@@ -761,7 +783,9 @@ const Dashboard = () => {
                         hideNav
                     />
                 </div>
-                <p className="reception-calendar-hint">Clique em um horário para abrir o contato</p>
+                {scheduledInVisibleWeekCount > 0 ? (
+                    <p className="reception-calendar-hint">Clique em um horário para abrir o contato</p>
+                ) : null}
             </section>
 
             <div className="agenda-section-divider" aria-hidden />
@@ -1544,10 +1568,10 @@ const Dashboard = () => {
           border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
         }
         .agenda-kpi-card--attention-danger {
-          border-left: 4px solid #e24b4a;
+          border-left: 3px solid var(--status-danger-text, #e24b4a);
         }
         .agenda-kpi-card--attention-primary {
-          border-left: 4px solid var(--v500);
+          border-left: 3px solid var(--v500);
         }
         .agenda-kpi-card--ok,
         .agenda-kpi-card--muted {
@@ -1562,14 +1586,27 @@ const Dashboard = () => {
           display: flex;
           align-items: center;
           gap: 8px;
-          color: var(--text-secondary);
+          color: var(--faint);
           font-size: 15px;
           font-weight: 600;
           margin-top: 2px;
         }
         .agenda-kpi-ok svg {
-          color: var(--success-text, #3b6d11);
+          color: var(--faint);
           flex-shrink: 0;
+        }
+        .agenda-kpi-value--tasks {
+          color: var(--v500) !important;
+        }
+        @media (max-width: 767px) {
+          .reception-header-ai-mobile {
+            margin-top: 12px;
+            width: 100%;
+            max-width: 100%;
+          }
+          .reception-header-ai-mobile button {
+            width: 100%;
+          }
         }
         .agenda-kpi-value--attention {
           font-size: 2.35rem !important;
@@ -1587,14 +1624,14 @@ const Dashboard = () => {
           color: var(--text-muted);
         }
         .agenda-kpi-card--followup {
-          border-left: 3px solid #e24b4a;
+          border-left: 3px solid var(--status-danger-text, #e24b4a);
           border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
         }
         .agenda-kpi-card--followup::before {
           border-radius: 0 var(--border-radius-lg) 0 0;
         }
         .agenda-kpi-value--followup {
-          color: #a32d2d !important;
+          color: var(--status-danger-text, #a32d2d) !important;
         }
         .agenda-kpi-trend--followup {
           color: #e24b4a !important;

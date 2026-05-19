@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown, Upload } from 'lucide-react';
+import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown, Upload, Pencil } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
@@ -371,7 +371,8 @@ export default function Products() {
             />
           )
         ) : (
-          <div className="products-table-wrap">
+          <>
+          <div className="navi-desktop-table-wrap products-desktop-table-wrap">
             <table className="navi-table products-table">
               <thead>
                 <tr>
@@ -441,6 +442,54 @@ export default function Products() {
               </tbody>
             </table>
           </div>
+          <div className="navi-mobile-list products-mobile-list" aria-label="Lista de produtos">
+            {sorted.map((p) => {
+              const st = LIFECYCLE_STYLES[p.lifecycle] || LIFECYCLE_STYLES.ativo;
+              const variation = p.Tamanho || p.sku || 'Único';
+              return (
+                <article key={p.id} className="navi-mobile-card products-mobile-card">
+                  <div className="products-mobile-card__main">
+                    <ProductThumb imageUrl={p.image_url} alt={p.display_label} size={48} />
+                    <div className="products-mobile-card__body">
+                      <div className="products-mobile-card__title">{p.nome || p.display_label}</div>
+                      <div className="products-mobile-card__meta text-small text-muted">
+                        {p.categoria || '—'} · {variation}
+                      </div>
+                      <div className="products-mobile-card__row text-small">
+                        <span>{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</span>
+                        <span className="products-mobile-card__dot" aria-hidden>•</span>
+                        <span>Saldo: {p.current_quantity}</span>
+                      </div>
+                      <span className="text-small" style={{ fontWeight: 600, color: st.color }}>
+                        {LIFECYCLE_LABELS[p.lifecycle] || p.lifecycle}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="navi-mobile-card__actions products-mobile-card__actions">
+                    <button type="button" className="btn-outline btn-sm" title="Editar" onClick={() => openEdit(p)}>
+                      <Pencil size={14} aria-hidden />
+                    </button>
+                    <button type="button" className="btn-outline btn-sm" title="Duplicar" onClick={() => openDuplicate(p)}>
+                      <Copy size={14} aria-hidden />
+                    </button>
+                    <Link to={`/estoque?item=${p.id}`} className="btn-outline btn-sm" title="Ver no estoque">
+                      Estoque
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm products-delete-btn"
+                      title="Excluir produto"
+                      onClick={(e) => void openDeleteDialog(p, e)}
+                      disabled={deleteBusy && deleteTarget?.id === p.id}
+                    >
+                      <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 
@@ -493,8 +542,34 @@ export default function Products() {
       ) : null}
 
       <style>{`
-        .products-table-wrap { overflow-x: auto; padding-right: 4px; }
+        .products-desktop-table-wrap { overflow-x: auto; padding-right: 4px; }
         .products-table { width: 100%; table-layout: auto; min-width: 720px; }
+        .products-mobile-list { display: none; }
+        .products-mobile-card__main {
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+          padding: 12px 14px 10px;
+        }
+        .products-mobile-card__body { flex: 1; min-width: 0; }
+        .products-mobile-card__title { font-weight: 600; font-size: 14px; line-height: 1.35; }
+        .products-mobile-card__meta { margin-top: 2px; }
+        .products-mobile-card__row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 6px;
+          font-variant-numeric: tabular-nums;
+        }
+        .products-mobile-card__dot { opacity: 0.45; }
+        .products-mobile-card__actions {
+          border-top: 0.5px solid var(--border-light);
+          padding: 8px 14px 10px;
+        }
+        @media (max-width: 767px) {
+          .products-desktop-table-wrap { display: none !important; }
+          .products-mobile-list { display: flex; flex-direction: column; }
+        }
         .products-table__actions-head,
         .products-table__actions {
           text-align: right;

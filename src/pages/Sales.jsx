@@ -28,9 +28,11 @@ const Sales = () => {
     <div className="container sales-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <div className="animate-in">
         <h1 className="navi-page-title">Vendas</h1>
-        <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-          {tab === 'new' ? 'Catálogo, carrinho e comprovante' : 'Histórico e cancelamentos'}
-        </p>
+        {tab === 'history' ? (
+          <p className="navi-subtitle" style={{ marginTop: 6 }}>
+            Histórico e cancelamentos
+          </p>
+        ) : null}
         <div className="page-header-card" style={{ marginTop: 12 }}>
           <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
         </div>

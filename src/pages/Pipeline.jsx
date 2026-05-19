@@ -8,6 +8,7 @@ import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
+import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
@@ -411,8 +412,11 @@ const MobileLeadList = React.memo(function MobileLeadList({
     handleSplitWaMain,
     emptyStageHint,
     showLoading,
+    moveToStatus,
 }) {
     const [expanded, setExpanded] = useState({});
+    const [mobileMoveLeadId, setMobileMoveLeadId] = useState(null);
+    const [mobileMoveTarget, setMobileMoveTarget] = useState('');
     const defaultOpenStageId = useMemo(() => {
         if (!Array.isArray(stages) || stages.length === 0) return '';
         const exp = stages.find((s) => String(s?.id || '').trim() === 'Aula experimental');
@@ -520,14 +524,17 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                 >
                                     {stageLeads.length}
                                 </span>
-                                <ChevronDown
-                                    size={18}
-                                    color="var(--text-muted)"
+                                <span
+                                    className="pipeline-mobile-stage-chevron"
                                     style={{
-                                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                                        transition: 'transform 0.15s ease',
+                                        display: 'inline-flex',
+                                        transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                        transition: 'transform 200ms ease',
                                     }}
-                                />
+                                    aria-hidden
+                                >
+                                    <ChevronRight size={18} color="var(--text-muted)" />
+                                </span>
                             </span>
                         </button>
 
@@ -538,9 +545,18 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                         <EmptyState variant="compact" tone="dashed" title={emptyStageHint} role="none" />
                                     </div>
                                 ) : (
-                                    stageLeads.map((lead, li) => (
+                                    stageLeads.map((lead, li) => {
+                                        const currentStageId = mapLeadToStageId(lead) || '';
+                                        const moveOpen = mobileMoveLeadId === lead.id;
+                                        return (
                                         <div
                                             key={lead.id}
+                                            className="pipeline-mobile-lead-item"
+                                            style={{
+                                                borderBottom: li < stageLeads.length - 1 ? '0.5px solid var(--border-light)' : 'none',
+                                            }}
+                                        >
+                                        <div
                                             role="button"
                                             tabIndex={0}
                                             onClick={() => navigate(`/lead/${lead.id}`)}
@@ -552,7 +568,6 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                             }}
                                             style={{
                                                 padding: '12px 14px',
-                                                borderBottom: li < stageLeads.length - 1 ? '0.5px solid var(--border-light)' : 'none',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: 10,
@@ -615,31 +630,73 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    title="Abrir perfil"
+                                                    title="Abrir perfil do lead"
+                                                    className="pipeline-mobile-profile-link"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         navigate(`/lead/${lead.id}`);
                                                     }}
-                                                    style={{
-                                                        width: 32,
-                                                        height: 32,
-                                                        background: 'var(--surface-hover)',
-                                                        border: '0.5px solid var(--border-light)',
-                                                        borderRadius: 8,
-                                                        cursor: 'pointer',
-                                                        fontSize: 16,
-                                                        color: 'var(--text-secondary)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        flexShrink: 0,
-                                                    }}
                                                 >
-                                                    ›
+                                                    Ver perfil →
                                                 </button>
                                             </div>
                                         </div>
-                                    ))
+                                            <div
+                                                className="pipeline-mobile-move-row"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline btn-sm"
+                                                    style={{ flexShrink: 0, minHeight: 36, fontSize: 12 }}
+                                                    onClick={() => {
+                                                        if (moveOpen) {
+                                                            setMobileMoveLeadId(null);
+                                                            setMobileMoveTarget('');
+                                                        } else {
+                                                            setMobileMoveLeadId(lead.id);
+                                                            const firstOther = stages.find((s) => s.id !== currentStageId);
+                                                            setMobileMoveTarget(firstOther?.id || '');
+                                                        }
+                                                    }}
+                                                >
+                                                    {moveOpen ? 'Cancelar' : 'Mover para…'}
+                                                </button>
+                                                {moveOpen ? (
+                                                    <>
+                                                        <select
+                                                            className="form-input pipeline-mobile-move-select"
+                                                            value={mobileMoveTarget}
+                                                            onChange={(e) => setMobileMoveTarget(e.target.value)}
+                                                            aria-label="Etapa de destino"
+                                                        >
+                                                            {stages
+                                                                .filter((s) => s.id !== currentStageId)
+                                                                .map((s) => (
+                                                                    <option key={s.id} value={s.id}>
+                                                                        {s.label}
+                                                                    </option>
+                                                                ))}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-primary btn-sm"
+                                                            style={{ flexShrink: 0, minHeight: 36 }}
+                                                            disabled={!mobileMoveTarget}
+                                                            onClick={(e) => {
+                                                                void moveToStatus(e, lead.id, mobileMoveTarget);
+                                                                setMobileMoveLeadId(null);
+                                                                setMobileMoveTarget('');
+                                                            }}
+                                                        >
+                                                            Mover
+                                                        </button>
+                                                    </>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         ) : null}
@@ -747,6 +804,9 @@ const Pipeline = () => {
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
     const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
+    const [postMatriculaContractOpen, setPostMatriculaContractOpen] = useState(false);
+    const [postMatriculaContractLeadId, setPostMatriculaContractLeadId] = useState(null);
+    const modules = useLeadStore((s) => s.modules);
     const { questions: enrollmentQuestions } = useCustomLeadQuestions(academyId);
     const [noteError, setNoteError] = useState('');
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
@@ -1848,6 +1908,7 @@ const Pipeline = () => {
                     handleSplitWaMain={handleSplitWaMain}
                     emptyStageHint={`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}
                     showLoading={showKanbanInitialLoading}
+                    moveToStatus={moveToStatus}
                 />
             ) : (
             <div className="pipeline-desktop-kanban-host">
@@ -2059,6 +2120,8 @@ const Pipeline = () => {
 
             <MatriculaModal
                 isOpen={matriculaModalOpen}
+                leadId={dragTargetLead?.id || ''}
+                showContractPrompt={modules?.finance === true}
                 enrollmentQuestions={enrollmentQuestions}
                 submitting={matriculaSubmitting}
                 onClose={() => {
@@ -2066,15 +2129,22 @@ const Pipeline = () => {
                     setMatriculaModalOpen(false);
                     setDragTargetLead(null);
                 }}
-                onConfirmSimple={async () => {
+                onSendContract={(id) => {
                     setMatriculaModalOpen(false);
+                    setDragTargetLead(null);
+                    setPostMatriculaContractLeadId(id);
+                    setPostMatriculaContractOpen(true);
+                }}
+                onSkipAfterEnroll={(studentId) => {
+                    setMatriculaModalOpen(false);
+                    setDragTargetLead(null);
+                    if (studentId) navigate(`/student/${studentId}?edit=enrollment`);
+                }}
+                onConfirmSimple={async () => {
                     if (!dragTargetLead) return;
                     setMatriculaSubmitting(true);
                     try {
                         await executeMatricula(dragTargetLead);
-                        setDragTargetLead(null);
-                    } catch {
-                        // Modal já fechado no fluxo "Só matricular".
                     } finally {
                         setMatriculaSubmitting(false);
                     }
@@ -2084,15 +2154,22 @@ const Pipeline = () => {
                     setMatriculaSubmitting(true);
                     try {
                         await executeMatricula(dragTargetLead, customAnswers);
-                        const studentId = dragTargetLead.id;
-                        setMatriculaModalOpen(false);
-                        setDragTargetLead(null);
-                        navigate(`/student/${studentId}?edit=enrollment`);
-                    } catch {
-                        // Em erro, mantém modal aberto para nova tentativa.
                     } finally {
                         setMatriculaSubmitting(false);
                     }
+                }}
+            />
+
+            <CreateContractModal
+                open={postMatriculaContractOpen}
+                leadId={postMatriculaContractLeadId || undefined}
+                onClose={() => {
+                    setPostMatriculaContractOpen(false);
+                    setPostMatriculaContractLeadId(null);
+                }}
+                onSuccess={() => {
+                    setPostMatriculaContractOpen(false);
+                    setPostMatriculaContractLeadId(null);
                 }}
             />
 
@@ -2237,6 +2314,32 @@ const Pipeline = () => {
         .kanban-wrapper:hover::-webkit-scrollbar-thumb {
           background: var(--border-secondary);
           border-radius: 4px;
+        }
+        .pipeline-mobile-profile-link {
+          border: 0.5px solid var(--border-light);
+          background: var(--surface-hover);
+          border-radius: 8px;
+          padding: 6px 10px;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--v500);
+          cursor: pointer;
+          font-family: inherit;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .pipeline-mobile-move-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          padding: 0 14px 12px;
+        }
+        .pipeline-mobile-move-select {
+          flex: 1 1 140px;
+          min-width: 0;
+          min-height: 36px;
+          font-size: 13px;
         }
         @media (max-width: 1023px) {
           .kanban-wrapper {

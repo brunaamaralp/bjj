@@ -155,7 +155,7 @@ export default function MensalidadesListTable({
     const prefA = student.preferredPaymentAccount;
 
     let badgeVariant = 'none';
-    let badgeLabel = 'Sem registro';
+    let badgeLabel = 'Não registrado';
     if (studentFrozen || dbStatus === 'frozen') {
       badgeVariant = 'frozen';
       badgeLabel = 'Trancado';
@@ -301,7 +301,7 @@ export default function MensalidadesListTable({
     const prefA = student.preferredPaymentAccount;
 
     let badgeVariant = 'none';
-    let badgeLabel = 'Sem registro';
+    let badgeLabel = 'Não registrado';
     if (studentFrozen || dbStatus === 'frozen') {
       badgeVariant = 'frozen';
       badgeLabel = 'Trancado';

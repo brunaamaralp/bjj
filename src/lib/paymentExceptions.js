@@ -14,7 +14,7 @@ export const DEFAULT_EXCEPTION_STATUS_LABELS = {
   awaiting: 'Aguardando',
   partial: 'Parcial',
   divergence: 'Divergência',
-  none: 'Sem registro',
+  none: 'Não registrado',
 };
 
 export const EXCEPTION_STATUS_COLORS = {

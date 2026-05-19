@@ -973,7 +973,7 @@ export default function Mensalidades() {
               onClick={() => setViewMode('exceptions')}
               title="Alunos com pagamento em atraso, parcial ou divergente"
             >
-              Exceções
+              Pendências
               {exceptionCount > 0 ? (
                 <span className="mensal-page-tab__badge" title="Alunos com pagamento em atraso, parcial ou divergente">
                   {exceptionCount}

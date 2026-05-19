@@ -10,6 +10,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
 import {
   buildClosingRows,
   filterClosingRows,
@@ -26,8 +27,11 @@ import {
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartão_débito', label: 'Cartão débito' },
-  { value: 'cartão_crédito', label: 'Cartão crédito' },
+  { value: 'cartao_debito', label: 'Cartão de débito' },
+  { value: 'cartão_débito', label: 'Cartão de débito' },
+  { value: 'cartao_credito', label: 'Cartão de crédito' },
+  { value: 'cartão_crédito', label: 'Cartão de crédito' },
+  { value: 'transferencia', label: 'Transferência' },
   { value: 'transferência', label: 'Transferência' },
 ];
 
@@ -553,11 +557,14 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             <label className="text-xs">Forma de pagamento</label>
             <select className="form-input" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
               <option value="all">Todas</option>
-              {methodOptions.map((k) => (
-                <option key={k} value={k}>
-                  {k.split('|')[0] || k}
-                </option>
-              ))}
+              {methodOptions.map((k) => {
+                const methodKey = k.split('|')[0] || k;
+                return (
+                  <option key={k} value={k}>
+                    {formatPaymentMethodLabel(methodKey)}
+                  </option>
+                );
+              })}
             </select>
           </div>
         ) : null}

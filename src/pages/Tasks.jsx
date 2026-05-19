@@ -156,6 +156,57 @@ export default function Tasks() {
     return due < now;
   }
 
+  function formatDueRelative(dateStr) {
+    if (!dateStr) return null;
+    const due = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDay = new Date(due);
+    dueDay.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((dueDay.getTime() - today.getTime()) / 86400000);
+    if (diffDays === 0) return { text: 'Hoje', title: 'Vence hoje' };
+    if (diffDays === 1) return { text: 'Amanhã', title: 'Vence amanhã' };
+    if (diffDays === -1) return { text: 'Ontem', title: 'Venceu ontem' };
+    if (diffDays > 1) return { text: `${diffDays} dias`, title: `Vence em ${diffDays} dias` };
+    return { text: `${Math.abs(diffDays)} dias`, title: `Atrasada há ${Math.abs(diffDays)} dias` };
+  }
+
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickError, setQuickError] = useState('');
+  const [quickSaving, setQuickSaving] = useState(false);
+
+  const todayYmd = useMemo(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const handleQuickCreate = async () => {
+    const title = String(quickTitle || '').trim();
+    if (!title) {
+      setQuickError('Digite um título');
+      return;
+    }
+    if (!academyId) return;
+    setQuickSaving(true);
+    setQuickError('');
+    try {
+      await createTask({
+        title,
+        description: '',
+        due_date: todayYmd,
+        assigned_to: '',
+        lead_id: filters.lead_id || '',
+        lead_name: filters.lead_id ? leads.find((l) => l.id === filters.lead_id)?.name || '' : '',
+      });
+      setQuickTitle('');
+      addToast({ type: 'success', message: 'Tarefa criada' });
+    } catch {
+      setQuickError('Não foi possível criar. Tente novamente.');
+    } finally {
+      setQuickSaving(false);
+    }
+  };
+
   const filteredTasksBase = useMemo(() => {
     const userId = useLeadStore.getState().userId;
     return tasks.filter(t => {
@@ -461,9 +512,17 @@ export default function Tasks() {
                 </span>
               ) : null}
               {t.due_date ? (
-                <span className={`task-badge ${vencida ? 'text-danger' : ''}`}>
-                  <Calendar size={12} /> {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                </span>
+                (() => {
+                  const rel = formatDueRelative(t.due_date);
+                  return (
+                    <span
+                      className={`task-badge ${vencida ? 'text-danger' : ''}`}
+                      title={rel?.title || undefined}
+                    >
+                      <Calendar size={12} /> {rel?.text || new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    </span>
+                  );
+                })()
               ) : null}
               {t.assigned_to ? (
                 <span
@@ -729,6 +788,7 @@ export default function Tasks() {
           </div>
         ) : viewMode === 'kanban' ? (
           <div className="tasks-kanban">
+            {kanbanColumns.atrasadas.length > 0 ? (
             <div className="tasks-kanban-col tasks-kanban-col--late">
               <div className="tasks-kanban-col-head">
                 <span className="tasks-kanban-col-title">Atrasadas</span>
@@ -738,11 +798,50 @@ export default function Tasks() {
                 {kanbanColumns.atrasadas.map((t) => renderOneTaskCard(t))}
               </div>
             </div>
+            ) : null}
             <div className="tasks-kanban-col tasks-kanban-col--todo">
               <div className="tasks-kanban-col-head">
                 <span className="tasks-kanban-col-title">A fazer</span>
                 <span className="tasks-kanban-badge">{kanbanColumns.aFazer.length}</span>
               </div>
+              <div className="tasks-quick-create" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="text"
+                  className="form-input tasks-quick-create-input"
+                  placeholder="+ Digite o título da tarefa..."
+                  value={quickTitle}
+                  onChange={(e) => {
+                    setQuickTitle(e.target.value);
+                    if (quickError) setQuickError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleQuickCreate();
+                    }
+                  }}
+                  disabled={quickSaving}
+                  aria-invalid={quickError ? true : undefined}
+                />
+                <button
+                  type="button"
+                  className="btn-primary tasks-quick-create-btn"
+                  disabled={quickSaving}
+                  onClick={() => void handleQuickCreate()}
+                >
+                  {quickSaving ? '…' : 'Criar'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline tasks-quick-create-settings"
+                  title="Configurações avançadas"
+                  aria-label="Abrir formulário completo"
+                  onClick={openNew}
+                >
+                  ⚙
+                </button>
+              </div>
+              {quickError ? <p className="tasks-quick-create-error">{quickError}</p> : null}
               <div className="tasks-kanban-col-body task-list">
                 {kanbanColumns.aFazer.map((t) => renderOneTaskCard(t))}
               </div>
@@ -1180,7 +1279,7 @@ export default function Tasks() {
         .task-lead-empty-state { padding: 8px 10px !important; }
         .task-lead-empty-state .navi-empty__title { font-size: 12px !important; font-weight: 500 !important; }
         .tasks-lists-wrap { display: flex; flex-direction: column; gap: 24px; }
-        .task-group-title { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; }
+        .task-group-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
         .task-list { display: flex; flex-direction: column; gap: 8px; }
         .task-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: var(--transition); }
         .task-card:hover { border-color: var(--border-mid); }
@@ -1337,7 +1436,23 @@ export default function Tasks() {
         .tasks-kanban-col--late .tasks-kanban-col-head { background: rgba(220, 38, 38, 0.08); }
         .tasks-kanban-col--todo .tasks-kanban-col-head { background: rgba(91, 63, 191, 0.08); }
         .tasks-kanban-col--done .tasks-kanban-col-head { background: rgba(22, 163, 74, 0.1); }
-        .tasks-kanban-col-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink); }
+        .tasks-kanban-col-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+        .tasks-quick-create {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 0 10px 10px;
+          flex-wrap: wrap;
+        }
+        .tasks-quick-create-input { flex: 1 1 160px; min-width: 0; min-height: 38px; font-size: 13px; }
+        .tasks-quick-create-btn { flex-shrink: 0; min-height: 38px; padding: 6px 12px; font-size: 13px; }
+        .tasks-quick-create-settings { flex-shrink: 0; min-width: 38px; min-height: 38px; padding: 0 10px; }
+        .tasks-quick-create-error {
+          margin: -4px 10px 8px;
+          font-size: 12px;
+          color: var(--danger);
+          line-height: 1.35;
+        }
         .tasks-kanban-col--late .tasks-kanban-col-title { color: var(--danger); }
         .tasks-kanban-col--todo .tasks-kanban-col-title { color: var(--v500); }
         .tasks-kanban-col--done .tasks-kanban-col-title { color: var(--success-text); }

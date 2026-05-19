@@ -20,16 +20,7 @@ export const CLOSING_SITUATION_LABELS = {
   pendente: 'Pendente',
 };
 
-const METHOD_LABELS = {
-  pix: 'PIX',
-  dinheiro: 'Dinheiro',
-  cartão_débito: 'Cartão débito',
-  cartão_crédito: 'Cartão crédito',
-  credito: 'Cartão crédito',
-  debito: 'Cartão débito',
-  transferência: 'Transferência',
-  transferencia: 'Transferência',
-};
+import { formatPaymentMethod as formatPaymentMethodLabel } from './paymentMethodLabels.js';
 
 function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -73,14 +64,10 @@ export function studentDisplayNames(student) {
 }
 
 export function formatPaymentMethod(method, account = '', installments = 1) {
-  const m = String(method || '').trim();
-  const label = METHOD_LABELS[m] || m || '—';
+  const label = formatPaymentMethodLabel(method, installments);
   const acc = String(account || '').trim();
-  const creditLike = m === 'credito' || m === 'cartão_crédito';
-  const inst = Number(installments) || 1;
-  const instSuffix = creditLike && inst > 1 ? ` ${inst}x` : '';
-  if (acc) return `${label}${instSuffix} — ${acc}`.trim();
-  return `${label}${instSuffix}`.trim();
+  if (acc) return `${label} — ${acc}`.trim();
+  return label;
 }
 
 function mapTxTypeToOrigin(type) {

@@ -14,7 +14,7 @@ export default function ExceptionStatusLabelsSection({ labels, onChange }) {
         Status de exceção
       </h3>
       <p className="text-small text-muted" style={{ marginBottom: 12 }}>
-        Personalize os nomes exibidos na aba Exceções de Mensalidades. As regras de quando cada status aparece são
+        Personalize os nomes exibidos na aba Pendências de Mensalidades. As regras de quando cada status aparece são
         definidas pelo sistema.
       </p>
       <div className="card" style={{ padding: 12 }}>

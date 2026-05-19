@@ -232,7 +232,7 @@ const App = () => {
   const closeMobileDrawer = () => setMobileMenuOpen(false);
 
   const sideLinkClass = ({ isActive: navIsActive }) =>
-    `navi-side-link${navIsActive ? ' active' : ''}`;
+    `navi-side-link${navIsActive ? ' active navi-side-link--active' : ''}`;
 
   /** Garante trial no servidor (chamar uma vez após definir academia). */
   const syncBilling = async (academyId) => {

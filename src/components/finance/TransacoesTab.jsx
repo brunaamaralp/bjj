@@ -12,6 +12,53 @@ import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
+
+function formatTxDateStr(createdAt) {
+  const dt = new Date(createdAt);
+  if (Number.isNaN(dt.getTime())) return '—';
+  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+}
+
+function formatMoneyBRL(value) {
+  try {
+    return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  } catch {
+    const n = Number(value);
+    return Number.isFinite(n) ? `R$ ${n.toFixed(2).replace('.', ',')}` : '—';
+  }
+}
+
+function getTxCategoryBadge(tx) {
+  const t = String(tx.type || '').toLowerCase();
+  if (t === 'plan') return { label: 'Plano', className: 'finance-tx-badge finance-tx-badge--plan' };
+  if (t === 'product') return { label: 'Produto', className: 'finance-tx-badge finance-tx-badge--product' };
+  if (t === 'expense') return { label: 'Despesa', className: 'finance-tx-badge finance-tx-badge--expense' };
+  if (t === 'other') return { label: 'Outro', className: 'finance-tx-badge finance-tx-badge--other' };
+  return null;
+}
+
+function getTxSubtitle(tx) {
+  const method = formatPaymentMethod(tx.method, tx.installments);
+  const t = String(tx.type || '').toLowerCase();
+  if (t === 'plan') {
+    const plan = tx.planName ? String(tx.planName) : 'Plano';
+    return `${plan} · ${method}`;
+  }
+  if (t === 'product') return `Produto · ${method}`;
+  if (t === 'expense') return `Despesa · ${method}`;
+  if (t === 'other') return `Outro · ${method}`;
+  return method;
+}
+
+function getTxTypeLabelDesktop(tx) {
+  if (tx.type === 'plan') return `Plano${tx.planName ? ` • ${tx.planName}` : ''}`;
+  if (tx.type === 'product') return 'Produto';
+  if (tx.type === 'other') return 'Outro';
+  if (tx.type === 'expense') return 'Despesa';
+  if (tx.type) return String(tx.type);
+  return '—';
+}
 
 export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
   const leads = useLeadStore((s) => s.leads);
@@ -50,6 +97,22 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     note: '',
     lead_id: ''
   });
+
+  const txPeriodTotals = useMemo(() => {
+    let totalReceived = 0;
+    let count = 0;
+    for (const tx of transactions) {
+      if (String(tx.type || '').toLowerCase() === 'expense') continue;
+      if (String(tx.status || '').toLowerCase() === 'cancelled') continue;
+      count += 1;
+      if (String(tx.status || '').toLowerCase() === 'settled') {
+        const net = Number(tx.net);
+        const gross = Number(tx.gross);
+        totalReceived += Number.isFinite(net) ? net : (Number.isFinite(gross) ? gross : 0);
+      }
+    }
+    return { totalReceived, count };
+  }, [transactions]);
 
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
@@ -410,10 +473,24 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
               + Nova transação
             </button>
           </div>
+          {!txLoading && transactions.length > 0 ? (
+            <div className="finance-tx-totals" role="status">
+              <div className="finance-tx-totals__row">
+                <span>Total recebido no período:</span>
+                <strong>{formatMoneyBRL(txPeriodTotals.totalReceived)}</strong>
+              </div>
+              <div className="finance-tx-totals__row">
+                <span>Total de transações:</span>
+                <strong>{txPeriodTotals.count}</strong>
+              </div>
+            </div>
+          ) : null}
           <div className="finance-table-wrap">
             {txLoading ? (
               <PageSkeleton variant="table" rows={6} columns={10} />
             ) : (
+            <>
+            <div className="navi-desktop-table-wrap finance-desktop-table-wrap">
             <table className="finance-table">
               <thead>
                 <tr>
@@ -444,19 +521,12 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                     </td>
                   </tr>
                 ) : transactions.map((tx) => {
-                  const dt = new Date(tx.createdAt);
-                  const dateStr = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth()+1).padStart(2, '0')}/${dt.getFullYear()}`;
-                  const grossFmt = (() => { try { return Number(tx.gross).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.gross); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
-                  const feeFmt = (() => { try { return Number(tx.fee).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.fee); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
-                  const netFmt = (() => { try { return Number(tx.net).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); } catch { const n = Number(tx.net); return `R$ ${n.toFixed(2)}`.replace('.', ','); } })();
-                  let typeLabel = '—';
-                  if (tx.type === 'plan') typeLabel = `Plano${tx.planName ? ' • ' + tx.planName : ''}`;
-                  else if (tx.type === 'product') typeLabel = 'Produto';
-                  else if (tx.type === 'other') typeLabel = 'Outro';
-                  else if (tx.type === 'expense') typeLabel = 'Despesa';
-                  else if (tx.type) typeLabel = String(tx.type);
-                  const creditLike = tx.method === 'credito' || tx.method === 'cartão_crédito';
-                  const methodLabel = creditLike && tx.installments > 1 ? `${tx.method} ${tx.installments}x` : tx.method;
+                  const dateStr = formatTxDateStr(tx.createdAt);
+                  const grossFmt = formatMoneyBRL(tx.gross);
+                  const feeFmt = formatMoneyBRL(tx.fee);
+                  const netFmt = formatMoneyBRL(tx.net);
+                  const typeLabel = getTxTypeLabelDesktop(tx);
+                  const methodLabel = formatPaymentMethod(tx.method, tx.installments);
                   const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
                   const alumStr = rawName ? (rawName.length > 20 ? `${rawName.slice(0, 20)}…` : rawName) : '—';
                   const st = String(tx.status || '').toLowerCase();
@@ -520,6 +590,47 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                 })}
               </tbody>
             </table>
+            </div>
+            <div className="navi-mobile-list finance-mobile-list" aria-label="Lançamentos">
+              {transactions.map((tx) => {
+                const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
+                const displayName = rawName || '—';
+                const badge = getTxCategoryBadge(tx);
+                const st = String(tx.status || '').toLowerCase();
+                const rowBusy = cancelLoadingId === tx.id;
+                return (
+                  <article key={tx.id} className="navi-mobile-card finance-mobile-card">
+                    <div className="finance-mobile-card__head">
+                      <span className="finance-mobile-card__date">{formatTxDateStr(tx.createdAt)}</span>
+                      <span className="finance-mobile-card__amount">{formatMoneyBRL(tx.gross)}</span>
+                    </div>
+                    <div className="finance-mobile-card__name">{displayName}</div>
+                    <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
+                    {badge ? <span className={badge.className}>{badge.label}</span> : null}
+                    {st === 'pending' ? (
+                      <div className="finance-mobile-card__actions">
+                        <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
+                          Editar
+                        </button>
+                        <button type="button" className="btn-outline btn-sm" onClick={() => void settle(tx.id)} disabled={rowBusy}>
+                          Liquidar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm"
+                          onClick={() => void cancelTx(tx.id)}
+                          disabled={rowBusy}
+                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                        >
+                          {rowBusy ? '…' : 'Cancelar'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+            </>
             )}
           </div>
         </div>

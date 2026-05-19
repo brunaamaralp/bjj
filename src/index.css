@@ -608,9 +608,10 @@ button:active {
   gap: 0;
 }
 
-.navi-side-section--footer {
+.navi-side-section--footer,
+.navi-sidebar-footer {
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 8px;
   border-top: 1px solid var(--border-mid);
 }
 
@@ -1348,10 +1349,11 @@ select.form-input option {
   margin-top: 4px;
 }
 
+.navi-side-section--divider.navi-side-section--titled .navi-side-section-title,
 .navi-side-section--titled .navi-side-section-title {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-light);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-mid);
 }
 
 .navi-side-section-rule {
@@ -1414,8 +1416,9 @@ select.form-input option {
   color: var(--v500);
 }
 
-.navi-side-link.active {
-  background: var(--v100);
+.navi-side-link.active,
+.navi-side-link--active {
+  background: rgba(91, 63, 191, 0.08);
   color: var(--v500);
   font-weight: 600;
   box-shadow: inset 3px 0 0 var(--v500);
@@ -1423,7 +1426,8 @@ select.form-input option {
   border-color: rgba(91, 63, 191, 0.12);
 }
 
-.navi-side-link.active .navi-side-link-icon {
+.navi-side-link.active .navi-side-link-icon,
+.navi-side-link--active .navi-side-link-icon {
   color: var(--v500);
 }
 

@@ -13,7 +13,7 @@ export const GRID_STATUS_LABELS = {
   partial: 'Parcial',
   pending: 'Pendente',
   soon: 'A vencer',
-  none: 'Sem registro',
+  none: 'Não registrado',
   frozen: 'Trancado',
 };
 

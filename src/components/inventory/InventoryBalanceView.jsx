@@ -124,7 +124,8 @@ export default function InventoryBalanceView({
             role="status"
           />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <>
+          <div className="navi-desktop-table-wrap inventory-desktop-table-wrap" style={{ overflowX: 'auto' }}>
             <table className="navi-table" style={{ width: '100%', minWidth: showPrices ? 800 : 640 }}>
               <thead>
                 <tr>
@@ -242,6 +243,97 @@ export default function InventoryBalanceView({
               </tbody>
             </table>
           </div>
+          <div className="navi-mobile-list inventory-mobile-list" aria-label="Lista de estoque">
+            {filtered.map((it) => {
+              const st = STATUS_STYLES[it.status] || STATUS_STYLES.ok;
+              const StIcon = st.Icon;
+              const label = it.Tamanho ? `${it.nome} · ${it.Tamanho}` : it.nome;
+              const rowClass = [
+                'navi-mobile-card',
+                'inventory-mobile-card',
+                it.status === 'critical' ? 'inventory-mobile-card--critical' : '',
+                it.status === 'attention' ? 'inventory-mobile-card--attention' : '',
+                highlightItemId === it.id ? 'inventory-row--highlight' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
+              return (
+                <article
+                  key={it.id}
+                  ref={highlightItemId === it.id ? highlightRef : undefined}
+                  className={rowClass}
+                  data-item-id={it.id}
+                >
+                  <div className="inventory-mobile-card__body">
+                    <div className="inventory-mobile-card__title">{label}</div>
+                    <div className="inventory-mobile-card__meta text-small text-muted">
+                      {it.categoria || '—'} · {it.unit || 'unidade'}
+                    </div>
+                    <div className="inventory-mobile-card__stats text-small">
+                      <span>Saldo: <strong>{it.current_quantity}</strong></span>
+                      <span>Mín: <strong>{it.minimum_level > 0 ? it.minimum_level : '—'}</strong></span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: st.color, fontWeight: 600 }}>
+                        <StIcon size={14} aria-hidden />
+                        {st.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="navi-mobile-card__actions inventory-mobile-card__actions">
+                    <Link
+                      to={`/produtos?edit=${it.id}`}
+                      className="btn-outline btn-sm"
+                      title="Editar produto"
+                      aria-label="Editar produto"
+                    >
+                      <Pencil size={14} aria-hidden />
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm"
+                      onClick={() => onRegisterEntry(it)}
+                      title="Registrar entrada"
+                      aria-label="Registrar entrada"
+                    >
+                      <PackagePlus size={14} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm"
+                      onClick={() => void onCheckItem(it)}
+                      title="Conferir estoque"
+                      aria-label="Conferir estoque"
+                    >
+                      <ClipboardCheck size={14} aria-hidden />
+                    </button>
+                    {onConfigureItem ? (
+                      <button
+                        type="button"
+                        className="btn-outline btn-sm"
+                        onClick={() => onConfigureItem(it)}
+                        title="Configurar mínimo e unidade"
+                        aria-label="Configurar mínimo e unidade"
+                      >
+                        <Settings2 size={14} aria-hidden />
+                      </button>
+                    ) : null}
+                    {onDeleteItem ? (
+                      <button
+                        type="button"
+                        className="btn-outline btn-sm inventory-delete-btn"
+                        title="Excluir item"
+                        aria-label="Excluir item"
+                        onClick={() => onDeleteItem(it)}
+                        disabled={deleteBusyId === it.id}
+                      >
+                        <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
       <style>{`
@@ -314,6 +406,27 @@ export default function InventoryBalanceView({
           flex-wrap: nowrap;
         }
         .inventory-delete-btn { flex-shrink: 0; }
+        .inventory-mobile-list { display: none; }
+        .inventory-mobile-card__body { padding: 12px 14px 10px; }
+        .inventory-mobile-card__title { font-weight: 600; font-size: 14px; line-height: 1.35; }
+        .inventory-mobile-card__meta { margin-top: 4px; }
+        .inventory-mobile-card__stats {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px 14px;
+          margin-top: 10px;
+        }
+        .inventory-mobile-card--critical { border-left: 3px solid var(--status-danger-text, var(--danger)); }
+        .inventory-mobile-card--attention { border-left: 3px solid var(--warning, #c9a227); }
+        .inventory-mobile-card__actions {
+          border-top: 0.5px solid var(--border-light);
+          padding: 8px 14px 10px;
+        }
+        @media (max-width: 767px) {
+          .inventory-desktop-table-wrap { display: none !important; }
+          .inventory-mobile-list { display: flex; flex-direction: column; }
+        }
       `}</style>
     </section>
   );

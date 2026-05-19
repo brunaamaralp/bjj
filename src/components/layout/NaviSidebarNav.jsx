@@ -163,7 +163,7 @@ export default function NaviSidebarNav({
         {canConfigureAgenteIa ? (
           <Link
             to="/agente-ia"
-            className={`navi-side-link${isAgenteIaPage ? ' active' : ''}`}
+            className={`navi-side-link${isAgenteIaPage ? ' active navi-side-link--active' : ''}`}
             title={collapsed ? 'Agente IA' : undefined}
           >
             <span className="navi-side-link-icon">
@@ -235,6 +235,7 @@ export default function NaviSidebarNav({
         </SidebarSection>
       ) : null}
 
+      <div className="navi-sidebar-footer">
       <SidebarSection collapsed={collapsed} footer showDivider>
         <SideNavLink
           to="/reports"
@@ -255,6 +256,7 @@ export default function NaviSidebarNav({
           footer
         />
       </SidebarSection>
+      </div>
     </nav>
   );
 }
