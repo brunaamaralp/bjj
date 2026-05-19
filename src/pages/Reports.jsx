@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
+import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
 
 const presets = [
     { key: 'today', label: 'Hoje' },
@@ -257,7 +259,6 @@ const Reports = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const academyList = useLeadStore((s) => s.academyList);
     const modules = useLeadStore((s) => s.modules);
-    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const academyDoc = useMemo(() => {
@@ -269,9 +270,11 @@ const Reports = () => {
     const navRole = useUserRole(academyDoc);
     const isOwner = navRole === 'owner';
     const hasFinance = modules?.finance === true;
-    const hasLoja = modules?.sales === true || modules?.inventory === true;
+    const hasSales = modules?.sales === true;
 
     const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, 'visao-geral');
+    const isLeadReportTab = activeTab === 'visao-geral' || activeTab === 'funil';
+    const isPeriodTab = isLeadReportTab || activeTab === 'financeiro' || activeTab === 'loja';
 
     useEffect(() => {
         const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -405,8 +408,9 @@ const Reports = () => {
     };
 
     useEffect(() => {
+        if (!isLeadReportTab) return;
         void fetchReport();
-    }, [range, originFilter, profileFilter, chartMode, academyId, preset]);
+    }, [range, originFilter, profileFilter, chartMode, academyId, preset, isLeadReportTab]);
 
     const rangeSlug = `${range.from}_${range.to}`;
     const prettyRange = useMemo(() => formatRangeLongPt(range.from, range.to), [range.from, range.to]);
@@ -608,7 +612,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {showInitialLoad && (activeTab === 'visao-geral' || activeTab === 'funil') ? (
+            {showInitialLoad && isLeadReportTab ? (
                 <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={i} className="reports-kpi-card reports-kpi-skeleton" style={{ minHeight: 100 }} />
@@ -616,8 +620,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {(activeTab === 'visao-geral' || activeTab === 'funil') ? (
-            <>
+            {isPeriodTab ? (
             <div className="page-header-card">
                 <div className="page-header-row reports-filters-row">
                     <div className="reports-period-block">
@@ -638,6 +641,8 @@ const Reports = () => {
                             </>
                         )}
                     </div>
+                    {isLeadReportTab ? (
+                    <>
                     <div className="reports-filters-divider" aria-hidden />
                     <div className="filter-group reports-selects-inline">
                         <select
@@ -712,9 +717,14 @@ const Reports = () => {
                             </div>
                         ) : null}
                     </div>
+                    </>
+                    ) : null}
                 </div>
             </div>
+            ) : null}
 
+            {isLeadReportTab ? (
+            <>
             {!error && !showInitialLoad && leads.length === 0 && !leadsLoading ? (
                 <div className="reports-empty card mt-4">
                     <EmptyState
@@ -778,6 +788,67 @@ const Reports = () => {
                         </div>
                     ))}
                 </div>
+            </div>
+            ) : null}
+
+            {activeTab === 'funil' && !error && !showInitialLoad && reportData?.metrics ? (
+            <div className="reports-kpi-grid mt-4">
+                <Card
+                    title={`Novos ${contactsPlural.toLowerCase()}`}
+                    value={reportData.metrics.newLeads?.current ?? 0}
+                    variation={pctVar(reportData.metrics.newLeads?.current ?? 0, reportData.metrics.newLeads?.previous ?? 0)}
+                    icon={<UserPlus size={20} strokeWidth={2.25} />}
+                    color="accent"
+                    onClick={() => setDrillKey('newLeads')}
+                    trendHint={trendHintFor('newLeads', preset)}
+                />
+                <Card
+                    title="Agendados"
+                    value={reportData.metrics.scheduled?.current ?? 0}
+                    variation={pctVar(reportData.metrics.scheduled?.current ?? 0, reportData.metrics.scheduled?.previous ?? 0)}
+                    icon={<Calendar size={20} strokeWidth={2.25} />}
+                    color="warning"
+                    onClick={() => setDrillKey('scheduled')}
+                    trendHint={trendHintFor('scheduled', preset)}
+                />
+                <Card
+                    title="Compareceram"
+                    value={reportData.metrics.completed?.current ?? reportData.metrics.showed?.current ?? 0}
+                    variation={pctVar(
+                        reportData.metrics.completed?.current ?? reportData.metrics.showed?.current ?? 0,
+                        reportData.metrics.completed?.previous ?? reportData.metrics.showed?.previous ?? 0
+                    )}
+                    icon={<CheckCircle2 size={20} strokeWidth={2.25} />}
+                    color="success"
+                    onClick={() => setDrillKey('completed')}
+                    trendHint={trendHintFor('completed', preset)}
+                />
+                <Card
+                    title={terms.reportsMetricConvertedShort}
+                    value={reportData.metrics.converted?.current ?? 0}
+                    variation={pctVar(reportData.metrics.converted?.current ?? 0, reportData.metrics.converted?.previous ?? 0)}
+                    icon={<Users size={20} strokeWidth={2.25} />}
+                    color="purple"
+                    onClick={() => setDrillKey('converted')}
+                    trendHint={trendHintFor('converted', preset)}
+                />
+                <Card
+                    title="Não compareceram"
+                    value={reportData.metrics.missed?.current ?? 0}
+                    variation={pctVar(reportData.metrics.missed?.current ?? 0, reportData.metrics.missed?.previous ?? 0)}
+                    icon={<XCircle size={20} strokeWidth={2.25} />}
+                    color="danger"
+                    onClick={() => setDrillKey('missed')}
+                    trendHint={trendHintFor('missed', preset)}
+                />
+                <Card
+                    title="Taxa de conversão"
+                    value={`${reportData.metrics.conversionRate?.current ?? 0}%`}
+                    variation={pctVar(reportData.metrics.conversionRate?.current ?? 0, reportData.metrics.conversionRate?.previous ?? 0)}
+                    icon={<TrendingUp size={20} strokeWidth={2.25} />}
+                    color="accent"
+                    trendHint={trendHintFor('conversionRate', preset)}
+                />
             </div>
             ) : null}
 
@@ -960,55 +1031,17 @@ const Reports = () => {
             ) : null}
 
             {activeTab === 'financeiro' ? (
-                <div className="reports-empty card mt-4">
-                    <EmptyState
-                        insideCard
-                        variant="compact"
-                        tone="solid"
-                        title="Relatórios financeiros no Caixa"
-                        description={
-                            hasFinance
-                                ? isOwner
-                                    ? 'Demonstrações DRE/DFC, razão e plano de contas estão no hub Caixa.'
-                                    : 'Movimentações e fechamento mensal estão no hub Caixa.'
-                                : 'Ative o módulo financeiro nas configurações da academia para ver relatórios no Caixa.'
-                        }
-                        role="status"
-                        primaryAction={{
-                            label: hasFinance ? 'Abrir Caixa' : 'Configurar financeiro',
-                            onClick: () =>
-                                navigate(
-                                    hasFinance
-                                        ? isOwner
-                                            ? '/caixa?tab=dre'
-                                            : '/caixa?tab=movimentacoes'
-                                        : '/empresa?tab=financeiro'
-                                ),
-                        }}
-                    />
-                </div>
+                <ReportsFinancePanel
+                    academyId={academyId}
+                    from={range.from}
+                    to={range.to}
+                    hasFinance={hasFinance}
+                    isOwner={isOwner}
+                />
             ) : null}
 
             {activeTab === 'loja' ? (
-                <div className="reports-empty card mt-4">
-                    <EmptyState
-                        insideCard
-                        variant="compact"
-                        tone="solid"
-                        title="Relatórios da loja"
-                        description={
-                            hasLoja
-                                ? 'Vendas, produtos e estoque estão no hub Loja.'
-                                : 'Ative vendas ou estoque nas configurações da academia para usar a Loja.'
-                        }
-                        role="status"
-                        primaryAction={{
-                            label: hasLoja ? 'Abrir Loja' : 'Configurar módulos',
-                            onClick: () =>
-                                navigate(hasLoja ? '/loja?tab=vendas' : '/empresa?tab=vendas'),
-                        }}
-                    />
-                </div>
+                <ReportsLojaPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
             ) : null}
 
             {activeTab === 'equipe' ? (

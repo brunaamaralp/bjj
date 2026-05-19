@@ -21,7 +21,13 @@ function downloadCSV(prefix, headers, rows) {
   URL.revokeObjectURL(url);
 }
 
-export default function ReportsTab({ academyId, onGoToLancamentos }) {
+export default function ReportsTab({
+  academyId,
+  onGoToLancamentos,
+  periodFrom,
+  periodTo,
+  embedded = false,
+}) {
   const dre = useAccountingStore((s) => s.dre);
   const dfcIndireto = useAccountingStore((s) => s.dfcIndireto);
   const dfcDireto = useAccountingStore((s) => s.dfcDireto);
@@ -29,8 +35,10 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
   const setJournal = useAccountingStore((s) => s.setJournal);
   const loadByAcademy = useAccountingStore((s) => s.loadByAcademy);
 
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [fromLocal, setFromLocal] = useState('');
+  const [toLocal, setToLocal] = useState('');
+  const from = embedded && periodFrom != null ? periodFrom : fromLocal;
+  const to = embedded && periodTo != null ? periodTo : toLocal;
   const [method, setMethod] = useState('indireto');
 
   useEffect(() => {
@@ -113,8 +121,8 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
   const showPeriodEmpty = journal.length > 0 && !hasMovement;
 
   return (
-    <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="navi-section-heading mb-2">Relatórios</h3>
+    <section className={embedded ? 'mt-4' : 'mt-4 animate-in'} style={embedded ? undefined : { animationDelay: '0.05s' }}>
+      {!embedded ? <h3 className="navi-section-heading mb-2">Relatórios</h3> : null}
       {journal.length === 0 && typeof onGoToLancamentos === 'function' ? (
         <div className="finance-reports-hint" role="status">
           <span>Para ver os relatórios com dados do diário, abra a aba Lançamentos primeiro ou aguarde a sincronização automática.</span>
@@ -124,14 +132,18 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
         </div>
       ) : null}
       <div className="finance-reports-filters">
-        <div className="form-group" style={{ width: 138 }}>
-          <label>De</label>
-          <input className="form-input navi-date-filter" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </div>
-        <div className="form-group" style={{ width: 138 }}>
-          <label>Até</label>
-          <input className="form-input navi-date-filter" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        </div>
+        {!embedded ? (
+          <>
+            <div className="form-group" style={{ width: 138 }}>
+              <label>De</label>
+              <input className="form-input navi-date-filter" type="date" value={fromLocal} onChange={(e) => setFromLocal(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ width: 138 }}>
+              <label>Até</label>
+              <input className="form-input navi-date-filter" type="date" value={toLocal} onChange={(e) => setToLocal(e.target.value)} />
+            </div>
+          </>
+        ) : null}
         <div className="form-group" style={{ width: 200 }}>
           <label>Método DFC</label>
           <select className="form-input" value={method} onChange={(e) => setMethod(e.target.value)}>
@@ -139,7 +151,7 @@ export default function ReportsTab({ academyId, onGoToLancamentos }) {
             <option value="direto">Direto</option>
           </select>
         </div>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end', marginLeft: 'auto' }}>
+        <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end', marginLeft: embedded ? 0 : 'auto' }}>
           <button type="button" className="btn-action-ghost" onClick={exportDRE_CSV}>
             ↓ Exportar DRE
           </button>
