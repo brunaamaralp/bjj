@@ -561,7 +561,7 @@ const Reports = () => {
     };
 
     return (
-        <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
+        <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
             <div>
                 <h1 className="navi-page-title">Relatórios</h1>
                 <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>

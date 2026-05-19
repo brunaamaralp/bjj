@@ -2,9 +2,7 @@
 export const FINANCE_PAGE_CSS = `
           .finance-page-root { width: 100%; box-sizing: border-box; }
           .finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 24px; box-sizing: border-box; padding-bottom: 40px; }
-          .finance-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; margin-bottom: 6px; }
-          .finance-tab { border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); font-family: inherit; transition: background 0.15s ease, color 0.15s ease; }
-          .finance-tab--active { background: #5B3FBF; color: #fff; }
+          /* Abas: estilos globais em index.css (.navi-hub-tabs / .finance-tabs) */
           .finance-tx-toolbar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
           .finance-tx-totals {
             display: grid;

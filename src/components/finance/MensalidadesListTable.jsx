@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Check,
@@ -59,6 +60,7 @@ export default function MensalidadesListTable({
   handleEstornar,
   configuredTurmas = [],
 }) {
+  const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState({});
   const [confirmPayment, setConfirmPayment] = useState(null);
   const [reversingPaymentId, setReversingPaymentId] = useState(null);
@@ -115,6 +117,16 @@ export default function MensalidadesListTable({
       return changed ? next : prev;
     });
   }, [studentsByGroup, displayedStudents.length]);
+
+  const handleStudentActivate = (student, { canRegister }) => {
+    const id = String(student?.id || '').trim();
+    if (!id) return;
+    if (canRegister) {
+      openPaymentModal(student);
+      return;
+    }
+    navigate(`/student/${id}`);
+  };
 
   const renderStudentRow = (student, rowIndex) => {
     const payment = paymentMap[student.id];
@@ -210,14 +222,20 @@ export default function MensalidadesListTable({
       .join(' ');
 
     const displayName = String(student.name || '').trim() || '—';
+    const canRegister = !studentFrozen && !isPaid;
 
     return (
       <tr key={student.id} className={rowClass} title={isPaid ? paidTooltip : undefined}>
         <td>
           <div className="mensal-cell-name">
-            <span className="mensal-cell-name__title" title={displayName !== '—' ? displayName : undefined}>
+            <button
+              type="button"
+              className="mensal-cell-name__title mensal-cell-name__btn"
+              title={displayName !== '—' ? displayName : undefined}
+              onClick={() => handleStudentActivate(student, { canRegister })}
+            >
               {displayName}
-            </span>
+            </button>
             <span className="mensal-cell-name__plan">{student.plan || '—'}</span>
           </div>
         </td>
@@ -293,6 +311,8 @@ export default function MensalidadesListTable({
 
   const renderMobileCard = (student) => {
     const payment = paymentMap[student.id];
+    const studentFrozen = String(student.freeze_status || '') === 'active';
+    const dbStatus = String(payment?.status || '').toLowerCase();
     const rowMeta = getRowStatus(student, payment, currentMonth);
     const statusKey = rowMeta?.status || 'none';
     const calendar = getPaymentRowStatus(student, payment, currentMonth);
@@ -327,6 +347,7 @@ export default function MensalidadesListTable({
 
     const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
     const displayName = String(student.name || '').trim() || '—';
+    const canRegister = !studentFrozen && !isPaid;
     let vencLabel = '—';
     if (statusKey === 'paid' && payment?.paid_at) {
       const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
@@ -339,9 +360,14 @@ export default function MensalidadesListTable({
       <article key={student.id} className={`mensal-mobile-card mensal-mobile-card--${rowTone}`}>
         <div className="mensal-mobile-card__head">
           <div className="mensal-mobile-card__head-text">
-            <div className="mensal-mobile-card__name" title={displayName !== '—' ? displayName : undefined}>
+            <button
+              type="button"
+              className="mensal-mobile-card__name mensal-cell-name__btn"
+              title={displayName !== '—' ? displayName : undefined}
+              onClick={() => handleStudentActivate(student, { canRegister })}
+            >
               {displayName}
-            </div>
+            </button>
             <div className="mensal-mobile-card__meta">
               {student.plan || '—'} · {vencLabel}
             </div>

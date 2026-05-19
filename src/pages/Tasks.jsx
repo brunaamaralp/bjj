@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTaskStore } from '../store/useTaskStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -108,6 +109,15 @@ export default function Tasks() {
       /* ignore */
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    if (!showModal) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showModal]);
 
   // Sincronizar filtro ao carregar a página se tiver lead_id na URL
   useEffect(() => {
@@ -915,7 +925,8 @@ export default function Tasks() {
         )}
       </div>
 
-      {showModal && (
+      {showModal &&
+        createPortal(
         <div
           role="presentation"
           className="task-modal-overlay"
@@ -924,6 +935,7 @@ export default function Tasks() {
           <div
             role="dialog"
             aria-modal="true"
+            aria-labelledby="task-modal-title"
             className="task-modal-panel"
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -933,7 +945,7 @@ export default function Tasks() {
                 <div className="task-modal-icon-wrap">
                   <ClipboardList size={16} />
                 </div>
-                <span className="task-modal-title">
+                <span id="task-modal-title" className="task-modal-title">
                   {editingTask ? 'Editar tarefa' : 'Nova tarefa'}
                 </span>
               </div>
@@ -1068,8 +1080,9 @@ export default function Tasks() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+        )}
 
       {detailTask ? (
         <>
@@ -1317,14 +1330,18 @@ export default function Tasks() {
           backdrop-filter: blur(4px);
           display: flex; align-items: center; justify-content: center;
           z-index: 9999; padding: 16px;
+          overflow-y: auto;
+          overscroll-behavior: contain;
         }
         .task-modal-panel {
           background: var(--white);
           border-radius: 20px;
           width: 100%; max-width: 480px;
+          margin: auto;
+          flex-shrink: 0;
           box-shadow: 0 24px 60px rgba(18, 16, 42, 0.18), 0 2px 8px rgba(91,63,191,0.08);
           border: 0.5px solid var(--border-light);
-          max-height: 92vh; overflow-y: auto;
+          max-height: min(92vh, calc(100dvh - 32px)); overflow-y: auto;
         }
         .task-modal-header {
           display: flex; align-items: center; justify-content: space-between;
@@ -1363,6 +1380,21 @@ export default function Tasks() {
         .task-field-required { color: var(--c500); }
         .task-textarea { resize: vertical; min-height: 88px; font-family: var(--ff-ui) !important; }
         .task-select { cursor: pointer; }
+        .task-modal-panel select.form-input,
+        .task-modal-panel select.task-select {
+          appearance: auto;
+          -webkit-appearance: menulist;
+          color-scheme: light;
+          background-color: #ffffff !important;
+          color: var(--ink, #0e0d1a) !important;
+          -webkit-text-fill-color: var(--ink, #0e0d1a);
+          border: 1px solid var(--v100);
+        }
+        .task-modal-panel select.form-input option,
+        .task-modal-panel select.task-select option {
+          background-color: #ffffff;
+          color: #0e0d1a;
+        }
         .task-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
         /* ── Busca de lead ── */

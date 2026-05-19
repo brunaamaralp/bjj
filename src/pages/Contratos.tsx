@@ -32,16 +32,24 @@ export default function Contratos() {
   const setTab = (id: string) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <>
+    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 40 }}>
+      <header className="navi-hub-page__head">
+        <h1 className="navi-page-title" style={{ margin: 0 }}>
+          Contratos
+        </h1>
+        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 0 }}>
+          Lista de contratos e modelos para assinatura digital
+        </p>
+      </header>
       <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Contratos" />
-      <div style={{ marginTop: 0 }}>
-        {activeTab === 'lista' ? <ContractsPageContent /> : null}
+      <div className="navi-hub-page__body">
+        {activeTab === 'lista' ? <ContractsPageContent embedded /> : null}
         {activeTab === 'modelos' ? (
           <Suspense fallback={<RouteFallback />}>
             <ContractTemplatesPage embedded />
           </Suspense>
         ) : null}
       </div>
-    </>
+    </div>
   );
 }

@@ -18,7 +18,9 @@ import './contracts.css';
 
 const PAGE_SIZE = 20;
 
-export default function ContractsPageContent() {
+type ContractsPageContentProps = { embedded?: boolean };
+
+export default function ContractsPageContent({ embedded = false }: ContractsPageContentProps) {
   const leads = useLeadStore((s) => s.leads);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -77,41 +79,49 @@ export default function ContractsPageContent() {
   const hasActiveFilters = statusFilter !== 'all' || Boolean(leadFilterId);
   const showEmptyCta = !isLoading && !isError && total === 0 && !hasActiveFilters;
 
+  const actionButtons = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        className="btn-outline"
+        onClick={() => refetch()}
+        disabled={isFetching}
+        title="Atualizar lista (útil se o webhook ainda não estiver configurado)"
+      >
+        <RefreshCw size={14} className={isFetching ? 'animate-spin' : undefined} />
+        Atualizar
+      </button>
+      {!embedded && navRole === 'owner' ? (
+        <Link to="/contratos?tab=modelos" className="btn-outline flex items-center gap-1">
+          <FileText size={14} />
+          Modelos
+        </Link>
+      ) : null}
+      <button type="button" className="btn-primary contracts-new-btn" onClick={() => setCreateOpen(true)}>
+        <Plus size={18} />
+        Novo contrato
+      </button>
+    </div>
+  );
+
   return (
-    <div className="container contracts-page">
-      <div className="contracts-page-header animate-in">
-        <div>
-          <h1 className="navi-page-title flex items-center gap-2">
-            <FileSignature size={26} strokeWidth={1.75} aria-hidden />
-            Contratos digitais
-          </h1>
-          <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-            Envie contratos para assinatura via Autentique e acompanhe o status
-          </p>
+    <div className={embedded ? 'contracts-page contracts-page--embedded' : 'container contracts-page'}>
+      {embedded ? (
+        <div className="contracts-page-actions animate-in">{actionButtons}</div>
+      ) : (
+        <div className="contracts-page-header animate-in">
+          <div>
+            <h1 className="navi-page-title flex items-center gap-2">
+              <FileSignature size={26} strokeWidth={1.75} aria-hidden />
+              Contratos digitais
+            </h1>
+            <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+              Envie contratos para assinatura via Autentique e acompanhe o status
+            </p>
+          </div>
+          {actionButtons}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            title="Atualizar lista (útil se o webhook ainda não estiver configurado)"
-          >
-            <RefreshCw size={14} className={isFetching ? 'animate-spin' : undefined} />
-            Atualizar
-          </button>
-          {navRole === 'owner' ? (
-            <Link to="/contratos?tab=modelos" className="btn-outline flex items-center gap-1">
-              <FileText size={14} />
-              Modelos
-            </Link>
-          ) : null}
-          <button type="button" className="btn-primary contracts-new-btn" onClick={() => setCreateOpen(true)}>
-            <Plus size={18} />
-            Novo contrato
-          </button>
-        </div>
-      </div>
+      )}
 
       <div className="contracts-toolbar card contracts-toolbar--split">
         <CompactStatusFilter

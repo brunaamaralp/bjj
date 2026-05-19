@@ -1,0 +1,38 @@
+---
+description: Abas internas de hub (?tab=) — usar HubTabBar e classes navi-hub-tabs
+globs: src/pages/**/*.{jsx,tsx},src/components/shared/HubTabBar.jsx
+alwaysApply: false
+---
+
+# Abas de hub (design system Nave)
+
+Páginas com seções via `?tab=` (Contratos, Relatórios, Caixa, Loja, Conta) **não** inventam estilo próprio de aba.
+
+## Obrigatório
+
+1. Importar `HubTabBar` de `src/components/shared/HubTabBar.jsx`.
+2. Resolver aba com `resolveHubTab` + `useSearchParams` (`src/lib/hubTabs.js`).
+3. Estilos globais em `index.css`: `.navi-hub-tabs` / `.navi-hub-tab` / `.navi-hub-tab--active` (segmented control violeta claro, pill ativa branca).
+4. Layout da página: classe `navi-hub-page` no container; título (`navi-page-title` + `navi-eyebrow`) **acima** da barra de abas; conteúdo em `navi-hub-page__body`.
+
+## Não fazer
+
+- Reutilizar só `finance-tabs` sem passar por `HubTabBar` (aliases existem no CSS, mas o componente é a API).
+- `filter-pill` / `filter-strip` para navegação principal entre seções de hub (são para filtros dentro de uma seção).
+- Duplicar CSS de abas em `<style>` local ou `financePageStyles.js`.
+- Título H1 duplicado no filho quando `embedded` — passar `embedded` e ocultar cabeçalho completo no conteúdo embutido.
+
+## Exemplo
+
+```tsx
+<div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 40 }}>
+  <header className="navi-hub-page__head">
+    <h1 className="navi-page-title" style={{ margin: 0 }}>Contratos</h1>
+    <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 0 }}>Subtítulo</p>
+  </header>
+  <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Contratos" />
+  <div className="navi-hub-page__body">{/* painel da aba */}</div>
+</div>
+```
+
+Referência visual: alinhado a `.filter-pill` (pill ativa com sombra), fundo `var(--v50)` e borda `var(--border-violet)`.

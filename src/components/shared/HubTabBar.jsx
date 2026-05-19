@@ -1,20 +1,25 @@
 import React from 'react';
 
 /**
- * Barra de abas reutilizável (mesma linguagem visual do finance-tabs).
+ * Abas de hub interno (?tab=) — estilos globais em index.css (.navi-hub-tabs).
  * @param {{ id: string, label: string }[]} tabs
+ * @param {string} [className]
  */
-export default function HubTabBar({ tabs, activeId, onChange, ariaLabel }) {
+export default function HubTabBar({ tabs, activeId, onChange, ariaLabel, className = '' }) {
   if (!tabs?.length) return null;
   return (
-    <div className="finance-tabs" role="tablist" aria-label={ariaLabel || 'Seções'}>
+    <div
+      className={['navi-hub-tabs', className].filter(Boolean).join(' ')}
+      role="tablist"
+      aria-label={ariaLabel || 'Seções'}
+    >
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           role="tab"
           aria-selected={activeId === tab.id}
-          className={`finance-tab${activeId === tab.id ? ' finance-tab--active' : ''}`}
+          className={`navi-hub-tab${activeId === tab.id ? ' navi-hub-tab--active' : ''}`}
           onClick={() => onChange(tab.id)}
         >
           {tab.label}

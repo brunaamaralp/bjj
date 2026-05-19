@@ -1315,15 +1315,51 @@ button:active {
 }
 
 /* Select nativo: opções legíveis quando o SO está em tema escuro */
-select.form-input {
+select.form-input,
+select.task-select {
   color-scheme: light;
   background-color: var(--surface);
   color: var(--ink);
 }
 
-select.form-input option {
+select.form-input option,
+select.task-select option {
   background-color: var(--surface);
   color: var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  select.form-input,
+  select.task-select,
+  .task-modal-panel select {
+    color-scheme: light;
+    background-color: #ffffff !important;
+    color: var(--ink) !important;
+    -webkit-text-fill-color: var(--ink);
+  }
+
+  select.form-input option,
+  select.task-select option,
+  .task-modal-panel select option {
+    background-color: #ffffff;
+    color: var(--ink);
+  }
+}
+
+/* Overlay de modais genéricos (produtos, estoque, etc.) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  background: rgba(18, 16, 42, 0.55);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .error {
@@ -2134,6 +2170,151 @@ select.form-input option {
 .filter-pill.active .tab-count {
   background: rgba(91, 63, 191, 0.2);
   color: var(--v700);
+}
+
+/* Hub tabs — abas internas de página (Contratos, Relatórios, Caixa, Loja, Conta) */
+.navi-hub-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px;
+  margin: 0 0 20px;
+  background: var(--v50);
+  border: 0.5px solid var(--border-violet);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.navi-hub-tab {
+  flex: 0 1 auto;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-height: 36px;
+  font-family: var(--ff-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--mid);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.navi-hub-tab:hover {
+  color: var(--ink2);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.navi-hub-tab:focus-visible {
+  outline: 2px solid var(--v500);
+  outline-offset: 2px;
+}
+
+.navi-hub-tab--active {
+  background: var(--white);
+  color: var(--v700);
+  box-shadow: 0 1px 4px rgba(91, 63, 191, 0.14);
+}
+
+.navi-hub-tab--active:hover {
+  color: var(--v700);
+  background: var(--white);
+}
+
+/* Alias legado (Caixa injeta financePageStyles — manter compatível) */
+.finance-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px;
+  margin: 0 0 20px;
+  background: var(--v50);
+  border: 0.5px solid var(--border-violet);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.finance-tab {
+  flex: 0 1 auto;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-height: 36px;
+  font-family: var(--ff-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--mid);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.finance-tab:hover {
+  color: var(--ink2);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.finance-tab--active {
+  background: var(--white);
+  color: var(--v700);
+  box-shadow: 0 1px 4px rgba(91, 63, 191, 0.14);
+}
+
+.navi-hub-page__head {
+  margin-bottom: 4px;
+}
+
+.navi-hub-page__body {
+  min-width: 0;
+}
+
+.contracts-page--embedded {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+.contracts-page-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .navi-hub-tabs,
+  .finance-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .navi-hub-tabs::-webkit-scrollbar,
+  .finance-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navi-hub-tab,
+  .finance-tab {
+    flex: 0 0 auto;
+  }
 }
 
 /* Context strip — metadados horizontais */
@@ -4217,22 +4398,11 @@ input[type='datetime-local'].form-input:focus {
 
 .mensal-action-pay-wrap .mensal-btn-pay--hover,
 .mensal-action-paid .mensal-btn-estornar--hover {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.mensal-row:hover .mensal-action-pay-wrap .mensal-btn-pay--hover,
-.mensal-row--actionable .mensal-btn-pay--hover {
   opacity: 1;
   pointer-events: auto;
 }
 
 .mensal-row--actionable .mensal-btn-pay-icon {
-  display: none;
-}
-
-.mensal-row:not(.mensal-row--actionable) .mensal-btn-pay--hover {
   display: none;
 }
 
@@ -4409,6 +4579,31 @@ input[type='datetime-local'].form-input:focus {
   max-width: min(240px, 28vw);
 }
 
+.mensal-cell-name__btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.mensal-cell-name__btn:hover {
+  color: var(--v500);
+  text-decoration: underline;
+}
+
+.mensal-mobile-card__name.mensal-cell-name__btn {
+  display: block;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .mensal-cell-name--grid .mensal-cell-name__title {
   max-width: 180px;
 }
@@ -4518,31 +4713,7 @@ input[type='datetime-local'].form-input:focus {
   color: var(--text-secondary);
 }
 
-.mensal-row--hover-pay .mensal-btn-pay--hover,
-.mensal-row--hover-pay .mensal-btn-pay--compact.mensal-btn-pay--hover {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.mensal-row--hover-pay:hover .mensal-btn-pay--hover,
-.mensal-row--hover-pay:hover .mensal-btn-pay--compact.mensal-btn-pay--hover {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .mensal-pending-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--faint);
-}
-
-.mensal-row--hover-pay:not(:hover) .mensal-pending-icon {
-  display: inline-flex;
-}
-
-.mensal-row--hover-pay:hover .mensal-pending-icon {
   display: none;
 }
 
