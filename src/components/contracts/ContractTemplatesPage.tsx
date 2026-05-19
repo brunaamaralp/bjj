@@ -12,7 +12,7 @@ import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import {
   DEFAULT_CONTRACT_TEMPLATE_HTML,
-  formatContractDate,
+  mapLeadDocToContractVariables,
 } from '../../lib/contractTemplateVariables.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
@@ -47,14 +47,24 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const configured = data?.configured !== false;
 
   const previewVars = useMemo(
-    () => ({
-      nome_aluno: 'João da Silva',
-      email_aluno: 'joao@email.com',
-      telefone_aluno: '(11) 99999-0000',
-      plano: 'Mensal',
-      nome_academia: String(academyDoc?.name || 'Sua academia'),
-      data_hoje: formatContractDate(),
-    }),
+    () =>
+      mapLeadDocToContractVariables(
+        {
+          name: 'João da Silva',
+          email: 'joao@email.com',
+          phone: '11999990000',
+          cpf: '12345678901',
+          responsavel: 'Maria da Silva',
+          cpf_responsavel: '98765432100',
+          plan: 'Mensal',
+          type: 'Adulto',
+          turma: 'Adulto — Noite',
+          belt: 'Azul',
+          enrollmentDate: '2024-03-15',
+          birthDate: '1990-05-20',
+        },
+        String(academyDoc?.name || 'Sua academia')
+      ),
     [academyDoc?.name]
   );
 

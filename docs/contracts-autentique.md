@@ -54,6 +54,21 @@ Na coleção **contracts**, atributos opcionais:
 
 O `academyId` gravado no contrato **sempre** vem do header validado no servidor, nunca do FormData.
 
+## Variáveis do modelo (cadastro do aluno)
+
+No editor (`/contratos/modelos`), use `{{nome_variavel}}`. Campos disponíveis incluem dados do aluno (nome, CPF, telefone, plano, turma…), responsável (`nome_responsavel`, `cpf_responsavel`), academia e datas (`data_hoje`, `data_aceite` na geração do PDF).
+
+O **CPF do responsável** é o campo no perfil do aluno; crie o atributo `cpf_responsavel` na coleção de leads no Appwrite se ainda não existir.
+
+## Fluxo de assinatura (Autentique)
+
+1. No Nave: escolha o modelo, signatário(s) e método de entrega (e-mail ou WhatsApp).
+2. A Autentique envia o link automaticamente (ou use **Copiar link** nos detalhes do contrato).
+3. O signatário abre o link, visualiza o PDF e **assina na interface da Autentique** (desenho, clique ou confirmação — conforme configuração da Autentique).
+4. O webhook atualiza o status no Nave (Pendente → Parcial → Concluído). Sem webhook, use **Atualizar** na listagem.
+
+Não há botão de “aceitar” dentro do Nave para o aluno; a assinatura é sempre no link da Autentique.
+
 ## Fallback sem webhook
 
 Enquanto o webhook não estiver configurado, use o botão **Atualizar** na página `/contratos` ou volte a focar a aba do navegador (refetch automático do React Query).

@@ -1,5 +1,6 @@
 import { Client, Databases } from 'node-appwrite';
-import { formatContractDate, type ContractVariableMap } from './contractVariables.js';
+import { type ContractVariableMap } from './contractVariables.js';
+import { mapLeadDocToContractVariables } from './leadContractVariables.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '';
@@ -32,39 +33,27 @@ export async function buildContractVariableMap(input: {
   academyId: string;
   leadId?: string;
 }): Promise<ContractVariableMap> {
-  const vars: ContractVariableMap = {
-    nome_aluno: '',
-    email_aluno: '',
-    telefone_aluno: '',
-    plano: '',
-    nome_academia: '',
-    data_hoje: formatContractDate(),
-  };
-
+  let academyName = '';
   const db = getDb();
-  if (!db) return vars;
 
-  if (ACADEMIES_COL()) {
+  if (db && ACADEMIES_COL()) {
     try {
       const academy = await db.getDocument(DB_ID, ACADEMIES_COL(), String(input.academyId));
-      vars.nome_academia = String(academy.name || academy.academy_name || '').trim();
+      academyName = String(academy.name || academy.academy_name || '').trim();
     } catch {
       void 0;
     }
   }
 
   const leadId = String(input.leadId || '').trim();
-  if (leadId && LEADS_COL()) {
-    try {
-      const lead = await db.getDocument(DB_ID, LEADS_COL(), leadId);
-      vars.nome_aluno = String(lead.name || '').trim();
-      vars.email_aluno = String(lead.email || '').trim();
-      vars.telefone_aluno = String(lead.phone || lead.telefone || '').trim();
-      vars.plano = String(lead.plan || lead.plano || '').trim();
-    } catch {
-      void 0;
-    }
+  if (!leadId || !db || !LEADS_COL()) {
+    return mapLeadDocToContractVariables(null, academyName);
   }
 
-  return vars;
+  try {
+    const lead = await db.getDocument(DB_ID, LEADS_COL(), leadId);
+    return mapLeadDocToContractVariables(lead as Record<string, unknown>, academyName);
+  } catch {
+    return mapLeadDocToContractVariables(null, academyName);
+  }
 }

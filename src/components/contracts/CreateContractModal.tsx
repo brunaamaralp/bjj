@@ -211,6 +211,15 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
             ) : null}
           </div>
 
+          <div className="contracts-autentique-help card" style={{ padding: 12, background: 'var(--surface-hover)' }}>
+            <p className="text-small" style={{ margin: 0, lineHeight: 1.5 }}>
+              <strong>Como funciona a assinatura:</strong> ao enviar, a Autentique dispara um link por e-mail
+              ou WhatsApp (conforme o método de entrega). O signatário abre o link, lê o PDF e confirma a
+              assinatura na plataforma da Autentique — não é um botão dentro do Nave. Depois do envio, copie o
+              link em <strong>Detalhes do contrato</strong> se precisar reenviar manualmente.
+            </p>
+          </div>
+
           <div className="contracts-form-block">
             <div className="contracts-signers-head">
               <span className="task-field-label" style={{ margin: 0 }}>

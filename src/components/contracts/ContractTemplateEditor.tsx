@@ -1,8 +1,10 @@
 import React, { useMemo, useRef } from 'react';
 import {
   CONTRACT_TEMPLATE_VARIABLES,
+  CONTRACT_VARIABLE_GROUPS,
   mergeContractTemplateHtml,
 } from '../../lib/contractTemplateVariables.js';
+import ContractRichTextEditor, { type ContractRichTextEditorHandle } from './ContractRichTextEditor.jsx';
 
 interface ContractTemplateEditorProps {
   bodyHtml: string;
@@ -17,25 +19,7 @@ export default function ContractTemplateEditor({
   previewVars,
   disabled = false,
 }: ContractTemplateEditorProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const insertVariable = (key: string) => {
-    const token = `{{${key}}}`;
-    const el = textareaRef.current;
-    if (!el) {
-      onChange(`${bodyHtml}${token}`);
-      return;
-    }
-    const start = el.selectionStart ?? bodyHtml.length;
-    const end = el.selectionEnd ?? start;
-    const next = bodyHtml.slice(0, start) + token + bodyHtml.slice(end);
-    onChange(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + token.length;
-      el.setSelectionRange(pos, pos);
-    });
-  };
+  const richRef = useRef<ContractRichTextEditorHandle>(null);
 
   const previewHtml = useMemo(() => {
     if (!previewVars) return null;
@@ -45,37 +29,36 @@ export default function ContractTemplateEditor({
   return (
     <div className="contract-template-editor">
       <div className="contract-template-editor-vars">
-        <span className="task-field-label" style={{ marginRight: 8 }}>
-          Variáveis:
-        </span>
-        {CONTRACT_TEMPLATE_VARIABLES.map((v) => (
-          <button
-            key={v.key}
-            type="button"
-            className="btn-outline text-small"
-            disabled={disabled}
-            onClick={() => insertVariable(v.key)}
-            title={`Inserir {{${v.key}}}`}
-          >
-            {v.label}
-          </button>
-        ))}
+        {CONTRACT_VARIABLE_GROUPS.map((group) => {
+          const items = CONTRACT_TEMPLATE_VARIABLES.filter((v) => v.group === group.id);
+          if (!items.length) return null;
+          return (
+            <div className="contract-template-editor-var-group" key={group.id}>
+              <span className="contract-template-editor-var-group-label">{group.label}</span>
+              <div className="contract-template-editor-var-group-btns">
+                {items.map((v) => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    className="btn-outline text-small"
+                    disabled={disabled}
+                    onClick={() => richRef.current?.insertVariable(v.key)}
+                    title={`Inserir {{${v.key}}}`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <textarea
-        ref={textareaRef}
-        className="form-input contract-template-editor-textarea"
-        value={bodyHtml}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        rows={16}
-        spellCheck
-        placeholder="Escreva o contrato em HTML simples (títulos, parágrafos, negrito)…"
-      />
+      <ContractRichTextEditor ref={richRef} bodyHtml={bodyHtml} onChange={onChange} disabled={disabled} />
 
       <p className="text-small text-muted" style={{ marginTop: 8 }}>
-        Use HTML básico: &lt;h1&gt;, &lt;p&gt;, &lt;strong&gt;. As variáveis são substituídas ao enviar o
-        contrato.
+        Use a barra de ferramentas para negrito, itálico, títulos e listas. Clique nas variáveis para
+        inserir no cursor. Elas são preenchidas com os dados do aluno ao enviar o contrato.
       </p>
 
       {previewHtml != null ? (

@@ -159,6 +159,7 @@ const STUDENT_DATA_FIELDS = [
     { key: 'phone', label: 'Telefone (WhatsApp)', type: 'tel', placeholder: '(00) 00000-0000' },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
     { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
+    { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00' },
 ];
 
 const EMERGENCY_FIELDS = [
@@ -326,6 +327,7 @@ export default function StudentProfile() {
         phone: '',
         cpf: '',
         responsavel: '',
+        cpfResponsavel: '',
         emergencyContact: '',
         emergencyPhone: '',
         preferredPaymentMethod: '',
@@ -431,6 +433,7 @@ export default function StudentProfile() {
             phone: maskPhone(String(student.phone || '')),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
+            cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
             preferredPaymentMethod: student.preferredPaymentMethod || '',
@@ -825,6 +828,7 @@ export default function StudentProfile() {
             phone: maskPhone(String(student.phone || '')),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
+            cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
             preferredPaymentMethod: student.preferredPaymentMethod || '',
@@ -873,6 +877,7 @@ export default function StudentProfile() {
                 enrollmentDate: dataForm.enrollmentDate,
                 birthDate: dataForm.birthDate,
                 responsavel: dataForm.responsavel,
+                cpfResponsavel: String(dataForm.cpfResponsavel || '').replace(/\D/g, ''),
                 emergencyContact: dataForm.emergencyContact,
                 emergencyPhone: String(dataForm.emergencyPhone || '').replace(/\D/g, ''),
                 preferredPaymentMethod: dataForm.preferredPaymentMethod,
@@ -1250,7 +1255,7 @@ export default function StudentProfile() {
             const br = formatDateBR(raw);
             return br || '';
         }
-        if (key === 'cpf') {
+        if (key === 'cpf' || key === 'cpfResponsavel') {
             const s = String(raw ?? '').replace(/\D/g, '');
             return s ? maskCPF(s) : '';
         }
@@ -1381,7 +1386,7 @@ export default function StudentProfile() {
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => {
                         let v = e.target.value;
-                        if (field.key === 'cpf') v = maskCPF(e.target.value);
+                        if (field.key === 'cpf' || field.key === 'cpfResponsavel') v = maskCPF(e.target.value);
                         else if (field.key === 'phone') v = maskPhone(e.target.value);
                         setDataForm((p) => ({ ...p, [field.key]: v }));
                     }}
