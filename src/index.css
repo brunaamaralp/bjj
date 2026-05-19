@@ -4001,6 +4001,12 @@ input[type='datetime-local'].form-input:focus {
   color: #b45309;
 }
 
+.mensal-status-badge--frozen {
+  background: #e8eef5;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
 .mensal-status-badge--none {
   background: transparent;
   border: 1px dashed var(--border-mid);

@@ -6,7 +6,16 @@ import {
   Receipt,
   ChevronDown,
   ChevronUp,
+  Lock,
+  Pause,
 } from 'lucide-react';
+import PlanFreezePanel from './PlanFreezePanel.jsx';
+import {
+  canStartPlanFreeze,
+  isFreezeActive,
+  effectiveFreezeDaysUsed,
+  FREEZE_MAX_DAYS_PER_YEAR,
+} from '../../lib/planFreeze.js';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import {
@@ -45,6 +54,7 @@ const BADGE_STYLES = {
   danger: { bg: '#FCEBEB', color: '#A32D2D' },
   warning: { bg: '#FFEDD5', color: '#C2410C' },
   muted: { bg: '#f1f5f9', color: '#64748b' },
+  frozen: { bg: '#e8eef5', color: '#475569', border: '1px solid #cbd5e1' },
 };
 
 function TimelineBadge({ badge }) {
@@ -305,11 +315,22 @@ export default function StudentFinancialTimeline({
   onCancelCoverage,
   cancellingCoverage,
   hasSales,
+  planFreezes = [],
+  onOpenFreeze,
+  freezeBusy = false,
+  onEndFreeze,
+  endFreezeBusy = false,
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('12m');
 
-  const allItems = useMemo(() => buildFinancialTimelineItems(payments, sales), [payments, sales]);
+  const allItems = useMemo(
+    () => buildFinancialTimelineItems(payments, sales, planFreezes),
+    [payments, sales, planFreezes]
+  );
+  const freezeActive = isFreezeActive(student);
+  const showFreezeBtn = canStartPlanFreeze(student, financeConfig);
+  const freezeHistoryCount = (planFreezes || []).length;
 
   const typeCounts = useMemo(() => filterTypeCounts(allItems), [allItems]);
 
@@ -360,6 +381,33 @@ export default function StudentFinancialTimeline({
     <div>
       <FinancialSummaryCard summary={summary} />
 
+      {freezeActive ? (
+        <PlanFreezePanel
+          student={student}
+          freezeHistoryCount={freezeHistoryCount}
+          onEndEarly={onEndFreeze}
+          busy={endFreezeBusy}
+        />
+      ) : null}
+
+      {!freezeActive && showFreezeBtn ? (
+        <button
+          type="button"
+          className="btn-outline"
+          style={{ width: '100%', marginBottom: 12 }}
+          onClick={onOpenFreeze}
+          disabled={freezeBusy}
+        >
+          Trancar plano
+        </button>
+      ) : null}
+
+      {!freezeActive && !showFreezeBtn && String(student?.plan || '').trim() ? (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+          Trancamento: {effectiveFreezeDaysUsed(student)} de {FREEZE_MAX_DAYS_PER_YEAR} dias utilizados no ano do plano.
+        </p>
+      ) : null}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <CompactStatusFilter
           value={typeFilter}
@@ -397,6 +445,9 @@ export default function StudentFinancialTimeline({
             if (item.kind === 'product') {
               return <ProductTimelineRow key={item.id} item={item} />;
             }
+            if (item.kind === 'freeze') {
+              return <TimelineRow key={item.id} icon={Lock} iconColor="#64748b" item={item} />;
+            }
             const Icon =
               item.kind === 'fee' ? Receipt : Calendar;
             const iconColor = item.kind === 'fee' ? '#B45309' : '#5B3FBF';
@@ -415,24 +466,26 @@ export default function StudentFinancialTimeline({
           borderTop: '1px solid var(--border-light)',
         }}
       >
-        <button
-          type="button"
-          onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
-          style={{
-            width: '100%',
-            padding: '12px 14px',
-            borderRadius: 10,
-            border: 'none',
-            background: '#5B3FBF',
-            color: '#fff',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          + Registrar pagamento
-        </button>
+        {!freezeActive ? (
+          <button
+            type="button"
+            onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: 10,
+              border: 'none',
+              background: '#5B3FBF',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            + Registrar pagamento
+          </button>
+        ) : null}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn-outline btn-sm" style={{ flex: 1 }} onClick={onGoMensalidades}>
             Ver na Mensalidades

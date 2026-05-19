@@ -468,6 +468,22 @@ export async function getMonthlyPayments(academyId, referenceMonth) {
   return allDocs.filter(isMensalidadesGridPayment);
 }
 
+/**
+ * Cria ou atualiza documento de pagamento (sem espelhar Caixa quando skipMirror).
+ */
+export async function upsertStudentPayment({ data, existingId = null, skipMirror = false }) {
+  if (!PAYMENTS_COL) {
+    throw new Error('student_payments_collection_not_configured');
+  }
+  const permissions = buildPermissions(data);
+  return persistPaymentDocument({
+    data,
+    existingId,
+    permissions,
+    skipMirror,
+  });
+}
+
 export async function createPayment(data) {
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');

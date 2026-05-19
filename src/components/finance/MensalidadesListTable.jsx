@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CircleDashed,
   CircleAlert,
+  Pause,
   Banknote,
   ChevronDown,
   ChevronRight,
@@ -26,6 +27,7 @@ function StatusBadge({ variant, children }) {
     pending: CircleAlert,
     soon: AlertTriangle,
     none: null,
+    frozen: Pause,
   };
   const Icon = icons[variant];
   return (
@@ -116,6 +118,7 @@ export default function MensalidadesListTable({
 
   const renderStudentRow = (student, rowIndex) => {
     const payment = paymentMap[student.id];
+    const studentFrozen = String(student.freeze_status || '') === 'active';
     const rowMeta = getRowStatus(student, payment, currentMonth);
     const statusKey = rowMeta?.status || 'none';
     const calendar = getPaymentRowStatus(student, payment, currentMonth);
@@ -153,7 +156,10 @@ export default function MensalidadesListTable({
 
     let badgeVariant = 'none';
     let badgeLabel = 'Sem registro';
-    if (payment?.status === 'awaiting') {
+    if (studentFrozen || dbStatus === 'frozen') {
+      badgeVariant = 'frozen';
+      badgeLabel = 'Trancado';
+    } else if (payment?.status === 'awaiting') {
       badgeVariant = 'awaiting';
       badgeLabel = 'Aguardando';
     } else if (payment?.status === 'partial') {
@@ -177,7 +183,11 @@ export default function MensalidadesListTable({
 
     const isPaid = statusKey === 'paid' && payment?.status === 'paid';
     const isActiveAttention = dbStatus === 'awaiting' || dbStatus === 'partial';
-    const isHoverPayOnly = !isPaid && !isActiveAttention && (statusKey === 'none' || statusKey === 'pending');
+    const isHoverPayOnly =
+      !studentFrozen &&
+      !isPaid &&
+      !isActiveAttention &&
+      (statusKey === 'none' || statusKey === 'pending');
     const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
 
     const paidTooltip =
@@ -231,7 +241,11 @@ export default function MensalidadesListTable({
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </td>
         <td className="mensal-cell-action">
-          {isPaid ? (
+          {studentFrozen ? (
+            <span className="mensal-cell-faint" style={{ fontSize: 12 }}>
+              —
+            </span>
+          ) : isPaid ? (
             <div className="mensal-action-paid" title={paidTooltip}>
               <span className="mensal-action-check" aria-label="Pago">
                 <Check size={16} strokeWidth={2.5} />
@@ -288,7 +302,10 @@ export default function MensalidadesListTable({
 
     let badgeVariant = 'none';
     let badgeLabel = 'Sem registro';
-    if (payment?.status === 'awaiting') {
+    if (studentFrozen || dbStatus === 'frozen') {
+      badgeVariant = 'frozen';
+      badgeLabel = 'Trancado';
+    } else if (payment?.status === 'awaiting') {
       badgeVariant = 'awaiting';
       badgeLabel = 'Aguardando';
     } else if (payment?.status === 'partial') {
@@ -341,7 +358,7 @@ export default function MensalidadesListTable({
           </div>
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </div>
-        {!isPaid ? (
+        {!isPaid && !studentFrozen ? (
           <div className="mensal-mobile-card__actions">
             <button type="button" className="btn-primary mensal-mobile-pay" onClick={() => openPaymentModal(student)}>
               <Banknote size={16} /> Registrar

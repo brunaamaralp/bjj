@@ -12,6 +12,7 @@ import {
   groupStudentPaymentsForProfile,
 } from './bundleCoverage.js';
 import { openAmountForStudent } from './collectionOverdue.js';
+import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
 
 export const TIMELINE_FILTER_TYPES = {
   ALL: 'all',
@@ -48,7 +49,30 @@ function paymentStatusBadge(st) {
   if (s === 'pending') return { label: 'Pendente', tone: 'danger' };
   if (s === 'partial') return { label: 'Parcial', tone: 'warning' };
   if (s === 'cancelled') return { label: 'Cancelado', tone: 'muted' };
+  if (s === 'frozen') return { label: 'Trancado', tone: 'frozen' };
   return { label: s || '—', tone: 'muted' };
+}
+
+/**
+ * @param {Array} freezeRecords — documentos plan_freezes
+ */
+export function buildFreezeTimelineItems(freezeRecords) {
+  return (freezeRecords || []).map((fr) => {
+    const start = String(fr.start_date || '').slice(0, 10);
+    const end = String(fr.end_date || '').slice(0, 10);
+    const days = Number(fr.days) || 0;
+    return {
+      id: `freeze:${fr.$id}`,
+      kind: 'freeze',
+      sortDate: fr.start_date || fr.created_at || start,
+      title: `Trancamento — ${formatFreezeDateBr(start)} a ${formatFreezeDateBr(end)} (${days} dias)`,
+      subtitle: fr.reason ? `Motivo: ${fr.reason}` : '',
+      amount: 0,
+      badge: { label: 'Trancado', tone: 'frozen' },
+      freeze: fr,
+      days,
+    };
+  });
 }
 
 /**
@@ -56,8 +80,8 @@ function paymentStatusBadge(st) {
  * @param {Array} sales
  * @returns {Array<object>}
  */
-export function buildFinancialTimelineItems(payments, sales) {
-  const items = [];
+export function buildFinancialTimelineItems(payments, sales, freezeRecords = []) {
+  const items = [...buildFreezeTimelineItems(freezeRecords)];
   const { groups } = groupStudentPaymentsForProfile(payments || []);
 
   for (const g of groups) {
@@ -216,6 +240,19 @@ export function buildFinancialSummary({
       situationTone: 'success',
       historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
       isBundle: true,
+    };
+  }
+
+  if (isFreezeActive(student)) {
+    const endYmd = String(student.freeze_end || '').slice(0, 10);
+    return {
+      planLabel: planLabel !== '—' ? planLabel : 'Plano anual',
+      dueLabel: endYmd ? `Trancado até ${formatFreezeDateBr(endYmd)}` : 'Plano trancado',
+      situationLabel: 'Trancamento ativo',
+      situationTone: 'muted',
+      historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
+      isBundle: false,
+      isFrozen: true,
     };
   }
 

@@ -36,9 +36,13 @@ export function getPaymentRowStatus(student, payment, currentMonth, today = new 
   const today0 = startOfLocalDay(today);
   const dbStatus = String(payment?.status || '').toLowerCase();
 
-  if (payment && (dbStatus === 'paid' || dbStatus === 'covered')) {
+  if (payment && (dbStatus === 'paid' || dbStatus === 'covered' || dbStatus === 'frozen')) {
     const paidAt = payment.paid_at ? parseYmdLocal(String(payment.paid_at).slice(0, 10)) : null;
-    return { status: 'paid', dueDate: null, paidAt, daysOverdue: 0 };
+    return { status: dbStatus === 'frozen' ? 'frozen' : 'paid', dueDate: null, paidAt, daysOverdue: 0 };
+  }
+
+  if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') {
+    return { status: 'frozen', dueDate: null, paidAt: null, daysOverdue: 0 };
   }
 
   if (payment && dbStatus === 'awaiting') {
@@ -98,7 +102,9 @@ export function getPaymentRowStatus(student, payment, currentMonth, today = new 
 }
 
 export function isOverdueForCollection(student, payment, currentMonth, minDays = 1, today = new Date()) {
+  if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') return false;
   const row = getPaymentRowStatus(student, payment, currentMonth, today);
+  if (row.status === 'frozen') return false;
   return row.status === 'pending' && row.daysOverdue >= minDays;
 }
 

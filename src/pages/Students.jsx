@@ -337,7 +337,23 @@ const Students = () => {
                             color: 'inherit',
                         }}
                     >
-                        <strong style={{ fontSize: '0.95rem' }}>{student.name || 'Sem nome'}</strong>
+                        <strong style={{ fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {student.name || 'Sem nome'}
+                            {String(student.freeze_status || '') === 'active' ? (
+                                <span
+                                    style={{
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        padding: '2px 7px',
+                                        borderRadius: 6,
+                                        background: '#e8eef5',
+                                        color: '#475569',
+                                    }}
+                                >
+                                    Trancado
+                                </span>
+                            ) : null}
+                        </strong>
                         <p className="text-small" style={{ margin: 0 }}>
                             {[normalizeLeadProfileType(student.type) || student.type, student.phone]
                                 .filter((p) => p && String(p).trim())

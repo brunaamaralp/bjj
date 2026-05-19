@@ -33,6 +33,7 @@
     { "source": "/api/products", "destination": "/api/leads.js?route=products" },
     { "source": "/api/sales", "destination": "/api/leads.js?route=sales" },
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
+    { "source": "/api/cron/plan-freeze", "destination": "/api/cron/reset-usage.js?action=plan-freeze" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
@@ -60,6 +61,10 @@
     {
       "path": "/api/cron/stock-inventory",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/plan-freeze",
+      "schedule": "15 6 * * *"
     }
   ]
 }

@@ -4,7 +4,7 @@
  */
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
 
-export const PAYMENT_DB_STATUSES = ['paid', 'pending', 'awaiting', 'partial', 'cancelled', 'covered'];
+export const PAYMENT_DB_STATUSES = ['paid', 'pending', 'awaiting', 'partial', 'cancelled', 'covered', 'frozen'];
 
 export const GRID_STATUS_LABELS = {
   paid: 'Pago',
@@ -14,6 +14,7 @@ export const GRID_STATUS_LABELS = {
   pending: 'Pendente',
   soon: 'A vencer',
   none: 'Sem registro',
+  frozen: 'Trancado',
 };
 
 export const GRID_STATUS_COLORS = {
@@ -24,6 +25,7 @@ export const GRID_STATUS_COLORS = {
   pending: { bg: '#FCEBEB', color: '#A32D2D' },
   soon: { bg: '#f0f0f8', color: 'var(--text-secondary)' },
   none: { bg: '#f0f0f8', color: 'var(--text-secondary)' },
+  frozen: { bg: '#e8eef5', color: '#475569' },
 };
 
 export const HISTORY_BADGE = {
@@ -38,7 +40,7 @@ export const HISTORY_BADGE = {
 
 export function expectedAmountForStudent(student, financeConfig, payment) {
   const st = String(payment?.status || '').toLowerCase();
-  if (st === 'covered') return 0;
+  if (st === 'covered' || st === 'frozen') return 0;
   const fromPayment = Number(payment?.expected_amount);
   if (Number.isFinite(fromPayment) && fromPayment > 0) return fromPayment;
   return openAmountForStudent(student, payment, financeConfig);
@@ -47,7 +49,7 @@ export function expectedAmountForStudent(student, financeConfig, payment) {
 export function receivedAmountForPayment(payment) {
   if (!payment) return 0;
   const st = String(payment.status || '').toLowerCase();
-  if (st === 'covered') return 0;
+  if (st === 'covered' || st === 'frozen') return 0;
   if (st === 'paid' || st === 'partial') {
     const paid = Number(payment.paid_amount);
     if (Number.isFinite(paid) && paid >= 0) return paid;
@@ -63,6 +65,14 @@ export function receivedAmountForPayment(payment) {
 export function resolveGridDisplayStatus(student, payment, currentMonth, today = new Date()) {
   const row = getPaymentRowStatus(student, payment, currentMonth, today);
   const db = String(payment?.status || '').toLowerCase();
+
+  if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') {
+    return { key: 'frozen', label: GRID_STATUS_LABELS.frozen, dbStatus: 'frozen', row };
+  }
+
+  if (db === 'frozen') {
+    return { key: 'frozen', label: GRID_STATUS_LABELS.frozen, dbStatus: 'frozen', row };
+  }
 
   if (db === 'cancelled' || !payment) {
     if (row.status === 'paid') {

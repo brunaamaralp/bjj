@@ -71,6 +71,30 @@ export function analyzePaymentException(student, payment, currentMonth, financeC
   const reasons = [];
 
   const noPayment = !payment || db === 'cancelled';
+  if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') {
+    return {
+      isException: false,
+      reasons: [],
+      primaryStatus: 'none',
+      expected,
+      received,
+      difference,
+      row,
+      dbStatus: db,
+    };
+  }
+  if (db === 'frozen') {
+    return {
+      isException: false,
+      reasons: [],
+      primaryStatus: 'none',
+      expected,
+      received,
+      difference,
+      row,
+      dbStatus: db,
+    };
+  }
   const overdue = row.daysOverdue > 0;
 
   if (db === 'awaiting') reasons.push('awaiting');

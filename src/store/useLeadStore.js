@@ -175,6 +175,22 @@ function updatesToAppwritePatch(updates, currentLead) {
     const err = String(u.controlid_sync_error || '').trim().slice(0, 256);
     copyIf('controlid_sync_error', err || null);
   }
+  if (u.plan_billing !== undefined) {
+    copyIf('plan_billing', String(u.plan_billing || '').trim().slice(0, 16) || null);
+  }
+  if (u.freeze_start !== undefined) copyIf('freeze_start', u.freeze_start || null);
+  if (u.freeze_end !== undefined) copyIf('freeze_end', u.freeze_end || null);
+  if (u.freeze_status !== undefined) {
+    const st = String(u.freeze_status || '').trim().slice(0, 16);
+    copyIf('freeze_status', st || null);
+  }
+  if (u.freeze_days_used !== undefined) {
+    const n = Number(u.freeze_days_used);
+    copyIf('freeze_days_used', Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0);
+  }
+  if (u.freeze_quota_year !== undefined) {
+    copyIf('freeze_quota_year', String(u.freeze_quota_year || '').trim().slice(0, 16) || null);
+  }
   if (u.photo_url !== undefined) {
     const url = String(u.photo_url || '').trim().slice(0, 512);
     copyIf('photo_url', url || null);

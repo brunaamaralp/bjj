@@ -110,5 +110,11 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     controlid_synced: doc.controlid_synced === true,
     controlid_sync_error: String(doc.controlid_sync_error || '').trim() || null,
     photo_url: String(doc.photo_url || doc.photoUrl || '').trim() || null,
+    plan_billing: String(doc.plan_billing || doc.planBilling || '').trim() || null,
+    freeze_start: doc.freeze_start || null,
+    freeze_end: doc.freeze_end || null,
+    freeze_days_used: Number(doc.freeze_days_used ?? doc.freezeDaysUsed ?? 0) || 0,
+    freeze_status: doc.freeze_status || doc.freezeStatus || null,
+    freeze_quota_year: String(doc.freeze_quota_year || doc.freezeQuotaYear || '').trim() || null,
   };
 }

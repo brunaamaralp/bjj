@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown, Upload } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
@@ -9,6 +9,7 @@ import { formatBRL } from '../lib/moneyBr';
 import { refreshStockStores } from '../lib/syncStockStores';
 import ProductThumb from '../components/products/ProductThumb';
 import ProductFormModal from '../components/products/ProductFormModal';
+import ProductImportModal from '../components/products/ProductImportModal';
 import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
 import EmptyState from '../components/shared/EmptyState';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
@@ -56,6 +57,8 @@ export default function Products() {
   const [deleteHasSales, setDeleteHasSales] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFilterIds, setImportFilterIds] = useState(null);
 
   const canAccess = modules?.inventory === true || modules?.sales === true;
 
@@ -77,16 +80,19 @@ export default function Products() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [products]);
 
-  const filtered = useMemo(
-    () =>
-      filterProductsClient(products, {
-        search,
-        category: categoryFilter,
-        statusFilter: statusFilter === 'all' ? '' : statusFilter,
-        typeFilter: typeFilter === 'all' ? '' : typeFilter,
-      }),
-    [products, search, categoryFilter, statusFilter, typeFilter]
-  );
+  const filtered = useMemo(() => {
+    let list = filterProductsClient(products, {
+      search,
+      category: categoryFilter,
+      statusFilter: statusFilter === 'all' ? '' : statusFilter,
+      typeFilter: typeFilter === 'all' ? '' : typeFilter,
+    });
+    if (importFilterIds?.length) {
+      const idSet = new Set(importFilterIds);
+      list = list.filter((p) => idSet.has(p.id));
+    }
+    return list;
+  }, [products, search, categoryFilter, statusFilter, typeFilter, importFilterIds]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -264,10 +270,16 @@ export default function Products() {
             Cadastro único para estoque e vendas
           </p>
         </div>
-        <button type="button" className="btn-secondary" onClick={openCreate}>
-          <Plus size={16} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
-          Novo produto
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="btn-outline" onClick={() => setImportOpen(true)}>
+            <Upload size={16} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+            Importar CSV
+          </button>
+          <button type="button" className="btn-secondary" onClick={openCreate}>
+            <Plus size={16} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+            Novo produto
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -437,6 +449,32 @@ export default function Products() {
         onConfirmDelete={() => void confirmDelete()}
         onConfirmDeactivate={() => deleteTarget && void handleDeactivate(deleteTarget.id)}
       />
+
+      <ProductImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={async ({ ids, reload, viewFilter }) => {
+          if (reload) await loadProducts();
+          if (viewFilter && ids?.length) {
+            setImportFilterIds(ids);
+            setSearch('');
+            setCategoryFilter('all');
+            setStatusFilter('all');
+            setTypeFilter('all');
+          }
+        }}
+      />
+
+      {importFilterIds?.length ? (
+        <div className="card mt-2" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <span className="text-small">
+            Exibindo {importFilterIds.length} produto(s) da importação recente
+          </span>
+          <button type="button" className="btn-outline btn-sm" onClick={() => setImportFilterIds(null)}>
+            Limpar filtro
+          </button>
+        </div>
+      ) : null}
 
       <style>{`
         .products-table-wrap { overflow-x: auto; padding-right: 4px; }

@@ -11,6 +11,13 @@ import {
     PAYMENT_CATEGORY,
 } from '../lib/studentPayments.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
+import PlanFreezeModal from '../components/student/PlanFreezeModal.jsx';
+import {
+    startPlanFreeze,
+    endPlanFreeze,
+    listPlanFreezes,
+    formatFreezeDateBr,
+} from '../lib/planFreeze.js';
 import StudentPaymentModal, { buildDefaultPayForm } from '../components/student/StudentPaymentModal.jsx';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
@@ -356,6 +363,11 @@ export default function StudentProfile() {
     const [payForm, setPayForm] = useState(() => buildDefaultPayForm(null));
     const [savingPayment, setSavingPayment] = useState(false);
     const [cancellingCoverage, setCancellingCoverage] = useState(false);
+    const [planFreezes, setPlanFreezes] = useState([]);
+    const [freezeModalOpen, setFreezeModalOpen] = useState(false);
+    const [freezeBusy, setFreezeBusy] = useState(false);
+    const [endFreezeBusy, setEndFreezeBusy] = useState(false);
+    const [academySettingsDoc, setAcademySettingsDoc] = useState(null);
     const [viewportStacked, setViewportStacked] = useState(
         () => typeof window !== 'undefined' && window.innerWidth < 1024
     );
@@ -500,17 +512,19 @@ export default function StudentProfile() {
         setLoadingPayments(true);
         setPaymentsError(false);
         try {
-            const [docs, status, salesList] = await Promise.all([
+            const [docs, status, salesList, freezes] = await Promise.all([
                 getStudentPayments(leadId, academyId),
                 getPaymentStatus(leadId, academyId),
                 getSalesByStudent(leadId, { limit: 50 }).catch((err) => {
                     console.warn('getSalesByStudent:', err);
                     return [];
                 }),
+                listPlanFreezes(leadId, academyId).catch(() => []),
             ]);
             setPayments(docs);
             setPaymentStatus(status);
             setSales(salesList);
+            setPlanFreezes(freezes);
         } catch (e) {
             console.error(e);
             setPaymentsError(true);
@@ -525,6 +539,67 @@ export default function StudentProfile() {
     useEffect(() => {
         void loadPayments();
     }, [loadPayments]);
+
+    const handleConfirmFreeze = useCallback(
+        async ({ startYmd, endYmd, durationDays, reason }) => {
+            if (!student || !leadId || !academyId) return;
+            setFreezeBusy(true);
+            try {
+                const acad = (academyList || []).find((a) => a.id === academyId) || {};
+                await startPlanFreeze({
+                    student,
+                    leadId,
+                    academyId,
+                    startYmd,
+                    endYmd,
+                    durationDays,
+                    reason,
+                    userId,
+                    teamId: acad.teamId,
+                    updateLead,
+                    academySettingsRaw: academySettingsDoc,
+                    financeConfig,
+                });
+                setFreezeModalOpen(false);
+                addToast({
+                    type: 'success',
+                    message: `Plano trancado até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado.`,
+                });
+                void loadPayments();
+            } catch (e) {
+                addToast({ type: 'error', message: friendlyError(e, 'save') });
+                throw e;
+            } finally {
+                setFreezeBusy(false);
+            }
+        },
+        [student, leadId, academyId, academyList, userId, updateLead, academySettingsDoc, financeConfig, addToast, loadPayments]
+    );
+
+    const handleEndFreezeEarly = useCallback(async () => {
+        if (!student || !leadId || !academyId) return;
+        setEndFreezeBusy(true);
+        try {
+            const acad = (academyList || []).find((a) => a.id === academyId) || {};
+            await endPlanFreeze({
+                student,
+                leadId,
+                academyId,
+                userId,
+                teamId: acad.teamId,
+                updateLead,
+                academySettingsRaw: academySettingsDoc,
+                early: true,
+                payments,
+            });
+            addToast({ type: 'success', message: 'Trancamento encerrado. Acesso reativado na catraca quando possível.' });
+            void loadPayments();
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setEndFreezeBusy(false);
+        }
+    }, [student, leadId, academyId, academyList, userId, updateLead, academySettingsDoc, payments, addToast, loadPayments]);
 
     const academyNameDisplay = useMemo(() => {
         const cur = (academyList || []).find((a) => a.id === academyId);
@@ -582,10 +657,12 @@ export default function StudentProfile() {
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed },
                 });
                 setExitReasons(parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons));
+                setAcademySettingsDoc(doc);
             })
             .catch(() => {
                 setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
                 setExitReasons(parseStudentExitReasons(null));
+                setAcademySettingsDoc(null);
             });
     }, [academyId]);
 
@@ -2173,6 +2250,11 @@ export default function StudentProfile() {
                         onCancelCoverage={handleCancelCoverage}
                         cancellingCoverage={cancellingCoverage}
                         hasSales={sales.length > 0}
+                        planFreezes={planFreezes}
+                        onOpenFreeze={() => setFreezeModalOpen(true)}
+                        freezeBusy={freezeBusy}
+                        onEndFreeze={() => void handleEndFreezeEarly()}
+                        endFreezeBusy={endFreezeBusy}
                     />
                 ) : null}
 
@@ -2476,6 +2558,14 @@ export default function StudentProfile() {
                     onConfirm={handleConfirmDeactivate}
                 />
             ) : null}
+
+            <PlanFreezeModal
+                open={freezeModalOpen}
+                student={student}
+                busy={freezeBusy}
+                onClose={() => !freezeBusy && setFreezeModalOpen(false)}
+                onConfirm={handleConfirmFreeze}
+            />
 
             <StudentPaymentModal
                 open={showPaymentModal}
