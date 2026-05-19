@@ -9,6 +9,7 @@ import {
   PlusCircle,
   MessageCircle,
   FileText,
+  FileSignature,
   Bot,
   Users,
   Wallet,
@@ -179,6 +180,13 @@ export default function NaviSidebarNav({
             to="/mensalidades"
             label="Mensalidades"
             Icon={Users}
+            collapsed={collapsed}
+            className={sideLinkClass}
+          />
+          <SideNavLink
+            to="/contratos"
+            label="Contratos"
+            Icon={FileSignature}
             collapsed={collapsed}
             className={sideLinkClass}
           />

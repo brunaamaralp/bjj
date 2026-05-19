@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Bot,
   FileText,
+  FileSignature,
   Wallet,
   Users,
   BookOpen,
@@ -57,6 +58,7 @@ const Caixa = React.lazy(() => import('./pages/Caixa'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
 const Products = React.lazy(() => import('./pages/Products'));
 const Sales = React.lazy(() => import('./pages/Sales'));
+const Contratos = React.lazy(() => import('./pages/Contratos'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -954,6 +956,16 @@ const App = () => {
                   {modules.finance === true && <Route path="/caixa" element={<Caixa />} />}
                   {modules.finance === true && <Route path="/finance" element={<RequireFinanceOwner />} />}
                   {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
+                  {modules.finance === true && (
+                    <Route
+                      path="/contratos"
+                      element={
+                        <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={6} />}>
+                          <Contratos />
+                        </Suspense>
+                      }
+                    />
+                  )}
                   {modules.inventory === true && <Route path="/estoque" element={<Inventory />} />}
                   {(modules.inventory === true || modules.sales === true) && (
                     <Route path="/produtos" element={<Products />} />
