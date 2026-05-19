@@ -13,6 +13,7 @@ import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTy
 import { useTerms } from '../lib/terminology.js';
 import { isStudentRecord, filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -46,6 +47,7 @@ const Students = () => {
     const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId, addLead } = useLeadStore();
+    const { turmas: turmasConfig } = useAcademyTurmas(academyId);
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
@@ -55,6 +57,7 @@ const Students = () => {
     const listScrollRef = useRef(null);
     const [filtroTipo, setFiltroTipo] = useState('Todos');
     const [filtroOrigem, setFiltroOrigem] = useState('Todas');
+    const [filtroTurma, setFiltroTurma] = useState('Todas');
     const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
     const [showCreateStudent, setShowCreateStudent] = useState(false);
@@ -98,8 +101,11 @@ const Students = () => {
                     filtroTipo === 'Todos'
                     || (filtroTipo === 'Criança' ? isCriancaProfileType(s.type) : s.type === filtroTipo);
                 const matchOrigem = filtroOrigem === 'Todas' || s.origin === filtroOrigem;
+                const turmaVal = String(s.turma || s.className || '').trim();
+                const matchTurma =
+                    filtroTurma === 'Todas' || (filtroTurma === 'Sem turma' ? !turmaVal : turmaVal === filtroTurma);
 
-                return matchBusca && matchTipo && matchOrigem;
+                return matchBusca && matchTipo && matchOrigem && matchTurma;
             })
             .sort((a, b) => {
                 const nA = a.name || '';
@@ -112,7 +118,7 @@ const Students = () => {
                 if (ordenacao === 'antigos') return dA.localeCompare(dB);
                 return 0;
             });
-    }, [statusFilteredStudents, debouncedSearch, filtroTipo, filtroOrigem, ordenacao]);
+    }, [statusFilteredStudents, debouncedSearch, filtroTipo, filtroOrigem, filtroTurma, ordenacao]);
 
     const shouldVirtualizeStudents = filteredStudents.length > 50;
     const studentVirtualizer = useVirtualizer({
@@ -126,6 +132,7 @@ const Students = () => {
         setSearchTerm('');
         setFiltroTipo('Todos');
         setFiltroOrigem('Todas');
+        setFiltroTurma('Todas');
         setOrdenacao('az');
         setShowInactive(false);
     };
@@ -134,6 +141,7 @@ const Students = () => {
         Boolean(searchTerm.trim()) ||
         filtroTipo !== 'Todos' ||
         filtroOrigem !== 'Todas' ||
+        filtroTurma !== 'Todas' ||
         ordenacao !== 'az' ||
         showInactive;
 
@@ -479,6 +487,13 @@ const Students = () => {
                                 <option value="Todas">Todas as origens</option>
                                 {LEAD_ORIGIN.map((o) => (
                                     <option key={o} value={o}>{o}</option>
+                                ))}
+                            </select>
+                            <select value={filtroTurma} onChange={(e) => setFiltroTurma(e.target.value)}>
+                                <option value="Todas">Todas as turmas</option>
+                                <option value="Sem turma">Sem turma</option>
+                                {turmasConfig.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
                                 ))}
                             </select>
                         </div>

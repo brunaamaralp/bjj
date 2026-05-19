@@ -12,29 +12,11 @@ import {
   Loader2,
   Users,
 } from 'lucide-react';
-import { isCriancaProfileType } from '../../../lib/leadTypeNormalize.js';
 import { getPaymentRowStatus } from '../../lib/collectionOverdue.js';
+import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
-
-const GROUP_ORDER = ['Kids', 'Juniores', 'Adultos', 'Outros'];
-
-function studentGroupKey(student) {
-  const turma = String(student?.turma || student?.className || student?.class_name || '').trim();
-  if (turma) {
-    const low = turma.toLowerCase();
-    if (low.includes('kid') || low.includes('crian')) return 'Kids';
-    if (low.includes('junior')) return 'Juniores';
-    if (low.includes('adult')) return 'Adultos';
-    return turma;
-  }
-  const t = String(student?.type || '').trim();
-  if (isCriancaProfileType(t) || t === 'Criança') return 'Kids';
-  if (t === 'Juniores') return 'Juniores';
-  if (t === 'Adulto') return 'Adultos';
-  return 'Outros';
-}
 
 function StatusBadge({ variant, children }) {
   const icons = {
@@ -73,6 +55,7 @@ export default function MensalidadesListTable({
   setDueSortOrder,
   openPaymentModal,
   handleEstornar,
+  configuredTurmas = [],
 }) {
   const [expandedGroups, setExpandedGroups] = useState({});
   const [confirmPayment, setConfirmPayment] = useState(null);
@@ -109,20 +92,13 @@ export default function MensalidadesListTable({
   const studentsByGroup = useMemo(() => {
     const map = new Map();
     for (const s of displayedStudents) {
-      const g = studentGroupKey(s);
+      const g = studentTurmaGroupKey(s, configuredTurmas);
       if (!map.has(g)) map.set(g, []);
       map.get(g).push(s);
     }
-    const keys = [...map.keys()].sort((a, b) => {
-      const ia = GROUP_ORDER.indexOf(a);
-      const ib = GROUP_ORDER.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b, 'pt-BR');
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
+    const keys = sortTurmaGroupKeys([...map.keys()], configuredTurmas);
     return keys.map((key) => ({ key, students: map.get(key) }));
-  }, [displayedStudents]);
+  }, [displayedStudents, configuredTurmas]);
 
   useEffect(() => {
     setExpandedGroups((prev) => {

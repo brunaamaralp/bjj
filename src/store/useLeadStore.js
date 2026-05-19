@@ -61,14 +61,18 @@ const LEAD_DUE_DAY_APPWRITE_KEY = (() => {
   return null;
 })();
 
-/** Atributo opcional de turma/horário (texto livre). Só grava se `VITE_APPWRITE_LEAD_TURMA_ATTR` estiver definido (ex.: `turma`). */
+/** Atributo `turma` na coleção leads. Desative com `VITE_APPWRITE_LEAD_TURMA_ATTR=off`. */
 const LEAD_TURMA_APPWRITE_KEY = (() => {
-  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_TURMA_ATTR || '').trim();
+  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_TURMA_ATTR || 'turma').trim();
   const lower = raw.toLowerCase();
-  if (!raw || ['off', 'false', '0', 'no', 'none'].includes(lower)) return null;
+  if (['off', 'false', '0', 'no', 'none'].includes(lower)) return null;
   if (lower === 'class_name' || lower === 'classname') return 'class_name';
-  return raw;
+  return raw || 'turma';
 })();
+
+function sanitizePreferredPaymentAccount(value) {
+  return String(value || '').trim().slice(0, 128);
+}
 
 /**
  * Converte updates camelCase (UI) → payload Appwrite (snake novos + camel legados).
@@ -113,7 +117,11 @@ function updatesToAppwritePatch(updates, currentLead) {
     patch.preferred_payment_method = u.preferredPaymentMethod || '';
   }
   if (u.preferredPaymentAccount !== undefined) {
-    patch.preferred_payment_account = u.preferredPaymentAccount || '';
+    patch.preferred_payment_account = sanitizePreferredPaymentAccount(u.preferredPaymentAccount);
+  }
+  if (u.sexo !== undefined) {
+    const sx = String(u.sexo || '').trim().slice(0, 16);
+    patch.sexo = sx || null;
   }
   if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
   if (u.cpf !== undefined) patch.cpf = u.cpf || '';
@@ -390,6 +398,10 @@ export const useLeadStore = create(
         belt: lead.belt || '',
         custom_answers_json: JSON.stringify(lead.customAnswers || {}),
         birth_date: String(lead.birthDate || '').slice(0, 10),
+        ...(lead.sexo ? { sexo: String(lead.sexo).trim().slice(0, 16) } : {}),
+        ...(lead.turma && LEAD_TURMA_APPWRITE_KEY
+          ? { [LEAD_TURMA_APPWRITE_KEY]: String(lead.turma).trim().slice(0, 64) }
+          : {}),
         enrollmentDate:
           String(lead.enrollmentDate || '').trim().slice(0, 10) || new Date().toISOString().slice(0, 10),
         pipeline_stage: lead.pipelineStage || 'Novo',

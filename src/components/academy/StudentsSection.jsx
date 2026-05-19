@@ -9,6 +9,7 @@ import {
   parseStudentExitReasons,
   serializeStudentExitReasons,
 } from '../../lib/studentExitConfig.js';
+import AcademyTurmasSection from './AcademyTurmasSection.jsx';
 function EditableStringList({
   title,
   hint,
@@ -219,6 +220,8 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           .
         </p>
       </div>
+
+      <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} />
     </section>
   );
 };

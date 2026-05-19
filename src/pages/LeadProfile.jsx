@@ -20,6 +20,11 @@ import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimel
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskPhone } from '../lib/masks.js';
+import SexoSelect from '../components/shared/SexoSelect.jsx';
+import TurmaSelect from '../components/shared/TurmaSelect.jsx';
+import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
+import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
+import { sexoDisplayLabel } from '../lib/leadSexo.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -136,6 +141,7 @@ const LeadProfile = () => {
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);
     const academyId = useLeadStore((s) => s.academyId);
+    const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
     const terms = useTerms();
@@ -428,6 +434,9 @@ const LeadProfile = () => {
         enrollmentDate: '',
         emergencyContact: '',
         emergencyPhone: '',
+        sexo: '',
+        turmaSelect: '',
+        turmaOther: '',
     });
 
     const createId = () => {
@@ -560,6 +569,11 @@ const LeadProfile = () => {
             enrollmentDate: normalizeDateToISO(src.enrollmentDate),
             emergencyContact: src.emergencyContact || '',
             emergencyPhone: src.emergencyPhone || '',
+            sexo: src.sexo || '',
+            ...(() => {
+                const t = resolveTurmaFormState(src.turma || src.className, academyTurmas);
+                return { turmaSelect: t.selectValue, turmaOther: t.otherText };
+            })(),
         });
     };
 
@@ -630,7 +644,13 @@ const LeadProfile = () => {
         setSaving(true);
         try {
             const digitsPhone = String(payload.phone || '').replace(/\D/g, '');
-            await updateLead(id, { ...payload, phone: digitsPhone });
+            const { turmaSelect, turmaOther, ...rest } = payload;
+            await updateLead(id, {
+                ...rest,
+                phone: digitsPhone,
+                turma: turmaValueFromForm(turmaSelect, turmaOther),
+                sexo: payload.sexo || '',
+            });
             setEditing(false);
             addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
             await refreshTimeline();
@@ -1138,13 +1158,36 @@ const LeadProfile = () => {
 
                                     <h3 className="section-title lead-profile-edit-section-title mt-4">Dados adicionais</h3>
                                     <div className="flex-col gap-2">
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                                            <div className="flex-col gap-1">
+                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data de nascimento</span>
+                                                <input
+                                                    className="form-input-sm"
+                                                    type="date"
+                                                    value={form.birthDate}
+                                                    onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div className="flex-col gap-1">
+                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Sexo</span>
+                                                <SexoSelect
+                                                    className="form-input-sm"
+                                                    value={form.sexo}
+                                                    onChange={(v) => setForm((f) => ({ ...f, sexo: v }))}
+                                                />
+                                            </div>
+                                        </div>
                                         <div className="flex-col gap-1">
-                                            <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data de nascimento</span>
-                                            <input
+                                            <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Turma</span>
+                                            <TurmaSelect
+                                                turmas={academyTurmas}
+                                                selectValue={form.turmaSelect}
+                                                otherText={form.turmaOther}
+                                                onSelectChange={(v) => setForm((f) => ({ ...f, turmaSelect: v }))}
+                                                onOtherChange={(v) => setForm((f) => ({ ...f, turmaOther: v }))}
                                                 className="form-input-sm"
-                                                type="date"
-                                                value={form.birthDate}
-                                                onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                                                id="lead-profile-turma"
+                                                otherId="lead-profile-turma-other"
                                             />
                                         </div>
                                         <div className="flex-col gap-1">
@@ -1426,6 +1469,26 @@ const LeadProfile = () => {
                     </div>
 
                     {/* Dados Adicionais (Preservados do original, mas agora em lista) */}
+                    {!editing && (lead.sexo || lead.turma || lead.className) ? (
+                        <div className="profile-section extra-info">
+                            <h3 className="section-title">Dados pessoais</h3>
+                            <div className="flex-col gap-2">
+                                {lead.sexo ? (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Sexo:</span>
+                                        <span className="info-mini-value">{sexoDisplayLabel(lead.sexo)}</span>
+                                    </div>
+                                ) : null}
+                                {String(lead.turma || lead.className || '').trim() ? (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Turma:</span>
+                                        <span className="info-mini-value">{String(lead.turma || lead.className).trim()}</span>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : null}
+
                     {!editing && hasOtherDetails && (
                         <div className="profile-section extra-info">
                             <h3 className="section-title">Outros detalhes</h3>

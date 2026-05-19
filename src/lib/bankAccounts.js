@@ -21,6 +21,19 @@ export function bankAccountValueMatchesOptions(value, financeConfig) {
   return labels.some((lbl) => lbl === v);
 }
 
+/** Conta habitual no perfil do aluno — vazio é permitido. */
+export function validatePreferredPaymentAccount(account, financeConfig) {
+  const v = String(account || '').trim();
+  if (!v) return { ok: true };
+  if (!bankAccountValueMatchesOptions(v, financeConfig)) {
+    return {
+      ok: false,
+      message: 'Conta habitual: selecione uma conta cadastrada na academia ou deixe em branco.',
+    };
+  }
+  return { ok: true };
+}
+
 export function validateBankAccountForPayment(account, financeConfig) {
   const labels = listBankAccountLabels(financeConfig);
   if (!labels.length) {

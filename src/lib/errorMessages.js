@@ -11,6 +11,8 @@ const ERROR_MAP = {
     'Serviço temporariamente indisponível.',
   'Invalid document structure':
     'Dados inválidos. Verifique as informações.',
+  'Unknown attribute':
+    'Campo não configurado no Appwrite. Verifique os atributos da coleção leads.',
   'Missing required attribute':
     'Preencha todos os campos obrigatórios.',
 

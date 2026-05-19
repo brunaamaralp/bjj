@@ -1,5 +1,6 @@
 import { LEAD_STATUS } from './leadStatus.js';
 import { normalizeStudentStatus } from './studentStatus.js';
+import { normalizeSexo } from './leadSexo.js';
 
 function parseCustomAnswersJson(raw) {
   if (!raw || typeof raw !== 'string') return {};
@@ -55,6 +56,7 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     type: doc.type || 'Adulto',
     turma: turmaRaw,
     className: turmaRaw,
+    sexo: normalizeSexo(doc.sexo),
     origin: doc.origin || '',
     contact_type: doc.contact_type ?? 'lead',
     status,

@@ -6,6 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle } from 'lucide-react';
 import { maskPhone } from '../lib/masks.js';
 import { useTerms } from '../lib/terminology.js';
+import SexoSelect from '../components/shared/SexoSelect.jsx';
+import TurmaSelect from '../components/shared/TurmaSelect.jsx';
+import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
+import { turmaValueFromForm } from '../lib/academyTurmas.js';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -41,6 +45,10 @@ const NewLead = () => {
     const addToast = useUiStore((state) => state.addToast);
     const terms = useTerms();
     const [submitting, setSubmitting] = useState(false);
+    const [sexo, setSexo] = useState('');
+    const [turmaSelect, setTurmaSelect] = useState('');
+    const [turmaOther, setTurmaOther] = useState('');
+    const { turmas } = useAcademyTurmas(academyId);
 
     const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
         defaultValues: {
@@ -114,11 +122,15 @@ const NewLead = () => {
 
             const cleanPhone = data.phone.replace(/\D/g, '');
 
+            const turma = turmaValueFromForm(turmaSelect, turmaOther);
+
             const created = await addLead({
                 name: data.name,
                 phone: cleanPhone,
                 contact_type: 'lead',
                 type: data.type,
+                sexo: sexo || undefined,
+                turma: turma || undefined,
                 origin: data.origin,
                 status: hasSchedule ? LEAD_STATUS.SCHEDULED : LEAD_STATUS.NEW,
                 pipelineStage: hasSchedule ? 'Aula experimental' : 'Novo',
@@ -238,6 +250,27 @@ const NewLead = () => {
                         </div>
                     </div>
                 )}
+
+                <div className="card animate-in" style={{ animationDelay: '0.115s' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label>Sexo</label>
+                            <SexoSelect value={sexo} onChange={setSexo} />
+                        </div>
+                    </div>
+                    <div className="form-group mt-3" style={{ marginBottom: 0 }}>
+                        <label>Turma</label>
+                        <TurmaSelect
+                            turmas={turmas}
+                            selectValue={turmaSelect}
+                            otherText={turmaOther}
+                            onSelectChange={setTurmaSelect}
+                            onOtherChange={setTurmaOther}
+                            id="new-lead-turma"
+                            otherId="new-lead-turma-other"
+                        />
+                    </div>
+                </div>
 
                 {/* Experiência */}
                 <div className="card animate-in" style={{ animationDelay: '0.12s' }}>

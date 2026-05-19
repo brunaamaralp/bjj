@@ -32,6 +32,7 @@ import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
+import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -155,6 +156,7 @@ export default function Mensalidades() {
   const addToast = useUiStore((s) => s.addToast);
   const terms = useTerms();
   const { allLabels: academyLabels } = useAcademyLabels(academyId);
+  const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
   const [searchParams] = useSearchParams();
 
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -1152,6 +1154,7 @@ export default function Mensalidades() {
         setDueSortOrder={setDueSortOrder}
         openPaymentModal={openPaymentModal}
         handleEstornar={handleEstornar}
+        configuredTurmas={configuredTurmas}
       />      </>
       ) : null}
 

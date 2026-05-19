@@ -41,8 +41,13 @@ import {
     applyRegisteredEmergencyToForm,
     emergencyMatchesRegistered,
 } from '../lib/studentEmergencyContact.js';
-import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
+import { validateBankAccountForPayment, validatePreferredPaymentAccount } from '../lib/bankAccounts.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
+import SexoSelect from '../components/shared/SexoSelect.jsx';
+import TurmaSelect from '../components/shared/TurmaSelect.jsx';
+import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
+import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
+import { sexoDisplayLabel } from '../lib/leadSexo.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -133,10 +138,11 @@ const STUDENT_DATA_FIELDS = [
         type: 'select',
         options: PROFILE_TYPE_OPTIONS,
     },
-    { key: 'turma', label: 'Turma / horário', type: 'text', placeholder: 'Ex.: Kids 18h, Adultos noite' },
     { key: 'plan', label: 'Plano', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
     { key: 'enrollmentDate', label: 'Ingresso', type: 'date', placeholder: '' },
     { key: 'birthDate', label: 'Nascimento', type: 'date', placeholder: '' },
+    { key: 'sexo', label: 'Sexo', type: 'sexo' },
+    { key: 'turma', label: 'Turma', type: 'turma' },
     { key: 'phone', label: 'Telefone (WhatsApp)', type: 'tel', placeholder: '(00) 00000-0000' },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
     { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
@@ -222,7 +228,9 @@ export default function StudentProfile() {
     const student = useLeadStore((s) => s.leads.find((l) => l.id === id));
     const loading = useLeadStore((s) => s.loading);
     const academyId = useLeadStore((s) => s.academyId);
+    const modules = useLeadStore((s) => s.modules);
     const financeConfig = useLeadStore((s) => s.financeConfig);
+    const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
     const deleteLead = useLeadStore((s) => s.deleteLead);
@@ -295,8 +303,10 @@ export default function StudentProfile() {
     const [dataForm, setDataForm] = useState({
         name: '',
         type: 'Adulto',
-        turma: '',
         plan: '',
+        sexo: '',
+        turmaSelect: '',
+        turmaOther: '',
         enrollmentDate: '',
         birthDate: '',
         phone: '',
@@ -366,8 +376,12 @@ export default function StudentProfile() {
         setDataForm({
             name: String(student.name || '').trim(),
             type: student.type || 'Adulto',
-            turma: String(student.turma || student.className || '').trim(),
             plan: student.plan || '',
+            sexo: student.sexo || '',
+            ...(() => {
+                const t = resolveTurmaFormState(student.turma || student.className, academyTurmas);
+                return { turmaSelect: t.selectValue, turmaOther: t.otherText };
+            })(),
             enrollmentDate: defaultEnrollmentDateIso(student),
             birthDate: student.birthDate || '',
             phone: maskPhone(String(student.phone || '')),
@@ -691,8 +705,12 @@ export default function StudentProfile() {
         setDataForm({
             name: String(student.name || '').trim(),
             type: student.type || 'Adulto',
-            turma: String(student.turma || student.className || '').trim(),
             plan: student.plan || '',
+            sexo: student.sexo || '',
+            ...(() => {
+                const t = resolveTurmaFormState(student.turma || student.className, academyTurmas);
+                return { turmaSelect: t.selectValue, turmaOther: t.otherText };
+            })(),
             enrollmentDate: defaultEnrollmentDateIso(student),
             birthDate: student.birthDate || '',
             phone: maskPhone(String(student.phone || '')),
@@ -730,10 +748,18 @@ export default function StudentProfile() {
             const dueNum = dueRaw === '' ? null : Number(dueRaw.replace(/[^\d]/g, ''));
             const dueDay =
                 dueNum != null && Number.isFinite(dueNum) && dueNum >= 1 && dueNum <= 31 ? Math.trunc(dueNum) : null;
+            const accountCheck = validatePreferredPaymentAccount(dataForm.preferredPaymentAccount, financeConfig);
+            if (!accountCheck.ok) {
+                addToast({ type: 'error', message: accountCheck.message });
+                setSavingData(false);
+                return;
+            }
+
             await updateLead(leadId, {
                 name,
                 type: dataForm.type || 'Adulto',
-                turma: String(dataForm.turma || '').trim(),
+                turma: turmaValueFromForm(dataForm.turmaSelect, dataForm.turmaOther),
+                sexo: dataForm.sexo || '',
                 plan: dataForm.plan,
                 enrollmentDate: dataForm.enrollmentDate,
                 birthDate: dataForm.birthDate,
@@ -748,12 +774,12 @@ export default function StudentProfile() {
             });
             setEditingData(false);
             addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
-        } catch {
-            addToast({ type: 'error', message: 'Erro ao salvar. Tente novamente.' });
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, dataForm, updateLead, addToast]);
+    }, [student, savingData, leadId, dataForm, updateLead, addToast, financeConfig]);
 
     const sendTemplateKey = async (key) => {
         if (sendingWhatsapp || !student) return;
@@ -1129,6 +1155,11 @@ export default function StudentProfile() {
             const n = Number(raw);
             return Number.isFinite(n) && n >= 1 && n <= 31 ? `Dia ${Math.trunc(n)}` : '';
         }
+        if (key === 'sexo') return sexoDisplayLabel(raw);
+        if (key === 'turma') {
+            const t = String(student?.turma || student?.className || raw || '').trim();
+            return t;
+        }
         return raw != null && String(raw).trim() ? String(raw).trim() : '';
     };
 
@@ -1145,9 +1176,10 @@ export default function StudentProfile() {
     };
 
     const renderStudentDataViewRow = (field) => {
-        const raw = student[field.key];
+        const raw = field.key === 'turma' ? student.turma || student.className : student[field.key];
         const shown = displayStudentFieldValue(field.key, raw);
         const empty = !shown;
+        const isTurma = field.key === 'turma';
         return (
             <div
                 key={field.key}
@@ -1191,7 +1223,29 @@ export default function StudentProfile() {
             >
                 {field.label}
             </label>
-            {field.type === 'select' && Array.isArray(field.options) ? (
+            {field.type === 'sexo' ? (
+                <SexoSelect
+                    id={`student-data-${field.key}`}
+                    className="student-profile-data-input"
+                    style={dataFormInputStyle}
+                    disabled={savingData}
+                    value={dataForm.sexo}
+                    onChange={(v) => setDataForm((p) => ({ ...p, sexo: v }))}
+                />
+            ) : field.type === 'turma' ? (
+                <TurmaSelect
+                    id="student-data-turma"
+                    otherId="student-data-turma-other"
+                    turmas={academyTurmas}
+                    selectValue={dataForm.turmaSelect}
+                    otherText={dataForm.turmaOther}
+                    onSelectChange={(v) => setDataForm((p) => ({ ...p, turmaSelect: v }))}
+                    onOtherChange={(v) => setDataForm((p) => ({ ...p, turmaOther: v }))}
+                    className="student-profile-data-input"
+                    style={dataFormInputStyle}
+                    disabled={savingData}
+                />
+            ) : field.type === 'select' && Array.isArray(field.options) ? (
                 <select
                     id={`student-data-${field.key}`}
                     className="student-profile-data-input"
@@ -1210,7 +1264,7 @@ export default function StudentProfile() {
             ) : (
                 <input
                     id={`student-data-${field.key}`}
-                    type={field.type}
+                    type={field.type === 'sexo' || field.type === 'turma' ? 'text' : field.type}
                     className="student-profile-data-input"
                     placeholder={field.placeholder}
                     disabled={savingData || field.disabled}
@@ -1315,6 +1369,23 @@ export default function StudentProfile() {
                         {editingData ? (String(dataForm.name || '').trim() || 'Sem nome') : student.name || 'Sem nome'}
                     </h2>
                     <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
+                    {String(student.turma || student.className || '').trim() ? (
+                        <span
+                            style={{
+                                display: 'inline-block',
+                                marginTop: 8,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: 8,
+                                background: 'var(--v50, #f3f0ff)',
+                                color: 'var(--v700, #5B3FBF)',
+                                border: '1px solid var(--v200, #ddd6fe)',
+                            }}
+                        >
+                            Turma: {String(student.turma || student.className).trim()}
+                        </span>
+                    ) : null}
                     {isInactiveStudent(student) && (student.exitReason || student.exitDate) ? (
                         <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
                             {student.exitReason ? <>Motivo: {student.exitReason}</> : null}
@@ -2400,6 +2471,8 @@ export default function StudentProfile() {
                 inputStyle={inputStyle}
                 onClose={() => setShowPaymentModal(false)}
                 onSave={saveStudentPayment}
+                salesEnabled={modules?.sales === true}
+                onSaleComplete={() => void loadPayments()}
             />
         </div>
     );
