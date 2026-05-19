@@ -28,11 +28,14 @@ export default function PlanFreezePanel({ student, freezeHistoryCount = 0, onEnd
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Plano trancado</div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
             Retorno previsto: {formatFreezeDateBr(endYmd)}
-            <br />
+          </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-            Historico: {freezeHistoryCount} trancamento{freezeHistoryCount === 1 ? '' : 's'} · {used} dias utilizados de {FREEZE_MAX_DAYS_PER_YEAR}
+            Historico: {freezeHistoryCount} trancamento{freezeHistoryCount === 1 ? '' : 's'} · {used} dias utilizados de{' '}
+            {FREEZE_MAX_DAYS_PER_YEAR}
+            <br />
             Dias restantes: {daysLeft}
           </div>
+        </div>
         <button
           type="button"
           className="btn-outline btn-sm"
@@ -42,6 +45,7 @@ export default function PlanFreezePanel({ student, freezeHistoryCount = 0, onEnd
         >
           Encerrar trancamento agora
         </button>
+      </div>
     </div>
   );
 }
