@@ -3,6 +3,8 @@
  * Nunca expor e.message diretamente ao usuário.
  */
 
+import { describeAppwriteError } from './appwriteErrors.js';
+
 const ERROR_MAP = {
   // Appwrite
   'Document with the requested ID could not be found':
@@ -62,6 +64,9 @@ const DEFAULT_ERRORS = {
  */
 export function friendlyError(err, context = 'action') {
   const msg = err?.message ?? String(err ?? '');
+
+  const appwriteSpecific = describeAppwriteError(err);
+  if (appwriteSpecific) return appwriteSpecific;
 
   // Verificar mapeamento exato
   for (const [key, friendly] of Object.entries(ERROR_MAP)) {

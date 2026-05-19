@@ -4,6 +4,7 @@ import BankAccountSelect from '../finance/BankAccountSelect.jsx';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep from './StudentProductSaleStep.jsx';
+import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -24,7 +25,10 @@ export function buildDefaultPayForm(student) {
     reference_month: ym,
     bundle_start_month: ym,
     bundle_months: 12,
-    amount: student?.plan_price != null && student.plan_price !== '' ? String(student.plan_price) : '',
+    amount:
+      student?.plan_price != null && student.plan_price !== ''
+        ? formatBRLFromCents(numberToCents(student.plan_price) ?? 0)
+        : '',
     method: student?.preferredPaymentMethod || 'pix',
     account: student?.preferredPaymentAccount || '',
     status: 'paid',
@@ -237,14 +241,18 @@ export default function StudentPaymentModal({
               <div>
                 <label style={labelStyle}>Valor (R$)</label>
                 <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="0,00"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
                   className="form-input"
                   style={{ ...inputStyle, width: '100%' }}
                   value={payForm.amount}
-                  onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+                  onChange={(e) =>
+                    setPayForm((p) => ({
+                      ...p,
+                      amount: formatBRLFromCents(parseMaskToCents(e.target.value)),
+                    }))
+                  }
                 />
               </div>
 

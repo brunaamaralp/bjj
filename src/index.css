@@ -4749,6 +4749,27 @@ input[type='datetime-local'].form-input:focus {
   border: none;
 }
 
+.btn-warning {
+  background: var(--warning, #c9a227);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 13px;
+  min-height: 40px;
+}
+
+.btn-warning:hover {
+  filter: brightness(1.05);
+}
+
+.navi-confirm-actions .btn-warning,
+.navi-confirm-overlay .btn-warning {
+  background: var(--warning, #c9a227);
+  color: #fff;
+  border: none;
+}
+
 /* ErrorBoundary fallback */
 .navi-error-fallback {
   min-height: 100vh;

@@ -7,6 +7,7 @@ import {
   bundlePlanShortLabel,
   compareReferenceMonths,
 } from '../../lib/bundleCoverage.js';
+import { centsToNumber, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 
 function fmtMoney(n) {
   try {
@@ -47,7 +48,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
     onCancelCoverage({
       anchor_id: anchor.$id,
       from_reference_month: cancelFrom,
-      refundAmount: parseFloat(String(refundAmount).replace(',', '.')) || 0,
+      refundAmount: centsToNumber(parseMaskToCents(refundAmount)) || 0,
     });
   };
 
@@ -144,14 +145,13 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
               ))}
             </select>
             <input
-              type="number"
-              min={0}
-              step="0.01"
+              type="text"
+              inputMode="numeric"
               className="form-input"
-              placeholder="Estorno (opcional)"
+              placeholder="R$ 0,00"
               value={refundAmount}
-              onChange={(e) => setRefundAmount(e.target.value)}
-              style={{ fontSize: 13, width: 120 }}
+              onChange={(e) => setRefundAmount(formatBRLFromCents(parseMaskToCents(e.target.value)))}
+              style={{ fontSize: 13, width: 140 }}
             />
             <button
               type="button"

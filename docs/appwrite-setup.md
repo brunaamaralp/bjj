@@ -8,7 +8,8 @@ Banco de Dados
 
 Coleções (Collections)
 - LEADS_COL (Leads/Interessados)
-  - Atributos: name (string), phone (string), type (string), origin (string), status (string), scheduledDate (string YYYY-MM-DD), scheduledTime (string HH:mm), parentName (string), age (string), notes (string JSON), academyId (string), lostReason (string, opcional — motivo ao marcar “Não fechou”)
+  - Atributos: name (string), phone (string), type (string), origin (string), status (string), scheduledDate (string YYYY-MM-DD), scheduledTime (string HH:mm), parentName (string), age (string), notes (string JSON), academyId (string), lostReason (string, opcional — motivo ao marcar “Não fechou”), preferred_payment_method (string 64, opcional), preferred_payment_account (string 128, opcional — conta habitual de pagamento)
+  - Provisionar atributos de pagamento em projetos existentes: `npm run provision:lead-payment-attrs`
   - Índices sugeridos: equality em academyId; opcional em status; ordenação por $createdAt (nativa)
 - ACADEMIES_COL (Academias)
   - Atributos: ownerId (string), name (string), phone (string), email (string), address (string), quickTimes (array<string> ou string)

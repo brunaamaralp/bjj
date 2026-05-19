@@ -79,11 +79,49 @@ export const useProductsStore = create((set) => ({
         method: 'POST',
         body: JSON.stringify({ action: 'deactivate', item_id }),
       });
-      set({ loading: false });
+      set((state) => ({
+        loading: false,
+        products: state.products.map((p) => (p.id === item_id ? data.product : p)),
+      }));
       return data.product;
     } catch (e) {
       set({ error: String(e?.message || e), loading: false });
       return null;
+    }
+  },
+
+  checkDeleteProduct: async (item_id) => {
+    try {
+      const data = await productsFetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'check_delete', item_id }),
+      });
+      return {
+        has_sales: Boolean(data.has_sales),
+        can_delete: Boolean(data.can_delete),
+        current_quantity: Number(data.current_quantity) || 0,
+      };
+    } catch (e) {
+      set({ error: String(e?.message || e) });
+      return null;
+    }
+  },
+
+  deleteProduct: async (item_id) => {
+    set({ loading: true, error: null });
+    try {
+      await productsFetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', item_id }),
+      });
+      set((state) => ({
+        loading: false,
+        products: state.products.filter((p) => p.id !== item_id),
+      }));
+      return true;
+    } catch (e) {
+      set({ error: String(e?.message || e), loading: false });
+      return false;
     }
   },
 }));

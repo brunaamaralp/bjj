@@ -6,6 +6,7 @@ const VARIANT_CLASS = {
   secondary: 'btn-secondary',
   outline: 'btn-outline',
   danger: 'btn-danger',
+  warning: 'btn-warning',
 };
 
 /**

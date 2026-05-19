@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Copy, Plus, Search } from 'lucide-react';
+import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
 import { filterProductsClient } from '../lib/stockProducts';
 import { formatBRL } from '../lib/moneyBr';
+import { refreshStockStores } from '../lib/syncStockStores';
 import ProductThumb from '../components/products/ProductThumb';
 import ProductFormModal from '../components/products/ProductFormModal';
+import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
 import EmptyState from '../components/shared/EmptyState';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
@@ -27,7 +29,17 @@ const LIFECYCLE_STYLES = {
 
 export default function Products() {
   const modules = useLeadStore((s) => s.modules);
-  const { products, loadProducts, createProduct, updateProduct, deactivateProduct, loading, error } = useProductsStore();
+  const {
+    products,
+    loadProducts,
+    createProduct,
+    updateProduct,
+    deactivateProduct,
+    checkDeleteProduct,
+    deleteProduct,
+    loading,
+    error,
+  } = useProductsStore();
   const addToast = useUiStore((s) => s.addToast);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -39,6 +51,11 @@ export default function Products() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [activeProduct, setActiveProduct] = useState(null);
+  const [sort, setSort] = useState({ key: 'nome', dir: 'asc' });
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteHasSales, setDeleteHasSales] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const canAccess = modules?.inventory === true || modules?.sales === true;
 
@@ -69,6 +86,55 @@ export default function Products() {
         typeFilter: typeFilter === 'all' ? '' : typeFilter,
       }),
     [products, search, categoryFilter, statusFilter, typeFilter]
+  );
+
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    const cmpStr = (a, b) => String(a ?? '').localeCompare(String(b ?? ''), 'pt-BR', { numeric: true });
+    const cmpNum = (a, b) => (Number(a) || 0) - (Number(b) || 0);
+
+    list.sort((a, b) => {
+      let out = 0;
+      switch (sort.key) {
+        case 'categoria':
+          out = cmpStr(a.categoria, b.categoria);
+          break;
+        case 'sale_price':
+          out = cmpNum(a.sale_price, b.sale_price);
+          break;
+        case 'current_quantity':
+          out = cmpNum(a.current_quantity, b.current_quantity);
+          break;
+        case 'lifecycle':
+          out = cmpStr(a.lifecycle, b.lifecycle);
+          break;
+        case 'tipo':
+          out = cmpNum(a.is_for_sale ? 1 : 0, b.is_for_sale ? 1 : 0);
+          break;
+        default:
+          out = cmpStr(a.display_label || a.nome, b.display_label || b.nome);
+      }
+      return out * dir;
+    });
+    return list;
+  }, [filtered, sort]);
+
+  const toggleSort = (key) => {
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
+    );
+  };
+
+  const SortHeader = ({ label, sortKey: key, align }) => (
+    <th style={{ textAlign: align || 'left', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort(key)}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        {label}
+        {sort.key === key ? (
+          sort.dir === 'asc' ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />
+        ) : null}
+      </span>
+    </th>
   );
 
   const openCreate = () => {
@@ -127,7 +193,7 @@ export default function Products() {
     }
     addToast({ type: 'success', message: isEdit ? 'Produto atualizado' : 'Produto criado' });
     closeModal();
-    await refresh();
+    await refreshStockStores();
   };
 
   const handleDeactivate = async (itemId) => {
@@ -138,7 +204,50 @@ export default function Products() {
     }
     addToast({ type: 'success', message: 'Produto desativado' });
     closeModal();
-    await refresh();
+    setDeleteDialogOpen(false);
+    setDeleteTarget(null);
+    await refreshStockStores();
+  };
+
+  const openDeleteDialog = async (product, e) => {
+    e?.stopPropagation?.();
+    setDeleteBusy(true);
+    setDeleteTarget(product);
+    const check = await checkDeleteProduct(product.id);
+    setDeleteBusy(false);
+    if (!check) {
+      addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao verificar produto' });
+      setDeleteTarget(null);
+      return;
+    }
+    setDeleteHasSales(check.has_sales);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteBusy) return;
+    setDeleteDialogOpen(false);
+    setDeleteTarget(null);
+    setDeleteHasSales(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    const ok = await deleteProduct(deleteTarget.id);
+    setDeleteBusy(false);
+    if (!ok) {
+      const err = useProductsStore.getState().error || '';
+      if (/vendas registradas/i.test(err)) {
+        setDeleteHasSales(true);
+        return;
+      }
+      addToast({ type: 'error', message: err || 'Erro ao excluir produto' });
+      return;
+    }
+    addToast({ type: 'success', message: 'Produto excluído' });
+    closeDeleteDialog();
+    await refreshStockStores();
   };
 
   if (!canAccess) {
@@ -233,21 +342,22 @@ export default function Products() {
             />
           )
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="navi-table" style={{ width: '100%', minWidth: 720 }}>
+          <div className="products-table-wrap">
+            <table className="navi-table products-table">
               <thead>
                 <tr>
                   <th style={{ width: 56 }} />
-                  <th style={{ textAlign: 'left' }}>Produto</th>
-                  <th>Categoria</th>
-                  <th>Preço venda</th>
-                  <th>Saldo</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Ações</th>
+                  <SortHeader label="Produto" sortKey="nome" />
+                  <SortHeader label="Categoria" sortKey="categoria" />
+                  <SortHeader label="Tipo" sortKey="tipo" />
+                  <SortHeader label="Preço venda" sortKey="sale_price" />
+                  <SortHeader label="Saldo" sortKey="current_quantity" />
+                  <SortHeader label="Status" sortKey="lifecycle" />
+                  <th className="products-table__actions-head">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => {
+                {sorted.map((p) => {
                   const st = LIFECYCLE_STYLES[p.lifecycle] || LIFECYCLE_STYLES.ativo;
                   return (
                     <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(p)}>
@@ -256,13 +366,15 @@ export default function Products() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 600 }}>{p.display_label}</div>
-                        {p.is_for_sale ? (
-                          <span className="text-xs" style={{ marginLeft: 8, padding: '2px 6px', borderRadius: 4, background: 'var(--surface-2)', fontWeight: 600 }}>
-                            Venda
-                          </span>
-                        ) : null}
                       </td>
                       <td className="text-small text-muted">{p.categoria || '—'}</td>
+                      <td>
+                        {p.is_for_sale ? (
+                          <span className="products-type-badge products-type-badge--sale">Venda</span>
+                        ) : (
+                          <span className="products-type-badge products-type-badge--internal">Insumo</span>
+                        )}
+                      </td>
                       <td className="text-small">{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>{p.current_quantity}</td>
                       <td>
@@ -270,14 +382,28 @@ export default function Products() {
                           {LIFECYCLE_LABELS[p.lifecycle] || p.lifecycle}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-1" style={{ justifyContent: 'flex-end' }}>
+                      <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
+                        <div className="products-table__actions-inner">
                           <button type="button" className="btn-outline btn-sm" title="Duplicar" onClick={() => openDuplicate(p)}>
                             <Copy size={14} aria-hidden />
                           </button>
-                          <Link to={`/estoque`} className="btn-outline btn-sm" title="Ver no estoque" onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            to={`/estoque?item=${p.id}`}
+                            className="btn-outline btn-sm"
+                            title="Ver no estoque"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             Estoque
                           </Link>
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm products-delete-btn"
+                            title="Excluir produto"
+                            onClick={(e) => void openDeleteDialog(p, e)}
+                            disabled={deleteBusy && deleteTarget?.id === p.id}
+                          >
+                            <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -299,6 +425,53 @@ export default function Products() {
         onSave={handleSave}
         onDeactivate={handleDeactivate}
       />
+
+      <ProductDeleteDialog
+        open={deleteDialogOpen}
+        product={deleteTarget}
+        hasSales={deleteHasSales}
+        loading={deleteBusy || loading}
+        onClose={closeDeleteDialog}
+        onConfirmDelete={() => void confirmDelete()}
+        onConfirmDeactivate={() => deleteTarget && void handleDeactivate(deleteTarget.id)}
+      />
+
+      <style>{`
+        .products-table-wrap { overflow-x: auto; padding-right: 4px; }
+        .products-table { width: 100%; table-layout: auto; min-width: 720px; }
+        .products-table__actions-head,
+        .products-table__actions {
+          text-align: right;
+          white-space: nowrap;
+          width: 1%;
+          min-width: 168px;
+          padding-right: 8px;
+        }
+        .products-table__actions-inner {
+          display: inline-flex;
+          gap: 4px;
+          justify-content: flex-end;
+          flex-wrap: nowrap;
+        }
+        .products-delete-btn { flex-shrink: 0; }
+        .products-type-badge {
+          display: inline-block;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+        }
+        .products-type-badge--sale {
+          background: color-mix(in srgb, var(--v500) 14%, transparent);
+          color: var(--v700);
+        }
+        .products-type-badge--internal {
+          background: var(--surface-2);
+          color: var(--text-muted);
+        }
+      `}</style>
     </div>
   );
 }

@@ -121,7 +121,7 @@ function updatesToAppwritePatch(updates, currentLead) {
   }
   if (u.sexo !== undefined) {
     const sx = String(u.sexo || '').trim().slice(0, 16);
-    patch.sexo = sx || null;
+    patch.sexo = sx;
   }
   if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
   if (u.cpf !== undefined) patch.cpf = u.cpf || '';
@@ -523,6 +523,10 @@ export const useLeadStore = create(
       delete patch.createdAt;
       delete patch.notes;
 
+      if (import.meta.env.DEV) {
+        console.debug('[updateLead] patch', { id, patch });
+      }
+
       await databases.updateDocument(DB_ID, LEADS_COL, id, patch);
 
       const mergedLead = { ...currentLead, ...normalizedUpdates };
@@ -537,7 +541,11 @@ export const useLeadStore = create(
         leads: state.leads.map((l) => (l.id === id ? mergedLead : l))
       }));
     } catch (e) {
-      console.error('updateLead error:', e);
+      if (import.meta.env.DEV) {
+        console.error('[updateLead] rejected', e?.message || e);
+      } else {
+        console.error('updateLead error:', e);
+      }
       throw e;
     }
   },

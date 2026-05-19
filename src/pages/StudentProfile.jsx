@@ -21,6 +21,7 @@ import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
+import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 import { useTerms, contactLabelSingular, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
@@ -964,7 +965,7 @@ export default function StudentProfile() {
             return;
         }
 
-        const amountNum = parseFloat(String(payForm.amount || '').replace(',', '.'));
+        const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
         if (!Number.isFinite(amountNum) || amountNum <= 0) {
             addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
             return;

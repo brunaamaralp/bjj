@@ -1,18 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useInventoryStore } from '../store/useInventoryStore';
+import { useProductsStore } from '../store/useProductsStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
+import { refreshStockStores } from '../lib/syncStockStores';
 import InventoryBalanceView from '../components/inventory/InventoryBalanceView.jsx';
 import InventoryMovesForm from '../components/inventory/InventoryMovesForm.jsx';
+import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
 
 const Inventory = () => {
   const modules = useLeadStore((s) => s.modules);
   const { items, loadItems, inventoryMove, checkItem, updateItem, lastResult, loading, error } = useInventoryStore();
+  const { checkDeleteProduct, deleteProduct, deactivateProduct } = useProductsStore();
   const [configItem, setConfigItem] = useState(null);
   const [configForm, setConfigForm] = useState({ minimum_level: 0, unit: 'unidade', notes: '' });
   const addToast = useUiStore((s) => s.addToast);
   const [tab, setTab] = useState('saldo');
   const [movePreset, setMovePreset] = useState({ itemId: '', tipo: 'entrada' });
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteHasSales, setDeleteHasSales] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     await loadItems();
@@ -38,7 +46,7 @@ const Inventory = () => {
   };
 
   const onMoveSuccess = async () => {
-    await refresh();
+    await refreshStockStores();
   };
 
   const openConfigure = (item) => {
@@ -64,7 +72,58 @@ const Inventory = () => {
     }
     addToast({ type: 'success', message: 'Item atualizado' });
     setConfigItem(null);
-    await refresh();
+    await refreshStockStores();
+  };
+
+  const openDeleteDialog = async (item) => {
+    setDeleteBusy(true);
+    setDeleteTarget(item);
+    const check = await checkDeleteProduct(item.id);
+    setDeleteBusy(false);
+    if (!check) {
+      addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao verificar item' });
+      setDeleteTarget(null);
+      return;
+    }
+    setDeleteHasSales(check.has_sales);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteBusy) return;
+    setDeleteDialogOpen(false);
+    setDeleteTarget(null);
+    setDeleteHasSales(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    const ok = await deleteProduct(deleteTarget.id);
+    setDeleteBusy(false);
+    if (!ok) {
+      const err = useProductsStore.getState().error || '';
+      if (/vendas registradas/i.test(err)) {
+        setDeleteHasSales(true);
+        return;
+      }
+      addToast({ type: 'error', message: err || 'Erro ao excluir item' });
+      return;
+    }
+    addToast({ type: 'success', message: 'Item excluído' });
+    closeDeleteDialog();
+    await refreshStockStores();
+  };
+
+  const handleDeactivateFromDelete = async (itemId) => {
+    const updated = await deactivateProduct(itemId);
+    if (!updated) {
+      addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao desativar' });
+      return;
+    }
+    addToast({ type: 'success', message: 'Produto desativado' });
+    closeDeleteDialog();
+    await refreshStockStores();
   };
 
   if (modules?.inventory !== true) {
@@ -105,6 +164,8 @@ const Inventory = () => {
           onRegisterEntry={handleRegisterEntry}
           onCheckItem={handleCheckItem}
           onConfigureItem={openConfigure}
+          onDeleteItem={(item) => void openDeleteDialog(item)}
+          deleteBusyId={deleteBusy ? deleteTarget?.id : null}
         />
       ) : (
         <InventoryMovesForm
@@ -119,6 +180,16 @@ const Inventory = () => {
           onSuccess={onMoveSuccess}
         />
       )}
+
+      <ProductDeleteDialog
+        open={deleteDialogOpen}
+        product={deleteTarget}
+        hasSales={deleteHasSales}
+        loading={deleteBusy || loading}
+        onClose={closeDeleteDialog}
+        onConfirmDelete={() => void confirmDelete()}
+        onConfirmDeactivate={() => deleteTarget && void handleDeactivateFromDelete(deleteTarget.id)}
+      />
 
       {configItem && (
         <div

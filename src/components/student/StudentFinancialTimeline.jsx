@@ -20,6 +20,7 @@ import {
   compareReferenceMonths,
 } from '../../lib/bundleCoverage.js';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
+import { centsToNumber, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 
 function fmtMoney(n) {
   try {
@@ -176,12 +177,13 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
             ))}
           </select>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
             className="form-input"
-            placeholder="Estorno (opc.)"
+            placeholder="R$ 0,00"
             value={refundAmount}
-            onChange={(e) => setRefundAmount(e.target.value)}
-            style={{ fontSize: 12, width: 110 }}
+            onChange={(e) => setRefundAmount(formatBRLFromCents(parseMaskToCents(e.target.value)))}
+            style={{ fontSize: 12, width: 130 }}
           />
           <button
             type="button"
@@ -191,7 +193,7 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
               onCancelCoverage({
                 anchor_id: item.anchor.$id,
                 from_reference_month: cancelFrom,
-                refundAmount: parseFloat(String(refundAmount).replace(',', '.')) || 0,
+                refundAmount: centsToNumber(parseMaskToCents(refundAmount)) || 0,
               })
             }
           >

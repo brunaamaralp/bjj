@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Pencil } from 'lucide-react';
+import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Pencil, Trash2 } from 'lucide-react';
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
 import { formatBRL } from '../../lib/moneyBr';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -10,7 +10,7 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 const STATUS_STYLES = {
   ok: { color: 'var(--success)', Icon: CheckCircle2, label: STOCK_STATUS_LABELS.ok },
   attention: { color: 'var(--warning, #c9a227)', Icon: AlertTriangle, label: STOCK_STATUS_LABELS.attention },
-  critical: { color: 'var(--danger)', Icon: AlertTriangle, label: STOCK_STATUS_LABELS.critical },
+  critical: { color: 'var(--status-danger-text, var(--danger))', Icon: AlertTriangle, label: STOCK_STATUS_LABELS.critical },
 };
 
 export default function InventoryBalanceView({
@@ -20,6 +20,8 @@ export default function InventoryBalanceView({
   onRegisterEntry,
   onCheckItem,
   onConfigureItem,
+  onDeleteItem,
+  deleteBusyId = null,
 }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -49,9 +51,19 @@ export default function InventoryBalanceView({
       <div className="flex justify-between items-center gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
         <h2 className="navi-section-heading" style={{ margin: 0 }}>Saldo atual</h2>
         <div className="flex gap-2 items-center" style={{ flexWrap: 'wrap' }}>
-          <label className="text-small flex items-center gap-1" style={{ cursor: 'pointer' }}>
-            <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} />
-            Mostrar preços
+          <label className="inventory-show-prices-toggle" title="Exibir colunas de preço de venda e custo">
+            <span className="inventory-show-prices-toggle__track" aria-hidden>
+              <span
+                className={`inventory-show-prices-toggle__thumb${showPrices ? ' inventory-show-prices-toggle__thumb--on' : ''}`}
+              />
+            </span>
+            <input
+              type="checkbox"
+              className="inventory-show-prices-toggle__input"
+              checked={showPrices}
+              onChange={(e) => setShowPrices(e.target.checked)}
+            />
+            <span className="inventory-show-prices-toggle__label">Mostrar preços</span>
           </label>
           <button type="button" className="btn-outline btn-sm" onClick={() => void onRefresh()} disabled={loading}>
             {loading ? 'Atualizando…' : 'Atualizar'}
@@ -131,8 +143,14 @@ export default function InventoryBalanceView({
                   const st = STATUS_STYLES[it.status] || STATUS_STYLES.ok;
                   const StIcon = st.Icon;
                   const label = it.Tamanho ? `${it.nome} · ${it.Tamanho}` : it.nome;
+                  const rowClass =
+                    it.status === 'critical'
+                      ? 'inventory-row--critical'
+                      : it.status === 'attention'
+                        ? 'inventory-row--attention'
+                        : '';
                   return (
-                    <tr key={it.id}>
+                    <tr key={it.id} className={rowClass}>
                       <td style={{ fontWeight: 600 }}>{label}</td>
                       <td className="text-small text-muted">{it.categoria || '—'}</td>
                       <td className="text-small">{it.unit}</td>
@@ -150,20 +168,55 @@ export default function InventoryBalanceView({
                           {st.label}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="flex gap-1" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                          <Link to={`/produtos?edit=${it.id}`} className="btn-outline btn-sm" title="Editar produto">
+                      <td className="inventory-table__actions">
+                        <div className="inventory-table__actions-inner">
+                          <Link
+                            to={`/produtos?edit=${it.id}`}
+                            className="btn-outline btn-sm"
+                            title="Editar produto"
+                            aria-label="Editar produto"
+                          >
                             <Pencil size={14} aria-hidden />
                           </Link>
-                          <button type="button" className="btn-outline btn-sm" onClick={() => onRegisterEntry(it)} title="Registrar entrada">
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            onClick={() => onRegisterEntry(it)}
+                            title="Registrar entrada"
+                            aria-label="Registrar entrada"
+                          >
                             <PackagePlus size={14} aria-hidden />
                           </button>
-                          <button type="button" className="btn-outline btn-sm" onClick={() => void onCheckItem(it)} title="Conferir item">
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            onClick={() => void onCheckItem(it)}
+                            title="Conferir estoque"
+                            aria-label="Conferir estoque"
+                          >
                             <ClipboardCheck size={14} aria-hidden />
                           </button>
                           {onConfigureItem ? (
-                            <button type="button" className="btn-outline btn-sm" onClick={() => onConfigureItem(it)} title="Nível mínimo e unidade">
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm"
+                              onClick={() => onConfigureItem(it)}
+                              title="Configurar mínimo e unidade"
+                              aria-label="Configurar mínimo e unidade"
+                            >
                               <Settings2 size={14} aria-hidden />
+                            </button>
+                          ) : null}
+                          {onDeleteItem ? (
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm inventory-delete-btn"
+                              title="Excluir item"
+                              aria-label="Excluir item"
+                              onClick={() => onDeleteItem(it)}
+                              disabled={deleteBusyId === it.id}
+                            >
+                              <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
                             </button>
                           ) : null}
                         </div>
@@ -176,6 +229,74 @@ export default function InventoryBalanceView({
           </div>
         )}
       </div>
+      <style>{`
+        .inventory-show-prices-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          user-select: none;
+          padding: 6px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border-mid);
+          background: var(--surface-1, #fff);
+        }
+        .inventory-show-prices-toggle__input {
+          position: absolute;
+          opacity: 0;
+          width: 0;
+          height: 0;
+          pointer-events: none;
+        }
+        .inventory-show-prices-toggle__track {
+          position: relative;
+          width: 40px;
+          height: 22px;
+          border-radius: 999px;
+          background: var(--border-mid);
+          flex-shrink: 0;
+        }
+        .inventory-show-prices-toggle__thumb {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          transition: transform 0.15s ease;
+        }
+        .inventory-show-prices-toggle__thumb--on {
+          transform: translateX(18px);
+        }
+        .inventory-show-prices-toggle:has(.inventory-show-prices-toggle__input:checked) .inventory-show-prices-toggle__track {
+          background: var(--v500);
+        }
+        .inventory-show-prices-toggle__label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--mid);
+        }
+        .inventory-row--critical {
+          border-left: 3px solid var(--status-danger-text, var(--danger));
+        }
+        .inventory-row--attention {
+          border-left: 3px solid var(--warning, #c9a227);
+        }
+        .inventory-table__actions {
+          text-align: right;
+          white-space: nowrap;
+          width: 1%;
+        }
+        .inventory-table__actions-inner {
+          display: inline-flex;
+          gap: 4px;
+          justify-content: flex-end;
+          flex-wrap: nowrap;
+        }
+        .inventory-delete-btn { flex-shrink: 0; }
+      `}</style>
     </section>
   );
 }
