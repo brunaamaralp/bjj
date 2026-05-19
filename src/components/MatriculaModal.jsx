@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTerms } from '../lib/terminology.js';
 import CustomLeadQuestionFields from './CustomLeadQuestionFields.jsx';
+import PlanSelect from './shared/PlanSelect.jsx';
 
 export default function MatriculaModal({
   isOpen,
@@ -8,6 +9,7 @@ export default function MatriculaModal({
   onConfirmSimple,
   onConfirmFull,
   enrollmentQuestions = [],
+  financeConfig = null,
   submitting = false,
   leadId = '',
   showContractPrompt = false,
@@ -19,6 +21,7 @@ export default function MatriculaModal({
   const [answers, setAnswers] = useState({});
   const [enrolledLeadId, setEnrolledLeadId] = useState('');
   const [enrollMode, setEnrollMode] = useState('simple');
+  const [enrollmentPlan, setEnrollmentPlan] = useState('');
 
   const hasQuestions = Array.isArray(enrollmentQuestions) && enrollmentQuestions.length > 0;
 
@@ -28,8 +31,32 @@ export default function MatriculaModal({
       setAnswers({});
       setEnrolledLeadId('');
       setEnrollMode('simple');
+      setEnrollmentPlan('');
     }
   }, [isOpen]);
+
+  const planField = (
+    <div style={{ marginBottom: 16 }}>
+      <label
+        style={{
+          display: 'block',
+          fontSize: 13,
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          marginBottom: 6,
+        }}
+      >
+        Plano (opcional)
+      </label>
+      <PlanSelect
+        financeConfig={financeConfig}
+        value={enrollmentPlan}
+        onChange={setEnrollmentPlan}
+        disabled={submitting}
+        emptyLabel="Selecione o plano…"
+      />
+    </div>
+  );
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -62,7 +89,7 @@ export default function MatriculaModal({
 
   const runFull = async () => {
     setEnrollMode('full');
-    await onConfirmFull(answers);
+    await onConfirmFull(answers, enrollmentPlan);
     goToSuccess(leadId);
   };
 
@@ -76,7 +103,7 @@ export default function MatriculaModal({
 
   const handleConfirmSimple = async () => {
     setEnrollMode('simple');
-    await onConfirmSimple();
+    await onConfirmSimple(enrollmentPlan);
     goToSuccess(leadId);
   };
 
@@ -165,6 +192,8 @@ export default function MatriculaModal({
               {terms.matriculaModalSubtitle}
             </p>
 
+            {planField}
+
             <div style={{ display: 'grid', gap: 10 }}>
               <button
                 type="button"
@@ -211,8 +240,10 @@ export default function MatriculaModal({
               Dados da matrícula
             </h3>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              Registre as informações abaixo. Em seguida você poderá completar plano e pagamento no perfil do aluno.
+              Registre as informações abaixo. O plano escolhido será salvo no cadastro do aluno.
             </p>
+
+            {planField}
 
             <CustomLeadQuestionFields
               questions={enrollmentQuestions}

@@ -9,6 +9,11 @@ import {
   parseStudentExitReasons,
   serializeStudentExitReasons,
 } from '../../lib/studentExitConfig.js';
+import {
+  DEFAULT_STUDENT_FREEZE_REASONS,
+  parseStudentFreezeReasons,
+  serializeStudentFreezeReasons,
+} from '../../lib/studentFreezeConfig.js';
 import AcademyTurmasSection from './AcademyTurmasSection.jsx';
 function EditableStringList({
   title,
@@ -123,20 +128,32 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
   const [newReason, setNewReason] = useState('');
   const [savingReasons, setSavingReasons] = useState(false);
   const [savedReasonsDigest, setSavedReasonsDigest] = useState('');
+  const [newFreezeReason, setNewFreezeReason] = useState('');
+  const [savingFreezeReasons, setSavingFreezeReasons] = useState(false);
+  const [savedFreezeReasonsDigest, setSavedFreezeReasonsDigest] = useState('');
 
   const reasons = useMemo(
     () => parseStudentExitReasons(academy.studentExitReasons),
     [academy.studentExitReasons]
   );
+  const freezeReasons = useMemo(
+    () => parseStudentFreezeReasons(academy.studentFreezeReasons),
+    [academy.studentFreezeReasons]
+  );
 
   useEffect(() => {
     if (!academyId) return;
     setSavedReasonsDigest(serializeStudentExitReasons(academy.studentExitReasons));
+    setSavedFreezeReasonsDigest(serializeStudentFreezeReasons(academy.studentFreezeReasons));
   }, [academyId, academyDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasUnsavedReasons = useMemo(
     () => serializeStudentExitReasons(academy.studentExitReasons) !== savedReasonsDigest,
     [academy.studentExitReasons, savedReasonsDigest]
+  );
+  const hasUnsavedFreezeReasons = useMemo(
+    () => serializeStudentFreezeReasons(academy.studentFreezeReasons) !== savedFreezeReasonsDigest,
+    [academy.studentFreezeReasons, savedFreezeReasonsDigest]
   );
 
   const saveReasons = async (list) => {
@@ -181,20 +198,62 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     setAcademy((a) => ({ ...a, studentExitReasons: next }));
   };
 
+  const saveFreezeReasons = async (list) => {
+    if (!academyId || !canEdit) return;
+    setSavingFreezeReasons(true);
+    try {
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        student_freeze_reasons: serializeStudentFreezeReasons(list),
+      });
+      setAcademy((a) => ({ ...a, studentFreezeReasons: list }));
+      setSavedFreezeReasonsDigest(serializeStudentFreezeReasons(list));
+      addToast({ type: 'success', message: 'Motivos de trancamento salvos.' });
+    } catch (e) {
+      console.error('save freeze reasons:', e);
+      addToast({ type: 'error', message: 'Não foi possível salvar os motivos de trancamento.' });
+    } finally {
+      setSavingFreezeReasons(false);
+    }
+  };
+
+  const handleAddFreezeReason = () => {
+    const label = String(newFreezeReason || '').trim();
+    if (!label) return;
+    const lower = label.toLowerCase();
+    if (freezeReasons.some((r) => r.toLowerCase() === lower)) {
+      addToast({ type: 'warning', message: 'Este motivo já existe na lista.' });
+      return;
+    }
+    setAcademy((a) => ({
+      ...a,
+      studentFreezeReasons: [...parseStudentFreezeReasons(a.studentFreezeReasons), label],
+    }));
+    setNewFreezeReason('');
+  };
+
+  const removeFreezeReason = (idx) => {
+    const next = freezeReasons.filter((_, i) => i !== idx);
+    if (next.length === 0) {
+      addToast({ type: 'warning', message: 'Mantenha pelo menos um motivo na lista.' });
+      return;
+    }
+    setAcademy((a) => ({ ...a, studentFreezeReasons: next }));
+  };
+
   return (
     <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
       <div className="card">
         <div className="mb-3">
           <h3 className="navi-section-heading">Alunos</h3>
           <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
-            Motivos de saída no desligamento. As tarefas automáticas ao desligar ou matricular são configuradas em{' '}
-            <strong>Configurações → Tarefas → Templates</strong>.
+            Desligamento encerra a matrícula; trancamento é pausa temporária (viagem, licença médica etc.). Tarefas
+            automáticas ao desligar ou matricular: <strong>Configurações → Tarefas → Templates</strong>.
           </p>
         </div>
 
         <EditableStringList
-          title="Motivos de saída"
-          hint="Opções do modal ao confirmar o desligamento."
+          title="Motivos de desligamento"
+          hint="Saída definitiva — modal Desligar aluno."
           items={reasons}
           canEdit={canEdit}
           saving={savingReasons}
@@ -208,6 +267,26 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
             setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }))
           }
           placeholder="Novo motivo de saída"
+          saveLabel="Salvar motivos"
+          resetLabel="Restaurar motivos padrão"
+        />
+
+        <EditableStringList
+          title="Motivos de trancamento"
+          hint="Pausa temporária — modal Trancar matrícula (planos anuais, até 90 dias/ano)."
+          items={freezeReasons}
+          canEdit={canEdit}
+          saving={savingFreezeReasons}
+          hasUnsaved={hasUnsavedFreezeReasons}
+          newValue={newFreezeReason}
+          onNewValueChange={setNewFreezeReason}
+          onAdd={handleAddFreezeReason}
+          onRemove={removeFreezeReason}
+          onSave={() => void saveFreezeReasons(freezeReasons)}
+          onResetDefaults={() =>
+            setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }))
+          }
+          placeholder="Novo motivo de trancamento"
           saveLabel="Salvar motivos"
           resetLabel="Restaurar motivos padrão"
         />

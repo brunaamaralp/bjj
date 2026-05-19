@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle } from 'lucide-react';
+import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
@@ -18,6 +18,9 @@ import {
     endPlanFreeze,
     listPlanFreezes,
     formatFreezeDateBr,
+    canStartPlanFreeze,
+    isFreezeActive,
+    activeFreezeReasonFromHistory,
 } from '../lib/planFreeze.js';
 import StudentPaymentModal, { buildDefaultPayForm } from '../components/student/StudentPaymentModal.jsx';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
@@ -36,6 +39,7 @@ import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { NL_PAYMENT_PREFILL_EVENT } from '../lib/nlCorrect.js';
 import { formatBRLFromCents } from '../lib/moneyBr';
 import { DateInput } from '../components/DateInput';
+import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import { formatCollectionResultLabel } from '../lib/collectionRules.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -46,6 +50,7 @@ import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
+import { parseStudentFreezeReasons } from '../lib/studentFreezeConfig.js';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
 import {
@@ -151,7 +156,7 @@ const STUDENT_DATA_FIELDS = [
         type: 'select',
         options: PROFILE_TYPE_OPTIONS,
     },
-    { key: 'plan', label: 'Plano', type: 'text', placeholder: 'Ex.: Mensal, Anual, Semestral' },
+    { key: 'plan', label: 'Plano', type: 'plan' },
     { key: 'enrollmentDate', label: 'Ingresso', type: 'date', placeholder: '' },
     { key: 'birthDate', label: 'Nascimento', type: 'date', placeholder: '' },
     { key: 'sexo', label: 'Sexo', type: 'sexo' },
@@ -313,6 +318,7 @@ export default function StudentProfile() {
     const [deactivateBusy, setDeactivateBusy] = useState(false);
     const [reactivateBusy, setReactivateBusy] = useState(false);
     const [exitReasons, setExitReasons] = useState([]);
+    const [freezeReasons, setFreezeReasons] = useState([]);
     const [editingData, setEditingData] = useState(false);
     const [emergencySameAsRegistered, setEmergencySameAsRegistered] = useState(false);
     const [dataForm, setDataForm] = useState({
@@ -594,7 +600,7 @@ export default function StudentProfile() {
                 setFreezeModalOpen(false);
                 addToast({
                     type: 'success',
-                    message: `Plano trancado até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado.`,
+                    message: `Matrícula trancada até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado quando possível.`,
                 });
                 void loadPayments();
             } catch (e) {
@@ -688,11 +694,13 @@ export default function StudentProfile() {
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed },
                 });
                 setExitReasons(parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons));
+                setFreezeReasons(parseStudentFreezeReasons(doc.student_freeze_reasons ?? doc.studentFreezeReasons));
                 setAcademySettingsDoc(doc);
             })
             .catch(() => {
                 setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
                 setExitReasons(parseStudentExitReasons(null));
+                setFreezeReasons(parseStudentFreezeReasons(null));
                 setAcademySettingsDoc(null);
             });
     }, [academyId]);
@@ -1360,6 +1368,16 @@ export default function StudentProfile() {
                     style={dataFormInputStyle}
                     disabled={savingData}
                 />
+            ) : field.type === 'plan' ? (
+                <PlanSelect
+                    id={`student-data-${field.key}`}
+                    financeConfig={financeConfig}
+                    value={dataForm.plan}
+                    onChange={(v) => setDataForm((p) => ({ ...p, plan: v }))}
+                    className="student-profile-data-input"
+                    style={dataFormInputStyle}
+                    disabled={savingData}
+                />
             ) : field.type === 'select' && Array.isArray(field.options) ? (
                 <select
                     id={`student-data-${field.key}`}
@@ -1508,6 +1526,17 @@ export default function StudentProfile() {
                             {student.exitDate ? <>Saída: {formatDateBR(student.exitDate)}</> : null}
                         </p>
                     ) : null}
+                    {isActiveStudent(student) && isFreezeActive(student) ? (
+                        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#b45309', lineHeight: 1.45 }}>
+                            Matrícula trancada
+                            {String(student.freeze_end || '').slice(0, 10)
+                                ? ` até ${formatFreezeDateBr(String(student.freeze_end).slice(0, 10))}`
+                                : ''}
+                            {activeFreezeReasonFromHistory(planFreezes, student)
+                                ? ` · ${activeFreezeReasonFromHistory(planFreezes, student)}`
+                                : ''}
+                        </p>
+                    ) : null}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 10 }}>
                         {isInactiveStudent(student) ? (
                             <span
@@ -1523,9 +1552,25 @@ export default function StudentProfile() {
                                 Inativo
                             </span>
                         ) : (
-                            <span className="badge-success" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
-                                {terms.convertedStatusUi}
-                            </span>
+                            <>
+                                <span className="badge-success" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
+                                    {terms.convertedStatusUi}
+                                </span>
+                                {isFreezeActive(student) ? (
+                                    <span
+                                        style={{
+                                            fontSize: 11,
+                                            borderRadius: 6,
+                                            padding: '2px 8px',
+                                            background: '#fef3c7',
+                                            color: '#b45309',
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        Trancado
+                                    </span>
+                                ) : null}
+                            </>
                         )}
                         {student.type && String(student.type).trim() ? (
                             <span className="badge-purple" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
@@ -1970,29 +2015,96 @@ export default function StudentProfile() {
                         Mais ações
                     </p>
                     {isActiveStudent(student) ? (
-                        <button
-                            type="button"
-                            onClick={() => setDeactivateOpen(true)}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                padding: '10px 12px',
-                                marginBottom: 8,
-                                borderRadius: 10,
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface)',
-                                color: 'var(--text)',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                            }}
-                        >
-                            <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
-                        </button>
+                        <>
+                            {isFreezeActive(student) ? (
+                                <button
+                                    type="button"
+                                    onClick={() => void handleEndFreezeEarly()}
+                                    disabled={endFreezeBusy}
+                                    style={{
+                                        width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 8,
+                                        padding: '10px 12px',
+                                        marginBottom: 8,
+                                        borderRadius: 10,
+                                        border: '1px solid #fbbf24',
+                                        background: '#fffbeb',
+                                        color: '#b45309',
+                                        fontWeight: 700,
+                                        fontSize: 13,
+                                        cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
+                                        fontFamily: 'inherit',
+                                        opacity: endFreezeBusy ? 0.7 : 1,
+                                    }}
+                                >
+                                    {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
+                                </button>
+                            ) : canStartPlanFreeze(student, financeConfig) ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setFreezeModalOpen(true)}
+                                    disabled={freezeBusy}
+                                    style={{
+                                        width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 8,
+                                        padding: '10px 12px',
+                                        marginBottom: 8,
+                                        borderRadius: 10,
+                                        border: '1px solid #fbbf24',
+                                        background: 'var(--surface)',
+                                        color: '#b45309',
+                                        fontWeight: 700,
+                                        fontSize: 13,
+                                        cursor: freezeBusy ? 'not-allowed' : 'pointer',
+                                        fontFamily: 'inherit',
+                                        opacity: freezeBusy ? 0.7 : 1,
+                                    }}
+                                >
+                                    <PauseCircle size={16} /> Trancar matrícula
+                                </button>
+                            ) : String(student.plan || '').trim() ? (
+                                <p
+                                    style={{
+                                        margin: '0 0 8px',
+                                        fontSize: 11,
+                                        color: 'var(--text-muted)',
+                                        lineHeight: 1.4,
+                                        textAlign: 'center',
+                                    }}
+                                >
+                                    Trancamento disponível para planos anuais (até 90 dias por ano do plano).
+                                </p>
+                            ) : null}
+                            <button
+                                type="button"
+                                onClick={() => setDeactivateOpen(true)}
+                                style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    padding: '10px 12px',
+                                    marginBottom: 8,
+                                    borderRadius: 10,
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface)',
+                                    color: 'var(--text)',
+                                    fontWeight: 700,
+                                    fontSize: 13,
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
+                            </button>
+                        </>
                     ) : isInactiveStudent(student) ? (
                         <button
                             type="button"
@@ -2600,6 +2712,7 @@ export default function StudentProfile() {
             <PlanFreezeModal
                 open={freezeModalOpen}
                 student={student}
+                freezeReasons={freezeReasons}
                 busy={freezeBusy}
                 onClose={() => !freezeBusy && setFreezeModalOpen(false)}
                 onConfirm={handleConfirmFreeze}

@@ -18,6 +18,7 @@ import { isInactiveStudent } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
+import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
@@ -717,6 +718,11 @@ const Pipeline = () => {
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const academyId = useLeadStore((s) => s.academyId);
+    const financeConfig = useLeadStore((s) => s.financeConfig);
+
+    useEffect(() => {
+        if (academyId) void prefetchFinanceConfig(academyId);
+    }, [academyId]);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
     const permCtx = useMemo(() => {
@@ -1289,7 +1295,7 @@ const Pipeline = () => {
         }
     };
 
-    const executeMatricula = async (lead, customAnswers = {}) => {
+    const executeMatricula = async (lead, customAnswers = {}, plan = '') => {
         try {
             let extraToast = '';
             await performEnrollment({
@@ -1300,6 +1306,7 @@ const Pipeline = () => {
                 updateLead,
                 customQuestions: enrollmentQuestions,
                 customAnswers,
+                plan,
                 academySettingsRaw,
                 waAutomation: { waOutbound, academyRaw: academyAutomationsRaw },
                 onToast: (msg) => {
@@ -2116,6 +2123,7 @@ const Pipeline = () => {
                 onImport={handleImport}
                 defaultStatus={LEAD_STATUS.NEW}
                 title={`Importar ${labels.leads}`}
+                financeConfig={financeConfig}
             />
 
             <MatriculaModal
@@ -2123,6 +2131,7 @@ const Pipeline = () => {
                 leadId={dragTargetLead?.id || ''}
                 showContractPrompt={modules?.finance === true}
                 enrollmentQuestions={enrollmentQuestions}
+                financeConfig={financeConfig}
                 submitting={matriculaSubmitting}
                 onClose={() => {
                     if (matriculaSubmitting) return;
@@ -2140,20 +2149,20 @@ const Pipeline = () => {
                     setDragTargetLead(null);
                     if (studentId) navigate(`/student/${studentId}?edit=enrollment`);
                 }}
-                onConfirmSimple={async () => {
+                onConfirmSimple={async (plan) => {
                     if (!dragTargetLead) return;
                     setMatriculaSubmitting(true);
                     try {
-                        await executeMatricula(dragTargetLead);
+                        await executeMatricula(dragTargetLead, {}, plan);
                     } finally {
                         setMatriculaSubmitting(false);
                     }
                 }}
-                onConfirmFull={async (customAnswers) => {
+                onConfirmFull={async (customAnswers, plan) => {
                     if (!dragTargetLead) return;
                     setMatriculaSubmitting(true);
                     try {
-                        await executeMatricula(dragTargetLead, customAnswers);
+                        await executeMatricula(dragTargetLead, customAnswers, plan);
                     } finally {
                         setMatriculaSubmitting(false);
                     }

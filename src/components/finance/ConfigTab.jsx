@@ -242,6 +242,10 @@ export default function ConfigTab({ academyId }) {
 
       <section className="mt-4 animate-in" style={{ animationDelay: '0.15s' }}>
         <h3 className="navi-section-heading mb-2"><Wallet2 size={18} color="var(--v500)" /> Planos</h3>
+        <p className="text-small text-muted mb-2" style={{ lineHeight: 1.45 }}>
+          Os nomes cadastrados aqui aparecem como lista no perfil do aluno, nos pagamentos e nas transações — evita erro de
+          digitação.
+        </p>
         <div className="card">
           <div className="flex-col" style={{ gap: 10 }}>
             {(financeConfig.plans || []).map((pl, idx) => (

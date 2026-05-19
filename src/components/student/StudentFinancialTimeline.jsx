@@ -15,6 +15,7 @@ import {
   isFreezeActive,
   effectiveFreezeDaysUsed,
   FREEZE_MAX_DAYS_PER_YEAR,
+  activeFreezeReasonFromHistory,
 } from '../../lib/planFreeze.js';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -331,6 +332,7 @@ export default function StudentFinancialTimeline({
   const freezeActive = isFreezeActive(student);
   const showFreezeBtn = canStartPlanFreeze(student, financeConfig);
   const freezeHistoryCount = (planFreezes || []).length;
+  const activeFreezeReason = activeFreezeReasonFromHistory(planFreezes, student);
 
   const typeCounts = useMemo(() => filterTypeCounts(allItems), [allItems]);
 
@@ -384,6 +386,7 @@ export default function StudentFinancialTimeline({
       {freezeActive ? (
         <PlanFreezePanel
           student={student}
+          freezeReason={activeFreezeReason}
           freezeHistoryCount={freezeHistoryCount}
           onEndEarly={onEndFreeze}
           busy={endFreezeBusy}
@@ -398,7 +401,7 @@ export default function StudentFinancialTimeline({
           onClick={onOpenFreeze}
           disabled={freezeBusy}
         >
-          Trancar plano
+          Trancar matrícula
         </button>
       ) : null}
 

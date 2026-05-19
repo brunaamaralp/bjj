@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
+import { normalizeImportedPlanName } from '../../lib/academyPlans.js';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from './shared/EmptyState.jsx';
 
@@ -42,6 +43,10 @@ const COLUMN_MAP = {
     'filiacao': 'parentName',
     'parent': 'parentName',
     'parentname': 'parentName',
+    'plano': 'plan',
+    'plan': 'plan',
+    'planos': 'plan',
+    'modalidade': 'plan',
 };
 
 const normalizeKey = (key) => {
@@ -49,7 +54,7 @@ const normalizeKey = (key) => {
     return COLUMN_MAP[normalized] || COLUMN_MAP[key.toString().trim().toLowerCase()] || null;
 };
 
-const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importing }) => {
+const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importing, financeConfig = null }) => {
     const terms = useTerms();
     const [rows, setRows] = useState([]);
     const [fileName, setFileName] = useState('');
@@ -99,6 +104,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
                     obj.type = normalizeLeadProfileType(obj.type) || obj.type;
                     if (!obj.origin) obj.origin = 'Planilha';
                     if (defaultStatus) obj.status = defaultStatus;
+                    if (obj.plan) obj.plan = normalizeImportedPlanName(obj.plan, financeConfig);
                     return obj;
                 });
 
@@ -203,11 +209,11 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
                                 />
                                 <table className="tip-table">
                                     <thead>
-                                        <tr><th>Nome do aluno</th><th>Responsável</th><th>Telefone</th><th>Tipo</th><th>Origem</th></tr>
+                                        <tr><th>Nome do aluno</th><th>Responsável</th><th>Telefone</th><th>Tipo</th><th>Origem</th><th>Plano</th></tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td>Maria Souza</td><td>Carlos Souza</td><td>(11) 99999-0000</td><td>Criança</td><td>Planilha</td></tr>
-                                        <tr><td>João Silva</td><td>—</td><td>(11) 98888-0000</td><td>Adulto</td><td>Instagram</td></tr>
+                                        <tr><td>Maria Souza</td><td>Carlos Souza</td><td>(11) 99999-0000</td><td>Criança</td><td>Planilha</td><td>Mensal</td></tr>
+                                        <tr><td>João Silva</td><td>—</td><td>(11) 98888-0000</td><td>Adulto</td><td>Instagram</td><td>Anual</td></tr>
                                     </tbody>
                                 </table>
                             </div>

@@ -4,6 +4,8 @@ import BankAccountSelect from '../finance/BankAccountSelect.jsx';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep from './StudentProductSaleStep.jsx';
+import PlanSelect from '../shared/PlanSelect.jsx';
+import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
@@ -316,12 +318,19 @@ export default function StudentPaymentModal({
               {showPlanFields ? (
                 <div>
                   <label style={labelStyle}>Plano</label>
-                  <input
-                    type="text"
+                  <PlanSelect
+                    id="student-pay-plan"
+                    financeConfig={financeConfig}
+                    value={payForm.plan_name}
+                    onChange={(v) => setPayForm((p) => ({ ...p, plan_name: v }))}
+                    onPlanPick={(pl) => {
+                      if (!pl) return;
+                      const amt = planPriceToPayAmountString(pl);
+                      if (amt) setPayForm((p) => ({ ...p, plan_name: pl.name, amount: amt }));
+                    }}
                     className="form-input"
                     style={{ ...inputStyle, width: '100%' }}
-                    value={payForm.plan_name}
-                    onChange={(e) => setPayForm((p) => ({ ...p, plan_name: e.target.value }))}
+                    showConfigHint={false}
                   />
                 </div>
               ) : null}

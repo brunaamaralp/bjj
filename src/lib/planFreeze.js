@@ -22,6 +22,7 @@ import {
   bundleExtensionMonthsFromDays,
   toYmd,
   parseYmdLocal,
+  isFreezeActive,
 } from '../../lib/planFreezeCore.js';
 
 const PLAN_FREEZES_COL = import.meta.env.VITE_APPWRITE_PLAN_FREEZES_COLLECTION_ID || '';
@@ -44,6 +45,18 @@ export {
   validateFreezeRequest,
   toYmd,
 } from '../../lib/planFreezeCore.js';
+
+/** Motivo do trancamento ativo (histórico plan_freezes). */
+export function activeFreezeReasonFromHistory(planFreezes, student) {
+  if (!isFreezeActive(student)) return '';
+  const start = String(student?.freeze_start || student?.freezeStart || '').trim().slice(0, 10);
+  if (!start) return '';
+  const match = (planFreezes || []).find((fr) => {
+    const frStart = String(fr.start_date || fr.startDate || '').trim().slice(0, 10);
+    return frStart === start;
+  });
+  return String(match?.reason || '').trim();
+}
 
 export function formatFreezeDateBr(ymd) {
   const d = parseYmdLocal(ymd);

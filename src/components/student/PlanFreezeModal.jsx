@@ -13,15 +13,26 @@ function todayYmd() {
   return toYmd(new Date());
 }
 
-export default function PlanFreezeModal({ open, student, onClose, onConfirm, busy = false }) {
+export default function PlanFreezeModal({
+  open,
+  student,
+  freezeReasons = [],
+  onClose,
+  onConfirm,
+  busy = false,
+}) {
   const [startYmd, setStartYmd] = useState(todayYmd());
   const [endYmd, setEndYmd] = useState('');
   const [durationDays, setDurationDays] = useState(30);
-  const [reason, setReason] = useState('');
+  const [selectedReason, setSelectedReason] = useState('');
+  const [otherReason, setOtherReason] = useState('');
   const [error, setError] = useState('');
 
   const daysUsed = effectiveFreezeDaysUsed(student);
   const daysAvailable = freezeDaysRemaining(student);
+  const isOther = String(selectedReason || '').trim().toLowerCase() === 'outro';
+  const resolvedReason = isOther ? otherReason.trim() : String(selectedReason || '').trim();
+  const reasons = freezeReasons.length > 0 ? freezeReasons : ['Viagem', 'Licença médica', 'Outro'];
 
   useEffect(() => {
     if (!open) return;
@@ -30,7 +41,8 @@ export default function PlanFreezeModal({ open, student, onClose, onConfirm, bus
     setStartYmd(start);
     setDurationDays(dur);
     setEndYmd(computeReturnYmd(start, dur));
-    setReason('');
+    setSelectedReason('');
+    setOtherReason('');
     setError('');
   }, [open, daysAvailable]);
 
@@ -72,6 +84,10 @@ export default function PlanFreezeModal({ open, student, onClose, onConfirm, bus
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!resolvedReason) {
+      setError('Selecione o motivo do trancamento.');
+      return;
+    }
     if (!validation.ok) {
       setError(validation.error);
       return;
@@ -82,10 +98,10 @@ export default function PlanFreezeModal({ open, student, onClose, onConfirm, bus
         startYmd: validation.startYmd,
         endYmd: validation.endYmd,
         durationDays: validation.days,
-        reason: reason.trim(),
+        reason: resolvedReason,
       });
     } catch (err) {
-      setError(err?.message || 'Não foi possível trancar o plano.');
+      setError(err?.message || 'Não foi possível trancar a matrícula.');
     }
   };
 
@@ -129,9 +145,13 @@ export default function PlanFreezeModal({ open, student, onClose, onConfirm, bus
         onMouseDown={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
-        <h3 id="plan-freeze-title" style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>
-          Trancamento de plano
+        <h3 id="plan-freeze-title" style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>
+          Trancar matrícula (pausa temporária)
         </h3>
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+          O aluno permanece cadastrado. Cobranças do período são pausadas e o acesso na catraca pode ser bloqueado. Para
+          saída definitiva, use <strong>Desligar aluno</strong>.
+        </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
           <label style={{ fontSize: 13 }}>
@@ -162,17 +182,56 @@ export default function PlanFreezeModal({ open, student, onClose, onConfirm, bus
           Dias disponíveis: <strong>{daysAvailable}</strong> dias
         </p>
 
-        <label style={{ display: 'block', fontSize: 13, marginBottom: 12 }}>
-          <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Motivo (opcional)</span>
-          <input
-            type="text"
-            className="form-input"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            maxLength={256}
-            disabled={busy}
-          />
-        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>
+            Motivo do trancamento
+          </span>
+          {reasons.map((reason) => (
+            <label
+              key={reason}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 8,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                border: `1px solid ${selectedReason === reason ? 'var(--purple)' : 'var(--border)'}`,
+                background: selectedReason === reason ? 'var(--purple-light)' : 'transparent',
+                opacity: busy ? 0.7 : 1,
+              }}
+            >
+              <input
+                type="radio"
+                name="freezeReason"
+                value={reason}
+                checked={selectedReason === reason}
+                disabled={busy}
+                onChange={() => setSelectedReason(reason)}
+                style={{ accentColor: 'var(--purple)' }}
+              />
+              <span style={{ fontSize: 14, color: 'var(--text)' }}>{reason}</span>
+            </label>
+          ))}
+        </div>
+
+        {isOther ? (
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="text-small" style={{ fontWeight: 600 }}>
+              Descreva o motivo
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              value={otherReason}
+              disabled={busy}
+              onChange={(e) => setOtherReason(e.target.value)}
+              placeholder="Motivo do trancamento"
+              maxLength={256}
+              autoFocus
+            />
+          </div>
+        ) : null}
 
         <p
           style={{
@@ -198,7 +257,11 @@ export default function PlanFreezeModal({ open, student, onClose, onConfirm, bus
           <button type="button" className="btn-outline" onClick={onClose} disabled={busy}>
             Cancelar
           </button>
-          <button type="submit" className="btn-primary" disabled={busy || daysAvailable < 1}>
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={busy || daysAvailable < 1 || !resolvedReason || (isOther && !otherReason.trim())}
+          >
             {busy ? 'Salvando…' : 'Confirmar trancamento'}
           </button>
         </div>

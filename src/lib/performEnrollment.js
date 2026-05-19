@@ -23,6 +23,7 @@ import { useTaskStore } from '../store/useTaskStore.js';
  * @param {function} opts.updateLead
  * @param {Array} [opts.customQuestions]
  * @param {Record<string, unknown>} [opts.customAnswers]
+ * @param {string} [opts.plan]
  * @param {unknown} [opts.academySettingsRaw]
  * @param {object} [opts.waAutomation]
  * @param {function} [opts.onToast] — (message: string) => void
@@ -35,6 +36,7 @@ export async function performEnrollment({
   updateLead,
   customQuestions = [],
   customAnswers = {},
+  plan = '',
   academySettingsRaw = null,
   waAutomation = null,
   onToast = null,
@@ -58,12 +60,14 @@ export async function performEnrollment({
       ? { ...(lead.customAnswers && typeof lead.customAnswers === 'object' ? lead.customAnswers : {}), ...answersPatch }
       : undefined;
 
+  const planName = String(plan || '').trim();
   await updateLead(leadId, {
     status: LEAD_STATUS.CONVERTED,
     contact_type: 'student',
     pipelineStage: 'Matriculado',
     convertedAt: new Date().toISOString(),
     studentStatus: 'active',
+    ...(planName ? { plan: planName } : {}),
     ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
   });
 

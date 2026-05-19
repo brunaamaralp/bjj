@@ -7,7 +7,13 @@ import {
   FREEZE_MAX_DAYS_PER_YEAR,
 } from '../../lib/planFreeze.js';
 
-export default function PlanFreezePanel({ student, freezeHistoryCount = 0, onEndEarly, busy = false }) {
+export default function PlanFreezePanel({
+  student,
+  freezeReason = '',
+  freezeHistoryCount = 0,
+  onEndEarly,
+  busy = false,
+}) {
   const endYmd = String(student?.freeze_end || '').slice(0, 10);
   const daysLeft = freezeDaysLeftInPeriod(student);
   const used = effectiveFreezeDaysUsed(student);
@@ -25,9 +31,15 @@ export default function PlanFreezePanel({ student, freezeHistoryCount = 0, onEnd
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <Lock size={20} color="#64748b" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Plano trancado</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Matrícula trancada</div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
             Retorno previsto: {formatFreezeDateBr(endYmd)}
+            {freezeReason ? (
+              <>
+                <br />
+                Motivo: {freezeReason}
+              </>
+            ) : null}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
             Historico: {freezeHistoryCount} trancamento{freezeHistoryCount === 1 ? '' : 's'} · {used} dias utilizados de{' '}

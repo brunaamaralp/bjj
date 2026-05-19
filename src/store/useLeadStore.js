@@ -160,7 +160,7 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.exitReason !== undefined) copyIf('exit_reason', String(u.exitReason || '').trim());
   if (u.exitDate !== undefined) {
     const ed = String(u.exitDate || '').trim().slice(0, 10);
-    copyIf('exit_date', ed);
+    copyIf('exit_date', ed || null);
   }
 
   if (u.device_id !== undefined) {
@@ -439,6 +439,7 @@ export const useLeadStore = create(
           : {}),
         enrollmentDate:
           String(lead.enrollmentDate || '').trim().slice(0, 10) || new Date().toISOString().slice(0, 10),
+        plan: String(lead.plan || '').trim(),
         pipeline_stage: lead.pipelineStage || 'Novo',
         pipeline_stage_changed_at: nowIso,
         status_changed_at: nowIso,
@@ -649,6 +650,7 @@ export const useLeadStore = create(
             birth_date: String(lead.birthDate || '').slice(0, 10),
             is_first_experience: lead.isFirstExperience || 'Sim',
             belt: lead.belt || '',
+            plan: String(lead.plan || '').trim(),
             custom_answers_json: JSON.stringify(lead.customAnswers || {}),
             student_status:
               contactType === 'student' || lead.status === LEAD_STATUS.CONVERTED

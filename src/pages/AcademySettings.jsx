@@ -12,6 +12,7 @@ import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
+import { parseStudentFreezeReasons } from '../lib/studentFreezeConfig.js';
 import { parseOffboardingChecklist } from '../lib/studentOffboarding.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
@@ -76,6 +77,7 @@ const AcademySettings = () => {
         modules: { sales: false, inventory: false, finance: false },
         customLeadQuestions: [],
         studentExitReasons: [],
+        studentFreezeReasons: [],
         studentOffboardingChecklist: [],
         automationsConfigRaw: '',
         whatsappTemplates: '',
@@ -232,6 +234,9 @@ const AcademySettings = () => {
                     ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
                     studentExitReasons: parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons),
+                    studentFreezeReasons: parseStudentFreezeReasons(
+                      doc.student_freeze_reasons ?? doc.studentFreezeReasons
+                    ),
                     studentOffboardingChecklist: parseOffboardingChecklist(
                       doc.student_offboarding_checklist ?? doc.studentOffboardingChecklist
                     ),

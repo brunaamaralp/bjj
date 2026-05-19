@@ -21,6 +21,7 @@ const ATTR_LABELS = {
   responsavel: 'Responsável',
   birth_date: 'Data de nascimento',
   enrollmentDate: 'Data de matrícula',
+  exit_date: 'Data de saída',
   emergencyContact: 'Contato de emergência',
   emergencyPhone: 'Telefone de emergência',
 };

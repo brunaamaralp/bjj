@@ -14,6 +14,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import { performEnrollment } from '../lib/performEnrollment.js';
+import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { getStudentPayments } from '../lib/studentPayments';
 import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
@@ -141,6 +142,11 @@ const LeadProfile = () => {
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);
     const academyId = useLeadStore((s) => s.academyId);
+    const financeConfig = useLeadStore((s) => s.financeConfig);
+
+    useEffect(() => {
+        if (academyId) void prefetchFinanceConfig(academyId);
+    }, [academyId]);
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
@@ -792,7 +798,7 @@ const LeadProfile = () => {
         setMatriculaModalOpen(true);
     };
 
-    const runEnrollment = async (customAnswers = {}) => {
+    const runEnrollment = async (customAnswers = {}, plan = '') => {
         let extraToast = '';
         await performEnrollment({
             lead,
@@ -802,6 +808,7 @@ const LeadProfile = () => {
             updateLead,
             customQuestions,
             customAnswers,
+            plan,
             academySettingsRaw,
             waAutomation: {
                 waOutbound: {
@@ -821,11 +828,11 @@ const LeadProfile = () => {
         });
     };
 
-    const handleConfirmSimple = async () => {
+    const handleConfirmSimple = async (plan) => {
         setMatriculaModalOpen(false);
         setMatriculaSubmitting(true);
         try {
-            await runEnrollment({});
+            await runEnrollment({}, plan);
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'action') });
         } finally {
@@ -833,10 +840,10 @@ const LeadProfile = () => {
         }
     };
 
-    const handleConfirmFull = async (customAnswers) => {
+    const handleConfirmFull = async (customAnswers, plan) => {
         setMatriculaSubmitting(true);
         try {
-            await runEnrollment(customAnswers);
+            await runEnrollment(customAnswers, plan);
             setMatriculaModalOpen(false);
             navigate(`/student/${id}?edit=enrollment`);
         } catch (e) {
@@ -1676,6 +1683,7 @@ const LeadProfile = () => {
             <MatriculaModal
                 isOpen={matriculaModalOpen}
                 enrollmentQuestions={customQuestions}
+                financeConfig={financeConfig}
                 submitting={matriculaSubmitting}
                 onClose={() => {
                     if (matriculaSubmitting) return;

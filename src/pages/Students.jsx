@@ -11,6 +11,8 @@ import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
 import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
+import PlanSelect from '../components/shared/PlanSelect.jsx';
+import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
 import { isStudentRecord, filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
@@ -51,6 +53,11 @@ const Students = () => {
     const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId, addLead } = useLeadStore();
+    const financeConfig = useLeadStore((s) => s.financeConfig);
+
+    useEffect(() => {
+        if (academyId) void prefetchFinanceConfig(academyId);
+    }, [academyId]);
     const { turmas: turmasConfig } = useAcademyTurmas(academyId);
     const controlIdCfg = useAcademyControlId(academyId);
     const leadsLoading = useLeadStore((s) => s.loading);
@@ -85,6 +92,7 @@ const Students = () => {
         origin: LEAD_ORIGIN[0] || 'Cadastro manual',
         parentName: '',
         age: '',
+        plan: '',
     });
 
     const students = useMemo(
@@ -207,6 +215,7 @@ const Students = () => {
             origin: LEAD_ORIGIN[0] || 'Cadastro manual',
             parentName: '',
             age: '',
+            plan: '',
         });
     };
 
@@ -228,6 +237,7 @@ const Students = () => {
                 origin: newStudent.origin || 'Cadastro manual',
                 parentName: String(newStudent.parentName || '').trim(),
                 age: String(newStudent.age || '').trim(),
+                plan: String(newStudent.plan || '').trim(),
                 status: LEAD_STATUS.CONVERTED,
                 contact_type: 'student',
                 pipelineStage: 'Matriculado',
@@ -836,6 +846,7 @@ const Students = () => {
                 defaultStatus={LEAD_STATUS.CONVERTED}
                 title={`Importar ${studentPlural}`}
                 importing={importing}
+                financeConfig={financeConfig}
             />
 
             {showCreateStudent ? (
@@ -898,6 +909,17 @@ const Students = () => {
                                         <option key={o} value={o}>{o}</option>
                                     ))}
                                 </select>
+                            </label>
+                            <label style={{ gridColumn: '1 / -1' }}>
+                                Plano
+                                <PlanSelect
+                                    financeConfig={financeConfig}
+                                    value={newStudent.plan}
+                                    onChange={(v) => setNewStudent((prev) => ({ ...prev, plan: v }))}
+                                    disabled={creatingStudent}
+                                    className=""
+                                    style={{ width: '100%', marginTop: 6 }}
+                                />
                             </label>
                             {(newStudent.type === 'Criança' || newStudent.type === 'Juniores') ? (
                                 <>

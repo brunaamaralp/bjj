@@ -68,11 +68,26 @@ export default function DeactivateStudentModal({
           id="deactivate-student-title"
           style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
         >
-          Desligar {studentLabel}
+          Desligar {studentLabel} (saída definitiva)
         </h3>
-        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-          Confirme o desligamento de <strong>{studentName}</strong>. O histórico será mantido; o {studentLabel} deixa de
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+          Encerra a matrícula de <strong>{studentName}</strong>. O histórico é mantido; o {studentLabel} deixa de
           aparecer em cobranças ativas e no funil.
+        </p>
+        <p
+          style={{
+            margin: '0 0 16px',
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.45,
+            padding: '8px 10px',
+            borderRadius: 8,
+            background: 'var(--surface-muted, #f8fafc)',
+            border: '1px solid var(--border-light)',
+          }}
+        >
+          Para pausa temporária (viagem, licença médica etc.), use <strong>Trancar matrícula</strong> — não o
+          desligamento.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
@@ -129,7 +144,11 @@ export default function DeactivateStudentModal({
           <label className="text-small" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
             Data de saída
           </label>
-          <DateInput value={exitDate} onChange={setExitDate} disabled={busy} />
+          <DateInput
+            value={exitDate}
+            onChange={(e) => setExitDate(e.target.value)}
+            disabled={busy}
+          />
         </div>
 
         <div className="form-group" style={{ marginBottom: 12 }}>
