@@ -63,18 +63,26 @@ function docPerms() {
   ];
 }
 
+function docString(doc: Models.Document, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const v = doc[key];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return null;
+}
+
 function mapContractDoc(doc: Models.Document | null): ContractRecord | null {
   if (!doc) return null;
   return {
     $id: doc.$id,
-    academyId: doc.academy_id ? String(doc.academy_id) : null,
-    leadId: doc.lead_id ? String(doc.lead_id) : null,
-    templateId: doc.template_id ? String(doc.template_id) : null,
-    autentiqueId: doc.autentique_id ? String(doc.autentique_id) : null,
+    academyId: docString(doc, 'academyId', 'academy_id'),
+    leadId: docString(doc, 'leadId', 'lead_id'),
+    templateId: docString(doc, 'templateId', 'template_id'),
+    autentiqueId: docString(doc, 'autentiqueId', 'autentique_id'),
     name: doc.name ? String(doc.name) : '',
     status: doc.status ? String(doc.status) : 'pending',
     sandbox: doc.sandbox === true || doc.sandbox === 'true',
-    signersLinks: parseSignersLinks(doc.signers_links),
+    signersLinks: parseSignersLinks(doc.signers_links ?? doc.signersLinks),
     createdAt: doc.$createdAt ?? null,
     updatedAt: doc.$updatedAt ?? null,
   };
@@ -104,8 +112,8 @@ export async function createContract(data: ContractCreateInput): Promise<Contrac
     status: String(data.status || 'pending'),
     sandbox: Boolean(data.sandbox),
   };
-  if (data.academy_id) payload.academy_id = String(data.academy_id);
-  if (data.lead_id) payload.lead_id = String(data.lead_id);
+  if (data.academy_id) payload.academyId = String(data.academy_id);
+  if (data.lead_id) payload.leadId = String(data.lead_id);
   if (data.template_id) payload.template_id = String(data.template_id);
   if (data.autentique_id) payload.autentique_id = String(data.autentique_id);
   if (data.signers_links) payload.signers_links = String(data.signers_links).slice(0, 2048);
@@ -269,10 +277,10 @@ export async function listContracts(filters: ListContractsFilters = {}): Promise
   const queries: string[] = [Query.orderDesc('$createdAt')];
 
   if (filters.academy_id) {
-    queries.unshift(Query.equal('academy_id', [String(filters.academy_id)]));
+    queries.unshift(Query.equal('academyId', [String(filters.academy_id)]));
   }
   if (filters.lead_id) {
-    queries.unshift(Query.equal('lead_id', [String(filters.lead_id)]));
+    queries.unshift(Query.equal('leadId', [String(filters.lead_id)]));
   }
 
   if (displayStatus) {

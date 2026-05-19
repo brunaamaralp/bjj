@@ -52,7 +52,7 @@ Na coleção **contracts**, atributos opcionais:
 - `Authorization: Bearer <JWT>`
 - `x-academy-id: <id da academia>`
 
-O `academy_id` gravado no contrato **sempre** vem do header validado no servidor, nunca do FormData.
+O `academyId` gravado no contrato **sempre** vem do header validado no servidor, nunca do FormData.
 
 ## Fallback sem webhook
 
