@@ -105,5 +105,10 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     studentStatus: normalizeStudentStatus(doc.student_status ?? doc.studentStatus),
     exitReason: String(doc.exit_reason ?? doc.exitReason ?? '').trim(),
     exitDate: String(doc.exit_date ?? doc.exitDate ?? '').trim().slice(0, 10),
+    device_id: doc.device_id != null ? Number(doc.device_id) : null,
+    controlid_user_id: doc.controlid_user_id != null ? Number(doc.controlid_user_id) : null,
+    controlid_synced: doc.controlid_synced === true,
+    controlid_sync_error: String(doc.controlid_sync_error || '').trim() || null,
+    photo_url: String(doc.photo_url || doc.photoUrl || '').trim() || null,
   };
 }

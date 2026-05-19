@@ -2,6 +2,8 @@ import { addLeadEvent } from './leadEvents.js';
 import { STUDENT_STATUS } from './studentStatus.js';
 import { formatDeactivateNote, todayYmdLocal } from './studentOffboarding.js';
 import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';
+import { readControlIdConfig } from '../../lib/controlidSettings.js';
+import { revokeControlIdStudent } from './controlidApi.js';
 
 /**
  * Desliga aluno: status, motivo, data, nota na timeline e tarefas do template student_exit.
@@ -16,6 +18,7 @@ export async function deactivateStudent({
   exitDate,
   exitNotes = '',
   updateLead,
+  academySettingsRaw = null,
 }) {
   const ymd = String(exitDate || '').trim().slice(0, 10) || todayYmdLocal();
 
@@ -52,6 +55,15 @@ export async function deactivateStudent({
     templateName = applied.templateName;
   } catch (e) {
     console.warn('[deactivateStudent] template student_exit:', e?.message || e);
+  }
+
+  const controlIdCfg = readControlIdConfig(academySettingsRaw);
+  const controlIdUser =
+    student?.controlid_user_id ?? student?.controlidUserId ?? student?.device_id;
+  if (controlIdCfg.enabled && controlIdUser) {
+    void revokeControlIdStudent(academyId, { leadId }).catch((e) => {
+      console.warn('[deactivateStudent] controlid revoke:', e?.message || e);
+    });
   }
 
   return { tasksCreated, templateName };

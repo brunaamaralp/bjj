@@ -12,6 +12,16 @@ import inventoryHandler from '../lib/server/inventoryHandler.js';
 import productsHandler from '../lib/server/productsHandler.js';
 import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
+import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
+import {
+  controlidTestHandler,
+  controlidSaveConfigHandler,
+  controlidSyncHandler,
+  controlidRevokeHandler,
+  controlidReleaseHandler,
+  controlidMonitorHandler,
+  controlidTestImageHandler,
+} from '../lib/server/controlidHandlers.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -19,7 +29,11 @@ const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
-const ATTENDANCE_COL = process.env.APPWRITE_ATTENDANCE_COLLECTION_ID || '';
+const ATTENDANCE_COL =
+  process.env.APPWRITE_ATTENDANCE_COLLECTION_ID ||
+  process.env.VITE_APPWRITE_ATTENDANCE_COL_ID ||
+  process.env.VITE_APPWRITE_ATTENDANCE_COLLECTION_ID ||
+  '';
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
 
@@ -208,6 +222,13 @@ export default async function handler(req, res) {
   if (req.query.route === 'products') return productsHandler(req, res);
   if (req.query.route === 'sales') return salesHistoryHandler(req, res);
   if (req.query.route === 'sales_by_student') return salesByStudentHandler(req, res);
+  if (req.query.route === 'controlid_test') return controlidTestHandler(req, res);
+  if (req.query.route === 'controlid_save_config') return controlidSaveConfigHandler(req, res);
+  if (req.query.route === 'controlid_sync') return controlidSyncHandler(req, res);
+  if (req.query.route === 'controlid_revoke') return controlidRevokeHandler(req, res);
+  if (req.query.route === 'controlid_release') return controlidReleaseHandler(req, res);
+  if (req.query.route === 'controlid_monitor') return controlidMonitorHandler(req, res);
+  if (req.query.route === 'controlid_test_image') return controlidTestImageHandler(req, res);
 
   // Rota de presença Control iD (rewrite de /api/control-id/attendance)
   if (req.query.route === 'control-id-attendance') {
@@ -367,16 +388,21 @@ async function handleAttendancePost(req, res, academyId) {
   let students = [];
   try {
     const result = await databases.listDocuments(DB_ID, LEADS_COL, [
-      Query.equal('academy_id', academyId),
-      Query.isNotNull('device_id'),
+      Query.equal('academyId', academyId),
       Query.limit(1000),
     ]);
-    students = result.documents;
+    students = (result.documents || []).filter(
+      (s) => s?.controlid_user_id != null || s?.device_id != null
+    );
   } catch (err) {
     return json(res, 500, { sucesso: false, erro: 'Erro ao buscar alunos' });
   }
 
-  const byDeviceId = Object.fromEntries(students.map(s => [String(s.device_id), s]));
+  const byDeviceId = {};
+  for (const s of students) {
+    const uid = s.controlid_user_id ?? s.device_id;
+    if (uid != null) byDeviceId[String(uid)] = s;
+  }
   let count = 0;
   const errors = [];
 
@@ -390,16 +416,12 @@ async function handleAttendancePost(req, res, academyId) {
         Query.limit(1),
       ]);
       if (existing.total > 0) continue;
-      await databases.createDocument(DB_ID, ATTENDANCE_COL, ID.unique(), {
-        academy_id: academyId,
-        student_id: student.$id,
-        student_name: student.name,
-        device_log_id: String(log.id),
-        device_user_id: String(log.user_id),
-        checked_in_at: new Date(log.time * 1000).toISOString(),
-        portal_id: log.portal_id ? String(log.portal_id) : null,
-        event_type: log.event ?? null,
-      });
+      await databases.createDocument(
+        DB_ID,
+        ATTENDANCE_COL,
+        ID.unique(),
+        buildControlIdAttendanceDocument({ academyId, student, log })
+      );
       count++;
     } catch (err) {
       errors.push({ logId: log.id, err: err.message });

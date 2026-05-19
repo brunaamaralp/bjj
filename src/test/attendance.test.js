@@ -47,6 +47,24 @@ describe('Registro de presença', () => {
       expect(typeof payload.checked_in_at).toBe('string');
     });
 
+    it('ignora portal_id e outros campos extras do input', async () => {
+      attendanceMocks.createDocument.mockResolvedValueOnce({ $id: 'c1b' });
+      const { createCheckin } = await import('../lib/attendance.js');
+      await createCheckin({
+        lead_id: 'lead-1',
+        academy_id: 'acad-1',
+        checked_in_by: 'u1',
+        checked_in_by_name: 'Ana',
+        portal_id: 'legacy-portal',
+        event_type: 'in',
+        control_id: '99',
+      });
+      const payload = attendanceMocks.createDocument.mock.calls[0][3];
+      expect(payload.portal_id).toBeUndefined();
+      expect(payload.event_type).toBeUndefined();
+      expect(payload.control_id).toBeUndefined();
+    });
+
     it('source padrão é manual', async () => {
       attendanceMocks.createDocument.mockResolvedValueOnce({ $id: 'c2' });
       const { createCheckin } = await import('../lib/attendance.js');

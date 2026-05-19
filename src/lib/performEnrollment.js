@@ -8,6 +8,8 @@ import {
   hasCustomAnswerValue,
 } from './customLeadQuestions.js';
 import { readEnrollmentFollowUpTask, addDaysToYmd } from './enrollmentSettings.js';
+import { readControlIdConfig } from '../../lib/controlidSettings.js';
+import { syncControlIdStudentBackground } from './controlidApi.js';
 import { useTaskStore } from '../store/useTaskStore.js';
 
 /**
@@ -127,6 +129,15 @@ export async function performEnrollment({
       toastMsg += ' Tarefa de acompanhamento criada.';
     } catch (taskErr) {
       console.warn('[performEnrollment] follow-up task:', taskErr?.message || taskErr);
+    }
+  }
+
+  const controlIdCfg = readControlIdConfig(academySettingsRaw);
+  if (controlIdCfg.enabled) {
+    const photoUrl = String(lead.photo_url || lead.photoUrl || '').trim();
+    syncControlIdStudentBackground(academyId, leadId, { photoUrl: photoUrl || undefined });
+    if (!photoUrl) {
+      toastMsg += ' Cadastro na catraca pendente — adicione foto no perfil do aluno.';
     }
   }
 

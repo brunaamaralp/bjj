@@ -3,6 +3,7 @@
  * Env: VITE_APPWRITE_ATTENDANCE_COL_ID
  */
 import { ID, Query } from 'appwrite';
+import { buildManualAttendanceDocument } from '../../lib/attendanceDocument.js';
 import { databases, DB_ID } from './appwrite';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 
@@ -26,10 +27,6 @@ function ymFromDate(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
-}
-
-function personIdFromData(data) {
-    return String(data.lead_id || data.student_id || data.leadId || data.studentId || '').trim();
 }
 
 /** Filtro por aluno: coleção pode usar student_id (Control iD) e/ou lead_id (manual legado). */
@@ -90,19 +87,7 @@ export async function createCheckin(data, permissionContext = {}) {
     if (!ATTENDANCE_COL) {
         throw new Error('Coleção de presença não configurada.');
     }
-    const personId = personIdFromData(data);
-    const academy_id = String(data.academy_id || '').trim();
-    if (!personId || !academy_id) {
-        throw new Error('Dados de presença incompletos.');
-    }
-    const doc = {
-        student_id: personId,
-        academy_id,
-        checked_in_at: new Date().toISOString(),
-        checked_in_by: String(data.checked_in_by || 'user').trim().slice(0, 128),
-        checked_in_by_name: String(data.checked_in_by_name || 'Usuário').trim().slice(0, 128) || 'Usuário',
-        source: 'manual',
-    };
+    const doc = buildManualAttendanceDocument(data);
     const perms = buildClientDocumentPermissions({
         teamId: permissionContext.teamId,
         userId: permissionContext.userId,

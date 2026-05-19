@@ -162,6 +162,24 @@ function updatesToAppwritePatch(updates, currentLead) {
     copyIf('exit_date', ed);
   }
 
+  if (u.device_id !== undefined) {
+    const n = Number(u.device_id);
+    copyIf('device_id', Number.isFinite(n) && n > 0 ? Math.trunc(n) : null);
+  }
+  if (u.controlid_user_id !== undefined) {
+    const n = Number(u.controlid_user_id);
+    copyIf('controlid_user_id', Number.isFinite(n) && n > 0 ? Math.trunc(n) : null);
+  }
+  if (u.controlid_synced !== undefined) copyIf('controlid_synced', u.controlid_synced === true);
+  if (u.controlid_sync_error !== undefined) {
+    const err = String(u.controlid_sync_error || '').trim().slice(0, 256);
+    copyIf('controlid_sync_error', err || null);
+  }
+  if (u.photo_url !== undefined) {
+    const url = String(u.photo_url || '').trim().slice(0, 512);
+    copyIf('photo_url', url || null);
+  }
+
   const nowIso = new Date().toISOString();
   if (typeof u.status !== 'undefined' && u.status !== currentLead.status) {
     patch.status_changed_at = nowIso;

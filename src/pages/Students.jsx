@@ -14,6 +14,8 @@ import { useTerms } from '../lib/terminology.js';
 import { isStudentRecord, filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
+import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
+import ControlIdSyncBadge from '../components/student/ControlIdSyncBadge.jsx';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -48,6 +50,7 @@ const Students = () => {
     const addToast = useUiStore((s) => s.addToast);
     const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId, addLead } = useLeadStore();
     const { turmas: turmasConfig } = useAcademyTurmas(academyId);
+    const controlIdCfg = useAcademyControlId(academyId);
     const leadsLoading = useLeadStore((s) => s.loading);
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
@@ -340,6 +343,9 @@ const Students = () => {
                                 .filter((p) => p && String(p).trim())
                                 .join(' • ') || '—'}
                         </p>
+                        {controlIdCfg.enabled && (
+                            <ControlIdSyncBadge academyId={academyId} student={student} />
+                        )}
                         {(student.plan || student.enrollmentDate) && (
                             <div
                                 className="student-card-meta"

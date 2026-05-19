@@ -4,7 +4,8 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package, ShoppingBag, DoorOpen } from 'lucide-react';
+import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
@@ -35,6 +36,7 @@ const TABS_ALL = [
     { id: 'estoque', label: 'Estoque', Icon: Package },
     { id: 'vendas', label: 'Vendas', Icon: ShoppingBag },
     { id: 'equipe', label: 'Equipe', Icon: Users },
+    { id: 'catraca', label: 'Catraca', Icon: DoorOpen },
     { id: 'avancado', label: 'Avançado', Icon: Settings },
 ];
 
@@ -570,6 +572,10 @@ const AcademySettings = () => {
                     academy={academy}
                     academyId={academyId}
                 />
+            )}
+
+            {activeTab === 'catraca' && academyId && (
+                <ControlIdCatracaSection academyId={academyId} />
             )}
 
             {activeTab === 'avancado' && (

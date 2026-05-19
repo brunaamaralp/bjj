@@ -1,56 +1,106 @@
 import express from 'express';
 import { Client, Databases, Permission, Role, Query, ID } from 'node-appwrite';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
+import {
+  controlidTestHandler,
+  controlidSaveConfigHandler,
+  controlidSyncHandler,
+  controlidRevokeHandler,
+  controlidReleaseHandler,
+  controlidMonitorHandler,
+  controlidTestImageHandler,
+} from '../lib/server/controlidHandlers.js';
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
-// Permite que o frontend (qualquer origem, inclusive Vercel) chame este servidor local
-app.use('/controlid-proxy', (req, res, next) => {
+const RELAY_SECRET = String(
+  process.env.CONTROLID_RELAY_SECRET || process.env.INTERNAL_API_SECRET || ''
+).trim();
+
+function controlIdCors(req, res, next) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, x-academy-id, x-controlid-relay-secret'
+  );
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
-});
+}
 
-// Proxy reverso para o equipamento Control iD na rede local.
-// O browser não consegue chamar http://192.168.x.x diretamente (CORS).
-// O frontend chama POST /controlid-proxy com { ip, endpoint, body, session? }
-// e este servidor repassa ao dispositivo sem restrição de origem.
-app.post('/controlid-proxy', express.json(), async (req, res) => {
-  const { ip, endpoint, body: deviceBody, session } = req.body || {};
+// Proxy reverso para o equipamento Control iD na rede local (browser + relay Vercel).
+app.use('/controlid-proxy', controlIdCors);
+
+app.post('/controlid-proxy', async (req, res) => {
+  if (RELAY_SECRET) {
+    const got = String(req.headers['x-controlid-relay-secret'] || '').trim();
+    if (got !== RELAY_SECRET) {
+      return res.status(401).json({ erro: 'Relay não autorizado' });
+    }
+  }
+
+  const { ip, port, endpoint, body: deviceBody, contentType, rawBodyBase64 } = req.body || {};
+  const devicePort = Number(port) > 0 ? Math.trunc(Number(port)) : 80;
 
   if (!ip || !endpoint) {
     return res.status(400).json({ erro: 'ip e endpoint são obrigatórios' });
   }
 
-  const url = session
-    ? `http://${ip}/${endpoint}?session=${session}`
-    : `http://${ip}/${endpoint}`;
+  const url = `http://${ip}:${devicePort}/${String(endpoint).replace(/^\//, '')}`;
+  const headers = {};
+  let body;
+  if (rawBodyBase64) {
+    headers['Content-Type'] = contentType || 'application/octet-stream';
+    body = Buffer.from(String(rawBodyBase64), 'base64');
+  } else {
+    headers['Content-Type'] = contentType || 'application/json';
+    body = JSON.stringify(deviceBody ?? {});
+  }
 
   try {
     const deviceRes = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(deviceBody ?? {}),
-      signal: AbortSignal.timeout(10_000), // 10 s — evita travar se o IP estiver errado
+      headers,
+      body,
+      signal: AbortSignal.timeout(35_000),
     });
 
-    const text = await deviceRes.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    const ct = deviceRes.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const text = await deviceRes.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { raw: text };
+      }
+      return res.status(deviceRes.status).json(data);
+    }
 
-    return res.status(deviceRes.status).json(data);
+    const buf = await deviceRes.arrayBuffer();
+    if (ct) res.setHeader('Content-Type', ct);
+    return res.status(deviceRes.status).send(Buffer.from(buf));
   } catch (err) {
     const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
     return res.status(502).json({
       erro: timedOut
-        ? `Timeout ao conectar em ${ip} — verifique o IP e a rede`
+        ? `Timeout ao conectar em ${ip}:${devicePort} — verifique IP/rede`
         : `Equipamento inacessível: ${err.message}`,
     });
   }
 });
+
+// API Control iD local (mesmos handlers do Vercel) — use VITE_CONTROLID_API_BASE=http://localhost:4000
+app.use('/controlid', controlIdCors, express.json({ limit: '2mb' }));
+app.post('/controlid/test', (req, res) => controlidTestHandler(req, res));
+app.post('/controlid/save-config', (req, res) => controlidSaveConfigHandler(req, res));
+app.post('/controlid/sync', (req, res) => controlidSyncHandler(req, res));
+app.post('/controlid/revoke', (req, res) => controlidRevokeHandler(req, res));
+app.post('/controlid/release', (req, res) => controlidReleaseHandler(req, res));
+app.get('/controlid/monitor', (req, res) => controlidMonitorHandler(req, res));
+app.post('/controlid/monitor', (req, res) => controlidMonitorHandler(req, res));
+app.post('/controlid/test-image', (req, res) => controlidTestImageHandler(req, res));
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';

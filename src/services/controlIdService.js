@@ -28,11 +28,18 @@ function invalidateSession() {
 
 // Toda comunicação com o dispositivo passa pelo proxy local (server/index.js).
 // Isso resolve CORS: o browser chama localhost:4000, que repassa ao IP do equipamento.
-async function proxyRequest(ip, endpoint, body, session) {
+async function proxyRequest(ip, endpoint, body, session, { port = 80, contentType, rawBodyBase64 } = {}) {
   const res = await fetch(PROXY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ip, endpoint, body: body ?? {}, session: session ?? null }),
+    body: JSON.stringify({
+      ip,
+      port,
+      endpoint: session ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}session=${session}` : endpoint,
+      body: rawBodyBase64 ? null : (body ?? {}),
+      contentType: contentType || 'application/json',
+      rawBodyBase64,
+    }),
   });
 
   if (res.status === 502) {
@@ -46,36 +53,37 @@ async function proxyRequest(ip, endpoint, body, session) {
   return res.json();
 }
 
-export async function login(ip, username = 'admin', password = 'admin') {
-  const data = await proxyRequest(ip, 'login.fcgi', { login: username, password });
+export async function login(ip, username = 'admin', password = 'admin', port = 80) {
+  const data = await proxyRequest(ip, 'login.fcgi', { login: username, password }, null, { port });
   if (!data.session) throw new Error('Equipamento não retornou session');
   cacheSession(ip, data.session);
   return data.session;
 }
 
-async function getSession(ip, username, password) {
+async function getSession(ip, username, password, port) {
   if (isSessionValid(ip)) return _session;
-  return login(ip, username, password);
+  return login(ip, username, password, port);
 }
 
 // Executa uma requisição autenticada; faz re-login automático se a session expirou.
-async function request(ip, username, password, endpoint, body) {
-  const session = await getSession(ip, username, password);
-  const data = await proxyRequest(ip, endpoint, body, session);
+async function request(ip, username, password, endpoint, body, opts = {}) {
+  const port = opts.port ?? 80;
+  const session = await getSession(ip, username, password, port);
+  const data = await proxyRequest(ip, endpoint, body, session, { port, ...opts });
 
   // Control iD retorna { erro: ... } com HTTP 200 quando a session é inválida
   if (data?.erro && String(data.erro).toLowerCase().includes('session')) {
     invalidateSession();
-    const newSession = await login(ip, username, password);
-    return proxyRequest(ip, endpoint, body, newSession);
+    const newSession = await login(ip, username, password, port);
+    return proxyRequest(ip, endpoint, body, newSession, { port, ...opts });
   }
 
   return data;
 }
 
-export async function testConnection(ip, username, password) {
+export async function testConnection(ip, username, password, port = 80) {
   try {
-    await login(ip, username, password);
+    await login(ip, username, password, port);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };

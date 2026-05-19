@@ -7,7 +7,10 @@ import { Query } from 'appwrite';
 import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, DoorOpen } from 'lucide-react';
+import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
+import { useControlIdMonitor } from '../hooks/useControlIdMonitor.js';
+import { releaseControlIdGate } from '../lib/controlidApi.js';
 import { Link } from 'react-router-dom';
 import NaviLogo from '../components/NaviLogo.jsx';
 import Hint from '../components/shared/Hint.jsx';
@@ -43,6 +46,10 @@ const Dashboard = () => {
     const patchTaskLocal = useTaskStore((s) => s.patchTaskLocal);
     const isUpdatingTask = useTaskStore((s) => s.isUpdating);
     const addToast = useUiStore((s) => s.addToast);
+    const controlIdCfg = useAcademyControlId(academyId);
+    useControlIdMonitor(academyId, controlIdCfg.enabled);
+    const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
+    const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dashboardQuickTimes, setDashboardQuickTimes] = useState([]);
@@ -491,6 +498,21 @@ const Dashboard = () => {
         }
     };
 
+    const confirmGateRelease = async () => {
+        if (!academyId || gateReleasing) return;
+        setGateReleasing(true);
+        try {
+            const data = await releaseControlIdGate(academyId);
+            if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar catraca');
+            addToast({ type: 'success', message: 'Catraca liberada.' });
+            setGateReleaseOpen(false);
+        } catch (e) {
+            addToast({ type: 'error', message: e?.message || 'Erro ao liberar catraca' });
+        } finally {
+            setGateReleasing(false);
+        }
+    };
+
     const markTaskAsDone = async (task) => {
         const taskId = String(task?.id || '').trim();
         if (!taskId || isUpdatingTask(taskId)) return;
@@ -517,6 +539,17 @@ const Dashboard = () => {
                     <div className="reception-header-ai reception-command-bar">
                         <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                     </div>
+                    {controlIdCfg.enabled && (
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            onClick={() => setGateReleaseOpen(true)}
+                        >
+                            <DoorOpen size={18} aria-hidden />
+                            Liberar catraca
+                        </button>
+                    )}
                     <button type="button" className="btn-primary reception-header-new-lead" onClick={() => navigate('/new-lead')}>
                         <Plus size={20} strokeWidth={2.25} />{' '}
                         {`Novo ${(() => {
@@ -979,6 +1012,40 @@ const Dashboard = () => {
                                 })}
                             </div>
                         )}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {gateReleaseOpen ? (
+                <div
+                    className="confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    onMouseDown={(e) => e.target === e.currentTarget && !gateReleasing && setGateReleaseOpen(false)}
+                >
+                    <div className="confirm-modal" style={{ textAlign: 'left' }}>
+                        <h3 style={{ margin: '0 0 8px', fontSize: 17 }}>Liberar passagem?</h3>
+                        <p className="text-small text-muted" style={{ marginBottom: 16 }}>
+                            A catraca será liberada remotamente para entrada manual na recepção.
+                        </p>
+                        <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                disabled={gateReleasing}
+                                onClick={() => setGateReleaseOpen(false)}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-primary"
+                                disabled={gateReleasing}
+                                onClick={() => void confirmGateRelease()}
+                            >
+                                {gateReleasing ? 'Liberando…' : 'Liberar'}
+                            </button>
                         </div>
                     </div>
                 </div>

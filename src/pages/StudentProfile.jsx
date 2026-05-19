@@ -47,6 +47,8 @@ import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
+import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
+import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
 
@@ -236,6 +238,7 @@ export default function StudentProfile() {
     const academyList = useLeadStore((s) => s.academyList);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const updateLead = useLeadStore((s) => s.updateLead);
+    const controlIdCfg = useAcademyControlId(academyId);
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
     const terms = useTerms();
@@ -873,6 +876,7 @@ export default function StudentProfile() {
                 exitDate,
                 exitNotes,
                 updateLead,
+                academySettingsRaw: academyDoc?.settings,
             });
             setDeactivateOpen(false);
             let msg = `${terms.student} desligado com sucesso.`;
@@ -1718,6 +1722,18 @@ export default function StudentProfile() {
                     </div>
                     {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
                 </div>
+
+                {controlIdCfg.enabled && (
+                    <StudentControlIdPhoto
+                        academyId={academyId}
+                        leadId={id}
+                        photoUrl={student.photo_url}
+                        controlidSynced={student.controlid_synced}
+                        onPhotoSaved={(url) => {
+                            void updateLead(id, { photo_url: url });
+                        }}
+                    />
+                )}
 
                 <div style={{ marginBottom: 22 }}>
                     <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Contato de emergência</h3>
