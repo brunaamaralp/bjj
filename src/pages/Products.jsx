@@ -71,6 +71,21 @@ export default function Products() {
     void refresh();
   }, [canAccess, refresh]);
 
+  useEffect(() => {
+    if (!canAccess) return;
+    const flag = String(searchParams.get('import') || '').trim().toLowerCase();
+    if (flag !== '1' && flag !== 'csv' && flag !== 'true') return;
+    setImportOpen(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('import');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [canAccess, searchParams, setSearchParams]);
+
   const categories = useMemo(() => {
     const set = new Set();
     for (const p of products) {
@@ -271,12 +286,12 @@ export default function Products() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn-outline" onClick={() => setImportOpen(true)}>
-            <Upload size={16} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
-            Importar CSV
+          <button type="button" className="btn-action-primary" onClick={() => setImportOpen(true)}>
+            <Upload size={14} aria-hidden />
+            Importar em lote
           </button>
-          <button type="button" className="btn-secondary" onClick={openCreate}>
-            <Plus size={16} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+          <button type="button" className="btn-action-ghost" onClick={openCreate}>
+            <Plus size={14} aria-hidden />
             Novo produto
           </button>
         </div>
@@ -343,6 +358,7 @@ export default function Products() {
               title="Nenhum produto cadastrado ainda"
               description="Cadastre os produtos da academia para usá-los nas vendas e no controle de estoque."
               primaryAction={{ label: 'Cadastrar primeiro produto', onClick: openCreate }}
+              secondaryAction={{ label: 'Importar em lote (CSV)', onClick: () => setImportOpen(true) }}
               role="status"
             />
           ) : (

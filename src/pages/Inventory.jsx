@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Upload } from 'lucide-react';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useLeadStore } from '../store/useLeadStore';
@@ -137,9 +138,18 @@ const Inventory = () => {
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <div className="animate-in">
         <h1 className="navi-page-title">Estoque</h1>
-        <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 12 }}>
           Saldo por item e movimentações
         </p>
+          <div className="page-header-card" style={{ marginBottom: 16 }}>
+          <div className="page-header-row">
+            <div style={{ flex: 1 }} />
+            <Link to="/produtos?import=1" className="btn-action-primary">
+              <Upload size={14} aria-hidden />
+              Importar produtos em lote
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-2 mt-3" role="tablist">

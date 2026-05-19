@@ -10,6 +10,7 @@ import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import labelsHandler from '../lib/server/labelsHandler.js';
 import inventoryHandler from '../lib/server/inventoryHandler.js';
 import productsHandler from '../lib/server/productsHandler.js';
+import aiProductImportHandler from '../lib/server/aiProductImportHandler.js';
 import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
@@ -220,6 +221,7 @@ export default async function handler(req, res) {
   if (req.query.route === 'labels') return labelsHandler(req, res);
   if (req.query.route === 'inventory') return inventoryHandler(req, res);
   if (req.query.route === 'products') return productsHandler(req, res);
+  if (req.query.route === 'ai_import_products') return aiProductImportHandler(req, res);
   if (req.query.route === 'sales') return salesHistoryHandler(req, res);
   if (req.query.route === 'sales_by_student') return salesByStudentHandler(req, res);
   if (req.query.route === 'controlid_test') return controlidTestHandler(req, res);
