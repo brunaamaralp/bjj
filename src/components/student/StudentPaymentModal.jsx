@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DateInput } from '../DateInput';
 import BankAccountSelect from '../finance/BankAccountSelect.jsx';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
@@ -57,7 +58,7 @@ export default function StudentPaymentModal({
 }) {
   const [productStep, setProductStep] = useState(false);
 
-  if (!open || !student) return null;
+  if (!open || !student || typeof document === 'undefined') return null;
 
   const isProduct = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
   const isPlan = payForm.payment_type === PAYMENT_CATEGORY.PLAN;
@@ -80,18 +81,19 @@ export default function StudentPaymentModal({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div
       className="navi-modal-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="student-payment-modal-title"
+      role="presentation"
       onClick={() => (saving ? undefined : handleClose())}
     >
       <div
-        className="card"
+        className="card navi-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="student-payment-modal-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: isProduct ? 560 : 480, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 20 }}
+        style={{ maxWidth: isProduct ? 560 : 480, padding: 20 }}
       >
         <h3
           id="student-payment-modal-title"
@@ -389,6 +391,7 @@ export default function StudentPaymentModal({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

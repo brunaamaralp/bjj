@@ -2628,12 +2628,21 @@ select.task-select option {
   position: fixed;
   inset: 0;
   background: rgba(18, 16, 42, 0.5);
-  z-index: 300;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   padding: 12px;
   padding-top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
+.navi-modal-dialog {
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: auto;
+  width: 100%;
 }
 
 /* Funil (/pipeline): largura das colunas + flex min-width:auto do conteúdo */

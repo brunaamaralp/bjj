@@ -18,6 +18,7 @@
     "migrate:kids-to-crianca": "node scripts/migrateLeadTypeKidsToCrianca.js",
     "provision:lead-payment-attrs": "node scripts/ensure-lead-payment-attrs.js",
     "provision:academy-attrs": "node scripts/ensure-academy-attrs.mjs",
+    "provision:student-payments": "node scripts/provision_student_payments_schema.js",
     "provision:task-templates": "node scripts/provision-task-templates-schema.mjs",
     "provision:plan-freeze": "node --env-file=.env scripts/provision-plan-freeze-schema.mjs",
     "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
