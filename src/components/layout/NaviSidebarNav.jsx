@@ -76,7 +76,7 @@ function SideNavLink({
   action = false,
   footer = false,
 }) {
-  const iconSize = action && !collapsed ? 20 : 18;
+  const iconSize = action && !collapsed ? 20 : 20;
   const IconComponent = action && collapsed ? Plus : Icon;
   const inner = (
     <>
@@ -145,7 +145,7 @@ function SideNavAccordion({
         title={accordion.label}
       >
         <span className="navi-side-link-icon">
-          <Icon size={18} strokeWidth={1.75} />
+          <Icon size={20} strokeWidth={1.75} />
         </span>
         <span className="navi-side-link-label">{accordion.label}</span>
       </NavLink>
@@ -157,23 +157,25 @@ function SideNavAccordion({
     onExpandExclusive(accordion.id);
   };
 
+  const headClass = [
+    'navi-side-accordion-head',
+    footer ? 'navi-side-link--footer' : '',
+    partial ? 'navi-side-link--partial' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className={`navi-side-accordion${expanded ? ' navi-side-accordion--open' : ''}`}>
-      <div className="navi-side-accordion-head">
+      <div className={headClass}>
         <button
           type="button"
-          className={[
-            'navi-side-link navi-side-accordion-trigger',
-            footer ? 'navi-side-link--footer' : '',
-            partial ? 'navi-side-link--partial' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
+          className="navi-side-accordion-trigger"
           onClick={onLabelNavigate}
           title={accordion.label}
         >
           <span className="navi-side-link-icon">
-            <Icon size={18} strokeWidth={1.75} />
+            <Icon size={20} strokeWidth={1.75} />
           </span>
           <span className="navi-side-link-label">{accordion.label}</span>
         </button>
@@ -305,7 +307,7 @@ export default function NaviSidebarNav({
           title={collapsed ? 'Conversas' : undefined}
         >
           <span className="navi-side-link-icon">
-            <MessageCircle size={18} strokeWidth={1.75} />
+            <MessageCircle size={20} strokeWidth={1.75} />
           </span>
           <span className="navi-side-link-label">Conversas</span>
           {inboxUnread > 0 && (

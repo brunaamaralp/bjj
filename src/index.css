@@ -1686,7 +1686,7 @@ select.task-select option {
 .navi-side-link {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 9px 12px;
   text-decoration: none;
   color: var(--mid);
@@ -1703,6 +1703,9 @@ select.task-select option {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
   color: inherit;
   transition: color 0.15s ease;
 }
@@ -1756,27 +1759,61 @@ select.task-select option {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin: 0;
+  padding: 0;
 }
 
 .navi-side-accordion-head {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  margin: 0;
   min-width: 0;
+  border-radius: 10px;
+  border: 0.5px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.navi-side-accordion-head:hover {
+  background: rgba(91, 63, 191, 0.06);
+}
+
+.navi-side-accordion-head:hover .navi-side-link-icon {
+  color: var(--v500);
+}
+
+.navi-side-accordion-head.navi-side-link--partial {
+  color: var(--v500);
+  font-weight: 600;
+}
+
+.navi-side-accordion-head.navi-side-link--partial .navi-side-link-icon {
+  color: var(--v500);
 }
 
 .navi-side-accordion-trigger {
-  width: 100%;
-  box-sizing: border-box;
-  padding-right: 36px;
-  text-align: left;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
   font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .navi-side-accordion-chevron {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  margin: 0;
-  transform: translateY(-50%);
+  flex-shrink: 0;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1820,8 +1857,13 @@ select.task-select option {
   list-style: none;
 }
 
+.navi-side-accordion-panel-inner > li {
+  margin: 0;
+  padding: 0;
+}
+
 .navi-side-link--child {
-  padding-left: 28px;
+  padding-left: 56px;
   font-size: 13px;
   font-weight: 500;
   border-radius: 8px;
@@ -1830,6 +1872,7 @@ select.task-select option {
 .navi-side-link-icon--child-spacer {
   width: 0;
   min-width: 0;
+  height: 0;
   overflow: hidden;
 }
 
