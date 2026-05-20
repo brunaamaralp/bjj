@@ -1,5 +1,5 @@
 import { ID, Storage } from 'appwrite';
-import { client, DB_ID, STUDENTS_COL } from './appwrite';
+import { client, DB_ID, STUDENTS_COL, APPWRITE_PROJECT, ENDPOINT } from './appwrite';
 import { databases } from './appwrite';
 
 const BUCKET_ID = String(import.meta.env.VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID || '').trim();
@@ -12,9 +12,7 @@ export async function uploadStudentPhoto(leadId, file) {
   if (!BUCKET_ID || !leadId || !file) return null;
   const storage = new Storage(client);
   const created = await storage.createFile(BUCKET_ID, ID.unique(), file);
-  const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
-  const project = import.meta.env.VITE_APPWRITE_PROJECT_ID || import.meta.env.VITE_APPWRITE_PROJECT || '';
-  const url = `${endpoint}/storage/buckets/${BUCKET_ID}/files/${created.$id}/view?project=${project}`;
+  const url = `${ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${created.$id}/view?project=${APPWRITE_PROJECT}`;
   return url;
 }
 

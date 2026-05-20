@@ -18,6 +18,8 @@ dist-ssr
 scripts/*
 !scripts/fix-lead-stage-sync.js
 !scripts/migrateLeadTypeKidsToCrianca.js
+!scripts/delete-lead-student-attrs.mjs
+!scripts/check-missing-imports.mjs
 
 # Editor directories and files
 .vscode/*

@@ -7,11 +7,7 @@ import {
   isContractTemplateStorageConfigured,
   uploadTemplatePdf,
 } from './contractTemplateStorage.js';
-
-const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
-const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '';
-const API_KEY = process.env.APPWRITE_API_KEY || '';
-const DB_ID = process.env.APPWRITE_DATABASE_ID || '';
+import { API_KEY, DB_ID, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
 
 const TEMPLATES_COL = () =>
   String(process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || '').trim();

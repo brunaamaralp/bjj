@@ -1,11 +1,7 @@
 import { Client, Databases } from 'node-appwrite';
 import { type ContractVariableMap } from './contractVariables.js';
 import { mapLeadDocToContractVariables } from './leadContractVariables.js';
-
-const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
-const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '';
-const API_KEY = process.env.APPWRITE_API_KEY || '';
-const DB_ID = process.env.APPWRITE_DATABASE_ID || '';
+import { API_KEY, DB_ID, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
 const LEADS_COL = () =>
   String(
     process.env.APPWRITE_LEADS_COLLECTION_ID || process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || ''

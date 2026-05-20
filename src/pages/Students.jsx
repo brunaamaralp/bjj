@@ -1,7 +1,7 @@
 /** Backlog: filtros (turma/plano); virtualização para listas muito longas. */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useLeadStore, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';

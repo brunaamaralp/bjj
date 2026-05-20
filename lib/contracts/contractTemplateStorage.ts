@@ -1,9 +1,6 @@
 import { Client, Storage, ID } from 'node-appwrite';
 import { InputFile } from 'node-appwrite/file';
-
-const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
-const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '';
-const API_KEY = process.env.APPWRITE_API_KEY || '';
+import { API_KEY, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
 const BUCKET_ID = () => String(process.env.APPWRITE_CONTRACT_TEMPLATES_BUCKET_ID || '').trim();
 
 let storageClient: Storage | null = null;

@@ -2,7 +2,11 @@ import { Client, Account, Databases, Functions, Teams, Realtime } from "appwrite
 
 const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1";
 const endpointFallback = "";
-const project = import.meta.env.VITE_APPWRITE_PROJECT_ID || import.meta.env.VITE_APPWRITE_PROJECT || "699f020c00171ce26206";
+export const APPWRITE_PROJECT =
+  import.meta.env.VITE_APPWRITE_PROJECT_ID ||
+  import.meta.env.VITE_APPWRITE_PROJECT ||
+  "699f020c00171ce26206";
+const project = APPWRITE_PROJECT;
 const buildMarker = "FORCE_SFO_ENDPOINT_1";
 const selectedEndpoint = endpointFallback || endpoint;
 const client = new Client()
@@ -74,6 +78,7 @@ console.log('   - Fn Sales Cancel:', SALES_CANCEL_FN_ID || '(unset)');
 console.log('   - Fn Inventory Seed Kimonos:', INVENTORY_SEED_KIMONOS_FN_ID || '(unset)');
 
 export const ENDPOINT = endpoint;
+export { APPWRITE_PROJECT as PROJECT_ID };
 export const ENDPOINT_FALLBACK = endpointFallback;
 export function setClientEndpoint(ep) { client.setEndpoint(ep); }
 
