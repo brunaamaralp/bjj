@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -10,7 +10,6 @@ import {
     Building2,
     Filter,
     Users,
-    Zap,
     Wallet2,
     UserRound,
     CheckSquare,
@@ -29,7 +28,6 @@ import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.j
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
-import AutomacoesSection from '../components/academy/AutomacoesSection';
 import EquipeSection from '../components/academy/EquipeSection';
 import AvancadoSection from '../components/academy/AvancadoSection';
 import ConfigTab from '../components/finance/ConfigTab.jsx';
@@ -37,15 +35,12 @@ import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
-import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
-import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useTerms } from '../lib/terminology.js';
 
 const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2, subtitle: 'Dados e identidade' },
     { id: 'funil', label: 'Funil', Icon: Filter, subtitle: 'Perguntas e etiquetas' },
     { id: 'alunos', label: 'Alunos', Icon: UserRound, subtitle: 'Cadastro e desligamento' },
-    { id: 'automacoes', label: 'Automações', Icon: Zap, subtitle: 'Mensagens e gatilhos' },
     { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Modelos e pós-matrícula' },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Planos, taxas e régua' },
     { id: 'vendas', label: 'Vendas', Icon: ShoppingBag, subtitle: 'PDV e comissões' },
@@ -61,7 +56,6 @@ const TAB_SKELETON_HEIGHT = {
     estudio: 420,
     funil: 480,
     alunos: 400,
-    automacoes: 440,
     tarefas: 460,
     financeiro: 520,
     vendas: 320,
@@ -103,16 +97,6 @@ function EmpresaTabSkeleton({ tabId }) {
 
 const AcademySettings = () => {
     const terms = useTerms();
-    const automationLabels = useMemo(
-        () => ({
-            ...AUTOMATION_LABELS,
-            converted: {
-                label: terms.automationConvertedLabel,
-                description: terms.automationConvertedDescription,
-            },
-        }),
-        [terms.automationConvertedLabel, terms.automationConvertedDescription]
-    );
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const billingAccess = useLeadStore((s) => s.billingAccess);
@@ -138,13 +122,9 @@ const AcademySettings = () => {
         customLeadQuestions: [],
         studentExitReasons: [],
         studentFreezeReasons: [],
-        automationsConfigRaw: '',
-        whatsappTemplates: '',
         teamId: '',
         ownerId: '',
     });
-    const [automationsConfig, setAutomationsConfig] = useState(() => parseAutomationsConfig(null));
-    const [savingAutomations, setSavingAutomations] = useState(false);
     const [tasksTemplatesMeta, setTasksTemplatesMeta] = useState({
         configurado: true,
         hasEnrollmentTemplate: false,
@@ -331,8 +311,6 @@ const AcademySettings = () => {
                     vertical,
                     uiLabels: labels,
                     modules: mods,
-                    automationsConfigRaw: doc.automations_config || '',
-                    whatsappTemplates: doc.whatsappTemplates || '',
                     teamId: doc.teamId || '',
                     ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
@@ -344,7 +322,6 @@ const AcademySettings = () => {
                 } catch (e) {
                     console.error('[AcademySettings] setVertical:', e);
                 }
-                setAutomationsConfig(parseAutomationsConfig(doc.automations_config || ''));
                 if (normalized.migrated) {
                     try {
                         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
@@ -366,31 +343,6 @@ const AcademySettings = () => {
         })();
         return () => { cancelled = true; };
     }, [academyId, academyReloadNonce]);
-
-    const templatesMap = useMemo(() => {
-        let parsed = {};
-        try {
-            const raw = academy.whatsappTemplates;
-            const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p;
-        } catch {
-            parsed = {};
-        }
-        return { ...DEFAULT_WHATSAPP_TEMPLATES, ...parsed };
-    }, [academy.whatsappTemplates]);
-
-    const templateOptions = useMemo(
-        () =>
-            Object.keys(templatesMap)
-                .filter((k) => String(templatesMap[k] || '').trim())
-                .map((k) => ({ id: k, label: WHATSAPP_TEMPLATE_LABELS[k] || k })),
-        [templatesMap]
-    );
-
-    const noTemplatesAvailable = useMemo(() => {
-        if (templateOptions.length === 0) return true;
-        return !String(academy.whatsappTemplates || '').trim();
-    }, [academy.whatsappTemplates, templateOptions.length]);
 
     const handleSave = async (saveOptions = {}) => {
         if (!academyId) return;
@@ -487,25 +439,9 @@ const AcademySettings = () => {
         el.scrollBy({ left: direction * 160, behavior: 'smooth' });
     };
 
-    const saveAutomations = async () => {
-        if (!academyId) return;
-        setSavingAutomations(true);
-        try {
-            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-                automations_config: JSON.stringify(automationsConfig || {}),
-            });
-            setAcademy((prev) => ({
-                ...prev,
-                automationsConfigRaw: JSON.stringify(automationsConfig || {}),
-            }));
-            addToast({ type: 'success', message: 'Automações salvas.' });
-        } catch (e) {
-            console.error('save automations:', e);
-            addToast({ type: 'error', message: 'Não foi possível salvar as automações.' });
-        } finally {
-            setSavingAutomations(false);
-        }
-    };
+    if (rawTab === 'automacoes') {
+        return <Navigate to="/automacoes?tab=configuracoes" replace />;
+    }
 
     return (
         <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
@@ -632,20 +568,6 @@ const AcademySettings = () => {
                     setAcademy={setAcademy}
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
-                />
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'automacoes' && (
-                <AutomacoesSection
-                    automationLabels={automationLabels}
-                    automationsConfig={automationsConfig}
-                    setAutomationsConfig={setAutomationsConfig}
-                    templateOptions={templateOptions}
-                    noTemplatesAvailable={noTemplatesAvailable}
-                    automationsConfigRaw={academy.automationsConfigRaw}
-                    academyDataVersion={academyDataVersion}
-                    savingAutomations={savingAutomations}
-                    onSave={saveAutomations}
                 />
             )}
 

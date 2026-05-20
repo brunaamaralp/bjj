@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Save, RotateCcw, Send, Search, Copy, Check, ChevronLeft, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Save, RotateCcw, Send, Search, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { account, teams } from '../lib/appwrite';
@@ -24,7 +23,7 @@ import '../lib/whatsappTemplates.css';
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
 
-const Templates = () => {
+export default function AutomacoesModelosTab() {
   const terms = useTerms();
   const placeholders = useMemo(
     () =>
@@ -346,24 +345,8 @@ const Templates = () => {
   };
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-      <Link
-        to="/empresa?tab=automacoes"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 10,
-          color: 'var(--accent)',
-          fontWeight: 600,
-          fontSize: '0.85rem',
-          textDecoration: 'none',
-        }}
-      >
-        <ChevronLeft size={18} strokeWidth={2} aria-hidden />
-        Voltar à empresa
-      </Link>
-      <h1 className="navi-page-title">Templates de Mensagens</h1>
+    <div className="automacoes-modelos-tab">
+      <h2 className="navi-section-heading" style={{ marginTop: 0 }}>Modelos de mensagens</h2>
       <p className="tpl-page-note">
         O sistema oferece <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} modelos fixos</strong>. Você está personalizando{' '}
         <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} de {SYSTEM_WHATSAPP_TEMPLATE_COUNT}</strong> modelos
@@ -609,6 +592,4 @@ const Templates = () => {
       </div>
     </div>
   );
-};
-
-export default Templates;
+}

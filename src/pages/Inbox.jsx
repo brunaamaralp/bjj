@@ -4020,7 +4020,7 @@ export default function Inbox() {
                         <EmptyState
                           variant="bare"
                           title={`Nenhum template da ${terms.workspaceNoun}.`}
-                          description="Configure em Templates no menu."
+                          description="Configure em Automações no menu."
                           role="status"
                           className="inbox-quick-templates-empty"
                         />

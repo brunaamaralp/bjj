@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Bot,
   FileText,
+  Zap,
   FileSignature,
   Wallet,
   Users,
@@ -43,14 +44,20 @@ import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
 import NaviUserMenu from './components/layout/NaviUserMenu.jsx';
-import { PlanosRedirect, FinanceRedirect, ContratosModelosRedirect, LojaTabRedirect } from './components/routing/LegacyRedirects.jsx';
+import {
+  PlanosRedirect,
+  FinanceRedirect,
+  ContratosModelosRedirect,
+  LojaTabRedirect,
+  TemplatesRedirect,
+} from './components/routing/LegacyRedirects.jsx';
 
 const Inbox = React.lazy(() => import('./pages/Inbox'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const AIAgentSettings = React.lazy(() => import('./pages/AIAgentSettings'));
 const UserAccount = React.lazy(() => import('./pages/UserAccount'));
 const AcademySettings = React.lazy(() => import('./pages/AcademySettings'));
-const Templates = React.lazy(() => import('./pages/Templates'));
+const Automacoes = React.lazy(() => import('./pages/Automacoes'));
 const Mensalidades = React.lazy(() => import('./pages/Mensalidades'));
 const Caixa = React.lazy(() => import('./pages/Caixa'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
@@ -207,7 +214,7 @@ const App = () => {
     () => ({
       pipeline: Kanban,
       tarefas: CheckSquare,
-      templates: FileText,
+      automacoes: Zap,
       agente: Bot,
       mensalidades: Users,
       contratos: FileSignature,
@@ -979,7 +986,8 @@ const App = () => {
                   <Route path="/planos" element={<PlanosRedirect />} />
                   <Route path="/empresa" element={<AcademySettings />} />
                   <Route path="/profile" element={<Navigate to="/conta" replace />} />
-                  <Route path="/templates" element={<Templates />} />
+                  <Route path="/automacoes" element={<Automacoes />} />
+                  <Route path="/templates" element={<TemplatesRedirect />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

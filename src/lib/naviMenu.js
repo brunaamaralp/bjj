@@ -25,7 +25,7 @@ export function buildMobileDrawerSections({
     ],
   });
 
-  const atendimento = [{ to: '/templates', label: 'Templates', iconKey: 'templates' }];
+  const atendimento = [{ to: '/automacoes', label: 'Automações', iconKey: 'automacoes' }];
   if (canConfigureAgenteIa) {
     atendimento.push({ to: '/agente-ia', label: 'Agente IA', iconKey: 'agente' });
   }

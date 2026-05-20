@@ -9,6 +9,7 @@ import {
   PlusCircle,
   MessageCircle,
   FileText,
+  Zap,
   FileSignature,
   Bot,
   Users,
@@ -152,7 +153,7 @@ export default function NaviSidebarNav({
             />
           )}
         </Link>
-        <SideNavLink to="/templates" label="Templates" Icon={FileText} collapsed={collapsed} className={sideLinkClass} />
+        <SideNavLink to="/automacoes" label="Automações" Icon={Zap} collapsed={collapsed} className={sideLinkClass} />
         {canConfigureAgenteIa ? (
           <Link
             to="/agente-ia"

@@ -18,3 +18,7 @@ export function ContratosModelosRedirect() {
 export function LojaTabRedirect({ tab }) {
   return <Navigate to={`/loja?tab=${tab}`} replace />;
 }
+
+export function TemplatesRedirect() {
+  return <Navigate to="/automacoes?tab=modelos" replace />;
+}

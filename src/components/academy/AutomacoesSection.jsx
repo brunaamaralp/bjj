@@ -48,7 +48,7 @@ function AutomationRow({
                     title={
                         switchDisabled
                             ? noTemplatesAvailable
-                                ? 'Crie um template em Templates antes de ativar'
+                                ? 'Crie um modelo em Automações antes de ativar'
                                 : 'Selecione um template antes de ativar'
                             : undefined
                     }
@@ -71,7 +71,7 @@ function AutomationRow({
                 >
                     {noTemplatesAvailable ? (
                         <option value="" disabled>
-                            Nenhum template disponível — crie em Templates
+                            Nenhum modelo disponível — crie em Automações
                         </option>
                     ) : (
                         templateOptions.map((opt) => (
@@ -193,8 +193,8 @@ const AutomacoesSection = ({
             </div>
             <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 4px', lineHeight: 1.5 }}>
                 Enviadas automaticamente quando um evento ocorre no funil. Os textos são configurados em{' '}
-                <Link to="/templates" className="edit-link" style={{ fontWeight: 600 }}>
-                    Templates
+                <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
+                    Modelos
                 </Link>
                 .
             </p>
