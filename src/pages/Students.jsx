@@ -53,6 +53,8 @@ const Students = () => {
     const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
     const terms = useTerms();
+    const studentPlural = terms.students;
+    const studentSingular = terms.student;
     const addToast = useUiStore((s) => s.addToast);
     const { students, importStudents, fetchStudents, fetchMoreStudents, addStudent } = useStudentStore();
     const academyId = useLeadStore((s) => s.academyId);
@@ -225,9 +227,6 @@ const Students = () => {
             /* ignore */
         }
     }, [filtersExpanded]);
-
-    const studentPlural = terms.students;
-    const studentSingular = terms.student;
 
     const handleImport = async (rows, skippedCount = 0) => {
         setImporting(true);

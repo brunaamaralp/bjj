@@ -13,12 +13,15 @@ export function initStores() {
   if (initialized) return;
   initialized = true;
 
-  syncAcademyContext(useLeadStore.getState());
+  const syncFromLead = () => syncAcademyContext(useLeadStore.getState());
+
+  syncFromLead();
+  useLeadStore.persist?.onFinishHydration?.(syncFromLead);
 
   let prevAcademyId = useLeadStore.getState().academyId;
 
   useLeadStore.subscribe((state) => {
-    syncAcademyContext(state);
+    syncFromLead();
 
     const id = state.academyId;
     if (id === prevAcademyId) return;
