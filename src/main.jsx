@@ -9,17 +9,22 @@ import App from './App.jsx'
 import { queryClient } from './lib/queryClient'
 import { registerSW } from 'virtual:pwa-register';
 import { initStores } from './lib/initStores.js';
+import { clearChunkReloadFlag, installChunkLoadRecovery } from './lib/lazyWithRetry.js';
 
 import client from './lib/appwrite'
 
 client.ping();
 
 initStores();
+clearChunkReloadFlag();
+installChunkLoadRecovery();
 
 const updateSW = registerSW({
   onNeedRefresh() {
-    // Garante troca imediata do SW para evitar ficar preso em bundle antigo.
-    void updateSW(true);
+    // Nova versão: ativa SW e recarrega para pegar index + chunks atuais.
+    void updateSW(true).then(() => {
+      window.location.reload();
+    });
   },
   onOfflineReady() {
     console.log('Nave pronto para uso.');

@@ -32,6 +32,8 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,

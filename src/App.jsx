@@ -52,19 +52,21 @@ import {
   TemplatesRedirect,
 } from './components/routing/LegacyRedirects.jsx';
 
-const Inbox = React.lazy(() => import('./pages/Inbox'));
-const Reports = React.lazy(() => import('./pages/Reports'));
-const AIAgentSettings = React.lazy(() => import('./pages/AIAgentSettings'));
-const UserAccount = React.lazy(() => import('./pages/UserAccount'));
-const AcademySettings = React.lazy(() => import('./pages/AcademySettings'));
-const Automacoes = React.lazy(() => import('./pages/Automacoes'));
-const Mensalidades = React.lazy(() => import('./pages/Mensalidades'));
-const Caixa = React.lazy(() => import('./pages/Caixa'));
-const Inventory = React.lazy(() => import('./pages/Inventory'));
-const Products = React.lazy(() => import('./pages/Products'));
-const Sales = React.lazy(() => import('./pages/Sales'));
-const Loja = React.lazy(() => import('./pages/Loja'));
-const Contratos = React.lazy(() => import('./pages/Contratos'));
+import { lazyWithRetry } from './lib/lazyWithRetry.js';
+
+const Inbox = lazyWithRetry(() => import('./pages/Inbox'));
+const Reports = lazyWithRetry(() => import('./pages/Reports'));
+const AIAgentSettings = lazyWithRetry(() => import('./pages/AIAgentSettings'));
+const UserAccount = lazyWithRetry(() => import('./pages/UserAccount'));
+const AcademySettings = lazyWithRetry(() => import('./pages/AcademySettings'));
+const Automacoes = lazyWithRetry(() => import('./pages/Automacoes'));
+const Mensalidades = lazyWithRetry(() => import('./pages/Mensalidades'));
+const Caixa = lazyWithRetry(() => import('./pages/Caixa'));
+const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
+const Products = lazyWithRetry(() => import('./pages/Products'));
+const Sales = lazyWithRetry(() => import('./pages/Sales'));
+const Loja = lazyWithRetry(() => import('./pages/Loja'));
+const Contratos = lazyWithRetry(() => import('./pages/Contratos'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
