@@ -267,6 +267,11 @@ const App = () => {
           });
         }
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
+        try {
+          useLeadStore.getState().setTeamId(String(doc.teamId || '').trim() || null);
+        } catch (e2) {
+          void e2;
+        }
       } catch (e) {
         void e;
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));

@@ -101,6 +101,27 @@ export function getPaymentRowStatus(student, payment, currentMonth, today = new 
   return { status: 'none', dueDate: defaultDue || null, paidAt: null, daysOverdue: 0 };
 }
 
+/**
+ * Bucket operacional para cards da recepção (mensalidades).
+ * @returns {'due_today'|'due_week'|'overdue'|null}
+ */
+export function getReceptionDueBucket(student, payment, currentMonth, today = new Date()) {
+  const row = getPaymentRowStatus(student, payment, currentMonth, today);
+  if (row.status === 'paid' || row.status === 'frozen' || row.status === 'covered') return null;
+
+  const today0 = startOfLocalDay(today);
+  if (!row.dueDate) {
+    return row.status === 'pending' && row.daysOverdue > 0 ? 'overdue' : null;
+  }
+
+  const due0 = startOfLocalDay(row.dueDate);
+  const diff = Math.round((due0 - today0) / 86400000);
+  if (diff < 0 || row.status === 'pending') return 'overdue';
+  if (diff === 0) return 'due_today';
+  if (diff >= 1 && diff <= 7) return 'due_week';
+  return null;
+}
+
 export function isOverdueForCollection(student, payment, currentMonth, minDays = 1, today = new Date()) {
   if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') return false;
   const row = getPaymentRowStatus(student, payment, currentMonth, today);

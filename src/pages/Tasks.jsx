@@ -33,6 +33,7 @@ import {
   formatCollectionAttemptText,
 } from '../lib/collectionRules.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
+import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 
 const VIEW_STORAGE_KEY = 'nave_tasks_view';
 
@@ -76,6 +77,13 @@ export default function Tasks() {
   const initNew = searchParams.get('new') === '1';
 
   const [members, setMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState(false);
+
+  const effectiveTeamId = useMemo(() => {
+    const acad = (academyList || []).find((a) => a.id === academyId);
+    return String(acad?.teamId || teamId || '').trim();
+  }, [academyList, academyId, teamId]);
   const [collectionModalTask, setCollectionModalTask] = useState(null);
   const [collectionSaving, setCollectionSaving] = useState(false);
   const [showModal, setShowModal] = useState(initNew);
@@ -126,15 +134,36 @@ export default function Tasks() {
     }
   }, [initLeadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch team members for the dropdown
+  // Membros da equipe (responsável) — teamId da academia ativa, não só o do store global
   useEffect(() => {
-    if (!teamId) return;
-    teams.listMemberships(teamId)
-      .then(res => {
-        setMembers(res.memberships || []);
+    if (!effectiveTeamId) {
+      setMembers([]);
+      setMembersError(false);
+      setMembersLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    setMembersError(false);
+    teams
+      .listMemberships(effectiveTeamId)
+      .then((res) => {
+        if (!cancelled) setMembers(res.memberships || []);
       })
-      .catch(e => console.error('Erro ao buscar membros', e));
-  }, [teamId]);
+      .catch((e) => {
+        console.error('Erro ao buscar membros', e);
+        if (!cancelled) {
+          setMembers([]);
+          setMembersError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveTeamId]);
 
   // Fetch tasks
   useEffect(() => {
@@ -537,9 +566,14 @@ export default function Tasks() {
               {t.assigned_to ? (
                 <span
                   className="task-badge assign-badge"
-                  title={members.find((m) => m.userId === t.assigned_to)?.userName || t.assigned_to}
+                  title={
+                    membershipPrimaryLabel(members.find((m) => m.userId === t.assigned_to) || {}) ||
+                    t.assigned_to
+                  }
                 >
-                  {(members.find((m) => m.userId === t.assigned_to)?.userName || t.assigned_to)
+                  {(members.find((m) => m.userId === t.assigned_to)
+                    ? membershipPrimaryLabel(members.find((m) => m.userId === t.assigned_to))
+                    : t.assigned_to)
                     .slice(0, 2)
                     .toUpperCase()}
                 </span>
@@ -613,7 +647,7 @@ export default function Tasks() {
     const creator = members.find(
       (m) => String(m.userId) === raw || String(m.id) === raw
     );
-    return creator?.userName ?? creator?.name ?? creator?.userEmail ?? creator?.email ?? raw;
+    return creator ? membershipPrimaryLabel(creator) : raw;
   }
 
   return (
@@ -1002,13 +1036,27 @@ export default function Tasks() {
                   <select
                     className="form-input task-select"
                     value={form.assigned_to}
+                    disabled={membersLoading}
                     onChange={e => setForm({...form, assigned_to: e.target.value})}
                   >
-                    <option value="">Sem responsável</option>
-                    {members.map(m => (
-                      <option key={m.userId} value={m.userId}>{m.userName}</option>
+                    <option value="">
+                      {membersLoading ? 'Carregando equipe…' : 'Sem responsável'}
+                    </option>
+                    {members.map((m) => (
+                      <option key={m.userId || m.$id} value={m.userId}>
+                        {membershipPrimaryLabel(m)}
+                      </option>
                     ))}
                   </select>
+                  {!effectiveTeamId && !membersLoading ? (
+                    <p className="task-field-hint">Equipe não vinculada a esta academia.</p>
+                  ) : null}
+                  {membersError ? (
+                    <p className="task-field-hint task-field-hint--error">Não foi possível carregar a equipe.</p>
+                  ) : null}
+                  {!membersError && effectiveTeamId && !membersLoading && members.length === 0 ? (
+                    <p className="task-field-hint">Nenhum membro. Cadastre em Configurações → Equipe.</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -1136,8 +1184,9 @@ export default function Tasks() {
                 <span className="task-drawer-label">Responsável</span>
                 <p className="task-drawer-value">
                   {detailTask.assigned_to
-                    ? members.find((m) => m.userId === detailTask.assigned_to)?.userName ||
-                      detailTask.assigned_to
+                    ? membershipPrimaryLabel(
+                        members.find((m) => m.userId === detailTask.assigned_to) || {}
+                      ) || detailTask.assigned_to
                     : '—'}
                 </p>
               </div>
@@ -1396,6 +1445,13 @@ export default function Tasks() {
           color: #0e0d1a;
         }
         .task-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .task-field-hint {
+          margin: 0;
+          font-size: 11px;
+          line-height: 1.35;
+          color: var(--mid);
+        }
+        .task-field-hint--error { color: var(--danger, #dc2626); }
 
         /* ── Busca de lead ── */
         .task-lead-clear {

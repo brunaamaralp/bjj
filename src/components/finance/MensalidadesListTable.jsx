@@ -348,6 +348,14 @@ export default function MensalidadesListTable({
     const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
     const displayName = String(student.name || '').trim() || '—';
     const canRegister = !studentFrozen && !isPaid;
+    const paidTooltip =
+      isPaid && payment
+        ? `Pago · ${METHOD_LABELS[payment.method] || payment.method} · ${fmtMoney(payment.amount)}${
+            payment.paid_at
+              ? ` · ${formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10)))}`
+              : ''
+          }`
+        : undefined;
     let vencLabel = '—';
     if (statusKey === 'paid' && payment?.paid_at) {
       const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
@@ -384,11 +392,26 @@ export default function MensalidadesListTable({
           </div>
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </div>
-        {!isPaid && !studentFrozen ? (
+        {!studentFrozen ? (
           <div className="mensal-mobile-card__actions">
-            <button type="button" className="btn-primary mensal-mobile-pay" onClick={() => openPaymentModal(student)}>
-              <Banknote size={16} /> Registrar
-            </button>
+            {isPaid && payment ? (
+              <button
+                type="button"
+                className="mensal-btn-estornar mensal-mobile-estornar"
+                title={paidTooltip}
+                onClick={() => requestEstornar(payment)}
+                disabled={reversingPaymentId === payment.$id}
+              >
+                {reversingPaymentId === payment.$id ? (
+                  <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
+                ) : null}
+                Estornar
+              </button>
+            ) : !isPaid ? (
+              <button type="button" className="btn-primary mensal-mobile-pay" onClick={() => openPaymentModal(student)}>
+                <Banknote size={16} /> Registrar
+              </button>
+            ) : null}
           </div>
         ) : null}
       </article>

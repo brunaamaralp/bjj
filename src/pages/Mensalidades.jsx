@@ -28,7 +28,7 @@ import {
   readCollectionSettingsFromAcademy,
   mergeCollectionIntoFinanceConfig,
 } from '../lib/collectionRules.js';
-import { getPaymentRowStatus, openAmountForStudent } from '../lib/collectionOverdue.js';
+import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../lib/collectionOverdue.js';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
@@ -438,6 +438,11 @@ export default function Mensalidades() {
           if (!meta || !Number.isFinite(day)) return false;
           return Number(meta.stage?.day) === day;
         }
+        if (filter === 'due_today' || filter === 'due_week' || filter === 'overdue') {
+          const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth);
+          if (filter === 'overdue') return bucket === 'overdue';
+          return bucket === filter;
+        }
         return filter === 'all' || getStatus(s) === filter;
       })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
@@ -459,32 +464,28 @@ export default function Mensalidades() {
     return copy;
   }, [filteredStudents, dueSortOrder]);
 
-  const summary = useMemo(() => {
+  const receptionSummary = useMemo(() => {
+    let dueToday = 0;
+    let dueWeek = 0;
+    let overdue = 0;
     let paid = 0;
-    let pending = 0;
-    let soon = 0;
-    let totalReceived = 0;
     for (const s of students) {
       const st = getStatus(s);
-      if (st === 'paid' || st === 'covered') paid += 1;
-      if (st === 'pending') pending += 1;
-      if (st === 'soon') soon += 1;
-    }
-    for (const p of payments || []) {
-      const st = String(p.status || '').toLowerCase();
-      if (st === 'covered') continue;
-      if (st === 'paid' || st === 'partial') {
-        const amt = Number(p.paid_amount ?? p.amount);
-        if (Number.isFinite(amt) && amt > 0) totalReceived += amt;
+      if (st === 'paid' || st === 'covered') {
+        paid += 1;
+        continue;
       }
+      const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth);
+      if (bucket === 'due_today') dueToday += 1;
+      else if (bucket === 'due_week') dueWeek += 1;
+      else if (bucket === 'overdue') overdue += 1;
     }
-    return { paid, pending, soon, totalReceived };
-  }, [students, payments, getStatus]);
+    return { dueToday, dueWeek, overdue, paid };
+  }, [students, paymentMap, currentMonth, getStatus]);
 
-  const progressPct = useMemo(() => {
-    if (!students.length) return 0;
-    return Math.min(100, Math.round((summary.paid / students.length) * 100));
-  }, [summary.paid, students.length]);
+  const toggleReceptionFilter = useCallback((next) => {
+    setFilter((cur) => (cur === next ? 'all' : next));
+  }, []);
 
   const filterCounts = useMemo(() => {
     const c = {
@@ -1098,47 +1099,47 @@ export default function Mensalidades() {
 
       {viewMode === 'list' ? (
       <>
-      <p className="mensal-tab-subtitle">Visão geral de todos os alunos do mês</p>
+      <p className="mensal-tab-subtitle">Prioridades do dia — clique no card para ver na lista</p>
       {!loading ? (
       <section className="mensal-summary-block">
-        <div className="mensal-summary-grid">
-          <div className="mensal-summary-card mensal-summary-card--paid">
-            <div className="mensal-summary-card__value">{summary.paid}</div>
-            <div className="mensal-summary-card__label">Pagos</div>
-          </div>
-          <div className={`mensal-summary-card mensal-summary-card--pending${summary.pending === 0 ? ' mensal-summary-card--ok-zero' : ''}`}>
-            {summary.pending === 0 ? (
-              <span className="mensal-summary-card__zero-icon" aria-hidden>
-                <Check size={22} strokeWidth={2.5} />
-              </span>
-            ) : (
-              <div className="mensal-summary-card__value">{summary.pending}</div>
-            )}
+﻿        <div className="mensal-summary-grid mensal-summary-grid--reception">
+          <button
+            type="button"
+            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--today${filter === 'due_today' ? ' mensal-summary-card--active' : ''}`}
+            onClick={() => toggleReceptionFilter('due_today')}
+          >
+            <div className="mensal-summary-card__value">{receptionSummary.dueToday}</div>
+            <div className="mensal-summary-card__label">Vencendo hoje</div>
+          </button>
+          <button
+            type="button"
+            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--soon${filter === 'due_week' ? ' mensal-summary-card--active' : ''}`}
+            onClick={() => toggleReceptionFilter('due_week')}
+          >
+            <div className="mensal-summary-card__value">{receptionSummary.dueWeek}</div>
+            <div className="mensal-summary-card__label">Vence em até 7 dias</div>
+          </button>
+          <button
+            type="button"
+            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--pending${filter === 'overdue' ? ' mensal-summary-card--active' : ''}`}
+            onClick={() => toggleReceptionFilter('overdue')}
+          >
+            <div className="mensal-summary-card__value">{receptionSummary.overdue}</div>
             <div className="mensal-summary-card__label">Inadimplentes</div>
-          </div>
-          <div className="mensal-summary-card mensal-summary-card--soon">
-            <div className="mensal-summary-card__value">{summary.soon}</div>
-            <div className="mensal-summary-card__label">A vencer</div>
-          </div>
-          <div className="mensal-summary-card mensal-summary-card--total">
-            <div className="mensal-summary-card__value mensal-summary-card__value--money">
-              {fmtMoney(summary.totalReceived)}
-            </div>
-            <div className="mensal-summary-card__label">Recebido</div>
-            {expectedTotal > 0 ? (
-              <div className="mensal-summary-card__sub">de {fmtMoney(expectedTotal)} esperados</div>
-            ) : null}
-          </div>
+          </button>
+          <button
+            type="button"
+            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--paid${filter === 'paid' ? ' mensal-summary-card--active' : ''}`}
+            onClick={() => toggleReceptionFilter('paid')}
+          >
+            <div className="mensal-summary-card__value">{receptionSummary.paid}</div>
+            <div className="mensal-summary-card__label">Pagos no mês</div>
+          </button>
         </div>
-        <div className="mensal-progress" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}>
-          <div className="mensal-progress__bar" style={{ width: `${progressPct}%` }} />
-        </div>
-        <p className="mensal-progress__label">
-          <strong>{progressPct}% pagos</strong>
-          <span className="mensal-progress__label-sub">
-            {' '}
-            · {summary.paid}/{students.length} {terms.student.toLowerCase()}s
-          </span>
+        <p className="mensal-reception-hint">
+          Para alterar um pagamento já registrado: use <strong>Estornar</strong> na linha paga e registre de novo.
+          Na aba <strong>Grade</strong>, clique no status para ajustar valor e data.
+          Totais recebidos: <strong>Relatórios</strong> ou <strong>Caixa</strong>.
         </p>
       </section>
       ) : null}

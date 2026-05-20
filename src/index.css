@@ -4230,6 +4230,47 @@ input[type='datetime-local'].form-input:focus {
   margin-top: 6px;
 }
 
+.mensal-summary-card--clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mensal-summary-card--clickable:hover {
+  border-color: var(--v300, #9b8ee8);
+  box-shadow: 0 2px 8px rgba(91, 63, 191, 0.08);
+}
+
+.mensal-summary-card--clickable.mensal-summary-card--active {
+  border-color: var(--v500, #5b3fbf);
+  box-shadow: 0 0 0 2px rgba(91, 63, 191, 0.15);
+}
+
+.mensal-summary-card--today .mensal-summary-card__value {
+  color: #b45309;
+}
+
+.mensal-reception-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.mensal-reception-hint strong {
+  color: var(--text-primary, var(--text));
+  font-weight: 600;
+}
+
+.mensal-tab-subtitle {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .mensal-progress {
   margin-top: 12px;
   height: 6px;
@@ -4882,6 +4923,11 @@ input[type='datetime-local'].form-input:focus {
   margin-top: 10px;
   display: flex;
   justify-content: flex-end;
+}
+
+.mensal-mobile-estornar {
+  min-height: 40px;
+  padding: 8px 14px;
 }
 
 .mensal-mobile-group-label {

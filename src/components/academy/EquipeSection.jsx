@@ -5,22 +5,7 @@ import { teams, createSessionJwt } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import EmptyState from '../shared/EmptyState.jsx';
-
-/** Appwrite pode ocultar userName/userEmail (privacidade do time); usar fallbacks. */
-function membershipPrimaryLabel(m) {
-    const name = String(m.userName || m.name || '').trim();
-    if (name) return name;
-    const email = String(m.userEmail || m.email || '').trim();
-    if (email) return email;
-    return 'Usuário';
-}
-
-function membershipSecondaryEmail(m) {
-    const name = String(m.userName || m.name || '').trim();
-    const email = String(m.userEmail || m.email || '').trim();
-    if (name && email) return email;
-    return '';
-}
+import { membershipPrimaryLabel, membershipSecondaryEmail } from '../../lib/teamMembershipLabel.js';
 
 const EquipeSection = ({ academy, academyId }) => {
     const addToast = useUiStore((s) => s.addToast);
