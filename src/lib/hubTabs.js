@@ -19,5 +19,6 @@ export function caixaLegacyTabToSlug(raw) {
   const t = String(raw || '').trim().toLowerCase();
   if (t === 'transactions') return 'movimentacoes';
   if (t === 'closing') return 'fechamento';
+  if (t === 'contabilidade') return 'plano';
   return t;
 }

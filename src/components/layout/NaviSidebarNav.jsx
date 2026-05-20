@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   Kanban,
@@ -8,7 +8,6 @@ import {
   Plus,
   PlusCircle,
   MessageCircle,
-  FileText,
   Zap,
   FileSignature,
   Bot,
@@ -16,7 +15,33 @@ import {
   Wallet,
   BarChart3,
   Store,
+  ChevronRight,
 } from 'lucide-react';
+import {
+  buildSidebarNavModel,
+  getAccordionIdForLocation,
+  isAccordionChildActive,
+  isAccordionParentPartial,
+  isDirectNavPath,
+  matchNavTarget,
+  NAV_ACCORDION_IDS,
+} from '../../lib/naviMenu.js';
+
+const ICONS = {
+  inicio: LayoutGrid,
+  pipeline: Kanban,
+  students: GraduationCap,
+  tarefas: CheckSquare,
+  conversas: MessageCircle,
+  automacoes: Zap,
+  agente: Bot,
+  mensalidades: Users,
+  contratos: FileSignature,
+  caixa: Wallet,
+  loja: Store,
+  relatorios: BarChart3,
+  reports: BarChart3,
+};
 
 function SidebarSection({ title, children, collapsed, footer = false, showDivider = false }) {
   const items = React.Children.toArray(children).filter(Boolean);
@@ -90,6 +115,114 @@ function SideNavLink({
   );
 }
 
+function SideNavAccordion({
+  accordion,
+  Icon,
+  collapsed,
+  expanded,
+  onExpandExclusive,
+  onToggle,
+  sideLinkClass,
+  location,
+  footer = false,
+}) {
+  const navigate = useNavigate();
+  const panelId = `navi-accordion-panel-${accordion.id}`;
+  const partial = isAccordionParentPartial(accordion, location);
+  const anyChildActive = accordion.children.some((c) => isAccordionChildActive(c, location));
+
+  if (collapsed) {
+    return (
+      <NavLink
+        to={accordion.defaultTo}
+        className={(state) => {
+          const base =
+            typeof sideLinkClass === 'function' ? sideLinkClass(state) : sideLinkClass || 'navi-side-link';
+          return partial || anyChildActive || state.isActive
+            ? `${base} navi-side-link--partial`
+            : base;
+        }}
+        title={accordion.label}
+      >
+        <span className="navi-side-link-icon">
+          <Icon size={18} strokeWidth={1.75} />
+        </span>
+        <span className="navi-side-link-label">{accordion.label}</span>
+      </NavLink>
+    );
+  }
+
+  const onLabelNavigate = () => {
+    navigate(accordion.defaultTo);
+    onExpandExclusive(accordion.id);
+  };
+
+  return (
+    <div className={`navi-side-accordion${expanded ? ' navi-side-accordion--open' : ''}`}>
+      <div className="navi-side-accordion-head">
+        <button
+          type="button"
+          className={[
+            'navi-side-accordion-trigger',
+            footer ? 'navi-side-accordion-trigger--footer' : '',
+            partial ? 'navi-side-link--partial' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={onLabelNavigate}
+          title={accordion.label}
+        >
+          <span className="navi-side-link-icon">
+            <Icon size={18} strokeWidth={1.75} />
+          </span>
+          <span className="navi-side-link-label">{accordion.label}</span>
+        </button>
+        <button
+          type="button"
+          className="navi-side-accordion-chevron"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          aria-label={expanded ? `Recolher ${accordion.label}` : `Expandir ${accordion.label}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(accordion.id);
+          }}
+        >
+          <ChevronRight size={16} strokeWidth={2} aria-hidden />
+        </button>
+      </div>
+      <div
+        id={panelId}
+        className="navi-side-accordion-panel"
+        data-open={expanded ? 'true' : 'false'}
+      >
+        <ul className="navi-side-accordion-panel-inner" role="list">
+          {accordion.children.map((child) => {
+            const childActive = isAccordionChildActive(child, location);
+            return (
+              <li key={child.id} role="listitem">
+                <NavLink
+                  to={child.to}
+                  className={({ isActive }) =>
+                    [
+                      'navi-side-link navi-side-link--child',
+                      (isActive || childActive) ? 'active navi-side-link--active' : '',
+                      footer ? 'navi-side-link--footer' : '',
+                    ].join(' ')
+                  }
+                >
+                  <span className="navi-side-link-icon navi-side-link-icon--child-spacer" aria-hidden />
+                  <span className="navi-side-link-label">{child.label}</span>
+                </NavLink>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export default function NaviSidebarNav({
   collapsed,
   sideLinkClass,
@@ -97,48 +230,78 @@ export default function NaviSidebarNav({
   navStudentsLabel,
   newLeadLabel,
   modules,
-  navRole,
   canConfigureAgenteIa,
-  isInboxConversasNavActive,
-  isAgenteIaPage,
   inboxUnread,
 }) {
-  const showFinance = modules.finance === true;
-  const showLoja = modules.inventory === true || modules.sales === true;
+  const location = useLocation();
+  const [expandedAccordionId, setExpandedAccordionId] = useState(null);
+
+  const navModel = useMemo(
+    () =>
+      buildSidebarNavModel({
+        modules,
+        canConfigureAgenteIa,
+        pipelineLabel: labels.pipeline || 'Funil',
+        navStudentsLabel,
+        newLeadLabel,
+      }),
+    [modules, canConfigureAgenteIa, labels.pipeline, navStudentsLabel, newLeadLabel]
+  );
+
+  useEffect(() => {
+    const routeAccordion = getAccordionIdForLocation(location);
+    if (routeAccordion) {
+      setExpandedAccordionId(routeAccordion);
+      return;
+    }
+    if (isDirectNavPath(location.pathname)) {
+      setExpandedAccordionId(null);
+    }
+  }, [location.pathname, location.search]);
+
+  const expandExclusive = (id) => setExpandedAccordionId(id);
+
+  const toggleAccordion = (id) => {
+    setExpandedAccordionId((prev) => (prev === id ? null : id));
+  };
+
+  const automacoesAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
+  const caixaAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.CAIXA);
+  const lojaAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
+  const relatoriosAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
+
+  const conversasActive = matchNavTarget('/inbox', location);
 
   return (
     <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
       <SidebarSection collapsed={collapsed}>
-        <SideNavLink
-          to="/new-lead"
-          label={newLeadLabel}
-          Icon={PlusCircle}
-          collapsed={collapsed}
-          className={sideLinkClass}
-          action
-        />
-        <SideNavLink to="/" end label="Início" Icon={LayoutGrid} collapsed={collapsed} className={sideLinkClass} />
-        <SideNavLink
-          to="/pipeline"
-          label={labels.pipeline || 'Funil'}
-          Icon={Kanban}
-          collapsed={collapsed}
-          className={sideLinkClass}
-        />
-        <SideNavLink
-          to="/students"
-          label={navStudentsLabel}
-          Icon={GraduationCap}
-          collapsed={collapsed}
-          className={sideLinkClass}
-        />
-        <SideNavLink to="/tarefas" label="Tarefas" Icon={CheckSquare} collapsed={collapsed} className={sideLinkClass} />
+        {navModel.newLead ? (
+          <SideNavLink
+            to={navModel.newLead.to}
+            label={navModel.newLead.label}
+            Icon={PlusCircle}
+            collapsed={collapsed}
+            className={sideLinkClass}
+            action
+          />
+        ) : null}
+        {navModel.primary.map((item) => (
+          <SideNavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            label={item.label}
+            Icon={ICONS[item.iconKey] || LayoutGrid}
+            collapsed={collapsed}
+            className={sideLinkClass}
+          />
+        ))}
       </SidebarSection>
 
       <SidebarSection title="Atendimento" collapsed={collapsed} showDivider>
         <Link
           to="/inbox"
-          className={`navi-side-link${isInboxConversasNavActive ? ' active' : ''}`}
+          className={`navi-side-link${conversasActive ? ' active navi-side-link--active' : ''}`}
           title={collapsed ? 'Conversas' : undefined}
         >
           <span className="navi-side-link-icon">
@@ -153,66 +316,79 @@ export default function NaviSidebarNav({
             />
           )}
         </Link>
-        <SideNavLink to="/automacoes" label="Automações" Icon={Zap} collapsed={collapsed} className={sideLinkClass} />
-        {canConfigureAgenteIa ? (
-          <Link
-            to="/agente-ia"
-            className={`navi-side-link${isAgenteIaPage ? ' active navi-side-link--active' : ''}`}
-            title={collapsed ? 'Agente IA' : undefined}
-          >
-            <span className="navi-side-link-icon">
-              <Bot size={18} strokeWidth={1.75} />
-            </span>
-            <span className="navi-side-link-label">Agente IA</span>
-          </Link>
+        {automacoesAccordion ? (
+          <SideNavAccordion
+            accordion={automacoesAccordion}
+            Icon={ICONS.automacoes}
+            collapsed={collapsed}
+            expanded={expandedAccordionId === automacoesAccordion.id}
+            onExpandExclusive={expandExclusive}
+            onToggle={toggleAccordion}
+            sideLinkClass={sideLinkClass}
+            location={location}
+          />
         ) : null}
       </SidebarSection>
 
-      {showFinance ? (
+      {navModel.financeDirect.length > 0 ? (
         <SidebarSection title="Financeiro" collapsed={collapsed} showDivider>
-          <SideNavLink
-            to="/mensalidades"
-            label="Mensalidades"
-            Icon={Users}
-            collapsed={collapsed}
-            className={sideLinkClass}
-          />
-          <SideNavLink
-            to="/contratos"
-            label="Contratos"
-            Icon={FileSignature}
-            collapsed={collapsed}
-            className={sideLinkClass}
-          />
-          <SideNavLink to="/caixa" label="Caixa" Icon={Wallet} collapsed={collapsed} className={sideLinkClass} />
+          {navModel.financeDirect.map((item) => (
+            <SideNavLink
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              Icon={ICONS[item.iconKey] || Users}
+              collapsed={collapsed}
+              className={sideLinkClass}
+            />
+          ))}
+          {caixaAccordion ? (
+            <SideNavAccordion
+              accordion={caixaAccordion}
+              Icon={ICONS.caixa}
+              collapsed={collapsed}
+              expanded={expandedAccordionId === caixaAccordion.id}
+              onExpandExclusive={expandExclusive}
+              onToggle={toggleAccordion}
+              sideLinkClass={sideLinkClass}
+              location={location}
+            />
+          ) : null}
         </SidebarSection>
       ) : null}
 
-      {showLoja ? (
+      {lojaAccordion ? (
         <SidebarSection title="Loja" collapsed={collapsed} showDivider>
-          <SideNavLink
-            to="/loja"
-            label="Loja"
-            Icon={Store}
+          <SideNavAccordion
+            accordion={lojaAccordion}
+            Icon={ICONS.loja}
             collapsed={collapsed}
-            className={sideLinkClass}
+            expanded={expandedAccordionId === lojaAccordion.id}
+            onExpandExclusive={expandExclusive}
+            onToggle={toggleAccordion}
+            sideLinkClass={sideLinkClass}
+            location={location}
           />
         </SidebarSection>
       ) : null}
 
       <div className="navi-sidebar-footer">
-      <SidebarSection collapsed={collapsed} footer showDivider>
-        <SideNavLink
-          to="/reports"
-          label="Relatórios"
-          Icon={BarChart3}
-          collapsed={collapsed}
-          className={sideLinkClass}
-          footer
-        />
-      </SidebarSection>
+        <SidebarSection collapsed={collapsed} footer showDivider>
+          {relatoriosAccordion ? (
+            <SideNavAccordion
+              accordion={relatoriosAccordion}
+              Icon={ICONS.relatorios}
+              collapsed={collapsed}
+              expanded={expandedAccordionId === relatoriosAccordion.id}
+              onExpandExclusive={expandExclusive}
+              onToggle={toggleAccordion}
+              sideLinkClass={sideLinkClass}
+              location={location}
+              footer
+            />
+          ) : null}
+        </SidebarSection>
       </div>
     </nav>
   );
 }
-

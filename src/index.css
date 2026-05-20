@@ -1740,6 +1740,122 @@ select.task-select option {
   color: var(--v500);
 }
 
+.navi-side-link--partial {
+  color: var(--v500);
+  font-weight: 600;
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.navi-side-link--partial .navi-side-link-icon {
+  color: var(--v500);
+}
+
+.navi-side-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navi-side-accordion-head {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+}
+
+.navi-side-accordion-trigger {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px 9px 12px;
+  border: 0.5px solid transparent;
+  border-radius: 10px 0 0 10px;
+  background: transparent;
+  color: var(--mid);
+  font-weight: 500;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.navi-side-accordion-trigger:hover {
+  background: rgba(91, 63, 191, 0.06);
+  color: var(--v700);
+}
+
+.navi-side-accordion-trigger:hover .navi-side-link-icon {
+  color: var(--v500);
+}
+
+.navi-side-accordion-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 40px;
+  padding: 0;
+  border: 0.5px solid transparent;
+  border-radius: 0 10px 10px 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.2s ease;
+}
+
+.navi-side-accordion-chevron:hover {
+  background: rgba(91, 63, 191, 0.06);
+  color: var(--v500);
+}
+
+.navi-side-accordion-chevron[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.navi-side-accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+}
+
+.navi-side-accordion-panel[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+
+.navi-side-accordion-panel-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 2px 0 4px;
+  list-style: none;
+}
+
+.navi-side-link--child {
+  padding-left: 28px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.navi-side-link-icon--child-spacer {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.navi-side-accordion-trigger--footer,
+.navi-side-link--child.navi-side-link--footer {
+  font-size: 13px;
+}
+
 .navi-side-link--action {
   margin-top: 10px;
   border: 1px solid var(--v500) !important;

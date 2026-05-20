@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { getNewLeadLabel, buildMobileDrawerSections } from '../lib/naviMenu.js';
+import {
+  getNewLeadLabel,
+  buildMobileDrawerSections,
+  buildSidebarNavModel,
+  matchNavTarget,
+  getAccordionIdForLocation,
+  isDirectNavPath,
+  isAccordionChildActive,
+} from '../lib/naviMenu.js';
 
 describe('naviMenu', () => {
   it('getNewLeadLabel singularizes', () => {
@@ -7,23 +15,72 @@ describe('naviMenu', () => {
     expect(getNewLeadLabel('Leads')).toBe('Novo Lead');
   });
 
+  it('matchNavTarget respects query string', () => {
+    expect(
+      matchNavTarget('/automacoes?tab=modelos', { pathname: '/automacoes', search: '?tab=modelos' })
+    ).toBe(true);
+    expect(
+      matchNavTarget('/automacoes?tab=modelos', { pathname: '/automacoes', search: '?tab=configuracoes' })
+    ).toBe(false);
+  });
+
+  it('getAccordionIdForLocation maps hub routes', () => {
+    expect(getAccordionIdForLocation({ pathname: '/automacoes', search: '' })).toBe('automacoes');
+    expect(getAccordionIdForLocation({ pathname: '/agente-ia', search: '' })).toBe('automacoes');
+    expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=movimentacoes' })).toBe('caixa');
+    expect(getAccordionIdForLocation({ pathname: '/students', search: '' })).toBe(null);
+  });
+
+  it('isDirectNavPath for flat routes', () => {
+    expect(isDirectNavPath('/students')).toBe(true);
+    expect(isDirectNavPath('/automacoes')).toBe(false);
+  });
+
+  it('isAccordionChildActive for agente and contabilidade', () => {
+    expect(
+      isAccordionChildActive(
+        { id: 'agente', to: '/automacoes?tab=agente' },
+        { pathname: '/agente-ia', search: '' }
+      )
+    ).toBe(true);
+    expect(
+      isAccordionChildActive(
+        { id: 'contabilidade', to: '/caixa?tab=contabilidade' },
+        { pathname: '/caixa', search: '?tab=plano' }
+      )
+    ).toBe(true);
+  });
+
+  it('buildSidebarNavModel respects modules', () => {
+    const model = buildSidebarNavModel({
+      modules: { finance: true, inventory: true, sales: true },
+      canConfigureAgenteIa: true,
+      pipelineLabel: 'Funil',
+      navStudentsLabel: 'Alunos',
+      newLeadLabel: 'Novo Lead',
+    });
+    expect(model.accordions.map((a) => a.id)).toContain('caixa');
+    expect(model.accordions.map((a) => a.id)).toContain('loja');
+    const auto = model.accordions.find((a) => a.id === 'automacoes');
+    expect(auto.children.map((c) => c.id)).toEqual(['modelos', 'configuracoes', 'agente']);
+  });
+
   it('buildMobileDrawerSections respects modules', () => {
     const all = buildMobileDrawerSections({
       modules: { finance: true, inventory: true, sales: true },
       navRole: 'owner',
       canConfigureAgenteIa: true,
-      myWorkspaceLabel: 'Empresa',
+      pipelineLabel: 'Funil',
     });
     const titles = all.map((s) => s.title);
     expect(titles).toContain('Financeiro');
     expect(titles).toContain('Loja');
-    expect(titles).toContain('Conta & Plataforma');
 
     const none = buildMobileDrawerSections({
       modules: { finance: false, inventory: false, sales: false },
       navRole: 'member',
       canConfigureAgenteIa: false,
-      myWorkspaceLabel: 'Empresa',
+      pipelineLabel: 'Funil',
     });
     expect(none.map((s) => s.title)).not.toContain('Financeiro');
     expect(none.map((s) => s.title)).not.toContain('Loja');

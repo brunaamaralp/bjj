@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import { resolveHubTab } from '../lib/hubTabs.js';
 import AutomacoesModelosTab from './AutomacoesModelosTab.jsx';
@@ -13,15 +13,20 @@ const TABS = [
 const ALLOWED = new Set(TABS.map((t) => t.id));
 
 export default function Automacoes() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, 'modelos');
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
+    if (t === 'agente') {
+      navigate('/agente-ia', { replace: true });
+      return;
+    }
     if (!ALLOWED.has(t)) {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
-  }, [activeTab, searchParams, setSearchParams]);
+  }, [activeTab, navigate, searchParams, setSearchParams]);
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 

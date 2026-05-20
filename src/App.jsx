@@ -73,7 +73,7 @@ import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
-import { getNewLeadLabel, buildMobileDrawerSections } from './lib/naviMenu.js';
+import { getNewLeadLabel, buildMobileDrawerSections, matchNavTarget } from './lib/naviMenu.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
 import RouteFallback from './components/shared/RouteFallback.jsx';
@@ -154,8 +154,6 @@ const App = () => {
     );
   }, [billingAccessTop, navigate]);
 
-  const isAgenteIaPage = location.pathname === '/agente-ia';
-  const isInboxConversasNavActive = location.pathname === '/inbox';
   const isInboxPath = location.pathname === '/inbox';
 
   const academyDocForRole = useMemo(() => {
@@ -878,8 +876,6 @@ const App = () => {
             modules={bootModules}
             navRole={navRole}
             canConfigureAgenteIa={canConfigureAgenteIa}
-            isInboxConversasNavActive={isInboxConversasNavActive}
-            isAgenteIaPage={isAgenteIaPage}
             inboxUnread={inboxUnread}
           />
         </aside>
@@ -1035,12 +1031,12 @@ const App = () => {
                     ) : null}
                     {sec.items.map((item) => {
                       const Icon = mobileDrawerIconMap[item.iconKey] || LayoutGrid;
-                      const active =
-                        location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+                      const dest = item.toFull || item.to;
+                      const active = matchNavTarget(dest, location);
                       return (
                         <Link
-                          key={item.to}
-                          to={item.to}
+                          key={`${dest}-${item.label}`}
+                          to={dest}
                           className={`navi-mobile-drawer__link${active ? ' navi-mobile-drawer__link--active' : ''}`}
                           onClick={closeMobileDrawer}
                         >
