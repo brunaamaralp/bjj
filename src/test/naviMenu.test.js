@@ -28,6 +28,8 @@ describe('naviMenu', () => {
     expect(getAccordionIdForLocation({ pathname: '/automacoes', search: '' })).toBe('automacoes');
     expect(getAccordionIdForLocation({ pathname: '/agente-ia', search: '' })).toBe('automacoes');
     expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=movimentacoes' })).toBe('caixa');
+    expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=fechamento' })).toBe('caixa');
+    expect(getAccordionIdForLocation({ pathname: '/loja', search: '?tab=vendas' })).toBe('loja');
     expect(getAccordionIdForLocation({ pathname: '/students', search: '' })).toBe(null);
   });
 
@@ -63,6 +65,14 @@ describe('naviMenu', () => {
     expect(model.accordions.map((a) => a.id)).toContain('loja');
     const auto = model.accordions.find((a) => a.id === 'automacoes');
     expect(auto.children.map((c) => c.id)).toEqual(['modelos', 'configuracoes', 'agente']);
+    const caixa = model.accordions.find((a) => a.id === 'caixa');
+    expect(caixa.children.map((c) => c.to)).toEqual([
+      '/caixa?tab=movimentacoes',
+      '/caixa?tab=fechamento',
+      '/caixa?tab=contabilidade',
+    ]);
+    const loja = model.accordions.find((a) => a.id === 'loja');
+    expect(loja.children.map((c) => c.id)).toEqual(['vendas', 'produtos', 'estoque']);
   });
 
   it('buildMobileDrawerSections respects modules', () => {

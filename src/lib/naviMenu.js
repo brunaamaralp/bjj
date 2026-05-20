@@ -118,13 +118,13 @@ export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
 export function buildLojaAccordion({ modules }) {
   const children = [];
   if (modules.sales === true) {
-    children.push({ id: 'vendas', label: 'Vendas', to: '/loja?tab=vendas' });
+    children.push({ id: 'vendas', label: 'Vendas', to: '/loja?tab=vendas', iconKey: 'vendas' });
   }
   if (modules.inventory === true || modules.sales === true) {
-    children.push({ id: 'produtos', label: 'Produtos', to: '/loja?tab=produtos' });
+    children.push({ id: 'produtos', label: 'Produtos', to: '/loja?tab=produtos', iconKey: 'produtos' });
   }
   if (modules.inventory === true) {
-    children.push({ id: 'estoque', label: 'Estoque', to: '/loja?tab=estoque' });
+    children.push({ id: 'estoque', label: 'Estoque', to: '/loja?tab=estoque', iconKey: 'estoque' });
   }
   if (children.length === 0) return null;
   return {
@@ -143,9 +143,9 @@ export function buildCaixaAccordion() {
     iconKey: 'caixa',
     defaultTo: '/caixa?tab=movimentacoes',
     children: [
-      { id: 'movimentacoes', label: 'Movimentações', to: '/caixa?tab=movimentacoes' },
-      { id: 'fechamento', label: 'Fechamento', to: '/caixa?tab=fechamento' },
-      { id: 'contabilidade', label: 'Contabilidade', to: '/caixa?tab=contabilidade' },
+      { id: 'movimentacoes', label: 'Movimentações', to: '/caixa?tab=movimentacoes', iconKey: 'movimentacoes' },
+      { id: 'fechamento', label: 'Fechamento', to: '/caixa?tab=fechamento', iconKey: 'fechamento' },
+      { id: 'contabilidade', label: 'Contabilidade', to: '/caixa?tab=contabilidade', iconKey: 'contabilidade' },
     ],
   };
 }
@@ -231,14 +231,14 @@ export function flattenNavItemsForMobile(model) {
     const caixa = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.CAIXA);
     if (caixa) {
       push({ to: caixa.defaultTo, label: 'Caixa', iconKey: 'caixa', section: 'Financeiro' });
-      for (const c of caixa.children) push({ ...c, iconKey: 'caixa', section: 'Financeiro' });
+      for (const c of caixa.children) push({ ...c, iconKey: c.iconKey || 'caixa', section: 'Financeiro' });
     }
   }
 
   const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
   if (loja) {
     push({ to: loja.defaultTo, label: 'Loja', iconKey: 'loja', section: 'Loja' });
-    for (const c of loja.children) push({ ...c, iconKey: 'loja', section: 'Loja' });
+    for (const c of loja.children) push({ ...c, iconKey: c.iconKey || 'loja', section: 'Loja' });
   }
 
   const rel = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);

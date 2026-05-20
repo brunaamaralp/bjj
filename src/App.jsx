@@ -22,6 +22,11 @@ import {
   CheckSquare,
   Menu,
   Store,
+  Landmark,
+  ArrowLeftRight,
+  Lock,
+  Calculator,
+  Receipt,
   X
 } from 'lucide-react';
 import { authService } from './lib/auth';
@@ -218,8 +223,14 @@ const App = () => {
       agente: Bot,
       mensalidades: Users,
       contratos: FileSignature,
-      caixa: Wallet,
-      loja: Store,
+      caixa: Landmark,
+      loja: ShoppingBag,
+      movimentacoes: ArrowLeftRight,
+      fechamento: Lock,
+      contabilidade: Calculator,
+      vendas: Receipt,
+      produtos: Package,
+      estoque: Boxes,
       reports: BarChart3,
     }),
     []

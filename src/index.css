@@ -1766,7 +1766,7 @@ select.task-select option {
 .navi-side-accordion-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   padding: 9px 12px;
   margin: 0;
   min-width: 0;
@@ -1811,9 +1811,19 @@ select.task-select option {
   cursor: pointer;
 }
 
+.navi-side-accordion-trigger .navi-side-link-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.navi-side-accordion-head.navi-side-link--partial .navi-side-link-label {
+  font-weight: 600;
+}
+
 .navi-side-accordion-chevron {
   flex-shrink: 0;
-  margin-left: auto;
+  margin-left: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
