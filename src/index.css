@@ -1759,54 +1759,36 @@ select.task-select option {
 }
 
 .navi-side-accordion-head {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
+  position: relative;
   min-width: 0;
 }
 
 .navi-side-accordion-trigger {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 8px 9px 12px;
-  border: 0.5px solid transparent;
-  border-radius: 10px 0 0 10px;
-  background: transparent;
-  color: var(--mid);
-  font-weight: 500;
-  font-size: 14px;
-  font-family: inherit;
-  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 36px;
   text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.navi-side-accordion-trigger:hover {
-  background: rgba(91, 63, 191, 0.06);
-  color: var(--v700);
-}
-
-.navi-side-accordion-trigger:hover .navi-side-link-icon {
-  color: var(--v500);
+  font-family: inherit;
 }
 
 .navi-side-accordion-chevron {
-  flex-shrink: 0;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  min-height: 40px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0.5px solid transparent;
-  border-radius: 0 10px 10px 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .navi-side-accordion-chevron:hover {
@@ -1851,7 +1833,6 @@ select.task-select option {
   overflow: hidden;
 }
 
-.navi-side-accordion-trigger--footer,
 .navi-side-link--child.navi-side-link--footer {
   font-size: 13px;
 }

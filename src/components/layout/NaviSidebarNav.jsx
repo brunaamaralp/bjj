@@ -163,8 +163,8 @@ function SideNavAccordion({
         <button
           type="button"
           className={[
-            'navi-side-accordion-trigger',
-            footer ? 'navi-side-accordion-trigger--footer' : '',
+            'navi-side-link navi-side-accordion-trigger',
+            footer ? 'navi-side-link--footer' : '',
             partial ? 'navi-side-link--partial' : '',
           ]
             .filter(Boolean)
