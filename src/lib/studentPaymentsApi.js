@@ -1,11 +1,19 @@
 import { createSessionJwt } from './appwrite.js';
 
+export class StudentPaymentsApiError extends Error {
+  constructor(message, { status } = {}) {
+    super(message);
+    this.name = 'StudentPaymentsApiError';
+    this.status = status;
+  }
+}
+
 async function paymentsFetch(path, options = {}, academyId) {
   const jwt = await createSessionJwt();
-  if (!jwt) throw new Error('session_required');
+  if (!jwt) throw new StudentPaymentsApiError('session_required', { status: 401 });
 
   const aid = String(academyId || '').trim();
-  if (!aid) throw new Error('academy_required');
+  if (!aid) throw new StudentPaymentsApiError('academy_required', { status: 400 });
 
   const headers = new Headers(options.headers || {});
   headers.set('Authorization', `Bearer ${jwt}`);
@@ -17,7 +25,9 @@ async function paymentsFetch(path, options = {}, academyId) {
   const res = await fetch(path, { ...options, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
-    throw new Error(data.erro || data.error || `HTTP ${res.status}`);
+    throw new StudentPaymentsApiError(data.erro || data.error || `HTTP ${res.status}`, {
+      status: res.status,
+    });
   }
   return data;
 }
@@ -54,6 +64,15 @@ export async function apiUpdateStudentPayment(paymentId, patch) {
     patch?.academy_id
   );
   return data.payment;
+}
+
+export async function apiDeleteStudentPayment(paymentId, academyId) {
+  const data = await paymentsFetch(
+    `/api/student-payments?id=${encodeURIComponent(paymentId)}`,
+    { method: 'DELETE' },
+    academyId
+  );
+  return data;
 }
 
 export async function apiSnoozeCollectionRegua(studentId, referenceMonth, academyId) {

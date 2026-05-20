@@ -148,11 +148,9 @@ export function classifyImportRow(product) {
   if (!nome) return 'invalid';
 
   const price = product.sale_price;
-  const categoria = String(product.categoria || '').trim();
   const hasPrice = price != null && Number.isFinite(Number(price)) && Number(price) > 0;
-  const hasCategory = Boolean(categoria);
 
-  if (!hasPrice || !hasCategory) return 'incomplete';
+  if (!hasPrice) return 'incomplete';
   return 'ready';
 }
 

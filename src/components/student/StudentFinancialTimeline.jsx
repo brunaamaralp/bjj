@@ -79,7 +79,20 @@ function TimelineBadge({ badge }) {
   );
 }
 
-function TimelineRow({ icon: Icon, iconColor, item, expanded, onToggle, children }) {
+function TimelineRow({
+  icon: Icon,
+  iconColor,
+  item,
+  expanded,
+  onToggle,
+  children,
+  payment,
+  canManagePayments,
+  onEditPayment,
+  onDeletePayment,
+}) {
+  const showActions = Boolean(payment && canManagePayments && onEditPayment && onDeletePayment);
+
   return (
     <div
       style={{
@@ -125,6 +138,32 @@ function TimelineRow({ icon: Icon, iconColor, item, expanded, onToggle, children
           </div>
         ) : null}
       </button>
+      {showActions ? (
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            padding: '0 14px 12px 46px',
+            borderTop: children || expanded ? '0.5px solid var(--border-light)' : 'none',
+          }}
+        >
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            onClick={() => onEditPayment(payment)}
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+            onClick={() => onDeletePayment(payment)}
+          >
+            Excluir
+          </button>
+        </div>
+      ) : null}
       {expanded && children ? (
         <div
           style={{
@@ -321,6 +360,9 @@ export default function StudentFinancialTimeline({
   freezeBusy = false,
   onEndFreeze,
   endFreezeBusy = false,
+  canManagePayments = false,
+  onEditPayment,
+  onDeletePayment,
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('12m');
@@ -451,10 +493,20 @@ export default function StudentFinancialTimeline({
             if (item.kind === 'freeze') {
               return <TimelineRow key={item.id} icon={Lock} iconColor="#64748b" item={item} />;
             }
-            const Icon =
-              item.kind === 'fee' ? Receipt : Calendar;
+            const Icon = item.kind === 'fee' ? Receipt : Calendar;
             const iconColor = item.kind === 'fee' ? '#B45309' : '#5B3FBF';
-            return <TimelineRow key={item.id} icon={Icon} iconColor={iconColor} item={item} />;
+            return (
+              <TimelineRow
+                key={item.id}
+                icon={Icon}
+                iconColor={iconColor}
+                item={item}
+                payment={item.payment}
+                canManagePayments={canManagePayments}
+                onEditPayment={onEditPayment}
+                onDeletePayment={onDeletePayment}
+              />
+            );
           })}
         </div>
       )}

@@ -170,7 +170,7 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
         <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
           <label className="text-xs">Categoria</label>
           <input
-            className={`form-input${highlightMissing && !data.categoria?.trim() ? ' product-import-input--warn' : ''}`}
+            className="form-input"
             value={data.categoria}
             onChange={(e) => onChange({ ...data, categoria: e.target.value })}
           />

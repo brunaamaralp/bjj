@@ -3,7 +3,12 @@
  */
 import { Query, ID } from 'appwrite';
 import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
-import { apiCreateStudentPayment, apiUpdateStudentPayment, apiListStudentPayments } from './studentPaymentsApi.js';
+import {
+  apiCreateStudentPayment,
+  apiUpdateStudentPayment,
+  apiListStudentPayments,
+  apiDeleteStudentPayment,
+} from './studentPaymentsApi.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import {
   mirrorGrossForPayment,
@@ -606,7 +611,20 @@ export async function updatePayment(paymentId, data) {
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');
   }
-  return databases.updateDocument(DB_ID, PAYMENTS_COL, paymentId, data);
+  const payload = buildPaymentPayload(data);
+  return databases.updateDocument(DB_ID, PAYMENTS_COL, paymentId, payload);
+}
+
+export async function deletePayment(paymentId, academyId) {
+  if (!paymentId || !academyId) throw new Error('payment_id_required');
+  if (import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
+    return apiDeleteStudentPayment(paymentId, academyId);
+  }
+  if (!PAYMENTS_COL) {
+    throw new Error('student_payments_collection_not_configured');
+  }
+  await databases.deleteDocument(DB_ID, PAYMENTS_COL, paymentId);
+  return { deleted: true };
 }
 
 /**

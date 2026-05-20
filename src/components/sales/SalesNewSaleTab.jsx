@@ -28,7 +28,8 @@ export default function SalesNewSaleTab() {
   const { createSale, creating, lastSale, error } = useSalesStore();
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
-  const { products, loading: catalogLoading, reload: reloadCatalog } = useSalesCatalog(academyId);
+  const { products, loading: catalogLoading, reload: reloadCatalog, error: catalogError } =
+    useSalesCatalog(academyId);
 
   const [salesSettings, setSalesSettings] = useState(() => readSalesSettings(null));
   const [academyName, setAcademyName] = useState('');
@@ -523,6 +524,11 @@ export default function SalesNewSaleTab() {
               mobilePanel === 'catalog' ? ' sales-panel--active' : ''
             }`}
           >
+            {catalogError ? (
+              <p className="text-small" style={{ color: 'var(--danger)', marginBottom: 8 }}>
+                Não foi possível carregar o catálogo: {catalogError}
+              </p>
+            ) : null}
             <SalesCatalogPicker
               products={products}
               loading={catalogLoading}

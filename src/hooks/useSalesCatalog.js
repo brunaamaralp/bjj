@@ -1,7 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
-import { databases, DB_ID, STOCK_ITEMS_COL } from '../lib/appwrite';
-import { Query } from 'appwrite';
-import { catalogProductsForSale, mapCatalogProduct } from '../lib/salesCatalog';
+import { createSessionJwt } from '../lib/appwrite';
+import { useLeadStore } from '../store/useLeadStore';
+import { catalogProductsForSale, enrichCatalogProduct } from '../lib/salesCatalog';
+
+async function fetchProductsViaApi(academyId) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+  if (!academyId) throw new Error('academy_required');
+
+  const res = await fetch('/api/products', {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'Content-Type': 'application/json',
+      'x-academy-id': academyId,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.erro || data.error || `error_${res.status}`);
+  }
+  return data.products || [];
+}
 
 export function useSalesCatalog(academyId) {
   const [products, setProducts] = useState([]);
@@ -9,35 +28,15 @@ export function useSalesCatalog(academyId) {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
-    if (!academyId || !DB_ID || !STOCK_ITEMS_COL) {
+    if (!academyId) {
       setProducts([]);
       return [];
     }
     setLoading(true);
     setError(null);
     try {
-      const PAGE = 100;
-      let all = [];
-      let cursor = null;
-      for (;;) {
-        const queries = [Query.limit(PAGE)];
-        try {
-          queries.unshift(Query.equal('academy_id', academyId));
-        } catch {
-          void 0;
-        }
-        if (cursor) queries.push(Query.cursorAfter(cursor));
-        const res = await databases.listDocuments(DB_ID, STOCK_ITEMS_COL, queries);
-        const batch = res.documents || [];
-        all = all.concat(batch);
-        if (batch.length < PAGE) break;
-        cursor = batch[batch.length - 1].$id;
-      }
-      const mapped = catalogProductsForSale(
-        all
-          .filter((d) => !d.academy_id || String(d.academy_id) === academyId)
-          .map(mapCatalogProduct)
-      );
+      const list = await fetchProductsViaApi(academyId);
+      const mapped = catalogProductsForSale((list || []).map(enrichCatalogProduct));
       setProducts(mapped);
       return mapped;
     } catch (e) {

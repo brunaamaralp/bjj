@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DateInput } from '../DateInput';
 import BankAccountSelect from '../finance/BankAccountSelect.jsx';
-import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
+import { PAYMENT_CATEGORY, normalizePaymentCategory } from '../../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
@@ -20,6 +20,30 @@ const labelStyle = {
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
 };
+
+export function paymentFormFromDoc(payment, student) {
+  const base = buildDefaultPayForm(student);
+  if (!payment) return base;
+  const cat = normalizePaymentCategory(payment);
+  const cents = numberToCents(payment.amount ?? payment.paid_amount);
+  const paidSlice = payment.paid_at ? String(payment.paid_at).slice(0, 10) : base.paid_at;
+  const dueSlice = payment.due_date ? String(payment.due_date).slice(0, 10) : '';
+  return {
+    ...base,
+    payment_type: cat,
+    reference_month: payment.reference_month || base.reference_month,
+    bundle_start_month: payment.reference_month || base.bundle_start_month,
+    bundle_months: Number(payment.bundle_months) || base.bundle_months,
+    amount: cents != null ? formatBRLFromCents(cents) : base.amount,
+    method: payment.method || base.method,
+    account: payment.account || base.account,
+    status: payment.status || base.status,
+    paid_at: paidSlice,
+    due_date: dueSlice,
+    plan_name: payment.plan_name || base.plan_name,
+    note: payment.note || '',
+  };
+}
 
 export function buildDefaultPayForm(student) {
   const ym = new Date().toISOString().slice(0, 7);
@@ -55,6 +79,8 @@ export default function StudentPaymentModal({
   onSave,
   salesEnabled = false,
   onSaleComplete,
+  editingPaymentId = null,
+  formError = '',
 }) {
   const [productStep, setProductStep] = useState(false);
 
@@ -99,8 +125,25 @@ export default function StudentPaymentModal({
           id="student-payment-modal-title"
           style={{ margin: '0 0 14px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}
         >
-          {isProduct ? 'Venda de produto' : 'Registrar pagamento'}
+          {isProduct ? 'Venda de produto' : editingPaymentId ? 'Editar pagamento' : 'Registrar pagamento'}
         </h3>
+
+        {formError ? (
+          <p
+            role="alert"
+            style={{
+              margin: '0 0 12px',
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: 'var(--danger-light, #fcebeb)',
+              color: 'var(--danger)',
+              fontSize: 13,
+              lineHeight: 1.45,
+            }}
+          >
+            {formError}
+          </p>
+        ) : null}
 
         {isProduct ? (
           <StudentProductSaleStep
@@ -118,7 +161,7 @@ export default function StudentPaymentModal({
         ) : (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
+              <fieldset style={{ border: 'none', margin: 0, padding: 0 }} disabled={Boolean(editingPaymentId)}>
                 <legend style={labelStyle}>Tipo de pagamento</legend>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {typeOptions.map((opt) => (
@@ -129,8 +172,9 @@ export default function StudentPaymentModal({
                         alignItems: 'center',
                         gap: 8,
                         fontSize: 14,
-                        cursor: 'pointer',
+                        cursor: editingPaymentId ? 'default' : 'pointer',
                         color: 'var(--text)',
+                        opacity: editingPaymentId && payForm.payment_type !== opt.value ? 0.45 : 1,
                       }}
                     >
                       <input
@@ -138,6 +182,7 @@ export default function StudentPaymentModal({
                         name="payment_type"
                         value={opt.value}
                         checked={payForm.payment_type === opt.value}
+                        disabled={Boolean(editingPaymentId)}
                         onChange={() => {
                           if (opt.value === PAYMENT_MODAL_PRODUCT) {
                             setProductStep(true);
@@ -385,7 +430,7 @@ export default function StudentPaymentModal({
                   fontFamily: 'inherit',
                 }}
               >
-                {saving ? 'Salvando...' : 'Registrar'}
+                {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
               </button>
             </div>
           </>

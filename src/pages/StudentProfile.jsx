@@ -6,10 +6,12 @@ import {
     getStudentPayments,
     createPayment,
     getPaymentStatus,
-    updatePayment as _updatePayment,
+    updatePayment,
+    deletePayment,
     cancelBundleCoverageFromMonth,
     PAYMENT_CATEGORY,
 } from '../lib/studentPayments.js';
+import { StudentPaymentsApiError } from '../lib/studentPaymentsApi.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
 import StudentContractsSection from '../components/student/StudentContractsSection.jsx';
 import StudentContractHeaderChip from '../components/student/StudentContractHeaderChip.jsx';
@@ -23,7 +25,13 @@ import {
     isFreezeActive,
     activeFreezeReasonFromHistory,
 } from '../lib/planFreeze.js';
-import StudentPaymentModal, { buildDefaultPayForm } from '../components/student/StudentPaymentModal.jsx';
+import StudentPaymentModal, {
+    buildDefaultPayForm,
+    paymentFormFromDoc,
+    PAYMENT_MODAL_PRODUCT,
+} from '../components/student/StudentPaymentModal.jsx';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import { useCanManageStudentPayments } from '../lib/canManageStudentPayments.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
@@ -389,9 +397,13 @@ export default function StudentProfile() {
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [paymentsError, setPaymentsError] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [editingPaymentId, setEditingPaymentId] = useState(null);
+    const [payFormError, setPayFormError] = useState('');
     const [paymentStatus, setPaymentStatus] = useState(null);
     const [payForm, setPayForm] = useState(() => buildDefaultPayForm(null));
     const [savingPayment, setSavingPayment] = useState(false);
+    const [deletePaymentTarget, setDeletePaymentTarget] = useState(null);
+    const [deletePaymentBusy, setDeletePaymentBusy] = useState(false);
     const [cancellingCoverage, setCancellingCoverage] = useState(false);
     const [planFreezes, setPlanFreezes] = useState([]);
     const [freezeModalOpen, setFreezeModalOpen] = useState(false);
@@ -404,6 +416,12 @@ export default function StudentProfile() {
     const stackedLayout = viewportStacked;
 
     const leadId = id || '';
+
+    const academyDocForRole = useMemo(
+        () => (academyList || []).find((a) => a.id === academyId) || null,
+        [academyList, academyId]
+    );
+    const canManagePayments = useCanManageStudentPayments(academyDocForRole);
 
     useEffect(() => {
         if (academyId) void prefetchFinanceConfig(academyId);
@@ -1131,19 +1149,45 @@ export default function StudentProfile() {
         }
     };
 
+    const closePaymentModal = useCallback(() => {
+        setShowPaymentModal(false);
+        setEditingPaymentId(null);
+        setPayFormError('');
+    }, []);
+
     const openPaymentModal = useCallback((presetType = PAYMENT_CATEGORY.PLAN) => {
         if (!student) return;
+        setEditingPaymentId(null);
+        setPayFormError('');
         setPayForm({ ...buildDefaultPayForm(student), payment_type: presetType });
         setShowPaymentModal(true);
     }, [student]);
 
+    const openEditPaymentModal = useCallback(
+        (payment) => {
+            if (!student || !payment?.$id) return;
+            setEditingPaymentId(payment.$id);
+            setPayFormError('');
+            setPayForm(paymentFormFromDoc(payment, student));
+            setShowPaymentModal(true);
+        },
+        [student]
+    );
+
     const saveStudentPayment = useCallback(async () => {
         if (!student || !academyId || savingPayment) return;
+        setPayFormError('');
         const paymentType = payForm.payment_type || PAYMENT_CATEGORY.PLAN;
         const desc = String(payForm.note || '').trim();
+        const isEdit = Boolean(editingPaymentId);
 
         if (paymentType === PAYMENT_CATEGORY.FEE && !desc) {
             addToast({ type: 'error', message: 'Informe a descrição da taxa (ex.: taxa de competição).' });
+            return;
+        }
+
+        if (isEdit && (paymentType === PAYMENT_CATEGORY.BUNDLE || paymentType === PAYMENT_MODAL_PRODUCT)) {
+            addToast({ type: 'error', message: 'Este tipo de lançamento não pode ser editado aqui.' });
             return;
         }
 
@@ -1160,7 +1204,8 @@ export default function StudentProfile() {
         }
 
         const paidAtIso =
-            payForm.status === 'paid' && payForm.paid_at
+            (payForm.status === 'paid' || paymentType === PAYMENT_CATEGORY.FEE || paymentType === PAYMENT_CATEGORY.OTHER) &&
+            payForm.paid_at
                 ? new Date(payForm.paid_at).toISOString()
                 : null;
 
@@ -1168,6 +1213,7 @@ export default function StudentProfile() {
             lead_id: student.id,
             academy_id: academyId,
             amount: amountNum,
+            paid_amount: amountNum,
             method: payForm.method,
             account: payForm.account || '',
             plan_name: payForm.plan_name || student.plan || '',
@@ -1195,28 +1241,10 @@ export default function StudentProfile() {
 
         setSavingPayment(true);
         try {
-            const doc = await createPayment(data);
-            if (paymentType === PAYMENT_CATEGORY.BUNDLE) {
-                await loadPayments();
-            } else {
-                setPayments((prev) => {
-                    const ref = doc.reference_month;
-                    const filtered = prev.filter((p) => {
-                        if (p.$id === doc.$id) return false;
-                        if (
-                            ref &&
-                            p.reference_month === ref &&
-                            (p.payment_category === PAYMENT_CATEGORY.PLAN ||
-                                p.payment_category === PAYMENT_CATEGORY.BUNDLE ||
-                                !p.payment_category)
-                        ) {
-                            return false;
-                        }
-                        return true;
-                    });
-                    return [doc, ...filtered];
-                });
-            }
+            const doc = isEdit
+                ? await updatePayment(editingPaymentId, data)
+                : await createPayment(data);
+            await loadPayments();
             const localYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
             if (
                 doc.reference_month === localYm &&
@@ -1225,9 +1253,22 @@ export default function StudentProfile() {
                 if (doc.status === 'paid') setPaymentStatus({ status: 'paid', payment: doc });
                 else setPaymentStatus({ status: 'pending', payment: doc });
             }
-            setShowPaymentModal(false);
-            addToast({ type: 'success', message: 'Pagamento registrado.' });
+            closePaymentModal();
+            addToast({
+                type: 'success',
+                message: isEdit ? 'Pagamento atualizado.' : 'Pagamento registrado.',
+            });
         } catch (e) {
+            const isDup =
+                (e instanceof StudentPaymentsApiError && e.status === 409) ||
+                String(e?.message || '').includes('Já existe um lançamento');
+            if (isDup) {
+                setPayFormError(
+                    e?.message ||
+                        'Já existe um lançamento com este valor e data para este aluno.'
+                );
+                return;
+            }
             addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setSavingPayment(false);
@@ -1237,12 +1278,29 @@ export default function StudentProfile() {
         academyId,
         savingPayment,
         payForm,
+        editingPaymentId,
         userId,
         sessionUserName,
         addToast,
         financeConfig,
         loadPayments,
+        closePaymentModal,
     ]);
+
+    const handleConfirmDeletePayment = useCallback(async () => {
+        if (!deletePaymentTarget?.$id || !academyId || deletePaymentBusy) return;
+        setDeletePaymentBusy(true);
+        try {
+            await deletePayment(deletePaymentTarget.$id, academyId);
+            await loadPayments();
+            setDeletePaymentTarget(null);
+            addToast({ type: 'success', message: 'Lançamento excluído.' });
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'delete') });
+        } finally {
+            setDeletePaymentBusy(false);
+        }
+    }, [deletePaymentTarget, academyId, deletePaymentBusy, loadPayments, addToast]);
 
     const handleCancelCoverage = useCallback(
         async ({ anchor_id, from_reference_month, refundAmount }) => {
@@ -2446,6 +2504,9 @@ export default function StudentProfile() {
                         freezeBusy={freezeBusy}
                         onEndFreeze={() => void handleEndFreezeEarly()}
                         endFreezeBusy={endFreezeBusy}
+                        canManagePayments={canManagePayments}
+                        onEditPayment={openEditPaymentModal}
+                        onDeletePayment={setDeletePaymentTarget}
                     />
                 ) : null}
 
@@ -2772,10 +2833,23 @@ export default function StudentProfile() {
                 setPayForm={setPayForm}
                 saving={savingPayment}
                 inputStyle={inputStyle}
-                onClose={() => setShowPaymentModal(false)}
+                onClose={closePaymentModal}
                 onSave={saveStudentPayment}
                 salesEnabled={modules?.sales === true}
                 onSaleComplete={() => void loadPayments()}
+                editingPaymentId={editingPaymentId}
+                formError={payFormError}
+            />
+
+            <ConfirmDialog
+                open={Boolean(deletePaymentTarget)}
+                title="Excluir lançamento"
+                description="Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita."
+                confirmLabel="Excluir"
+                confirmVariant="danger"
+                loading={deletePaymentBusy}
+                onConfirm={() => void handleConfirmDeletePayment()}
+                onClose={() => !deletePaymentBusy && setDeletePaymentTarget(null)}
             />
         </div>
     );

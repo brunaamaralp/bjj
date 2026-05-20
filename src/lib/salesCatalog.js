@@ -1,19 +1,24 @@
 import { mapStockProductDoc } from './stockProducts.js';
 
-/** Produto no catálogo de vendas (inclui esgotados, desabilitados na UI). */
-export function mapCatalogProduct(doc) {
-  const p = mapStockProductDoc(doc);
-  const min = p.minimum_level;
-  const qty = p.current_quantity;
+/** Enriquece produto já mapeado (API) ou documento bruto para o picker de vendas. */
+export function enrichCatalogProduct(p) {
+  const base = p?.id != null && p?.$id == null ? p : mapStockProductDoc(p);
+  const min = base.minimum_level;
+  const qty = base.current_quantity;
   let stockLevel = 'ok';
   if (qty === 0) stockLevel = 'out';
   else if (min > 0 && qty <= min) stockLevel = 'low';
 
   return {
-    ...p,
+    ...base,
     stockLevel,
     canAdd: qty > 0,
   };
+}
+
+/** Produto no catálogo de vendas (inclui esgotados, desabilitados na UI). */
+export function mapCatalogProduct(doc) {
+  return enrichCatalogProduct(doc);
 }
 
 export function catalogProductsForSale(products) {
