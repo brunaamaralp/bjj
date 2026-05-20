@@ -1,36 +1,31 @@
 import React, { useState } from 'react';
 import { Package } from 'lucide-react';
 
-export default function ProductThumb({ imageUrl, alt, size = 48 }) {
+export default function ProductThumb({ imageUrl, alt, size = 36 }) {
   const [broken, setBroken] = useState(false);
   const url = String(imageUrl || '').trim();
+  const iconSize = size <= 40 ? 16 : Math.round(size * 0.45);
 
   if (!url || broken) {
     return (
       <span
-        className="flex items-center justify-center"
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 8,
-          background: 'var(--surface-2, rgba(0,0,0,0.06))',
-          color: 'var(--text-muted)',
-          flexShrink: 0,
-        }}
+        className="product-thumb product-thumb--placeholder"
+        style={{ width: size, height: size }}
         aria-hidden={!alt}
       >
-        <Package size={Math.round(size * 0.45)} strokeWidth={1.75} />
+        <Package size={iconSize} strokeWidth={1.75} aria-hidden />
       </span>
     );
   }
 
   return (
     <img
+      className="product-thumb product-thumb--image"
       src={url}
       alt={alt || ''}
       width={size}
       height={size}
-      style={{ width: size, height: size, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+      style={{ width: size, height: size }}
       onError={() => setBroken(true)}
     />
   );

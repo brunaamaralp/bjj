@@ -45,6 +45,24 @@ export const STOCK_STATUS_LABELS = {
   critical: 'Crítico',
 };
 
+/** Rótulo simplificado para histórico de movimentações (entrada / saída / ajuste). */
+export function stockMoveKindLabel(tipo) {
+  const t = String(tipo || '').toLowerCase();
+  if (t === 'entrada' || t === 'devolucao' || t === 'reversao_venda') return 'Entrada';
+  if (t === 'ajuste') return 'Ajuste';
+  return 'Saída';
+}
+
+export const STOCK_MOVE_TYPE_LABELS = {
+  entrada: 'Entrada',
+  saida_venda: 'Saída (venda)',
+  saida_aluguel: 'Saída (aluguel)',
+  devolucao: 'Devolução',
+  reversao_venda: 'Reversão de venda',
+  ajuste: 'Ajuste',
+  avulso: 'Avulso',
+};
+
 /** Delta em current_quantity por tipo de movimentação. */
 export function quantityDeltaForMoveType(tipo, quantidade) {
   const q = Number(quantidade);

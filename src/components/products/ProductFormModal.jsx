@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2, X } from 'lucide-react';
 import {
   PRODUCT_UNIT_OPTIONS,
@@ -133,7 +134,7 @@ export default function ProductFormModal({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [categories, form.categoria]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -171,12 +172,15 @@ export default function ProductFormModal({
 
   const title = isEdit ? 'Editar produto' : isDuplicate ? 'Duplicar produto' : 'Novo produto';
 
-  return (
+  return createPortal(
     <>
-      <div className="modal-overlay" role="dialog" aria-modal="true">
+      <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
         <div
-          className="card modal-panel"
-          style={{ maxWidth: 560, width: '100%', margin: '4vh auto', maxHeight: '92vh', overflow: 'auto' }}
+          className="card navi-modal-dialog"
+          role="dialog"
+          aria-modal="true"
+          style={{ maxWidth: 560, padding: 20 }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex justify-between items-center gap-2" style={{ marginBottom: 8 }}>
             <h3 className="navi-section-heading" style={{ margin: 0 }}>{title}</h3>
@@ -367,6 +371,7 @@ export default function ProductFormModal({
           onClose();
         }}
       />
-    </>
+    </>,
+    document.body
   );
 }

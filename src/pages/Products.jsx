@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown, Upload, Pencil } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown, Upload, Pencil, ArrowLeftRight } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
@@ -11,6 +11,7 @@ import ProductThumb from '../components/products/ProductThumb';
 import ProductFormModal from '../components/products/ProductFormModal';
 import ProductImportModal from '../components/products/ProductImportModal';
 import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
+import ProductStockMovesDrawer from '../components/products/ProductStockMovesDrawer';
 import EmptyState from '../components/shared/EmptyState';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
@@ -22,11 +23,13 @@ const LIFECYCLE_LABELS = {
   sem_estoque: 'Sem estoque',
 };
 
-const LIFECYCLE_STYLES = {
-  ativo: { color: 'var(--success)' },
-  inativo: { color: 'var(--text-muted)' },
-  sem_estoque: { color: 'var(--warning, #c9a227)' },
-};
+function productVariationSuffix(p) {
+  const tam = String(p.Tamanho || '').trim();
+  if (tam) return `· ${tam}`;
+  const sku = String(p.sku || '').trim();
+  if (sku && sku !== 'Único') return `· ${sku}`;
+  return '';
+}
 
 export default function Products() {
   const modules = useLeadStore((s) => s.modules);
@@ -59,6 +62,7 @@ export default function Products() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importFilterIds, setImportFilterIds] = useState(null);
+  const [movesProduct, setMovesProduct] = useState(null);
 
   const canAccess = modules?.inventory === true || modules?.sales === true;
 
@@ -376,10 +380,9 @@ export default function Products() {
             <table className="navi-table products-table">
               <thead>
                 <tr>
-                  <th style={{ width: 56 }} />
+                  <th className="products-table__thumb-head" />
                   <SortHeader label="Produto" sortKey="nome" />
                   <SortHeader label="Categoria" sortKey="categoria" />
-                  <SortHeader label="Tipo" sortKey="tipo" />
                   <SortHeader label="Preço venda" sortKey="sale_price" />
                   <SortHeader label="Saldo" sortKey="current_quantity" />
                   <SortHeader label="Status" sortKey="lifecycle" />
@@ -388,51 +391,63 @@ export default function Products() {
               </thead>
               <tbody>
                 {sorted.map((p) => {
-                  const st = LIFECYCLE_STYLES[p.lifecycle] || LIFECYCLE_STYLES.ativo;
+                  const variation = productVariationSuffix(p);
+                  const lifecycleKey = p.lifecycle || 'ativo';
                   return (
-                    <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(p)}>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <ProductThumb imageUrl={p.image_url} alt={p.display_label} size={40} />
+                    <tr key={p.id} className="products-table__row" onClick={() => openEdit(p)}>
+                      <td className="products-table__thumb-cell" onClick={(e) => e.stopPropagation()}>
+                        <ProductThumb imageUrl={p.image_url} alt={p.nome || p.display_label} size={36} />
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{p.display_label}</div>
+                        <div className="products-table__name-row">
+                          <span className="products-table__name">{p.nome || p.display_label}</span>
+                          {variation ? <span className="products-table__variation">{variation}</span> : null}
+                          {p.is_for_sale ? (
+                            <span className="products-type-badge products-type-badge--sale">Venda</span>
+                          ) : (
+                            <span className="products-type-badge products-type-badge--internal">Insumo</span>
+                          )}
+                        </div>
                       </td>
                       <td className="text-small text-muted">{p.categoria || '—'}</td>
-                      <td>
-                        {p.is_for_sale ? (
-                          <span className="products-type-badge products-type-badge--sale">Venda</span>
-                        ) : (
-                          <span className="products-type-badge products-type-badge--internal">Insumo</span>
-                        )}
+                      <td className="text-small products-table__price">
+                        {p.sale_price != null ? formatBRL(p.sale_price) : '—'}
                       </td>
-                      <td className="text-small">{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{p.current_quantity}</td>
+                      <td className="products-table__qty">{p.current_quantity}</td>
                       <td>
-                        <span className="text-small" style={{ fontWeight: 600, color: st.color }}>
-                          {LIFECYCLE_LABELS[p.lifecycle] || p.lifecycle}
+                        <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
+                          {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}
                         </span>
                       </td>
                       <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
                         <div className="products-table__actions-inner">
-                          <button type="button" className="btn-outline btn-sm" title="Duplicar" onClick={() => openDuplicate(p)}>
-                            <Copy size={14} aria-hidden />
-                          </button>
-                          <Link
-                            to={`/estoque?item=${p.id}`}
-                            className="btn-outline btn-sm"
-                            title="Ver no estoque"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Estoque
-                          </Link>
                           <button
                             type="button"
-                            className="btn-outline btn-sm products-delete-btn"
+                            className="products-icon-btn"
+                            title="Duplicar"
+                            aria-label="Duplicar"
+                            onClick={() => openDuplicate(p)}
+                          >
+                            <Copy size={16} aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            className="products-icon-btn"
+                            title="Ver movimentações"
+                            aria-label="Ver movimentações"
+                            onClick={() => setMovesProduct(p)}
+                          >
+                            <ArrowLeftRight size={16} aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            className="products-icon-btn products-icon-btn--danger"
                             title="Excluir produto"
+                            aria-label="Excluir produto"
                             onClick={(e) => void openDeleteDialog(p, e)}
                             disabled={deleteBusy && deleteTarget?.id === p.id}
                           >
-                            <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
+                            <Trash2 size={16} aria-hidden />
                           </button>
                         </div>
                       </td>
@@ -444,45 +459,60 @@ export default function Products() {
           </div>
           <div className="navi-mobile-list products-mobile-list" aria-label="Lista de produtos">
             {sorted.map((p) => {
-              const st = LIFECYCLE_STYLES[p.lifecycle] || LIFECYCLE_STYLES.ativo;
-              const variation = p.Tamanho || p.sku || 'Único';
+              const variation = productVariationSuffix(p);
+              const lifecycleKey = p.lifecycle || 'ativo';
               return (
                 <article key={p.id} className="navi-mobile-card products-mobile-card">
-                  <div className="products-mobile-card__main">
-                    <ProductThumb imageUrl={p.image_url} alt={p.display_label} size={48} />
+                  <div className="products-mobile-card__main" onClick={() => openEdit(p)} role="presentation">
+                    <ProductThumb imageUrl={p.image_url} alt={p.nome || p.display_label} size={36} />
                     <div className="products-mobile-card__body">
-                      <div className="products-mobile-card__title">{p.nome || p.display_label}</div>
+                      <div className="products-mobile-card__title-row">
+                        <span className="products-mobile-card__title">{p.nome || p.display_label}</span>
+                        {variation ? <span className="products-mobile-card__variation">{variation}</span> : null}
+                      </div>
                       <div className="products-mobile-card__meta text-small text-muted">
-                        {p.categoria || '—'} · {variation}
+                        {p.categoria || '—'}
+                        {p.is_for_sale ? (
+                          <span className="products-type-badge products-type-badge--sale">Venda</span>
+                        ) : (
+                          <span className="products-type-badge products-type-badge--internal">Insumo</span>
+                        )}
                       </div>
                       <div className="products-mobile-card__row text-small">
                         <span>{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</span>
                         <span className="products-mobile-card__dot" aria-hidden>•</span>
                         <span>Saldo: {p.current_quantity}</span>
                       </div>
-                      <span className="text-small" style={{ fontWeight: 600, color: st.color }}>
-                        {LIFECYCLE_LABELS[p.lifecycle] || p.lifecycle}
+                      <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
+                        {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}
                       </span>
                     </div>
                   </div>
                   <div className="navi-mobile-card__actions products-mobile-card__actions">
-                    <button type="button" className="btn-outline btn-sm" title="Editar" onClick={() => openEdit(p)}>
-                      <Pencil size={14} aria-hidden />
+                    <button type="button" className="products-icon-btn" title="Editar" aria-label="Editar" onClick={() => openEdit(p)}>
+                      <Pencil size={16} aria-hidden />
                     </button>
-                    <button type="button" className="btn-outline btn-sm" title="Duplicar" onClick={() => openDuplicate(p)}>
-                      <Copy size={14} aria-hidden />
+                    <button type="button" className="products-icon-btn" title="Duplicar" aria-label="Duplicar" onClick={() => openDuplicate(p)}>
+                      <Copy size={16} aria-hidden />
                     </button>
-                    <Link to={`/estoque?item=${p.id}`} className="btn-outline btn-sm" title="Ver no estoque">
-                      Estoque
-                    </Link>
                     <button
                       type="button"
-                      className="btn-outline btn-sm products-delete-btn"
+                      className="products-icon-btn"
+                      title="Ver movimentações"
+                      aria-label="Ver movimentações"
+                      onClick={() => setMovesProduct(p)}
+                    >
+                      <ArrowLeftRight size={16} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="products-icon-btn products-icon-btn--danger"
                       title="Excluir produto"
+                      aria-label="Excluir produto"
                       onClick={(e) => void openDeleteDialog(p, e)}
                       disabled={deleteBusy && deleteTarget?.id === p.id}
                     >
-                      <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
+                      <Trash2 size={16} aria-hidden />
                     </button>
                   </div>
                 </article>
@@ -515,6 +545,12 @@ export default function Products() {
         onConfirmDeactivate={() => deleteTarget && void handleDeactivate(deleteTarget.id)}
       />
 
+      <ProductStockMovesDrawer
+        open={Boolean(movesProduct)}
+        product={movesProduct}
+        onClose={() => setMovesProduct(null)}
+      />
+
       <ProductImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -541,68 +577,6 @@ export default function Products() {
         </div>
       ) : null}
 
-      <style>{`
-        .products-desktop-table-wrap { overflow-x: auto; padding-right: 4px; }
-        .products-table { width: 100%; table-layout: auto; min-width: 720px; }
-        .products-mobile-list { display: none; }
-        .products-mobile-card__main {
-          display: flex;
-          gap: 12px;
-          align-items: flex-start;
-          padding: 12px 14px 10px;
-        }
-        .products-mobile-card__body { flex: 1; min-width: 0; }
-        .products-mobile-card__title { font-weight: 600; font-size: 14px; line-height: 1.35; }
-        .products-mobile-card__meta { margin-top: 2px; }
-        .products-mobile-card__row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-top: 6px;
-          font-variant-numeric: tabular-nums;
-        }
-        .products-mobile-card__dot { opacity: 0.45; }
-        .products-mobile-card__actions {
-          border-top: 0.5px solid var(--border-light);
-          padding: 8px 14px 10px;
-        }
-        @media (max-width: 767px) {
-          .products-desktop-table-wrap { display: none !important; }
-          .products-mobile-list { display: flex; flex-direction: column; }
-        }
-        .products-table__actions-head,
-        .products-table__actions {
-          text-align: right;
-          white-space: nowrap;
-          width: 1%;
-          min-width: 200px;
-          padding-right: 8px;
-        }
-        .products-table__actions-inner {
-          display: inline-flex;
-          gap: 4px;
-          justify-content: flex-end;
-          flex-wrap: nowrap;
-        }
-        .products-delete-btn { flex-shrink: 0; }
-        .products-type-badge {
-          display: inline-block;
-          padding: 3px 8px;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-        }
-        .products-type-badge--sale {
-          background: color-mix(in srgb, var(--v500) 14%, transparent);
-          color: var(--v700);
-        }
-        .products-type-badge--internal {
-          background: var(--surface-2);
-          color: var(--text-muted);
-        }
-      `}</style>
     </div>
   );
 }
