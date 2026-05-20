@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSalesStore } from '../../store/useSalesStore';
 import { ShoppingCart, X } from 'lucide-react';
-import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../../lib/appwrite';
+import { databases, DB_ID, STUDENTS_COL, ACADEMIES_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
-import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
+import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
 import { suggestUnitPrice } from '../../lib/salesCatalog';
@@ -308,7 +308,7 @@ export default function SalesNewSaleTab() {
     let active = true;
     const run = async () => {
       const t = String(alunoSearchText || '').trim();
-      if (!academyId || t.length < 2 || !DB_ID || !LEADS_COL) {
+      if (!academyId || t.length < 2 || !DB_ID || !STUDENTS_COL) {
         if (active) setAlunoSuggestions([]);
         return;
       }
@@ -316,18 +316,16 @@ export default function SalesNewSaleTab() {
       try {
         let docs = [];
         try {
-          const res = await databases.listDocuments(DB_ID, LEADS_COL, [
+          const res = await databases.listDocuments(DB_ID, STUDENTS_COL, [
             Query.equal('academyId', academyId),
-            Query.equal('status', LEAD_STATUS.CONVERTED),
             Query.search('name', t),
             Query.limit(8),
           ]);
           docs = res.documents;
         } catch {
           try {
-            const res2 = await databases.listDocuments(DB_ID, LEADS_COL, [
+            const res2 = await databases.listDocuments(DB_ID, STUDENTS_COL, [
               Query.equal('academyId', academyId),
-              Query.equal('status', LEAD_STATUS.CONVERTED),
               Query.search('phone', t),
               Query.limit(8),
             ]);

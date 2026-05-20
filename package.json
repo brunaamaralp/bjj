@@ -18,6 +18,8 @@
     "migrate:kids-to-crianca": "node scripts/migrateLeadTypeKidsToCrianca.js",
     "provision:lead-payment-attrs": "node scripts/ensure-lead-payment-attrs.js",
     "provision:plan-freeze": "node --env-file=.env scripts/provision-plan-freeze-schema.mjs",
+    "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
+    "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",
     "provision:contract-templates": "node --env-file=.env scripts/provision-contract-templates-schema.mjs",
     "cleanup:contract-templates-dup": "node --env-file=.env scripts/cleanup-duplicate-contract-templates.mjs",
     "start:server": "node server/index.js",

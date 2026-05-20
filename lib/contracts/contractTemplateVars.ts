@@ -10,6 +10,10 @@ const LEADS_COL = () =>
   String(
     process.env.APPWRITE_LEADS_COLLECTION_ID || process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || ''
   ).trim();
+const STUDENTS_COL = () =>
+  String(
+    process.env.APPWRITE_STUDENTS_COLLECTION_ID || process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || ''
+  ).trim();
 const ACADEMIES_COL = () =>
   String(
     process.env.APPWRITE_ACADEMIES_COLLECTION_ID ||
@@ -46,14 +50,18 @@ export async function buildContractVariableMap(input: {
   }
 
   const leadId = String(input.leadId || '').trim();
-  if (!leadId || !db || !LEADS_COL()) {
+  if (!leadId || !db) {
     return mapLeadDocToContractVariables(null, academyName);
   }
 
-  try {
-    const lead = await db.getDocument(DB_ID, LEADS_COL(), leadId);
-    return mapLeadDocToContractVariables(lead as Record<string, unknown>, academyName);
-  } catch {
-    return mapLeadDocToContractVariables(null, academyName);
+  const cols = [STUDENTS_COL(), LEADS_COL()].filter(Boolean);
+  for (const col of cols) {
+    try {
+      const lead = await db.getDocument(DB_ID, col, leadId);
+      return mapLeadDocToContractVariables(lead as Record<string, unknown>, academyName);
+    } catch {
+      /* try next */
+    }
   }
+  return mapLeadDocToContractVariables(null, academyName);
 }

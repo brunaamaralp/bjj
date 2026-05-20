@@ -28,6 +28,7 @@ import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID,
 import { isBillingLive } from './lib/billingEnabled';
 import { Query } from 'appwrite';
 import { useLeadStore } from './store/useLeadStore';
+import { useStudentStore } from './store/useStudentStore';
 import { cleanOldAccountingCache } from './store/useAccountingStore';
 import { useUiStore } from './store/useUiStore';
 import Dashboard from './pages/Dashboard';
@@ -270,7 +271,10 @@ const App = () => {
         void e;
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       }
-      await useLeadStore.getState().fetchLeads();
+      await Promise.all([
+        useLeadStore.getState().fetchLeads(),
+        useStudentStore.getState().fetchStudents(),
+      ]);
     },
     [setAcademyId, setLabels, setModules]
   );
@@ -678,10 +682,11 @@ const App = () => {
       useLeadStore.getState().setAcademyId(academyId);
       const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
       const leadsPromise = useLeadStore.getState().fetchLeads();
+      const studentsPromise = useStudentStore.getState().fetchStudents();
       if (financeEnabled && academyId) {
         void prefetchFinanceConfig(academyId);
       }
-      await leadsPromise;
+      await Promise.all([leadsPromise, studentsPromise]);
       await syncBilling(academyId);
     } catch (e) {
       console.error('Erro ao carregar academia:', e);

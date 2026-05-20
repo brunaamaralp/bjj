@@ -11,29 +11,20 @@ import { readEnrollmentFollowUpTask, addDaysToYmd } from './enrollmentSettings.j
 import { readControlIdConfig } from '../../lib/controlidSettings.js';
 import { syncControlIdStudentBackground } from './controlidApi.js';
 import { useTaskStore } from '../store/useTaskStore.js';
+import { moveLeadToStudent } from './moveLeadToStudent.js';
+import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
+import { useLeadStore } from '../store/useLeadStore.js';
 
 /**
  * Fluxo unificado de matrícula (Pipeline, LeadProfile, etc.).
- *
- * @param {object} opts
- * @param {object} opts.lead
- * @param {string} opts.academyId
- * @param {string} opts.userId
- * @param {object} [opts.permissionContext]
- * @param {function} opts.updateLead
- * @param {Array} [opts.customQuestions]
- * @param {Record<string, unknown>} [opts.customAnswers]
- * @param {string} [opts.plan]
- * @param {unknown} [opts.academySettingsRaw]
- * @param {object} [opts.waAutomation]
- * @param {function} [opts.onToast] — (message: string) => void
+ * Move o documento de leads → students (mesmo $id).
  */
 export async function performEnrollment({
   lead,
   academyId,
   userId,
   permissionContext = {},
-  updateLead,
+  updateLead: _updateLead,
   customQuestions = [],
   customAnswers = {},
   plan = '',
@@ -61,14 +52,22 @@ export async function performEnrollment({
       : undefined;
 
   const planName = String(plan || '').trim();
-  await updateLead(leadId, {
-    status: LEAD_STATUS.CONVERTED,
-    contact_type: 'student',
-    pipelineStage: 'Matriculado',
-    convertedAt: new Date().toISOString(),
-    studentStatus: 'active',
-    ...(planName ? { plan: planName } : {}),
-    ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
+  const academyList = useLeadStore.getState().academyList || [];
+  const acadDoc = academyList.find((a) => a.id === academyId) || {};
+  const teamId = String(acadDoc.teamId || useLeadStore.getState().teamId || '').trim();
+  const sessionUserId = String(userId || useLeadStore.getState().userId || '').trim();
+  const perms = buildClientDocumentPermissions({ teamId, userId: sessionUserId });
+
+  const student = await moveLeadToStudent({
+    leadId,
+    lead,
+    overrides: {
+      plan: planName || lead.plan,
+      convertedAt: new Date().toISOString(),
+      studentStatus: 'active',
+      ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
+    },
+    permissions: perms,
   });
 
   for (const q of customQuestions || []) {
@@ -91,12 +90,7 @@ export async function performEnrollment({
   if (waAutomation) {
     const { waOutbound, academyRaw } = waAutomation;
     void triggerImmediateAutomation('converted', {
-      lead: {
-        ...lead,
-        status: LEAD_STATUS.CONVERTED,
-        contact_type: 'student',
-        pipelineStage: 'Matriculado',
-      },
+      lead: { ...student, status: LEAD_STATUS.CONVERTED, contact_type: 'student' },
       academyId,
       waOutbound,
       academyRaw,
@@ -146,4 +140,5 @@ export async function performEnrollment({
   }
 
   if (toastMsg && onToast) onToast(toastMsg.trim());
+  return student;
 }

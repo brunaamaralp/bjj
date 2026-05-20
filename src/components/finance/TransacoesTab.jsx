@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { databases, DB_ID, FINANCIAL_TX_COL, createSessionJwt } from '../../lib/appwrite';
 import { buildClientDocumentPermissions } from '../../lib/clientDocumentPermissions.js';
 import { useLeadStore } from '../../store/useLeadStore';
+import { useStudentStore } from '../../store/useStudentStore';
 import { Query, ID } from 'appwrite';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
@@ -61,7 +62,7 @@ function getTxTypeLabelDesktop(tx) {
 }
 
 export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
-  const leads = useLeadStore((s) => s.leads);
+  const leads = useStudentStore((s) => s.students);
   const userId = useLeadStore((s) => s.userId);
   const teamId = useLeadStore((s) => s.teamId);
   const addToast = useUiStore((s) => s.addToast);

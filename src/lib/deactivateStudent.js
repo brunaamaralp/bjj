@@ -17,12 +17,15 @@ export async function deactivateStudent({
   exitReason,
   exitDate,
   exitNotes = '',
+  updateStudent,
   updateLead,
   academySettingsRaw = null,
 }) {
+  const patch = updateStudent || updateLead;
+  if (!patch) throw new Error('updateStudent_required');
   const ymd = String(exitDate || '').trim().slice(0, 10) || todayYmdLocal();
 
-  await updateLead(leadId, {
+  await patch(leadId, {
     studentStatus: STUDENT_STATUS.INACTIVE,
     exitReason: String(exitReason || '').trim(),
     exitDate: ymd,
@@ -37,8 +40,6 @@ export async function deactivateStudent({
     createdBy: userId || 'user',
     permissionContext: permCtx,
   });
-  await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
-
   const studentName = String(student?.name || '').trim();
   let tasksCreated = 0;
   let templateName = '';
@@ -77,9 +78,12 @@ export async function reactivateStudent({
   academyId,
   userId,
   permCtx,
+  updateStudent,
   updateLead,
 }) {
-  await updateLead(leadId, {
+  const patch = updateStudent || updateLead;
+  if (!patch) throw new Error('updateStudent_required');
+  await patch(leadId, {
     studentStatus: STUDENT_STATUS.ACTIVE,
     exitReason: '',
     exitDate: '',
@@ -94,5 +98,7 @@ export async function reactivateStudent({
     createdBy: userId || 'user',
     permissionContext: permCtx,
   });
-  await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
+  if (updateLead && !updateStudent) {
+    await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
+  }
 }

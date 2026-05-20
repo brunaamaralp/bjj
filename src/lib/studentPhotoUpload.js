@@ -1,5 +1,5 @@
 import { ID, Storage } from 'appwrite';
-import { client, DB_ID, LEADS_COL } from './appwrite';
+import { client, DB_ID, STUDENTS_COL } from './appwrite';
 import { databases } from './appwrite';
 
 const BUCKET_ID = String(import.meta.env.VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID || '').trim();
@@ -20,7 +20,8 @@ export async function uploadStudentPhoto(leadId, file) {
 
 export async function saveStudentPhotoUrl(leadId, photoUrl) {
   if (!leadId || !photoUrl) return;
-  await databases.updateDocument(DB_ID, LEADS_COL, leadId, {
+  if (!STUDENTS_COL) return;
+  await databases.updateDocument(DB_ID, STUDENTS_COL, leadId, {
     photo_url: String(photoUrl).slice(0, 512),
   });
 }

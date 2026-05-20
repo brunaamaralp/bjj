@@ -1,13 +1,14 @@
 /** Backlog: filtros (turma/plano); virtualização para listas muito longas. */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useLeadStore, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
 
 const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
-import { databases, DB_ID, LEADS_COL } from '../lib/appwrite';
+import { databases, DB_ID, STUDENTS_COL } from '../lib/appwrite';
 import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
@@ -15,7 +16,7 @@ import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
-import { isStudentRecord, filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
+import { filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
@@ -52,7 +53,8 @@ const Students = () => {
     const labels = useLeadStore((s) => s.labels);
     const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
-    const { leads, importLeads, fetchLeads, fetchMoreLeads, academyId, addLead } = useLeadStore();
+    const { students, importStudents, fetchStudents, fetchMoreStudents, addStudent } = useStudentStore();
+    const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
     useEffect(() => {
@@ -60,10 +62,10 @@ const Students = () => {
     }, [academyId]);
     const { turmas: turmasConfig } = useAcademyTurmas(academyId);
     const controlIdCfg = useAcademyControlId(academyId);
-    const leadsLoading = useLeadStore((s) => s.loading);
-    const loadingMore = useLeadStore((s) => s.loadingMore);
-    const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
-    const leadsError = useLeadStore((s) => s.leadsError);
+    const studentsLoading = useStudentStore((s) => s.loading);
+    const loadingMore = useStudentStore((s) => s.loadingMore);
+    const studentsHasMore = useStudentStore((s) => s.studentsHasMore);
+    const studentsError = useStudentStore((s) => s.studentsError);
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 200);
     const listScrollRef = useRef(null);
@@ -94,11 +96,6 @@ const Students = () => {
         age: '',
         plan: '',
     });
-
-    const students = useMemo(
-        () => leads.filter((l) => isStudentRecord(l)),
-        [leads]
-    );
 
     const statusFilteredStudents = useMemo(
         () => filterStudentsByStatus(students, showInactive),
@@ -189,12 +186,10 @@ const Students = () => {
         setImporting(true);
         const withStatus = rows.map((r) => ({
             ...r,
-            status: LEAD_STATUS.CONVERTED,
-            contact_type: 'student',
             studentStatus: STUDENT_STATUS.ACTIVE,
         }));
         try {
-            await importLeads(withStatus);
+            await importStudents(withStatus);
             addToast({ type: 'success', message: `${rows.length} ${terms.student.toLowerCase()}(s) importado(s) com sucesso.` });
             if (skippedCount > 0) {
                 addToast({ type: 'warning', message: `${skippedCount} linha(s) ignorada(s) por não ter nome preenchido.` });
@@ -230,7 +225,7 @@ const Students = () => {
         setCreatingStudent(true);
         try {
             const cleanPhone = normalizePhone(newStudent.phone);
-            const created = await addLead({
+            const created = await addStudent({
                 name,
                 phone: cleanPhone,
                 type: normalizeLeadProfileType(newStudent.type || 'Adulto') || 'Adulto',
@@ -238,9 +233,6 @@ const Students = () => {
                 parentName: String(newStudent.parentName || '').trim(),
                 age: String(newStudent.age || '').trim(),
                 plan: String(newStudent.plan || '').trim(),
-                status: LEAD_STATUS.CONVERTED,
-                contact_type: 'student',
-                pipelineStage: 'Matriculado',
                 dueDay: new Date().getDate(),
                 enrollmentDate: new Date().toISOString().slice(0, 10),
                 studentStatus: STUDENT_STATUS.ACTIVE,
@@ -257,27 +249,20 @@ const Students = () => {
     };
 
     const handleRefreshList = async () => {
-        if (listRefreshing || leadsLoading) return;
+        if (listRefreshing || studentsLoading) return;
         setListRefreshing(true);
         try {
-            await fetchLeads({ reset: true });
+            await fetchStudents({ reset: true });
         } finally {
             setListRefreshing(false);
         }
     };
 
-    /** Mesmo critério da lista na UI: matriculado (status) ou contact_type aluno. */
     const fetchAllStudents = async (academyId) => {
+        if (!STUDENTS_COL) return [];
         const base = [Query.equal('academyId', academyId), Query.limit(5000)];
-        const [byStatus, byContact] = await Promise.all([
-            databases.listDocuments(DB_ID, LEADS_COL, [...base, Query.equal('status', LEAD_STATUS.CONVERTED)]),
-            databases.listDocuments(DB_ID, LEADS_COL, [...base, Query.equal('contact_type', 'student')]),
-        ]);
-        const map = new Map();
-        for (const d of [...(byStatus.documents || []), ...(byContact.documents || [])]) {
-            map.set(d.$id, d);
-        }
-        return [...map.values()];
+        const res = await databases.listDocuments(DB_ID, STUDENTS_COL, base);
+        return res.documents || [];
     };
 
     const handleExportAll = async () => {
@@ -331,8 +316,8 @@ const Students = () => {
     };
 
     const handleLoadMore = async () => {
-        if (loadingMore || leadsLoading || !leadsHasMore) return;
-        await fetchMoreLeads();
+        if (loadingMore || studentsLoading || !studentsHasMore) return;
+        await fetchMoreStudents();
     };
 
     const studentLabel = terms.students;
@@ -465,7 +450,7 @@ const Students = () => {
                     {filtrosAtivos && students.length !== filteredStudents.length
                         ? ` (de ${students.length})`
                         : ''}
-                    {leadsHasMore ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)` : ''}
+                    {studentsHasMore ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)` : ''}
                 </p>
                 <div className="page-header-card students-page-header">
                     <div className="page-header-row students-header-row-search">
@@ -483,10 +468,10 @@ const Students = () => {
                             type="button"
                             className="btn-action-ghost"
                             onClick={handleRefreshList}
-                            disabled={listRefreshing || leadsLoading}
+                            disabled={listRefreshing || studentsLoading}
                             title="Recarregar lista do servidor"
                         >
-                            <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'spin-students' : ''} />
+                            <RefreshCw size={14} className={listRefreshing || studentsLoading ? 'spin-students' : ''} />
                             Atualizar
                         </button>
                         <button
@@ -659,10 +644,10 @@ const Students = () => {
                 </div>
             </header>
 
-            {leadsError ? (
+            {studentsError ? (
                 <div className="dashboard-error-banner mt-3" role="alert">
                     <span>Não foi possível carregar os {studentPlural.toLowerCase()}.</span>
-                    <button type="button" className="btn-secondary" onClick={() => void fetchLeads({ reset: true })}>
+                    <button type="button" className="btn-secondary" onClick={() => void fetchStudents({ reset: true })}>
                         Tentar novamente
                     </button>
                 </div>
@@ -686,13 +671,13 @@ const Students = () => {
                 }}
             >
 
-            {leadsHasMore ? (
+            {studentsHasMore ? (
                 <div className="mt-3 animate-in">
                     <button
                         type="button"
                         className="students-load-more"
                         onClick={handleLoadMore}
-                        disabled={loadingMore || leadsLoading}
+                        disabled={loadingMore || studentsLoading}
                     >
                         {loadingMore ? 'Carregando…' : `Carregar mais ${studentPlural.toLowerCase()}`}
                     </button>
@@ -770,7 +755,7 @@ const Students = () => {
                 ref={listScrollRef}
                 style={shouldVirtualizeStudents ? { maxHeight: 'calc(100vh - 260px)', overflow: 'auto' } : undefined}
             >
-                {leadsLoading && students.length === 0 ? (
+                {studentsLoading && students.length === 0 ? (
                     <div className="students-skeleton-list mt-4" role="status" aria-live="polite" aria-busy="true">
                         {[1, 2, 3].map((i) => (
                             <div key={i} className="card student-card students-skeleton-row" style={{ height: 72 }} />

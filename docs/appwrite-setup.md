@@ -7,10 +7,15 @@ Banco de Dados
 - Database (DB_ID): 1 banco para todo o app.
 
 Coleções (Collections)
-- LEADS_COL (Leads/Interessados)
-  - Atributos: name (string), phone (string), type (string), origin (string), status (string), scheduledDate (string YYYY-MM-DD), scheduledTime (string HH:mm), parentName (string), age (string), notes (string JSON), academyId (string), lostReason (string, opcional — motivo ao marcar “Não fechou”), preferred_payment_method (string 64, opcional), preferred_payment_account (string 128, opcional — conta habitual de pagamento)
-  - Provisionar atributos de pagamento em projetos existentes: `npm run provision:lead-payment-attrs`
-  - Índices sugeridos: equality em academyId; opcional em status; ordenação por $createdAt (nativa)
+- LEADS_COL (Leads/Interessados — só funil, sem matriculados)
+  - Atributos: name, phone, type, origin, status (Novo…Não fechou — não Matriculado), pipeline_stage, scheduledDate, scheduledTime, parentName, age, birth_date, sexo, academyId, lostReason, whatsapp_*, label_ids, custom_answers_json, etc.
+  - Índices sugeridos: equality em academyId; opcional em status; ordenação por $createdAt
+- STUDENTS_COL (Alunos matriculados)
+  - Provisionar: `npm run provision:students`
+  - Migrar dados legados: `npm run migrate:leads-to-students` (DRY_RUN=1 para prévia)
+  - Atributos: name, phone, type, academyId, source_origin, student_status, plan, due_day, enrollmentDate, converted_at, turma, preferred_payment_*, freeze_*, controlid_*, photo_url, cpf, etc.
+  - Índices: academyId, student_status, phone, name
+  - FKs em outras coleções continuam como `lead_id` (mesmo $id do documento)
 - ACADEMIES_COL (Academias)
   - Atributos: ownerId (string), name (string), phone (string), email (string), address (string), quickTimes (array<string> ou string)
   - Índices sugeridos: equality em ownerId
@@ -52,6 +57,7 @@ Variáveis de Ambiente no Frontend (.env)
 - VITE_APPWRITE_PROJECT
 - VITE_APPWRITE_DATABASE_ID (DB_ID)
 - VITE_APPWRITE_LEADS_COLLECTION_ID (LEADS_COL)
+- VITE_APPWRITE_STUDENTS_COLLECTION_ID (STUDENTS_COL)
 - VITE_APPWRITE_ACADEMIES_COLLECTION_ID (ACADEMIES_COL)
 - VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID (STOCK_ITEMS_COL)
 - VITE_APPWRITE_INVENTORY_MOVE_FN_ID (INVENTORY_MOVE_FN_ID)

@@ -90,43 +90,18 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.name !== undefined) copyIf('name', u.name);
   if (u.phone !== undefined) copyIf('phone', u.phone);
   if (u.type !== undefined) copyIf('type', u.type);
-  if (u.turma !== undefined && LEAD_TURMA_APPWRITE_KEY) {
-    patch[LEAD_TURMA_APPWRITE_KEY] = String(u.turma || '').trim().slice(0, 64);
-  }
-  if (u.className !== undefined && LEAD_TURMA_APPWRITE_KEY === 'class_name') {
-    patch.class_name = String(u.className || '').trim().slice(0, 64);
-  }
   if (u.origin !== undefined) copyIf('origin', u.origin);
-  if (u.contact_type !== undefined) copyIf('contact_type', u.contact_type);
   if (u.status !== undefined) copyIf('status', u.status);
   if (u.scheduledDate !== undefined) copyIf('scheduledDate', u.scheduledDate);
   if (u.scheduledTime !== undefined) copyIf('scheduledTime', u.scheduledTime);
   if (u.parentName !== undefined) copyIf('parentName', u.parentName);
   if (u.age !== undefined) copyIf('age', u.age);
   if (u.lostReason !== undefined) copyIf('lostReason', u.lostReason);
-  if (u.plan !== undefined) copyIf('plan', u.plan);
-  if (u.dueDay !== undefined && LEAD_DUE_DAY_APPWRITE_KEY) {
-    const n = Number(u.dueDay);
-    const val = Number.isFinite(n) && n >= 1 && n <= 31 ? Math.trunc(n) : null;
-    patch[LEAD_DUE_DAY_APPWRITE_KEY] = val;
-  }
-  if (u.enrollmentDate !== undefined) copyIf('enrollmentDate', u.enrollmentDate);
-  if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
-  if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);
-  if (u.preferredPaymentMethod !== undefined) {
-    patch.preferred_payment_method = u.preferredPaymentMethod || '';
-  }
-  if (u.preferredPaymentAccount !== undefined) {
-    patch.preferred_payment_account = sanitizePreferredPaymentAccount(u.preferredPaymentAccount);
-  }
   if (u.sexo !== undefined) {
     const sx = String(u.sexo || '').trim().slice(0, 16);
     patch.sexo = sx;
   }
   if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
-  if (u.cpf !== undefined) patch.cpf = u.cpf || '';
-  if (u.responsavel !== undefined) patch.responsavel = u.responsavel || '';
-  if (u.cpfResponsavel !== undefined) patch.cpf_responsavel = u.cpfResponsavel || '';
 
   if (u.pipelineStage !== undefined) copyIf('pipeline_stage', u.pipelineStage);
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
@@ -140,7 +115,6 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.missedAt !== undefined) copyIf('missed_at', u.missedAt);
   if (u.missed_reason !== undefined) copyIf('missed_reason', u.missed_reason);
   if (u.lostAt !== undefined) copyIf('lost_at', u.lostAt);
-  if (u.convertedAt !== undefined) copyIf('converted_at', u.convertedAt);
   if (u.importedAt !== undefined) copyIf('imported_at', u.importedAt);
   if (u.statusChangedAt !== undefined) copyIf('status_changed_at', u.statusChangedAt);
   if (u.pipelineStageChangedAt !== undefined) copyIf('pipeline_stage_changed_at', u.pipelineStageChangedAt);
@@ -153,49 +127,6 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.whatsappPriority !== undefined) copyIf('whatsapp_priority', u.whatsappPriority);
   if (u.whatsappLeadQuente !== undefined) copyIf('whatsapp_lead_quente', u.whatsappLeadQuente);
   if (u.needHuman !== undefined) copyIf('need_human', Boolean(u.needHuman));
-
-  if (u.studentStatus !== undefined) {
-    copyIf('student_status', String(u.studentStatus || '').trim() || 'active');
-  }
-  if (u.exitReason !== undefined) copyIf('exit_reason', String(u.exitReason || '').trim());
-  if (u.exitDate !== undefined) {
-    const ed = String(u.exitDate || '').trim().slice(0, 10);
-    copyIf('exit_date', ed || null);
-  }
-
-  if (u.device_id !== undefined) {
-    const n = Number(u.device_id);
-    copyIf('device_id', Number.isFinite(n) && n > 0 ? Math.trunc(n) : null);
-  }
-  if (u.controlid_user_id !== undefined) {
-    const n = Number(u.controlid_user_id);
-    copyIf('controlid_user_id', Number.isFinite(n) && n > 0 ? Math.trunc(n) : null);
-  }
-  if (u.controlid_synced !== undefined) copyIf('controlid_synced', u.controlid_synced === true);
-  if (u.controlid_sync_error !== undefined) {
-    const err = String(u.controlid_sync_error || '').trim().slice(0, 256);
-    copyIf('controlid_sync_error', err || null);
-  }
-  if (u.plan_billing !== undefined) {
-    copyIf('plan_billing', String(u.plan_billing || '').trim().slice(0, 16) || null);
-  }
-  if (u.freeze_start !== undefined) copyIf('freeze_start', u.freeze_start || null);
-  if (u.freeze_end !== undefined) copyIf('freeze_end', u.freeze_end || null);
-  if (u.freeze_status !== undefined) {
-    const st = String(u.freeze_status || '').trim().slice(0, 16);
-    copyIf('freeze_status', st || null);
-  }
-  if (u.freeze_days_used !== undefined) {
-    const n = Number(u.freeze_days_used);
-    copyIf('freeze_days_used', Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0);
-  }
-  if (u.freeze_quota_year !== undefined) {
-    copyIf('freeze_quota_year', String(u.freeze_quota_year || '').trim().slice(0, 16) || null);
-  }
-  if (u.photo_url !== undefined) {
-    const url = String(u.photo_url || '').trim().slice(0, 512);
-    copyIf('photo_url', url || null);
-  }
 
   const nowIso = new Date().toISOString();
   if (typeof u.status !== 'undefined' && u.status !== currentLead.status) {
@@ -258,6 +189,7 @@ export const useLeadStore = create(
         financeConfig: null,
         financeConfigAcademyId: null,
       });
+      void import('./useStudentStore.js').then((m) => m.useStudentStore.getState().resetForAcademyChange());
       // Notificar store de contabilidade (se existir)
       if (typeof window !== 'undefined' && window.useAccountingStore?.getState()?.loadByAcademy) {
         window.useAccountingStore.getState().loadByAcademy(id);
@@ -276,6 +208,7 @@ export const useLeadStore = create(
          financeConfig: null,
          financeConfigAcademyId: null,
        });
+      void import('./useStudentStore.js').then((m) => m.useStudentStore.getState().resetForAcademyChange());
     }
   },
   setBillingAccess: (v) => set({ billingAccess: v && typeof v === 'object' ? v : null }),
@@ -434,19 +367,9 @@ export const useLeadStore = create(
         custom_answers_json: JSON.stringify(lead.customAnswers || {}),
         birth_date: String(lead.birthDate || '').slice(0, 10),
         ...(lead.sexo ? { sexo: String(lead.sexo).trim().slice(0, 16) } : {}),
-        ...(lead.turma && LEAD_TURMA_APPWRITE_KEY
-          ? { [LEAD_TURMA_APPWRITE_KEY]: String(lead.turma).trim().slice(0, 64) }
-          : {}),
-        enrollmentDate:
-          String(lead.enrollmentDate || '').trim().slice(0, 10) || new Date().toISOString().slice(0, 10),
-        plan: String(lead.plan || '').trim(),
         pipeline_stage: lead.pipelineStage || 'Novo',
         pipeline_stage_changed_at: nowIso,
         status_changed_at: nowIso,
-        student_status:
-          lead.contact_type === 'student' || lead.status === LEAD_STATUS.CONVERTED
-            ? String(lead.studentStatus || 'active').trim() || 'active'
-            : 'active',
       };
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
@@ -486,10 +409,6 @@ export const useLeadStore = create(
         id: doc.$id,
         ...lead,
         pipelineStage: lead.pipelineStage || 'Novo',
-        studentStatus:
-          lead.contact_type === 'student' || lead.status === LEAD_STATUS.CONVERTED
-            ? String(lead.studentStatus || 'active').trim() || 'active'
-            : 'active',
         notes: [],
         createdAt: doc.$createdAt,
         pipelineStageChangedAt: nowIso,
@@ -538,12 +457,6 @@ export const useLeadStore = create(
       }
 
       const normalizedUpdates = { ...updates };
-      if (
-        normalizedUpdates.status === LEAD_STATUS.CONVERTED &&
-        String(normalizedUpdates.contact_type || '').trim() !== 'student'
-      ) {
-        normalizedUpdates.contact_type = 'student';
-      }
       if (Array.isArray(normalizedUpdates.label_ids)) {
         normalizedUpdates.labelIds = [...normalizedUpdates.label_ids];
       }
@@ -616,7 +529,6 @@ export const useLeadStore = create(
     for (const lead of leadsArray) {
       try {
         const nowIso = new Date().toISOString();
-        const contactType = String(lead.contact_type || '').trim() || 'lead';
         const phone = lead.phone || '';
         const name = lead.name || '';
 
@@ -634,7 +546,6 @@ export const useLeadStore = create(
             name: lead.name,
             phone: lead.phone || '',
             type: lead.type || 'Adulto',
-            contact_type: contactType,
             origin: lead.origin || 'Planilha',
             status: lead.status || LEAD_STATUS.NEW,
             scheduledDate: lead.scheduledDate || '',
@@ -650,12 +561,7 @@ export const useLeadStore = create(
             birth_date: String(lead.birthDate || '').slice(0, 10),
             is_first_experience: lead.isFirstExperience || 'Sim',
             belt: lead.belt || '',
-            plan: String(lead.plan || '').trim(),
             custom_answers_json: JSON.stringify(lead.customAnswers || {}),
-            student_status:
-              contactType === 'student' || lead.status === LEAD_STATUS.CONVERTED
-                ? String(lead.studentStatus || 'active').trim() || 'active'
-                : 'active',
           };
         const doc = await databases.createDocument(
           DB_ID,
@@ -683,7 +589,6 @@ export const useLeadStore = create(
         newLeads.push({
           id: doc.$id,
           ...lead,
-          contact_type: contactType,
           pipelineStage: lead.pipelineStage || 'Novo',
           notes: [],
           createdAt: doc.$createdAt,

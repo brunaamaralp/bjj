@@ -25,6 +25,9 @@ const PROJECT_ID =
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const SUBS_COL = process.env.APPWRITE_BILLING_SUBSCRIPTIONS_COLLECTION_ID || process.env.APPWRITE_BILLING_SUBSCRIPTIONS_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const STUDENTS_COL =
+  process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || process.env.APPWRITE_STUDENTS_COLLECTION_ID || '';
+const PEOPLE_COL = STUDENTS_COL || LEADS_COL;
 const TASKS_COL = process.env.APPWRITE_TASKS_COLLECTION_ID || process.env.VITE_APPWRITE_TASKS_COLLECTION_ID || '';
 const NOTE_NOTIFICATIONS_COL = process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || '';
 
@@ -384,7 +387,7 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const ACADEMIES_COL =
       process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
-    const out = await runPlanFreezeCron(databases, DB_ID, LEADS_COL, ACADEMIES_COL);
+    const out = await runPlanFreezeCron(databases, DB_ID, PEOPLE_COL, ACADEMIES_COL);
     return res.status(200).json({ mode: 'plan-freeze', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;

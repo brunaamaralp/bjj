@@ -29,6 +29,9 @@ const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJE
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const STUDENTS_COL =
+  process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || process.env.APPWRITE_STUDENTS_COLLECTION_ID || '';
+const PEOPLE_COL = STUDENTS_COL || LEADS_COL;
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const ATTENDANCE_COL =
   process.env.APPWRITE_ATTENDANCE_COLLECTION_ID ||
@@ -117,15 +120,15 @@ async function listAllAcademyIds() {
   return out;
 }
 
-async function listLeadsForAcademy(academyId) {
+async function listStudentsForAcademy(academyId) {
   const out = [];
   let cursor = null;
   const aid = String(academyId || '').trim();
-  if (!aid) return out;
+  if (!aid || !PEOPLE_COL) return out;
   for (;;) {
     const q = [Query.equal('academyId', [aid]), Query.limit(100)];
     if (cursor) q.push(Query.cursorAfter(cursor));
-    const res = await databases.listDocuments(DB_ID, LEADS_COL, q);
+    const res = await databases.listDocuments(DB_ID, PEOPLE_COL, q);
     out.push(...(res.documents || []));
     if (!res.documents || res.documents.length < 100) break;
     cursor = res.documents[res.documents.length - 1].$id;
@@ -166,7 +169,7 @@ async function runBirthdayCron() {
 
     let leads;
     try {
-      leads = await listLeadsForAcademy(academy.$id);
+      leads = await listStudentsForAcademy(academy.$id);
     } catch (e) {
       errors += 1;
       details.push({ academyId: academy.$id, erro: e?.message || 'list_leads' });
@@ -174,7 +177,7 @@ async function runBirthdayCron() {
     }
 
     for (const doc of leads) {
-      if (String(doc?.status || '').trim() !== STATUS_MATRICULADO) continue;
+      if (!STUDENTS_COL && String(doc?.status || '').trim() !== STATUS_MATRICULADO) continue;
 
       const birthYmd = extractBirthYmdFromLeadDoc(doc);
       if (!birthYmdMatchesToday(birthYmd, monthStr, dayStr)) continue;
@@ -206,7 +209,7 @@ async function runBirthdayCron() {
 
       sent += 1;
       try {
-        await databases.updateDocument(DB_ID, LEADS_COL, doc.$id, { last_birthday_sent: monthDay });
+        await databases.updateDocument(DB_ID, PEOPLE_COL, doc.$id, { last_birthday_sent: monthDay });
       } catch (e) {
         console.warn('[cron-aniversario] enviado mas falhou last_birthday_sent', doc.$id, e?.message);
       }
@@ -389,7 +392,7 @@ async function handleAttendancePost(req, res, academyId) {
 
   let students = [];
   try {
-    const result = await databases.listDocuments(DB_ID, LEADS_COL, [
+    const result = await databases.listDocuments(DB_ID, PEOPLE_COL, [
       Query.equal('academyId', academyId),
       Query.limit(1000),
     ]);

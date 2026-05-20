@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, X, Check, AlertCircle } from 'lucide-react';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
-import { normalizeImportedPlanName } from '../../lib/academyPlans.js';
+import { normalizeImportedPlanName } from '../lib/academyPlans.js';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from './shared/EmptyState.jsx';
 

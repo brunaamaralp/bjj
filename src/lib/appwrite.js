@@ -18,6 +18,8 @@ const realtime = new Realtime(client);
 // IDs para as collections e banco (necessários para o funcionamento do CRM)
 export const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "699f06a6001a11c21825";
 export const LEADS_COL = import.meta.env.VITE_APPWRITE_LEADS_COLLECTION_ID || "699f10500032d0fd5b80";
+/** Alunos matriculados (coleção separada do funil). */
+export const STUDENTS_COL = import.meta.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || "";
 /** Collection lead_events (timeline). Opcional até configurar no Appwrite. */
 export const LEAD_EVENTS_COL = import.meta.env.VITE_APPWRITE_LEAD_EVENTS_COLLECTION_ID || "";
 export const ACADEMIES_COL = import.meta.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "699f1068000e1b1ca1d2";
@@ -63,6 +65,7 @@ if (endpointFallback) {
 }
 console.log('   - Database:', DB_ID);
 console.log('   - Leads Col:', LEADS_COL);
+console.log('   - Students Col:', STUDENTS_COL || '(unset)');
 console.log('   - Academies Col:', ACADEMIES_COL);
 console.log('   - Stock Items Col:', STOCK_ITEMS_COL || '(unset)');
 console.log('   - Fn Inventory Move:', INVENTORY_MOVE_FN_ID || '(unset)');

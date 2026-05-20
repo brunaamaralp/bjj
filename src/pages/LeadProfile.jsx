@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
@@ -138,6 +139,13 @@ const LeadProfile = () => {
     const navigate = useNavigate();
     const lead = useLeadStore((s) => s.leads.find((l) => l.id === id));
     const loading = useLeadStore((s) => s.loading);
+    const studentsLoading = useStudentStore((s) => s.loading);
+
+    useEffect(() => {
+        if (loading || studentsLoading || lead) return;
+        const student = useStudentStore.getState().getStudentById(id);
+        if (student) navigate(`/students/${id}`, { replace: true });
+    }, [loading, studentsLoading, lead, id, navigate]);
     const updateLead = useLeadStore((s) => s.updateLead);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const addToast = useUiStore((s) => s.addToast);

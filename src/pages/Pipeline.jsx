@@ -367,10 +367,8 @@ const leadMatchesProfileFilter = (lead, profileFilter) => {
 
 const leadMatchesContactType = (lead) => {
     if (isInactiveStudent(lead)) return false;
-    const contactType = String(lead?.contact_type || '').trim();
-    if (!contactType || contactType === 'lead') return true;
-    if (contactType === 'student' && lead?.status === LEAD_STATUS.CONVERTED) return true;
-    return false;
+    if (lead?.status === LEAD_STATUS.CONVERTED) return false;
+    return true;
 };
 
 const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Planilha';

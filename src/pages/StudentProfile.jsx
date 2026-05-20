@@ -29,6 +29,7 @@ import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
@@ -244,16 +245,16 @@ export default function StudentProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const student = useLeadStore((s) => s.leads.find((l) => l.id === id));
-    const loading = useLeadStore((s) => s.loading);
+    const student = useStudentStore((s) => s.students.find((l) => l.id === id));
+    const loading = useStudentStore((s) => s.loading);
     const academyId = useLeadStore((s) => s.academyId);
     const modules = useLeadStore((s) => s.modules);
     const financeConfig = useLeadStore((s) => s.financeConfig);
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
-    const deleteLead = useLeadStore((s) => s.deleteLead);
-    const updateLead = useLeadStore((s) => s.updateLead);
+    const deleteStudent = useStudentStore((s) => s.deleteStudent);
+    const updateStudent = useStudentStore((s) => s.updateStudent);
     const controlIdCfg = useAcademyControlId(academyId);
     const uiLabels = useLeadStore((s) => s.labels);
     const addToast = useUiStore((s) => s.addToast);
@@ -267,7 +268,7 @@ export default function StudentProfile() {
     const handleLabelsChange = async (newIds) => {
         if (!id) return;
         try {
-            await updateLead(id, { label_ids: newIds });
+            await updateStudent(id, { label_ids: newIds });
             addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -593,7 +594,7 @@ export default function StudentProfile() {
                     reason,
                     userId,
                     teamId: acad.teamId,
-                    updateLead,
+                    updateStudent,
                     academySettingsRaw: academySettingsDoc,
                     financeConfig,
                 });
@@ -610,7 +611,7 @@ export default function StudentProfile() {
                 setFreezeBusy(false);
             }
         },
-        [student, leadId, academyId, academyList, userId, updateLead, academySettingsDoc, financeConfig, addToast, loadPayments]
+        [student, leadId, academyId, academyList, userId, updateStudent, academySettingsDoc, financeConfig, addToast, loadPayments]
     );
 
     const handleEndFreezeEarly = useCallback(async () => {
@@ -624,7 +625,7 @@ export default function StudentProfile() {
                 academyId,
                 userId,
                 teamId: acad.teamId,
-                updateLead,
+                updateStudent,
                 academySettingsRaw: academySettingsDoc,
                 early: true,
                 payments,
@@ -636,7 +637,7 @@ export default function StudentProfile() {
         } finally {
             setEndFreezeBusy(false);
         }
-    }, [student, leadId, academyId, academyList, userId, updateLead, academySettingsDoc, payments, addToast, loadPayments]);
+    }, [student, leadId, academyId, academyList, userId, updateStudent, academySettingsDoc, payments, addToast, loadPayments]);
 
     const academyNameDisplay = useMemo(() => {
         const cur = (academyList || []).find((a) => a.id === academyId);
@@ -876,7 +877,7 @@ export default function StudentProfile() {
                 return;
             }
 
-            await updateLead(leadId, {
+            await updateStudent(leadId, {
                 name,
                 type: dataForm.type || 'Adulto',
                 turma: turmaValueFromForm(dataForm.turmaSelect, dataForm.turmaOther),
@@ -901,7 +902,7 @@ export default function StudentProfile() {
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, dataForm, updateLead, addToast, financeConfig]);
+    }, [student, savingData, leadId, dataForm, updateStudent, addToast, financeConfig]);
 
     const sendTemplateKey = async (key) => {
         if (sendingWhatsapp || !student) return;
@@ -928,7 +929,7 @@ export default function StudentProfile() {
                     createdBy: userId || 'user',
                     permissionContext: permCtx,
                 });
-                await updateLead(leadId, { lastWhatsappActivityAt: new Date().toISOString() });
+                await updateStudent(leadId, { lastWhatsappActivityAt: new Date().toISOString() });
             } catch (err) {
                 console.error('Erro ao registrar evento WhatsApp', err);
             }
@@ -951,7 +952,7 @@ export default function StudentProfile() {
                 createdBy: userId || 'user',
                 permissionContext: permCtx,
             });
-            await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
+            await updateStudent(leadId, { lastNoteAt: new Date().toISOString() });
             setNote('');
             addToast({ type: 'success', message: 'Nota adicionada.' });
         } catch (e) {
@@ -965,7 +966,7 @@ export default function StudentProfile() {
         if (deleteBusy) return;
         setDeleteBusy(true);
         try {
-            await deleteLead(leadId);
+            await deleteStudent(leadId);
             addToast({ type: 'success', message: `${terms.student} excluído com sucesso.` });
             setConfirmDeleteOpen(false);
             navigate('/students');
@@ -993,7 +994,7 @@ export default function StudentProfile() {
                 exitReason,
                 exitDate,
                 exitNotes,
-                updateLead,
+                updateStudent,
                 academySettingsRaw: academyDoc?.settings,
             });
             setDeactivateOpen(false);
@@ -1019,7 +1020,7 @@ export default function StudentProfile() {
                 academyId,
                 userId,
                 permCtx,
-                updateLead,
+                updateStudent,
             });
             addToast({ type: 'success', message: `${terms.student} reativado com sucesso.` });
             void refreshTimeline();
@@ -1885,7 +1886,7 @@ export default function StudentProfile() {
                         photoUrl={student.photo_url}
                         controlidSynced={student.controlid_synced}
                         onPhotoSaved={(url) => {
-                            void updateLead(id, { photo_url: url });
+                            void updateStudent(id, { photo_url: url });
                         }}
                     />
                 )}

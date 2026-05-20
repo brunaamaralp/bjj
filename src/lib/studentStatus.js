@@ -13,6 +13,7 @@ export function normalizeStudentStatus(raw) {
 
 export function isStudentRecord(lead) {
   if (!lead) return false;
+  if (lead._isStudent === true) return true;
   return (
     String(lead?.status || '').trim() === 'Matriculado' ||
     String(lead?.contact_type || '').trim() === 'student'

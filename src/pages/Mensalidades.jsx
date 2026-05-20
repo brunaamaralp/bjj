@@ -19,7 +19,8 @@ import { expectedAmountForStudent } from '../lib/paymentStatus.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { useTerms } from '../lib/terminology.js';
-import { isStudentRecord, isActiveStudent } from '../lib/studentStatus.js';
+import { isActiveStudent } from '../lib/studentStatus.js';
+import { useStudentStore } from '../store/useStudentStore';
 import {
   parseOverdueLabel,
   resolveCollectionStage,
@@ -144,12 +145,12 @@ function formatMonthTitleCapitalized(ym) {
 }
 
 export default function Mensalidades() {
-  const leads = useLeadStore((s) => s.leads);
+  const allStudents = useStudentStore((s) => s.students);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const storeTeamId = useLeadStore((s) => s.teamId);
   const userId = useLeadStore((s) => s.userId);
-  const updateLead = useLeadStore((s) => s.updateLead);
+  const updateStudent = useStudentStore((s) => s.updateStudent);
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const financeConfigAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
   const modules = useLeadStore((s) => s.modules);
@@ -200,8 +201,8 @@ export default function Mensalidades() {
   }, [academyList, academyId, storeTeamId]);
 
   const students = useMemo(
-    () => leads.filter((l) => isStudentRecord(l) && isActiveStudent(l)),
-    [leads]
+    () => allStudents.filter((l) => isActiveStudent(l)),
+    [allStudents]
   );
 
   const isCurrentMonth = currentMonth === new Date().toISOString().slice(0, 7);
@@ -643,13 +644,13 @@ export default function Mensalidades() {
         note: payForm.note || '',
       });
       if (payForm.saveAsPreferred) {
-        await updateLead(student.id, {
+        await updateStudent(student.id, {
           preferredPaymentMethod: payForm.method,
           preferredPaymentAccount: payForm.account || '',
           dueDay: dueDayValid ? dueDayNum : null,
         });
       } else if (dueDayValid || String(student?.dueDay || '').trim()) {
-        await updateLead(student.id, { dueDay: dueDayValid ? dueDayNum : null });
+        await updateStudent(student.id, { dueDay: dueDayValid ? dueDayNum : null });
       }
       setPayments((prev) => [
         ...(prev || []).filter(

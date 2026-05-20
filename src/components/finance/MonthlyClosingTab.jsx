@@ -5,6 +5,7 @@ import { databases, DB_ID, FINANCIAL_TX_COL } from '../../lib/appwrite';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { buildClientDocumentPermissions } from '../../lib/clientDocumentPermissions.js';
 import { useLeadStore } from '../../store/useLeadStore';
+import { useStudentStore } from '../../store/useStudentStore';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
@@ -52,7 +53,7 @@ function currentYm() {
 }
 
 export default function MonthlyClosingTab({ academyId, academyName, financeConfig, modules }) {
-  const leads = useLeadStore((s) => s.leads);
+  const leads = useStudentStore((s) => s.students);
   const userId = useLeadStore((s) => s.userId);
   const teamId = useLeadStore((s) => s.teamId);
   const addToast = useUiStore((s) => s.addToast);

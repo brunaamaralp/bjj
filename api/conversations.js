@@ -17,6 +17,8 @@ const CONVERSATIONS_COL =
   process.env.APPWRITE_CONVERSATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID || '';
 const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const STUDENTS_COL =
+  process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || process.env.APPWRITE_STUDENTS_COLLECTION_ID || '';
 const NOTE_NOTIFICATIONS_COL = process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || '';
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
@@ -382,13 +384,25 @@ export default async function handler(req, res) {
     if (action === 'link_lead') {
       const leadId = String(body.lead_id || '').trim();
       if (!leadId) return json(res, 400, { sucesso: false, erro: 'lead_id ausente' });
-      if (!LEADS_COL) return json(res, 500, { sucesso: false, erro: 'LEADS_COL não configurado' });
+      if (!LEADS_COL && !STUDENTS_COL) {
+        return json(res, 500, { sucesso: false, erro: 'Coleção de contatos não configurada' });
+      }
       if (!doc) {
         doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
       }
       if (!doc) return json(res, 500, { sucesso: false, erro: 'Não foi possível abrir conversa' });
 
-      const lead = await databases.getDocument(DB_ID, LEADS_COL, leadId);
+      let lead = null;
+      if (STUDENTS_COL) {
+        try {
+          lead = await databases.getDocument(DB_ID, STUDENTS_COL, leadId);
+        } catch {
+          /* fallback */
+        }
+      }
+      if (!lead && LEADS_COL) {
+        lead = await databases.getDocument(DB_ID, LEADS_COL, leadId);
+      }
       const leadAcademy = String(lead?.academyId || lead?.academy_id || '').trim();
       if (leadAcademy && leadAcademy !== academyId) {
         return json(res, 403, { sucesso: false, erro: 'Lead de outra academia' });
