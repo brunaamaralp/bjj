@@ -14,6 +14,7 @@ These defaults are optimized for AI coding agents (and humans) working on apps t
 - Tune Fluid Compute knobs (e.g., `maxDuration`, memory/CPU) for long I/O-heavy calls (LLMs, APIs)
 - Use Runtime Cache for fast **regional** caching + tag invalidation (don't treat it as global KV)
 - Use Cron Jobs for schedules; cron runs in UTC and triggers your production URL via HTTP GET
+- **Vercel Hobby: máximo 12 Serverless Functions** em `/api/` — não criar arquivos `api/*.js` novos sem consolidar via `?route=` / `?hub=` em handlers existentes (`leads.js`, `finance.js`, `agent.js`, `reports.js`, `cron/reset-usage.js`, etc.)
 - Use Vercel Blob for uploads/media; Use Edge Config for small, globally-read config
 - If Enable Deployment Protection is enabled, use a bypass secret to directly access them
 - Add OpenTelemetry via `@vercel/otel` on Node; don't expect OTEL support on the Edge runtime

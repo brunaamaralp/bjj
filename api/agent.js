@@ -10,6 +10,7 @@ import settleFinanceTxHandler from '../lib/server/settleFinanceTxHandler.js';
 import cancelFinanceTxHandler from '../lib/server/cancelFinanceTxHandler.js';
 import academyCreateHandler from '../lib/server/academiesCreate.js';
 import teamMembersHandler from '../lib/server/teamMembers.js';
+import academyWhatsappTemplatesHandler from '../lib/server/academyWhatsappTemplatesHandler.js';
 
 export default async function handler(req, res) {
   try {
@@ -29,6 +30,9 @@ export default async function handler(req, res) {
     if (route === 'cancel-finance-tx') return cancelFinanceTxHandler(req, res);
     if (route === 'academy-create') return academyCreateHandler(req, res);
     if (route === 'team-members') return teamMembersHandler(req, res);
+    if (route === 'whatsapp-templates' || url.includes('/whatsapp-templates')) {
+      return academyWhatsappTemplatesHandler(req, res);
+    }
     return res.status(404).json({ error: 'invalid_agent_action' });
   } catch (error) {
     console.error('[api/agent] Unhandled error:', error);

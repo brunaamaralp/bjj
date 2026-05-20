@@ -2,6 +2,7 @@ import { Client, Databases, Query } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { aggregateLeadsReport } from '../lib/server/reportsAggregate.js';
 import { loadReportSnapshot, saveReportSnapshot } from '../lib/server/reportSnapshots.js';
+import reportsLightHandler from '../lib/server/reportsLightHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -42,6 +43,11 @@ async function fetchAllLeads(queries, signal) {
 }
 
 export default async function handler(req, res) {
+  const route = String(req.query.route || '').trim();
+  if (route === 'light') {
+    return reportsLightHandler(req, res);
+  }
+
   if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });
 
   const started = Date.now();
