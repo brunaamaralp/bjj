@@ -4,8 +4,9 @@ import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import ContractsPageContent from '../components/contracts/ContractsPageContent';
 import RouteFallback from '../components/shared/RouteFallback';
+import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 
-const ContractTemplatesPage = React.lazy(() => import('../components/contracts/ContractTemplatesPage'));
+const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
 
 const TABS = new Set(['lista', 'modelos']);
 

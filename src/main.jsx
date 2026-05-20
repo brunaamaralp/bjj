@@ -20,14 +20,18 @@ clearChunkReloadFlag();
 installChunkLoadRecovery();
 
 const updateSW = registerSW({
+  immediate: true,
   onNeedRefresh() {
-    // Nova versão: ativa SW e recarrega para pegar index + chunks atuais.
-    void updateSW(true).then(() => {
-      window.location.reload();
-    });
+    void updateSW(true).then(() => window.location.reload());
   },
   onOfflineReady() {
     console.log('Nave pronto para uso.');
+  },
+  onRegisteredSW(_swUrl, registration) {
+    registration?.update?.().catch(() => {});
+    window.setInterval(() => {
+      registration?.update?.().catch(() => {});
+    }, 60 * 60 * 1000);
   },
 });
 

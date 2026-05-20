@@ -34,7 +34,28 @@ export default defineConfig(({ mode }) => {
           skipWaiting: true,
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
+          // Não precachear JS/CSS hashed — evita servir chunks de deploys antigos via SW.
+          globPatterns: ['**/*.{html,ico,png,svg,webp,webmanifest,woff2,woff,ttf}'],
+          globIgnores: ['**/assets/**'],
           runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'assets',
+                networkTimeoutSeconds: 8,
+                expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 },
+              },
+            },
+            {
+              urlPattern: ({ request }) => request.mode === 'navigate',
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'pages',
+                networkTimeoutSeconds: 5,
+                expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
               handler: 'CacheFirst',

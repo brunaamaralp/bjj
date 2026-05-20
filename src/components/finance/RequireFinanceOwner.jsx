@@ -4,7 +4,9 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useUserRole } from '../../lib/useUserRole';
 import RouteFallback from '../shared/RouteFallback.jsx';
 
-const Finance = React.lazy(() => import('../../pages/Finance'));
+import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
+
+const Finance = lazyWithRetry(() => import('../../pages/Finance'));
 
 /** Legado: redireciona para /caixa (abas owner ficam no hub Caixa). */
 export default function RequireFinanceOwner() {
