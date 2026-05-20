@@ -167,10 +167,13 @@ const Students = () => {
     }, [students, debouncedSearch, serverSearchActive, filtroTipo, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
 
     const shouldVirtualizeStudents = filteredStudents.length > 50;
+    const studentCardGap = 12;
+    const studentCardEstimate = 100;
     const studentVirtualizer = useVirtualizer({
         count: shouldVirtualizeStudents ? filteredStudents.length : 0,
         getScrollElement: () => listScrollRef.current,
-        estimateSize: () => 88,
+        estimateSize: () => studentCardEstimate,
+        gap: studentCardGap,
         overscan: 8,
     });
 
@@ -418,11 +421,7 @@ const Students = () => {
             controlIdEnabled={controlIdCfg.enabled}
             studentSingular={studentSingular}
             onOpenProfile={openProfile}
-            style={
-                shouldVirtualizeStudents
-                    ? { marginBottom: 8 }
-                    : { animationDelay: `${0.03 * animIndex}s` }
-            }
+            style={shouldVirtualizeStudents ? undefined : { animationDelay: `${0.03 * animIndex}s` }}
         />
     );
 
@@ -436,7 +435,7 @@ const Students = () => {
     );
 
     return (
-        <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
+        <div className="container students-page">
             <header className="animate-in">
                 <h1 className="navi-page-title">{studentLabel}</h1>
                 <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
@@ -649,42 +648,7 @@ const Students = () => {
                 </div>
             ) : null}
 
-            <div
-                className="students-split-wrap"
-                style={{
-                    display: 'flex',
-                    gap: 0,
-                    minHeight: 'min(70vh, calc(100vh - 220px))',
-                    alignItems: 'stretch',
-                }}
-            >
-            <div
-                style={{
-                    flex: 1,
-                    transition: 'flex 0.2s ease',
-                    overflowY: 'auto',
-                    minWidth: 0,
-                }}
-            >
-
-            {studentsHasMore ? (
-                <div className="mt-3 animate-in">
-                    <button
-                        type="button"
-                        className="students-load-more"
-                        onClick={handleLoadMore}
-                        disabled={loadingMore || studentsLoading}
-                    >
-                        {loadingMore ? 'Carregando…' : `Carregar mais ${studentPlural.toLowerCase()}`}
-                    </button>
-                    <p className="text-xs text-light mt-1">
-                        {terms.studentsLoadMoreFootnote
-                            .replace(/\{students\}/g, studentPlural.toLowerCase())
-                            .replace(/\{pipeline\}/g, pipelineName)}
-                    </p>
-                </div>
-            ) : null}
-
+            <div className="students-page-body">
             {(() => {
                 const hoje = new Date();
                 const mesHoje = String(hoje.getMonth() + 1).padStart(2, '0');
@@ -746,11 +710,8 @@ const Students = () => {
                 );
             })()}
 
-            <div
-                className="flex-col gap-2 mt-4"
-                ref={listScrollRef}
-                style={shouldVirtualizeStudents ? { maxHeight: 'calc(100vh - 260px)', overflow: 'auto' } : undefined}
-            >
+            <div className="students-list-scroll" ref={listScrollRef}>
+                <div className={shouldVirtualizeStudents ? 'students-list-virtual' : 'students-list'}>
                 {studentsLoading && students.length === 0 ? (
                     <div className="students-skeleton-list mt-4" role="status" aria-live="polite" aria-busy="true">
                         {[1, 2, 3].map((i) => (
@@ -791,17 +752,19 @@ const Students = () => {
                         />
                     </div>
                 ) : shouldVirtualizeStudents ? (
-                    <div style={{ height: studentVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+                    <div
+                        className="students-list-virtual-inner"
+                        style={{ height: studentVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}
+                    >
                         {studentVirtualizer.getVirtualItems().map((vi) => {
                             const student = filteredStudents[vi.index];
                             return (
                                 <div
                                     key={student.id}
+                                    data-index={vi.index}
+                                    ref={studentVirtualizer.measureElement}
+                                    className="students-list-virtual-row"
                                     style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
                                         transform: `translateY(${vi.start}px)`,
                                     }}
                                 >
@@ -815,9 +778,27 @@ const Students = () => {
                         <React.Fragment key={student.id}>{renderStudentCard(student, i)}</React.Fragment>
                     ))
                 )}
+                </div>
             </div>
 
-            </div>
+            {studentsHasMore ? (
+                <div className="students-load-more-wrap animate-in">
+                    <button
+                        type="button"
+                        className="students-load-more"
+                        onClick={handleLoadMore}
+                        disabled={loadingMore || studentsLoading}
+                    >
+                        {loadingMore ? 'Carregando…' : `Carregar mais ${studentPlural.toLowerCase()}`}
+                    </button>
+                    <p className="text-xs text-light mt-1">
+                        {terms.studentsLoadMoreFootnote
+                            .replace(/\{students\}/g, studentPlural.toLowerCase())
+                            .replace(/\{pipeline\}/g, pipelineName)}
+                    </p>
+                </div>
+            ) : null}
+
             </div>
 
             <ImportSheet
@@ -1130,10 +1111,63 @@ const Students = () => {
           border-color: rgba(255,255,255,0.35);
           color: #fff;
         }
+        .students-page {
+          padding-top: 20px;
+          padding-bottom: 16px;
+          flex: 1 1 0%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .students-page-body {
+          flex: 1 1 0%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          margin-top: 8px;
+        }
+        .students-list-scroll {
+          flex: 1 1 0%;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+        }
+        .students-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 4px 2px 12px;
+        }
+        .students-list-virtual {
+          min-height: 100%;
+          padding: 4px 2px 12px;
+        }
+        .students-list-virtual-inner {
+          width: 100%;
+        }
+        .students-list-virtual-row {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .students-load-more-wrap {
+          flex-shrink: 0;
+          margin-top: 12px;
+          padding-bottom: 4px;
+        }
+        .students-skeleton-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
         .student-card { 
           padding: 16px 16px; 
           border-left: 4px solid var(--purple); 
           transition: var(--transition);
+          margin: 0;
         }
         .student-card:hover { box-shadow: var(--shadow); }
         .student-profile-chevron {
