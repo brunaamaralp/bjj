@@ -50,8 +50,8 @@ import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
-import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
-import { parseStudentFreezeReasons } from '../lib/studentFreezeConfig.js';
+import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
+import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
 import {
@@ -694,14 +694,14 @@ export default function StudentProfile() {
                     zapster: String(doc?.zapster_instance_id || '').trim(),
                     templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed },
                 });
-                setExitReasons(parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons));
-                setFreezeReasons(parseStudentFreezeReasons(doc.student_freeze_reasons ?? doc.studentFreezeReasons));
+                setExitReasons(readStudentExitReasonsFromAcademyDoc(doc));
+                setFreezeReasons(readStudentFreezeReasonsFromAcademyDoc(doc));
                 setAcademySettingsDoc(doc);
             })
             .catch(() => {
                 setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
-                setExitReasons(parseStudentExitReasons(null));
-                setFreezeReasons(parseStudentFreezeReasons(null));
+                setExitReasons(readStudentExitReasonsFromAcademyDoc(null));
+                setFreezeReasons(readStudentFreezeReasonsFromAcademyDoc(null));
                 setAcademySettingsDoc(null);
             });
     }, [academyId]);

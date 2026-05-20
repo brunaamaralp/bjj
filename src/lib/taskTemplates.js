@@ -29,13 +29,13 @@ export const DEFAULT_STUDENT_EXIT_TEMPLATE = {
 };
 
 export const DEFAULT_ENROLLMENT_TEMPLATE = {
-  name: 'Boas-vindas ao novo aluno',
+  name: 'Onboarding — novo aluno (matrícula)',
   trigger: TASK_TEMPLATE_TRIGGERS.ENROLLMENT,
   tasks: [
-    { title: 'Enviar mensagem de boas-vindas', offset_days: 0, notes: '', order: 0 },
+    { title: 'Boas-vindas e orientação inicial', offset_days: 0, notes: '', order: 0 },
     { title: 'Adicionar ao grupo de comunicação', offset_days: 0, notes: '', order: 1 },
-    { title: 'Confirmar recebimento de materiais obrigatórios', offset_days: 1, notes: '', order: 2 },
-    { title: 'Check-in de adaptação', offset_days: 30, notes: '', order: 3 },
+    { title: 'Confirmar materiais / kimono entregues', offset_days: 1, notes: '', order: 2 },
+    { title: 'Check-in de adaptação (30 dias)', offset_days: 30, notes: '', order: 3 },
   ],
 };
 

@@ -18,8 +18,12 @@ Coleções (Collections)
   - Índices: academyId, student_status, phone, name
   - FKs em outras coleções continuam como `lead_id` (mesmo $id do documento)
 - ACADEMIES_COL (Academias)
+  - Provisionar atributos extras: `npm run provision:academy-attrs` (`settings`, `student_freeze_reasons`, `student_exit_reasons`, `onboardingChecklist`)
   - Atributos: ownerId (string), name (string), phone (string), email (string), address (string), quickTimes (array<string> ou string)
   - Índices sugeridos: equality em ownerId
+- TASK_TEMPLATES_COL (Templates de tarefas — onboarding/desligamento)
+  - Provisionar: `npm run provision:task-templates`
+  - Gatilhos: `enrollment` (matrícula), `student_exit` (desligamento), `manual`
 - STOCK_ITEMS_COL (Itens de Estoque)
   - Atributos: nome (string), descricao (string), quantidade_total (integer), quantidade_vendida (integer), quantidade_alugada (integer), current_quantity (integer), minimum_level (integer, padrão 0), unit (string), last_updated (datetime), last_checked (datetime), notes (string), academy_id (string)
   - Índices sugeridos: full‑text em nome (e opcionalmente descricao) para autocomplete; equality em academy_id

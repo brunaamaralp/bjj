@@ -1,4 +1,6 @@
-/** Motivos de saída do aluno — configuráveis por academia (documento ACADEMIES). */
+/** Motivos de desligamento — gravados em academy.settings (JSON) ou legado student_exit_reasons. */
+
+import { parseAcademySettings } from './stockSettings.js';
 
 export const DEFAULT_STUDENT_EXIT_REASONS = [
   'Cancelamento voluntário',
@@ -45,10 +47,38 @@ export function serializeStudentExitReasons(reasons) {
   );
 }
 
-export function readStudentExitReasonsFromAcademyDoc(doc) {
+export function readStudentExitReasonsFromSettings(settingsRaw) {
+  const settings = parseAcademySettings(settingsRaw);
   const raw =
-    doc?.student_exit_reasons ??
-    doc?.studentExitReasons ??
-    '';
+    settings.student_exit_reasons ??
+    settings.studentExitReasons ??
+    settings.exitReasons ??
+    null;
+  return parseStudentExitReasons(raw);
+}
+
+export function mergeExitReasonsIntoSettings(settingsRaw, reasons) {
+  const base = parseAcademySettings(settingsRaw);
+  const list = parseStudentExitReasons(
+    Array.isArray(reasons) ? reasons : reasons == null ? null : reasons
+  );
+  return {
+    ...base,
+    student_exit_reasons: list,
+  };
+}
+
+export function readStudentExitReasonsFromAcademyDoc(doc) {
+  const settings = parseAcademySettings(doc?.settings);
+  if (
+    settings.student_exit_reasons != null ||
+    settings.studentExitReasons != null ||
+    settings.exitReasons != null
+  ) {
+    return parseStudentExitReasons(
+      settings.student_exit_reasons ?? settings.studentExitReasons ?? settings.exitReasons
+    );
+  }
+  const raw = doc?.student_exit_reasons ?? doc?.studentExitReasons ?? '';
   return parseStudentExitReasons(raw);
 }

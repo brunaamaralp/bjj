@@ -3,14 +3,17 @@ import { Link } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
+import { friendlyError } from '../../lib/errorMessages';
 import { useUserRole } from '../../lib/useUserRole';
 import {
   DEFAULT_STUDENT_EXIT_REASONS,
+  mergeExitReasonsIntoSettings,
   parseStudentExitReasons,
   serializeStudentExitReasons,
 } from '../../lib/studentExitConfig.js';
 import {
   DEFAULT_STUDENT_FREEZE_REASONS,
+  mergeFreezeReasonsIntoSettings,
   parseStudentFreezeReasons,
   serializeStudentFreezeReasons,
 } from '../../lib/studentFreezeConfig.js';
@@ -160,15 +163,17 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     if (!academyId || !canEdit) return;
     setSavingReasons(true);
     try {
+      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const merged = mergeExitReasonsIntoSettings(doc.settings, list);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        student_exit_reasons: serializeStudentExitReasons(list),
+        settings: JSON.stringify(merged),
       });
       setAcademy((a) => ({ ...a, studentExitReasons: list }));
       setSavedReasonsDigest(serializeStudentExitReasons(list));
       addToast({ type: 'success', message: 'Motivos de saída salvos.' });
     } catch (e) {
       console.error('save exit reasons:', e);
-      addToast({ type: 'error', message: 'Não foi possível salvar os motivos de saída.' });
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSavingReasons(false);
     }
@@ -202,15 +207,17 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     if (!academyId || !canEdit) return;
     setSavingFreezeReasons(true);
     try {
+      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const merged = mergeFreezeReasonsIntoSettings(doc.settings, list);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        student_freeze_reasons: serializeStudentFreezeReasons(list),
+        settings: JSON.stringify(merged),
       });
       setAcademy((a) => ({ ...a, studentFreezeReasons: list }));
       setSavedFreezeReasonsDigest(serializeStudentFreezeReasons(list));
       addToast({ type: 'success', message: 'Motivos de trancamento salvos.' });
     } catch (e) {
       console.error('save freeze reasons:', e);
-      addToast({ type: 'error', message: 'Não foi possível salvar os motivos de trancamento.' });
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSavingFreezeReasons(false);
     }

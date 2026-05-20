@@ -14,7 +14,7 @@ const ERROR_MAP = {
   'Invalid document structure':
     'Dados inválidos. Verifique as informações.',
   'Unknown attribute':
-    'Campo não configurado no Appwrite. Verifique os atributos da coleção leads.',
+    'Campo não configurado no Appwrite. Execute npm run provision:academy-attrs (academias) ou provision:task-templates.',
   'Missing required attribute':
     'Preencha todos os campos obrigatórios.',
 

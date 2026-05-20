@@ -209,8 +209,8 @@ export default function TaskTemplatesSection({ academyId }) {
             <CheckSquare size={20} color="var(--v500)" /> Templates de tarefas
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 560, lineHeight: 1.45 }}>
-            Listas reutilizáveis acionadas ao desligar ou matricular aluno. Cada academia configura os
-            seus próprios passos — sem textos fixos no código.
+            Processo de onboarding (gatilho <strong>Matrícula</strong>) e checklist de desligamento. Ao
+            matricular, o sistema cria automaticamente todas as tarefas com prazos em dias.
           </p>
         </div>
         <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>

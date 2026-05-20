@@ -24,10 +24,37 @@ const ATTR_LABELS = {
   exit_date: 'Data de saída',
   emergencyContact: 'Contato de emergência',
   emergencyPhone: 'Telefone de emergência',
+  settings: 'Configurações da academia (JSON)',
+  student_freeze_reasons: 'Motivos de trancamento',
+  student_exit_reasons: 'Motivos de desligamento',
+  onboardingChecklist: 'Checklist de configuração',
+  items_json: 'Itens do template de tarefas',
+  academy_id: 'Academia',
+  trigger: 'Gatilho do template',
+};
+
+/** Atributo → { collection, provisionCommand } */
+const ATTR_PROVISION_HINTS = {
+  preferred_payment_account: { collection: 'leads', cmd: 'npm run provision:lead-payment-attrs' },
+  preferred_payment_method: { collection: 'leads', cmd: 'npm run provision:lead-payment-attrs' },
+  settings: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
+  student_freeze_reasons: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
+  student_exit_reasons: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
+  onboardingChecklist: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
+  items_json: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
+  academy_id: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
+  trigger: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
+  name: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
 };
 
 function labelForAttr(key) {
   return ATTR_LABELS[key] || key;
+}
+
+function provisionHintForAttr(key) {
+  const hint = ATTR_PROVISION_HINTS[key];
+  if (hint) return hint;
+  return { collection: 'Appwrite', cmd: 'npm run provision:academy-attrs' };
 }
 
 /**
@@ -40,7 +67,8 @@ export function describeAppwriteError(err) {
 
   const unknown = parseUnknownAttributeFromMessage(msg);
   if (unknown) {
-    return `Campo "${labelForAttr(unknown)}" (${unknown}) não existe na coleção leads do Appwrite. Execute: npm run provision:lead-payment-attrs`;
+    const { collection, cmd } = provisionHintForAttr(unknown);
+    return `Campo "${labelForAttr(unknown)}" (${unknown}) não existe na coleção ${collection}. Execute: ${cmd}`;
   }
 
   const attrM = msg.match(/Attribute\s+"([^"]+)"/i);

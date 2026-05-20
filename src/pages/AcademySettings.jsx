@@ -11,8 +11,8 @@ import StockSettingsSection from '../components/academy/StockSettingsSection.jsx
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
-import { parseStudentExitReasons } from '../lib/studentExitConfig.js';
-import { parseStudentFreezeReasons } from '../lib/studentFreezeConfig.js';
+import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
+import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { parseOffboardingChecklist } from '../lib/studentOffboarding.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
@@ -233,10 +233,8 @@ const AcademySettings = () => {
                     teamId: doc.teamId || '',
                     ownerId: String(doc.ownerId || ''),
                     customLeadQuestions: normalized.questions,
-                    studentExitReasons: parseStudentExitReasons(doc.student_exit_reasons ?? doc.studentExitReasons),
-                    studentFreezeReasons: parseStudentFreezeReasons(
-                      doc.student_freeze_reasons ?? doc.studentFreezeReasons
-                    ),
+                    studentExitReasons: readStudentExitReasonsFromAcademyDoc(doc),
+                    studentFreezeReasons: readStudentFreezeReasonsFromAcademyDoc(doc),
                     studentOffboardingChecklist: parseOffboardingChecklist(
                       doc.student_offboarding_checklist ?? doc.studentOffboardingChecklist
                     ),

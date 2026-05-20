@@ -17,6 +17,8 @@
     "migrate:lead-stage-sync": "node scripts/fix-lead-stage-sync.js",
     "migrate:kids-to-crianca": "node scripts/migrateLeadTypeKidsToCrianca.js",
     "provision:lead-payment-attrs": "node scripts/ensure-lead-payment-attrs.js",
+    "provision:academy-attrs": "node scripts/ensure-academy-attrs.mjs",
+    "provision:task-templates": "node scripts/provision-task-templates-schema.mjs",
     "provision:plan-freeze": "node --env-file=.env scripts/provision-plan-freeze-schema.mjs",
     "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
     "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",
