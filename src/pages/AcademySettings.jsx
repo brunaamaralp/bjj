@@ -4,7 +4,21 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
-import { ChevronLeft, Building2, Filter, Users, Settings, Wallet2, UserRound, CheckSquare, Package, ShoppingBag, DoorOpen } from 'lucide-react';
+import {
+    ChevronLeft,
+    ChevronRight,
+    Building2,
+    Filter,
+    Users,
+    Zap,
+    Wallet2,
+    UserRound,
+    CheckSquare,
+    Package,
+    ShoppingBag,
+    DoorOpen,
+    ShieldAlert,
+} from 'lucide-react';
 import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
@@ -13,9 +27,9 @@ import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpS
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
-import { parseOffboardingChecklist } from '../lib/studentOffboarding.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
+import AutomacoesSection from '../components/academy/AutomacoesSection';
 import EquipeSection from '../components/academy/EquipeSection';
 import AvancadoSection from '../components/academy/AvancadoSection';
 import ConfigTab from '../components/finance/ConfigTab.jsx';
@@ -28,18 +42,64 @@ import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations
 import { useTerms } from '../lib/terminology.js';
 
 const TABS_ALL = [
-    { id: 'estudio', label: 'Estúdio', Icon: Building2 },
-    { id: 'funil', label: 'Funil', Icon: Filter },
-    { id: 'alunos', label: 'Alunos', Icon: UserRound },
-    { id: 'automacoes', label: 'Automações', Icon: Settings },
-    { id: 'financeiro', label: 'Financeiro', Icon: Wallet2 },
-    { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare },
-    { id: 'estoque', label: 'Estoque', Icon: Package },
-    { id: 'vendas', label: 'Vendas', Icon: ShoppingBag },
-    { id: 'equipe', label: 'Equipe', Icon: Users },
-    { id: 'catraca', label: 'Catraca', Icon: DoorOpen },
-    { id: 'avancado', label: 'Avançado', Icon: Settings },
+    { id: 'estudio', label: 'Estúdio', Icon: Building2, subtitle: 'Dados e identidade' },
+    { id: 'funil', label: 'Funil', Icon: Filter, subtitle: 'Perguntas e etiquetas' },
+    { id: 'alunos', label: 'Alunos', Icon: UserRound, subtitle: 'Cadastro e desligamento' },
+    { id: 'automacoes', label: 'Automações', Icon: Zap, subtitle: 'Mensagens e gatilhos' },
+    { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Modelos e pós-matrícula' },
+    { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Planos, taxas e régua' },
+    { id: 'vendas', label: 'Vendas', Icon: ShoppingBag, subtitle: 'PDV e comissões' },
+    { id: 'estoque', label: 'Estoque', Icon: Package, subtitle: 'Produtos e movimentação' },
+    { id: 'equipe', label: 'Equipe', Icon: Users, subtitle: 'Membros e permissões' },
+    { id: 'catraca', label: 'Catraca', Icon: DoorOpen, subtitle: 'Integração Control iD' },
+    { id: 'avancado', label: 'Avançado', Icon: ShieldAlert, subtitle: 'Exportação e integrações' },
 ];
+
+const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
+
+const TAB_SKELETON_HEIGHT = {
+    estudio: 420,
+    funil: 480,
+    alunos: 400,
+    automacoes: 440,
+    tarefas: 460,
+    financeiro: 520,
+    vendas: 320,
+    estoque: 320,
+    equipe: 360,
+    catraca: 300,
+    avancado: 380,
+};
+
+function getTabDisabledState(tabId, { role, modules }) {
+    if (tabId === 'financeiro' && role !== 'owner') {
+        return { disabled: true, title: 'Disponível para titulares' };
+    }
+    if (tabId === 'estoque' && modules?.inventory !== true) {
+        return { disabled: true, title: 'Módulo inativo — ative em Configurações de módulos' };
+    }
+    if (tabId === 'vendas' && modules?.sales !== true) {
+        return { disabled: true, title: 'Módulo inativo — ative em Configurações de módulos' };
+    }
+    return { disabled: false, title: undefined };
+}
+
+function EmpresaTabSkeleton({ tabId }) {
+    const height = TAB_SKELETON_HEIGHT[tabId] || 400;
+    return (
+        <div
+            className="empresa-section mt-4"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            aria-label="Carregando configurações"
+        >
+            <div className="empresa-skeleton-block" style={{ height: 28, maxWidth: 200, marginBottom: 16 }} />
+            <div className="empresa-skeleton-block" style={{ height, maxWidth: '100%' }} />
+            <div className="empresa-skeleton-block" style={{ height: 44, maxWidth: 160, marginTop: 20 }} />
+        </div>
+    );
+}
 
 const AcademySettings = () => {
     const terms = useTerms();
@@ -78,7 +138,6 @@ const AcademySettings = () => {
         customLeadQuestions: [],
         studentExitReasons: [],
         studentFreezeReasons: [],
-        studentOffboardingChecklist: [],
         automationsConfigRaw: '',
         whatsappTemplates: '',
         teamId: '',
@@ -86,26 +145,35 @@ const AcademySettings = () => {
     });
     const [automationsConfig, setAutomationsConfig] = useState(() => parseAutomationsConfig(null));
     const [savingAutomations, setSavingAutomations] = useState(false);
+    const [tasksTemplatesMeta, setTasksTemplatesMeta] = useState({
+        configurado: true,
+        hasEnrollmentTemplate: false,
+    });
 
     const focus = searchParams.get('focus');
     const autoEditTax = focus === 'tax';
 
     const role = useUserRole(academy);
 
-    const TABS = useMemo(
-        () =>
-            TABS_ALL.filter((t) => {
-                if (t.id === 'financeiro' && role !== 'owner') return false;
-                if (t.id === 'estoque' && academy.modules?.inventory !== true) return false;
-                if (t.id === 'vendas' && academy.modules?.sales !== true) return false;
-                return true;
-            }),
-        [role, academy.modules?.inventory]
-    );
-    const VALID_TABS = useMemo(() => new Set(TABS.map((t) => t.id)), [TABS]);
+    const subnavScrollRef = useRef(null);
+    const tabButtonRefs = useRef({});
+    const [subnavOverflow, setSubnavOverflow] = useState({ left: false, right: false });
 
     const rawTab = searchParams.get('tab') || '';
-    const activeTab = VALID_TABS.has(rawTab) ? rawTab : 'estudio';
+    const activeTab = VALID_TAB_IDS.has(rawTab) ? rawTab : 'estudio';
+
+    const activeTabMeta = useMemo(
+        () => TABS_ALL.find((t) => t.id === activeTab) || TABS_ALL[0],
+        [activeTab]
+    );
+
+    const tabDisabledState = useMemo(
+        () => getTabDisabledState(activeTab, { role, modules: academy.modules }),
+        [activeTab, role, academy.modules]
+    );
+
+    const contentLoading =
+        Boolean(academyId) && (academyLoadState === 'loading' || academyLoadState === 'idle');
 
     const taxUpdateNeeded = Boolean(
         isBillingLive() &&
@@ -116,16 +184,51 @@ const AcademySettings = () => {
             billingAccess.companyTaxOk === false
     );
 
-    // Redirect bare /empresa to ?tab=estudio and handle ?focus=tax
+    const updateSubnavOverflow = () => {
+        const el = subnavScrollRef.current;
+        if (!el) return;
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        setSubnavOverflow({
+            left: scrollLeft > 4,
+            right: scrollLeft + clientWidth < scrollWidth - 4,
+        });
+    };
+
     useEffect(() => {
-        if (!VALID_TABS.has(rawTab)) {
+        const el = subnavScrollRef.current;
+        if (!el) return undefined;
+        updateSubnavOverflow();
+        el.addEventListener('scroll', updateSubnavOverflow, { passive: true });
+        const ro = new ResizeObserver(updateSubnavOverflow);
+        ro.observe(el);
+        return () => {
+            el.removeEventListener('scroll', updateSubnavOverflow);
+            ro.disconnect();
+        };
+    }, [role, academy.modules, academyLoadState]);
+
+    useEffect(() => {
+        const btn = tabButtonRefs.current[activeTab];
+        btn?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }, [activeTab]);
+
+    // Redirect invalid/disabled tabs and handle ?focus=tax
+    useEffect(() => {
+        if (!VALID_TAB_IDS.has(rawTab)) {
             setSearchParams({ tab: 'estudio' }, { replace: true });
             return;
+        }
+        if (academyLoadState === 'ok') {
+            const { disabled } = getTabDisabledState(rawTab, { role, modules: academy.modules });
+            if (disabled) {
+                setSearchParams({ tab: 'estudio' }, { replace: true });
+                return;
+            }
         }
         if (autoEditTax && activeTab !== 'estudio') {
             setSearchParams((prev) => { prev.set('tab', 'estudio'); return prev; }, { replace: true });
         }
-    }, [rawTab, autoEditTax, VALID_TABS, activeTab, setSearchParams]);
+    }, [rawTab, autoEditTax, activeTab, academyLoadState, role, academy.modules, setSearchParams]);
 
     useEffect(() => {
         if (autoEditTax && activeTab === 'estudio') {
@@ -235,9 +338,6 @@ const AcademySettings = () => {
                     customLeadQuestions: normalized.questions,
                     studentExitReasons: readStudentExitReasonsFromAcademyDoc(doc),
                     studentFreezeReasons: readStudentFreezeReasonsFromAcademyDoc(doc),
-                    studentOffboardingChecklist: parseOffboardingChecklist(
-                      doc.student_offboarding_checklist ?? doc.studentOffboardingChecklist
-                    ),
                 });
                 try {
                     useLeadStore.getState().setVertical(vertical);
@@ -287,7 +387,12 @@ const AcademySettings = () => {
         [templatesMap]
     );
 
-    const handleSave = async () => {
+    const noTemplatesAvailable = useMemo(() => {
+        if (templateOptions.length === 0) return true;
+        return !String(academy.whatsappTemplates || '').trim();
+    }, [academy.whatsappTemplates, templateOptions.length]);
+
+    const handleSave = async (saveOptions = {}) => {
         if (!academyId) return;
         try {
             const taxTrim = String(taxDocumentInput || '').trim();
@@ -354,7 +459,12 @@ const AcademySettings = () => {
                 console.error('[AcademySettings] erro:', e);
                 addToast({ type: 'error', message: friendlyError(e, 'save') });
             }
-            addToast({ type: 'success', message: `Configurações da ${terms.workspaceNoun} salvas.` });
+            addToast({
+                type: 'success',
+                message:
+                    saveOptions.successMessage ||
+                    `Configurações da ${terms.workspaceNoun} salvas.`,
+            });
         } catch (e) {
             if (String(e?.message) === 'tax') {
                 throw e;
@@ -366,7 +476,15 @@ const AcademySettings = () => {
     };
 
     const setActiveTab = (id) => {
+        const { disabled } = getTabDisabledState(id, { role, modules: academy.modules });
+        if (disabled) return;
         setSearchParams({ tab: id });
+    };
+
+    const scrollSubnav = (direction) => {
+        const el = subnavScrollRef.current;
+        if (!el) return;
+        el.scrollBy({ left: direction * 160, behavior: 'smooth' });
     };
 
     const saveAutomations = async () => {
@@ -393,15 +511,26 @@ const AcademySettings = () => {
         <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <div className="animate-in">
                 <Link
-                    to="/conta"
+                    to="/"
                     className="edit-link"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, textDecoration: 'none' }}
                 >
                     <ChevronLeft size={18} strokeWidth={2} aria-hidden />
-                    Voltar à conta
+                    Voltar ao painel
                 </Link>
-                <h2 className="navi-page-title">{academy.name || terms.myWorkspace}</h2>
-                <p className="academy-settings-page-subtitle">Configurações da {terms.workspaceNoun}</p>
+                <h2 className="navi-page-title">{terms.myWorkspace}</h2>
+                {academy.name ? (
+                    <p className="academy-settings-page-name">{academy.name}</p>
+                ) : contentLoading ? (
+                    <div
+                        className="empresa-skeleton-block academy-settings-page-name-skeleton"
+                        style={{ height: 18, maxWidth: 220, marginTop: 6 }}
+                        aria-hidden
+                    />
+                ) : null}
+                <p className="academy-settings-page-subtitle">
+                    {activeTabMeta.label} · {activeTabMeta.subtitle}
+                </p>
             </div>
 
             {academyLoadState === 'error' && (
@@ -417,23 +546,61 @@ const AcademySettings = () => {
                 </div>
             )}
 
-            <nav className="empresa-subnav" aria-label={`Seções da ${terms.workspaceNoun}`}>
-                <div className="empresa-subnav-scroll">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            className={`empresa-subnav-tab ${activeTab === tab.id ? 'empresa-subnav-tab--active' : ''}`}
-                            onClick={() => setActiveTab(tab.id)}
-                        >
-                            <tab.Icon size={15} className="empresa-tab-icon" aria-hidden />
-                            {tab.label}
-                        </button>
-                    ))}
+            <nav
+                className={`empresa-subnav${subnavOverflow.left ? ' empresa-subnav--overflow-left' : ''}${subnavOverflow.right ? ' empresa-subnav--overflow-right' : ''}`}
+                aria-label={`Seções da ${terms.workspaceNoun}`}
+            >
+                {subnavOverflow.left && (
+                    <button
+                        type="button"
+                        className="empresa-subnav-scroll-btn empresa-subnav-scroll-btn--left"
+                        onClick={() => scrollSubnav(-1)}
+                        aria-label="Ver abas anteriores"
+                    >
+                        <ChevronLeft size={18} aria-hidden />
+                    </button>
+                )}
+                <div className="empresa-subnav-scroll" ref={subnavScrollRef}>
+                    {TABS_ALL.map((tab) => {
+                        const { disabled, title } = getTabDisabledState(tab.id, {
+                            role,
+                            modules: academy.modules,
+                        });
+                        return (
+                            <button
+                                key={tab.id}
+                                ref={(node) => {
+                                    if (node) tabButtonRefs.current[tab.id] = node;
+                                    else delete tabButtonRefs.current[tab.id];
+                                }}
+                                type="button"
+                                className={`empresa-subnav-tab ${activeTab === tab.id ? 'empresa-subnav-tab--active' : ''}${disabled ? ' empresa-subnav-tab--disabled' : ''}`}
+                                disabled={disabled}
+                                title={title}
+                                aria-disabled={disabled || undefined}
+                                onClick={() => setActiveTab(tab.id)}
+                            >
+                                <tab.Icon size={15} className="empresa-tab-icon" aria-hidden />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
                 </div>
+                {subnavOverflow.right && (
+                    <button
+                        type="button"
+                        className="empresa-subnav-scroll-btn empresa-subnav-scroll-btn--right"
+                        onClick={() => scrollSubnav(1)}
+                        aria-label="Ver próximas abas"
+                    >
+                        <ChevronRight size={18} aria-hidden />
+                    </button>
+                )}
             </nav>
 
-            {activeTab === 'estudio' && (
+            {contentLoading ? <EmpresaTabSkeleton tabId={activeTab} /> : null}
+
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'estudio' && (
                 <>
                     <EstudioSection
                         academy={academy}
@@ -450,7 +617,7 @@ const AcademySettings = () => {
                 </>
             )}
 
-            {activeTab === 'funil' && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'funil' && (
                 <FunilSection
                     academy={academy}
                     setAcademy={setAcademy}
@@ -459,7 +626,7 @@ const AcademySettings = () => {
                 />
             )}
 
-            {activeTab === 'alunos' && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'alunos' && (
                 <StudentsSection
                     academy={academy}
                     setAcademy={setAcademy}
@@ -468,120 +635,60 @@ const AcademySettings = () => {
                 />
             )}
 
-            {activeTab === 'automacoes' && (
-                <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
-                    <div className="card">
-                        <div className="mb-3">
-                            <h3 className="navi-section-heading">Mensagens automáticas</h3>
-                            <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
-                                Enviadas automaticamente quando um evento ocorre no funil. Os templates são configurados em Modelos de mensagem.
-                            </p>
-                        </div>
-                        <div className="flex-col gap-3">
-                            {Object.entries(automationLabels).map(([key, meta]) => {
-                                const cfg = automationsConfig?.[key] || {};
-                                return (
-                                    <div key={key} className="card" style={{ padding: 12, border: '1px solid var(--border-light)' }}>
-                                        <div className="flex justify-between items-center gap-2">
-                                            <div>
-                                                <strong>{meta.label}</strong>
-                                                <p className="text-xs text-light" style={{ marginTop: 4 }}>{meta.description}</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                role="switch"
-                                                aria-checked={cfg.active === true}
-                                                className={`ai-switch${cfg.active ? ' ai-switch--on' : ''}`}
-                                                onClick={() =>
-                                                    setAutomationsConfig((prev) => ({
-                                                        ...prev,
-                                                        [key]: { ...(prev?.[key] || {}), active: !(prev?.[key]?.active === true) },
-                                                    }))
-                                                }
-                                            >
-                                                <span className="ai-switch-thumb" />
-                                            </button>
-                                        </div>
-                                        <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
-                                            <select
-                                                className="form-input"
-                                                value={cfg.templateKey || ''}
-                                                onChange={(e) =>
-                                                    setAutomationsConfig((prev) => ({
-                                                        ...prev,
-                                                        [key]: { ...(prev?.[key] || {}), templateKey: e.target.value },
-                                                    }))
-                                                }
-                                                style={{ flex: '1 1 220px' }}
-                                            >
-                                                {templateOptions.map((opt) => (
-                                                    <option key={`${key}-${opt.id}`} value={opt.id}>{opt.label}</option>
-                                                ))}
-                                            </select>
-                                            {key === 'schedule_reminder' ? (
-                                                <select
-                                                    className="form-input"
-                                                    value={Number(cfg.delayMinutes || 120)}
-                                                    onChange={(e) =>
-                                                        setAutomationsConfig((prev) => ({
-                                                            ...prev,
-                                                            [key]: { ...(prev?.[key] || {}), delayMinutes: Number(e.target.value) || 120 },
-                                                        }))
-                                                    }
-                                                    style={{ flex: '0 1 180px' }}
-                                                >
-                                                    <option value={120}>2 horas antes</option>
-                                                    <option value={240}>4 horas antes</option>
-                                                    <option value={1440}>24 horas antes</option>
-                                                </select>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="flex justify-end mt-3">
-                            <button type="button" className="btn-secondary" onClick={() => void saveAutomations()} disabled={savingAutomations}>
-                                {savingAutomations ? 'Salvando...' : 'Salvar'}
-                            </button>
-                        </div>
-                    </div>
-                </section>
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'automacoes' && (
+                <AutomacoesSection
+                    automationLabels={automationLabels}
+                    automationsConfig={automationsConfig}
+                    setAutomationsConfig={setAutomationsConfig}
+                    templateOptions={templateOptions}
+                    noTemplatesAvailable={noTemplatesAvailable}
+                    automationsConfigRaw={academy.automationsConfigRaw}
+                    academyDataVersion={academyDataVersion}
+                    savingAutomations={savingAutomations}
+                    onSave={saveAutomations}
+                />
             )}
 
-            {activeTab === 'financeiro' && academyId && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'financeiro' && academyId && (
                 <div className="empresa-section" style={{ marginTop: 8 }}>
                     <ConfigTab academyId={academyId} />
                 </div>
             )}
 
-            {activeTab === 'tarefas' && academyId && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'tarefas' && academyId && (
                 <>
-                    <TaskTemplatesSection academyId={academyId} />
-                    <EnrollmentFollowUpSection academyId={academyId} />
+                    <TaskTemplatesSection
+                        academyId={academyId}
+                        onTemplatesMetaChange={setTasksTemplatesMeta}
+                    />
+                    <EnrollmentFollowUpSection
+                        academyId={academyId}
+                        hasEnrollmentTemplate={tasksTemplatesMeta.hasEnrollmentTemplate}
+                        templatesConfigurado={tasksTemplatesMeta.configurado}
+                    />
                 </>
             )}
 
-            {activeTab === 'estoque' && academyId && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'estoque' && academyId && (
                 <StockSettingsSection academyId={academyId} modules={academy.modules} />
             )}
 
-            {activeTab === 'vendas' && academyId && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'vendas' && academyId && (
                 <SalesSettingsSection academyId={academyId} />
             )}
 
-            {activeTab === 'equipe' && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'equipe' && (
                 <EquipeSection
                     academy={academy}
                     academyId={academyId}
                 />
             )}
 
-            {activeTab === 'catraca' && academyId && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'catraca' && academyId && (
                 <ControlIdCatracaSection academyId={academyId} />
             )}
 
-            {activeTab === 'avancado' && (
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'avancado' && (
                 <AvancadoSection
                     academy={academy}
                     leads={leads}
@@ -599,19 +706,117 @@ const AcademySettings = () => {
           padding: 0 6px;
           background: var(--bg);
           border-bottom: 2px solid var(--border-light);
+          display: flex;
+          align-items: stretch;
         }
         .empresa-subnav-scroll {
           display: flex;
+          flex: 1;
+          min-width: 0;
           flex-wrap: nowrap;
           gap: 0;
           overflow-x: auto;
           overflow-y: hidden;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+          scroll-snap-type: x proximity;
         }
         .empresa-subnav-scroll::-webkit-scrollbar { display: none; }
+        .empresa-subnav--overflow-left::before,
+        .empresa-subnav--overflow-right::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: 2px;
+          width: 28px;
+          pointer-events: none;
+          z-index: 2;
+        }
+        .empresa-subnav--overflow-left::before {
+          left: 0;
+          background: linear-gradient(90deg, var(--bg) 0%, transparent 100%);
+        }
+        .empresa-subnav--overflow-right::after {
+          right: 0;
+          background: linear-gradient(270deg, var(--bg) 0%, transparent 100%);
+        }
+        .empresa-subnav-scroll-btn {
+          flex: 0 0 auto;
+          align-self: center;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          min-height: 36px;
+          padding: 0;
+          margin: 0 2px 2px;
+          border: none;
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+          cursor: pointer;
+          z-index: 3;
+        }
+        .empresa-subnav-scroll-btn:hover {
+          color: var(--text);
+          background: var(--surface-hover);
+        }
+        .empresa-subnav-tab--disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .empresa-subnav-tab--disabled:hover {
+          color: var(--text-muted);
+          background: none;
+        }
+        .finance-config-jump {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 20px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: var(--v50);
+          border: 1px solid var(--border-light);
+        }
+        .finance-config-jump-link {
+          font-size: 0.78rem;
+          font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .finance-config-jump-link:hover {
+          background: var(--surface-hover);
+          color: var(--text);
+        }
+        .finance-installments-toggle {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 10px 12px;
+          margin-top: 4px;
+          border-radius: 8px;
+          border: 1px solid var(--border-light);
+          background: var(--surface);
+          cursor: pointer;
+          text-align: left;
+        }
+        .finance-installments-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+          gap: 10px;
+          margin-top: 12px;
+        }
         .empresa-subnav-tab {
           flex: 0 0 auto;
+          scroll-snap-align: center;
           display: inline-flex;
           align-items: center;
           gap: 7px;
@@ -664,8 +869,19 @@ const AcademySettings = () => {
         }
         .info-row:last-child { border-bottom: none; }
         .info-row-icon { color: var(--text-muted); flex-shrink: 0; }
+        .academy-settings-page-name {
+          margin: 6px 0 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--text);
+          letter-spacing: -0.01em;
+          font-family: var(--ff-ui, inherit);
+        }
+        .academy-settings-page-name-skeleton {
+          margin-top: 6px;
+        }
         .academy-settings-page-subtitle {
-          margin: 8px 0 0;
+          margin: 6px 0 0;
           font-size: 0.875rem;
           font-weight: 500;
           color: var(--text-secondary);

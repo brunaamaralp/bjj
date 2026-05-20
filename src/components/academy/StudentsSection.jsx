@@ -18,8 +18,23 @@ import {
   serializeStudentFreezeReasons,
 } from '../../lib/studentFreezeConfig.js';
 import AcademyTurmasSection from './AcademyTurmasSection.jsx';
+
+function ListSubsectionHeader({ title, hasUnsaved }) {
+  return (
+    <div className="flex justify-between items-center" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+      <p className="funil-section-subheading" style={{ margin: 0 }}>
+        {title}
+      </p>
+      {hasUnsaved ? (
+        <span className="funil-unsaved-pill" role="status">
+          Alterações não salvas
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function EditableStringList({
-  title,
   hint,
   items,
   canEdit,
@@ -36,12 +51,7 @@ function EditableStringList({
   resetLabel,
 }) {
   return (
-    <div style={{ marginTop: title ? 24 : 0 }}>
-      {title ? (
-        <h4 className="text-small" style={{ fontWeight: 700, marginBottom: hint ? 4 : 10 }}>
-          {title}
-        </h4>
-      ) : null}
+    <div>
       {hint ? (
         <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.45 }}>
           {hint}
@@ -159,6 +169,13 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     [academy.studentFreezeReasons, savedFreezeReasonsDigest]
   );
 
+  const notifyRestoreDefaults = () => {
+    addToast({
+      type: 'info',
+      message: 'Padrões restaurados — clique em Salvar para confirmar.',
+    });
+  };
+
   const saveReasons = async (list) => {
     if (!academyId || !canEdit) return;
     setSavingReasons(true);
@@ -170,7 +187,7 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
       });
       setAcademy((a) => ({ ...a, studentExitReasons: list }));
       setSavedReasonsDigest(serializeStudentExitReasons(list));
-      addToast({ type: 'success', message: 'Motivos de saída salvos.' });
+      addToast({ type: 'success', message: 'Motivos de desligamento salvos.' });
     } catch (e) {
       console.error('save exit reasons:', e);
       addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -249,18 +266,20 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
 
   return (
     <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
-      <div className="card">
-        <div className="mb-3">
-          <h3 className="navi-section-heading">Alunos</h3>
-          <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
-            Desligamento encerra a matrícula; trancamento é pausa temporária (viagem, licença médica etc.). Tarefas
-            automáticas ao desligar ou matricular: <strong>Configurações → Tarefas → Templates</strong>.
-          </p>
-        </div>
+      <h3 className="navi-section-heading mb-2">Motivos de saída e trancamento</h3>
+      <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+        Defina as opções que a equipe vê ao encerrar ou pausar uma matrícula. Para tarefas automáticas ao
+        desligar ou matricular, use a{' '}
+        <Link to="/empresa?tab=tarefas" className="edit-link">
+          aba Tarefas
+        </Link>
+        .
+      </p>
 
+      <div className="card">
+        <ListSubsectionHeader title="Motivos de desligamento" hasUnsaved={canEdit && hasUnsavedReasons} />
         <EditableStringList
-          title="Motivos de desligamento"
-          hint="Saída definitiva — modal Desligar aluno."
+          hint="Motivos exibidos ao encerrar matrícula de um aluno."
           items={reasons}
           canEdit={canEdit}
           saving={savingReasons}
@@ -270,17 +289,25 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           onAdd={handleAddReason}
           onRemove={removeReason}
           onSave={() => void saveReasons(reasons)}
-          onResetDefaults={() =>
-            setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }))
-          }
-          placeholder="Novo motivo de saída"
-          saveLabel="Salvar motivos"
+          onResetDefaults={() => {
+            setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }));
+            notifyRestoreDefaults();
+          }}
+          placeholder="Novo motivo de desligamento"
+          saveLabel="Salvar motivos de desligamento"
           resetLabel="Restaurar motivos padrão"
         />
 
+        <div
+          className="alunos-inner-divider"
+          role="separator"
+          aria-hidden="true"
+          style={{ margin: '28px 0', borderTop: '1px solid var(--border-light)', paddingTop: 4 }}
+        />
+
+        <ListSubsectionHeader title="Motivos de trancamento" hasUnsaved={canEdit && hasUnsavedFreezeReasons} />
         <EditableStringList
-          title="Motivos de trancamento"
-          hint="Pausa temporária — modal Trancar matrícula (planos anuais, até 90 dias/ano)."
+          hint="Motivos exibidos ao pausar uma matrícula temporariamente."
           items={freezeReasons}
           canEdit={canEdit}
           saving={savingFreezeReasons}
@@ -290,22 +317,17 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           onAdd={handleAddFreezeReason}
           onRemove={removeFreezeReason}
           onSave={() => void saveFreezeReasons(freezeReasons)}
-          onResetDefaults={() =>
-            setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }))
-          }
+          onResetDefaults={() => {
+            setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }));
+            notifyRestoreDefaults();
+          }}
           placeholder="Novo motivo de trancamento"
-          saveLabel="Salvar motivos"
+          saveLabel="Salvar motivos de trancamento"
           resetLabel="Restaurar motivos padrão"
         />
-
-        <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 16, lineHeight: 1.45 }}>
-          Template <strong>Desligamento de aluno</strong> (gatilho automático ao desligar): edite em{' '}
-          <Link to="/empresa?tab=tarefas" className="edit-link">
-            Configurações → Tarefas
-          </Link>
-          .
-        </p>
       </div>
+
+      <div className="funil-section-divider" role="separator" aria-hidden="true" />
 
       <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} />
     </section>

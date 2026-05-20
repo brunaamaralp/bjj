@@ -1,12 +1,21 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, X, ChevronRight, Tag, Pencil } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Plus, X, ChevronRight, Tag, Pencil, Settings2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
+import { contactLabelSingular } from '../../lib/terminology.js';
+import { normalizeQuestionType } from '../../lib/customLeadQuestions.js';
 import LabelPill from '../shared/LabelPill';
 import EmptyState from '../shared/EmptyState.jsx';
 
 const PRESET_COLORS = ['#5B3FBF', '#F04040', '#F5A623', '#25D366', '#0088CC', '#8E8E8E'];
+
+const QUESTION_TYPE_LABELS = {
+    text: 'Texto',
+    number: 'Número',
+    boolean: 'Sim / Não',
+    select: 'Lista',
+};
 
 function LabelColorSwatch({ color, selected, onSelect }) {
     return (
@@ -42,7 +51,7 @@ function serializeLeadQuestions(qs) {
             const base = {
                 id: String(q?.id || ''),
                 label: String(q?.label || ''),
-                type: String(q?.type || 'text') || 'text',
+                type: normalizeQuestionType(q?.type),
             };
             if (Array.isArray(q?.options) && q.options.length > 0) {
                 return { ...base, options: q.options.map((x) => String(x)) };
@@ -52,11 +61,122 @@ function serializeLeadQuestions(qs) {
     );
 }
 
+function QuestionRow({
+    q,
+    idx,
+    total,
+    canEdit,
+    onLabelChange,
+    onTypeChange,
+    onOptionsChange,
+    onRemove,
+    onMoveUp,
+    onMoveDown,
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const type = normalizeQuestionType(q?.type);
+    const typeLabel = QUESTION_TYPE_LABELS[type] || 'Texto';
+
+    return (
+        <div className="funil-question-row">
+            <div className="funil-question-row-main">
+                <input
+                    className="form-input"
+                    value={q?.label || ''}
+                    placeholder="Pergunta"
+                    readOnly={!canEdit}
+                    onChange={(e) => onLabelChange(e.target.value)}
+                />
+                <span className="funil-question-type-pill" title="Tipo da resposta">
+                    {typeLabel}
+                </span>
+                {canEdit && (
+                    <div className="funil-question-actions">
+                        <button
+                            type="button"
+                            className="icon-btn icon-only"
+                            title={expanded ? 'Fechar configuração' : 'Configurar tipo e opções'}
+                            aria-expanded={expanded}
+                            onClick={() => setExpanded((v) => !v)}
+                        >
+                            <Settings2 size={14} />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon-btn icon-only"
+                            title="Mover para cima"
+                            disabled={idx <= 0}
+                            onClick={onMoveUp}
+                        >
+                            <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon-btn icon-only"
+                            title="Mover para baixo"
+                            disabled={idx >= total - 1}
+                            onClick={onMoveDown}
+                        >
+                            <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon-btn icon-only"
+                            title="Remover"
+                            onClick={onRemove}
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
+            </div>
+            {expanded && canEdit && (
+                <div className="funil-question-detail">
+                    <div className="form-group" style={{ margin: 0 }}>
+                        <label className="info-mini-label" style={{ display: 'block', marginBottom: 4 }}>
+                            Tipo de resposta
+                        </label>
+                        <select
+                            className="form-input"
+                            value={type}
+                            onChange={(e) => onTypeChange(e.target.value)}
+                        >
+                            <option value="text">Texto</option>
+                            <option value="number">Número</option>
+                            <option value="boolean">Sim / Não</option>
+                            <option value="select">Lista</option>
+                        </select>
+                    </div>
+                    {type === 'select' && (
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="info-mini-label" style={{ display: 'block', marginBottom: 4 }}>
+                                Opções (separadas por vírgula)
+                            </label>
+                            <input
+                                className="form-input"
+                                value={Array.isArray(q?.options) ? q.options.join(', ') : (q?.options || '')}
+                                placeholder="Ex: Iniciante, Intermediário, Avançado"
+                                onChange={(e) => onOptionsChange(e.target.value)}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }) => {
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
     const [newQuestion, setNewQuestion] = useState('');
     const [saving, setSaving] = useState(false);
+
+    const contactLabel = useMemo(
+        () => contactLabelSingular(academy?.uiLabels),
+        [academy?.uiLabels]
+    );
+    const questionsHeading = `Perguntas do ${contactLabel}`;
 
     // ── Labels state ──────────────────────────────────────────────────────────
     const [labels, setLabels] = useState([]);
@@ -65,6 +185,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
     const [editingLabel, setEditingLabel] = useState(null); // { $id, name, color }
     const [labelsLoading, setLabelsLoading] = useState(false);
     const [labelsError, setLabelsError] = useState(false);
+    const [creatingLabel, setCreatingLabel] = useState(false);
     const [lastCreatedId, setLastCreatedId] = useState(null);
     const [exitingIds, setExitingIds] = useState({});
     const enterClearRef = useRef(null);
@@ -89,16 +210,34 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
         [academy.customLeadQuestions, savedQuestionsDigest]
     );
 
+    const updateQuestionAt = useCallback(
+        (id, idx, patch) => {
+            setAcademy((a) => ({
+                ...a,
+                customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
+                    if (id && it?.id === id) return { ...it, ...patch };
+                    if (!id && i === idx) return { ...it, ...patch };
+                    return it;
+                }),
+            }));
+        },
+        [setAcademy]
+    );
+
     const saveQuestions = async (qs) => {
         if (!academyId) return;
+        const normalized = (qs || []).map((q) => ({
+            ...q,
+            type: normalizeQuestionType(q?.type),
+        }));
         setSaving(true);
         try {
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-                customLeadQuestions: JSON.stringify(qs)
+                customLeadQuestions: JSON.stringify(normalized)
             });
-            setAcademy(a => ({ ...a, customLeadQuestions: qs }));
-            setSavedQuestionsDigest(serializeLeadQuestions(qs));
-            addToast({ type: 'success', message: 'Perguntas do lead salvas.' });
+            setAcademy(a => ({ ...a, customLeadQuestions: normalized }));
+            setSavedQuestionsDigest(serializeLeadQuestions(normalized));
+            addToast({ type: 'success', message: `Perguntas do ${contactLabel.toLowerCase()} salvas.` });
         } catch (e) {
             console.error('save questions:', e);
             addToast({ type: 'error', message: 'Não foi possível salvar as perguntas.' });
@@ -159,6 +298,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
         const name = newLabelName.trim();
         const color = String(newLabelColor || '').trim();
         if (!name || !color) return;
+        setCreatingLabel(true);
         try {
             const res = await fetch('/api/labels', {
                 method: 'POST',
@@ -181,6 +321,8 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
             }
         } catch {
             addToast({ type: 'error', message: 'Erro de conexão ao criar etiqueta.' });
+        } finally {
+            setCreatingLabel(false);
         }
     };
 
@@ -270,27 +412,45 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
         }));
     };
 
+    const requestRemoveQuestion = (q, idx) => {
+        const name = (q?.label || '').trim() || 'esta pergunta';
+        addToast({
+            type: 'warning',
+            message: `Remover pergunta "${name}"?`,
+            persistent: true,
+            secondaryAction: { label: 'Cancelar', onClick: () => {} },
+            actionDanger: true,
+            action: {
+                label: 'Remover',
+                onClick: () => handleRemoveQuestion(q?.id, idx),
+            },
+        });
+    };
+
+    const moveQuestion = (idx, direction) => {
+        const list = [...(academy.customLeadQuestions || [])];
+        const target = idx + direction;
+        if (target < 0 || target >= list.length) return;
+        const [item] = list.splice(idx, 1);
+        list.splice(target, 0, item);
+        setAcademy((a) => ({ ...a, customLeadQuestions: list }));
+    };
+
+    const questions = academy.customLeadQuestions || [];
+
     return (
         <>
         <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="navi-section-heading">Perguntas do Lead</h3>
+            <div className="flex justify-between items-center mb-2" style={{ gap: 10, flexWrap: 'wrap' }}>
+                <h3 className="navi-section-heading" style={{ margin: 0 }}>{questionsHeading}</h3>
+                {hasUnsavedChanges && role === 'owner' && (
+                    <span className="funil-unsaved-pill" role="status">
+                        Alterações não salvas
+                    </span>
+                )}
             </div>
             <div className="card">
                 <div className="flex-col gap-3">
-                    {hasUnsavedChanges && role === 'owner' && (
-                        <div className="unsaved-banner" role="status">
-                            <span>Você tem alterações não salvas nas perguntas.</span>
-                            <button
-                                type="button"
-                                className="btn-secondary"
-                                disabled={saving}
-                                onClick={() => void saveQuestions(academy.customLeadQuestions || [])}
-                            >
-                                Salvar agora
-                            </button>
-                        </div>
-                    )}
                     {role === 'owner' && (
                         <div className="flex gap-2">
                             <input
@@ -306,129 +466,36 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                         </div>
                     )}
                     <div className="flex-col gap-2">
-                        {(academy.customLeadQuestions || []).map((q, idx) => (
-                            <div key={`${q?.id || q?.label || idx}`} className="info-row">
-                                <div className="flex gap-2" style={{ flex: 1 }}>
-                                    <input
-                                        className="form-input"
-                                        value={q?.label || ''}
-                                        placeholder="Pergunta"
-                                        readOnly={role !== 'owner'}
-                                        onChange={(e) => {
-                                            if (role !== 'owner') return;
-                                            const value = e.target.value;
-                                            const id = q?.id;
-                                            setAcademy((a) => ({
-                                                ...a,
-                                                customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
-                                                    if (id && it?.id === id) return { ...it, label: value };
-                                                    if (!id && i === idx) return { ...it, label: value };
-                                                    return it;
-                                                }),
-                                            }));
-                                        }}
-                                        style={{ flex: 1 }}
-                                    />
-                                    <select
-                                        className="form-input"
-                                        value={q?.type || 'text'}
-                                        disabled={role !== 'owner'}
-                                        onChange={(e) => {
-                                            if (role !== 'owner') return;
-                                            const value = e.target.value;
-                                            const id = q?.id;
-                                            setAcademy((a) => ({
-                                                ...a,
-                                                customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
-                                                    if (id && it?.id === id) return { ...it, type: value };
-                                                    if (!id && i === idx) return { ...it, type: value };
-                                                    return it;
-                                                }),
-                                            }));
-                                        }}
-                                        style={{ maxWidth: 140 }}
-                                    >
-                                        <option value="text">Texto</option>
-                                        <option value="number">Número</option>
-                                        <option value="boolean">Sim/Não</option>
-                                        <option value="checkbox">Checkbox (sim/não)</option>
-                                        <option value="select">Lista</option>
-                                    </select>
-                                    {(q?.type === 'select') && (
-                                        <input
-                                            className="form-input"
-                                            value={Array.isArray(q?.options) ? q.options.join(', ') : (q?.options || '')}
-                                            placeholder="Opções (separadas por vírgula)"
-                                            readOnly={role !== 'owner'}
-                                            onChange={(e) => {
-                                                if (role !== 'owner') return;
-                                                const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                                const id = q?.id;
-                                                setAcademy((a) => ({
-                                                    ...a,
-                                                    customLeadQuestions: (a.customLeadQuestions || []).map((it, i) => {
-                                                        if (id && it?.id === id) return { ...it, options: arr };
-                                                        if (!id && i === idx) return { ...it, options: arr };
-                                                        return it;
-                                                    }),
-                                                }));
-                                            }}
-                                            style={{ flex: 1 }}
-                                        />
-                                    )}
-                                </div>
-                                {role === 'owner' && (
-                                    <>
-                                        <button
-                                            type="button"
-                                            className="icon-btn icon-only"
-                                            title="Remover"
-                                            onClick={() => handleRemoveQuestion(q?.id, idx)}
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                        <div className="flex gap-2">
-                                            <button
-                                                type="button"
-                                                className="icon-btn icon-only"
-                                                title="Mover para cima"
-                                                onClick={() => {
-                                                    if (idx <= 0) return;
-                                                    const list = [...(academy.customLeadQuestions || [])];
-                                                    const [item] = list.splice(idx, 1);
-                                                    list.splice(idx - 1, 0, item);
-                                                    setAcademy((a) => ({ ...a, customLeadQuestions: list }));
-                                                }}
-                                            >
-                                                <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="icon-btn icon-only"
-                                                title="Mover para baixo"
-                                                onClick={() => {
-                                                    const list = [...(academy.customLeadQuestions || [])];
-                                                    if (idx >= list.length - 1) return;
-                                                    const [item] = list.splice(idx, 1);
-                                                    list.splice(idx + 1, 0, item);
-                                                    setAcademy((a) => ({ ...a, customLeadQuestions: list }));
-                                                }}
-                                            >
-                                                <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                        {questions.map((q, idx) => (
+                            <QuestionRow
+                                key={`${q?.id || q?.label || idx}`}
+                                q={q}
+                                idx={idx}
+                                total={questions.length}
+                                canEdit={role === 'owner'}
+                                onLabelChange={(value) => updateQuestionAt(q?.id, idx, { label: value })}
+                                onTypeChange={(value) =>
+                                    updateQuestionAt(q?.id, idx, {
+                                        type: normalizeQuestionType(value),
+                                    })
+                                }
+                                onOptionsChange={(raw) => {
+                                    const arr = raw.split(',').map((s) => s.trim()).filter(Boolean);
+                                    updateQuestionAt(q?.id, idx, { options: arr });
+                                }}
+                                onRemove={() => requestRemoveQuestion(q, idx)}
+                                onMoveUp={() => moveQuestion(idx, -1)}
+                                onMoveDown={() => moveQuestion(idx, 1)}
+                            />
                         ))}
-                        {(academy.customLeadQuestions || []).length === 0 && (
+                        {questions.length === 0 && (
                             <EmptyState
                                 variant="compact"
                                 tone="dashed"
                                 title="Nenhuma pergunta configurada."
                                 description={
                                     role === 'owner'
-                                        ? 'Adicione perguntas personalizadas para acompanhar no perfil do lead.'
+                                        ? `Adicione perguntas personalizadas para acompanhar no perfil do ${contactLabel.toLowerCase()}.`
                                         : undefined
                                 }
                                 role="status"
@@ -439,21 +506,26 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                         <div className="flex gap-2 mt-2">
                             <button
                                 type="button"
-                                className="btn-secondary"
-                                onClick={() => void saveQuestions(academy.customLeadQuestions || [])}
-                                disabled={saving}
+                                className="btn-primary"
+                                onClick={() => void saveQuestions(questions)}
+                                disabled={saving || !hasUnsavedChanges}
                             >
                                 {saving ? 'Salvando...' : 'Salvar alterações'}
                             </button>
                         </div>
                     )}
-                    <p className="text-xs text-light">As respostas são preenchidas no card do lead.</p>
+                    <p className="text-xs text-light">
+                        As respostas são preenchidas no card do {contactLabel.toLowerCase()}.
+                    </p>
                 </div>
             </div>
         </section>
 
-        {/* ── Etiquetas ──────────────────────────────────────────────────── */}
-        <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.1s' }}>
+        <div className="funil-section-divider" role="separator" aria-hidden="true" />
+
+        {/* Etiquetas: persistência imediata via API (diferente das perguntas, que exigem "Salvar alterações"). */}
+        <section className="empresa-section animate-in" style={{ animationDelay: '0.1s' }}>
+            <p className="funil-section-subheading">Organização</p>
             <div className="flex justify-between items-center mb-2" style={{ gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <h3 className="navi-section-heading" style={{ margin: 0 }}>Etiquetas</h3>
@@ -474,6 +546,9 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                     )}
                 </div>
             </div>
+            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.45 }}>
+                Criar, editar ou excluir etiquetas salva na hora — não é preciso usar o botão de salvar das perguntas.
+            </p>
             <div className="card">
                 <div className="flex-col gap-3">
                     {labelsError && !labelsLoading && (
@@ -494,7 +569,7 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                             tone="dashed"
                             icon={Tag}
                             title="Nenhuma etiqueta criada"
-                            description="Crie etiquetas para categorizar seus leads no atendimento."
+                            description={`Crie etiquetas para categorizar seus ${String(academy?.uiLabels?.leads || 'leads').toLowerCase()} no atendimento.`}
                             role="status"
                         />
                     )}
@@ -608,7 +683,9 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                             value={newLabelName}
                                             onChange={(e) => setNewLabelName(e.target.value)}
                                             onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && newLabelName.trim() && newLabelColor) handleCreateLabel();
+                                                if (e.key === 'Enter' && newLabelName.trim() && newLabelColor && !creatingLabel) {
+                                                    void handleCreateLabel();
+                                                }
                                             }}
                                             maxLength={30}
                                             style={{ width: '100%', paddingRight: 48, boxSizing: 'border-box' }}
@@ -628,22 +705,30 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                             {newLabelName.length}/30
                                         </span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="btn-secondary"
-                                        onClick={handleCreateLabel}
-                                        disabled={!newLabelName.trim() || !newLabelColor}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            whiteSpace: 'nowrap',
-                                            padding: '0 14px',
-                                            minHeight: 40,
-                                        }}
-                                    >
-                                        <Plus size={16} strokeWidth={2} /> Adicionar
-                                    </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                                        <button
+                                            type="button"
+                                            className="btn-secondary"
+                                            onClick={() => void handleCreateLabel()}
+                                            disabled={!newLabelName.trim() || !newLabelColor || creatingLabel}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                whiteSpace: 'nowrap',
+                                                padding: '0 14px',
+                                                minHeight: 40,
+                                            }}
+                                        >
+                                            <Plus size={16} strokeWidth={2} />
+                                            {creatingLabel ? 'Adicionando…' : 'Adicionar'}
+                                        </button>
+                                        {!newLabelColor && (
+                                            <span className="text-small" style={{ color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                                                Selecione uma cor para continuar
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>Cor:</span>

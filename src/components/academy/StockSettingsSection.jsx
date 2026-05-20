@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Package } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
@@ -8,7 +9,9 @@ import {
   parseAcademySettings,
   readStockCheckSchedule,
   readStockPurchaseExpenseCategory,
+  stockSettingsHasPersistedData,
 } from '../../lib/stockSettings';
+import EmptyState from '../shared/EmptyState.jsx';
 
 const WEEKDAYS = [
   { value: 0, label: 'Domingo' },
@@ -20,24 +23,44 @@ const WEEKDAYS = [
   { value: 6, label: 'Sábado' },
 ];
 
+function buildDigest(schedule, expenseCategory) {
+  return JSON.stringify({
+    enabled: schedule.enabled === true,
+    dayOfWeek: schedule.dayOfWeek,
+    taskTitle: String(schedule.taskTitle || '').trim(),
+    expenseCategory: String(expenseCategory || '').trim(),
+  });
+}
+
 export default function StockSettingsSection({ academyId, modules }) {
   const addToast = useUiStore((s) => s.addToast);
+  const [loaded, setLoaded] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [schedule, setSchedule] = useState({ ...DEFAULT_STOCK_CHECK_SCHEDULE });
   const [expenseCategory, setExpenseCategory] = useState(DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY);
+  const [savedDigest, setSavedDigest] = useState('');
+
+  const financeActive = modules?.finance === true;
 
   useEffect(() => {
-    if (!academyId) return;
+    if (!academyId) return undefined;
     let cancelled = false;
     (async () => {
       try {
         const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
         if (cancelled) return;
         const settings = parseAcademySettings(doc.settings);
-        setSchedule(readStockCheckSchedule(settings));
-        setExpenseCategory(readStockPurchaseExpenseCategory(settings));
+        const nextSchedule = readStockCheckSchedule(settings);
+        const nextCategory = readStockPurchaseExpenseCategory(settings);
+        setSchedule(nextSchedule);
+        setExpenseCategory(nextCategory);
+        setSavedDigest(buildDigest(nextSchedule, nextCategory));
+        setShowOnboarding(!stockSettingsHasPersistedData(doc.settings));
       } catch (e) {
         console.error('[StockSettings]', e);
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
     })();
     return () => {
@@ -45,10 +68,15 @@ export default function StockSettingsSection({ academyId, modules }) {
     };
   }, [academyId]);
 
+  const hasUnsaved = useMemo(
+    () => loaded && buildDigest(schedule, expenseCategory) !== savedDigest,
+    [loaded, schedule, expenseCategory, savedDigest]
+  );
+
   if (modules?.inventory !== true) return null;
 
   const save = async () => {
-    if (!academyId) return;
+    if (!academyId || !hasUnsaved) return;
     setSaving(true);
     try {
       const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
@@ -56,6 +84,8 @@ export default function StockSettingsSection({ academyId, modules }) {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
+      setSavedDigest(buildDigest(schedule, expenseCategory));
+      setShowOnboarding(false);
       addToast({ type: 'success', message: 'Configurações de estoque salvas.' });
     } catch (e) {
       console.error('[StockSettings] save:', e);
@@ -67,69 +97,124 @@ export default function StockSettingsSection({ academyId, modules }) {
 
   return (
     <section className="empresa-section animate-in" style={{ marginTop: 8 }}>
-      <div className="card">
-        <h3 className="navi-section-heading">Estoque</h3>
-        <p className="text-small text-muted" style={{ marginTop: 6, marginBottom: 16 }}>
-          Conferência periódica e categoria padrão de despesas ao registrar compras com valor.
-        </p>
+      <h3 className="navi-section-heading mb-2">Estoque</h3>
+      <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+        Conferência periódica de saldo e vínculo com o caixa ao registrar compras com valor.
+      </p>
 
-        <div className="card" style={{ padding: 12, border: '1px solid var(--border-light)', marginBottom: 16 }}>
-          <div className="flex justify-between items-center gap-2 mb-2">
-            <strong>Conferência semanal</strong>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={schedule.enabled}
-              className={`ai-switch${schedule.enabled ? ' ai-switch--on' : ''}`}
-              onClick={() => setSchedule((s) => ({ ...s, enabled: !s.enabled }))}
-            >
-              <span className="ai-switch-thumb" />
-            </button>
-          </div>
-          {schedule.enabled && (
-            <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
-              <div className="form-group" style={{ flex: '1 1 180px', margin: 0 }}>
-                <label>Dia da semana</label>
-                <select
-                  className="form-input"
-                  value={schedule.dayOfWeek}
-                  onChange={(e) => setSchedule((s) => ({ ...s, dayOfWeek: Number(e.target.value) }))}
-                >
-                  {WEEKDAYS.map((d) => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group" style={{ flex: '2 1 220px', margin: 0 }}>
-                <label>Título da tarefa</label>
-                <input
-                  className="form-input"
-                  value={schedule.taskTitle}
-                  onChange={(e) => setSchedule((s) => ({ ...s, taskTitle: e.target.value }))}
-                  placeholder={DEFAULT_STOCK_CHECK_SCHEDULE.taskTitle}
-                />
-              </div>
-            </div>
-          )}
+      {loaded && showOnboarding ? (
+        <EmptyState
+          variant="compact"
+          tone="dashed"
+          icon={Package}
+          className="mb-3"
+          title="Configure o estoque da academia"
+          description="Configure aqui a conferência semanal de estoque e, se o módulo Financeiro estiver ativo, vincule os itens a uma categoria de caixa."
+          primaryAction={{
+            label: 'Começar configuração',
+            onClick: () => setShowOnboarding(false),
+          }}
+          role="status"
+        />
+      ) : null}
+
+      <div className="card">
+        <div className="flex justify-between items-center gap-2 mb-3" style={{ flexWrap: 'wrap' }}>
+          <p className="funil-section-subheading" style={{ margin: 0 }}>
+            Conferência semanal
+          </p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={schedule.enabled}
+            aria-label="Ativar conferência semanal de estoque"
+            className={`ai-switch${schedule.enabled ? ' ai-switch--on' : ''}`}
+            onClick={() => setSchedule((s) => ({ ...s, enabled: !s.enabled }))}
+          >
+            <span className="ai-switch-thumb" />
+          </button>
         </div>
 
-        {modules?.finance === true && (
-          <div className="form-group">
-            <label>Categoria no Caixa (compras de estoque)</label>
-            <input
-              className="form-input"
-              value={expenseCategory}
-              onChange={(e) => setExpenseCategory(e.target.value)}
-              placeholder={DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY}
-            />
-            <p className="text-xs text-muted" style={{ marginTop: 4 }}>
-              Usada na descrição do lançamento quando uma entrada informa valor pago.
-            </p>
+        {schedule.enabled ? (
+          <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: 20 }}>
+            <div className="form-group" style={{ flex: '1 1 180px', margin: 0 }}>
+              <label>Dia da semana</label>
+              <select
+                className="form-input"
+                value={schedule.dayOfWeek}
+                onChange={(e) => setSchedule((s) => ({ ...s, dayOfWeek: Number(e.target.value) }))}
+              >
+                {WEEKDAYS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: '2 1 220px', margin: 0 }}>
+              <label>Título da tarefa</label>
+              <input
+                className="form-input"
+                value={schedule.taskTitle}
+                onChange={(e) => setSchedule((s) => ({ ...s, taskTitle: e.target.value }))}
+                placeholder={DEFAULT_STOCK_CHECK_SCHEDULE.taskTitle}
+              />
+              <p className="text-xs text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
+                Uma tarefa com este título será criada automaticamente no módulo Tarefas toda semana na data
+                configurada.
+              </p>
+            </div>
           </div>
+        ) : (
+          <p className="text-small text-muted" style={{ margin: '0 0 20px', lineHeight: 1.45 }}>
+            Ative para gerar uma tarefa recorrente de conferência de saldo.
+          </p>
         )}
 
-        <div className="flex justify-end mt-3">
-          <button type="button" className="btn-secondary" onClick={() => void save()} disabled={saving}>
+        <div className="funil-section-divider" role="separator" aria-hidden="true" style={{ margin: '0 0 20px' }} />
+
+        <p className="funil-section-subheading" style={{ margin: '0 0 8px' }}>
+          Categoria no Caixa
+        </p>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="text-small" style={{ fontWeight: 600 }}>
+            Categoria no Caixa (compras de estoque)
+          </label>
+          <input
+            className="form-input"
+            value={expenseCategory}
+            onChange={(e) => setExpenseCategory(e.target.value)}
+            placeholder={DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY}
+            disabled={!financeActive}
+            title={
+              financeActive
+                ? undefined
+                : 'Disponível quando o módulo Financeiro estiver ativo'
+            }
+            aria-disabled={!financeActive}
+          />
+          <p className="text-xs text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
+            {financeActive
+              ? 'Usada na descrição do lançamento quando uma entrada informa valor pago.'
+              : 'Ative o módulo Financeiro para vincular compras de estoque a uma categoria do caixa.'}
+          </p>
+        </div>
+
+        <div
+          className="flex justify-end items-center gap-2 mt-4"
+          style={{ flexWrap: 'wrap' }}
+        >
+          {hasUnsaved ? (
+            <span className="funil-unsaved-pill" role="status">
+              Alterações não salvas
+            </span>
+          ) : null}
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void save()}
+            disabled={saving || !hasUnsaved}
+          >
             {saving ? 'Salvando…' : 'Salvar estoque'}
           </button>
         </div>

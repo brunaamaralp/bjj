@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, Trash2, ShieldAlert } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { useTerms } from '../../lib/terminology.js';
-import ExportButton from '../ExportButton';
+import { exportLeadsSpreadsheet } from '../../lib/exportLeadsSpreadsheet.js';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ContractsAutentiqueSection from './ContractsAutentiqueSection.jsx';
 
 const AvancadoSection = ({ academy, leads }) => {
@@ -12,9 +13,33 @@ const AvancadoSection = ({ academy, leads }) => {
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
 
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [clearConfirmText, setClearConfirmText] = useState('');
     const [clearingAllData, setClearingAllData] = useState(false);
+
+    const scopeLabel = 'leads e alunos';
+
+    const runExport = async () => {
+        if (!leads?.length) {
+            addToast({ type: 'warning', message: 'Não há dados para exportar.' });
+            return;
+        }
+        setExporting(true);
+        try {
+            const ok = await exportLeadsSpreadsheet(leads, 'bjj-crm-completo');
+            if (ok) {
+                addToast({ type: 'success', message: 'Planilha gerada.' });
+                setShowExportConfirm(false);
+            }
+        } catch (e) {
+            console.error('[Avancado] export:', e);
+            addToast({ type: 'error', message: 'Não foi possível exportar os dados.' });
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const clearAllData = async () => {
         if (clearConfirmText.trim().toUpperCase() !== 'LIMPAR') {
@@ -47,64 +72,150 @@ const AvancadoSection = ({ academy, leads }) => {
     };
 
     return (
-        <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-            <h3 className="navi-section-heading mb-2">Dados</h3>
-            <p className="navi-subtitle mb-2" style={{ fontSize: '0.85rem' }}>Exportação e exclusão em massa afetam apenas leads e alunos desta base.</p>
-            <div className="card flex-col mb-6" style={{ padding: 0, overflow: 'hidden' }}>
-                {role === 'owner' ? (
-                    <>
+        <>
+            <section
+                id="avancado-exportar"
+                className="empresa-section mt-4 animate-in"
+                style={{ animationDelay: '0.05s', scrollMarginTop: 56 }}
+            >
+                <h3 className="navi-section-heading mb-2">Exportar dados</h3>
+                <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+                    Baixe ou remova em massa os registros desta {terms.workspaceNoun}. O escopo inclui{' '}
+                    {scopeLabel}.
+                </p>
+                <div className="card flex-col" style={{ padding: 0, overflow: 'hidden' }}>
+                    {role === 'owner' ? (
                         <div className="action-row">
                             <div className="flex items-center gap-4">
-                                <div className="action-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                                <div
+                                    className="action-icon"
+                                    style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
+                                >
                                     <Download size={18} />
                                 </div>
                                 <div>
-                                    <strong>Exportar todos os dados</strong>
-                                    <p className="navi-subtitle" style={{ marginTop: 2 }}>Baixe uma planilha com todos os leads</p>
+                                    <strong>Exportar todos os dados ({scopeLabel})</strong>
+                                    <p className="navi-subtitle" style={{ marginTop: 2 }}>
+                                        Gera uma planilha com todos os contatos da base
+                                    </p>
                                 </div>
                             </div>
-                            <ExportButton leads={leads} fileName="bjj-crm-completo" label="Baixar" />
+                            <button
+                                type="button"
+                                className="export-btn"
+                                disabled={!leads?.length}
+                                onClick={() => setShowExportConfirm(true)}
+                                style={{
+                                    background: 'var(--surface)',
+                                    border: '1.5px solid var(--border)',
+                                    color: 'var(--text-secondary)',
+                                    padding: '0 14px',
+                                    minHeight: 38,
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                }}
+                            >
+                                <Download size={16} /> Baixar
+                            </button>
                         </div>
-                    </>
-                ) : (
-                    <div style={{ padding: 16 }}>
-                        <p className="text-small" style={{ color: 'var(--text-muted)' }}>Apenas o dono da {terms.workspaceNoun} pode exportar ou excluir os dados em massa.</p>
-                    </div>
-                )}
-            </div>
+                    ) : (
+                        <div style={{ padding: 16 }}>
+                            <p className="text-small" style={{ color: 'var(--text-muted)' }}>
+                                Apenas o titular da {terms.workspaceNoun} pode exportar ou excluir os dados em massa.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {role === 'owner' && (
                 <>
-                    <div
-                        style={{
-                            border: '1.5px solid #F04040',
-                            borderRadius: 12,
-                            padding: '16px 20px',
-                            background: 'rgba(240,64,64,0.04)'
-                        }}
+                    <div className="funil-section-divider" role="separator" aria-hidden="true" />
+
+                    <section
+                        id="avancado-perigo"
+                        className="empresa-section animate-in"
+                        style={{ animationDelay: '0.08s', scrollMarginTop: 56 }}
                     >
-                        <h3 className="navi-section-heading mb-2" style={{ color: '#F04040' }}>Zona de perigo</h3>
-                        <p className="navi-subtitle mb-2" style={{ fontSize: '0.85rem' }}>
-                            Ações irreversíveis. Prossiga com cuidado.
+                        <h3 className="navi-section-heading mb-2" style={{ color: '#F04040', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <ShieldAlert size={18} aria-hidden />
+                            Zona de perigo
+                        </h3>
+                        <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+                            Ações irreversíveis sobre {scopeLabel}. Prossiga com cuidado.
                         </p>
                         <div
-                            className="action-row"
-                            onClick={() => setShowClearConfirm(true)}
-                            style={{ cursor: 'pointer', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border-light)' }}
+                            style={{
+                                border: '1.5px solid #F04040',
+                                borderRadius: 12,
+                                padding: '16px 20px',
+                                background: 'rgba(240,64,64,0.04)',
+                            }}
                         >
-                            <div className="flex items-center gap-4">
-                                <div className="action-icon" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>
-                                    <Trash2 size={18} />
-                                </div>
-                                <div>
-                                    <strong style={{ color: 'var(--danger)' }}>Limpar todos os dados</strong>
-                                    <p className="navi-subtitle" style={{ marginTop: 2 }}>Remove todos os leads e alunos</p>
+                            <div
+                                className="action-row"
+                                onClick={() => setShowClearConfirm(true)}
+                                style={{
+                                    cursor: 'pointer',
+                                    borderRadius: 8,
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border-light)',
+                                    margin: 0,
+                                }}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="action-icon"
+                                        style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}
+                                    >
+                                        <Trash2 size={18} />
+                                    </div>
+                                    <div>
+                                        <strong style={{ color: 'var(--danger)' }}>
+                                            Limpar todos os dados ({scopeLabel})
+                                        </strong>
+                                        <p className="navi-subtitle" style={{ marginTop: 2 }}>
+                                            Remove permanentemente todos os registros da base
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
+
+                    <div className="funil-section-divider" role="separator" aria-hidden="true" />
+
+                    <section
+                        id="avancado-integracoes"
+                        className="empresa-section animate-in"
+                        style={{ animationDelay: '0.1s', scrollMarginTop: 56 }}
+                    >
+                        <h3 className="navi-section-heading mb-2">Integrações avançadas</h3>
+                        <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+                            Serviços opcionais que exigem configuração fora do Nave.
+                        </p>
+                        <ContractsAutentiqueSection />
+                    </section>
                 </>
             )}
+
+            <ConfirmDialog
+                open={showExportConfirm}
+                title="Exportar todos os dados?"
+                description="Você receberá um arquivo com todos os dados (leads e alunos) desta base. Deseja continuar?"
+                confirmLabel="Confirmar"
+                cancelLabel="Cancelar"
+                confirmVariant="secondary"
+                loading={exporting}
+                onConfirm={() => void runExport()}
+                onClose={() => {
+                    if (!exporting) setShowExportConfirm(false);
+                }}
+            />
 
             {showClearConfirm && (
                 <div className="confirm-overlay">
@@ -114,7 +225,7 @@ const AvancadoSection = ({ academy, leads }) => {
                         </div>
                         <h3 className="navi-section-heading">Limpar todos os dados?</h3>
                         <p className="navi-subtitle" style={{ marginTop: 10 }}>
-                            Esta ação é irreversível. {leads.length} registros (leads e alunos) serão removidos.
+                            Esta ação é irreversível. {leads.length} registros ({scopeLabel}) serão removidos.
                         </p>
                         <p className="navi-subtitle mt-2" style={{ marginTop: 12 }}>
                             Digite <strong>LIMPAR</strong> para confirmar:
@@ -129,7 +240,11 @@ const AvancadoSection = ({ academy, leads }) => {
                             <button
                                 className="btn-outline"
                                 style={{ flex: 1 }}
-                                onClick={() => { if (clearingAllData) return; setShowClearConfirm(false); setClearConfirmText(''); }}
+                                onClick={() => {
+                                    if (clearingAllData) return;
+                                    setShowClearConfirm(false);
+                                    setClearConfirmText('');
+                                }}
                                 disabled={clearingAllData}
                             >
                                 Cancelar
@@ -137,7 +252,7 @@ const AvancadoSection = ({ academy, leads }) => {
                             <button
                                 className="btn-danger"
                                 style={{ flex: 1 }}
-                                onClick={clearAllData}
+                                onClick={() => void clearAllData()}
                                 disabled={clearConfirmText.trim().toUpperCase() !== 'LIMPAR' || clearingAllData}
                             >
                                 <Trash2 size={16} /> {clearingAllData ? 'Limpando...' : 'Limpar'}
@@ -146,9 +261,7 @@ const AvancadoSection = ({ academy, leads }) => {
                     </div>
                 </div>
             )}
-
-            {role === 'owner' ? <ContractsAutentiqueSection /> : null}
-        </section>
+        </>
     );
 };
 

@@ -3,6 +3,7 @@ import { CheckSquare, Plus, Trash2, ChevronUp, ChevronDown, Play } from 'lucide-
 import { account } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
+import EmptyState from '../shared/EmptyState.jsx';
 import {
   TASK_TEMPLATE_TRIGGER_LABELS,
   TASK_TEMPLATE_TRIGGERS,
@@ -25,7 +26,7 @@ const emptyItem = (order) => ({
   order,
 });
 
-export default function TaskTemplatesSection({ academyId }) {
+export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange }) {
   const addToast = useUiStore((s) => s.addToast);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,15 +43,24 @@ export default function TaskTemplatesSection({ academyId }) {
       const res = await fetch('/api/task-templates', { headers });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) throw new Error(data?.erro || `HTTP ${res.status}`);
-      setTemplates(data.templates || []);
-      setConfigurado(data.configurado !== false);
+      const list = data.templates || [];
+      const ok = data.configurado !== false;
+      setTemplates(list);
+      setConfigurado(ok);
+      onTemplatesMetaChange?.({
+        configurado: ok,
+        hasEnrollmentTemplate: list.some(
+          (t) => t.trigger === TASK_TEMPLATE_TRIGGERS.ENROLLMENT
+        ),
+      });
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'action') });
       setTemplates([]);
+      onTemplatesMetaChange?.({ configurado: false, hasEnrollmentTemplate: false });
     } finally {
       setLoading(false);
     }
-  }, [academyId, addToast]);
+  }, [academyId, addToast, onTemplatesMetaChange]);
 
   useEffect(() => {
     void load();
@@ -118,8 +128,7 @@ export default function TaskTemplatesSection({ academyId }) {
     }
   };
 
-  const deleteTemplate = async (id) => {
-    if (!window.confirm('Excluir este template? Tarefas já criadas não serão removidas.')) return;
+  const performDeleteTemplate = async (id) => {
     try {
       const headers = await apiHeaders(academyId);
       const res = await fetch(`/api/task-templates/${encodeURIComponent(id)}`, {
@@ -128,11 +137,30 @@ export default function TaskTemplatesSection({ academyId }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) throw new Error(data?.erro || `HTTP ${res.status}`);
+      if (editing?.id === id) {
+        setEditing(null);
+        setPreview(null);
+      }
       addToast({ type: 'success', message: 'Template excluído.' });
       void load();
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'delete') });
     }
+  };
+
+  const requestDeleteTemplate = (t) => {
+    const name = String(t?.name || '').trim() || 'este template';
+    addToast({
+      type: 'warning',
+      message: `Excluir template "${name}"? Tarefas já criadas não serão removidas.`,
+      persistent: true,
+      secondaryAction: { label: 'Cancelar', onClick: () => {} },
+      actionDanger: true,
+      action: {
+        label: 'Excluir',
+        onClick: async () => performDeleteTemplate(t.id),
+      },
+    });
   };
 
   const runPreview = async () => {
@@ -192,11 +220,17 @@ export default function TaskTemplatesSection({ academyId }) {
   if (!configurado) {
     return (
       <section className="empresa-section" style={{ marginTop: 8 }}>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-          Configure a coleção <code>task_templates</code> no Appwrite e defina{' '}
-          <code>VITE_APPWRITE_TASK_TEMPLATES_COLLECTION_ID</code> no ambiente para usar templates de
-          tarefas.
-        </p>
+        <h3 className="navi-section-heading flex items-center gap-2" style={{ marginBottom: 12 }}>
+          <CheckSquare size={18} color="var(--v500)" /> Templates de tarefas
+        </h3>
+        <EmptyState
+          variant="compact"
+          tone="dashed"
+          icon={CheckSquare}
+          title="Módulo de templates indisponível neste ambiente"
+          description="Templates ainda não configurados. Entre em contato com o suporte."
+          role="status"
+        />
       </section>
     );
   }
@@ -205,9 +239,9 @@ export default function TaskTemplatesSection({ academyId }) {
     <section className="empresa-section" style={{ marginTop: 8 }}>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h2 className="navi-section-heading flex items-center gap-2">
-            <CheckSquare size={20} color="var(--v500)" /> Templates de tarefas
-          </h2>
+          <h3 className="navi-section-heading flex items-center gap-2" style={{ margin: 0 }}>
+            <CheckSquare size={18} color="var(--v500)" /> Templates de tarefas
+          </h3>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 560, lineHeight: 1.45 }}>
             Processo de onboarding (gatilho <strong>Matrícula</strong>) e checklist de desligamento. Ao
             matricular, o sistema cria automaticamente todas as tarefas com prazos em dias.
@@ -247,7 +281,7 @@ export default function TaskTemplatesSection({ academyId }) {
                 <button type="button" className="btn-outline" onClick={() => openEdit(t)}>
                   Editar
                 </button>
-                <button type="button" className="btn-ghost text-danger" onClick={() => void deleteTemplate(t.id)}>
+                <button type="button" className="btn-ghost text-danger" onClick={() => requestDeleteTemplate(t)}>
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -280,7 +314,6 @@ export default function TaskTemplatesSection({ academyId }) {
               className="form-input"
               value={editing.trigger}
               onChange={(e) => setEditing({ ...editing, trigger: e.target.value })}
-              disabled={Boolean(editing.id && editing.trigger !== TASK_TEMPLATE_TRIGGERS.MANUAL)}
             >
               {Object.entries(TASK_TEMPLATE_TRIGGER_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
@@ -288,6 +321,12 @@ export default function TaskTemplatesSection({ academyId }) {
                 </option>
               ))}
             </select>
+            {editing.id && editing.trigger !== TASK_TEMPLATE_TRIGGERS.MANUAL ? (
+              <p className="text-xs text-light" style={{ margin: '4px 0 0' }}>
+                Só pode existir um template automático por gatilho. Ao mudar o gatilho, confira se não há outro
+                template com o mesmo tipo.
+              </p>
+            ) : null}
           </div>
 
           <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Itens do checklist</p>

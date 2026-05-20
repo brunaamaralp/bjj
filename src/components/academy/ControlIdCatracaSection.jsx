@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { readControlIdConfig } from '../../../lib/controlidSettings.js';
 import { testControlIdConnection, saveControlIdConfig } from '../../lib/controlidApi';
+import EmptyState from '../shared/EmptyState.jsx';
 
 export default function ControlIdCatracaSection({ academyId }) {
   const addToast = useUiStore((s) => s.addToast);
@@ -43,8 +44,14 @@ export default function ControlIdCatracaSection({ academyId }) {
     };
   }, [academyId]);
 
+  const canTestWithoutTypingPassword = hasStoredPassword && !String(password || '').trim();
+
   const test = async () => {
     if (!academyId) return;
+    if (!String(password || '').trim() && !hasStoredPassword) {
+      addToast({ type: 'warning', message: 'Informe a senha do equipamento para testar a conexão.' });
+      return;
+    }
     setTesting(true);
     setPortals([]);
     try {
@@ -95,15 +102,16 @@ export default function ControlIdCatracaSection({ academyId }) {
   return (
     <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
       <div className="card" style={{ padding: 16, border: '1px solid var(--border-light)' }}>
-        <h4 className="navi-section-heading" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <DoorOpen size={18} aria-hidden />
-          Catraca Control iD
-        </h4>
-        <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-          Reconhecimento facial e liberação de acesso. O Nave na nuvem não alcança a rede local — mantenha{' '}
-          <code>npm run start:server</code> na recepção e use{' '}
-          <code>VITE_CONTROLID_API_BASE=http://localhost:4000</code> (ou túnel + <code>CONTROLID_RELAY_URL</code> no
-          Vercel).
+        <h3
+          className="navi-section-heading"
+          style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          <DoorOpen size={18} color="var(--v500)" aria-hidden />
+          Integração com catraca (Control iD)
+        </h3>
+        <p className="text-small text-muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+          Reconhecimento facial e liberação de acesso na recepção. Para ativar a catraca, o servidor local precisa
+          estar rodando na recepção. Consulte o responsável técnico ou o suporte Nave.
         </p>
 
         <label className="flex items-center gap-2" style={{ marginBottom: 14, fontSize: 14 }}>
@@ -111,64 +119,113 @@ export default function ControlIdCatracaSection({ academyId }) {
           Integração ativa
         </label>
 
-        <div style={{ display: 'grid', gap: 10, maxWidth: 420 }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="info-mini-label">IP da catraca</label>
-            <input className="form-input" value={ip} onChange={(e) => setIp(e.target.value)} placeholder="192.168.1.100" />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="info-mini-label">Porta</label>
-            <input className="form-input" type="number" min={1} value={port} onChange={(e) => setPort(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="info-mini-label">Usuário</label>
-            <input className="form-input" value={username} onChange={(e) => setUsername(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="info-mini-label">Senha</label>
-            <input
-              className="form-input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={hasStoredPassword ? '•••••••• (salva — vazio mantém)' : 'Senha do equipamento'}
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="info-mini-label">Portal ID</label>
-            <input
-              className="form-input"
-              type="number"
-              min={1}
-              value={portalId}
-              onChange={(e) => setPortalId(e.target.value)}
-            />
-            {portals.length > 0 && (
-              <select
-                className="form-input"
-                style={{ marginTop: 8 }}
-                value={portalId}
-                onChange={(e) => setPortalId(e.target.value)}
-              >
-                {portals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (ID {p.id})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
+        {!enabled ? (
+          <EmptyState
+            variant="compact"
+            tone="dashed"
+            icon={DoorOpen}
+            title="Integração com catraca desativada"
+            description="Ative acima se você possui o hardware Control iD instalado na recepção."
+            role="status"
+          />
+        ) : (
+          <>
+            <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
+              Use <strong>Testar conexão</strong> para validar IP e credenciais. Depois, <strong>Salvar</strong> para
+              aplicar as alterações na academia.
+            </p>
 
-        <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap' }}>
-          <button type="button" className="btn-secondary" onClick={() => void test()} disabled={testing}>
-            {testing ? 'Testando…' : 'Testar conexão'}
-          </button>
-          <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving}>
-            {saving ? 'Salvando…' : 'Salvar'}
-          </button>
-        </div>
+            <div style={{ display: 'grid', gap: 10, maxWidth: 420 }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="info-mini-label">IP da catraca</label>
+                <input
+                  className="form-input"
+                  value={ip}
+                  onChange={(e) => setIp(e.target.value)}
+                  placeholder="192.168.1.100"
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="info-mini-label">Porta</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min={1}
+                  value={port}
+                  onChange={(e) => setPort(e.target.value)}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="info-mini-label">Usuário</label>
+                <input className="form-input" value={username} onChange={(e) => setUsername(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="info-mini-label">Senha</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={hasStoredPassword ? 'Deixe em branco para manter a senha salva' : 'Senha do equipamento'}
+                  autoComplete="new-password"
+                />
+                {hasStoredPassword ? (
+                  <p className="text-xs text-light" style={{ margin: '4px 0 0', lineHeight: 1.4 }}>
+                    Senha já configurada — deixe em branco para manter a atual. Preencha apenas para alterar.
+                  </p>
+                ) : null}
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="info-mini-label">Portal ID</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min={1}
+                  value={portalId}
+                  onChange={(e) => setPortalId(e.target.value)}
+                />
+                {portals.length > 0 && (
+                  <select
+                    className="form-input"
+                    style={{ marginTop: 8 }}
+                    value={portalId}
+                    onChange={(e) => setPortalId(e.target.value)}
+                  >
+                    {portals.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (ID {p.id})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => void test()}
+                disabled={testing}
+                title={
+                  canTestWithoutTypingPassword
+                    ? 'Usará a senha já salva na configuração'
+                    : undefined
+                }
+              >
+                {testing ? 'Testando…' : 'Testar conexão'}
+              </button>
+              <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving}>
+                {saving ? 'Salvando…' : 'Salvar'}
+              </button>
+              {canTestWithoutTypingPassword ? (
+                <span className="text-xs text-light" style={{ flex: '1 1 200px', lineHeight: 1.35 }}>
+                  O teste pode ser feito sem redigitar a senha.
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

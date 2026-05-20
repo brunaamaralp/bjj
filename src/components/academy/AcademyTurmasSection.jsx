@@ -83,79 +83,101 @@ export default function AcademyTurmasSection({ academyId, academyDataVersion = 0
     setTurmas(next);
   };
 
+  const handleRestoreDefaults = () => {
+    setTurmas([...DEFAULT_ACADEMY_TURMAS]);
+    addToast({
+      type: 'info',
+      message: 'Padrões restaurados — clique em Salvar para confirmar.',
+    });
+  };
+
   return (
-    <div className="card" style={{ marginTop: 16 }}>
-      <h4 className="text-small" style={{ fontWeight: 700, marginBottom: 4 }}>
-        Turmas
-      </h4>
-      <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.45 }}>
+    <>
+      <div className="flex justify-between items-center mb-2" style={{ gap: 10, flexWrap: 'wrap' }}>
+        <h3 className="navi-section-heading" style={{ margin: 0 }}>
+          Turmas
+        </h3>
+        {canEdit && hasUnsaved ? (
+          <span className="funil-unsaved-pill" role="status">
+            Alterações não salvas
+          </span>
+        ) : null}
+      </div>
+      <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
         Opções do campo Turma em cadastros, perfis e filtros.
       </p>
 
-      <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 12px' }}>
-        {turmas.map((item, idx) => (
-          <li
-            key={`${item}-${idx}`}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 8,
-              padding: '8px 10px',
-              borderBottom: '1px solid var(--border-light)',
-            }}
-          >
-            <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>
-              <span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{idx + 1}.</span>
-              {item}
-            </span>
-            {canEdit ? (
+      <div className="card">
+        <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 12px' }}>
+          {turmas.map((item, idx) => (
+            <li
+              key={`${item}-${idx}`}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 8,
+                padding: '8px 10px',
+                borderBottom: '1px solid var(--border-light)',
+              }}
+            >
+              <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>
+                <span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{idx + 1}.</span>
+                {item}
+              </span>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className="btn-action-ghost"
+                  aria-label={`Remover turma ${idx + 1}`}
+                  onClick={() => removeTurma(idx)}
+                  style={{ padding: 4, color: 'var(--text-muted)', flexShrink: 0 }}
+                >
+                  <X size={16} />
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+
+        {canEdit ? (
+          <>
+            <div className="flex gap-2" style={{ marginBottom: 12 }}>
+              <input
+                className="form-input"
+                style={{ flex: 1 }}
+                value={newTurma}
+                onChange={(e) => setNewTurma(e.target.value)}
+                placeholder="Nova turma"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
+              />
+              <button type="button" className="btn-outline" onClick={handleAdd} disabled={!newTurma.trim()}>
+                <Plus size={16} /> Adicionar
+              </button>
+            </div>
+            <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
-                className="btn-action-ghost"
-                aria-label={`Remover turma ${idx + 1}`}
-                onClick={() => removeTurma(idx)}
-                style={{ padding: 4, color: 'var(--text-muted)', flexShrink: 0 }}
+                className="btn-primary"
+                disabled={saving || !hasUnsaved}
+                onClick={() => void saveTurmas(turmas)}
               >
-                <X size={16} />
+                {saving ? 'Salvando…' : 'Salvar turmas'}
               </button>
-            ) : null}
-          </li>
-        ))}
-      </ol>
-
-      {canEdit ? (
-        <>
-          <div className="flex gap-2" style={{ marginBottom: 12 }}>
-            <input
-              className="form-input"
-              style={{ flex: 1 }}
-              value={newTurma}
-              onChange={(e) => setNewTurma(e.target.value)}
-              placeholder="Nova turma"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-            />
-            <button type="button" className="btn-outline" onClick={handleAdd} disabled={!newTurma.trim()}>
-              <Plus size={16} /> Adicionar
-            </button>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <button type="button" className="btn-primary" disabled={saving || !hasUnsaved} onClick={() => void saveTurmas(turmas)}>
-              {saving ? 'Salvando…' : 'Salvar turmas'}
-            </button>
-            <button type="button" className="btn-outline" onClick={() => setTurmas([...DEFAULT_ACADEMY_TURMAS])}>
-              Restaurar padrão
-            </button>
-          </div>
-        </>
-      ) : (
-        <p className="text-small text-light">Somente administradores podem editar esta lista.</p>
-      )}
-    </div>
+              <button type="button" className="btn-outline" onClick={handleRestoreDefaults}>
+                Restaurar padrão
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="text-small text-light">Somente administradores podem editar esta lista.</p>
+        )}
+      </div>
+    </>
   );
 }

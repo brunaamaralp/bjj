@@ -31,6 +31,15 @@ export function readStockPurchaseExpenseCategory(settings) {
   return cat || DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY;
 }
 
+/** Verdadeiro quando a academia já salvou pelo menos um campo de estoque em settings. */
+export function stockSettingsHasPersistedData(settings) {
+  const s = parseAcademySettings(settings);
+  return (
+    Object.prototype.hasOwnProperty.call(s, 'stockCheckSchedule') ||
+    Object.prototype.hasOwnProperty.call(s, 'stockPurchaseExpenseCategory')
+  );
+}
+
 export function mergeStockCheckIntoSettings(settings, stockCheckSchedule, stockPurchaseExpenseCategory) {
   const base = parseAcademySettings(settings);
   return {

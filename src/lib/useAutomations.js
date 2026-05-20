@@ -24,7 +24,7 @@ export const AUTOMATION_LABELS = {
   },
   waiting_decision: {
     label: 'Aguardando decisão',
-    description: 'Enviada 1 dia após o lead entrar nessa etapa.',
+    description: 'Enviada após o contato entrar na etapa «Aguardando decisão».',
   },
   converted: {
     label: 'Matrícula realizada',
@@ -35,6 +35,36 @@ export const AUTOMATION_LABELS = {
     description: 'Enviado automaticamente antes da aula agendada.',
   },
 };
+
+/** Eventos de funil / WhatsApp vs pós-matrícula (UI em Empresa → Automações). */
+export const AUTOMATION_GROUPS = {
+  captacao: [
+    'schedule_confirm',
+    'presence_confirmed',
+    'missed',
+    'waiting_decision',
+    'schedule_reminder',
+  ],
+  posMatricula: ['converted'],
+};
+
+export const AUTOMATION_DELAY_OPTIONS = {
+  schedule_reminder: [
+    { value: 120, label: '2 horas antes' },
+    { value: 240, label: '4 horas antes' },
+    { value: 1440, label: '24 horas antes' },
+  ],
+  waiting_decision: [
+    { value: 720, label: '12 horas depois' },
+    { value: 1440, label: '1 dia depois' },
+    { value: 2880, label: '2 dias depois' },
+    { value: 4320, label: '3 dias depois' },
+  ],
+};
+
+export function serializeAutomationsConfig(cfg) {
+  return JSON.stringify(parseAutomationsConfig(cfg));
+}
 
 export function parseAutomationsConfig(raw) {
   try {

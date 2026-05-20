@@ -1,13 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Phone, Mail, MapPin, Tags } from 'lucide-react';
+import { Building2, Phone, Mail, MapPin, Tags, AlertTriangle } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { useTerms } from '../../lib/terminology.js';
 import { maskPhone, maskCPFOrCNPJ } from '../../lib/masks.js';
 
-const ClockIcon = () => <span style={{ display: 'inline-flex', width: 16, height: 16, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>⏱️</span>;
+const FISCAL_MASKED = '•••.•••.•••-••';
 
-const InfoRow = ({ icon, label, value, showAddInline, onAdd }) => (
+const ClockIcon = () => (
+    <span
+        style={{
+            display: 'inline-flex',
+            width: 16,
+            height: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-muted)',
+        }}
+    >
+        ⏱️
+    </span>
+);
+
+const InfoRow = ({ icon, label, value, showAddInline, onAdd, action }) => (
     <div className="info-row">
         <span className="info-row-icon">{icon}</span>
         <span className="info-row-label">{label}</span>
@@ -26,6 +41,7 @@ const InfoRow = ({ icon, label, value, showAddInline, onAdd }) => (
                 ) : null}
             </span>
         )}
+        {action ? <span className="info-row-action">{action}</span> : null}
     </div>
 );
 
@@ -47,14 +63,31 @@ const EstudioSection = ({
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
+    const [focusTaxOnEdit, setFocusTaxOnEdit] = useState(false);
     const didAutoOpenTax = useRef(false);
 
     useEffect(() => {
         if (autoEditTax && taxUpdateNeeded && role === 'owner' && !didAutoOpenTax.current) {
             didAutoOpenTax.current = true;
             setEditing(true);
+            setFocusTaxOnEdit(true);
         }
     }, [autoEditTax, taxUpdateNeeded, role]);
+
+    useEffect(() => {
+        if (!editing || !focusTaxOnEdit) return undefined;
+        const t = window.setTimeout(() => {
+            taxInputRef?.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+            taxInputRef?.current?.focus?.();
+            setFocusTaxOnEdit(false);
+        }, 80);
+        return () => window.clearTimeout(t);
+    }, [editing, focusTaxOnEdit, taxInputRef]);
+
+    const openFiscalEdit = () => {
+        setEditing(true);
+        setFocusTaxOnEdit(true);
+    };
 
     const parseQuickTimes = (input) => {
         const asText = String(input || '').trim();
@@ -102,7 +135,9 @@ const EstudioSection = ({
         }
         setSaving(true);
         try {
-            await onSave();
+            await onSave({
+                successMessage: `Dados da ${terms.workspaceNoun} salvos.`,
+            });
             setEditing(false);
         } catch {
             // Error handled in onSave
@@ -114,12 +149,22 @@ const EstudioSection = ({
     const verticalLabel =
         academy.vertical === 'physio' ? 'Fisioterapia' : 'Academia / Artes marciais';
 
+    const showFiscalBlock = billingLive && role === 'owner';
+
+    const fiscalEditButton = (
+        <button type="button" className="academy-field-add-link" onClick={openFiscalEdit}>
+            Editar dados fiscais
+        </button>
+    );
+
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
             <div className="flex justify-between items-center mb-2">
-                <h3 className="navi-section-heading">Dados da {terms.workspaceNounTitle}</h3>
+                <h3 className="navi-section-heading">Identidade</h3>
                 {role === 'owner' && !editing && (
-                    <button className="edit-link" onClick={() => setEditing(true)}>Editar</button>
+                    <button type="button" className="edit-link" onClick={() => setEditing(true)}>
+                        Editar
+                    </button>
                 )}
             </div>
 
@@ -128,13 +173,85 @@ const EstudioSection = ({
                     <div className="flex-col gap-4">
                         <div className="form-group">
                             <label>Nome da {terms.workspaceNounTitle}</label>
-                            <input className="form-input" value={academy.name}
-                                onChange={e => setAcademy({ ...academy, name: e.target.value })}
-                                placeholder="Ex: Team BJJ" />
+                            <input
+                                className="form-input"
+                                value={academy.name}
+                                onChange={(e) => setAcademy({ ...academy, name: e.target.value })}
+                                placeholder="Ex: Team BJJ"
+                            />
                         </div>
+                        <div className="form-group">
+                            <label>Telefone</label>
+                            <input
+                                className="form-input"
+                                value={academy.phone}
+                                onChange={(e) => setAcademy({ ...academy, phone: maskPhone(e.target.value) })}
+                                placeholder="(00) 00000-0000"
+                                type="tel"
+                                inputMode="numeric"
+                            />
+                            {fieldErrors.phone ? <p className="field-error">{fieldErrors.phone}</p> : null}
+                        </div>
+                        <div className="form-group">
+                            <label>E-mail</label>
+                            <input
+                                className="form-input"
+                                type="email"
+                                value={academy.email}
+                                onChange={(e) => setAcademy({ ...academy, email: e.target.value })}
+                                placeholder="contato@academia.com"
+                            />
+                            {fieldErrors.email ? <p className="field-error">{fieldErrors.email}</p> : null}
+                        </div>
+                        <div className="form-group">
+                            <label>Endereço</label>
+                            <input
+                                className="form-input"
+                                value={academy.address}
+                                onChange={(e) => setAcademy({ ...academy, address: e.target.value })}
+                                placeholder="Rua, número, bairro"
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-col gap-2">
+                        <InfoRow icon={<Building2 size={16} />} label="Nome" value={academy.name} />
+                        <InfoRow
+                            icon={<Phone size={16} />}
+                            label="Telefone"
+                            value={academy.phone ? maskPhone(String(academy.phone)) : ''}
+                            showAddInline={role === 'owner'}
+                            onAdd={() => setEditing(true)}
+                        />
+                        <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
+                        <InfoRow
+                            icon={<MapPin size={16} />}
+                            label="Endereço"
+                            value={academy.address}
+                            showAddInline={role === 'owner'}
+                            onAdd={() => setEditing(true)}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="funil-section-divider" role="separator" aria-hidden="true" />
+
+            <h3 className="navi-section-heading mb-2">Configurações operacionais</h3>
+
+            <div className="card">
+                {editing ? (
+                    <div className="flex-col gap-4">
                         {role === 'owner' ? (
                             <div className="form-group">
                                 <label>Tipo de negócio</label>
+                                <div className="estudio-vertical-alert" role="note">
+                                    <AlertTriangle size={16} aria-hidden />
+                                    <span>
+                                        Altera a terminologia em todo o sistema — ex.: &quot;aluno&quot; vira
+                                        &quot;paciente&quot; ao escolher Fisioterapia.
+                                    </span>
+                                </div>
                                 <select
                                     className="form-input"
                                     style={{ maxWidth: 360 }}
@@ -149,34 +266,9 @@ const EstudioSection = ({
                                     <option value="fitness">Academia / Artes marciais</option>
                                     <option value="physio">Fisioterapia</option>
                                 </select>
-                                <p className="text-xs text-light" style={{ marginTop: 6 }}>
-                                    Ajusta termos na interface (ex.: paciente vs aluno).
-                                </p>
                             </div>
                         ) : null}
-                        <div className="form-group">
-                            <label>Telefone</label>
-                            <input className="form-input" value={academy.phone}
-                                onChange={e => setAcademy({ ...academy, phone: maskPhone(e.target.value) })}
-                                placeholder="(00) 00000-0000"
-                                type="tel"
-                                inputMode="numeric" />
-                            {fieldErrors.phone ? <p className="field-error">{fieldErrors.phone}</p> : null}
-                        </div>
-                        <div className="form-group">
-                            <label>E-mail</label>
-                            <input className="form-input" type="email" value={academy.email}
-                                onChange={e => setAcademy({ ...academy, email: e.target.value })}
-                                placeholder="contato@academia.com" />
-                            {fieldErrors.email ? <p className="field-error">{fieldErrors.email}</p> : null}
-                        </div>
-                        <div className="form-group">
-                            <label>Endereço</label>
-                            <input className="form-input" value={academy.address}
-                                onChange={e => setAcademy({ ...academy, address: e.target.value })}
-                                placeholder="Rua, número, bairro" />
-                        </div>
-                        {billingLive && role === 'owner' && taxUpdateNeeded && setTaxDocumentInput ? (
+                        {showFiscalBlock && taxUpdateNeeded && setTaxDocumentInput ? (
                             <div className="form-group" id="navi-academy-tax" ref={taxInputRef}>
                                 <label>CPF ou CNPJ (nota fiscal)</label>
                                 <input
@@ -195,29 +287,30 @@ const EstudioSection = ({
                                 </p>
                             </div>
                         ) : null}
-                        {billingLive && role === 'owner' && companyTaxRegistered && !taxUpdateNeeded ? (
+                        {showFiscalBlock && companyTaxRegistered && !taxUpdateNeeded ? (
                             <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
                                 CPF/CNPJ cadastrado para cobrança.
                             </p>
                         ) : null}
                         <div className="form-group">
                             <label>Horários rápidos (reagendar)</label>
-                            <input className="form-input" value={academy.quickTimes}
-                                onChange={e => setAcademy({ ...academy, quickTimes: e.target.value })}
-                                placeholder="Ex: 18:00, 19:00, 20:00" />
-                            <p className="text-xs text-light">Separe por vírgulas. Exibidos nos cards de "Não Compareceu".</p>
-                            {fieldErrors.quickTimes ? <p className="field-error">{fieldErrors.quickTimes}</p> : null}
-                        </div>
-                        <div className="flex gap-2">
-                            <button className="btn-outline" style={{ flex: 1 }} onClick={() => setEditing(false)}>Cancelar</button>
-                            <button className="btn-secondary" style={{ flex: 2 }} onClick={handleSave} disabled={saving}>
-                                {saving ? 'Salvando...' : 'Salvar'}
-                            </button>
+                            <input
+                                className="form-input"
+                                value={academy.quickTimes}
+                                onChange={(e) => setAcademy({ ...academy, quickTimes: e.target.value })}
+                                placeholder="Ex: 18:00, 19:00, 20:00"
+                            />
+                            <p className="text-xs text-light" style={{ marginTop: 6, lineHeight: 1.45 }}>
+                                Separe por vírgulas (formato 24h). Esses horários aparecem nos cards de aluno
+                                quando há falta registrada no funil de vendas.
+                            </p>
+                            {fieldErrors.quickTimes ? (
+                                <p className="field-error">{fieldErrors.quickTimes}</p>
+                            ) : null}
                         </div>
                     </div>
                 ) : (
                     <div className="flex-col gap-2">
-                        <InfoRow icon={<Building2 size={16} />} label="Nome" value={academy.name} />
                         <InfoRow
                             icon={<Tags size={16} />}
                             label="Tipo de negócio"
@@ -225,36 +318,21 @@ const EstudioSection = ({
                             showAddInline={role === 'owner'}
                             onAdd={() => setEditing(true)}
                         />
-                        <InfoRow
-                            icon={<Phone size={16} />}
-                            label="Telefone"
-                            value={academy.phone ? maskPhone(String(academy.phone)) : ''}
-                            showAddInline={role === 'owner'}
-                            onAdd={() => setEditing(true)}
-                        />
-                        <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
-                        <InfoRow
-                            icon={<MapPin size={16} />}
-                            label="Endereço"
-                            value={academy.address}
-                            showAddInline={role === 'owner'}
-                            onAdd={() => setEditing(true)}
-                        />
-                        {billingLive && role === 'owner' && taxUpdateNeeded ? (
-                            <div
-                                className="info-row"
-                                style={{ background: 'var(--accent-light)', borderRadius: 8, padding: '12px 10px' }}
-                            >
-                                <span className="info-row-label" style={{ minWidth: 'auto' }}>
-                                    Fiscal
+                        {showFiscalBlock && taxUpdateNeeded ? (
+                            <div className="estudio-fiscal-alert" role="alert">
+                                <span className="text-small" style={{ fontWeight: 600, lineHeight: 1.45 }}>
+                                    Falta cadastrar CPF/CNPJ para nota fiscal.
                                 </span>
-                                <span className="text-small" style={{ color: 'var(--text)', fontWeight: 600 }}>
-                                    Falta cadastrar CPF/CNPJ para nota fiscal. Toque em Editar.
-                                </span>
+                                {fiscalEditButton}
                             </div>
                         ) : null}
-                        {billingLive && role === 'owner' && companyTaxRegistered && !taxUpdateNeeded ? (
-                            <InfoRow icon={<Building2 size={16} />} label="Fiscal" value="CPF/CNPJ cadastrado" />
+                        {showFiscalBlock && companyTaxRegistered && !taxUpdateNeeded ? (
+                            <InfoRow
+                                icon={<Building2 size={16} />}
+                                label="CPF/CNPJ"
+                                value={FISCAL_MASKED}
+                                action={fiscalEditButton}
+                            />
                         ) : null}
                         <InfoRow
                             icon={<ClockIcon />}
@@ -266,8 +344,33 @@ const EstudioSection = ({
                     </div>
                 )}
             </div>
-            <style dangerouslySetInnerHTML={{
-                __html: `
+
+            {editing ? (
+                <div className="flex gap-2 mt-4">
+                    <button
+                        type="button"
+                        className="btn-outline"
+                        style={{ flex: 1 }}
+                        onClick={() => setEditing(false)}
+                        disabled={saving}
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ flex: 2 }}
+                        onClick={() => void handleSave()}
+                        disabled={saving}
+                    >
+                        {saving ? 'Salvando...' : 'Salvar'}
+                    </button>
+                </div>
+            ) : null}
+
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
         .academy-field-add-link {
           margin: 0;
           padding: 0;
@@ -279,12 +382,50 @@ const EstudioSection = ({
           cursor: pointer;
           text-decoration: none;
           font-family: inherit;
+          white-space: nowrap;
         }
         .academy-field-add-link:hover {
           text-decoration: underline;
         }
+        .info-row {
+          flex-wrap: wrap;
+        }
+        .info-row-action {
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+        .estudio-vertical-alert {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 10px 12px;
+          margin-bottom: 10px;
+          border-radius: 8px;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          font-size: 0.8rem;
+          line-height: 1.45;
+          color: var(--text);
+          font-weight: 500;
+        }
+        .estudio-vertical-alert svg {
+          flex-shrink: 0;
+          margin-top: 2px;
+          color: #b45309;
+        }
+        .estudio-fiscal-alert {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: 8px;
+          background: var(--accent-light);
+        }
       `,
-            }} />
+                }}
+            />
         </section>
     );
 };

@@ -10,15 +10,20 @@ import {
 import { parseAcademySettings } from '../../lib/stockSettings';
 
 /**
- * Opção legada: uma tarefa extra após matrícula (gravada em academy.settings).
- * O fluxo recomendado é o template com gatilho "Matrícula" (TaskTemplatesSection).
+ * Orientação sobre pós-matrícula e opção legada (uma tarefa em academy.settings).
+ * Oculta quando já existe template com gatilho Matrícula.
  */
-export default function EnrollmentFollowUpSection({ academyId }) {
+export default function EnrollmentFollowUpSection({
+  academyId,
+  hasEnrollmentTemplate = false,
+  templatesConfigurado = true,
+}) {
   const addToast = useUiStore((s) => s.addToast);
   const [enabled, setEnabled] = useState(false);
   const [title, setTitle] = useState(DEFAULT_ENROLLMENT_FOLLOW_UP.title);
   const [days, setDays] = useState(String(DEFAULT_ENROLLMENT_FOLLOW_UP.days));
   const [saving, setSaving] = useState(false);
+  const [hasLegacyConfig, setHasLegacyConfig] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
 
   useEffect(() => {
@@ -33,11 +38,14 @@ export default function EnrollmentFollowUpSection({ academyId }) {
           setEnabled(true);
           setTitle(followUp.title);
           setDays(String(followUp.days));
+          setHasLegacyConfig(true);
           setShowLegacy(true);
         } else {
           setEnabled(false);
           setTitle(DEFAULT_ENROLLMENT_FOLLOW_UP.title);
           setDays(String(DEFAULT_ENROLLMENT_FOLLOW_UP.days));
+          setHasLegacyConfig(false);
+          setShowLegacy(false);
         }
       } catch (e) {
         console.error('[EnrollmentFollowUp]', e);
@@ -47,6 +55,10 @@ export default function EnrollmentFollowUpSection({ academyId }) {
       cancelled = true;
     };
   }, [academyId]);
+
+  if (hasEnrollmentTemplate) {
+    return null;
+  }
 
   const save = async () => {
     if (!academyId) return;
@@ -63,9 +75,33 @@ export default function EnrollmentFollowUpSection({ academyId }) {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      addToast({ type: 'success', message: 'Tarefa extra pós-matrícula salva.' });
+      setHasLegacyConfig(enabled);
+      addToast({
+        type: 'success',
+        message: enabled ? 'Tarefa extra pós-matrícula salva.' : 'Configuração legada removida.',
+      });
     } catch (e) {
       console.error('[EnrollmentFollowUp] save:', e);
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clearLegacy = async () => {
+    setEnabled(false);
+    setSaving(true);
+    try {
+      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const base = parseAcademySettings(doc.settings);
+      const merged = mergeEnrollmentFollowUpIntoSettings(base, null);
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        settings: JSON.stringify(merged),
+      });
+      setHasLegacyConfig(false);
+      setShowLegacy(false);
+      addToast({ type: 'success', message: 'Configuração legada removida.' });
+    } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSaving(false);
@@ -75,18 +111,41 @@ export default function EnrollmentFollowUpSection({ academyId }) {
   return (
     <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
       <div className="card" style={{ padding: 16, border: '1px solid var(--border-light)' }}>
-        <h4 className="navi-section-heading" style={{ marginBottom: 6 }}>
+        <h3 className="navi-section-heading" style={{ marginBottom: 6 }}>
           Processo ao matricular
-        </h4>
+        </h3>
         <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-          Ao concluir a matrícula, o sistema aplica o template com gatilho{' '}
-          <strong>Matrícula</strong> (várias tarefas com prazos em dias). Edite os passos no bloco acima
-          — por exemplo: boas-vindas, grupo de WhatsApp, check-in em 30 dias.
+          Ao concluir a matrícula, o sistema aplica o template com gatilho <strong>Matrícula</strong> (várias
+          tarefas com prazos em dias). Edite os passos na seção acima — por exemplo: boas-vindas, grupo de
+          WhatsApp, check-in em 30 dias.
         </p>
-        <p className="text-small text-muted" style={{ marginBottom: 0, lineHeight: 1.45 }}>
-          Use o botão <strong>Criar templates padrão</strong> se a academia ainda não tiver o processo de
-          onboarding.
-        </p>
+        {templatesConfigurado ? (
+          <p className="text-small text-muted" style={{ marginBottom: 0, lineHeight: 1.45 }}>
+            Se a academia ainda não tiver o processo de onboarding, use <strong>Restaurar padrões</strong> na
+            seção acima.
+          </p>
+        ) : null}
+
+        {hasLegacyConfig ? (
+          <div
+            className="section-error"
+            role="alert"
+            style={{
+              marginTop: 14,
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 8,
+            }}
+          >
+            <span>
+              Configuração legada detectada — migre para templates de tarefas com gatilho{' '}
+              <strong>Matrícula</strong> e desative a tarefa única abaixo.
+            </span>
+            <button type="button" className="btn-outline" disabled={saving} onClick={() => void clearLegacy()}>
+              Remover configuração legada
+            </button>
+          </div>
+        ) : null}
 
         <button
           type="button"
@@ -94,15 +153,14 @@ export default function EnrollmentFollowUpSection({ academyId }) {
           style={{ marginTop: 12, padding: 0, minHeight: 0 }}
           onClick={() => setShowLegacy((v) => !v)}
         >
-          {showLegacy ? 'Ocultar opção legada' : 'Tarefa única extra (opção legada)…'}
+          {showLegacy ? 'Ocultar tarefa única extra (legado)' : 'Tarefa única extra (legado)…'}
         </button>
 
         {showLegacy ? (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
             <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-              Além do template, você pode criar <strong>uma</strong> tarefa fixa (ex.: check-in em 7 dias).
-              Requer o atributo <code>settings</code> na coleção academies —{' '}
-              <code>npm run provision:academy-attrs</code>.
+              Forma antiga de criar <strong>uma</strong> tarefa fixa após a matrícula (ex.: check-in em 7 dias).
+              Prefira um template com gatilho Matrícula na seção acima.
             </p>
 
             <label className="flex items-center gap-2" style={{ marginBottom: 12, fontSize: 14 }}>
