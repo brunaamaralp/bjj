@@ -8,10 +8,13 @@ import './components/academy/agent-ia.css'
 import App from './App.jsx'
 import { queryClient } from './lib/queryClient'
 import { registerSW } from 'virtual:pwa-register';
+import { initStores } from './lib/initStores.js';
 
 import client from './lib/appwrite'
 
 client.ping();
+
+initStores();
 
 const updateSW = registerSW({
   onNeedRefresh() {
