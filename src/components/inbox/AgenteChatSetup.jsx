@@ -634,7 +634,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       } catch (err) {
         console.error('[AgenteChatSetup] erro ao gerar prompt:', err);
         pushNave(
-          'Não foi possível gerar o prompt agora. Tente de novo em instantes.'
+          'Não foi possível gerar as instruções agora. Tente de novo em instantes.'
         );
       } finally {
         setGenerating(false);
@@ -737,8 +737,8 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       setMessages([
         {
           role: 'nave',
-          content: 'Seu assistente já foi configurado com este fluxo. Quer reconfigurar do zero?',
-          actions: [{ label: 'Reconfigurar', action: () => restart() }]
+          content: 'Seu assistente já foi configurado com este fluxo. Quer refazer a configuração guiada do zero?',
+          actions: [{ label: 'Refazer configuração guiada', action: () => restart() }]
         }
       ]);
       return;
@@ -752,7 +752,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       setMessages([
         {
           role: 'nave',
-          content: `Você tem uma configuração em andamento (passo ${parsed.step + 1} de ${STEPS.length}). Quer retomar de onde parou?`,
+          content: `Você tem uma configuração guiada em andamento (passo ${parsed.step + 1} de ${STEPS.length}). Quer retomar de onde parou?`,
           actions: [
             { label: '▶ Retomar', action: () => resume(resumeDataRef.current) },
             { label: 'Começar do zero', action: () => restart() }

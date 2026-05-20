@@ -25,8 +25,8 @@ export default function AIAgentSettings() {
           <ChevronLeft size={18} strokeWidth={2} aria-hidden />
           Voltar para conversas
         </Link>
-        <h2 className="navi-page-title">Agente IA</h2>
-        <p className="navi-eyebrow" style={{ marginTop: 6 }}>Configuração dedicada do agente</p>
+        <h2 className="navi-page-title">Assistente IA</h2>
+        <p className="navi-eyebrow" style={{ marginTop: 6 }}>Ative o atendimento automático no WhatsApp</p>
       </div>
       <AgenteIASection academyId={academyId} role={role} academyDoc={academyDoc} />
     </div>

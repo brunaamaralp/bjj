@@ -8,8 +8,8 @@ import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { canEditAgentPrompt, canViewAgentSettings } from '../../lib/canEditAgentPrompt.js';
-import { mapAgentTestErrorMessage } from '../../lib/agentTestErrorMessage.js';
-import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle } from 'lucide-react';
+import { mapAgentTestErrorMessage, mapAgentSettingsErrorMessage } from '../../lib/agentTestErrorMessage.js';
+import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
 import './agent-ia.css';
@@ -34,13 +34,17 @@ function formatInstructionsSavedAt(iso) {
 /** Rótulo curto para o status da conexão WhatsApp na UI do Agente (não conectado). */
 function formatWaAgentStatus(status) {
     const k = String(status || '').trim().toLowerCase();
-    if (!k) return 'Em configuração';
-    if (k === 'offline') return 'Conexão desligada';
+    if (!k) return 'Aguardando conexão';
+    if (k === 'connected' || k === 'online') return 'Conectado';
+    if (k === 'offline') return 'Conexão pausada';
     if (k === 'open' || k === 'scanning' || k === 'qrcode') return 'Aguardando leitura do QR';
-    if (k === 'connecting' || k === 'syncing') return 'Conectando…';
+    if (k === 'connecting' || k === 'syncing') return 'Reconectando…';
     if (k === 'disconnected') return 'Desvinculado do WhatsApp';
     if (k === 'unknown') return 'Em verificação';
-    return String(status).replace(/_/g, ' ');
+    if (k === 'error' || k === 'failed') return 'Erro na conexão';
+    const words = k.replace(/_/g, ' ').split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 'Aguardando conexão';
+    return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 /** Ícone + cores para a faixa de status (conexão não ativa). */
@@ -194,6 +198,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const [promptSuffixBackup, setPromptSuffixBackup] = useState('');
     const [promptUpdatedAt, setPromptUpdatedAt] = useState('');
     const [showRestoreModal, setShowRestoreModal] = useState(false);
+    const [showReconfigureConfirm, setShowReconfigureConfirm] = useState(false);
 
     useEffect(() => {
         setShowWizard(false);
@@ -300,10 +305,20 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         setWizardAgenteInitial(null);
                     }
                 } else {
-                    throw new Error('Falha ao carregar');
+                    throw new Error(
+                        mapAgentSettingsErrorMessage({ status: rPrompt.res.status, erro: 'Falha ao carregar' })
+                    );
                 }
             } catch (e) {
-                if (!cancelled) addToast({ type: 'error', message: e?.message || 'Erro ao carregar' });
+                if (!cancelled) {
+                    addToast({
+                        type: 'error',
+                        message: mapAgentSettingsErrorMessage({
+                            message: e?.message,
+                            network: !e?.message?.includes('suporte'),
+                        }),
+                    });
+                }
             } finally {
                 if (!cancelled) setLoadingPrompt(false);
             }
@@ -345,7 +360,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             });
             if (blocked) return;
             const raw = await resp.text();
-            if (!resp.ok) throw new Error(raw || 'Falha ao salvar');
+            if (!resp.ok) {
+                throw new Error(mapAgentSettingsErrorMessage({ status: resp.status, erro: raw || 'Falha ao salvar' }));
+            }
             addToast({ type: 'success', message: successMessage ?? 'Instruções salvas' });
 
             // Atualiza estado local para refletir o prompt salvo (e preparar a restauração).
@@ -364,7 +381,10 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             }
             return true;
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
+            addToast({
+                type: 'error',
+                message: mapAgentSettingsErrorMessage({ message: e?.message, network: true }),
+            });
             return false;
         } finally {
             setSavingPrompt(false);
@@ -405,7 +425,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             }
             const errMsg =
                 data?.code === 'prompt_nao_configurado'
-                    ? 'Configure identidade ou conhecimento do assistente antes de ativar.'
+                    ? 'Conclua a configuração guiada do assistente (Identidade e Conhecimento) antes de ativar.'
                     : data?.erro || 'Não foi possível atualizar a IA';
             addToast({ type: 'error', message: errMsg });
             return false;
@@ -490,11 +510,18 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
             });
             const data = await resp.json().catch(() => ({}));
-            if (!resp.ok || !data?.sucesso) throw new Error(data?.erro || 'Não foi possível carregar a prévia');
+            if (!resp.ok || !data?.sucesso) {
+                throw new Error(
+                    mapAgentSettingsErrorMessage({ status: resp.status, erro: data?.erro || 'Não foi possível carregar a prévia' })
+                );
+            }
             setPromptPreviewText(String(data.prompt || ''));
             setShowPromptPreview(true);
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao carregar prévia' });
+            addToast({
+                type: 'error',
+                message: mapAgentSettingsErrorMessage({ message: e?.message, network: true }),
+            });
         } finally {
             setLoadingPromptPreview(false);
         }
@@ -504,7 +531,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         return new Date().toISOString().split('T')[0];
     }
 
-    const AdvancedOptionsAccordion = () => (
+    const AdvancedOptionsAccordion = () => {
+        if (!canEditPrompt) return null;
+        return (
         <details className="agent-accordion" style={{ marginTop: 20 }}>
             <summary>Opções avançadas</summary>
             <div className="agent-accordion-content">
@@ -513,8 +542,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         Detalhes para suporte
                     </summary>
                     <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
-                        {`O assistente também recebe dados estruturados do ${contactLabel.toLowerCase()} (formato JSON) junto com o texto. Use `}
-                        <strong>Ver como a IA recebe</strong> abaixo para inspecionar o conteúdo completo.
+                        {`O assistente também recebe dados técnicos do ${contactLabel.toLowerCase()} junto com o texto. Use `}
+                        <strong>Ver instruções completas</strong> abaixo para inspecionar o conteúdo enviado ao assistente.
                     </p>
                 </details>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -523,9 +552,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         onClick={() => void handlePreviewFullPrompt()}
                         className="btn btn-outline"
                         disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                        title={`Mostra o texto completo enviado ao modelo, incluindo dados estruturados do ${contactLabel.toLowerCase()}`}
+                        title={`Mostra o texto completo enviado ao assistente, incluindo dados do ${contactLabel.toLowerCase()}`}
                     >
-                        {loadingPromptPreview ? 'Carregando…' : 'Ver como a IA recebe'}
+                        {loadingPromptPreview ? 'Carregando…' : 'Ver instruções completas'}
                     </button>
                 </div>
 
@@ -557,7 +586,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
                 <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Perguntas frequentes</div>
                 <p className="agent-field-hint">
-                    Pares pergunta/resposta entram no contexto do assistente como base factual.
+                    Pares pergunta/resposta entram na base de respostas do assistente como referência factual.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {faqItems.map((item, idx) => (
@@ -619,7 +648,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 </div>
             </div>
         </details>
-    );
+        );
+    };
 
     const EditorDePrompt = () => {
         const hasBackup = Boolean(
@@ -653,7 +683,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         const handleSaveAndTest = async () => {
             const ok = await savePromptSettings(
                 { prompt_intro: editIntro, prompt_body: editBody, prompt_suffix: promptSuffix },
-                { successMessage: 'Prompt atualizado com sucesso!' }
+                { successMessage: 'Instruções do assistente atualizadas com sucesso!' }
             );
             if (!ok) return;
             setShowEditor(false);
@@ -668,23 +698,23 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         <div className="agent-restore-modal">
                             <h4 style={{ margin: '0 0 8px' }}>Restaurar versão anterior?</h4>
                             <p className="text-small text-light" style={{ margin: 0 }}>
-                                O backup substituirá o prompt atual e será salvo imediatamente.
+                                A versão anterior substituirá as instruções atuais e será salva imediatamente.
                             </p>
                             <div className="agent-restore-preview">
                                 <div>
-                                    <strong className="text-small">Atual (intro)</strong>
+                                    <strong className="text-small">Atual (Identidade)</strong>
                                     <pre>{String(editIntro || '').slice(0, 400) || '—'}</pre>
                                 </div>
                                 <div>
-                                    <strong className="text-small">Backup (intro)</strong>
+                                    <strong className="text-small">Versão anterior (Identidade)</strong>
                                     <pre>{String(promptIntroBackup || '').slice(0, 400) || '—'}</pre>
                                 </div>
                                 <div>
-                                    <strong className="text-small">Atual (conhecimento)</strong>
+                                    <strong className="text-small">Atual (Conhecimento)</strong>
                                     <pre>{String(editBody || '').slice(0, 400) || '—'}</pre>
                                 </div>
                                 <div>
-                                    <strong className="text-small">Backup (conhecimento)</strong>
+                                    <strong className="text-small">Versão anterior (Conhecimento)</strong>
                                     <pre>{String(promptBodyBackup || '').slice(0, 400) || '—'}</pre>
                                 </div>
                             </div>
@@ -734,7 +764,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         spellCheck
                     />
                     <div className="agent-prompt-meta">
-                        {String(editIntro || '').length} caracteres · recomendado até {PROMPT_RECOMMENDED_COMBINED_LEN} no total (intro + conhecimento)
+                        {String(editIntro || '').length} caracteres · recomendado até {PROMPT_RECOMMENDED_COMBINED_LEN} no total (Identidade + Conhecimento)
                     </div>
                 </section>
 
@@ -760,7 +790,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     <h5 id="agent-prompt-sistema" className="agent-prompt-field__label">
                         Regras do sistema{' '}
                         <span className="badge badge-info" style={{ marginLeft: 6, verticalAlign: 'middle' }}>
-                            Fixo
+                            Não editável
                         </span>
                     </h5>
                     <p className="agent-prompt-field__hint">
@@ -880,7 +910,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         {
                             role: 'assistant',
                             content:
-                                'O agente não gerou resposta. Verifique o prompt na aba Configurações.'
+                                'O assistente não gerou resposta. Revise as instruções na aba Assistente IA.'
                         }
                     ]);
                 } else {
@@ -912,9 +942,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 <div className="agent-chat-header" style={{ paddingBottom: 14, padding: '12px 14px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                         <div>
-                            <div className="agent-chat-title" style={{ fontSize: 14 }}>Chat de teste (sandbox)</div>
+                            <div className="agent-chat-title" style={{ fontSize: 14 }}>Chat de teste</div>
                             <div className="agent-chat-subtitle" style={{ marginTop: 6 }}>
-                                {testsLeft} de 10 testes restantes hoje · FAQ fictícia, sem dados reais da academia
+                                {testsLeft} de 10 testes restantes hoje · perguntas de exemplo, sem dados reais da academia
                             </div>
                         </div>
                         <button type="button" className="btn btn-outline" style={{ padding: '6px 12px', flexShrink: 0 }} onClick={handleClose} disabled={sending}>
@@ -1005,11 +1035,145 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const card2Active = promptConfigurado && iaAtiva;
     const card2Class = `agent-ia-card${card2Active ? ' agent-ia-card--assistant-active' : ''}`;
 
+    const setupProgress = useMemo(() => {
+        const waDone = card1Connected;
+        const configDone = promptConfigurado;
+        const activeDone = iaAtiva;
+        let currentStep = 1;
+        if (waDone && !configDone) currentStep = 2;
+        else if (waDone && configDone && !activeDone) currentStep = 3;
+        else if (waDone && configDone && activeDone) currentStep = 0;
+        let statusLine = '';
+        if (waDone && configDone && !activeDone) {
+            statusLine = 'Conectado, mas atendimento pausado';
+        }
+        return { waDone, configDone, activeDone, currentStep, statusLine };
+    }, [card1Connected, promptConfigurado, iaAtiva]);
+
+    const openReconfigureWizard = () => {
+        setShowReconfigureConfirm(false);
+        setShowWizard(true);
+        setShowEditor(false);
+        setShowTestChat(false);
+    };
+
+    const renderWaRefreshButton = (extraStyle = {}) => (
+        <button
+            type="button"
+            className="btn btn-outline"
+            style={{ padding: '8px 14px', ...extraStyle }}
+            onClick={() => void zap.fetchWaInfo()}
+            disabled={zap.waLoading || zap.waTokenMissing}
+        >
+            Atualizar status
+        </button>
+    );
+
+    const renderOwnerMaintenance = () => {
+        if (!isOwner) return null;
+        return (
+            <details className="agent-ia-maintenance">
+                <summary className="agent-ia-maintenance__summary">Precisa de ajuda com a conexão? →</summary>
+                <div className="agent-ia-maintenance__body">
+                    <div className="agent-ia-maintenance__group">
+                        <p className="agent-ia-maintenance__group-title">Corrigir problemas</p>
+                        <div className="agent-ia-maintenance__actions">
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                style={{ padding: '6px 10px' }}
+                                onClick={() => void zap.recoverZapsterInstance()}
+                                disabled={zap.waLoading || zap.waTokenMissing}
+                            >
+                                Corrigir conexão automaticamente
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ padding: '6px 10px' }}
+                                onClick={() => void zap.reconcileWhatsAppHistory()}
+                                disabled={zap.waLoading || zap.waSyncing || zap.waTokenMissing}
+                            >
+                                {zap.waSyncing ? 'Buscando…' : 'Buscar mensagens recentes'}
+                            </button>
+                        </div>
+                    </div>
+                    {!!zap.waInfo?.instance_id && (
+                        <div className="agent-ia-maintenance__group">
+                            <p className="agent-ia-maintenance__group-title">Ações avançadas</p>
+                            <div className="agent-ia-maintenance__actions">
+                                {zap.waInfo?.status === 'offline' && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline"
+                                        style={{ padding: '6px 10px' }}
+                                        onClick={() => void zap.powerOnInstance()}
+                                        disabled={zap.waLoading || zap.waTokenMissing}
+                                    >
+                                        Conectar WhatsApp
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    style={{ padding: '6px 10px' }}
+                                    onClick={() =>
+                                        setWaConfirm({
+                                            variant: 'powerOff',
+                                            title: 'Pausar conexão?',
+                                            description: 'O WhatsApp pode ficar offline até você retomar a conexão.',
+                                            confirmLabel: 'Pausar conexão',
+                                        })
+                                    }
+                                    disabled={zap.waLoading || zap.waTokenMissing}
+                                >
+                                    Pausar conexão
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    style={{ padding: '6px 10px' }}
+                                    onClick={() =>
+                                        setWaConfirm({
+                                            variant: 'restart',
+                                            title: 'Reiniciar a conexão?',
+                                            description: 'Pode levar alguns instantes. Use se o atendimento travou.',
+                                            confirmLabel: 'Reiniciar conexão',
+                                        })
+                                    }
+                                    disabled={zap.waLoading || zap.waTokenMissing}
+                                >
+                                    Reiniciar conexão
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-danger"
+                                    style={{ padding: '6px 10px' }}
+                                    onClick={() =>
+                                        setWaConfirm({
+                                            variant: 'disconnect',
+                                            title: 'Remover conexão WhatsApp?',
+                                            description: 'O assistente para de responder até você conectar novamente.',
+                                            confirmLabel: 'Remover conexão',
+                                        })
+                                    }
+                                    disabled={zap.waLoading || zap.waTokenMissing}
+                                >
+                                    Remover conexão WhatsApp
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </details>
+        );
+    };
+
     if (!canViewAgent) {
         return (
             <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
                 <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-                    Você não tem permissão para acessar o Agente IA nesta academia.
+                    Você não tem permissão para acessar o Assistente IA nesta academia.
                 </div>
             </section>
         );
@@ -1017,6 +1181,44 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="agent-ia-setup-panel" role="region" aria-label="Progresso da configuração">
+                <div className="agent-ia-setup-steps">
+                    {[
+                        { n: 1, label: 'Conectar WhatsApp', done: setupProgress.waDone },
+                        { n: 2, label: 'Configurar assistente', done: setupProgress.configDone },
+                        { n: 3, label: 'Ativar', done: setupProgress.activeDone },
+                    ].map((step) => (
+                        <div
+                            key={step.n}
+                            className={[
+                                'agent-ia-setup-step',
+                                step.done ? 'agent-ia-setup-step--done' : '',
+                                setupProgress.currentStep === step.n ? 'agent-ia-setup-step--current' : '',
+                            ]
+                                .filter(Boolean)
+                                .join(' ')}
+                        >
+                            <span className="agent-ia-setup-step__icon" aria-hidden>
+                                {step.done ? <Check size={14} strokeWidth={2.5} /> : step.n}
+                            </span>
+                            <span className="agent-ia-setup-step__label">{step.label}</span>
+                        </div>
+                    ))}
+                </div>
+                {aiThreadsLimit > 0 && (
+                    <p className="agent-ia-setup-panel__meta">
+                        Conversas com assistente neste ciclo: <strong>{aiThreadsUsed}</strong> de{' '}
+                        <strong>{aiThreadsLimit}</strong>
+                        {aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled ? (
+                            <span> — limite atingido; mensagens extras no plano podem ser necessárias.</span>
+                        ) : null}
+                    </p>
+                )}
+                {setupProgress.statusLine ? (
+                    <p className="agent-ia-setup-panel__status">{setupProgress.statusLine}</p>
+                ) : null}
+            </div>
+
             {/* Card 1 — WhatsApp */}
             <div className={card1Class}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: card1Connected ? 12 : 16, flexWrap: 'wrap' }}>
@@ -1036,26 +1238,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                             WhatsApp conectado e pronto para uso
                         </p>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
-                            {isOwner && (
-                                <button
-                                    type="button"
-                                    className="btn btn-outline"
-                                    style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                    onClick={() =>
-                                        setWaConfirm({
-                                            variant: 'disconnect',
-                                            title: 'Desconectar WhatsApp?',
-                                            description: 'O assistente vai parar de responder até você conectar novamente.',
-                                            confirmLabel: 'Desconectar',
-                                        })
-                                    }
-                                    disabled={zap.waLoading || zap.waTokenMissing}
-                                >
-                                    Desconectar
-                                </button>
-                            )}
-                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{renderWaRefreshButton()}</div>
                     </>
                 ) : (
                     <>
@@ -1063,8 +1246,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                             <div className="device-config-error" role="alert" style={{ marginBottom: 16 }}>
                                 <AlertTriangle size={22} aria-hidden />
                                 <div>
-                                    <strong>Configuração incompleta</strong>
-                                    <p>O token de acesso ao WhatsApp não está configurado. Entre em contato com o suporte para finalizar a configuração.</p>
+                                    <strong>Integração não finalizada</strong>
+                                    <p>Integração não finalizada — fale com o suporte para concluir a conexão com o WhatsApp.</p>
                                 </div>
                             </div>
                         )}
@@ -1079,9 +1262,29 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 }}
                             >
                                 <p className="text-small" style={{ margin: 0, lineHeight: 1.45 }}>
-                                    A conexão foi criada, mas não foi possível salvar os dados no sistema. Use <strong>Verificar e corrigir</strong> nas ferramentas abaixo, se disponível.
+                                    A conexão foi criada, mas não foi possível salvar os dados no sistema. Use{' '}
+                                    <strong>Corrigir conexão automaticamente</strong> em &quot;Precisa de ajuda com a conexão?&quot; abaixo, se disponível.
                                 </p>
                             </div>
+                        )}
+
+                        {!isOwner && (
+                            <p
+                                className="agent-ia-member-wa-hint"
+                                role="note"
+                                style={{
+                                    margin: '0 0 16px',
+                                    padding: '10px 12px',
+                                    borderRadius: 8,
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border)',
+                                    fontSize: '0.85rem',
+                                    lineHeight: 1.5,
+                                    color: 'var(--text-secondary)',
+                                }}
+                            >
+                                Peça ao dono da academia para conectar o WhatsApp.
+                            </p>
                         )}
 
                         {!zap.waInfo?.instance_id && (
@@ -1089,8 +1292,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)' }}>Primeiro passo</p>
                                 <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 }}>
                                     {isOwner
-                                        ? `Crie a conexão desta ${terms.workspaceNoun} com o WhatsApp. Na sequência você poderá exibir o código QR para escanear no celular.`
-                                        : `Peça ao dono da ${terms.workspaceNoun} para iniciar a conexão com o WhatsApp aqui.`}
+                                        ? `Conecte o WhatsApp desta ${terms.workspaceNoun}. Na sequência você poderá exibir o código QR para escanear no celular.`
+                                        : 'Somente o dono da academia pode iniciar a conexão nesta página.'}
                                 </p>
                                 {isOwner && (
                                     <button
@@ -1099,7 +1302,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         onClick={() => void zap.createWaInstance()}
                                         disabled={zap.waLoading || zap.waTokenMissing}
                                     >
-                                        {zap.waLoading ? 'Aguarde…' : 'Começar conexão WhatsApp'}
+                                        {zap.waLoading ? 'Aguarde…' : 'Conectar WhatsApp'}
                                     </button>
                                 )}
                             </div>
@@ -1141,6 +1344,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         {formatWaAgentStatus(zap.waInfo?.status)}
                                     </span>
                                 </div>
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>{renderWaRefreshButton()}</div>
 
                                 {!zap.waQrShown && (
                                     <div
@@ -1153,7 +1357,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         }}
                                     >
                                         <p style={{ margin: '0 0 8px', fontWeight: 600, fontSize: '0.98rem', color: 'var(--text)' }}>
-                                            Parear com o celular
+                                            Conectar pelo celular (QR Code)
                                         </p>
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.55 }}>
                                             {isOwner ? (
@@ -1163,11 +1367,11 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                     <strong>Exibir código QR</strong> aqui e aponte a câmera para a tela.
                                                 </>
                                             ) : (
-                                                <>Somente o dono da {terms.workspaceNoun} pode abrir o código QR nesta página. Você pode atualizar o status abaixo para ver se a conexão já foi feita.</>
+                                                <>Somente o dono da academia pode abrir o código QR nesta página. Use o botão acima para ver se a conexão já foi feita.</>
                                             )}
                                         </p>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                                            {isOwner && (
+                                        {isOwner ? (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
                                                 <button
                                                     type="button"
                                                     className="btn btn-primary"
@@ -1176,17 +1380,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                 >
                                                     Exibir código QR
                                                 </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline"
-                                                style={{ padding: '8px 14px' }}
-                                                onClick={() => void zap.fetchWaInfo()}
-                                                disabled={zap.waLoading || zap.waTokenMissing}
-                                            >
-                                                Atualizar status
-                                            </button>
-                                        </div>
+                                            </div>
+                                        ) : null}
                                     </div>
                                 )}
 
@@ -1228,7 +1423,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                     {zap.waInfo?.status === 'connected'
                                                         ? 'WhatsApp já conectado. Não há QR disponível no momento.'
                                                         : zap.waQrError
-                                                            ? 'Não foi possível carregar o QR. Use o botão "Gerar novo QR" abaixo ou "Atualizar status".'
+                                                            ? 'Não foi possível carregar o QR. Use "Gerar novo QR" abaixo ou atualize o status acima.'
                                                             : 'Carregando imagem do QR…'}
                                                 </div>
                                             )}
@@ -1244,15 +1439,6 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                         Gerar novo QR
                                                     </button>
                                                 )}
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline"
-                                                    style={{ padding: '8px 14px' }}
-                                                    onClick={() => void zap.fetchWaInfo()}
-                                                    disabled={zap.waLoading || zap.waTokenMissing}
-                                                >
-                                                    Atualizar status
-                                                </button>
                                             </div>
                                         </div>
                                         <div
@@ -1273,7 +1459,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                 <li>Escaneie o código na tela</li>
                                             </ol>
                                             <p className="text-small" style={{ margin: '12px 0 0', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                                Quando terminar no celular, toque em <strong>Atualizar status</strong> aqui para aparecer como conectado.
+                                                Quando terminar no celular, use <strong>Atualizar status</strong> acima para aparecer como conectado.
                                             </p>
                                         </div>
                                     </>
@@ -1287,68 +1473,11 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                             </p>
                         )}
 
-                        {isOwner && (
-                            <details style={{ marginTop: 16 }}>
-                                <summary className="text-small" style={{ cursor: 'pointer', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                    Ferramentas (dono)
-                                </summary>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                                    <button type="button" className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => void zap.fetchWaInfo()} disabled={zap.waLoading}>
-                                        Atualizar status
-                                    </button>
-                                    <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.recoverZapsterInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                        Verificar e corrigir
-                                    </button>
-                                    <button type="button" className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => void zap.reconcileWhatsAppHistory()} disabled={zap.waLoading || zap.waSyncing || zap.waTokenMissing}>
-                                        {zap.waSyncing ? 'Sincronizando…' : 'Sincronizar mensagens (24h)'}
-                                    </button>
-                                    {!!zap.waInfo?.instance_id && zap.waInfo?.status === 'offline' && (
-                                        <button type="button" className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={() => void zap.powerOnInstance()} disabled={zap.waLoading || zap.waTokenMissing}>
-                                            Conectar WhatsApp
-                                        </button>
-                                    )}
-                                    {!!zap.waInfo?.instance_id && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline"
-                                                style={{ padding: '6px 10px' }}
-                                                onClick={() =>
-                                                    setWaConfirm({
-                                                        variant: 'powerOff',
-                                                        title: 'Desligar a conexão?',
-                                                        description: 'O WhatsApp pode ficar offline até você ligar novamente.',
-                                                        confirmLabel: 'Desligar',
-                                                    })
-                                                }
-                                                disabled={zap.waLoading || zap.waTokenMissing}
-                                            >
-                                                Desligar conexão
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline"
-                                                style={{ padding: '6px 10px' }}
-                                                onClick={() =>
-                                                    setWaConfirm({
-                                                        variant: 'restart',
-                                                        title: 'Reiniciar a conexão?',
-                                                        description: 'Pode levar alguns instantes. Use se o atendimento travou.',
-                                                        confirmLabel: 'Reiniciar',
-                                                    })
-                                                }
-                                                disabled={zap.waLoading || zap.waTokenMissing}
-                                            >
-                                                Reiniciar
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </details>
-                        )}
                     </>
                 )}
             </div>
+
+            {renderOwnerMaintenance()}
 
             {/* Card 2 — Assistente */}
             <div className={card2Class}>
@@ -1356,8 +1485,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     Ambiente de configuração — nada aqui vai para alunos até ativar e conectar WhatsApp.
                 </p>
                 {!canEditPrompt && (
-                    <p className="agent-ia-limits-note">
-                        Modo leitura: apenas titular ou administrador pode editar instruções. Você pode testar o assistente.
+                    <p className="agent-ia-readonly-banner" role="note">
+                        Você pode testar o assistente, mas só o dono da academia ou administrador pode editar as instruções.
                     </p>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -1366,20 +1495,27 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         Assistente IA
                     </span>
 
-                    {/* Toggle só aparece quando configurado */}
-                    {promptConfigurado && canEditPrompt && (
+                    {canEditPrompt && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                {iaAtiva ? 'Ligado' : 'Desligado'}
+                                {iaAtiva
+                                    ? 'Atendimento automático ativo'
+                                    : 'Atendimento automático pausado'}
                             </span>
                             <button
                                 type="button"
                                 role="switch"
                                 aria-checked={iaAtiva}
                                 onClick={() => void handleToggleIa(!iaAtiva)}
-                                disabled={togglingIa || !canEditPrompt}
+                                disabled={togglingIa || !promptConfigurado}
                                 className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
-                                title={iaAtiva ? 'Desativar assistente' : 'Ativar assistente'}
+                                title={
+                                    !promptConfigurado
+                                        ? 'Configure o assistente primeiro'
+                                        : iaAtiva
+                                          ? 'Pausar atendimento automático'
+                                          : 'Ativar atendimento automático'
+                                }
                             >
                                 <span className="ai-switch-thumb" />
                             </button>
@@ -1424,7 +1560,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     Não configurado
                                 </span>
                                 <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-                                    Configure o assistente para começar a atender leads automaticamente.
+                                    Configure o assistente para começar a atender contatos automaticamente.
                                 </p>
                                 <button
                                     type="button"
@@ -1434,7 +1570,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     }}
                                     disabled={!canEditPrompt}
                                 >
-                                    Configurar assistente
+                                    Iniciar configuração guiada
                                 </button>
                             </div>
                         )}
@@ -1444,7 +1580,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                                     <div>
                                         <span className="text-small" style={{ display: 'inline-block', background: 'rgba(37, 211, 102, 0.12)', color: '#15803d', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                                            ● Configurado
+                                            ● Pronto — ative para começar a atender
                                         </span>
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
                                             {promptUpdatedAt
@@ -1470,19 +1606,16 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                         setShowEditor(true);
                                                     }}
                                                 >
-                                                    Editar sem wizard
+                                                    Editar manualmente
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className="btn btn-outline"
                                                     style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                                                     disabled={loadingPrompt}
-                                                    onClick={() => {
-                                                        setShowWizard(true);
-                                                        setShowEditor(false);
-                                                    }}
+                                                    onClick={() => setShowReconfigureConfirm(true)}
                                                 >
-                                                    Reconfigurar (wizard)
+                                                    Refazer configuração guiada
                                                 </button>
                                             </>
                                         )}
@@ -1550,19 +1683,16 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                         setShowEditor(true);
                                                     }}
                                                 >
-                                                    Editar sem wizard
+                                                    Editar manualmente
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className="btn btn-outline"
                                                     style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                                                     disabled={loadingPrompt}
-                                                    onClick={() => {
-                                                        setShowWizard(true);
-                                                        setShowEditor(false);
-                                                    }}
+                                                    onClick={() => setShowReconfigureConfirm(true)}
                                                 >
-                                                    Reconfigurar (wizard)
+                                                    Refazer configuração guiada
                                                 </button>
                                             </>
                                         )}
@@ -1580,8 +1710,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
                                 {aiThreadsLimit > 0 && aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled && (
                                     <p className="agent-warning" style={{ marginTop: 14, marginBottom: 0 }}>
-                                        Limite de conversas com IA atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
-                                        indisponível para novas conversas até o próximo ciclo ou até ativar excedente no plano.
+                                        Limite de conversas com assistente atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
+                                        indisponível para novas conversas até o próximo ciclo ou até contratar mensagens extras no plano.
                                     </p>
                                 )}
 
@@ -1591,6 +1721,38 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     </>
                 )}
             </div>
+
+            {showReconfigureConfirm && (
+                <div
+                    className="confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="reconfigure-confirm-title"
+                    onClick={() => setShowReconfigureConfirm(false)}
+                >
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3 id="reconfigure-confirm-title" className="navi-section-heading" style={{ margin: 0 }}>
+                            Refazer configuração guiada?
+                        </h3>
+                        <p className="navi-subtitle" style={{ marginTop: 10 }}>
+                            Isso substituirá as instruções atuais. Deseja continuar?
+                        </p>
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                type="button"
+                                className="btn-outline"
+                                style={{ flex: 1 }}
+                                onClick={() => setShowReconfigureConfirm(false)}
+                            >
+                                Cancelar
+                            </button>
+                            <button type="button" className="btn-primary" style={{ flex: 1 }} onClick={openReconfigureWizard}>
+                                Continuar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {waConfirm && (
                 <div
@@ -1634,7 +1796,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Como a IA recebe suas instruções"
+                    aria-label="Instruções completas do assistente"
                     style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
                     onClick={() => setShowPromptPreview(false)}
                 >
@@ -1645,7 +1807,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         <div style={{ marginBottom: 10 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                                 <div>
-                                    <span style={{ fontWeight: 700, fontSize: 15 }}>Como a IA recebe suas instruções</span>
+                                    <span style={{ fontWeight: 700, fontSize: 15 }}>Instruções completas do assistente</span>
                                     <p className="agent-subtitle" style={{ margin: '6px 0 0', maxWidth: 520 }}>
                                         Este é o texto completo enviado ao assistente antes de cada conversa.
                                     </p>
