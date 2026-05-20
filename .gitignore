@@ -20,6 +20,9 @@ scripts/*
 !scripts/migrateLeadTypeKidsToCrianca.js
 !scripts/delete-lead-student-attrs.mjs
 !scripts/check-missing-imports.mjs
+!scripts/ensure-academy-attrs.mjs
+!scripts/provision-task-templates-schema.mjs
+!scripts/ensure-lead-payment-attrs.js
 
 # Editor directories and files
 .vscode/*
