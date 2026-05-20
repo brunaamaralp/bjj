@@ -5,7 +5,7 @@ import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildClientDocumentPermissions } from '../lib/clientDocumentPermissions.js';
 import { mapAppwriteDocToStudent } from '../lib/mapAppwriteStudentDoc.js';
 import { buildStudentPayloadFromDoc } from '../lib/leadStudentPayload.js';
-import { useLeadStore } from './useLeadStore.js';
+import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyContext.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
@@ -39,15 +39,8 @@ const STUDENT_DUE_DAY_KEY = (() => {
   return null;
 })();
 
-function permissionContextFromStore(get) {
-  const academyId = get().academyId ?? useLeadStore.getState().academyId;
-  const academyList = useLeadStore.getState().academyList || [];
-  const acadDoc = academyList.find((a) => a.id === academyId) || {};
-  return {
-    ownerId: acadDoc.ownerId || '',
-    teamId: acadDoc.teamId || '',
-    userId: useLeadStore.getState().userId || '',
-  };
+function permissionContextFromStore() {
+  return permissionContextFromAcademy();
 }
 
 function updatesToStudentPatch(updates, current) {
@@ -154,7 +147,7 @@ export const useStudentStore = create((set, get) => ({
   paymentStatusByStudentId: {},
 
   get academyId() {
-    return useLeadStore.getState().academyId;
+    return getAcademyContext().academyId;
   },
 
   resetForAcademyChange: () =>
@@ -194,7 +187,7 @@ export const useStudentStore = create((set, get) => ({
 
   refreshStudentPaymentStatus: async (studentId, academyId) => {
     const sid = String(studentId || '').trim();
-    const aid = String(academyId || useLeadStore.getState().academyId || '').trim();
+    const aid = String(academyId || getAcademyContext().academyId || '').trim();
     if (!sid || !aid) return null;
     const { getPaymentStatus } = await import('../lib/studentPayments.js');
     const status = await getPaymentStatus(sid, aid);
@@ -224,7 +217,7 @@ export const useStudentStore = create((set, get) => ({
 
   fetchStudents: async (opts = {}) => {
     const reset = opts.reset !== false;
-    const academyId = useLeadStore.getState().academyId;
+    const academyId = getAcademyContext().academyId;
     if (!academyId || !STUDENTS_COL) return;
 
     const queryOpts = reset
@@ -310,15 +303,14 @@ export const useStudentStore = create((set, get) => ({
   },
 
   addStudent: async (student) => {
-    const academyId = useLeadStore.getState().academyId;
+    const { academyId, academyList, teamId: storeTeamId, userId: storeUserId } = getAcademyContext();
     if (!academyId || !STUDENTS_COL) return;
 
-    const academyList = useLeadStore.getState().academyList || [];
     const acadDoc = academyList.find((a) => a.id === academyId) || {};
-    const teamId = String(acadDoc.teamId || useLeadStore.getState().teamId || '').trim();
-    const userId = String(useLeadStore.getState().userId || '').trim();
+    const teamId = String(acadDoc.teamId || storeTeamId || '').trim();
+    const userId = String(storeUserId || '').trim();
     const perms = buildClientDocumentPermissions({ teamId, userId });
-    const permCtx = permissionContextFromStore(get);
+    const permCtx = permissionContextFromStore();
 
     const payload = buildStudentPayloadFromDoc({ ...student, academyId });
     const doc = await databases.createDocument(DB_ID, STUDENTS_COL, ID.unique(), payload, perms);
@@ -363,15 +355,14 @@ export const useStudentStore = create((set, get) => ({
   },
 
   importStudents: async (rows) => {
-    const academyId = useLeadStore.getState().academyId;
+    const { academyId, academyList, teamId: storeTeamId, userId: storeUserId } = getAcademyContext();
     if (!academyId || !STUDENTS_COL) return;
 
-    const academyList = useLeadStore.getState().academyList || [];
     const acadDoc = academyList.find((a) => a.id === academyId) || {};
-    const teamId = String(acadDoc.teamId || useLeadStore.getState().teamId || '').trim();
-    const userId = String(useLeadStore.getState().userId || '').trim();
+    const teamId = String(acadDoc.teamId || storeTeamId || '').trim();
+    const userId = String(storeUserId || '').trim();
     const perms = buildClientDocumentPermissions({ teamId, userId });
-    const permCtx = permissionContextFromStore(get);
+    const permCtx = permissionContextFromStore();
     const newStudents = [];
 
     for (const row of rows) {

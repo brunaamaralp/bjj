@@ -1,6 +1,7 @@
 import { useLeadStore } from '../store/useLeadStore.js';
 import { useStudentStore } from '../store/useStudentStore.js';
 import { useAccountingStore } from '../store/useAccountingStore.js';
+import { syncAcademyContext } from './academyContext.js';
 
 let initialized = false;
 
@@ -12,9 +13,13 @@ export function initStores() {
   if (initialized) return;
   initialized = true;
 
+  syncAcademyContext(useLeadStore.getState());
+
   let prevAcademyId = useLeadStore.getState().academyId;
 
   useLeadStore.subscribe((state) => {
+    syncAcademyContext(state);
+
     const id = state.academyId;
     if (id === prevAcademyId) return;
     prevAcademyId = id;
