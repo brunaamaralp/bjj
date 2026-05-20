@@ -581,6 +581,7 @@ const AcademySettings = () => {
                 <>
                     <TaskTemplatesSection
                         academyId={academyId}
+                        teamId={academy?.teamId}
                         onTemplatesMetaChange={setTasksTemplatesMeta}
                     />
                     <EnrollmentFollowUpSection

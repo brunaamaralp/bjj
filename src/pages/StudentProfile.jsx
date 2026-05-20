@@ -1074,6 +1074,7 @@ export default function StudentProfile() {
         try {
             await reactivateStudent({
                 leadId,
+                leadName: String(student?.name || '').trim(),
                 academyId,
                 userId,
                 permCtx,

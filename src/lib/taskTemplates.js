@@ -1,15 +1,23 @@
-/** Templates de tarefas por academia (gatilhos: desligamento, matrícula, manual). */
+/** Templates de tarefas por academia (gatilhos automáticos e manual). */
 
 export const TASK_TEMPLATE_TRIGGERS = {
   STUDENT_EXIT: 'student_exit',
   ENROLLMENT: 'enrollment',
   MANUAL: 'manual',
+  STUDENT_FREEZE: 'student_freeze',
+  STUDENT_REACTIVATION: 'student_reactivation',
+  STUDENT_BIRTHDAY: 'student_birthday',
+  STUDENT_UNFREEZE: 'student_unfreeze',
 };
 
 export const TASK_TEMPLATE_TRIGGER_LABELS = {
   [TASK_TEMPLATE_TRIGGERS.STUDENT_EXIT]: 'Desligamento de aluno',
   [TASK_TEMPLATE_TRIGGERS.ENROLLMENT]: 'Matrícula',
   [TASK_TEMPLATE_TRIGGERS.MANUAL]: 'Manual',
+  [TASK_TEMPLATE_TRIGGERS.STUDENT_FREEZE]: 'Trancamento de aluno',
+  [TASK_TEMPLATE_TRIGGERS.STUDENT_REACTIVATION]: 'Reativação de aluno',
+  [TASK_TEMPLATE_TRIGGERS.STUDENT_BIRTHDAY]: 'Aniversário do aluno',
+  [TASK_TEMPLATE_TRIGGERS.STUDENT_UNFREEZE]: 'Encerramento de trancamento',
 };
 
 const TEMPLATE_MARKER = '[task_template]';
@@ -39,7 +47,39 @@ export const DEFAULT_ENROLLMENT_TEMPLATE = {
   ],
 };
 
-export const DEFAULT_TASK_TEMPLATES = [DEFAULT_STUDENT_EXIT_TEMPLATE, DEFAULT_ENROLLMENT_TEMPLATE];
+export const DEFAULT_STUDENT_FREEZE_TEMPLATE = {
+  name: 'Trancamento de plano',
+  trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_FREEZE,
+  tasks: [
+    { title: 'Confirmar período e motivo do trancamento', offset_days: 0, notes: '', order: 0 },
+    { title: 'Ajustar acesso na catraca e grupos', offset_days: 0, notes: '', order: 1 },
+    { title: 'Revisar mensalidades congeladas no período', offset_days: 1, notes: '', order: 2 },
+  ],
+};
+
+export const DEFAULT_STUDENT_REACTIVATION_TEMPLATE = {
+  name: 'Reativação de aluno',
+  trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_REACTIVATION,
+  tasks: [
+    { title: 'Restaurar acesso na catraca e grupos', offset_days: 0, notes: '', order: 0 },
+    { title: 'Confirmar plano e próximo vencimento', offset_days: 0, notes: '', order: 1 },
+    { title: 'Boas-vindas de retorno ao tatame', offset_days: 1, notes: '', order: 2 },
+  ],
+};
+
+export const DEFAULT_STUDENT_BIRTHDAY_TEMPLATE = {
+  name: 'Aniversário do aluno',
+  trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_BIRTHDAY,
+  tasks: [{ title: 'Enviar mensagem de parabéns', offset_days: 0, notes: '', order: 0 }],
+};
+
+export const DEFAULT_TASK_TEMPLATES = [
+  DEFAULT_STUDENT_EXIT_TEMPLATE,
+  DEFAULT_ENROLLMENT_TEMPLATE,
+  DEFAULT_STUDENT_FREEZE_TEMPLATE,
+  DEFAULT_STUDENT_REACTIVATION_TEMPLATE,
+  DEFAULT_STUDENT_BIRTHDAY_TEMPLATE,
+];
 
 function normalizeItem(raw, index) {
   return {
@@ -47,6 +87,7 @@ function normalizeItem(raw, index) {
     offset_days: Math.max(0, Math.min(365, Math.trunc(Number(raw?.offset_days ?? raw?.offsetDays ?? 0) || 0))),
     notes: raw?.notes == null ? '' : String(raw.notes),
     order: Number.isFinite(Number(raw?.order)) ? Math.trunc(Number(raw.order)) : index,
+    assigned_to: String(raw?.assigned_to ?? raw?.default_assignee ?? '').trim().slice(0, 64),
   };
 }
 
@@ -77,6 +118,7 @@ export function mapTemplateDoc(doc) {
     name: String(doc.name || '').trim(),
     trigger: String(doc.trigger || TASK_TEMPLATE_TRIGGERS.MANUAL).trim(),
     tasks: items,
+    enabled: doc.enabled !== false,
     created_at: doc.created_at || doc.$createdAt || '',
     updated_at: doc.updated_at || doc.$updatedAt || '',
   };

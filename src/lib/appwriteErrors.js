@@ -31,6 +31,7 @@ const ATTR_LABELS = {
   items_json: 'Itens do template de tarefas',
   academy_id: 'Academia',
   trigger: 'Gatilho do template',
+  enabled: 'Template ativo',
 };
 
 /** Atributo → { collection, provisionCommand } */
@@ -45,6 +46,7 @@ const ATTR_PROVISION_HINTS = {
   academy_id: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
   trigger: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
   name: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
+  enabled: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
 };
 
 function labelForAttr(key) {

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckSquare, Plus, Trash2, ChevronUp, ChevronDown, Play } from 'lucide-react';
-import { account } from '../../lib/appwrite';
+import { account, teams } from '../../lib/appwrite';
+import { membershipPrimaryLabel } from '../../lib/teamMembershipLabel.js';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -23,10 +24,11 @@ const emptyItem = (order) => ({
   title: '',
   offset_days: 0,
   notes: '',
+  assigned_to: '',
   order,
 });
 
-export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange }) {
+export default function TaskTemplatesSection({ academyId, teamId = '', onTemplatesMetaChange }) {
   const addToast = useUiStore((s) => s.addToast);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,13 +36,39 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+
+  useEffect(() => {
+    const tid = String(teamId || '').trim();
+    if (!tid) {
+      setMembers([]);
+      return;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    teams
+      .listMemberships(tid)
+      .then((result) => {
+        if (!cancelled) setMembers(result.memberships || []);
+      })
+      .catch(() => {
+        if (!cancelled) setMembers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [teamId]);
 
   const load = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
     try {
       const headers = await apiHeaders(academyId);
-      const res = await fetch('/api/task-templates', { headers });
+      const res = await fetch('/api/task-templates?include_disabled=1', { headers });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) throw new Error(data?.erro || `HTTP ${res.status}`);
       const list = data.templates || [];
@@ -50,7 +78,7 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
       onTemplatesMetaChange?.({
         configurado: ok,
         hasEnrollmentTemplate: list.some(
-          (t) => t.trigger === TASK_TEMPLATE_TRIGGERS.ENROLLMENT
+          (t) => t.trigger === TASK_TEMPLATE_TRIGGERS.ENROLLMENT && t.enabled !== false
         ),
       });
     } catch (e) {
@@ -71,6 +99,7 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
       id: null,
       name: '',
       trigger: TASK_TEMPLATE_TRIGGERS.MANUAL,
+      enabled: true,
       tasks: [emptyItem(0), emptyItem(1)],
     });
   };
@@ -80,7 +109,8 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
       id: t.id,
       name: t.name,
       trigger: t.trigger,
-      tasks: (t.tasks || []).map((item, i) => ({ ...item, order: i })),
+      enabled: t.enabled !== false,
+      tasks: (t.tasks || []).map((item, i) => ({ ...item, order: i, assigned_to: item.assigned_to || '' })),
     });
   };
 
@@ -96,6 +126,7 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
         title: String(item.title || '').trim(),
         offset_days: Number(item.offset_days) || 0,
         notes: String(item.notes || ''),
+        assigned_to: String(item.assigned_to || '').trim(),
         order: i,
       }))
       .filter((item) => item.title);
@@ -107,7 +138,12 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
     setSaving(true);
     try {
       const headers = await apiHeaders(academyId);
-      const body = { name, trigger: editing.trigger, tasks };
+      const body = {
+        name,
+        trigger: editing.trigger,
+        tasks,
+        enabled: editing.enabled !== false,
+      };
       const url = editing.id
         ? `/api/task-templates/${encodeURIComponent(editing.id)}`
         : '/api/task-templates';
@@ -209,6 +245,28 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
     }
   };
 
+  const toggleTemplateEnabled = async (t) => {
+    if (!academyId || !t?.id) return;
+    const nextEnabled = t.enabled === false;
+    try {
+      const headers = await apiHeaders(academyId);
+      const res = await fetch(`/api/task-templates/${encodeURIComponent(t.id)}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ enabled: nextEnabled }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.sucesso) throw new Error(data?.erro || `HTTP ${res.status}`);
+      addToast({
+        type: 'success',
+        message: nextEnabled ? 'Template ativado.' : 'Template desativado.',
+      });
+      void load();
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    }
+  };
+
   const moveItem = (idx, dir) => {
     const arr = [...(editing.tasks || [])];
     const j = idx + dir;
@@ -272,12 +330,29 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
               style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
             >
               <div>
-                <strong style={{ fontSize: 14 }}>{t.name}</strong>
+                <strong style={{ fontSize: 14 }}>
+                  {t.name}
+                  {t.enabled === false ? (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      Inativo
+                    </span>
+                  ) : null}
+                </strong>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
                   {TASK_TEMPLATE_TRIGGER_LABELS[t.trigger] || t.trigger} · {(t.tasks || []).length} itens
                 </div>
               </div>
               <div className="flex gap-2">
+                <button type="button" className="btn-outline" onClick={() => void toggleTemplateEnabled(t)}>
+                  {t.enabled === false ? 'Ativar' : 'Desativar'}
+                </button>
                 <button type="button" className="btn-outline" onClick={() => openEdit(t)}>
                   Editar
                 </button>
@@ -367,6 +442,28 @@ export default function TaskTemplatesSection({ academyId, onTemplatesMetaChange 
                         setEditing({ ...editing, tasks: arr });
                       }}
                     />
+                  </div>
+                  <div className="form-group" style={{ minWidth: 160, flex: 1, marginBottom: 0 }}>
+                    <label>Responsável</label>
+                    <select
+                      className="form-input"
+                      value={item.assigned_to || ''}
+                      disabled={membersLoading}
+                      onChange={(e) => {
+                        const arr = [...editing.tasks];
+                        arr[idx] = { ...arr[idx], assigned_to: e.target.value };
+                        setEditing({ ...editing, tasks: arr });
+                      }}
+                    >
+                      <option value="">
+                        {membersLoading ? 'Carregando equipe…' : 'Sem responsável'}
+                      </option>
+                      {members.map((m) => (
+                        <option key={m.userId || m.$id} value={m.userId}>
+                          {membershipPrimaryLabel(m)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex gap-1" style={{ marginBottom: 8 }}>
                     <button type="button" className="btn-ghost" title="Subir" onClick={() => moveItem(idx, -1)} disabled={idx === 0}>

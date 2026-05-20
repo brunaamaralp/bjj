@@ -61,6 +61,20 @@ async function ensureStringAttr(databases, colId, key, size, required = false) {
   }
 }
 
+async function ensureBooleanAttr(databases, colId, key, required = false, defaultValue = true) {
+  try {
+    await databases.createBooleanAttribute(DB_ID, colId, key, required, defaultValue);
+    console.log(`  + boolean ${key} (default ${defaultValue})`);
+    await sleep(1200);
+  } catch (e) {
+    if (String(e?.message || e).includes('already exists') || e.code === 409) {
+      console.log(`  = boolean ${key} (exists)`);
+    } else {
+      throw e;
+    }
+  }
+}
+
 async function ensureIndex(databases, colId, key, type, attributes) {
   try {
     await databases.createIndex(DB_ID, colId, key, type, attributes);
@@ -111,6 +125,7 @@ async function main() {
   await ensureStringAttr(databases, TEMPLATES_COL, 'items_json', 8192, false);
   await ensureStringAttr(databases, TEMPLATES_COL, 'created_at', 64, false);
   await ensureStringAttr(databases, TEMPLATES_COL, 'updated_at', 64, false);
+  await ensureBooleanAttr(databases, TEMPLATES_COL, 'enabled', false, true);
 
   console.log('\nÍndices:');
   await ensureIndex(databases, TEMPLATES_COL, 'idx_academy_trigger', 'key', ['academy_id', 'trigger']);

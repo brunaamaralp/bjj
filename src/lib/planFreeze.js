@@ -4,6 +4,7 @@ import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 import { freezeStudentApi } from './studentsApi.js';
+import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';
 import {
   findPaymentForMonthUpsert,
   upsertStudentPayment,
@@ -259,6 +260,18 @@ export async function startPlanFreeze({
     }
   }
 
+  try {
+    await applyTaskTemplateForTrigger({
+      academyId,
+      trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_FREEZE,
+      leadId,
+      leadName: String(student?.name || '').trim(),
+      anchorDate: sYmd,
+    });
+  } catch (e) {
+    console.warn('[planFreeze] template student_freeze:', e?.message || e);
+  }
+
   return { startYmd: sYmd, endYmd: eYmd, days, freeze_days_used: newDaysUsed };
 }
 
@@ -370,6 +383,18 @@ export async function endPlanFreeze({
     } catch (e) {
       console.warn('[planFreeze] onAfterUnfreeze:', e?.message || e);
     }
+  }
+
+  try {
+    await applyTaskTemplateForTrigger({
+      academyId,
+      trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_UNFREEZE,
+      leadId,
+      leadName: String(student?.name || '').trim(),
+      anchorDate: actualEndYmd,
+    });
+  } catch (e) {
+    console.warn('[planFreeze] template student_unfreeze:', e?.message || e);
   }
 
   return { daysCharged, extension };

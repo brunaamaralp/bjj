@@ -94,6 +94,7 @@ export async function deactivateStudent({
  */
 export async function reactivateStudent({
   leadId,
+  leadName = '',
   academyId,
   userId,
   permCtx,
@@ -127,4 +128,16 @@ export async function reactivateStudent({
     createdBy: userId || 'user',
     permissionContext: permCtx,
   });
+
+  try {
+    await applyTaskTemplateForTrigger({
+      academyId,
+      trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_REACTIVATION,
+      leadId,
+      leadName: String(leadName || '').trim(),
+      anchorDate: new Date().toISOString().slice(0, 10),
+    });
+  } catch (e) {
+    console.warn('[reactivateStudent] template student_reactivation:', e?.message || e);
+  }
 }

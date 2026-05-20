@@ -21,9 +21,11 @@ Coleções (Collections)
   - Provisionar atributos extras: `npm run provision:academy-attrs` (`settings`, `student_freeze_reasons`, `student_exit_reasons`, `onboardingChecklist`)
   - Atributos: ownerId (string), name (string), phone (string), email (string), address (string), quickTimes (array<string> ou string)
   - Índices sugeridos: equality em ownerId
-- TASK_TEMPLATES_COL (Templates de tarefas — onboarding/desligamento)
+- TASK_TEMPLATES_COL (Templates de tarefas — processos operacionais)
   - Provisionar: `npm run provision:task-templates`
-  - Gatilhos: `enrollment` (matrícula), `student_exit` (desligamento), `manual`
+  - Atributos: `academy_id`, `name`, `trigger`, `items_json`, `enabled` (boolean, default true), `created_at`, `updated_at`
+  - Gatilhos: `enrollment`, `student_exit`, `student_freeze`, `student_unfreeze`, `student_reactivation`, `student_birthday` (sem cron ainda), `manual`
+  - Listagem padrão: só `enabled = true`; configuração usa `?include_disabled=1`
 - STOCK_ITEMS_COL (Itens de Estoque)
   - Atributos: nome (string), descricao (string), quantidade_total (integer), quantidade_vendida (integer), quantidade_alugada (integer), current_quantity (integer), minimum_level (integer, padrão 0), unit (string), last_updated (datetime), last_checked (datetime), notes (string), academy_id (string)
   - Índices sugeridos: full‑text em nome (e opcionalmente descricao) para autocomplete; equality em academy_id
