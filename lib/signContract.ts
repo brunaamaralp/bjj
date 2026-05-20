@@ -53,6 +53,7 @@ export async function signContract(
       lead_id: contractData.lead_id,
       template_id: contractData.template_id,
       signers_links: JSON.stringify(signersLinks),
+      expires_at: contractData.expires_at,
     });
 
     const signers = await saveSigners(

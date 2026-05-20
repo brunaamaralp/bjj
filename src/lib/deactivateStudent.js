@@ -1,12 +1,18 @@
-import { addLeadEvent } from './leadEvents.js';
+import { addStudentLifecycleEvent } from './leadEvents.js';
+import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 import { STUDENT_STATUS } from './studentStatus.js';
-import { formatDeactivateNote, todayYmdLocal } from './studentOffboarding.js';
+import { todayYmdLocal } from './studentOffboarding.js';
 import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';
 import { readControlIdConfig } from '../../lib/controlidSettings.js';
 import { revokeControlIdStudent } from './controlidApi.js';
+import { deactivateStudentApi } from './studentsApi.js';
 
 /**
- * Desliga aluno: status, motivo, data, nota na timeline e tarefas do template student_exit.
+ * Desligamento: validação no servidor (POST /api/students/deactivate).
+ *
+ * Checklist `student_offboarding_checklist` na academia NÃO gera tarefas automáticas aqui:
+ * usamos apenas o template STUDENT_EXIT (applyTaskTemplateForTrigger), que é o fluxo
+ * operacional ativo. O checklist permanece como referência configurável na UI da academia.
  */
 export async function deactivateStudent({
   student,
@@ -17,29 +23,30 @@ export async function deactivateStudent({
   exitReason,
   exitDate,
   exitNotes = '',
-  updateStudent,
-  updateLead,
+  cancelFuturePayments = false,
+  mergeStudent,
+  refreshPaymentStatus,
   academySettingsRaw = null,
 }) {
-  const patch = updateStudent || updateLead;
-  if (!patch) throw new Error('updateStudent_required');
   const ymd = String(exitDate || '').trim().slice(0, 10) || todayYmdLocal();
 
-  await patch(leadId, {
+  const apiRes = await deactivateStudentApi({
+    student_id: leadId,
+    exit_reason: String(exitReason || '').trim(),
+    exit_date: ymd,
+    exit_notes: String(exitNotes || '').trim(),
+    cancel_future_payments: cancelFuturePayments,
+  });
+
+  const localPatch = {
     studentStatus: STUDENT_STATUS.INACTIVE,
     exitReason: String(exitReason || '').trim(),
     exitDate: ymd,
-  });
+  };
+  if (mergeStudent) {
+    mergeStudent(leadId, localPatch);
+  }
 
-  const noteText = formatDeactivateNote({ exitReason, exitDate: ymd, exitNotes });
-  await addLeadEvent({
-    academyId,
-    leadId,
-    type: 'note',
-    text: noteText,
-    createdBy: userId || 'user',
-    permissionContext: permCtx,
-  });
   const studentName = String(student?.name || '').trim();
   let tasksCreated = 0;
   let templateName = '';
@@ -67,7 +74,19 @@ export async function deactivateStudent({
     });
   }
 
-  return { tasksCreated, templateName };
+  if (refreshPaymentStatus) {
+    try {
+      await refreshPaymentStatus(leadId, academyId);
+    } catch (e) {
+      console.warn('[deactivateStudent] refreshPaymentStatus:', e?.message || e);
+    }
+  }
+
+  return {
+    tasksCreated,
+    templateName,
+    paymentsCancelled: apiRes?.payments_cancelled ?? 0,
+  };
 }
 
 /**
@@ -79,26 +98,33 @@ export async function reactivateStudent({
   userId,
   permCtx,
   updateStudent,
-  updateLead,
+  mergeStudent,
+  refreshPaymentStatus,
 }) {
-  const patch = updateStudent || updateLead;
-  if (!patch) throw new Error('updateStudent_required');
-  await patch(leadId, {
-    studentStatus: STUDENT_STATUS.ACTIVE,
-    exitReason: '',
-    exitDate: '',
-  });
+  const patchFn = mergeStudent || updateStudent;
+  if (!patchFn) throw new Error('updateStudent_required');
+
+  if (mergeStudent) {
+    mergeStudent(leadId, {
+      studentStatus: STUDENT_STATUS.ACTIVE,
+      exitReason: '',
+      exitDate: '',
+    });
+  } else {
+    await updateStudent(leadId, {
+      studentStatus: STUDENT_STATUS.ACTIVE,
+      exitReason: '',
+      exitDate: '',
+    });
+  }
 
   const br = new Date().toLocaleDateString('pt-BR');
   await addLeadEvent({
     academyId,
     leadId,
-    type: 'note',
+    type: STUDENT_EVENT_TYPES.REACTIVATED,
     text: `Aluno reativado em ${br}.`,
     createdBy: userId || 'user',
     permissionContext: permCtx,
   });
-  if (updateLead && !updateStudent) {
-    await updateLead(leadId, { lastNoteAt: new Date().toISOString() });
-  }
 }

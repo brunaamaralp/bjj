@@ -34,16 +34,16 @@ export default function CollectionRulesSection({
   };
 
   return (
-    <section className="mt-4 animate-in" style={{ animationDelay: '0.08s' }}>
+    <section className="mt-4 animate-in mensal-collection-rules">
       <h3 className="navi-section-heading mb-2">
         <Bell size={18} color="var(--v500)" /> Régua de cobrança
       </h3>
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.45 }}>
-        Define prazos e mensagens padrão para inadimplência. O sistema cria tarefas para o atendente enviar
-        manualmente (WhatsApp ou presencial) — sem envio automático.
+      <p className="text-small text-muted mensal-collection-intro">
+        Configure o que o sistema faz após o vencimento. O Nave <strong>não envia WhatsApp
+        automaticamente</strong> — apenas cria tarefas e etiquetas para a equipe agir.
       </p>
       <div className="card">
-        <div className="form-group" style={{ marginBottom: 16 }}>
+        <div className="form-group mensal-collection-label-field">
           <label>Etiqueta de inadimplência</label>
           <input
             className="form-input"
@@ -52,24 +52,39 @@ export default function CollectionRulesSection({
             placeholder={DEFAULT_OVERDUE_LABEL}
             maxLength={30}
           />
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'block' }}>
-            Aplicada automaticamente a partir de D+1 após o vencimento; removida ao regularizar o pagamento.
+          <span className="text-small text-muted">
+            Aplicada automaticamente a partir de D+1 após o vencimento; removida ao regularizar o
+            pagamento.
           </span>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="mensal-collection-rules-list">
           {rules.map((rule, idx) => (
-            <div
-              key={`rule-${idx}-${rule.day}`}
-              style={{
-                border: '0.5px solid var(--border-light, #e8e8ef)',
-                borderRadius: 8,
-                padding: 12,
-                background: 'var(--surface-hover, #fafafa)',
-              }}
-            >
-              <div className="flex" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ width: 100 }}>
+            <div key={`rule-${idx}-${rule.day}`} className="mensal-collection-rule-card">
+              <p className="text-small mensal-collection-rule-process">
+                {rule.escalate ? (
+                  <>
+                    <strong>{rule.day} dia(s) após o vencimento</strong> → escala para o responsável
+                    da academia (tarefa + registro na timeline). Não envia WhatsApp automaticamente.
+                  </>
+                ) : (
+                  <>
+                    <strong>{rule.day} dia(s) após o vencimento</strong> → cria tarefa para a equipe
+                    {rule.defaultMessage ? (
+                      <>
+                        {' '}
+                        com esta mensagem: «{rule.defaultMessage.slice(0, 80)}
+                        {rule.defaultMessage.length > 80 ? '…' : ''}»
+                      </>
+                    ) : (
+                      ' (defina a mensagem sugerida abaixo)'
+                    )}
+                    . Não envia WhatsApp automaticamente.
+                  </>
+                )}
+              </p>
+              <div className="flex mensal-collection-rule-fields">
+                <div className="form-group mensal-collection-rule-day">
                   <label>D+ (dias)</label>
                   <input
                     type="number"
@@ -80,7 +95,7 @@ export default function CollectionRulesSection({
                     onChange={(e) => updateRule(idx, { day: Number(e.target.value) || 1 })}
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1, minWidth: 140 }}>
+                <div className="form-group mensal-collection-rule-label">
                   <label>Rótulo da etapa</label>
                   <input
                     className="form-input"
@@ -88,16 +103,7 @@ export default function CollectionRulesSection({
                     onChange={(e) => updateRule(idx, { label: e.target.value })}
                   />
                 </div>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 13,
-                    marginBottom: 8,
-                    cursor: 'pointer',
-                  }}
-                >
+                <label className="mensal-collection-escalate-check">
                   <input
                     type="checkbox"
                     checked={rule.escalate === true}
@@ -116,13 +122,12 @@ export default function CollectionRulesSection({
                   title="Remover etapa"
                   disabled={rules.length <= 1}
                   onClick={() => removeRule(idx)}
-                  style={{ alignSelf: 'center' }}
                 >
                   <Trash2 size={16} />
                 </button>
               </div>
               {!rule.escalate ? (
-                <div className="form-group" style={{ marginTop: 10, marginBottom: 0 }}>
+                <div className="form-group mensal-collection-rule-message">
                   <label>Mensagem padrão (use [nome] para o aluno)</label>
                   <textarea
                     className="form-input"
@@ -132,16 +137,12 @@ export default function CollectionRulesSection({
                     placeholder="Texto sugerido para WhatsApp ou contato presencial"
                   />
                 </div>
-              ) : (
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '8px 0 0' }}>
-                  Nesta etapa é criada uma tarefa para o dono da academia e um registro na timeline do aluno.
-                </p>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
         <button type="button" className="btn-outline mt-3" onClick={addRule}>
-          <Plus size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+          <Plus size={16} />
           Adicionar etapa
         </button>
       </div>

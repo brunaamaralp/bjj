@@ -23,22 +23,27 @@ export function readSalesSettings(settingsRaw) {
   const sales = settings?.sales && typeof settings.sales === 'object' ? settings.sales : {};
   const template = String(sales.receiptTemplate || '').trim();
   const cancelTemplate = String(sales.cancelReceiptTemplate || '').trim();
+  const saleIncomeCategory = String(sales.saleIncomeCategory || '').trim();
   return {
     receiptTemplate: template || DEFAULT_SALES_RECEIPT_TEMPLATE,
     receiptFooter: String(sales.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
     cancelReceiptTemplate: cancelTemplate || DEFAULT_CANCEL_RECEIPT_TEMPLATE,
     lockPriceEdit: sales.lockPriceEdit === true,
+    saleIncomeCategory,
   };
 }
 
 export function mergeSalesIntoSettings(settingsRaw, salesPatch) {
   const base = parseAcademySettings(settingsRaw);
+  const prev = base?.sales && typeof base.sales === 'object' ? base.sales : {};
   return {
     ...base,
     sales: {
+      ...prev,
       receiptTemplate: String(salesPatch.receiptTemplate ?? '').trim() || DEFAULT_SALES_RECEIPT_TEMPLATE,
       receiptFooter: String(salesPatch.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
       lockPriceEdit: salesPatch.lockPriceEdit === true,
+      saleIncomeCategory: String(salesPatch.saleIncomeCategory ?? prev.saleIncomeCategory ?? '').trim(),
     },
   };
 }

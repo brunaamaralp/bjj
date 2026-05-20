@@ -1,60 +1,123 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Save, RotateCcw, Send, Search, Copy, Check, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, RotateCcw, Send, Search, Copy, Check, ChevronLeft, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { account, teams } from '../lib/appwrite';
 import {
   DEFAULT_WHATSAPP_TEMPLATES,
   WHATSAPP_TEMPLATE_LABELS,
-  applyWhatsappTemplatePlaceholders
+  WHATSAPP_TEMPLATE_PLACEHOLDERS,
+  WHATSAPP_TEMPLATE_CHAR_LIMIT,
+  SYSTEM_WHATSAPP_TEMPLATE_COUNT,
+  applyWhatsappTemplatePlaceholders,
+  validateTemplatePlaceholders,
+  isTemplateInUse,
 } from '../../lib/whatsappTemplateDefaults.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
+import { useWhatsappTemplatesStore } from '../store/useWhatsappTemplatesStore.js';
 import { useTerms } from '../lib/terminology.js';
+import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import '../lib/whatsappTemplates.css';
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
 
-const WHATSAPP_TEMPLATE_CHAR_LIMIT = 1024;
-
-const isAutomaticTemplateId = (id) =>
-  id === 'birthday' || String(labelFor[id] || '').toLowerCase().includes('(automático)');
-
 const Templates = () => {
   const terms = useTerms();
   const placeholders = useMemo(
-    () => [
-      { key: '{primeiroNome}', label: 'Primeiro nome' },
-      { key: '{nome}', label: 'Igual a primeiro nome (legado)' },
-      { key: '{dataAula}', label: 'Data da aula (DD/MM/AAAA)' },
-      { key: '{horaAula}', label: 'Hora da aula (HH:MM)' },
-      { key: '{amanhaData}', label: 'Texto “amanhã (DD/MM/AAAA)”' },
-      { key: '{nomeAcademia}', label: `Nome da ${terms.workspaceNoun}` },
-      { key: '{dataAulaOpcional}', label: 'Data opcional (prefixa “ do dia …”)' },
-    ],
+    () =>
+      WHATSAPP_TEMPLATE_PLACEHOLDERS.map((ph) =>
+        ph.token === 'nomeAcademia'
+          ? { ...ph, label: ph.label.replace('academia', terms.workspaceNoun) }
+          : ph
+      ),
     [terms.workspaceNoun]
   );
+
   const academyId = useLeadStore((s) => s.academyId);
+  const userId = useLeadStore((s) => s.userId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
   const { leads } = useLeadStore();
   const addToast = useUiStore((s) => s.addToast);
+
+  const {
+    templates: loadedTemplates,
+    automationsRaw,
+    usageByKey,
+    academyName,
+    loading,
+    refetch,
+    invalidate,
+  } = useWhatsappTemplates(academyId);
+
+  const [membership, setMembership] = useState(null);
   const [saving, setSaving] = useState(false);
   const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   const [original, setOriginal] = useState(DEFAULT_TEMPLATES);
   const [sampleLeadId, setSampleLeadId] = useState('');
-  const [sampleManual, setSampleManual] = useState({ name: '', phone: '', scheduledDate: '', scheduledTime: '' });
-  const [academyName, setAcademyName] = useState('');
+  const [sampleManual, setSampleManual] = useState({
+    name: '',
+    phone: '',
+    scheduledDate: '',
+    scheduledTime: '',
+  });
   const [filter, setFilter] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
-  /** Um template expandido por vez; null = todos colapsados */
   const [expandedId, setExpandedId] = useState(null);
+  const [openPopover, setOpenPopover] = useState(null);
+  const [unknownById, setUnknownById] = useState({});
+  const popoverRef = useRef(null);
+
+  const canEdit = canEditWhatsappTemplates(userId, academyDoc, membership);
+
+  useEffect(() => {
+    if (!academyDoc?.teamId || !userId) return;
+    if (String(academyDoc.ownerId || '') === String(userId)) return;
+    teams
+      .listMemberships(academyDoc.teamId)
+      .then((res) => {
+        const m = (res.memberships || []).find((x) => String(x.userId) === String(userId));
+        setMembership(m || null);
+      })
+      .catch(() => setMembership(null));
+  }, [academyDoc?.teamId, academyDoc?.ownerId, userId]);
+
+  useEffect(() => {
+    if (!loadedTemplates) return;
+    setTemplates(loadedTemplates);
+    setOriginal(loadedTemplates);
+  }, [loadedTemplates]);
+
+  useEffect(() => {
+    const next = {};
+    for (const id of Object.keys(templates)) {
+      const v = validateTemplatePlaceholders(String(templates[id] || ''));
+      if (!v.ok) next[id] = v.unknown;
+    }
+    setUnknownById(next);
+  }, [templates]);
+
+  useEffect(() => {
+    if (!openPopover) return;
+    const close = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) setOpenPopover(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openPopover]);
 
   const templateIds = useMemo(() => Object.keys(DEFAULT_TEMPLATES), []);
 
   const sampleLead = useMemo(() => {
     const id = String(sampleLeadId || '').trim();
     if (id === '_manual') return null;
-    const byId = leads.find((l) => l.id === id) || null;
-    return byId || leads[0] || null;
+    return leads.find((l) => l.id === id) || leads[0] || null;
   }, [leads, sampleLeadId]);
 
   const sampleData = useMemo(() => {
@@ -67,36 +130,15 @@ const Templates = () => {
     };
   }, [sampleLead, sampleManual]);
 
-  useEffect(() => {
-    if (!academyId) return;
-    databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-      .then((doc) => {
-        setAcademyName(String(doc?.name || '').trim());
-        try {
-          const raw = doc.whatsappTemplates;
-          const parsed = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
-          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-            const merged = { ...DEFAULT_TEMPLATES, ...parsed };
-            setTemplates(merged);
-            setOriginal(merged);
-          } else {
-            setTemplates(DEFAULT_TEMPLATES);
-            setOriginal(DEFAULT_TEMPLATES);
-          }
-        } catch {
-          setTemplates(DEFAULT_TEMPLATES);
-          setOriginal(DEFAULT_TEMPLATES);
-        }
-      })
-      .catch(() => {
-        setAcademyName('');
-        setTemplates(DEFAULT_TEMPLATES);
-        setOriginal(DEFAULT_TEMPLATES);
-      });
-  }, [academyId]);
-
   const renderTemplate = (text) =>
     applyWhatsappTemplatePlaceholders(String(text || ''), { lead: sampleData, academyName });
+
+  const overLimit = useMemo(() => {
+    for (const id of templateIds) {
+      if (String(templates[id] || '').length > WHATSAPP_TEMPLATE_CHAR_LIMIT) return true;
+    }
+    return false;
+  }, [templates, templateIds]);
 
   const handleInsertPlaceholder = (key, id) => {
     const textarea = document.getElementById(`tpl-${id}`);
@@ -108,45 +150,134 @@ const Templates = () => {
       const needsSpace = insertingAtEnd && cur && !/\s$/.test(cur);
       const insert = needsSpace ? ` ${key}` : key;
       const next = cur.slice(0, start) + insert + cur.slice(end);
-      try {
-        setTimeout(() => {
-          const el = document.getElementById(`tpl-${id}`);
-          if (!el) return;
-          el.focus();
-          const pos = start + insert.length;
-          el.setSelectionRange(pos, pos);
-        }, 0);
-      } catch { void 0; }
+      setTimeout(() => {
+        const el = document.getElementById(`tpl-${id}`);
+        if (!el) return;
+        el.focus();
+        const pos = start + insert.length;
+        el.setSelectionRange(pos, pos);
+      }, 0);
       return { ...prev, [id]: next };
     });
+    setOpenPopover(null);
+  };
+
+  const saveViaApi = async (body) => {
+    const jwt = await account.createJWT();
+    const resp = await fetch('/api/academy/whatsapp-templates', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${jwt.jwt}`,
+        'x-academy-id': String(academyId || ''),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const raw = await resp.text();
+    let data = {};
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = {};
+    }
+    if (!resp.ok) throw new Error(data?.erro || 'Falha ao salvar templates');
+    return data;
   };
 
   const handleSave = async () => {
-    if (!academyId) return;
+    if (!academyId || !canEdit) return;
+    for (const id of templateIds) {
+      const v = validateTemplatePlaceholders(String(templates[id] || ''));
+      if (!v.ok) {
+        addToast({
+          type: 'warning',
+          message: `Template "${labelFor[id] || id}": variáveis desconhecidas ${v.unknown.join(', ')}`,
+        });
+      }
+    }
+    if (overLimit) {
+      addToast({ type: 'error', message: `Cada template deve ter no máximo ${WHATSAPP_TEMPLATE_CHAR_LIMIT} caracteres` });
+      return;
+    }
     setSaving(true);
     try {
-      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        whatsappTemplates: JSON.stringify(templates),
+      const data = await saveViaApi({ templates });
+      const merged = { ...DEFAULT_TEMPLATES, ...(data.templates || templates) };
+      setTemplates(merged);
+      setOriginal(merged);
+      invalidate();
+      useWhatsappTemplatesStore.getState().patchLocal(academyId, {
+        templates: merged,
+        automationsRaw,
+        fetchedAt: Date.now(),
       });
-      setOriginal(templates);
+      await refetch();
       addToast({ type: 'success', message: 'Templates salvos' });
-    } catch {
-      addToast({ type: 'error', message: 'Falha ao salvar templates' });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Falha ao salvar templates' });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleResetDefaults = () => {
-    const ok = window.confirm(
-      'Restaurar todos os templates para o padrão? Esta ação não pode ser desfeita.'
+  const confirmRestore = (id) => {
+    const usage = usageByKey?.[id];
+    if (!isTemplateInUse(usage)) return true;
+    const names = [
+      ...(usage.automations || []).map((a) => a.label),
+      ...(usage.birthdayCron ? ['Cron de aniversário (Zapster)'] : []),
+    ];
+    const label = names.length === 1 ? '1 automação' : `${names.length} automações`;
+    return window.confirm(
+      `Este template está ativo em ${label} (${names.join(', ')}). Restaurar mesmo assim?`
     );
-    if (!ok) return;
-    setTemplates(DEFAULT_TEMPLATES);
   };
 
-  const handleResetOne = (id) => {
-    setTemplates((prev) => ({ ...prev, [id]: DEFAULT_TEMPLATES[id] || '' }));
+  const handleResetDefaults = async () => {
+    if (!canEdit) return;
+    const activeKeys = templateIds.filter((id) => isTemplateInUse(usageByKey?.[id]));
+    if (activeKeys.length > 0) {
+      const ok = window.confirm(
+        `Templates em uso (${activeKeys.map((k) => labelFor[k] || k).join(', ')}). Restaurar todos para o padrão mesmo assim?`
+      );
+      if (!ok) return;
+    } else {
+      const ok = window.confirm('Restaurar todos os templates para o padrão? O texto atual será arquivado.');
+      if (!ok) return;
+    }
+    setSaving(true);
+    try {
+      const data = await saveViaApi({ action: 'restore_all' });
+      const merged = { ...DEFAULT_TEMPLATES, ...(data.templates || DEFAULT_TEMPLATES) };
+      setTemplates(merged);
+      setOriginal(merged);
+      invalidate();
+      await refetch();
+      addToast({ type: 'success', message: 'Templates restaurados ao padrão' });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Falha ao restaurar' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetOne = async (id) => {
+    if (!canEdit) return;
+    if (!confirmRestore(id)) return;
+    setSaving(true);
+    try {
+      const data = await saveViaApi({ action: 'restore', key: id });
+      const merged = { ...templates, ...(data.templates || {}), [id]: DEFAULT_TEMPLATES[id] };
+      setTemplates(merged);
+      setOriginal((prev) => ({ ...prev, [id]: DEFAULT_TEMPLATES[id] }));
+      invalidate();
+      await refetch();
+      addToast({ type: 'success', message: 'Template restaurado' });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Falha ao restaurar' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const changed = useMemo(() => JSON.stringify(templates) !== JSON.stringify(original), [templates, original]);
@@ -178,14 +309,46 @@ const Templates = () => {
       addToast({ type: 'error', message: 'Informe um telefone no lead de exemplo' });
       return;
     }
-    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(String(text || ''))}`;
+    const v = validateTemplatePlaceholders(text);
+    if (!v.ok) {
+      addToast({
+        type: 'warning',
+        message: `Preview com variáveis omitidas: ${v.unknown.join(', ')}`,
+      });
+    }
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(renderTemplate(text))}`;
     window.open(url, '_blank');
+  };
+
+  const renderUsedBy = (id) => {
+    const usage = usageByKey?.[id];
+    if (!usage || !isTemplateInUse(usage)) {
+      return (
+        <p className="text-xs text-light" style={{ marginBottom: 8 }}>
+          Nenhuma automação ativa usa este template no momento.
+        </p>
+      );
+    }
+    return (
+      <div className="tpl-used-by">
+        <strong style={{ display: 'block', marginBottom: 4 }}>Usado por</strong>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {(usage.automations || []).map((a) => (
+            <li key={a.key}>{a.label}</li>
+          ))}
+          {usage.birthdayCron && id === 'birthday' && (
+            <li>Cron de aniversário (envio automático diário)</li>
+          )}
+          {usage.birthdayCron && id !== 'birthday' && <li>Cron de aniversário (referência indireta)</li>}
+        </ul>
+      </div>
+    );
   };
 
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
       <Link
-        to="/empresa#templates"
+        to="/empresa?tab=automacoes"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -201,24 +364,44 @@ const Templates = () => {
         Voltar à empresa
       </Link>
       <h1 className="navi-page-title">Templates de Mensagens</h1>
+      <p className="tpl-page-note">
+        O sistema oferece <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} modelos fixos</strong>. Você está personalizando{' '}
+        <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} de {SYSTEM_WHATSAPP_TEMPLATE_COUNT}</strong> modelos
+        {terms.workspaceNoun ? ` da ${terms.workspaceNoun}` : ''}.
+      </p>
+      {!canEdit && (
+        <p className="text-small text-light" style={{ marginBottom: 10 }}>
+          Modo leitura: apenas titular ou administrador pode editar. Você pode usar os templates no funil e no inbox.
+        </p>
+      )}
       <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-        {changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
+        {loading ? 'Carregando…' : !canEdit ? 'Somente leitura.' : changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
       </p>
       <div className="page-header-card">
         <div className="page-header-row">
           <div className="page-header-search">
-            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-            <input
-              placeholder="Buscar template..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+            <Search
+              size={16}
+              style={{
+                position: 'absolute',
+                left: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-secondary)',
+              }}
             />
+            <input placeholder="Buscar template..." value={filter} onChange={(e) => setFilter(e.target.value)} />
           </div>
           <div style={{ flex: 1 }} />
-          <button type="button" className="btn-action-ghost" onClick={handleResetDefaults} disabled={saving}>
+          <button type="button" className="btn btn-secondary" onClick={handleResetDefaults} disabled={saving || !canEdit}>
             <RotateCcw size={16} /> Restaurar padrão
           </button>
-          <button type="button" className="btn-action-primary" onClick={handleSave} disabled={!changed || saving}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={!canEdit || !changed || saving || overLimit}
+          >
             <Save size={16} /> {saving ? 'Salvando…' : 'Salvar'}
           </button>
         </div>
@@ -233,7 +416,11 @@ const Templates = () => {
             onChange={(e) => setSampleLeadId(e.target.value)}
           >
             <option value="">(Primeiro da lista)</option>
-            {leads.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            {leads.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
             <option value="_manual">Manual</option>
           </select>
         </div>
@@ -280,113 +467,134 @@ const Templates = () => {
           const copyKeyRaw = `raw:${id}`;
           const copyKeyPreview = `preview:${id}`;
           const canTest = Boolean(String(sampleData?.phone || '').replace(/\D/g, ''));
-          const isAuto = isAutomaticTemplateId(id);
-          const charNearLimit = raw.length >= WHATSAPP_TEMPLATE_CHAR_LIMIT - 74;
+          const len = raw.length;
+          const atLimit = len > WHATSAPP_TEMPLATE_CHAR_LIMIT;
+          const nearLimit = len >= WHATSAPP_TEMPLATE_CHAR_LIMIT - 74 && !atLimit;
+          const inUse = isTemplateInUse(usageByKey?.[id]);
+          const unknown = unknownById[id] || [];
+
           return (
-          <div
-            key={id}
-            className="tpl-card animate-in"
-            style={{ animationDelay: `${0.02 * i}s` }}
-          >
-            <div
-              role="button"
-              tabIndex={0}
-              className="tpl-card-header"
-              style={{
-                borderBottom: isOpen ? '0.5px solid var(--border-light)' : '0.5px solid transparent',
-              }}
-              onClick={() => setExpandedId(isOpen ? null : id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setExpandedId(isOpen ? null : id);
-                }
-              }}
-            >
-              <div className="tpl-card-header-left">
-                <strong className="tpl-card-title">{labelFor[id] || id}</strong>
-                {isAuto && <span className="tpl-badge-auto">Automático</span>}
-                {isChanged && <span className="tpl-badge">Não salvo</span>}
-                <span className={`tpl-char-count${charNearLimit ? ' tpl-char-count--warn' : ''}`}>
-                  {raw.length} chars
-                </span>
+            <div key={id} className="tpl-card animate-in" style={{ animationDelay: `${0.02 * i}s` }}>
+              <div
+                role="button"
+                tabIndex={0}
+                className="tpl-card-header"
+                style={{
+                  borderBottom: isOpen ? '0.5px solid var(--border-light)' : '0.5px solid transparent',
+                }}
+                onClick={() => setExpandedId(isOpen ? null : id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedId(isOpen ? null : id);
+                  }
+                }}
+              >
+                <div className="tpl-card-header-left">
+                  <strong className="tpl-card-title">{labelFor[id] || id}</strong>
+                  {inUse && <span className="tpl-badge-in-use">Em uso</span>}
+                  {id === 'birthday' && <span className="tpl-badge-auto">Automático</span>}
+                  {isChanged && <span className="tpl-badge">Não salvo</span>}
+                  <span
+                    className={`tpl-char-count${atLimit ? ' tpl-char-count--error' : nearLimit ? ' tpl-char-count--warn' : ''}`}
+                  >
+                    {len} / {WHATSAPP_TEMPLATE_CHAR_LIMIT}
+                  </span>
+                </div>
+                <div className="tpl-card-header-actions" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="btn btn-secondary" onClick={() => copyText(raw, copyKeyRaw)}>
+                    {copiedKey === copyKeyRaw ? <Check size={16} /> : <Copy size={16} />} Copiar
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => copyText(preview, copyKeyPreview)}>
+                    {copiedKey === copyKeyPreview ? <Check size={16} /> : <Copy size={16} />} Preview
+                  </button>
+                  <span className="tpl-chevron" aria-hidden>
+                    {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </span>
+                </div>
               </div>
-              <div className="tpl-card-header-actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={() => copyText(raw, copyKeyRaw)}
-                  title="Copiar template (com variáveis)"
-                >
-                  {copiedKey === copyKeyRaw ? <Check size={16} /> : <Copy size={16} />} Copiar
-                </button>
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={() => copyText(preview, copyKeyPreview)}
-                  title="Copiar preview (renderizado)"
-                >
-                  {copiedKey === copyKeyPreview ? <Check size={16} /> : <Copy size={16} />} Copiar preview
-                </button>
-                <span className="tpl-chevron" aria-hidden>
-                  {isOpen ? <ChevronUp size={20} strokeWidth={2} /> : <ChevronDown size={20} strokeWidth={2} />}
-                </span>
-              </div>
-            </div>
-            <div className={`tpl-accordion-panel${isOpen ? ' is-open' : ''}`}>
-              <div className="tpl-accordion-inner" inert={!isOpen ? true : undefined}>
-                <div className="tpl-card-body">
-                  {id === 'birthday' && (
-                    <p className="text-xs" style={{ marginBottom: 8, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                      Enviada automaticamente no aniversário do aluno (cron Zapster). Use {'{primeiroNome}'} e {'{nomeAcademia}'} — {'{nome}'} também é aceito (legado).
-                    </p>
-                  )}
-                  <div className="tpl-vars">
-                    <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Variáveis</div>
-                    <div className="tpl-vars-scroll">
-                      {placeholders.map((ph) => (
-                        <button
-                          key={ph.key}
-                          type="button"
-                          className="tpl-chip"
-                          onClick={() => handleInsertPlaceholder(ph.key, id)}
-                          title={ph.label}
-                        >
-                          {ph.key}
-                        </button>
-                      ))}
+              <div className={`tpl-accordion-panel${isOpen ? ' is-open' : ''}`}>
+                <div className="tpl-accordion-inner" inert={!isOpen ? true : undefined}>
+                  <div className="tpl-card-body">
+                    {renderUsedBy(id)}
+                    {id === 'birthday' && (
+                      <p className="text-xs text-light" style={{ marginBottom: 8, lineHeight: 1.45 }}>
+                        Enviada automaticamente no aniversário do aluno (cron Zapster).
+                      </p>
+                    )}
+                    <div className="tpl-vars">
+                      <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
+                        Variáveis
+                      </div>
+                      <div className="tpl-vars-scroll" ref={popoverRef}>
+                        {placeholders.map((ph) => (
+                          <span key={ph.key} style={{ position: 'relative', display: 'inline-block' }}>
+                            <button
+                              type="button"
+                              className={`tpl-chip${unknown.includes(ph.key) ? '' : ''}`}
+                              onClick={() => handleInsertPlaceholder(ph.key, id)}
+                              onMouseEnter={() => setOpenPopover(`${id}:${ph.key}`)}
+                              onFocus={() => setOpenPopover(`${id}:${ph.key}`)}
+                              aria-describedby={openPopover === `${id}:${ph.key}` ? `popover-${id}-${ph.token}` : undefined}
+                            >
+                              {ph.key}
+                            </button>
+                            {openPopover === `${id}:${ph.key}` && (
+                              <div className="tpl-popover" id={`popover-${id}-${ph.token}`} role="tooltip">
+                                <div className="tpl-popover-title">{ph.label}</div>
+                                <div>
+                                  Exemplo: <code>{ph.key}</code> → &quot;{ph.example}&quot;
+                                </div>
+                              </div>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                      {unknown.length > 0 && (
+                        <p className="tpl-placeholder-warn" role="alert">
+                          <Info size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                          Variáveis não reconhecidas: {unknown.join(', ')} — serão omitidas no envio.
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  <textarea
-                    id={`tpl-${id}`}
-                    className="form-input tpl-template-textarea"
-                    rows={4}
-                    value={templates[id] || ''}
-                    onChange={(e) => setTemplates((prev) => ({ ...prev, [id]: e.target.value }))}
-                  />
-                  <div className="tpl-preview">
-                    <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>Preview</div>
-                    <div className="tpl-preview-box text-small">{preview || '—'}</div>
-                    <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        className="btn-outline"
-                        onClick={() => openWhatsAppTest(preview)}
-                        disabled={!canTest}
-                        title="Abrir no WhatsApp com o lead de exemplo"
-                      >
-                        <Send size={16} /> Testar no WhatsApp
-                      </button>
-                      <button type="button" className="btn-outline" onClick={() => handleResetOne(id)} disabled={saving}>
-                        <RotateCcw size={16} /> Restaurar este
-                      </button>
+                    <textarea
+                      id={`tpl-${id}`}
+                      className={`form-input tpl-template-textarea${atLimit ? ' tpl-template-textarea--error' : ''}`}
+                      rows={5}
+                      value={templates[id] || ''}
+                      disabled={!canEdit}
+                      onChange={(e) => setTemplates((prev) => ({ ...prev, [id]: e.target.value }))}
+                    />
+                    <div className="tpl-preview">
+                      <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
+                        Preview
+                      </div>
+                      <div className="tpl-preview-box text-small">{preview || '—'}</div>
+                      <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => openWhatsAppTest(raw)}
+                          disabled={!canTest}
+                        >
+                          <Send size={16} /> Testar no WhatsApp
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => handleResetOne(id)}
+                          disabled={saving}
+                        >
+                          <RotateCcw size={16} /> Restaurar este
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )})}
+          );
+        })}
         {filteredIds.length === 0 && (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <EmptyState
@@ -399,138 +607,6 @@ const Templates = () => {
           </div>
         )}
       </div>
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .tpl-search { display: flex; align-items: center; gap: 8px; }
-        .tpl-search .form-input { padding-left: 12px; }
-        .tpl-preview-lead-label {
-          font-size: 12px;
-          color: var(--text-secondary);
-          flex-shrink: 0;
-        }
-        .tpl-preview-lead-select { max-width: 260px; flex: 1; min-width: 160px; }
-        .tpl-template-list { gap: 0; }
-        .tpl-card {
-          background: var(--surface);
-          border: 0.5px solid var(--border-light);
-          border-radius: var(--radius-sm);
-          margin-bottom: 8px;
-          overflow: hidden;
-        }
-        .tpl-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 16px;
-          background: var(--surface);
-          cursor: pointer;
-          border-bottom: 0.5px solid transparent;
-          box-sizing: border-box;
-        }
-        .tpl-card-header:focus-visible {
-          outline: 2px solid var(--v500, #5B3FBF);
-          outline-offset: -2px;
-        }
-        .tpl-card-header-left {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 6px 8px;
-          min-width: 0;
-        }
-        .tpl-card-title { font-size: 0.95rem; }
-        .tpl-card-header-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-        }
-        .tpl-chevron {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-secondary);
-          margin-left: 2px;
-        }
-        .tpl-accordion-panel {
-          display: grid;
-          grid-template-rows: 0fr;
-          transition: grid-template-rows 0.2s ease;
-        }
-        .tpl-accordion-panel.is-open {
-          grid-template-rows: 1fr;
-        }
-        .tpl-accordion-inner {
-          min-height: 0;
-          overflow: hidden;
-        }
-        .tpl-card-body {
-          padding: 16px;
-          background: var(--surface-hover);
-          box-sizing: border-box;
-        }
-        .tpl-badge {
-          font-size: 0.7rem; font-weight: 800;
-          background: var(--warning-light); color: var(--warning);
-          padding: 3px 10px; border-radius: var(--radius-full);
-        }
-        .tpl-badge-auto {
-          font-size: 10px;
-          font-weight: 600;
-          padding: 2px 7px;
-          border-radius: 20px;
-          background: #EEEDFE;
-          color: #3C3489;
-        }
-        .tpl-char-count {
-          font-size: 10px;
-          color: var(--text-secondary);
-          margin-left: 8px;
-          vertical-align: middle;
-          font-variant-numeric: tabular-nums;
-        }
-        .tpl-char-count--warn {
-          color: var(--danger, #A32D2D);
-          font-weight: 600;
-        }
-        .tpl-template-textarea {
-          width: 100%;
-          box-sizing: border-box;
-          border: 0.5px solid var(--border-light) !important;
-          background: var(--surface);
-        }
-        .tpl-template-textarea:hover {
-          border-color: var(--border-violet) !important;
-        }
-        .tpl-template-textarea:focus {
-          border: 1px solid #5B3FBF !important;
-          outline: none;
-          background: var(--surface);
-        }
-        .tpl-vars { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-        .tpl-vars-scroll { display: flex; gap: 6px; overflow: auto; padding-bottom: 2px; }
-        .tpl-chip {
-          min-height: 26px; padding: 4px 8px; border-radius: var(--radius-full);
-          background: var(--surface); border: 1px solid var(--border);
-          font-size: 0.72rem; font-weight: 700; color: var(--text-secondary);
-          white-space: nowrap;
-        }
-        .tpl-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .tpl-preview { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .tpl-preview-box {
-          border: 1px solid var(--border);
-          background: rgba(91, 63, 191, 0.04);
-          border-radius: var(--radius-sm);
-          padding: 10px 12px;
-          white-space: pre-wrap;
-          color: var(--text);
-        }
-        `
-      }} />
     </div>
   );
 };

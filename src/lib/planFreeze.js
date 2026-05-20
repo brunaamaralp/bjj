@@ -1,7 +1,9 @@
 import { ID, Query } from 'appwrite';
 import { databases, DB_ID } from './appwrite.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
-import { addLeadEvent } from './leadEvents.js';
+import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
+import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
+import { freezeStudentApi } from './studentsApi.js';
 import {
   findPaymentForMonthUpsert,
   upsertStudentPayment,
@@ -202,52 +204,34 @@ export async function startPlanFreeze({
   userName,
   teamId,
   updateLead,
+  mergeStudent,
+  onAfterFreeze,
   academySettingsRaw = null,
   financeConfig = null,
 }) {
-  const validation = validateFreezeRequest({
-    startYmd,
-    endYmd,
-    durationDays,
-    student,
+  const apiRes = await freezeStudentApi({
+    student_id: leadId,
+    start_ymd: startYmd,
+    end_ymd: endYmd,
+    duration_days: durationDays,
+    reason,
   });
-  if (!validation.ok) throw new Error(validation.error);
 
-  const { days, startYmd: sYmd, endYmd: eYmd } = validation;
-  const enroll = String(student?.enrollmentDate || '').trim().slice(0, 10);
-  const quotaYear = enroll ? planYearStartYmd(enroll) : toYmd(new Date()).slice(0, 10);
-  let daysUsedBase = effectiveFreezeDaysUsed(student);
-  if (String(student?.freeze_quota_year || '') !== quotaYear) {
-    daysUsedBase = 0;
-  }
-  const newDaysUsed = daysUsedBase + days;
+  const sYmd = apiRes.startYmd;
+  const eYmd = apiRes.endYmd;
+  const days = apiRes.days;
+  const newDaysUsed = apiRes.freeze_days_used;
 
-  await updateLead(leadId, {
+  const localPatch = {
     freeze_start: freezeIsoFromYmd(sYmd),
     freeze_end: freezeIsoFromYmd(eYmd),
     freeze_status: FREEZE_STATUS_ACTIVE,
     freeze_days_used: newDaysUsed,
-    freeze_quota_year: quotaYear,
-  });
-
-  const perms = buildClientDocumentPermissions({ teamId, userId });
-  if (PLAN_FREEZES_COL) {
-    await databases.createDocument(
-      DB_ID,
-      PLAN_FREEZES_COL,
-      ID.unique(),
-      {
-        lead_id: leadId,
-        academy_id: academyId,
-        start_date: freezeIsoFromYmd(sYmd),
-        end_date: freezeIsoFromYmd(eYmd),
-        days,
-        reason: String(reason || '').trim().slice(0, 256),
-        registered_by: String(userId || '').slice(0, 64),
-        created_at: new Date().toISOString(),
-      },
-      perms
-    );
+  };
+  if (mergeStudent) {
+    mergeStudent(leadId, localPatch);
+  } else if (updateLead) {
+    await updateLead(leadId, localPatch);
   }
 
   await markPaymentsFrozen({
@@ -267,15 +251,13 @@ export async function startPlanFreeze({
     });
   }
 
-  await addLeadEvent({
-    academyId,
-    leadId,
-    type: 'plan_freeze',
-    text: `Plano trancado de ${formatFreezeDateBr(sYmd)} a ${formatFreezeDateBr(eYmd)} (${days} dias).${reason ? ` Motivo: ${reason}` : ''}`,
-    payloadJson: { start: sYmd, end: eYmd, days, reason },
-    createdBy: userId || 'user',
-    permissionContext: { teamId, userId },
-  });
+  if (onAfterFreeze) {
+    try {
+      await onAfterFreeze({ leadId, academyId });
+    } catch (e) {
+      console.warn('[planFreeze] onAfterFreeze:', e?.message || e);
+    }
+  }
 
   return { startYmd: sYmd, endYmd: eYmd, days, freeze_days_used: newDaysUsed };
 }
@@ -290,6 +272,8 @@ export async function endPlanFreeze({
   userId,
   teamId,
   updateLead,
+  mergeStudent,
+  onAfterUnfreeze,
   academySettingsRaw = null,
   early = false,
   payments = null,
@@ -315,13 +299,18 @@ export async function endPlanFreeze({
   const prevActiveDays = computeDurationDays(startYmd, plannedEndYmd);
   const adjustedUsed = Math.max(0, baseUsed - prevActiveDays + daysCharged);
 
-  await updateLead(leadId, {
+  const unfreezePatch = {
     freeze_status: null,
     freeze_start: null,
     freeze_end: null,
     freeze_days_used: adjustedUsed,
     freeze_quota_year: quotaYear,
-  });
+  };
+  if (mergeStudent) {
+    mergeStudent(leadId, unfreezePatch);
+  } else if (updateLead) {
+    await updateLead(leadId, unfreezePatch);
+  }
 
   const payList = payments || (await getStudentPayments(leadId, academyId));
   let extension = { extended: 0 };
@@ -359,21 +348,29 @@ export async function endPlanFreeze({
     syncControlIdStudentBackground(academyId, leadId, { photoUrl: student.photo_url });
   }
 
-  await addLeadEvent({
+  await addStudentLifecycleEvent({
+    studentId: leadId,
     academyId,
-    leadId,
-    type: early ? 'plan_unfreeze' : 'plan_unfreeze',
+    actorUserId: userId || 'system',
+    type: STUDENT_EVENT_TYPES.FREEZE_ENDED,
     text: early
       ? `Trancamento encerrado antecipadamente (${actualDays} dias utilizados).`
       : `Trancamento encerrado — retorno em ${formatFreezeDateBr(actualEndYmd)}.`,
-    payloadJson: {
+    payload: {
       days_used: daysCharged,
       early,
       extension_months: extension.extended || 0,
     },
-    createdBy: userId || 'system',
     permissionContext: { teamId, userId },
   });
+
+  if (onAfterUnfreeze) {
+    try {
+      await onAfterUnfreeze({ leadId, academyId });
+    } catch (e) {
+      console.warn('[planFreeze] onAfterUnfreeze:', e?.message || e);
+    }
+  }
 
   return { daysCharged, extension };
 }

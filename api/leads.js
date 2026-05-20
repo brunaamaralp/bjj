@@ -2,8 +2,10 @@ import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
 import { sendZapsterText } from '../lib/server/zapsterSend.js';
 import {
   BIRTHDAY_CRON_DEFAULT_TEXT,
-  applyWhatsappTemplatePlaceholders
+  applyWhatsappTemplatePlaceholders,
+  parseWhatsappTemplatesField,
 } from '../lib/whatsappTemplateDefaults.js';
+import { recordWhatsappTemplateSent } from '../lib/server/whatsappTemplateSent.js';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
@@ -13,6 +15,7 @@ import productsHandler from '../lib/server/productsHandler.js';
 import aiProductImportHandler from '../lib/server/aiProductImportHandler.js';
 import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
+import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
 import {
   controlidTestHandler,
@@ -90,16 +93,8 @@ function zapsterInstanceFromAcademy(doc) {
 }
 
 function resolveBirthdayMessageTemplate(academy) {
-  let fromTemplates = '';
-  try {
-    const raw = academy?.whatsappTemplates;
-    const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (t && typeof t === 'object' && typeof t.birthday === 'string' && String(t.birthday).trim()) {
-      fromTemplates = String(t.birthday).trim();
-    }
-  } catch {
-    void 0;
-  }
+  const { templates } = parseWhatsappTemplatesField(academy?.whatsappTemplates);
+  const fromTemplates = String(templates?.birthday || '').trim();
   const fromAcademy = String(academy?.birthdayMessage || '').trim();
   return fromTemplates || fromAcademy || BIRTHDAY_CRON_DEFAULT_TEXT;
 }
@@ -209,6 +204,17 @@ async function runBirthdayCron() {
 
       sent += 1;
       try {
+        await recordWhatsappTemplateSent({
+          academyId: academy.$id,
+          leadId: doc.$id,
+          templateKey: 'birthday',
+          automationKey: 'birthday_cron',
+          createdBy: 'cron',
+        });
+      } catch {
+        void 0;
+      }
+      try {
         await databases.updateDocument(DB_ID, PEOPLE_COL, doc.$id, { last_birthday_sent: monthDay });
       } catch (e) {
         console.warn('[cron-aniversario] enviado mas falhou last_birthday_sent', doc.$id, e?.message);
@@ -227,6 +233,7 @@ export default async function handler(req, res) {
   if (req.query.route === 'ai_import_products') return aiProductImportHandler(req, res);
   if (req.query.route === 'sales') return salesHistoryHandler(req, res);
   if (req.query.route === 'sales_by_student') return salesByStudentHandler(req, res);
+  if (req.query.route === 'students') return studentsHandler(req, res);
   if (req.query.route === 'controlid_test') return controlidTestHandler(req, res);
   if (req.query.route === 'controlid_save_config') return controlidSaveConfigHandler(req, res);
   if (req.query.route === 'controlid_sync') return controlidSyncHandler(req, res);

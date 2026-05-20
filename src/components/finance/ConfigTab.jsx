@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { Wallet2, CreditCard, Banknote, Trash2, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import CollectionRulesSection from './CollectionRulesSection.jsx';
+import './mensalidades.css';
 import ExceptionStatusLabelsSection from './ExceptionStatusLabelsSection.jsx';
 import {
   readExceptionStatusLabels,
@@ -585,11 +586,18 @@ export default function ConfigTab({ academyId }) {
         />
       </div>
 
-      <section id="finance-plans" className="mt-4 animate-in empresa-section" style={{ animationDelay: '0.15s', scrollMarginTop: 56 }}>
+      <section id="finance-plans" className="mt-4 animate-in empresa-section mensal-finance-plans-section" style={{ scrollMarginTop: 56 }}>
+        <div className="mensal-finance-plans-banner" role="note">
+          <strong>Planos da academia (mensalidade do aluno)</strong>
+          <span className="text-small text-muted">
+            Valores e duração usados em Mensalidades, matrícula e contratos. Isso é independente do{' '}
+            <strong>plano Nave</strong> (assinatura do sistema / IA), configurado em Conta → Assinatura.
+          </span>
+        </div>
         <h3 className="navi-section-heading mb-2">
-          <Wallet2 size={18} color="var(--v500)" /> Planos
+          <Wallet2 size={18} color="var(--v500)" /> Planos da academia
         </h3>
-        <p className="text-small text-muted mb-2" style={{ lineHeight: 1.45 }}>
+        <p className="text-small text-muted mb-2 mensal-finance-plans-hint">
           Os nomes cadastrados aqui aparecem como lista no perfil do aluno, nos pagamentos e nas transações — evita erro
           de digitação.
         </p>

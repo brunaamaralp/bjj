@@ -38,6 +38,50 @@ export const HISTORY_BADGE = {
   none: '—',
 };
 
+function cardFeePercent(financeConfig, method, installments) {
+  const fees = financeConfig?.cardFees || {};
+  const m = String(method || '').toLowerCase();
+  if (m.includes('parcel') || m === 'credito_parcelado') {
+    const n = Math.max(2, Math.min(12, Math.trunc(Number(installments) || 2)));
+    const parcelado = fees.credito_parcelado || {};
+    return Number(parcelado[String(n)] ?? parcelado[n] ?? 0) || 0;
+  }
+  if (m === 'credito' || m === 'credito_avista' || m === 'cartao_credito') {
+    return Number(fees.credito_avista?.percent ?? 0) || 0;
+  }
+  if (m === 'debito' || m === 'cartao_debito') {
+    return Number(fees.debito?.percent ?? 0) || 0;
+  }
+  return 0;
+}
+
+/**
+ * Valor esperado com taxa de cartão quando o plano tem applyCardFee e o método é cartão.
+ */
+export function expectedAmountWithCardFee(student, financeConfig, method, installments, payment) {
+  const base = expectedAmountForStudent(student, financeConfig, payment);
+  if (!(base > 0)) return base;
+
+  const planName = String(student?.plan || payment?.plan_name || '').trim();
+  const plan = (financeConfig?.plans || []).find((p) => String(p?.name || '').trim() === planName);
+  if (!plan?.applyCardFee) return base;
+
+  const m = String(method || '').toLowerCase();
+  const isCard =
+    m === 'debito' ||
+    m === 'credito' ||
+    m === 'credito_avista' ||
+    m === 'credito_parcelado' ||
+    m.startsWith('cartao') ||
+    m.includes('credit') ||
+    m.includes('debit');
+  if (!isCard) return base;
+
+  const pct = cardFeePercent(financeConfig, m, installments);
+  if (!(pct > 0)) return base;
+  return Math.round(base * (1 + pct / 100) * 100) / 100;
+}
+
 export function expectedAmountForStudent(student, financeConfig, payment) {
   const st = String(payment?.status || '').toLowerCase();
   if (st === 'covered' || st === 'frozen') return 0;

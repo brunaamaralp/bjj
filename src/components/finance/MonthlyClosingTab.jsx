@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Query, ID } from 'appwrite';
 import { ChevronLeft, ChevronRight, Download, Plus, Receipt } from 'lucide-react';
-import { databases, DB_ID, FINANCIAL_TX_COL } from '../../lib/appwrite';
+import { fetchMonthlyClosing, createFinanceTx } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
-import { buildClientDocumentPermissions } from '../../lib/clientDocumentPermissions.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -94,39 +92,24 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     return map;
   }, [leads]);
 
+  const [pendingInMonth, setPendingInMonth] = useState(0);
+
   const loadData = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
     try {
       const ym = referenceMonth;
-      const payDocs = await getMonthlyPayments(academyId, ym);
-      setPayments(payDocs);
-
-      let txs = [];
-      if (FINANCIAL_TX_COL) {
-        const res = await databases.listDocuments(DB_ID, FINANCIAL_TX_COL, [
-          Query.equal('academyId', academyId),
-          Query.limit(300),
-          Query.orderDesc('$createdAt'),
-        ]);
-        txs = (res.documents || []).map((d) => ({
-          id: d.$id,
-          saleId: d.saleId || '',
-          lead_id: d.lead_id || '',
-          method: d.method || '',
-          installments: Number(d.installments || 1),
-          type: d.type || '',
-          planName: d.planName || '',
-          gross: Number(d.gross || 0),
-          fee: Number(d.fee || 0),
-          net: Number(d.net || 0),
-          status: d.status || 'pending',
-          createdAt: d.$createdAt,
-          settledAt: d.settledAt || '',
-          note: d.note || '',
-        }));
+      try {
+        const data = await fetchMonthlyClosing({ academyId, month: ym });
+        setPayments(data.payments || []);
+        setTransactions(data.transactions || []);
+        setPendingInMonth(Number(data.pendingInMonth) || 0);
+      } catch {
+        const payDocs = await getMonthlyPayments(academyId, ym);
+        setPayments(payDocs);
+        setTransactions([]);
+        setPendingInMonth(0);
       }
-      setTransactions(txs);
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', message: friendlyError(e, 'load') });
@@ -245,7 +228,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
 
   const saveManualReceipt = async () => {
     const grossNum = parseCurrencyBRL(manualForm.gross);
-    if (!academyId || !FINANCIAL_TX_COL || !Number.isFinite(grossNum) || grossNum <= 0) {
+    if (!academyId || !Number.isFinite(grossNum) || grossNum <= 0) {
       addToast({ type: 'error', message: 'Informe um valor válido.' });
       return;
     }
@@ -259,45 +242,20 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
       const settledAt = manualForm.date
         ? new Date(`${manualForm.date}T12:00:00`).toISOString()
         : new Date().toISOString();
-      const permissions =
-        userId || teamId
-          ? buildClientDocumentPermissions({ userId: String(userId || ''), teamId: String(teamId || '') })
-          : null;
       const txType = mapOriginToTxType(manualForm.origin);
-      const payload = {
+      const row = await createFinanceTx({
         academyId,
-        saleId: '',
-        lead_id: manualForm.lead_id || '',
-        method: manualForm.method,
-        installments: 1,
-        type: txType,
-        planName: desc,
-        gross: grossNum,
-        fee: 0,
-        net: grossNum,
-        status: 'settled',
-        settledAt,
-        note: desc,
-      };
-      const doc = permissions
-        ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), payload, permissions)
-        : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), payload);
-      const row = {
-        id: doc.$id,
-        saleId: '',
-        lead_id: doc.lead_id || manualForm.lead_id || '',
-        method: doc.method || manualForm.method,
-        installments: 1,
-        type: doc.type || txType,
-        planName: doc.planName || desc,
-        gross: Number(doc.gross ?? grossNum),
-        fee: 0,
-        net: Number(doc.net ?? grossNum),
-        status: 'settled',
-        createdAt: doc.$createdAt,
-        settledAt: doc.settledAt || settledAt,
-        note: doc.note || desc,
-      };
+        payload: {
+          lead_id: manualForm.lead_id || '',
+          method: manualForm.method,
+          type: txType,
+          planName: desc,
+          gross: grossNum,
+          note: desc,
+          receive_now: true,
+          settledAt,
+        },
+      });
       setTransactions((prev) => [row, ...prev]);
       setShowManual(false);
       setManualForm({
@@ -361,6 +319,24 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           </button>
         </div>
       </div>
+
+      <p className="text-small text-muted mb-2" style={{ lineHeight: 1.5 }}>
+        Painel de conferência — não trava lançamentos nem gera documento de fechamento.
+      </p>
+      {pendingInMonth > 0 ? (
+        <div
+          className="card mb-3"
+          style={{
+            padding: '12px 14px',
+            borderLeft: '4px solid var(--warning, #B45309)',
+            background: '#FEF3C7',
+          }}
+          role="alert"
+        >
+          <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou
+          cancele em Movimentações antes de considerar o mês fechado.
+        </div>
+      ) : null}
 
       {showManual ? (
         <div className="card mb-3" style={{ padding: 14 }}>

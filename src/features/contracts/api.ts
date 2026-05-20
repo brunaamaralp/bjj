@@ -52,6 +52,39 @@ export async function fetchContractById(id: string): Promise<ContractDetailRespo
   return data.contract;
 }
 
+export async function previewContractRequest(input: {
+  signers: SignerInput[];
+  templateId: string;
+  leadId?: string;
+  name?: string;
+}): Promise<{ ok: boolean; pdfBase64?: string; error?: string }> {
+  const formData = new FormData();
+  formData.append('name', input.name || 'Prévia');
+  formData.append('signers', JSON.stringify(input.signers));
+  formData.append('template_id', input.templateId);
+  formData.append('action', 'preview');
+  if (input.leadId) formData.append('lead_id', input.leadId);
+
+  const res = await contractsFetch('/api/contracts?action=preview', { method: 'POST', body: formData });
+  const data = (await res.json()) as { ok: boolean; pdfBase64?: string; error?: string };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Erro HTTP ${res.status}`);
+  }
+  return data;
+}
+
+export async function cancelContractRequest(id: string): Promise<void> {
+  const res = await contractsFetch(`/api/contracts?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'cancel' }),
+  });
+  const data = (await res.json()) as { ok: boolean; error?: string };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Erro HTTP ${res.status}`);
+  }
+}
+
 export async function createContractRequest(input: {
   name: string;
   signers: SignerInput[];

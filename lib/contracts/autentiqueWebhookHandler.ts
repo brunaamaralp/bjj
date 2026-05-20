@@ -7,7 +7,16 @@ import {
   saveContractEvent,
   saveWebhookLog,
   updateWebhookLog,
+  updateContractMeta,
 } from './contractService.js';
+import { fetchLeadPersonForContract } from './contractLeadAccess.js';
+import {
+  mapAutentiqueToLeadEventType,
+  recordContractLeadEvent,
+} from './contractLeadEvents.js';
+import { logContractStructured } from './contractStructuredLog.js';
+import { isPastIso } from './contractSignaturePolicy.js';
+import { mapContractDisplayStatus } from './displayStatus.js';
 
 export function verifyAutentiqueSignature(
   rawBody: string,
@@ -96,6 +105,27 @@ export function extractSignerSignedAt(body: { event?: { data?: Record<string, un
   return String(data.signed);
 }
 
+function extractSignerActor(body: { event?: { data?: Record<string, unknown> } }): string {
+  const data = body?.event?.data;
+  if (!data) return '';
+  return String(data.name || data.email || data.public_id || '').trim();
+}
+
+async function maybeMarkSignedAfterOffboarding(
+  contract: { $id: string; academyId: string | null; leadId: string | null },
+  eventType: string
+): Promise<string | null> {
+  if (eventType !== 'signature.accepted') return null;
+  const leadId = String(contract.leadId || '').trim();
+  if (!leadId) return null;
+
+  const person = await fetchLeadPersonForContract(leadId);
+  if (!person?.inactive) return null;
+
+  await updateContractMeta(contract.$id, { meta_status: 'signed_after_offboarding' });
+  return 'signed_after_offboarding';
+}
+
 export async function processAutentiqueWebhook(
   rawBody: string,
   parsedBody: { event?: { id?: string; type?: string; data?: Record<string, unknown> } },
@@ -152,6 +182,8 @@ export async function processAutentiqueWebhook(
       console.warn('[autentique webhook] evento de assinatura sem public_id', { eventType, autentiqueId });
     }
 
+    const metaStatus = await maybeMarkSignedAfterOffboarding(contract, eventType);
+
     await saveContractEvent({
       contract_id: contract.$id,
       event_type: eventType,
@@ -160,7 +192,57 @@ export async function processAutentiqueWebhook(
       payload: parsedBody?.event || parsedBody,
     });
 
+    const leadEventType = mapAutentiqueToLeadEventType(eventType, metaStatus);
+    const actor = extractSignerActor(parsedBody);
+    if (leadEventType && contract.leadId && contract.academyId) {
+      await recordContractLeadEvent({
+        academyId: contract.academyId,
+        leadId: contract.leadId,
+        contractId: contract.$id,
+        type: leadEventType,
+        actor,
+        payload: { autentique_event: eventType, meta_status: metaStatus },
+      });
+    }
+
+    if (
+      contract.expiresAt &&
+      isPastIso(contract.expiresAt) &&
+      leadEventType !== 'contract_signed' &&
+      eventType === 'signature.viewed'
+    ) {
+      const display = mapContractDisplayStatus(contract.status, 0, 1, {
+        expiresAt: contract.expiresAt,
+        metaStatus: metaStatus || contract.metaStatus,
+      });
+      if (display === 'expired' && contract.leadId && contract.academyId) {
+        await recordContractLeadEvent({
+          academyId: contract.academyId,
+          leadId: contract.leadId,
+          contractId: contract.$id,
+          type: 'contract_expired',
+          actor,
+          payload: { reason: 'deadline_passed' },
+        });
+      }
+    }
+
     await updateWebhookLog(log.$id, { processed: true, error: '' });
+
+    const display = mapContractDisplayStatus(
+      contractStatus || contract.status,
+      0,
+      1,
+      { expiresAt: contract.expiresAt, metaStatus: metaStatus || contract.metaStatus }
+    );
+
+    logContractStructured(`autentique_${eventType.replace(/\./g, '_')}`, {
+      event: leadEventType || eventType,
+      academy_id: contract.academyId,
+      contract_id: contract.$id,
+      student_id: contract.leadId,
+      status: metaStatus || display || contract.status,
+    });
 
     return {
       ok: true as const,
@@ -168,9 +250,16 @@ export async function processAutentiqueWebhook(
       contractId: contract.$id,
       autentiqueId,
       eventType,
+      leadEventType,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    logContractStructured('autentique_webhook_fail', {
+      contract_id: contract.$id,
+      academy_id: contract.academyId,
+      student_id: contract.leadId,
+      error: message,
+    });
     await updateWebhookLog(log.$id, { processed: false, error: message });
     throw e;
   }

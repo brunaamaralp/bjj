@@ -3,9 +3,12 @@ import { Copy } from 'lucide-react';
 import { buildReceiptText } from '../../lib/salesReceipt';
 import { formatBRL } from '../../lib/moneyBr';
 import { channelLabel, paymentLabel } from '../../lib/salesSettings';
+import { formatSaleIdShort } from '../../lib/salesHistory';
 import { buildReceiptPaymentsText, paymentFormLabel } from '../../lib/salePayments';
 
 export default function SalesReceiptPanel({ receipt, settings, academyName, onCopy }) {
+  const saleIdShort = formatSaleIdShort(receipt?.vendaId);
+
   const whatsappText = useMemo(() => {
     if (!receipt) return '';
     const paymentSection = receipt.pagamentos?.length
@@ -20,6 +23,7 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
       time: receipt.time,
       channel: receipt.canal,
       clientName: receipt.clientName,
+      clientPhone: receipt.clientPhone,
       items: receipt.items,
       total: receipt.total,
       payment: receipt.forma,
@@ -36,10 +40,13 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
     <div className="card mt-3">
       <h4 className="navi-section-heading">Comprovante</h4>
       <div className="text-small" style={{ marginTop: 8, lineHeight: 1.5 }}>
-        <div><strong>Venda:</strong> {receipt.vendaId || '-'}</div>
+        <div><strong>Venda:</strong> {saleIdShort}</div>
         <div><strong>Data:</strong> {receipt.date} {receipt.time}</div>
         <div><strong>Canal:</strong> {channelLabel(receipt.canal)}</div>
         <div><strong>Cliente:</strong> {receipt.clientName}</div>
+        {receipt.clientPhone ? (
+          <div><strong>Telefone:</strong> {receipt.clientPhone}</div>
+        ) : null}
         <div style={{ marginTop: 8 }}>
           {receipt.items.map((it, i) => (
             <div key={i}>
@@ -106,4 +113,3 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
     </div>
   );
 }
-

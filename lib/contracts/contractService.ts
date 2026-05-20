@@ -79,8 +79,18 @@ function mapContractDoc(doc: Models.Document | null): ContractRecord | null {
     status: doc.status ? String(doc.status) : 'pending',
     sandbox: doc.sandbox === true || doc.sandbox === 'true',
     signersLinks: parseSignersLinks(doc.signers_links ?? doc.signersLinks),
+    expiresAt: docString(doc, 'expiresAt', 'expires_at'),
+    metaStatus: docString(doc, 'metaStatus', 'meta_status'),
     createdAt: doc.$createdAt ?? null,
     updatedAt: doc.$updatedAt ?? null,
+  };
+}
+
+function displayContext(c: ContractRecord) {
+  return {
+    signersViewed: c.signersViewed ?? 0,
+    expiresAt: c.expiresAt,
+    metaStatus: c.metaStatus,
   };
 }
 
@@ -113,6 +123,8 @@ export async function createContract(data: ContractCreateInput): Promise<Contrac
   if (data.template_id) payload.template_id = String(data.template_id);
   if (data.autentique_id) payload.autentique_id = String(data.autentique_id);
   if (data.signers_links) payload.signers_links = String(data.signers_links).slice(0, 2048);
+  if (data.expires_at) payload.expires_at = String(data.expires_at);
+  if (data.meta_status) payload.meta_status = String(data.meta_status);
 
   const doc = await databases.createDocument(DB_ID, CONTRACTS_COL(), ID.unique(), payload, docPerms());
   const mapped = mapContractDoc(doc);
@@ -222,8 +234,8 @@ async function attachSignerStats(contracts: ContractRecord[]): Promise<ContractR
     Query.limit(500),
   ]);
 
-  const stats = new Map<string, { total: number; signed: number }>();
-  for (const id of ids) stats.set(id, { total: 0, signed: 0 });
+  const stats = new Map<string, { total: number; signed: number; viewed: number }>();
+  for (const id of ids) stats.set(id, { total: 0, signed: 0, viewed: 0 });
 
   for (const doc of list.documents || []) {
     const cid = String(doc.contract_id || '');
@@ -232,12 +244,34 @@ async function attachSignerStats(contracts: ContractRecord[]): Promise<ContractR
     row.total += 1;
     const st = String(doc.status || '').toLowerCase();
     if (st === 'signed' || st === 'accepted') row.signed += 1;
+    if (st === 'viewed') row.viewed += 1;
   }
 
   return contracts.map((c) => {
-    const s = stats.get(c.$id) || { total: 0, signed: 0 };
-    return { ...c, signersTotal: s.total, signersSigned: s.signed };
+    const s = stats.get(c.$id) || { total: 0, signed: 0, viewed: 0 };
+    return { ...c, signersTotal: s.total, signersSigned: s.signed, signersViewed: s.viewed };
   });
+}
+
+export async function updateContractMeta(
+  contractId: string,
+  patch: { meta_status?: string; status?: string }
+): Promise<ContractRecord | null> {
+  const databases = requireDb();
+  const data: Record<string, unknown> = {};
+  if (patch.meta_status != null) data.meta_status = String(patch.meta_status);
+  if (patch.status != null) data.status = String(patch.status);
+  if (!Object.keys(data).length) return null;
+  try {
+    const doc = await databases.updateDocument(DB_ID, CONTRACTS_COL(), contractId, data);
+    return mapContractDoc(doc);
+  } catch {
+    return null;
+  }
+}
+
+export async function cancelContractById(contractId: string): Promise<ContractRecord | null> {
+  return updateContractMeta(contractId, { status: 'cancelled' });
 }
 
 export async function getContractById(id: string): Promise<ContractWithSigners | null> {
@@ -290,7 +324,8 @@ export async function listContracts(filters: ListContractsFilters = {}): Promise
       const display = mapContractDisplayStatus(
         c.status,
         c.signersSigned ?? 0,
-        c.signersTotal ?? 0
+        c.signersTotal ?? 0,
+        displayContext(c)
       );
       return display === displayStatus;
     });

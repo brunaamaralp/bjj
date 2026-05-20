@@ -1,9 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { databases, DB_ID, FINANCIAL_TX_COL, createSessionJwt } from '../../lib/appwrite';
-import { buildClientDocumentPermissions } from '../../lib/clientDocumentPermissions.js';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { createSessionJwt } from '../../lib/appwrite';
+import { listFinanceTx, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
+import {
+  txDirection,
+  displayGross,
+  displayNet,
+  displayFee,
+  formatSignedMoney,
+  NATURE_STYLES,
+} from '../../lib/financeTxDisplay.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
-import { Query, ID } from 'appwrite';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
 import { Receipt } from 'lucide-react';
@@ -61,13 +68,20 @@ function getTxTypeLabelDesktop(tx) {
   return '—';
 }
 
-export default function TransacoesTab({ academyId, financeConfig, onTransactionsChange }) {
+export default function TransacoesTab({
+  academyId,
+  financeConfig,
+  onTransactionsChange,
+  isOwner = false,
+  periodFrom = '',
+  periodTo = '',
+  onPeriodFiltersChange,
+  onTxMutated,
+}) {
   const leads = useStudentStore((s) => s.students);
-  const userId = useLeadStore((s) => s.userId);
-  const teamId = useLeadStore((s) => s.teamId);
   const addToast = useUiStore((s) => s.addToast);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(periodFrom);
+  const [toDate, setToDate] = useState(periodTo);
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [showTxModal, setShowTxModal] = useState(false);
@@ -82,6 +96,10 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     lead_id: ''
   });
   const [savingTx, setSavingTx] = useState(false);
+  const [receiveNow, setReceiveNow] = useState(false);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalTx, setTotalTx] = useState(0);
   const [cancelLoadingId, setCancelLoadingId] = useState('');
   const [editingTxId, setEditingTxId] = useState('');
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
@@ -98,22 +116,6 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     note: '',
     lead_id: ''
   });
-
-  const txPeriodTotals = useMemo(() => {
-    let totalReceived = 0;
-    let count = 0;
-    for (const tx of transactions) {
-      if (String(tx.type || '').toLowerCase() === 'expense') continue;
-      if (String(tx.status || '').toLowerCase() === 'cancelled') continue;
-      count += 1;
-      if (String(tx.status || '').toLowerCase() === 'settled') {
-        const net = Number(tx.net);
-        const gross = Number(tx.gross);
-        totalReceived += Number.isFinite(net) ? net : (Number.isFinite(gross) ? gross : 0);
-      }
-    }
-    return { totalReceived, count };
-  }, [transactions]);
 
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
@@ -132,10 +134,34 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
     setShowTxModal(false);
     setEditingTxId('');
     setEditPreservedSaleId('');
+    setReceiveNow(false);
     setTxForm(initialTxForm());
     setStudentQuery('');
     setStudentPickerOpen(false);
   };
+
+  const loadTransactions = useCallback(
+    async (cursor = null, append = false) => {
+      if (!academyId) {
+        setTransactions([]);
+        return;
+      }
+      setTxLoading(true);
+      try {
+        const body = await listFinanceTx({ academyId, from: fromDate, to: toDate, cursor });
+        const items = body.transactions || [];
+        setTransactions((prev) => (append ? [...prev, ...items] : items));
+        setNextCursor(body.nextCursor || null);
+        setHasMore(Boolean(body.hasMore));
+        setTotalTx(Number(body.total) || items.length);
+      } catch {
+        if (!append) setTransactions([]);
+      } finally {
+        setTxLoading(false);
+      }
+    },
+    [academyId, fromDate, toDate]
+  );
 
   const requestCloseTxModal = () => {
     if (savingTx) return;
@@ -144,10 +170,10 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
 
   const openEditModal = (tx) => {
     if (String(tx.status || '').toLowerCase() !== 'pending') return;
-    const gross = Number(tx.gross);
+    const gross = displayGross(tx);
     let feeInput = '';
-    if (tx.type !== 'expense' && Number.isFinite(gross) && gross > 0 && Number(tx.fee) > 0) {
-      const pct = (Number(tx.fee) / gross) * 100;
+    if (tx.type !== 'expense' && Number.isFinite(gross) && gross > 0 && displayFee(tx) > 0) {
+      const pct = (displayFee(tx) / gross) * 100;
       feeInput = Number.isFinite(pct) ? String(Math.round(pct * 100) / 100) : '';
     }
     setEditingTxId(tx.id);
@@ -169,53 +195,19 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
   };
 
   useEffect(() => {
-    let active = true;
-    const run = async () => {
-      if (!academyId || !FINANCIAL_TX_COL) {
-        setTransactions([]);
-        return;
-      }
-      setTxLoading(true);
-      try {
-        const filters = [
-          Query.equal('academyId', academyId),
-          Query.limit(200),
-          Query.orderDesc('$createdAt')
-        ];
-        if (fromDate) filters.push(Query.greaterThanEqual('$createdAt', new Date(fromDate).toISOString()));
-        if (toDate) {
-          const d = new Date(toDate);
-          d.setDate(d.getDate() + 1);
-          filters.push(Query.lessThan('$createdAt', d.toISOString()));
-        }
-        const res = await databases.listDocuments(DB_ID, FINANCIAL_TX_COL, filters);
-        if (!active) return;
-        const items = res.documents.map(d => ({
-          id: d.$id,
-          saleId: d.saleId || '',
-          lead_id: d.lead_id || '',
-          method: d.method || '',
-          installments: Number(d.installments || 1),
-          type: d.type || '',
-          planName: d.planName || '',
-          gross: Number(d.gross || 0),
-          fee: Number(d.fee || 0),
-          net: Number(d.net || 0),
-          status: d.status || 'pending',
-          createdAt: d.$createdAt,
-          settledAt: d.settledAt || '',
-          note: d.note || ''
-        }));
-        setTransactions(items);
-      } catch {
-        if (active) setTransactions([]);
-      } finally {
-        if (active) setTxLoading(false);
-      }
-    };
-    run();
-    return () => { active = false; };
-  }, [academyId, fromDate, toDate]);
+    void loadTransactions();
+  }, [loadTransactions]);
+
+  useEffect(() => {
+    if (typeof onPeriodFiltersChange === 'function') {
+      onPeriodFiltersChange(fromDate, toDate);
+    }
+  }, [fromDate, toDate, onPeriodFiltersChange]);
+
+  useEffect(() => {
+    setFromDate(periodFrom);
+    setToDate(periodTo);
+  }, [periodFrom, periodTo]);
 
   useEffect(() => {
     if (typeof onTransactionsChange === 'function') {
@@ -275,6 +267,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
       if (tx && academyId) {
         applySettleAccountingSideEffects(tx, academyId);
       }
+      if (typeof onTxMutated === 'function') onTxMutated();
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || '').trim();
@@ -314,6 +307,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
         prev.map((t) => (String(t.id) === tid ? { ...t, status: 'cancelled', settledAt: '' } : t))
       );
       addToast({ type: 'success', message: 'Lançamento cancelado.' });
+      if (typeof onTxMutated === 'function') onTxMutated();
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || '').trim();
@@ -328,106 +322,51 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
       typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
         ? txForm.gross
         : parseCurrencyBRL(txForm.gross);
-    if (!academyId || !FINANCIAL_TX_COL || !Number.isFinite(grossNum) || grossNum <= 0) {
+    if (!academyId || !Number.isFinite(grossNum) || grossNum <= 0) {
       addToast({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
       return;
     }
-    const feeVal =
-      txForm.type === 'expense'
-        ? 0
-        : txForm.fee
-          ? grossNum * (parseFloat(String(txForm.fee).replace(',', '.')) / 100)
-          : 0;
-    const netVal = grossNum - feeVal;
-    const installments = txForm.method === 'cartão_crédito' ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
+    if (txForm.type === 'expense' && !isOwner) {
+      addToast({ type: 'error', message: 'Apenas o titular pode registrar despesa.' });
+      return;
+    }
+    const feePct =
+      txForm.type === 'expense' ? 0 : parseFloat(String(txForm.fee || '').replace(',', '.')) || 0;
+    const installments =
+      txForm.method === 'cartão_crédito' ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
     setSavingTx(true);
     try {
-      const scopedUserId = String(userId || '').trim();
-      const scopedTeamId = String(teamId || '').trim();
-      const permissions =
-        scopedUserId || scopedTeamId
-          ? buildClientDocumentPermissions({
-              userId: scopedUserId,
-              teamId: scopedTeamId,
-            })
-          : null;
-
-      if (editingTxId) {
-        const patch = {
-          saleId: editPreservedSaleId || '',
-          lead_id: txForm.lead_id || '',
-          method: txForm.method,
-          installments,
-          type: txForm.type,
-          planName: txForm.planName || '',
-          gross: grossNum,
-          fee: feeVal,
-          net: netVal,
-          note: txForm.note || '',
-        };
-        const doc = await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, editingTxId, patch);
-        const row = {
-          id: doc.$id,
-          saleId: doc.saleId || editPreservedSaleId || '',
-          lead_id: doc.lead_id || txForm.lead_id || '',
-          method: doc.method || txForm.method,
-          installments: Number(doc.installments || installments),
-          type: doc.type || txForm.type,
-          planName: doc.planName || txForm.planName || '',
-          gross: Number(doc.gross ?? grossNum),
-          fee: Number(doc.fee ?? feeVal),
-          net: Number(doc.net ?? netVal),
-          status: doc.status || 'pending',
-          createdAt: doc.$createdAt,
-          settledAt: doc.settledAt || '',
-          note: doc.note || txForm.note || '',
-        };
-        setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
-        addToast({ type: 'success', message: 'Transação atualizada.' });
-        resetTxModal();
-        return;
-      }
-
       const payload = {
-        academyId,
-        saleId: '',
+        saleId: editPreservedSaleId || '',
         lead_id: txForm.lead_id || '',
         method: txForm.method,
         installments,
         type: txForm.type,
         planName: txForm.planName || '',
         gross: grossNum,
-        fee: feeVal,
-        net: netVal,
-        status: 'pending',
+        fee: feePct > 0 ? grossNum * (feePct / 100) : 0,
         note: txForm.note || '',
-        settledAt: '',
+        receive_now: !editingTxId && receiveNow,
       };
-      const doc = permissions
-        ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), payload, permissions)
-        : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), payload);
-      const row = {
-        id: doc.$id,
-        saleId: doc.saleId || '',
-        lead_id: doc.lead_id || txForm.lead_id || '',
-        method: doc.method || txForm.method,
-        installments: Number(doc.installments || installments),
-        type: doc.type || txForm.type,
-        planName: doc.planName || txForm.planName || '',
-        gross: Number(doc.gross ?? grossNum),
-        fee: Number(doc.fee ?? feeVal),
-        net: Number(doc.net ?? netVal),
-        status: doc.status || 'pending',
-        createdAt: doc.$createdAt,
-        settledAt: doc.settledAt || '',
-        note: doc.note || txForm.note || '',
-      };
-      setTransactions((prev) => [row, ...prev]);
-      addToast({ type: 'success', message: 'Transação registrada.' });
+
+      if (editingTxId) {
+        const row = await patchFinanceTx({ academyId, id: editingTxId, payload });
+        setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
+        addToast({ type: 'success', message: 'Transação atualizada.' });
+      } else {
+        const row = await createFinanceTx({ academyId, payload });
+        setTransactions((prev) => [row, ...prev]);
+        addToast({
+          type: 'success',
+          message: receiveNow ? 'Lançamento registrado e liquidado.' : 'Transação registrada.',
+        });
+      }
       resetTxModal();
+      if (typeof onTxMutated === 'function') onTxMutated();
+      void loadTransactions();
     } catch (e) {
       console.error(e);
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      addToast({ type: 'error', message: String(e?.message || friendlyError(e, 'save')) });
     } finally {
       setSavingTx(false);
     }
@@ -451,40 +390,26 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
             </div>
             <button
               type="button"
+              className="btn-primary"
               onClick={() => {
                 setEditingTxId('');
                 setEditPreservedSaleId('');
+                setReceiveNow(false);
                 setTxForm(initialTxForm());
                 setStudentQuery('');
                 setStudentPickerOpen(false);
                 setShowTxModal(true);
-              }}
-              style={{
-                background: '#5B3FBF',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 10,
-                padding: '10px 16px',
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
               }}
             >
               + Nova transação
             </button>
           </div>
           {!txLoading && transactions.length > 0 ? (
-            <div className="finance-tx-totals" role="status">
-              <div className="finance-tx-totals__row">
-                <span>Total recebido no período:</span>
-                <strong>{formatMoneyBRL(txPeriodTotals.totalReceived)}</strong>
-              </div>
-              <div className="finance-tx-totals__row">
-                <span>Total de transações:</span>
-                <strong>{txPeriodTotals.count}</strong>
-              </div>
-            </div>
+            <p className="text-small text-muted" style={{ marginBottom: 12 }} role="status">
+              Mostrando {transactions.length}
+              {totalTx > transactions.length ? ` de ${totalTx}` : ''} lançamentos
+              {hasMore ? ' (há mais registros)' : ''}
+            </p>
           ) : null}
           <div className="finance-table-wrap">
             {txLoading ? (
@@ -496,6 +421,8 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
               <thead>
                 <tr>
                   <th>Data</th>
+                  <th>Natureza</th>
+                  <th>Categoria</th>
                   <th>Venda</th>
                   <th>Aluno</th>
                   <th>Tipo</th>
@@ -510,7 +437,7 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
               <tbody>
                 {transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ padding: 16, verticalAlign: 'middle' }}>
+                    <td colSpan={12} style={{ padding: 16, verticalAlign: 'middle' }}>
                       <EmptyState
                         variant="table-cell"
                         tone="solid"
@@ -523,9 +450,12 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   </tr>
                 ) : transactions.map((tx) => {
                   const dateStr = formatTxDateStr(tx.createdAt);
-                  const grossFmt = formatMoneyBRL(tx.gross);
-                  const feeFmt = formatMoneyBRL(tx.fee);
-                  const netFmt = formatMoneyBRL(tx.net);
+                  const dir = txDirection(tx);
+                  const nature = NATURE_STYLES[dir];
+                  const catBadge = getTxCategoryBadge(tx);
+                  const grossFmt = formatSignedMoney(displayGross(tx), dir);
+                  const feeFmt = formatMoneyBRL(displayFee(tx));
+                  const netFmt = formatSignedMoney(displayNet(tx), dir);
                   const typeLabel = getTxTypeLabelDesktop(tx);
                   const methodLabel = formatPaymentMethod(tx.method, tx.installments);
                   const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
@@ -545,6 +475,10 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   return (
                     <tr key={tx.id}>
                       <td>{dateStr}</td>
+                      <td>
+                        <span style={{ color: nature.color, fontWeight: 600 }}>{nature.label}</span>
+                      </td>
+                      <td>{catBadge ? <span className={catBadge.className}>{catBadge.label}</span> : '—'}</td>
                       <td>{tx.saleId || '-'}</td>
                       <td title={rawName || undefined}>{alumStr}</td>
                       <td>{typeLabel}</td>
@@ -556,14 +490,16 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                       <td className="finance-num">
                         {st === 'pending' ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
-                            <button
-                              type="button"
-                              className="btn-outline"
-                              onClick={() => openEditModal(tx)}
-                              disabled={rowBusy}
-                            >
-                              Editar
-                            </button>
+                            {(isOwner || tx.type !== 'expense') ? (
+                              <button
+                                type="button"
+                                className="btn-outline"
+                                onClick={() => openEditModal(tx)}
+                                disabled={rowBusy}
+                              >
+                                Editar
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className="btn-outline"
@@ -572,15 +508,17 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                             >
                               Liquidar
                             </button>
-                            <button
-                              type="button"
-                              className="btn-outline"
-                              onClick={() => void cancelTx(tx.id)}
-                              disabled={rowBusy}
-                              style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                            >
-                              {rowBusy ? 'Cancelando…' : 'Cancelar'}
-                            </button>
+                            {isOwner ? (
+                              <button
+                                type="button"
+                                className="btn-outline"
+                                onClick={() => void cancelTx(tx.id)}
+                                disabled={rowBusy}
+                                style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                              >
+                                {rowBusy ? 'Cancelando…' : 'Cancelar'}
+                              </button>
+                            ) : null}
                           </div>
                         ) : (
                           <span className="text-small" style={{ opacity: 0.75, color: 'var(--text-secondary)' }}>—</span>
@@ -603,28 +541,37 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   <article key={tx.id} className="navi-mobile-card finance-mobile-card">
                     <div className="finance-mobile-card__head">
                       <span className="finance-mobile-card__date">{formatTxDateStr(tx.createdAt)}</span>
-                      <span className="finance-mobile-card__amount">{formatMoneyBRL(tx.gross)}</span>
+                      <span
+                        className="finance-mobile-card__amount"
+                        style={{ color: NATURE_STYLES[txDirection(tx)].color }}
+                      >
+                        {formatSignedMoney(displayGross(tx), txDirection(tx))}
+                      </span>
                     </div>
                     <div className="finance-mobile-card__name">{displayName}</div>
                     <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
                     {badge ? <span className={badge.className}>{badge.label}</span> : null}
                     {st === 'pending' ? (
                       <div className="finance-mobile-card__actions">
-                        <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
-                          Editar
-                        </button>
+                        {(isOwner || tx.type !== 'expense') ? (
+                          <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
+                            Editar
+                          </button>
+                        ) : null}
                         <button type="button" className="btn-outline btn-sm" onClick={() => void settle(tx.id)} disabled={rowBusy}>
                           Liquidar
                         </button>
-                        <button
-                          type="button"
-                          className="btn-outline btn-sm"
-                          onClick={() => void cancelTx(tx.id)}
-                          disabled={rowBusy}
-                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                        >
-                          {rowBusy ? '…' : 'Cancelar'}
-                        </button>
+                        {isOwner ? (
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            onClick={() => void cancelTx(tx.id)}
+                            disabled={rowBusy}
+                            style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                          >
+                            {rowBusy ? '…' : 'Cancelar'}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </article>
@@ -634,6 +581,18 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
             </>
             )}
           </div>
+          {hasMore && nextCursor ? (
+            <div style={{ marginTop: 12, textAlign: 'center' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={txLoading}
+                onClick={() => void loadTransactions(nextCursor, true)}
+              >
+                {txLoading ? 'Carregando…' : 'Carregar mais'}
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -679,9 +638,19 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
                   <option value="plan">Plano/Mensalidade</option>
                   <option value="product">Produto</option>
                   <option value="other">Outro</option>
-                  <option value="expense">Despesa</option>
+                  {isOwner ? <option value="expense">Despesa</option> : null}
                 </select>
               </div>
+              {!editingTxId ? (
+                <label className="flex items-center gap-2 text-small" style={{ cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={receiveNow}
+                    onChange={(e) => setReceiveNow(e.target.checked)}
+                  />
+                  Recebido agora (já liquidado no caixa)
+                </label>
+              ) : null}
               {txForm.type === 'plan' && (
                 <div className="form-group">
                   <label>Plano</label>
@@ -877,10 +846,9 @@ export default function TransacoesTab({ academyId, financeConfig, onTransactions
               </button>
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-primary"
                 disabled={savingTx}
                 onClick={() => void saveManualTx()}
-                style={{ background: '#5B3FBF', color: '#fff', border: 'none' }}
               >
                 {savingTx ? 'Salvando…' : 'Salvar'}
               </button>

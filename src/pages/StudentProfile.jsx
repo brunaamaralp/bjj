@@ -12,6 +12,7 @@ import {
 } from '../lib/studentPayments.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
 import StudentContractsSection from '../components/student/StudentContractsSection.jsx';
+import StudentContractHeaderChip from '../components/student/StudentContractHeaderChip.jsx';
 import PlanFreezeModal from '../components/student/PlanFreezeModal.jsx';
 import {
     startPlanFreeze,
@@ -27,6 +28,7 @@ import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
@@ -50,6 +52,10 @@ import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
+import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
+import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
+import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
+import { resolveStudentListStatus } from '../lib/studentDisplayStatus.js';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
@@ -114,6 +120,11 @@ const TIMELINE_EVENT_LABELS = {
     collection_escalated: 'Cobrança escalada',
     task_created: 'Tarefa criada',
     task_done: 'Tarefa concluída',
+    student_enrolled: 'Matrícula',
+    student_deactivated: 'Desligamento',
+    student_reactivated: 'Reativação',
+    student_freeze_started: 'Trancamento iniciado',
+    student_freeze_ended: 'Trancamento encerrado',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {
@@ -247,6 +258,11 @@ export default function StudentProfile() {
     const [searchParams] = useSearchParams();
     const student = useStudentStore((s) => s.students.find((l) => l.id === id));
     const loading = useStudentStore((s) => s.loading);
+    const fetchStudentById = useStudentStore((s) => s.fetchStudentById);
+    const mergeStudent = useStudentStore((s) => s.mergeStudent);
+    const refreshStudentPaymentStatus = useStudentStore((s) => s.refreshStudentPaymentStatus);
+    const canViewFinance = useCanViewStudentFinance();
+    const [profileResolving, setProfileResolving] = useState(() => !useStudentStore.getState().students.some((l) => l.id === id));
     const academyId = useLeadStore((s) => s.academyId);
     const modules = useLeadStore((s) => s.modules);
     const financeConfig = useLeadStore((s) => s.financeConfig);
@@ -349,6 +365,8 @@ export default function StudentProfile() {
         zapster: '',
         templates: DEFAULT_WHATSAPP_TEMPLATES,
     });
+    const { templates: waTemplatesHook, academyName: waNameHook, zapsterInstanceId: waZapHook } =
+        useWhatsappTemplates(academyId);
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [note, setNote] = useState('');
@@ -390,6 +408,37 @@ export default function StudentProfile() {
     useEffect(() => {
         if (academyId) void prefetchFinanceConfig(academyId);
     }, [academyId]);
+
+    useEffect(() => {
+        if (!id) return undefined;
+        let cancelled = false;
+        if (useStudentStore.getState().students.some((l) => l.id === id)) {
+            setProfileResolving(false);
+            return undefined;
+        }
+        setProfileResolving(true);
+        void fetchStudentById(id).finally(() => {
+            if (!cancelled) setProfileResolving(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [id, fetchStudentById]);
+
+    useEffect(() => {
+        if (!id || !academyId) return;
+        void fetchStudentProfileBundle(id)
+            .then((bundle) => {
+                if (bundle?.student) mergeStudent(id, bundle.student);
+                if (bundle?.paymentStatus && bundle.paymentStatus.key) {
+                    setPaymentStatus({
+                        status: bundle.paymentStatus.key === 'none' ? 'none' : bundle.paymentStatus.key,
+                        payment: null,
+                    });
+                }
+            })
+            .catch((e) => console.warn('[StudentProfile] profile bundle:', e?.message || e));
+    }, [id, academyId, mergeStudent]);
 
     useEffect(() => {
         const mq = window.matchMedia('(max-width: 1023px)');
@@ -550,13 +599,16 @@ export default function StudentProfile() {
         setLoadingPayments(true);
         setPaymentsError(false);
         try {
+            const salesPromise = canViewFinance
+                ? getSalesByStudent(leadId, { limit: 50 }).catch((err) => {
+                      console.warn('getSalesByStudent:', leadId, err?.message || err);
+                      return [];
+                  })
+                : Promise.resolve([]);
             const [docs, status, salesList, freezes] = await Promise.all([
-                getStudentPayments(leadId, academyId),
-                getPaymentStatus(leadId, academyId),
-                getSalesByStudent(leadId, { limit: 50 }).catch((err) => {
-                    console.warn('getSalesByStudent:', err);
-                    return [];
-                }),
+                canViewFinance ? getStudentPayments(leadId, academyId) : Promise.resolve([]),
+                canViewFinance ? getPaymentStatus(leadId, academyId) : Promise.resolve({ status: 'none', payment: null }),
+                salesPromise,
                 listPlanFreezes(leadId, academyId).catch(() => []),
             ]);
             setPayments(docs);
@@ -572,7 +624,7 @@ export default function StudentProfile() {
         } finally {
             setLoadingPayments(false);
         }
-    }, [leadId, academyId]);
+    }, [leadId, academyId, canViewFinance]);
 
     useEffect(() => {
         void loadPayments();
@@ -594,7 +646,8 @@ export default function StudentProfile() {
                     reason,
                     userId,
                     teamId: acad.teamId,
-                    updateStudent,
+                    mergeStudent,
+                    onAfterFreeze: () => refreshStudentPaymentStatus(leadId, academyId),
                     academySettingsRaw: academySettingsDoc,
                     financeConfig,
                 });
@@ -604,6 +657,7 @@ export default function StudentProfile() {
                     message: `Matrícula trancada até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado quando possível.`,
                 });
                 void loadPayments();
+                void refreshStudentPaymentStatus(leadId, academyId);
             } catch (e) {
                 addToast({ type: 'error', message: friendlyError(e, 'save') });
                 throw e;
@@ -611,7 +665,7 @@ export default function StudentProfile() {
                 setFreezeBusy(false);
             }
         },
-        [student, leadId, academyId, academyList, userId, updateStudent, academySettingsDoc, financeConfig, addToast, loadPayments]
+        [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, financeConfig, addToast, loadPayments, refreshStudentPaymentStatus]
     );
 
     const handleEndFreezeEarly = useCallback(async () => {
@@ -625,19 +679,20 @@ export default function StudentProfile() {
                 academyId,
                 userId,
                 teamId: acad.teamId,
-                updateStudent,
+                mergeStudent,
                 academySettingsRaw: academySettingsDoc,
                 early: true,
                 payments,
             });
             addToast({ type: 'success', message: 'Trancamento encerrado. Acesso reativado na catraca quando possível.' });
             void loadPayments();
+            void refreshStudentPaymentStatus(leadId, academyId);
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setEndFreezeBusy(false);
         }
-    }, [student, leadId, academyId, academyList, userId, updateStudent, academySettingsDoc, payments, addToast, loadPayments]);
+    }, [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, payments, addToast, loadPayments, refreshStudentPaymentStatus]);
 
     const academyNameDisplay = useMemo(() => {
         const cur = (academyList || []).find((a) => a.id === academyId);
@@ -677,23 +732,19 @@ export default function StudentProfile() {
     }, [loadPayments]);
 
     useEffect(() => {
+        if (!waTemplatesHook) return;
+        setWaCtx({
+            name: waNameHook || '',
+            zapster: waZapHook || '',
+            templates: waTemplatesHook,
+        });
+    }, [waTemplatesHook, waNameHook, waZapHook]);
+
+    useEffect(() => {
         if (!academyId) return;
         databases
             .getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then((doc) => {
-                let tplParsed = {};
-                try {
-                    const w = doc.whatsappTemplates;
-                    const p = typeof w === 'string' ? JSON.parse(w) : w;
-                    if (p && typeof p === 'object' && !Array.isArray(p)) tplParsed = p;
-                } catch {
-                    tplParsed = {};
-                }
-                setWaCtx({
-                    name: String(doc?.name || '').trim(),
-                    zapster: String(doc?.zapster_instance_id || '').trim(),
-                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed },
-                });
                 setExitReasons(readStudentExitReasonsFromAcademyDoc(doc));
                 setFreezeReasons(readStudentFreezeReasonsFromAcademyDoc(doc));
                 setAcademySettingsDoc(doc);
@@ -977,7 +1028,7 @@ export default function StudentProfile() {
         }
     };
 
-    const handleConfirmDeactivate = async ({ exitReason, exitDate, exitNotes }) => {
+    const handleConfirmDeactivate = async ({ exitReason, exitDate, exitNotes, cancelFuturePayments }) => {
         if (deactivateBusy || !student) return;
         setDeactivateBusy(true);
         try {
@@ -985,7 +1036,7 @@ export default function StudentProfile() {
             if (academyId) {
                 academyDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
             }
-            const { tasksCreated } = await deactivateStudent({
+            const { tasksCreated, paymentsCancelled } = await deactivateStudent({
                 student,
                 leadId,
                 academyId,
@@ -994,16 +1045,22 @@ export default function StudentProfile() {
                 exitReason,
                 exitDate,
                 exitNotes,
-                updateStudent,
+                cancelFuturePayments: cancelFuturePayments === true,
+                mergeStudent,
+                refreshPaymentStatus: refreshStudentPaymentStatus,
                 academySettingsRaw: academyDoc?.settings,
             });
             setDeactivateOpen(false);
             let msg = `${terms.student} desligado com sucesso.`;
+            if (paymentsCancelled > 0) {
+                msg += ` ${paymentsCancelled} cobrança(s) futura(s) cancelada(s).`;
+            }
             if (tasksCreated > 0) {
                 msg += ` ${tasksCreated} tarefa${tasksCreated === 1 ? '' : 's'} de desligamento foram criadas.`;
             }
             addToast({ type: 'success', message: msg });
             void refreshTimeline();
+            void loadPayments();
         } catch (e) {
             addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
@@ -1020,7 +1077,8 @@ export default function StudentProfile() {
                 academyId,
                 userId,
                 permCtx,
-                updateStudent,
+                mergeStudent,
+                refreshPaymentStatus: refreshStudentPaymentStatus,
             });
             addToast({ type: 'success', message: `${terms.student} reativado com sucesso.` });
             void refreshTimeline();
@@ -1224,7 +1282,7 @@ export default function StudentProfile() {
         fontFamily: 'inherit',
     };
 
-    if (loading && !student) {
+    if ((loading || profileResolving) && !student) {
         return (
             <div className="container lead-profile-loading" style={{ paddingTop: 24, paddingBottom: 40, minHeight: '100vh' }}>
                 <div className="lead-profile-inner">
@@ -1502,6 +1560,182 @@ export default function StudentProfile() {
                     <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
                         {editingData ? (String(dataForm.name || '').trim() || 'Sem nome') : student.name || 'Sem nome'}
                     </h2>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+                        <StudentStatusBadge
+                            status={resolveStudentListStatus(student, paymentStatus)}
+                        />
+                        {modules?.finance === true && student?.id ? (
+                            <StudentContractHeaderChip
+                                leadId={student.id}
+                                onOpenContractsTab={() => setActiveTab('contracts')}
+                            />
+                        ) : null}
+                    </div>
+                    {String(student.plan || '').trim() ? (
+                        <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                            {terms.plan}: {student.plan}
+                        </p>
+                    ) : null}
+                    {student.dueDay ? (
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                            Próximo vencimento: dia {student.dueDay}
+                        </p>
+                    ) : null}
+
+                    <div style={{ marginTop: 14, marginBottom: 14, width: '100%', textAlign: 'left' }}>
+                        <p
+                            style={{
+                                margin: '0 0 10px',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.08em',
+                            }}
+                        >
+                            Mais ações
+                        </p>
+                        {isActiveStudent(student) ? (
+                            <>
+                                {isFreezeActive(student) ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleEndFreezeEarly()}
+                                        disabled={endFreezeBusy}
+                                        style={{
+                                            width: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: 8,
+                                            padding: '10px 12px',
+                                            marginBottom: 8,
+                                            borderRadius: 10,
+                                            border: '1px solid #fbbf24',
+                                            background: '#fffbeb',
+                                            color: '#b45309',
+                                            fontWeight: 700,
+                                            fontSize: 13,
+                                            cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
+                                            fontFamily: 'inherit',
+                                            opacity: endFreezeBusy ? 0.7 : 1,
+                                        }}
+                                    >
+                                        {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
+                                    </button>
+                                ) : canStartPlanFreeze(student, financeConfig) ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFreezeModalOpen(true)}
+                                        disabled={freezeBusy}
+                                        style={{
+                                            width: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: 8,
+                                            padding: '10px 12px',
+                                            marginBottom: 8,
+                                            borderRadius: 10,
+                                            border: '1px solid #fbbf24',
+                                            background: 'var(--surface)',
+                                            color: '#b45309',
+                                            fontWeight: 700,
+                                            fontSize: 13,
+                                            cursor: freezeBusy ? 'not-allowed' : 'pointer',
+                                            fontFamily: 'inherit',
+                                            opacity: freezeBusy ? 0.7 : 1,
+                                        }}
+                                    >
+                                        <PauseCircle size={16} /> Trancar matrícula
+                                    </button>
+                                ) : String(student.plan || '').trim() ? (
+                                    <p
+                                        style={{
+                                            margin: '0 0 8px',
+                                            fontSize: 11,
+                                            color: 'var(--text-muted)',
+                                            lineHeight: 1.4,
+                                        }}
+                                    >
+                                        Trancamento disponível para planos anuais (até 90 dias por ano do plano).
+                                    </p>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={() => setDeactivateOpen(true)}
+                                    style={{
+                                        width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 8,
+                                        padding: '10px 12px',
+                                        marginBottom: 8,
+                                        borderRadius: 10,
+                                        border: '1px solid var(--border)',
+                                        background: 'var(--surface)',
+                                        color: 'var(--text)',
+                                        fontWeight: 700,
+                                        fontSize: 13,
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
+                                </button>
+                            </>
+                        ) : isInactiveStudent(student) ? (
+                            <button
+                                type="button"
+                                onClick={() => void handleReactivate()}
+                                disabled={reactivateBusy}
+                                style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    padding: '10px 12px',
+                                    marginBottom: 8,
+                                    borderRadius: 10,
+                                    border: '1px solid var(--success)',
+                                    background: 'var(--success-light)',
+                                    color: 'var(--success)',
+                                    fontWeight: 700,
+                                    fontSize: 13,
+                                    cursor: reactivateBusy ? 'not-allowed' : 'pointer',
+                                    fontFamily: 'inherit',
+                                    opacity: reactivateBusy ? 0.7 : 1,
+                                }}
+                            >
+                                {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
+                            </button>
+                        ) : null}
+                        <button
+                            type="button"
+                            onClick={() => setConfirmDeleteOpen(true)}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                padding: '10px 12px',
+                                borderRadius: 10,
+                                border: '1px solid var(--border)',
+                                background: 'var(--surface)',
+                                color: 'var(--danger)',
+                                fontWeight: 700,
+                                fontSize: 13,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                            }}
+                        >
+                            <Trash2 size={16} /> Excluir {terms.student.toLowerCase()}
+                        </button>
+                    </div>
+
                     <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
                     {String(student.turma || student.className || '').trim() ? (
                         <span
@@ -1538,47 +1772,11 @@ export default function StudentProfile() {
                                 : ''}
                         </p>
                     ) : null}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 10 }}>
-                        {isInactiveStudent(student) ? (
-                            <span
-                                style={{
-                                    fontSize: 11,
-                                    borderRadius: 6,
-                                    padding: '2px 8px',
-                                    background: '#f1f5f9',
-                                    color: '#64748b',
-                                    fontWeight: 600,
-                                }}
-                            >
-                                Inativo
-                            </span>
-                        ) : (
-                            <>
-                                <span className="badge-success" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
-                                    {terms.convertedStatusUi}
-                                </span>
-                                {isFreezeActive(student) ? (
-                                    <span
-                                        style={{
-                                            fontSize: 11,
-                                            borderRadius: 6,
-                                            padding: '2px 8px',
-                                            background: '#fef3c7',
-                                            color: '#b45309',
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        Trancado
-                                    </span>
-                                ) : null}
-                            </>
-                        )}
-                        {student.type && String(student.type).trim() ? (
-                            <span className="badge-purple" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px' }}>
-                                {student.type}
-                            </span>
-                        ) : null}
-                    </div>
+                    {student.type && String(student.type).trim() ? (
+                        <span className="badge-purple" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px', marginTop: 8 }}>
+                            {student.type}
+                        </span>
+                    ) : null}
                     <div
                         style={{
                             display: 'flex',
@@ -2001,161 +2199,6 @@ export default function StudentProfile() {
                         </button>
                     </div>
                 ) : null}
-
-                <div style={{ marginBottom: 8 }}>
-                    <p
-                        style={{
-                            margin: '0 0 10px',
-                            fontSize: 11,
-                            fontWeight: 800,
-                            color: 'var(--text-muted)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                        }}
-                    >
-                        Mais ações
-                    </p>
-                    {isActiveStudent(student) ? (
-                        <>
-                            {isFreezeActive(student) ? (
-                                <button
-                                    type="button"
-                                    onClick={() => void handleEndFreezeEarly()}
-                                    disabled={endFreezeBusy}
-                                    style={{
-                                        width: '100%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: 8,
-                                        padding: '10px 12px',
-                                        marginBottom: 8,
-                                        borderRadius: 10,
-                                        border: '1px solid #fbbf24',
-                                        background: '#fffbeb',
-                                        color: '#b45309',
-                                        fontWeight: 700,
-                                        fontSize: 13,
-                                        cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
-                                        fontFamily: 'inherit',
-                                        opacity: endFreezeBusy ? 0.7 : 1,
-                                    }}
-                                >
-                                    {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
-                                </button>
-                            ) : canStartPlanFreeze(student, financeConfig) ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setFreezeModalOpen(true)}
-                                    disabled={freezeBusy}
-                                    style={{
-                                        width: '100%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: 8,
-                                        padding: '10px 12px',
-                                        marginBottom: 8,
-                                        borderRadius: 10,
-                                        border: '1px solid #fbbf24',
-                                        background: 'var(--surface)',
-                                        color: '#b45309',
-                                        fontWeight: 700,
-                                        fontSize: 13,
-                                        cursor: freezeBusy ? 'not-allowed' : 'pointer',
-                                        fontFamily: 'inherit',
-                                        opacity: freezeBusy ? 0.7 : 1,
-                                    }}
-                                >
-                                    <PauseCircle size={16} /> Trancar matrícula
-                                </button>
-                            ) : String(student.plan || '').trim() ? (
-                                <p
-                                    style={{
-                                        margin: '0 0 8px',
-                                        fontSize: 11,
-                                        color: 'var(--text-muted)',
-                                        lineHeight: 1.4,
-                                        textAlign: 'center',
-                                    }}
-                                >
-                                    Trancamento disponível para planos anuais (até 90 dias por ano do plano).
-                                </p>
-                            ) : null}
-                            <button
-                                type="button"
-                                onClick={() => setDeactivateOpen(true)}
-                                style={{
-                                    width: '100%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 8,
-                                    padding: '10px 12px',
-                                    marginBottom: 8,
-                                    borderRadius: 10,
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface)',
-                                    color: 'var(--text)',
-                                    fontWeight: 700,
-                                    fontSize: 13,
-                                    cursor: 'pointer',
-                                    fontFamily: 'inherit',
-                                }}
-                            >
-                                <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
-                            </button>
-                        </>
-                    ) : isInactiveStudent(student) ? (
-                        <button
-                            type="button"
-                            onClick={() => void handleReactivate()}
-                            disabled={reactivateBusy}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                padding: '10px 12px',
-                                marginBottom: 8,
-                                borderRadius: 10,
-                                border: '1px solid var(--success)',
-                                background: 'var(--success-light)',
-                                color: 'var(--success)',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: reactivateBusy ? 'not-allowed' : 'pointer',
-                                fontFamily: 'inherit',
-                                opacity: reactivateBusy ? 0.7 : 1,
-                            }}
-                        >
-                            {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
-                        </button>
-                    ) : null}
-                    <button
-                        type="button"
-                        onClick={() => setConfirmDeleteOpen(true)}
-                        style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 8,
-                            padding: '10px 12px',
-                            borderRadius: 10,
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface)',
-                            color: 'var(--danger)',
-                            fontWeight: 700,
-                            fontSize: 13,
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                        }}
-                    >
-                        <Trash2 size={16} /> Excluir {terms.student.toLowerCase()}
-                    </button>
-                </div>
             </div>
 
             <div
@@ -2245,7 +2288,7 @@ export default function StudentProfile() {
                 }}
             >
                 {tabBtn('frequency', 'Frequência')}
-                {tabBtn('payments', 'Pagamentos')}
+                {canViewFinance ? tabBtn('payments', 'Pagamentos') : null}
                 {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}
                 {tabBtn('timeline', 'Linha do tempo')}
             </div>
@@ -2378,7 +2421,7 @@ export default function StudentProfile() {
                     </div>
                 ) : null}
 
-                {activeTab === 'payments' && student ? (
+                {activeTab === 'payments' && canViewFinance && student ? (
                     <StudentFinancialTimeline
                         student={student}
                         financeConfig={financeConfig}

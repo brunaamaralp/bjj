@@ -3932,10 +3932,38 @@ input[type='datetime-local'].form-input:focus {
   min-width: 72px;
 }
 
+.sales-cart--with-sticky-footer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sales-cart--with-sticky-footer .sales-cart-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .sales-cart-footer {
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--border-light);
+}
+
+@media (max-width: 900px) {
+  .sales-panel.sales-panel--active .sales-cart--with-sticky-footer {
+    max-height: min(70vh, calc(100dvh - 220px));
+  }
+
+  .sales-panel.sales-panel--active .sales-cart--with-sticky-footer .sales-cart-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin-top: auto;
+    padding: 12px 0 4px;
+    background: var(--surface);
+    box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.06);
+  }
 }
 
 .sales-cart-footer__row {
@@ -4472,6 +4500,12 @@ input[type='datetime-local'].form-input:focus {
   background: var(--v50, #f3f0ff);
   color: var(--v700, #5b3fbf);
   border: 1px solid var(--v200, #ddd6fe);
+}
+
+.mensal-status-badge--cancelled {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
 }
 
 .mensal-status-badge--awaiting {

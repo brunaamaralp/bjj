@@ -3,6 +3,8 @@ import {
   handleGetContracts,
   handleGetContractById,
   handlePostContract,
+  handlePreviewContract,
+  handlePatchContract,
   jsonResponse,
 } from '../lib/contracts/contractHttp.js';
 import {
@@ -147,6 +149,11 @@ export default async function handler(req, res) {
     return responseToVercel(res, await handleGetContractById(id, auth));
   }
 
+  if (id && req.method === 'PATCH') {
+    const body = await readJsonBody(req);
+    return responseToVercel(res, await handlePatchContract(id, body, auth));
+  }
+
   if (!id && req.method === 'GET') {
     const url = new URL(req.url || '/api/contracts', `https://${req.headers.host || 'localhost'}`);
     return responseToVercel(res, await handleGetContracts(url.searchParams, auth));
@@ -155,6 +162,10 @@ export default async function handler(req, res) {
   if (!id && req.method === 'POST') {
     try {
       const formData = await incomingToFormData(req);
+      const action = String(req.query?.action || formData.get('action') || '').trim();
+      if (action === 'preview') {
+        return responseToVercel(res, await handlePreviewContract(formData, auth));
+      }
       return responseToVercel(res, await handlePostContract(formData, auth));
     } catch (err) {
       console.error('[api/contracts POST]', err);

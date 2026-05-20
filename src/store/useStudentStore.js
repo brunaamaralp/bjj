@@ -140,6 +140,8 @@ function updatesToStudentPatch(updates, current) {
   return patch;
 }
 
+export { STUDENT_TURMA_KEY };
+
 export const useStudentStore = create((set, get) => ({
   students: [],
   loading: false,
@@ -147,6 +149,9 @@ export const useStudentStore = create((set, get) => ({
   loadingMore: false,
   studentsHasMore: false,
   studentsCursor: null,
+  studentsTotal: null,
+  lastFetchOpts: {},
+  paymentStatusByStudentId: {},
 
   get academyId() {
     return useLeadStore.getState().academyId;
@@ -157,18 +162,85 @@ export const useStudentStore = create((set, get) => ({
       students: [],
       studentsCursor: null,
       studentsHasMore: false,
+      studentsTotal: null,
+      lastFetchOpts: {},
       loading: false,
       loadingMore: false,
       studentsError: false,
     }),
+
+  mergeStudent: (id, updates) => {
+    set((state) => ({
+      students: state.students.map((s) => (s.id === id ? { ...s, ...updates } : s)),
+    }));
+  },
+
+  setStudentPaymentStatus: (studentId, paymentStatus) => {
+    const sid = String(studentId || '').trim();
+    if (!sid) return;
+    const hint = paymentStatus
+      ? { key: paymentStatus.status || paymentStatus.key, status: paymentStatus.status }
+      : null;
+    set((state) => ({
+      paymentStatusByStudentId: {
+        ...state.paymentStatusByStudentId,
+        [sid]: paymentStatus,
+      },
+      students: state.students.map((s) =>
+        s.id === sid ? { ...s, _paymentStatus: hint } : s
+      ),
+    }));
+  },
+
+  refreshStudentPaymentStatus: async (studentId, academyId) => {
+    const sid = String(studentId || '').trim();
+    const aid = String(academyId || useLeadStore.getState().academyId || '').trim();
+    if (!sid || !aid) return null;
+    const { getPaymentStatus } = await import('../lib/studentPayments.js');
+    const status = await getPaymentStatus(sid, aid);
+    get().setStudentPaymentStatus(sid, status);
+    return status;
+  },
+
+  fetchStudentById: async (id) => {
+    const found = get().students.find((s) => s.id === id);
+    if (found) return found;
+    if (!STUDENTS_COL || !id) return null;
+    try {
+      const doc = await databases.getDocument(DB_ID, STUDENTS_COL, id);
+      const student = mapAppwriteDocToStudent(doc);
+      set((state) => {
+        const exists = state.students.some((s) => s.id === id);
+        return exists
+          ? { students: state.students.map((s) => (s.id === id ? student : s)) }
+          : { students: [student, ...state.students] };
+      });
+      return student;
+    } catch (e) {
+      console.warn('[fetchStudentById]', id, e?.message || e);
+      return null;
+    }
+  },
 
   fetchStudents: async (opts = {}) => {
     const reset = opts.reset !== false;
     const academyId = useLeadStore.getState().academyId;
     if (!academyId || !STUDENTS_COL) return;
 
+    const queryOpts = reset
+      ? opts
+      : { ...get().lastFetchOpts, ...opts, reset: false };
+
     if (reset) {
       if (get().loading) return;
+      set({
+        lastFetchOpts: {
+          search: queryOpts.search,
+          plan: queryOpts.plan,
+          turma: queryOpts.turma,
+          studentStatus: queryOpts.studentStatus,
+        },
+      });
     } else {
       if (get().loadingMore || !get().studentsHasMore || !get().studentsCursor) return;
     }
@@ -182,12 +254,23 @@ export const useStudentStore = create((set, get) => ({
         Query.orderDesc('$createdAt'),
         Query.limit(STUDENTS_PAGE_SIZE),
       ];
-      if (opts.search) queries.push(Query.contains('name', opts.search));
+      const search = String(queryOpts.search || '').trim();
+      if (search.length >= 2) queries.push(Query.contains('name', search));
+      if (queryOpts.plan) queries.push(Query.equal('plan', String(queryOpts.plan).trim()));
+      if (queryOpts.studentStatus === STUDENT_STATUS.INACTIVE) {
+        queries.push(Query.equal('student_status', STUDENT_STATUS.INACTIVE));
+      } else if (queryOpts.studentStatus !== 'all') {
+        queries.push(Query.equal('student_status', STUDENT_STATUS.ACTIVE));
+      }
+      if (queryOpts.turma && STUDENT_TURMA_KEY) {
+        queries.push(Query.equal(STUDENT_TURMA_KEY, String(queryOpts.turma).trim()));
+      }
       if (!reset && get().studentsCursor) {
         queries.push(Query.cursorAfter(get().studentsCursor));
       }
 
       const response = await databases.listDocuments(DB_ID, STUDENTS_COL, queries);
+      const total = typeof response.total === 'number' ? response.total : null;
       const docs = response.documents || [];
       const students = docs.map((doc) => mapAppwriteDocToStudent(doc));
       const lastId = docs.length ? docs[docs.length - 1].$id : null;
@@ -200,6 +283,7 @@ export const useStudentStore = create((set, get) => ({
           studentsError: false,
           studentsHasMore: pageFull,
           studentsCursor: pageFull && lastId ? lastId : null,
+          studentsTotal: total,
         });
       } else {
         set((state) => {
@@ -211,17 +295,18 @@ export const useStudentStore = create((set, get) => ({
             studentsError: false,
             studentsHasMore: pageFull,
             studentsCursor: pageFull && lastId ? lastId : null,
+            studentsTotal: total ?? state.studentsTotal,
           };
         });
       }
     } catch (e) {
-      console.error('fetchStudents error:', e);
+      console.error('[fetchStudents]', academyId, e?.message || e);
       set({ loading: false, loadingMore: false, studentsError: true });
     }
   },
 
   fetchMoreStudents: async () => {
-    await get().fetchStudents({ reset: false });
+    await get().fetchStudents({ ...get().lastFetchOpts, reset: false });
   },
 
   addStudent: async (student) => {
@@ -237,19 +322,6 @@ export const useStudentStore = create((set, get) => ({
 
     const payload = buildStudentPayloadFromDoc({ ...student, academyId });
     const doc = await databases.createDocument(DB_ID, STUDENTS_COL, ID.unique(), payload, perms);
-
-    try {
-      await addLeadEvent({
-        academyId,
-        leadId: doc.$id,
-        type: 'import',
-        text: 'Aluno cadastrado',
-        createdBy: userId || 'user',
-        permissionContext: permCtx,
-      });
-    } catch (evtErr) {
-      console.warn('addStudent event:', evtErr);
-    }
 
     const newStudent = mapAppwriteDocToStudent(doc);
     set((state) => ({ students: [newStudent, ...state.students] }));

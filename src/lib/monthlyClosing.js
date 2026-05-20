@@ -108,6 +108,7 @@ function deriveSituation(expected, received, statusHint) {
 export function buildClosingRows({ payments = [], transactions = [], leadById = new Map(), financeConfig = {}, referenceMonth }) {
   const rows = [];
   const linkedTxIds = new Set();
+  const originKeysSeen = new Set();
   const saleIdsInTx = new Set();
 
   for (const p of payments) {
@@ -157,6 +158,14 @@ export function buildClosingRows({ payments = [], transactions = [], leadById = 
     if (st === 'cancelled' && type !== 'refund') continue;
     if (type === 'expense') continue;
     if (linkedTxIds.has(String(tx.id || ''))) continue;
+
+    const originType = String(tx.origin_type || tx.originType || '').trim();
+    const originId = String(tx.origin_id || tx.originId || '').trim();
+    if (originType && originId) {
+      const dedupeKey = `${originType}:${originId}`;
+      if (originKeysSeen.has(dedupeKey)) continue;
+      originKeysSeen.add(dedupeKey);
+    }
 
     const saleId = String(tx.saleId || '').trim();
     if (saleId) saleIdsInTx.add(saleId);

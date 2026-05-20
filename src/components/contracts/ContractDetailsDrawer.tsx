@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo } from 'react';
-import { X, ExternalLink, FileSignature, Copy } from 'lucide-react';
-import { useContractDetail } from '../../features/contracts/queries.js';
+import { X, ExternalLink, FileSignature, Copy, RefreshCw } from 'lucide-react';
+import { useContractDetail, useCancelContract } from '../../features/contracts/queries.js';
 import ContractStatusBadge, { SignerStatusBadge } from './ContractStatusBadge.js';
 import {
-  mapContractDisplayStatus,
+  mapContractDisplayStatusForRecord,
   eventTypeLabel,
   autentiqueSignedDocumentUrl,
 } from '../../features/contracts/status.js';
@@ -15,6 +15,8 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 interface ContractDetailsDrawerProps {
   contractId: string | null;
   onClose: () => void;
+  onResend?: () => void;
+  onCancelAndNew?: () => void;
 }
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -28,8 +30,14 @@ function isSignerPending(status: string): boolean {
   return s !== 'signed' && s !== 'accepted' && s !== 'rejected' && s !== 'removed';
 }
 
-export default function ContractDetailsDrawer({ contractId, onClose }: ContractDetailsDrawerProps) {
+export default function ContractDetailsDrawer({
+  contractId,
+  onClose,
+  onResend,
+  onCancelAndNew,
+}: ContractDetailsDrawerProps) {
   const addToast = useUiStore((s) => s.addToast);
+  const cancelMutation = useCancelContract();
   const { data: contract, isLoading, isError, error, refetch } = useContractDetail(contractId, Boolean(contractId));
 
   useEffect(() => {
@@ -42,12 +50,8 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
   }, [contractId, onClose]);
 
   const displayStatus = useMemo(() => {
-    if (!contract) return 'pending' as const;
-    return mapContractDisplayStatus(
-      contract.status,
-      contract.signersSigned ?? 0,
-      contract.signersTotal ?? contract.signers?.length ?? 0
-    );
+    if (!contract) return 'sent' as const;
+    return mapContractDisplayStatusForRecord(contract);
   }, [contract]);
 
   const signedCount =
@@ -58,8 +62,9 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
 
   const totalSigners = contract?.signers?.length ?? 0;
   const signedUrl = autentiqueSignedDocumentUrl(contract?.autentiqueId);
-  const showSignedDoc = displayStatus === 'completed' && signedUrl;
-  const showCopyLinks = displayStatus === 'pending' || displayStatus === 'partial';
+  const showSignedDoc = displayStatus === 'signed' && signedUrl;
+  const showCopyLinks = displayStatus === 'sent' || displayStatus === 'viewed';
+  const showExpiredActions = displayStatus === 'expired';
   const signerLinks = contract?.signersLinks || [];
 
   const timeline = useMemo(() => {
@@ -77,6 +82,21 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
       addToast({ type: 'success', message: 'Link copiado!' });
     } catch {
       addToast({ type: 'error', message: 'Não foi possível copiar o link' });
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!contract?.$id) return;
+    try {
+      await cancelMutation.mutateAsync(contract.$id);
+      addToast({ type: 'success', message: 'Contrato cancelado.' });
+      refetch();
+      onCancelAndNew?.();
+    } catch (e) {
+      addToast({
+        type: 'error',
+        message: e instanceof Error ? e.message : 'Falha ao cancelar',
+      });
     }
   };
 
@@ -109,8 +129,40 @@ export default function ContractDetailsDrawer({ contractId, onClose }: ContractD
                   <ContractStatusBadge status={displayStatus} />
                   <span className="text-small text-muted">Criado em {formatDateTime(contract.createdAt)}</span>
                 </div>
+                {contract.expiresAt ? (
+                  <p className="text-small text-muted contracts-drawer-deadline">
+                    Prazo para assinatura: {formatDateTime(contract.expiresAt)}
+                  </p>
+                ) : null}
                 {contract.sandbox ? <span className="contracts-sandbox-tag">Sandbox (teste)</span> : null}
+                {contract.metaStatus === 'signed_after_offboarding' ? (
+                  <p className="text-small contracts-signed-after-offboarding">
+                    Assinado após desligamento do aluno — revise o vínculo na academia.
+                  </p>
+                ) : null}
               </div>
+
+              {showExpiredActions ? (
+                <div className="contracts-drawer-expired-actions card">
+                  <p className="text-small" style={{ margin: '0 0 10px' }}>
+                    O prazo para assinatura expirou. Reenvie um novo contrato ou cancele este e gere outro.
+                  </p>
+                  <div className="contracts-drawer-expired-btns">
+                    <button type="button" className="btn-primary" onClick={() => onResend?.()}>
+                      <RefreshCw size={14} />
+                      Reenviar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => void handleCancel()}
+                      disabled={cancelMutation.isPending}
+                    >
+                      Cancelar e gerar novo
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               {showSignedDoc ? (
                 <a

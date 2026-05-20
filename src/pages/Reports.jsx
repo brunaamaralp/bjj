@@ -26,6 +26,8 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
 import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
+import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
+import { downloadCsv, leadToCsvRow } from '../lib/reportsExport.js';
 
 const presets = [
     { key: 'today', label: 'Hoje' },
@@ -93,34 +95,6 @@ const formatChartTickPt = (rawLabel) => {
         .replace('.', '');
 };
 
-
-function downloadCsv(rows, filename) {
-    const header = Object.keys(rows[0] || {});
-    const csv = [
-        header.join(';'),
-        ...rows.map((r) => header.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(';')),
-    ].join('\n');
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-const leadToCsvRow = (l) => ({
-    nome: l.name || '',
-    telefone: l.phone || '',
-    tipo: l.type || '',
-    origem: l.origin || '',
-    status: l.status || '',
-    data_aula: l.scheduledDate || '',
-    horario: l.scheduledTime || '',
-    criado_em: l.createdAt ? new Date(l.createdAt).toISOString() : '',
-});
 
 const Card = ({ title, value, variation, icon, color, onClick, disabled, trendHint }) => {
     const isUp = typeof variation === 'number' ? variation >= 0 : true;
@@ -209,14 +183,14 @@ const pctVar = (cur, prev) => {
     return Math.round(((cur - prev) / prev) * 100);
 };
 
-const REPORT_TABS = new Set(['visao-geral', 'funil', 'financeiro', 'loja', 'equipe']);
+const REPORT_TABS = new Set(['visao-geral', 'funil', 'alunos', 'financeiro', 'loja']);
 
 const REPORT_TAB_ITEMS = [
     { id: 'visao-geral', label: 'Visão geral' },
     { id: 'funil', label: 'Funil' },
+    { id: 'alunos', label: 'Alunos' },
     { id: 'financeiro', label: 'Financeiro' },
     { id: 'loja', label: 'Loja' },
-    { id: 'equipe', label: 'Equipe' },
 ];
 
 const Reports = () => {
@@ -232,10 +206,8 @@ const Reports = () => {
         }),
         [terms.reportsDrillConvertedTitle, contactsPlural]
     );
-    const { leads, fetchLeads, fetchMoreLeads } = useLeadStore();
+    const { leads } = useLeadStore();
     const leadsLoading = useLeadStore((s) => s.loading);
-    const loadingMore = useLeadStore((s) => s.loadingMore);
-    const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
 
     const [preset, setPreset] = useState('month');
     const [from, setFrom] = useState(ymd(startOfMonth(new Date())));
@@ -246,8 +218,10 @@ const Reports = () => {
     const [profileFilter, setProfileFilter] = useState('all');
     const [exportOpen, setExportOpen] = useState(false);
     const [drillKey, setDrillKey] = useState(null);
-    const [listRefreshing, setListRefreshing] = useState(false);
     const exportWrapRef = useRef(null);
+    const reportAbortRef = useRef(null);
+    const filterDebounceSkip = useRef(true);
+    const [heatmapTableView, setHeatmapTableView] = useState(false);
 
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -274,7 +248,8 @@ const Reports = () => {
 
     const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, 'visao-geral');
     const isLeadReportTab = activeTab === 'visao-geral' || activeTab === 'funil';
-    const isPeriodTab = isLeadReportTab || activeTab === 'financeiro' || activeTab === 'loja';
+    const needsFunnelReport = isLeadReportTab || activeTab === 'alunos';
+    const isPeriodTab = needsFunnelReport || activeTab === 'financeiro' || activeTab === 'loja';
 
     useEffect(() => {
         const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -315,7 +290,7 @@ const Reports = () => {
         return { from, to };
     }, [preset, from, to]);
 
-    const fetchReport = async () => {
+    const fetchReport = async (forceRefresh = false) => {
         if (!academyId) return;
         if (preset === 'custom') {
             const fa = parseYMD(range.from);
@@ -327,6 +302,9 @@ const Reports = () => {
             }
         }
         setDateError(null);
+        reportAbortRef.current?.abort();
+        const controller = new AbortController();
+        reportAbortRef.current = controller;
         setLoading(true);
         setError(null);
 
@@ -392,25 +370,42 @@ const Reports = () => {
                     prevFrom: prevFromDLocal.toISOString(),
                     prevTo: prevToDLocal.toISOString(),
                     filters: { origin: originFilter, type: profileFilter },
-                    chartMode
-                })
+                    chartMode,
+                    refresh: forceRefresh === true,
+                }),
+                signal: controller.signal,
             });
+            if (res.status === 504) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.message || 'Muitos dados — tente um período menor');
+            }
             if (!res.ok) throw new Error('Falha na resposta do servidor');
             const data = await res.json();
-            setReportData(data);
+            if (!controller.signal.aborted) setReportData(data);
         } catch (e) {
-            setError('Não foi possível carregar o relatório. Tente novamente.');
+            if (e?.name === 'AbortError') return;
+            setError(String(e?.message || 'Não foi possível carregar o relatório. Tente novamente.'));
             setReportData(null);
             console.error(e);
         } finally {
-            setLoading(false);
+            if (!controller.signal.aborted) setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (!isLeadReportTab) return;
-        void fetchReport();
-    }, [range, originFilter, profileFilter, chartMode, academyId, preset, isLeadReportTab]);
+        if (!needsFunnelReport) return;
+        void fetchReport(false);
+    }, [range, chartMode, academyId, preset, needsFunnelReport]);
+
+    useEffect(() => {
+        if (!needsFunnelReport) return;
+        if (filterDebounceSkip.current) {
+            filterDebounceSkip.current = false;
+            return;
+        }
+        const t = window.setTimeout(() => void fetchReport(false), 300);
+        return () => window.clearTimeout(t);
+    }, [originFilter, profileFilter, needsFunnelReport]);
 
     const rangeSlug = `${range.from}_${range.to}`;
     const prettyRange = useMemo(() => formatRangeLongPt(range.from, range.to), [range.from, range.to]);
@@ -418,28 +413,13 @@ const Reports = () => {
     const exportList = (listKey, slug) => {
         if (!reportData || !reportData.metrics[listKey]) return;
         const list = reportData.metrics[listKey].list || [];
-        const rows = list.map(leadToCsvRow);
+        const rows = list.map((l) => leadToCsvRow(l, { includeContact: isOwner }));
         if (rows.length === 0) {
             downloadCsv([{ mensagem: 'Nenhum registro no período com os filtros atuais' }], `relatorio-${slug}-vazio.csv`);
             return;
         }
         downloadCsv(rows, `relatorio-${slug}-${rangeSlug}.csv`);
         setExportOpen(false);
-    };
-
-    const handleRefreshList = async () => {
-        if (listRefreshing || leadsLoading) return;
-        setListRefreshing(true);
-        try {
-            await fetchLeads({ reset: true });
-        } finally {
-            setListRefreshing(false);
-        }
-    };
-
-    const handleLoadMore = async () => {
-        if (loadingMore || leadsLoading || !leadsHasMore) return;
-        await fetchMoreLeads();
     };
 
     const reportHasActivity = hasAnyActivity(reportData);
@@ -513,19 +493,15 @@ const Reports = () => {
         ];
     }, [reportData, terms.reportsClosureRateInsight]);
     const chartDataComparison = useMemo(() => {
-        if (!reportData?.chart || reportData.chart.length === 0 || !reportData?.metrics) return [];
+        const rows = reportData?.chartComparison;
+        if (!rows?.length) return [];
         const metricMap = chartMetric === 'new' ? 'newLeads' : chartMetric === 'scheduled' ? 'scheduled' : 'converted';
-        const prevTotal =
-            metricMap === 'newLeads'
-                ? Number(reportData.metrics.newLeads?.previous || 0)
-                : metricMap === 'scheduled'
-                  ? Number(reportData.metrics.scheduled?.previous || 0)
-                  : Number(reportData.metrics.converted?.previous || 0);
-        const prevPerBucket = reportData.chart.length > 0 ? Number((prevTotal / reportData.chart.length).toFixed(2)) : 0;
-        return reportData.chart.map((bucket) => ({
+        const prevMap =
+            chartMetric === 'new' ? 'prevNewLeads' : chartMetric === 'scheduled' ? 'prevScheduled' : 'prevConverted';
+        return rows.map((bucket) => ({
             label: bucket.label,
             current: Number(bucket[metricMap] || 0),
-            previous: prevPerBucket,
+            previous: Number(bucket[prevMap] || 0),
         }));
     }, [reportData, chartMetric]);
     const conversionChartData = useMemo(
@@ -550,42 +526,58 @@ const Reports = () => {
             return heatmapSlots.reduce((slotAcc, h) => Math.max(slotAcc, Number(dayMap[h] || 0)), maxAcc);
         }, 0);
     }, [reportData]);
-    const heatmapLevelColor = (count) => {
-        if (!heatmapMax || count <= 0) return '#EEEDFE';
+    const heatmapLevelClass = (count) => {
+        if (!heatmapMax || count <= 0) return 'reports-heatmap-cell--0';
         const ratio = count / heatmapMax;
-        if (ratio <= 0.2) return '#DFDCF9';
-        if (ratio <= 0.4) return '#CECBF6';
-        if (ratio <= 0.6) return '#B2ACEB';
-        if (ratio <= 0.8) return '#8D82D8';
-        return '#534AB7';
+        if (ratio <= 0.2) return 'reports-heatmap-cell--1';
+        if (ratio <= 0.4) return 'reports-heatmap-cell--2';
+        if (ratio <= 0.6) return 'reports-heatmap-cell--3';
+        if (ratio <= 0.8) return 'reports-heatmap-cell--4';
+        return 'reports-heatmap-cell--5';
     };
+
+    const heatmapTableRows = useMemo(() => {
+        if (!reportData?.heatmapData) return [];
+        const rows = [];
+        for (const d of heatmapDays) {
+            for (const h of heatmapSlots) {
+                rows.push({
+                    dia: d.label,
+                    hora: `${String(h).padStart(2, '0')}h`,
+                    agendamentos: Number(reportData.heatmapData?.[d.key]?.[h] || 0),
+                });
+            }
+        }
+        return rows;
+    }, [reportData, heatmapDays, heatmapSlots]);
 
     return (
         <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
             <div>
                 <h1 className="navi-page-title">Relatórios</h1>
                 <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-                    <span>
-                        Indicadores por período · {prettyRange}
-                    </span>
-                    {leadsHasMore ? (
-                        <>
-                            <span
-                                className="reports-partial-badge"
-                                title="Relatório pode refletir só os registros já carregados no app. Atualize a lista ou carregue mais na base de leads para aproximar o total."
+                    <span>Indicadores por período · {prettyRange}</span>
+                    {needsFunnelReport && reportData?.snapshotUpdatedAt ? (
+                        <span className="reports-snapshot-meta text-small text-muted">
+                            Atualizado em{' '}
+                            {new Date(reportData.snapshotUpdatedAt).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                            })}
+                            {reportData.fromSnapshot ? ' (cache)' : ''}
+                            <button
+                                type="button"
+                                className="btn-outline reports-refresh-mini"
+                                onClick={() => void fetchReport(true)}
+                                disabled={loading}
+                                style={{ marginLeft: 8 }}
                             >
-                                Parcial
-                            </span>
-                            <span className="reports-partial-inline-actions">
-                                <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleRefreshList()} disabled={listRefreshing || leadsLoading}>
-                                    <RefreshCw size={14} className={listRefreshing || leadsLoading ? 'reports-spin' : ''} aria-hidden />
-                                    Atualizar lista
-                                </button>
-                                <button type="button" className="btn-outline reports-refresh-mini" onClick={() => void handleLoadMore()} disabled={loadingMore || leadsLoading}>
-                                    {loadingMore ? 'Carregando…' : 'Carregar mais'}
-                                </button>
-                            </span>
-                        </>
+                                <RefreshCw size={14} className={loading ? 'reports-spin' : ''} aria-hidden />
+                                Atualizar agora
+                            </button>
+                        </span>
                     ) : null}
                 </p>
                 <HubTabBar
@@ -612,7 +604,7 @@ const Reports = () => {
                 </div>
             ) : null}
 
-            {showInitialLoad && isLeadReportTab ? (
+            {showInitialLoad && needsFunnelReport ? (
                 <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={i} className="reports-kpi-card reports-kpi-skeleton" style={{ minHeight: 100 }} />
@@ -641,7 +633,7 @@ const Reports = () => {
                             </>
                         )}
                     </div>
-                    {isLeadReportTab ? (
+                    {needsFunnelReport ? (
                     <>
                     <div className="reports-filters-divider" aria-hidden />
                     <div className="filter-group reports-selects-inline">
@@ -723,7 +715,7 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {isLeadReportTab ? (
+            {needsFunnelReport ? (
             <>
             {!error && !showInitialLoad && leads.length === 0 && !leadsLoading ? (
                 <div className="reports-empty card mt-4">
@@ -852,7 +844,18 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {activeTab === 'funil' && !error && !showInitialLoad && reportData?.chart ? (
+            {activeTab === 'alunos' ? (
+                <ReportsStudentsPanel
+                    studentMetrics={reportData?.studentMetrics}
+                    loading={showInitialLoad || (loading && !reportData)}
+                />
+            ) : null}
+
+            {activeTab === 'funil' && !error && (showInitialLoad || loading) ? (
+                <div className="card reports-evo-card mt-4 reports-chart-skeleton" style={{ minHeight: chartHeight + 80 }} aria-busy="true" />
+            ) : null}
+
+            {activeTab === 'funil' && !error && !showInitialLoad && !loading && reportData?.chart ? (
             <div className="card reports-evo-card mt-4">
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução no período</h3>
@@ -916,7 +919,11 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {activeTab === 'funil' && !error && !showInitialLoad ? (
+            {activeTab === 'funil' && !error && (showInitialLoad || loading) ? (
+                <div className="card reports-evo-card mt-4 reports-chart-skeleton" style={{ minHeight: chartHeight + 60 }} aria-busy="true" />
+            ) : null}
+
+            {activeTab === 'funil' && !error && !showInitialLoad && !loading ? (
             <div className="card reports-evo-card mt-4">
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução da taxa de conversão</h3>
@@ -945,16 +952,55 @@ const Reports = () => {
             </div>
             ) : null}
 
-            {activeTab === 'funil' && !error && !showInitialLoad ? (
+            {activeTab === 'funil' && !error && (showInitialLoad || loading) ? (
+                <div className="reports-aux-grid mt-4">
+                    <div className="card reports-evo-card reports-chart-skeleton" style={{ minHeight: 220 }} aria-busy="true" />
+                    <div className="card reports-evo-card reports-chart-skeleton" style={{ minHeight: 160 }} aria-busy="true" />
+                </div>
+            ) : null}
+
+            {activeTab === 'funil' && !error && !showInitialLoad && !loading ? (
             <div className="reports-aux-grid mt-4">
                 <div className="card reports-evo-card">
                     <div className="evo-header">
                         <h3 className="navi-section-heading evo-title">Heatmap de horários</h3>
+                        {reportData?.heatmapData ? (
+                            <button
+                                type="button"
+                                className="btn-outline btn-sm navi-mobile-only"
+                                onClick={() => setHeatmapTableView((v) => !v)}
+                            >
+                                {heatmapTableView ? 'Ver heatmap' : 'Ver tabela'}
+                            </button>
+                        ) : null}
                     </div>
                     {!reportData?.heatmapData ? (
                         <p className="text-small" style={{ color: 'var(--text-muted)' }}>
                             Dados insuficientes para este período.
                         </p>
+                    ) : heatmapTableView ? (
+                        <div className="reports-heatmap-table-wrap">
+                            <table className="reports-heatmap-table">
+                                <thead>
+                                    <tr>
+                                        <th>Dia</th>
+                                        <th>Hora</th>
+                                        <th>Agendamentos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {heatmapTableRows
+                                        .filter((r) => r.agendamentos > 0)
+                                        .map((r) => (
+                                            <tr key={`${r.dia}-${r.hora}`}>
+                                                <td>{r.dia}</td>
+                                                <td>{r.hora}</td>
+                                                <td>{r.agendamentos}</td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
                     ) : (
                         <div className="reports-heatmap">
                             <div className="reports-heatmap-head">
@@ -971,9 +1017,8 @@ const Reports = () => {
                                         return (
                                             <span
                                                 key={`${d.key}-${hour}`}
-                                                className="reports-heatmap-cell"
+                                                className={`reports-heatmap-cell ${heatmapLevelClass(count)}`}
                                                 title={`${d.label} ${String(hour).padStart(2, '0')}h: ${count}`}
-                                                style={{ background: heatmapLevelColor(count) }}
                                             />
                                         );
                                     })}
@@ -1042,19 +1087,6 @@ const Reports = () => {
 
             {activeTab === 'loja' ? (
                 <ReportsLojaPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
-            ) : null}
-
-            {activeTab === 'equipe' ? (
-                <div className="reports-empty card mt-4">
-                    <EmptyState
-                        insideCard
-                        variant="compact"
-                        tone="solid"
-                        title="Relatórios de equipe"
-                        description="Indicadores por responsável e desempenho da equipe estarão disponíveis em breve."
-                        role="status"
-                    />
-                </div>
             ) : null}
 
             {drillKey ? (
@@ -1438,7 +1470,40 @@ const Reports = () => {
         .reports-heatmap-cell {
           height: 20px;
           border-radius: 6px;
-          border: 0.5px solid rgba(83, 74, 183, 0.14);
+          border: 0.5px solid color-mix(in srgb, var(--v500) 14%, transparent);
+        }
+        .reports-heatmap-cell--0 { background: var(--v50); }
+        .reports-heatmap-cell--1 { background: color-mix(in srgb, var(--v200) 35%, var(--v50)); }
+        .reports-heatmap-cell--2 { background: color-mix(in srgb, var(--v200) 65%, var(--v50)); }
+        .reports-heatmap-cell--3 { background: var(--v200); }
+        .reports-heatmap-cell--4 { background: color-mix(in srgb, var(--v500) 55%, var(--v200)); }
+        .reports-heatmap-cell--5 { background: var(--v500); }
+        .reports-heatmap-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .reports-heatmap-table th,
+        .reports-heatmap-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-light); text-align: left; }
+        .reports-chart-skeleton {
+          background: linear-gradient(90deg, var(--surface-hover) 25%, var(--v50) 50%, var(--surface-hover) 75%);
+          background-size: 200% 100%;
+          animation: reports-shimmer 1.2s ease-in-out infinite;
+          border-radius: 12px;
+        }
+        @keyframes reports-shimmer {
+          0% { background-position: 100% 0; }
+          100% { background-position: -100% 0; }
+        }
+        .reports-kpi-info {
+          margin-left: 4px;
+          padding: 0;
+          border: none;
+          background: none;
+          color: var(--text-muted);
+          cursor: help;
+          vertical-align: middle;
+        }
+        .reports-snapshot-meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-left: 8px; }
+        .navi-mobile-only { display: none; }
+        @media (max-width: 640px) {
+          .navi-mobile-only { display: inline-flex; }
         }
         .reports-heatmap-legend {
           margin-top: 4px;

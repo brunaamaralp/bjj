@@ -5,6 +5,7 @@ import {
   inRange,
   inRangeYmd,
   countsAsConvertedInPeriod,
+  countsAsNewStudentInPeriod,
   countsAsMissedExperimentalInPeriod
 } from '../../lib/reportsMetrics.js';
 import { hasAnyActivity } from '../lib/reportActivity.js';
@@ -122,15 +123,16 @@ describe('relatório — convertidos (countsAsConvertedInPeriod)', () => {
     expect(countsAsConvertedInPeriod(l, from, to)).toBe(true);
   });
 
-  it('conta aluno atualizado no período (fallback)', () => {
+  it('não conta aluno só por $updatedAt sem converted_at', () => {
     const l = makeLeads([
       {
         contact_type: 'student',
         converted_at: null,
-        $updatedAt: '2026-04-10T00:00:00.000Z'
-      }
+        $updatedAt: '2026-04-10T00:00:00.000Z',
+      },
     ])[0];
-    expect(countsAsConvertedInPeriod(l, from, to)).toBe(true);
+    expect(countsAsNewStudentInPeriod(l, from, to)).toBe(false);
+    expect(countsAsConvertedInPeriod(l, from, to)).toBe(false);
   });
 });
 

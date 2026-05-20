@@ -15,7 +15,11 @@ import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import MensalidadesListTable from '../components/finance/MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../lib/paymentExceptions.js';
 import MensalidadesStatusFilter from '../components/finance/MensalidadesStatusFilter.jsx';
-import { expectedAmountForStudent } from '../lib/paymentStatus.js';
+import { expectedAmountForStudent, expectedAmountWithCardFee } from '../lib/paymentStatus.js';
+import { formatBRL } from '../lib/moneyBr.js';
+import CollectionInadimplenciaPanel from '../components/finance/CollectionInadimplenciaPanel.jsx';
+import '../components/finance/mensalidades.css';
+import { useUserRole } from '../lib/useUserRole.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { DateInput } from '../components/DateInput';
 import { useTerms } from '../lib/terminology.js';
@@ -190,10 +194,12 @@ export default function Mensalidades() {
     };
   }, [showModal]);
 
-  const academyName = useMemo(() => {
-    const cur = (academyList || []).find((a) => a.id === academyId);
-    return String(cur?.name || '').trim();
-  }, [academyList, academyId]);
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
+  const navRole = useUserRole(academyDoc);
+  const academyName = useMemo(() => String(academyDoc?.name || '').trim(), [academyDoc]);
 
   const teamIdForPayments = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -212,7 +218,9 @@ export default function Mensalidades() {
     setLoading(true);
     setLoadingError(false);
     try {
-      const docs = await getMonthlyPayments(academyId, currentMonth);
+      const docs = await getMonthlyPayments(academyId, currentMonth, {
+        activeStudentCount: students.length,
+      });
       setPayments(docs);
     } catch (err) {
       console.error('getMonthlyPayments error:', err);
@@ -287,7 +295,9 @@ export default function Mensalidades() {
     setLoadingError(false);
     (async () => {
       try {
-        const docs = await getMonthlyPayments(academyId, currentMonth);
+        const docs = await getMonthlyPayments(academyId, currentMonth, {
+        activeStudentCount: students.length,
+      });
         if (!active) return;
         setPayments(docs);
       } catch (err) {
@@ -574,7 +584,15 @@ export default function Mensalidades() {
 
   const handleSavePayment = async () => {
     if (!selectedStudent || !academyId || savingPayment) return;
-    const amountNum = parseCurrencyBRL(payForm.amount);
+    let amountNum = parseCurrencyBRL(payForm.amount);
+    const withFee = expectedAmountWithCardFee(
+      selectedStudent,
+      financeConfig,
+      payForm.method,
+      payForm.installments,
+      paymentMap[selectedStudent.id]
+    );
+    if (Number.isFinite(withFee) && withFee > amountNum) amountNum = withFee;
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
       addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
       return;
@@ -714,13 +732,7 @@ export default function Mensalidades() {
     [filter, search]
   );
 
-  const fmtMoney = (n) => {
-    try {
-      return Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${Number(n || 0).toFixed(2)}`;
-    }
-  };
+  const fmtMoney = formatBRL;
 
   return (
     <div
@@ -1000,6 +1012,7 @@ export default function Mensalidades() {
               onFilterChange={setFilter}
               filterCounts={filterCounts}
               reguaFilterChips={reguaFilterChips}
+              collectionRules={collectionRules}
               overdueLabelName={parseOverdueLabel(overdueLabelName)}
               overdueLabelCount={students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length}
               overdueLabelId={overdueLabelId}
@@ -1049,6 +1062,17 @@ export default function Mensalidades() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {viewMode === 'list' && collectionDashboard.total > 0 ? (
+        <CollectionInadimplenciaPanel
+          students={students}
+          studentOverdueMeta={studentOverdueMeta}
+          paymentMap={paymentMap}
+          collectionRules={collectionRules}
+          currentMonth={currentMonth}
+          financeConfig={financeConfig}
+        />
       ) : null}
 
       {viewMode === 'grid' && modules?.finance === true ? (
@@ -1173,6 +1197,7 @@ export default function Mensalidades() {
         openPaymentModal={openPaymentModal}
         handleEstornar={handleEstornar}
         configuredTurmas={configuredTurmas}
+        canReverse={navRole === 'owner'}
       />      </>
       ) : null}
 

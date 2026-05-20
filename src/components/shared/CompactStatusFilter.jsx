@@ -78,6 +78,7 @@ export default function CompactStatusFilter({
               aria-selected={value === opt.id}
               className={`mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active' : ''}`}
               onClick={() => pick(opt.id)}
+              title={opt.title || undefined}
             >
               <span>
                 {value === opt.id ? '●' : '○'} {opt.label}
@@ -100,6 +101,7 @@ export default function CompactStatusFilter({
                   aria-selected={value === opt.id}
                   className={`mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active' : ''}`}
                   onClick={() => pick(opt.id)}
+                  title={opt.title || undefined}
                 >
                   <span>
                     {value === opt.id ? '●' : '○'} {opt.label}

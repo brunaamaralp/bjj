@@ -1,7 +1,15 @@
+/**
+ * Mensalidade paga → entrada automática no Caixa; mensalidade pendente não gera lançamento pendente no Caixa.
+ */
 import { Query, ID } from 'appwrite';
 import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
+import { apiCreateStudentPayment, apiUpdateStudentPayment, apiListStudentPayments } from './studentPaymentsApi.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
-import { mirrorGrossForPayment, shouldMirrorPaymentToCaixa } from './paymentStatus.js';
+import {
+  mirrorGrossForPayment,
+  shouldMirrorPaymentToCaixa,
+  expectedAmountWithCardFee,
+} from './paymentStatus.js';
 import {
   PAYMENT_CATEGORY,
   normalizePaymentCategory,
@@ -17,9 +25,9 @@ import {
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
-/** Só grava `financial_tx_id` no documento de mensalidade se a coleção Appwrite tiver esse atributo (string) e esta env estiver true/1. */
-const WRITE_FINANCIAL_TX_REF_ON_PAYMENT = ['true', '1', 'yes'].includes(
-  String(import.meta.env.VITE_STUDENT_PAYMENT_WRITE_FINANCIAL_TX_REF || '').trim().toLowerCase()
+/** Writeback de financial_tx_id ativo por padrão; desative com VITE_STUDENT_PAYMENT_WRITE_FINANCIAL_TX_REF=false */
+const WRITE_FINANCIAL_TX_REF_ON_PAYMENT = !['false', '0', 'no'].includes(
+  String(import.meta.env.VITE_STUDENT_PAYMENT_WRITE_FINANCIAL_TX_REF || 'true').trim().toLowerCase()
 );
 
 const OPTIONAL_ATTRS = [
@@ -115,6 +123,8 @@ async function syncFinancialTxMirror({
   permissions,
   existingTxId,
   skipMirror = false,
+  financeConfig = null,
+  student = null,
 }) {
   if (skipMirror || !FINANCIAL_TX_COL) return null;
 
@@ -140,23 +150,49 @@ async function syncFinancialTxMirror({
     return null;
   }
 
-  const gross = mirrorGrossForPayment(status, paidAmt, expected);
+  let gross = mirrorGrossForPayment(status, paidAmt, expected);
   if (!Number.isFinite(gross) || gross <= 0) return txId || null;
+
+  let fee = 0;
+  if (financeConfig && student) {
+    const withFee = expectedAmountWithCardFee(
+      student,
+      financeConfig,
+      data.method,
+      data.installments,
+      data
+    );
+    const base = mirrorGrossForPayment(status, paidAmt, expected);
+    if (Number.isFinite(withFee) && withFee > base) {
+      gross = withFee;
+      fee = Math.round((withFee - base) * 100) / 100;
+    }
+  }
+
+  const net = Math.max(0, gross - fee);
+  const paymentId = String(paymentDoc?.$id || data.id || '').trim();
+  const now = new Date().toISOString();
 
   const mirrorPayload = {
     academyId: data.academy_id,
     saleId: '',
     lead_id: data.lead_id,
     method: data.method || 'pix',
-    installments: 1,
+    installments: Math.min(12, Math.max(1, Number(data.installments) || 1)),
     type: 'plan',
     planName: data.plan_name || data.note || '',
     gross,
-    fee: 0,
-    net: gross,
+    fee,
+    net,
+    direction: 'in',
     status: 'settled',
-    settledAt: data.paid_at || new Date().toISOString(),
+    settledAt: data.paid_at || now,
     note,
+    origin_type: 'student_payment',
+    origin_id: paymentId,
+    created_by: String(data.registered_by || '').trim() || 'system',
+    updated_by: String(data.registered_by || '').trim() || 'system',
+    updated_at: now,
   };
 
   try {
@@ -222,7 +258,7 @@ export async function findPaymentForMonthUpsert(leadId, referenceMonth, paymentC
   return null;
 }
 
-async function persistPaymentDocument({ data, existingId, permissions, skipMirror }) {
+async function persistPaymentDocument({ data, existingId, permissions, skipMirror, financeConfig, student }) {
   const payload = buildPaymentPayload(data);
   const mergedData = { ...data, ...payload };
 
@@ -248,6 +284,8 @@ async function persistPaymentDocument({ data, existingId, permissions, skipMirro
     permissions,
     existingTxId: data.financial_tx_id || doc.financial_tx_id,
     skipMirror,
+    financeConfig,
+    student,
   });
   if (mirrorId) await attachFinancialTxRef(doc.$id, mirrorId);
 
@@ -436,9 +474,31 @@ export async function getStudentPayments(leadId, academyId, limit = 120) {
 /**
  * Lista pagamentos do mês para a grade de Mensalidades (exclui taxa/outro).
  */
-export async function getMonthlyPayments(academyId, referenceMonth) {
+export async function getMonthlyPayments(academyId, referenceMonth, opts = {}) {
   const ym = String(referenceMonth || '').trim();
-  if (!PAYMENTS_COL || !academyId || !ym) return [];
+  if (!academyId || !ym) return [];
+
+  const useApi = import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false';
+  if (useApi) {
+    const activeCount = Number(opts.activeStudentCount) || 0;
+    const pageSize = activeCount > 200 ? 100 : 500;
+    let page = 1;
+    let all = [];
+    for (;;) {
+      const batch = await apiListStudentPayments({
+        referenceMonth: ym,
+        page,
+        limit: pageSize,
+      });
+      all = all.concat(batch);
+      if (batch.length < pageSize) break;
+      page += 1;
+      if (page > 50) break;
+    }
+    return all.filter(isMensalidadesGridPayment);
+  }
+
+  if (!PAYMENTS_COL) return [];
 
   const PAGE_SIZE = 100;
   let allDocs = [];
@@ -485,11 +545,16 @@ export async function upsertStudentPayment({ data, existingId = null, skipMirror
 }
 
 export async function createPayment(data) {
-  if (!PAYMENTS_COL) {
-    throw new Error('student_payments_collection_not_configured');
-  }
   if (!data.lead_id || !data.academy_id) {
     throw new Error('lead_id e academy_id são obrigatórios');
+  }
+
+  if (import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
+    return apiCreateStudentPayment(data);
+  }
+
+  if (!PAYMENTS_COL) {
+    throw new Error('student_payments_collection_not_configured');
   }
 
   const category = normalizePaymentCategory(data.payment_category);
@@ -534,6 +599,9 @@ export async function createPayment(data) {
 }
 
 export async function updatePayment(paymentId, data) {
+  if (import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
+    return apiUpdateStudentPayment(paymentId, data);
+  }
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');
   }

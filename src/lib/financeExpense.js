@@ -1,6 +1,3 @@
-import { ID } from 'appwrite';
-import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
-import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 
 function normalizeExpenseMethod(m) {
   const raw = String(m || '').trim().toLowerCase();
@@ -21,43 +18,27 @@ function normalizeExpenseMethod(m) {
   return 'dinheiro';
 }
 
+import { createFinanceTx } from './financeTxApi.js';
+
 /**
- * Registra uma despesa (saída) em FINANCIAL_TX: valores negativos, já liquidado.
- * @param {{ academyId: string, teamId?: string, userId?: string, amount: number, description: string, method?: string }} p
+ * Registra despesa (saída) via API — valor positivo na UI, direction out, já liquidado.
+ * @param {{ academyId: string, amount: number, description: string, method?: string, receive_now?: boolean }} p
  */
-export async function createExpenseTransaction({ academyId, teamId = '', userId = '', amount, description, method }) {
-  if (!FINANCIAL_TX_COL) {
-    throw new Error('financial_tx_nao_configurado');
-  }
+export async function createExpenseTransaction({ academyId, amount, description, method }) {
   const aid = String(academyId || '').trim();
   if (!aid) throw new Error('academy_id_ausente');
   const abs = Math.abs(Number(amount) || 0);
   if (!Number.isFinite(abs) || abs <= 0) throw new Error('valor_invalido');
-  const gross = -abs;
   const note = String(description || '').trim() || 'Despesa';
-  const permissions = buildClientDocumentPermissions({
-    teamId: String(teamId || '').trim(),
-    userId: String(userId || '').trim()
-  });
-  return databases.createDocument(
-    DB_ID,
-    FINANCIAL_TX_COL,
-    ID.unique(),
-    {
-      academyId: aid,
-      saleId: '',
-      lead_id: '',
-      method: normalizeExpenseMethod(method),
-      installments: 1,
+  return createFinanceTx({
+    academyId: aid,
+    payload: {
       type: 'expense',
-      planName: '',
-      gross,
-      fee: 0,
-      net: gross,
+      gross: abs,
+      method: normalizeExpenseMethod(method),
+      note,
+      receive_now: true,
       status: 'settled',
-      settledAt: new Date().toISOString(),
-      note
     },
-    permissions
-  );
+  });
 }

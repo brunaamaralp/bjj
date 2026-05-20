@@ -16,6 +16,7 @@ export default function DeactivateStudentModal({
   const [otherReason, setOtherReason] = useState('');
   const [exitDate, setExitDate] = useState(() => todayYmdLocal());
   const [exitNotes, setExitNotes] = useState('');
+  const [cancelFuturePayments, setCancelFuturePayments] = useState(false);
 
   const isOther = String(selectedReason || '').trim().toLowerCase() === 'outro';
   const resolvedReason = isOther ? otherReason.trim() : String(selectedReason || '').trim();
@@ -151,6 +152,33 @@ export default function DeactivateStudentModal({
           />
         </div>
 
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            marginBottom: 14,
+            fontSize: 13,
+            color: 'var(--text)',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy ? 0.7 : 1,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={cancelFuturePayments}
+            disabled={busy}
+            onChange={(e) => setCancelFuturePayments(e.target.checked)}
+            style={{ marginTop: 2, accentColor: 'var(--purple)' }}
+          />
+          <span>
+            <strong>Cancelar cobranças futuras</strong>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              Mensalidades pendentes ou agendadas serão canceladas no desligamento.
+            </span>
+          </span>
+        </label>
+
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label className="text-small" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
             Observações (opcional)
@@ -180,6 +208,7 @@ export default function DeactivateStudentModal({
                 exitReason: resolvedReason,
                 exitDate: String(exitDate || '').slice(0, 10),
                 exitNotes: String(exitNotes || '').trim(),
+                cancelFuturePayments,
               })
             }
             style={{

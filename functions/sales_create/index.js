@@ -51,9 +51,26 @@ export default async function (req, res) {
     const SALES_COL = process.env.SALES_COL;
     const SALE_ITEMS_COL = process.env.SALE_ITEMS_COL;
     const FINANCIAL_TX_COL = process.env.FINANCIAL_TX_COL;
+    const ACADEMIES_COL =
+      process.env.ACADEMIES_COL || process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || "";
     if (!DB_ID || !STOCK_ITEMS_COL || !STOCK_MOVES_COL || !SALES_COL || !SALE_ITEMS_COL) {
       return res.json({ error: "missing_env" }, 500);
     }
+
+    async function resolveSaleIncomeCategory() {
+      const fallback = "Vendas — produtos";
+      if (!ACADEMIES_COL || !academy_id) return fallback;
+      try {
+        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academy_id);
+        const settings =
+          typeof doc.settings === "string" ? JSON.parse(doc.settings || "{}") : doc.settings || {};
+        return String(settings.stockSaleIncomeCategory || "").trim() || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    const saleIncomeCategory = await resolveSaleIncomeCategory();
 
     async function buildSaleDescription() {
       const parts = [];
@@ -111,13 +128,16 @@ export default async function (req, res) {
           method: method || "pix",
           installments: 1,
           type: "product",
-          planName: description,
+          planName: saleIncomeCategory,
           gross: totalVenda,
           fee: 0,
           net: totalVenda,
+          direction: "in",
           status: "settled",
           settledAt,
           note: description,
+          origin_type: "sale",
+          origin_id: vendaId,
         });
       } catch (e) {
         console.warn("sale financial_tx mirror failed", e?.message || e);
@@ -150,13 +170,16 @@ export default async function (req, res) {
             method: p.forma,
             installments: 1,
             type: "product",
-            planName: description,
+            planName: saleIncomeCategory,
             gross,
             fee: 0,
             net: gross,
+            direction: "in",
             status: "settled",
             settledAt,
             note: description,
+            origin_type: "sale",
+            origin_id: vendaId,
           });
           existing.push(doc);
         } catch (e) {

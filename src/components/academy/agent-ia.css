@@ -1,0 +1,102 @@
+.agent-ia-card {
+  border-radius: var(--radius-sm, 12px);
+  padding: 20px;
+  box-shadow: none;
+  border: 0.5px solid var(--border-light);
+  background: var(--surface);
+}
+
+.agent-ia-card--wa-connected {
+  border-color: rgba(37, 211, 102, 0.3);
+  background: rgba(37, 211, 102, 0.04);
+}
+
+.agent-ia-card--assistant-active {
+  border-color: rgba(91, 63, 191, 0.3);
+  background: rgba(91, 63, 191, 0.04);
+}
+
+.agent-ia-config-banner {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(91, 63, 191, 0.08);
+  border: 0.5px solid rgba(91, 63, 191, 0.2);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink2, var(--text-secondary));
+}
+
+.agent-ia-limits-note {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.agent-chat-sandbox {
+  margin-top: 12px;
+  border: 1px dashed rgba(180, 120, 0, 0.45);
+  border-radius: var(--radius-sm);
+  background: #fff8e6;
+  overflow: hidden;
+}
+
+.agent-chat-sandbox__banner {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.25);
+  border-bottom: 1px dashed rgba(180, 120, 0, 0.35);
+}
+
+.agent-chat-sandbox .agent-chat-messages {
+  background: #fff8e6;
+}
+
+.agent-restore-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(14, 13, 26, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.agent-restore-modal {
+  width: min(640px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-light);
+  padding: 18px;
+}
+
+.agent-restore-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+@media (max-width: 640px) {
+  .agent-restore-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agent-restore-preview pre {
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  border: 0.5px solid var(--border-light);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  max-height: 160px;
+  overflow: auto;
+}

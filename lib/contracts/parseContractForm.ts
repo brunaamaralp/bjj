@@ -1,5 +1,7 @@
 import type { SignerInput } from './types.js';
+import { validateContractSigners, ContractFormError } from './validateContractSigners.js';
 
+export { ContractFormError };
 export const MAX_CONTRACT_PDF_BYTES = 10 * 1024 * 1024;
 
 export interface ParsedContractForm {
@@ -8,16 +10,6 @@ export interface ParsedContractForm {
   template_id: string;
   sandbox: boolean;
   lead_id?: string;
-}
-
-export class ContractFormError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number = 400
-  ) {
-    super(message);
-    this.name = 'ContractFormError';
-  }
 }
 
 function parseSandbox(value: FormDataEntryValue | null): boolean {
@@ -45,10 +37,13 @@ function parseSignersJson(raw: FormDataEntryValue | null): SignerInput[] {
 /** Converte FormData (Next.js / Web API) para payload de signContract. */
 export async function parseContractFormData(formData: FormData): Promise<ParsedContractForm> {
   const nameRaw = formData.get('name');
-  const name = nameRaw != null ? String(nameRaw).trim() : '';
-  if (!name) throw new ContractFormError('name é obrigatório');
+  let name = nameRaw != null ? String(nameRaw).trim() : '';
+  if (!name) {
+    name = `Contrato ${new Date().toLocaleDateString('pt-BR')}`;
+  }
 
   const signers = parseSignersJson(formData.get('signers'));
+  validateContractSigners(signers);
 
   const templateRaw = formData.get('template_id');
   const template_id = templateRaw != null ? String(templateRaw).trim() : '';

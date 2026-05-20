@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { functions, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID } from '../lib/appwrite';
-import { salesFetch } from '../lib/salesApi';
+import { functions, SALES_CANCEL_FN_ID } from '../lib/appwrite';
+import { salesFetch, SalesApiError } from '../lib/salesApi';
 import { useLeadStore } from './useLeadStore';
 
 export const useSalesStore = create((set) => ({
@@ -19,10 +19,6 @@ export const useSalesStore = create((set) => ({
     itens,
     idempotency_key = undefined,
   }) => {
-    if (!SALES_CREATE_FN_ID) {
-      set({ error: 'SALES_CREATE_FN_ID not set', lastSale: null });
-      return null;
-    }
     set({ creating: true, error: null });
     try {
       const academyId = useLeadStore.getState().academyId || null;
@@ -40,22 +36,15 @@ export const useSalesStore = create((set) => ({
         payload.forma_pagamento = forma_pagamento;
       }
       if (idempotency_key) payload.idempotency_key = idempotency_key;
-      const exec = await functions.createExecution(SALES_CREATE_FN_ID, JSON.stringify(payload), false);
-      const code = exec.responseStatusCode || 200;
-      let body = {};
-      try {
-        body = JSON.parse(exec.responseBody || '{}');
-      } catch {
-        body = { raw: exec.responseBody };
-      }
-      if (code >= 400) {
-        set({ error: body.error || `error_${code}`, creating: false, lastSale: null });
-        return null;
-      }
-      set({ lastSale: body, creating: false });
+      const body = await salesFetch('/api/sales', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      set({ lastSale: body, creating: false, error: null });
       return body;
     } catch (e) {
-      set({ error: String(e && e.message ? e.message : e), creating: false });
+      const code = e instanceof SalesApiError ? e.code : String(e?.message || e);
+      set({ error: code, creating: false, lastSale: null });
       return null;
     }
   },

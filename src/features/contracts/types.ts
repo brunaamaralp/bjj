@@ -1,6 +1,7 @@
 import type { ContractRecord, ContractWithSigners, SignerInput } from '../../../lib/contracts/types.js';
+import type { ContractDisplayStatus } from '../../../lib/contracts/displayStatus.js';
 
-export type ContractDisplayStatus = 'pending' | 'completed' | 'cancelled' | 'partial';
+export type { ContractDisplayStatus };
 
 export interface ContractListItem extends ContractRecord {
   signersTotal: number;

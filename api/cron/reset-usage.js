@@ -14,6 +14,9 @@ import {
 import { runCollectionOverdue } from '../../lib/server/runCollectionOverdueCron.js';
 import { runStockInventoryCron } from '../../lib/server/runStockInventoryCron.js';
 import { runPlanFreezeCron } from '../../lib/server/runPlanFreezeCron.js';
+import { runBillingSubscriptionReconcile } from '../../lib/server/billingReconcile.js';
+import { runFinancePendingAlert } from '../../lib/server/runFinancePendingAlert.js';
+import { runSalesReconcileCron } from '../../lib/server/runSalesReconcileCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -381,6 +384,18 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runStockInventoryCron(databases, DB_ID);
     return res.status(200).json({ mode: 'stock-inventory', ...out });
+  }
+  if (action === 'billing-reconcile') {
+    const out = await runBillingSubscriptionReconcile();
+    return res.status(200).json({ mode: 'billing-reconcile', ...out });
+  }
+  if (action === 'finance-pending-alert') {
+    const out = await runFinancePendingAlert();
+    return res.status(200).json({ mode: 'finance-pending-alert', ...out });
+  }
+  if (action === 'sales-reconcile') {
+    const out = await runSalesReconcileCron();
+    return res.status(200).json({ mode: 'sales-reconcile', ...out });
   }
   if (action === 'plan-freeze') {
     const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);

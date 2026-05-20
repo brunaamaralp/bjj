@@ -1,8 +1,7 @@
-/** Backlog: filtros (turma/plano); virtualização para listas muito longas. */
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
-import { useStudentStore } from '../store/useStudentStore';
+import { useStudentStore, STUDENTS_PAGE_SIZE } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
@@ -16,11 +15,13 @@ import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
-import { filterStudentsByStatus, STUDENT_STATUS } from '../lib/studentStatus.js';
+import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
-import ControlIdSyncBadge from '../components/student/ControlIdSyncBadge.jsx';
+import StudentListCard from '../components/student/StudentListCard.jsx';
+import { performEnrollment } from '../lib/performEnrollment.js';
+import { maskCpfForExport } from '../lib/maskCpf.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -65,13 +66,17 @@ const Students = () => {
     const studentsLoading = useStudentStore((s) => s.loading);
     const loadingMore = useStudentStore((s) => s.loadingMore);
     const studentsHasMore = useStudentStore((s) => s.studentsHasMore);
+    const studentsTotal = useStudentStore((s) => s.studentsTotal);
     const studentsError = useStudentStore((s) => s.studentsError);
+    const userId = useLeadStore((s) => s.userId);
+    const academyList = useLeadStore((s) => s.academyList);
     const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearch = useDebounce(searchTerm, 200);
+    const debouncedSearch = useDebounce(searchTerm, 300);
     const listScrollRef = useRef(null);
     const [filtroTipo, setFiltroTipo] = useState('Todos');
     const [filtroOrigem, setFiltroOrigem] = useState('Todas');
     const [filtroTurma, setFiltroTurma] = useState('Todas');
+    const [filtroPlano, setFiltroPlano] = useState('Todos');
     const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
     const [showCreateStudent, setShowCreateStudent] = useState(false);
@@ -97,18 +102,39 @@ const Students = () => {
         plan: '',
     });
 
-    const statusFilteredStudents = useMemo(
-        () => filterStudentsByStatus(students, showInactive),
-        [students, showInactive]
+    const planOptions = useMemo(() => {
+        const names = (financeConfig?.plans || [])
+            .map((p) => String(p?.name || '').trim())
+            .filter(Boolean);
+        return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'pt'));
+    }, [financeConfig?.plans]);
+
+    const serverFetchOpts = useMemo(
+        () => ({
+            search: debouncedSearch.trim().length >= 2 ? debouncedSearch.trim() : undefined,
+            plan: filtroPlano !== 'Todos' ? filtroPlano : undefined,
+            turma:
+                filtroTurma !== 'Todas' && filtroTurma !== 'Sem turma' ? filtroTurma : undefined,
+            studentStatus: showInactive ? STUDENT_STATUS.INACTIVE : STUDENT_STATUS.ACTIVE,
+        }),
+        [debouncedSearch, filtroPlano, filtroTurma, showInactive]
     );
+
+    useEffect(() => {
+        if (!academyId) return;
+        void fetchStudents({ reset: true, ...serverFetchOpts });
+    }, [academyId, serverFetchOpts, fetchStudents]);
+
+    const serverSearchActive = debouncedSearch.trim().length >= 2;
 
     const filteredStudents = useMemo(() => {
         const q = debouncedSearch.trim().toLowerCase();
         const qPhone = normalizePhone(debouncedSearch);
 
-        return statusFilteredStudents
+        return students
             .filter((s) => {
                 const matchBusca =
+                    serverSearchActive ||
                     (!q && !qPhone) ||
                     (qPhone && normalizePhone(s.phone || '').includes(qPhone)) ||
                     (q && String(s.name || '').toLowerCase().includes(q)) ||
@@ -121,8 +147,9 @@ const Students = () => {
                 const turmaVal = String(s.turma || s.className || '').trim();
                 const matchTurma =
                     filtroTurma === 'Todas' || (filtroTurma === 'Sem turma' ? !turmaVal : turmaVal === filtroTurma);
+                const matchPlano = filtroPlano === 'Todos' || String(s.plan || '').trim() === filtroPlano;
 
-                return matchBusca && matchTipo && matchOrigem && matchTurma;
+                return matchBusca && matchTipo && matchOrigem && matchTurma && matchPlano;
             })
             .sort((a, b) => {
                 const nA = a.name || '';
@@ -135,7 +162,7 @@ const Students = () => {
                 if (ordenacao === 'antigos') return dA.localeCompare(dB);
                 return 0;
             });
-    }, [statusFilteredStudents, debouncedSearch, filtroTipo, filtroOrigem, filtroTurma, ordenacao]);
+    }, [students, debouncedSearch, serverSearchActive, filtroTipo, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
 
     const shouldVirtualizeStudents = filteredStudents.length > 50;
     const studentVirtualizer = useVirtualizer({
@@ -150,6 +177,7 @@ const Students = () => {
         setFiltroTipo('Todos');
         setFiltroOrigem('Todas');
         setFiltroTurma('Todas');
+        setFiltroPlano('Todos');
         setOrdenacao('az');
         setShowInactive(false);
     };
@@ -159,6 +187,7 @@ const Students = () => {
         filtroTipo !== 'Todos' ||
         filtroOrigem !== 'Todas' ||
         filtroTurma !== 'Todas' ||
+        filtroPlano !== 'Todos' ||
         ordenacao !== 'az' ||
         showInactive;
 
@@ -167,9 +196,27 @@ const Students = () => {
         if (filtroTipo !== 'Todos') n += 1;
         if (filtroOrigem !== 'Todas') n += 1;
         if (filtroTurma !== 'Todas') n += 1;
+        if (filtroPlano !== 'Todos') n += 1;
         if (ordenacao !== 'az') n += 1;
         return n;
-    }, [filtroTipo, filtroOrigem, filtroTurma, ordenacao]);
+    }, [filtroTipo, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
+
+    const openProfile = useCallback(
+        (studentId) => navigate(`/student/${studentId}`),
+        [navigate]
+    );
+
+    const listCountLabel = useMemo(() => {
+        const shown = filteredStudents.length;
+        const total = studentsTotal;
+        if (total != null && total > shown) {
+            return `Mostrando ${shown} de ${total} ${studentPlural.toLowerCase()}`;
+        }
+        if (studentsHasMore) {
+            return `Mostrando ${shown} ${studentPlural.toLowerCase()} (carregue mais para ver todos)`;
+        }
+        return `${shown} ${studentPlural.toLowerCase()} cadastrados`;
+    }, [filteredStudents.length, studentsTotal, studentsHasMore, studentPlural]);
 
     useEffect(() => {
         try {
@@ -218,8 +265,13 @@ const Students = () => {
         e.preventDefault();
         if (creatingStudent) return;
         const name = String(newStudent.name || '').trim();
+        const planName = String(newStudent.plan || '').trim();
         if (!name) {
             addToast({ type: 'warning', message: `Informe o nome do ${terms.student.toLowerCase()}.` });
+            return;
+        }
+        if (!planName) {
+            addToast({ type: 'warning', message: 'Selecione o plano para matricular o aluno.' });
             return;
         }
         setCreatingStudent(true);
@@ -232,10 +284,24 @@ const Students = () => {
                 origin: newStudent.origin || 'Cadastro manual',
                 parentName: String(newStudent.parentName || '').trim(),
                 age: String(newStudent.age || '').trim(),
-                plan: String(newStudent.plan || '').trim(),
+                plan: planName,
                 dueDay: new Date().getDate(),
                 enrollmentDate: new Date().toISOString().slice(0, 10),
                 studentStatus: STUDENT_STATUS.ACTIVE,
+            });
+            const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
+            await performEnrollment({
+                lead: created,
+                academyId,
+                userId,
+                plan: planName,
+                source: 'direct',
+                permissionContext: {
+                    teamId: acadDoc.teamId || '',
+                    userId: userId || '',
+                },
+                academySettingsRaw: acadDoc.settings,
+                onToast: (msg) => addToast({ type: 'info', message: msg }),
             });
             addToast({ type: 'success', message: `${terms.student} cadastrado com sucesso.` });
             setShowCreateStudent(false);
@@ -252,24 +318,42 @@ const Students = () => {
         if (listRefreshing || studentsLoading) return;
         setListRefreshing(true);
         try {
-            await fetchStudents({ reset: true });
+            await fetchStudents({ reset: true, ...serverFetchOpts });
         } finally {
             setListRefreshing(false);
         }
     };
 
-    const fetchAllStudents = async (academyId) => {
+    const fetchAllStudentsPaginated = async (academyId, onProgress) => {
         if (!STUDENTS_COL) return [];
-        const base = [Query.equal('academyId', academyId), Query.limit(5000)];
-        const res = await databases.listDocuments(DB_ID, STUDENTS_COL, base);
-        return res.documents || [];
+        const all = [];
+        let cursor = null;
+        for (;;) {
+            const queries = [
+                Query.equal('academyId', academyId),
+                Query.orderDesc('$createdAt'),
+                Query.limit(STUDENTS_PAGE_SIZE),
+            ];
+            if (cursor) queries.push(Query.cursorAfter(cursor));
+            const res = await databases.listDocuments(DB_ID, STUDENTS_COL, queries);
+            const docs = res.documents || [];
+            all.push(...docs);
+            onProgress?.(all.length, res.total);
+            if (docs.length < STUDENTS_PAGE_SIZE) break;
+            cursor = docs[docs.length - 1].$id;
+        }
+        return all;
     };
 
     const handleExportAll = async () => {
         if (!academyId) return;
         setExporting(true);
         try {
-            const allStudents = await fetchAllStudents(academyId);
+            const allStudents = await fetchAllStudentsPaginated(academyId, (n, total) => {
+                if (total && n < total) {
+                    addToast({ type: 'info', message: `Exportando… ${n} de ${total}` });
+                }
+            });
 
             if (allStudents.length === 0) {
                 addToast({ type: 'warning', message: `Nenhum ${terms.student.toLowerCase()} encontrado para exportar.` });
@@ -281,9 +365,9 @@ const Students = () => {
             const data = allStudents.map((l) => ({
                 'Nome': l.name || '',
                 'Telefone': l.phone || '',
+                'CPF': maskCpfForExport(l.cpf || l.cpf_responsavel),
                 'Tipo': normalizeLeadProfileType(l.type) || l.type || '',
-                'Origem': l.origin || '',
-                'Status operacional': l.status || '',
+                'Origem': l.origin || l.source_origin || '',
                 'Situação aluno': l.student_status || l.studentStatus || 'active',
                 'Motivo saída': l.exit_reason || l.exitReason || '',
                 'Data saída': l.exit_date || l.exitDate ? formatDate(l.exit_date || l.exitDate) : '',
@@ -308,7 +392,7 @@ const Students = () => {
                 .replace(/\s+/g, '-');
             XLSX.writeFile(wb, `${exportSlug}-ativos.xlsx`);
         } catch (e) {
-            console.error(e);
+            console.error('[export students]', e?.message || e);
             addToast({ type: 'error', message: `Erro ao exportar ${terms.students.toLowerCase()}.` });
         } finally {
             setExporting(false);
@@ -327,119 +411,30 @@ const Students = () => {
         .replace(/\{students\}/g, studentPlural.toLowerCase())
         .replace(/\{student\}/g, terms.student);
 
-    const renderStudentCard = (student, animIndex = 0) => {
-        const digits = normalizePhone(student.phone);
-        return (
-            <div
-                className="card student-card animate-in"
-                style={shouldVirtualizeStudents ? { marginBottom: 8 } : { animationDelay: `${0.03 * animIndex}s` }}
-            >
-                <div className="flex justify-between items-center">
-                    <div
-                        className="student-card-main"
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                navigate(`/student/${student.id}`);
-                            }
-                        }}
-                        onClick={() => navigate(`/student/${student.id}`)}
-                        style={{
-                            flex: 1,
-                            minWidth: 0,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            border: 'none',
-                            background: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            color: 'inherit',
-                        }}
-                    >
-                        <strong style={{ fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            {student.name || 'Sem nome'}
-                            {String(student.freeze_status || '') === 'active' ? (
-                                <span
-                                    style={{
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        padding: '2px 7px',
-                                        borderRadius: 6,
-                                        background: '#e8eef5',
-                                        color: '#475569',
-                                    }}
-                                >
-                                    Trancado
-                                </span>
-                            ) : null}
-                        </strong>
-                        <p className="text-small" style={{ margin: 0 }}>
-                            {[normalizeLeadProfileType(student.type) || student.type, student.phone]
-                                .filter((p) => p && String(p).trim())
-                                .join(' • ') || '—'}
-                        </p>
-                        {controlIdCfg.enabled && (
-                            <ControlIdSyncBadge academyId={academyId} student={student} />
-                        )}
-                        {(student.plan || student.enrollmentDate) && (
-                            <div
-                                className="student-card-meta"
-                                style={{
-                                    display: 'flex',
-                                    gap: '12px',
-                                    marginTop: '4px',
-                                    fontSize: '0.75rem',
-                                    color: 'var(--text-muted)',
-                                }}
-                            >
-                                {student.plan && <span className="student-meta-item">📋 {student.plan}</span>}
-                                {student.enrollmentDate && (
-                                    <span className="student-meta-item">
-                                        📅 Desde {formatDate(student.enrollmentDate)}
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2 student-card-actions">
-                        {digits ? (
-                            <Link
-                                to={`/inbox?phone=${encodeURIComponent(digits)}`}
-                                className="student-inbox-link students-touch-hit"
-                                draggable={false}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                Atendimento
-                            </Link>
-                        ) : null}
-                        <button
-                            type="button"
-                            className="quick-action-btn students-touch-hit"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(`https://wa.me/55${digits}`, '_blank');
-                            }}
-                            disabled={!digits}
-                            title="WhatsApp"
-                        >
-                            <MessageCircle size={16} color="#25D366" />
-                        </button>
-                        <Link
-                            to={`/student/${student.id}`}
-                            className="student-profile-chevron students-touch-hit"
-                            onClick={(e) => e.stopPropagation()}
-                            title={`Perfil do ${studentSingular.toLowerCase()}`}
-                            aria-label={`Abrir perfil do ${studentSingular.toLowerCase()}`}
-                        >
-                            <ChevronRight size={16} color="var(--text-muted)" />
-                        </Link>
-                    </div>
-                </div>
-            </div>
-        );
-    };
+    const renderStudentCard = (student, animIndex = 0) => (
+        <StudentListCard
+            key={student.id}
+            student={student}
+            academyId={academyId}
+            controlIdEnabled={controlIdCfg.enabled}
+            studentSingular={studentSingular}
+            onOpenProfile={openProfile}
+            style={
+                shouldVirtualizeStudents
+                    ? { marginBottom: 8 }
+                    : { animationDelay: `${0.03 * animIndex}s` }
+            }
+        />
+    );
+
+    const planFilterSelect = (
+        <select value={filtroPlano} onChange={(e) => setFiltroPlano(e.target.value)}>
+            <option value="Todos">Todos os planos</option>
+            {planOptions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+            ))}
+        </select>
+    );
 
     return (
         <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
@@ -565,6 +560,7 @@ const Students = () => {
                                     <option key={t} value={t}>{t}</option>
                                 ))}
                             </select>
+                            {planFilterSelect}
                         </div>
                         <select
                             className="students-mobile-sort"
@@ -625,6 +621,7 @@ const Students = () => {
                                     <option key={t} value={t}>{t}</option>
                                 ))}
                             </select>
+                            {planFilterSelect}
                         </div>
                         <select
                             value={ordenacao}
@@ -647,7 +644,7 @@ const Students = () => {
             {studentsError ? (
                 <div className="dashboard-error-banner mt-3" role="alert">
                     <span>Não foi possível carregar os {studentPlural.toLowerCase()}.</span>
-                    <button type="button" className="btn-secondary" onClick={() => void fetchStudents({ reset: true })}>
+                    <button type="button" className="btn-secondary" onClick={() => void fetchStudents({ reset: true, ...serverFetchOpts })}>
                         Tentar novamente
                     </button>
                 </div>
@@ -1339,6 +1336,10 @@ const Students = () => {
           .students-create-grid {
             grid-template-columns: 1fr;
           }
+          .student-card-desktop-meta { display: none !important; }
+        }
+        @media (min-width: 641px) {
+          .student-card-subline + .student-card-desktop-meta { margin-top: 0; }
         }
       `}} />
         </div>

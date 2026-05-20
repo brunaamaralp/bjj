@@ -24,7 +24,7 @@ export default function SalesCart({
   };
 
   return (
-    <section className="sales-cart" aria-label="Carrinho">
+    <section className="sales-cart sales-cart--with-sticky-footer" aria-label="Carrinho">
       <h4 className="sales-cart__heading">Carrinho</h4>
 
       {cart.length === 0 ? (

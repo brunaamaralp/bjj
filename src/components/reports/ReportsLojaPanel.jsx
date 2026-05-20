@@ -1,59 +1,75 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag } from 'lucide-react';
-import { useSalesStore } from '../../store/useSalesStore';
-import { computeHistoryTotals } from '../../lib/salesHistory';
+import { Download, ShoppingBag } from 'lucide-react';
 import { channelLabel } from '../../lib/salesSettings';
 import { formatBRL } from '../../lib/moneyBr';
+import { fetchReportsSalesLight } from '../../lib/reportsLightApi.js';
+import { downloadCsv } from '../../lib/reportsExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
 
-function aggregateByChannel(sales) {
-  const map = {};
-  for (const s of sales || []) {
-    if (String(s.status || '').toLowerCase() !== 'concluida') continue;
-    const canal = String(s.canal || 'presencial');
-    const total = Number(s.total) || 0;
-    map[canal] = (map[canal] || 0) + total;
-  }
-  return Object.entries(map)
-    .map(([canal, total]) => ({ canal, label: channelLabel(canal), total }))
-    .sort((a, b) => b.total - a.total);
-}
-
 export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   const navigate = useNavigate();
-  const fetchSalesList = useSalesStore((s) => s.fetchSalesList);
-  const [sales, setSales] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const loadSales = useCallback(async () => {
-    if (!academyId || !hasSales) return;
-    setLoading(true);
-    setError('');
-    try {
-      const list = await fetchSalesList({ from, to });
-      setSales(list);
-    } catch (e) {
-      setError(String(e?.message || e));
-      setSales([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [academyId, from, to, hasSales, fetchSalesList]);
-
   useEffect(() => {
-    void loadSales();
-  }, [loadSales]);
+    let active = true;
+    const run = async () => {
+      if (!academyId || !hasSales) return;
+      setLoading(true);
+      setError('');
+      try {
+        const body = await fetchReportsSalesLight({ academyId, from, to });
+        if (active) setData(body);
+      } catch (e) {
+        if (active) {
+          setError(String(e?.message || e));
+          setData(null);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [academyId, from, to, hasSales]);
 
-  const totals = useMemo(() => computeHistoryTotals(sales), [sales]);
-  const byChannel = useMemo(() => aggregateByChannel(sales), [sales]);
-  const ticketMedio =
-    totals.concludedCount > 0 ? totals.concludedTotal / totals.concludedCount : 0;
+  const totals = useMemo(
+    () => ({
+      concludedCount: data?.concludedCount ?? 0,
+      concludedTotal: data?.concludedTotal ?? 0,
+      cancelCount: data?.cancelCount ?? 0,
+    }),
+    [data]
+  );
+  const byChannel = useMemo(
+    () =>
+      (data?.byChannel || []).map((r) => ({
+        canal: r.canal,
+        label: channelLabel(r.canal),
+        total: r.total,
+      })),
+    [data]
+  );
+  const ticketMedio = data?.ticketMedio ?? 0;
+
+  const exportCsv = () => {
+    const rows = [
+      { metrica: 'Vendas concluídas', valor: totals.concludedCount },
+      { metrica: 'Faturamento', valor: totals.concludedTotal },
+      { metrica: 'Ticket médio', valor: ticketMedio },
+      { metrica: 'Cancelamentos', valor: totals.cancelCount },
+      ...byChannel.map((c) => ({ metrica: `Canal — ${c.label}`, valor: c.total })),
+    ];
+    downloadCsv(rows, `relatorio-loja-${from}_${to}.csv`);
+  };
 
   if (!hasSales) {
     return (
@@ -83,7 +99,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
           <PageSkeleton variant="list" rows={4} />
         </div>
       ) : error ? (
-        <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => void loadSales()} />
+        <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => window.location.reload()} />
       ) : totals.concludedCount === 0 && totals.cancelCount === 0 ? (
         <div className="card" style={{ padding: 16 }}>
           <EmptyState
@@ -101,6 +117,17 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
         </div>
       ) : (
         <>
+          {data?.truncated ? (
+            <p className="text-small text-muted mb-2" role="status">
+              Lista de vendas pode estar truncada no servidor — reduza o período se os totais parecerem baixos.
+            </p>
+          ) : null}
+          <div className="flex justify-end mb-2">
+            <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
+              <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
+              Exportar CSV
+            </button>
+          </div>
           <div className="reports-kpi-grid">
             <div className="reports-kpi-card reports-kpi-card--accent">
               <div className="reports-kpi-card-head">

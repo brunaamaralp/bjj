@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, ChevronLeft, ChevronRight, FileSignature, RefreshCw, FileText } from 'lucide-react';
 import { useContractsList } from '../../features/contracts/queries.js';
-import { mapContractDisplayStatus, CONTRACT_STATUS_FILTER_OPTIONS } from '../../features/contracts/status.js';
+import { mapContractDisplayStatusForRecord, CONTRACT_STATUS_FILTER_OPTIONS } from '../../features/contracts/status.js';
 import type { ContractListItem, ContractDisplayStatus } from '../../features/contracts/types.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
@@ -53,7 +53,7 @@ export default function ContractsPageContent({ embedded = false }: ContractsPage
     return raw.map((c) => {
       const signersSigned = c.signersSigned ?? 0;
       const signersTotal = c.signersTotal ?? 0;
-      const displayStatus = mapContractDisplayStatus(c.status, signersSigned, signersTotal);
+      const displayStatus = mapContractDisplayStatusForRecord(c);
       return {
         ...c,
         signersSigned,

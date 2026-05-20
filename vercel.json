@@ -36,9 +36,19 @@
     { "source": "/api/cron/collection-overdue", "destination": "/api/cron/reset-usage.js?action=collection-overdue" },
     { "source": "/api/inventory", "destination": "/api/leads.js?route=inventory" },
     { "source": "/api/products", "destination": "/api/leads.js?route=products" },
-    { "source": "/api/sales", "destination": "/api/leads.js?route=sales" },
+    { "source": "/api/sales", "destination": "/api/sales.js" },
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
     { "source": "/api/cron/plan-freeze", "destination": "/api/cron/reset-usage.js?action=plan-freeze" },
+    { "source": "/api/students/freeze", "destination": "/api/students.js?action=freeze" },
+    { "source": "/api/students/deactivate", "destination": "/api/students.js?action=deactivate" },
+    { "source": "/api/students/collection-snooze", "destination": "/api/students.js?action=collection-snooze" },
+    { "source": "/api/student-payments", "destination": "/api/student-payments.js" },
+    { "source": "/api/finance-tx", "destination": "/api/finance-tx.js" },
+    { "source": "/api/finance/summary", "destination": "/api/finance.js?route=summary" },
+    { "source": "/api/finance/closing", "destination": "/api/finance.js?route=closing" },
+    { "source": "/api/reports-light", "destination": "/api/reports-light.js" },
+    { "source": "/api/students/:id/profile", "destination": "/api/students.js?action=profile&student_id=$1" },
+    { "source": "/api/academy/whatsapp-templates", "destination": "/api/academy-whatsapp-templates.js" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
@@ -70,6 +80,18 @@
     {
       "path": "/api/cron/plan-freeze",
       "schedule": "15 6 * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage?action=billing-reconcile",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage?action=finance-pending-alert",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage?action=sales-reconcile",
+      "schedule": "30 7 * * *"
     }
   ]
 }

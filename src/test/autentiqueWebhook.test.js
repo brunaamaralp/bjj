@@ -7,6 +7,8 @@ import {
   extractAutentiqueDocumentId,
   extractSignerPublicId,
 } from '../../lib/contracts/autentiqueWebhookHandler.ts';
+import { mapAutentiqueToLeadEventType } from '../../lib/contracts/contractLeadEvents.js';
+import { mapContractDisplayStatus } from '../../lib/contracts/displayStatus.ts';
 
 describe('verifyAutentiqueSignature', () => {
   it('valida HMAC SHA256 do corpo bruto', () => {
@@ -38,5 +40,23 @@ describe('event mapping', () => {
     };
     expect(extractAutentiqueDocumentId(sigPayload)).toBe('doc-xyz');
     expect(extractSignerPublicId(sigPayload)).toBe('sig-1');
+  });
+
+  it('mapeia eventos tipados de lead', () => {
+    expect(mapAutentiqueToLeadEventType('signature.accepted', null)).toBe('contract_signed');
+    expect(mapAutentiqueToLeadEventType('signature.viewed', null)).toBe('contract_viewed');
+    expect(mapAutentiqueToLeadEventType('signature.accepted', 'signed_after_offboarding')).toBe(
+      'signed_after_offboarding'
+    );
+    expect(mapAutentiqueToLeadEventType('document.deleted', null)).toBe('contract_expired');
+  });
+
+  it('exibe status expirado após prazo', () => {
+    const past = new Date(Date.now() - 86400000).toISOString();
+    expect(
+      mapContractDisplayStatus('pending', 0, 1, { expiresAt: past, signersViewed: 0 })
+    ).toBe('expired');
+    expect(mapContractDisplayStatus('pending', 0, 1, { signersViewed: 1 })).toBe('viewed');
+    expect(mapContractDisplayStatus('finished', 1, 1, {})).toBe('signed');
   });
 });

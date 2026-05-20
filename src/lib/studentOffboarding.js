@@ -1,4 +1,7 @@
-/** Títulos padrão do checklist ao desligar aluno (tarefas planas no módulo Tarefas). */
+/**
+ * Checklist configurável na academia (referência na UI).
+ * Tarefas automáticas no desligamento usam o template STUDENT_EXIT — ver deactivateStudent.js.
+ */
 
 export const DEFAULT_OFFBOARDING_CHECKLIST = [
   'Encerrar cobranças e pendências financeiras',

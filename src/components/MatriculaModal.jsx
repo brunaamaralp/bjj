@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTerms } from '../lib/terminology.js';
 import CustomLeadQuestionFields from './CustomLeadQuestionFields.jsx';
 import PlanSelect from './shared/PlanSelect.jsx';
+import StudentStatusBadge from './student/StudentStatusBadge.jsx';
 
 export default function MatriculaModal({
   isOpen,
@@ -46,14 +47,14 @@ export default function MatriculaModal({
           marginBottom: 6,
         }}
       >
-        Plano (opcional)
+        Plano <span style={{ color: 'var(--danger)' }}>*</span>
       </label>
       <PlanSelect
         financeConfig={financeConfig}
         value={enrollmentPlan}
         onChange={setEnrollmentPlan}
         disabled={submitting}
-        emptyLabel="Selecione o plano…"
+        emptyLabel="Selecione o plano (obrigatório)…"
       />
     </div>
   );
@@ -102,10 +103,14 @@ export default function MatriculaModal({
   };
 
   const handleConfirmSimple = async () => {
+    const planName = String(enrollmentPlan || '').trim();
+    if (!planName) return;
     setEnrollMode('simple');
     await onConfirmSimple(enrollmentPlan);
     goToSuccess(leadId);
   };
+
+  const canEnrollNow = Boolean(String(enrollmentPlan || '').trim()) && !submitting;
 
   const handleSkipContract = () => {
     if (onSkipAfterEnroll) {
@@ -158,6 +163,9 @@ export default function MatriculaModal({
             >
               ✓ Aluno matriculado!
             </h3>
+            <div style={{ marginBottom: 12 }}>
+              <StudentStatusBadge status="ativo" />
+            </div>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
               Deseja enviar o contrato agora?
             </p>
@@ -198,20 +206,26 @@ export default function MatriculaModal({
               <button
                 type="button"
                 className="btn-primary"
-                onClick={handleChooseFull}
-                disabled={submitting}
+                onClick={() => void handleConfirmSimple()}
+                disabled={!canEnrollNow}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                Preencher dados
+                {submitting ? 'Salvando…' : 'Matricular agora'}
               </button>
               <button
                 type="button"
                 className="btn-outline"
-                onClick={() => void handleConfirmSimple()}
+                onClick={handleChooseFull}
                 disabled={submitting}
-                style={{ width: '100%', justifyContent: 'center' }}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  borderStyle: 'dashed',
+                  opacity: 0.92,
+                }}
               >
-                {submitting ? 'Salvando…' : terms.matriculaModalSimpleCta}
+                Completar depois
+                {hasQuestions ? ' (perguntas e dados)' : ''}
               </button>
               <button
                 type="button"

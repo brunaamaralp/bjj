@@ -1,7 +1,18 @@
 import { signContract } from '../signContract.js';
-import { getContractById, listContracts, isContractStoreConfigured } from './contractService.js';
+import {
+  getContractById,
+  listContracts,
+  isContractStoreConfigured,
+  cancelContractById,
+} from './contractService.js';
 import { ContractFormError, parseContractFormData } from './parseContractForm.js';
 import { resolveContractPdfBuffer } from './resolveContractPdf.js';
+import { fetchLeadPersonForContract, fetchAcademyDoc } from './contractLeadAccess.js';
+import {
+  resolveSignatureDeadlineDays,
+  computeContractExpiresAt,
+} from './contractSignaturePolicy.js';
+import { logContractStructured } from './contractStructuredLog.js';
 
 export interface HttpErrorBody {
   ok: false;
@@ -30,6 +41,52 @@ function contractBelongsToAcademy(
   return String(contract.academyId) === String(academyId);
 }
 
+async function resolveExpiresAt(academyId: string): Promise<string | null> {
+  const academy = await fetchAcademyDoc(academyId);
+  const days = resolveSignatureDeadlineDays(academy);
+  return computeContractExpiresAt(new Date().toISOString(), days);
+}
+
+export async function handlePreviewContract(
+  formData: FormData,
+  auth: ContractAuthContext
+): Promise<Response> {
+  if (!isContractStoreConfigured()) {
+    return jsonResponse({ ok: false, error: 'contract_store_not_configured' }, 500);
+  }
+
+  try {
+    const parsed = await parseContractFormData(formData);
+    const { buffer } = await resolveContractPdfBuffer({
+      academyId: auth.academyId,
+      templateId: parsed.template_id,
+      leadId: parsed.lead_id,
+    });
+
+    logContractStructured('contract_preview', {
+      academy_id: auth.academyId,
+      student_id: parsed.lead_id,
+      status: 'preview',
+    });
+
+    return jsonResponse({
+      ok: true,
+      pdfBase64: buffer.toString('base64'),
+      contentType: 'application/pdf',
+    });
+  } catch (err) {
+    if (err instanceof ContractFormError) {
+      return jsonResponse({ ok: false, error: err.message }, err.statusCode);
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    logContractStructured('contract_preview_fail', {
+      academy_id: auth.academyId,
+      error: message,
+    });
+    return jsonResponse({ ok: false, error: message }, 500);
+  }
+}
+
 export async function handlePostContract(
   formData: FormData,
   auth: ContractAuthContext
@@ -41,6 +98,27 @@ export async function handlePostContract(
   try {
     const parsed = await parseContractFormData(formData);
     const sandbox = auth.isOwner ? parsed.sandbox : false;
+
+    if (parsed.lead_id) {
+      const person = await fetchLeadPersonForContract(parsed.lead_id);
+      if (person?.inactive) {
+        logContractStructured('contract_create_blocked', {
+          academy_id: auth.academyId,
+          student_id: parsed.lead_id,
+          status: 'student_inactive',
+        });
+        return jsonResponse(
+          {
+            ok: false,
+            error: 'Não é possível enviar contrato para aluno desligado ou inativo.',
+            code: 'student_inactive',
+          },
+          403
+        );
+      }
+    }
+
+    const expiresAt = await resolveExpiresAt(auth.academyId);
 
     const { buffer, templateId } = await resolveContractPdfBuffer({
       academyId: auth.academyId,
@@ -56,11 +134,18 @@ export async function handlePostContract(
         academy_id: auth.academyId,
         lead_id: parsed.lead_id,
         template_id: templateId,
+        expires_at: expiresAt || undefined,
       },
       buffer
     );
 
     if (!result.contract) {
+      logContractStructured('contract_create_fail', {
+        academy_id: auth.academyId,
+        student_id: parsed.lead_id,
+        status: 'appwrite_save_failed',
+        error: result.appwriteError,
+      });
       return jsonResponse(
         {
           ok: false,
@@ -71,6 +156,13 @@ export async function handlePostContract(
         500
       );
     }
+
+    logContractStructured('contract_created', {
+      academy_id: auth.academyId,
+      contract_id: result.contract.$id,
+      student_id: parsed.lead_id,
+      status: result.contract.status,
+    });
 
     return jsonResponse({
       ok: true,
@@ -87,8 +179,51 @@ export async function handlePostContract(
     const status =
       message === 'autentique_not_configured' || message === 'signers_required' ? 400 : 500;
 
-    console.error('[contracts POST]', err);
+    logContractStructured('contract_create_fail', {
+      academy_id: auth.academyId,
+      error: message,
+      status: 'error',
+    });
     return jsonResponse({ ok: false, error: message }, status);
+  }
+}
+
+export async function handlePatchContract(
+  id: string,
+  body: { action?: string },
+  auth: ContractAuthContext
+): Promise<Response> {
+  if (!isContractStoreConfigured()) {
+    return jsonResponse({ ok: false, error: 'contract_store_not_configured' }, 500);
+  }
+
+  const contractId = String(id || '').trim();
+  if (!contractId) return jsonResponse({ ok: false, error: 'id_required' }, 400);
+
+  const action = String(body?.action || '').trim();
+  if (action !== 'cancel') {
+    return jsonResponse({ ok: false, error: 'invalid_action' }, 400);
+  }
+
+  try {
+    const existing = await getContractById(contractId);
+    if (!existing) return jsonResponse({ ok: false, error: 'contract_not_found' }, 404);
+    if (!contractBelongsToAcademy(existing, auth.academyId)) {
+      return jsonResponse({ ok: false, error: 'forbidden' }, 403);
+    }
+
+    const updated = await cancelContractById(contractId);
+    logContractStructured('contract_cancelled', {
+      academy_id: auth.academyId,
+      contract_id: contractId,
+      student_id: existing.leadId,
+      status: 'cancelled',
+    });
+
+    return jsonResponse({ ok: true, contract: updated });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return jsonResponse({ ok: false, error: message }, 500);
   }
 }
 
@@ -122,7 +257,10 @@ export async function handleGetContracts(
       ...result,
     });
   } catch (err) {
-    console.error('[contracts GET]', err);
+    logContractStructured('contract_list_fail', {
+      academy_id: auth.academyId,
+      error: err instanceof Error ? err.message : String(err),
+    });
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
   }
@@ -152,7 +290,6 @@ export async function handleGetContractById(
 
     return jsonResponse({ ok: true, contract });
   } catch (err) {
-    console.error('[contracts GET id]', err);
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
   }

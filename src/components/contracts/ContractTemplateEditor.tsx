@@ -56,7 +56,10 @@ export default function ContractTemplateEditor({
 
       <ContractRichTextEditor ref={richRef} bodyHtml={bodyHtml} onChange={onChange} disabled={disabled} />
 
-      <p className="text-small text-muted" style={{ marginTop: 8 }}>
+      <p className="contract-template-pdf-notice" role="note">
+        O PDF final é texto simplificado — negrito, listas e títulos podem não ser preservados.
+      </p>
+      <p className="text-small text-muted contract-template-editor-hint">
         Use a barra de ferramentas para negrito, itálico, títulos e listas. Clique nas variáveis para
         inserir no cursor. Elas são preenchidas com os dados do aluno ao enviar o contrato.
       </p>

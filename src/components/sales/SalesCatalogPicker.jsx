@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
 import { filterCatalogProducts, groupByCategory } from '../../lib/salesCatalog';
 import { formatBRL } from '../../lib/moneyBr';
+
+const CATALOG_PAGE_SIZE = 80;
 
 function stockBadgeClass(level) {
   if (level === 'out') return 'sales-stock-badge--out';
@@ -16,9 +18,36 @@ function stockBadgeLabel(p) {
   return `Disp. ${p.current_quantity}`;
 }
 
+function CatalogCard({ p, flashProductId, onPick }) {
+  const priceLabel = p.sale_price != null ? formatBRL(p.sale_price) : 'Preço a definir';
+  const isOut = p.stockLevel === 'out';
+  const isFlashing = flashProductId === p.id;
+  return (
+    <button
+      type="button"
+      className={`sales-catalog__card${isOut ? ' sales-catalog__card--out' : ''}${
+        isFlashing ? ' sales-catalog__card--flash' : ''
+      }`}
+      disabled={!p.canAdd}
+      onClick={() => p.canAdd && onPick(p)}
+      title={p.canAdd ? 'Adicionar ao carrinho' : 'Sem estoque'}
+    >
+      <div className="sales-catalog__card-top">
+        <div className="sales-catalog__card-name">{p.display_label}</div>
+        {p.Tamanho ? <span className="sales-catalog__card-var">{p.Tamanho}</span> : null}
+      </div>
+      <div className="sales-catalog__card-price">{priceLabel}</div>
+      <span className={`sales-stock-badge ${stockBadgeClass(p.stockLevel)}`}>
+        {stockBadgeLabel(p)}
+      </span>
+    </button>
+  );
+}
+
 export default function SalesCatalogPicker({ products, loading, onPick, flashProductId }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [visibleLimit, setVisibleLimit] = useState(CATALOG_PAGE_SIZE);
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -37,8 +66,35 @@ export default function SalesCatalogPicker({ products, loading, onPick, flashPro
 
   const displayGroups = category === 'all' ? groups : groups.filter((g) => g.categoria === category);
 
+  const flatProducts = useMemo(() => {
+    const rows = [];
+    for (const g of displayGroups) {
+      for (const p of g.items) {
+        rows.push({ product: p, categoria: g.categoria });
+      }
+    }
+    return rows;
+  }, [displayGroups]);
+
+  const usePagination = products.length > CATALOG_PAGE_SIZE;
+  const visibleRows = usePagination ? flatProducts.slice(0, visibleLimit) : flatProducts;
+  const hasMore = usePagination && flatProducts.length > visibleLimit;
+
+  useEffect(() => {
+    setVisibleLimit(CATALOG_PAGE_SIZE);
+  }, [search, category, products.length]);
+
   const catalogEmpty = !loading && products.length === 0;
   const filterEmpty = !loading && products.length > 0 && displayGroups.length === 0;
+
+  const visibleByGroup = useMemo(() => {
+    const map = new Map();
+    for (const row of visibleRows) {
+      if (!map.has(row.categoria)) map.set(row.categoria, []);
+      map.get(row.categoria).push(row.product);
+    }
+    return Array.from(map.entries()).map(([categoria, items]) => ({ categoria, items }));
+  }, [visibleRows]);
 
   return (
     <section className="sales-catalog" aria-label="Catálogo de produtos">
@@ -93,41 +149,29 @@ export default function SalesCatalogPicker({ products, loading, onPick, flashPro
       ) : filterEmpty ? (
         <p className="text-small text-muted sales-catalog__status">Nenhum produto corresponde à busca.</p>
       ) : (
-        displayGroups.map((g) => (
-          <div key={g.categoria} className="sales-catalog__group">
-            <h4 className="sales-catalog__group-title">{g.categoria}</h4>
-            <div className="sales-catalog__grid">
-              {g.items.map((p) => {
-                const priceLabel = p.sale_price != null ? formatBRL(p.sale_price) : 'Preço a definir';
-                const isOut = p.stockLevel === 'out';
-                const isFlashing = flashProductId === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`sales-catalog__card${isOut ? ' sales-catalog__card--out' : ''}${
-                      isFlashing ? ' sales-catalog__card--flash' : ''
-                    }`}
-                    disabled={!p.canAdd}
-                    onClick={() => p.canAdd && onPick(p)}
-                    title={p.canAdd ? 'Adicionar ao carrinho' : 'Sem estoque'}
-                  >
-                    <div className="sales-catalog__card-top">
-                      <div className="sales-catalog__card-name">{p.display_label}</div>
-                      {p.Tamanho ? (
-                        <span className="sales-catalog__card-var">{p.Tamanho}</span>
-                      ) : null}
-                    </div>
-                    <div className="sales-catalog__card-price">{priceLabel}</div>
-                    <span className={`sales-stock-badge ${stockBadgeClass(p.stockLevel)}`}>
-                      {stockBadgeLabel(p)}
-                    </span>
-                  </button>
-                );
-              })}
+        <>
+          {visibleByGroup.map((g) => (
+            <div key={g.categoria} className="sales-catalog__group">
+              <h4 className="sales-catalog__group-title">{g.categoria}</h4>
+              <div className="sales-catalog__grid">
+                {g.items.map((p) => (
+                  <CatalogCard key={p.id} p={p} flashProductId={flashProductId} onPick={onPick} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+          {hasMore ? (
+            <div className="sales-catalog__more">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setVisibleLimit((n) => n + CATALOG_PAGE_SIZE)}
+              >
+                Carregar mais ({flatProducts.length - visibleLimit} restantes)
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
     </section>
   );

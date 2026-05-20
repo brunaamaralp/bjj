@@ -1,7 +1,9 @@
 import { Client, Databases, Query, Account, Teams } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../lib/humanHandoffUntil.js';
-import { getHumanHandoffHoursForServer } from '../lib/constants.js';
+import { getHumanHandoffHoursForServer, assertHumanHandoffEnvOnBoot } from '../lib/constants.js';
+
+assertHumanHandoffEnvOnBoot();
 import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
@@ -43,6 +45,22 @@ function ensureConfig(res) {
   return true;
 }
 
+
+/** Página de mensagens por índice (cursor numérico). Doc limitado a CONVERSATION_MESSAGES_STORE_MAX no merge. */
+function paginateMessagesWindow(sorted, limit, cursor) {
+  const len = sorted.length;
+  if (!cursor) {
+    const startIdx = Math.max(0, len - limit);
+    return { slice: sorted.slice(startIdx), next_cursor: startIdx > 0 ? String(startIdx) : '' };
+  }
+  const startIdx = parseInt(cursor, 10);
+  if (!Number.isFinite(startIdx) || startIdx <= 0) {
+    const s = Math.max(0, len - limit);
+    return { slice: sorted.slice(s), next_cursor: s > 0 ? String(s) : '' };
+  }
+  const from = Math.max(0, startIdx - limit);
+  return { slice: sorted.slice(from, startIdx), next_cursor: from > 0 ? String(from) : '' };
+}
 
 function sortMessagesChrono(msgs) {
   const arr = Array.isArray(msgs) ? msgs.slice() : [];
@@ -272,26 +290,7 @@ export default async function handler(req, res) {
       }
 
       const sorted = sortMessagesChrono(safeParseMessages(doc.messages));
-      const len = sorted.length;
-      let slice;
-      let next_cursor = '';
-
-      if (!cursor) {
-        const startIdx = Math.max(0, len - limit);
-        slice = sorted.slice(startIdx);
-        next_cursor = startIdx > 0 ? String(startIdx) : '';
-      } else {
-        const startIdx = parseInt(cursor, 10);
-        if (!Number.isFinite(startIdx) || startIdx <= 0) {
-          const s = Math.max(0, len - limit);
-          slice = sorted.slice(s);
-          next_cursor = s > 0 ? String(s) : '';
-        } else {
-          const from = Math.max(0, startIdx - limit);
-          slice = sorted.slice(from, startIdx);
-          next_cursor = from > 0 ? String(from) : '';
-        }
-      }
+      const { slice, next_cursor } = paginateMessagesWindow(sorted, limit, cursor);
 
       return json(res, 200, {
         phone: phoneDigits,

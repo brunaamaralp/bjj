@@ -11,6 +11,7 @@ import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../l
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
@@ -408,6 +409,12 @@ const LeadProfile = () => {
         zapster: '',
         templates: DEFAULT_WHATSAPP_TEMPLATES
     });
+    const {
+        templates: waTemplatesHook,
+        academyName: waNameHook,
+        zapsterInstanceId: waZapHook,
+        automationsRaw: waAutoHook,
+    } = useWhatsappTemplates(academyId);
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [profileQuickTimes, setProfileQuickTimes] = useState([]);
@@ -415,6 +422,16 @@ const LeadProfile = () => {
     useEffect(() => {
         setTemplateMenuOpen(false);
     }, [id]);
+
+    useEffect(() => {
+        if (!waTemplatesHook) return;
+        setWaCtx({
+            name: waNameHook || '',
+            zapster: waZapHook || '',
+            templates: waTemplatesHook,
+        });
+        setAcademyAutomationsRaw(String(waAutoHook || ''));
+    }, [waTemplatesHook, waNameHook, waZapHook, waAutoHook]);
 
     useEffect(() => {
         if (!academyId) return undefined;
@@ -512,21 +529,7 @@ const LeadProfile = () => {
         if (!academyId) return;
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then((doc) => {
-                let tplParsed = {};
-                try {
-                    const w = doc.whatsappTemplates;
-                    const p = typeof w === 'string' ? JSON.parse(w) : w;
-                    if (p && typeof p === 'object' && !Array.isArray(p)) tplParsed = p;
-                } catch {
-                    tplParsed = {};
-                }
-                setWaCtx({
-                    name: String(doc?.name || '').trim(),
-                    zapster: String(doc?.zapster_instance_id || '').trim(),
-                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
-                });
                 setAcademySettingsRaw(doc.settings ?? null);
-                setAcademyAutomationsRaw(String(doc?.automations_config || ''));
                 try {
                     const normalized = normalizeQuestions(doc.customLeadQuestions);
                     setCustomQuestions(normalized.questions);

@@ -1,11 +1,21 @@
 import { createSessionJwt } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
 
+export class SalesApiError extends Error {
+  constructor(message, { status, code, body } = {}) {
+    super(message);
+    this.name = 'SalesApiError';
+    this.status = status;
+    this.code = code;
+    this.body = body;
+  }
+}
+
 export async function salesFetch(path, options = {}) {
   const jwt = await createSessionJwt();
-  if (!jwt) throw new Error('session_required');
+  if (!jwt) throw new SalesApiError('session_required');
   const academyId = useLeadStore.getState().academyId;
-  if (!academyId) throw new Error('academy_required');
+  if (!academyId) throw new SalesApiError('academy_required');
 
   const res = await fetch(path, {
     ...options,
@@ -18,7 +28,8 @@ export async function salesFetch(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.erro || data.error || `error_${res.status}`);
+    const code = data.erro || data.error || `error_${res.status}`;
+    throw new SalesApiError(code, { status: res.status, code, body: data });
   }
   return data;
 }

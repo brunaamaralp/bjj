@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { fetchFinanceSummary } from '../lib/financeTxApi.js';
 import { useSearchParams } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
@@ -30,7 +31,7 @@ const OWNER_TABS = new Set([...MEMBER_TABS, ...OWNER_EXTRA]);
 
 const TAB_SUBTITLES = {
   movimentacoes: 'Movimentações e lançamentos do dia a dia',
-  fechamento: 'Fechamento mensal',
+  fechamento: 'Painel de conferência — não trava lançamentos nem gera documento de fechamento',
   plano: 'Plano de contas',
   razao: 'Livro razão',
   dre: 'Demonstrações DRE e DFC',
@@ -45,6 +46,10 @@ export default function Caixa() {
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
   const [nlOpen, setNlOpen] = useState(false);
   const [transactionsForNl, setTransactionsForNl] = useState([]);
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
+  const [periodBalance, setPeriodBalance] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const academyDoc = useMemo(() => {
     if (!academyId) return null;
@@ -143,6 +148,23 @@ export default function Caixa() {
 
   const subtitle = TAB_SUBTITLES[activeTab] || TAB_SUBTITLES.movimentacoes;
 
+  const loadPeriodSummary = useCallback(async () => {
+    if (!academyId) return;
+    setSummaryLoading(true);
+    try {
+      const s = await fetchFinanceSummary({ academyId, from: periodFrom, to: periodTo });
+      setPeriodBalance(s);
+    } catch {
+      setPeriodBalance(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [academyId, periodFrom, periodTo]);
+
+  useEffect(() => {
+    if (activeTab === 'movimentacoes' && academyId) void loadPeriodSummary();
+  }, [activeTab, academyId, loadPeriodSummary]);
+
   return (
     <div className="finance-page-root">
       <div className="finance-page-inner">
@@ -165,10 +187,48 @@ export default function Caixa() {
         <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Caixa" />
 
         {academyId && activeTab === 'movimentacoes' ? (
+          <div
+            className="card finance-period-balance"
+            style={{ marginBottom: 16, padding: '14px 18px' }}
+            role="status"
+            title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+          >
+            <div className="flex justify-between items-center gap-2" style={{ flexWrap: 'wrap' }}>
+              <div>
+                <p className="text-small text-muted" style={{ margin: 0 }}>
+                  Saldo do período (entradas liquidadas − saídas)
+                </p>
+                <p className="navi-section-heading" style={{ margin: '4px 0 0', fontSize: '1.35rem' }}>
+                  {summaryLoading
+                    ? '…'
+                    : periodBalance != null
+                      ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        })
+                      : '—'}
+                </p>
+              </div>
+              <p className="text-small text-muted" style={{ margin: 0, maxWidth: 280 }}>
+                Atualiza conforme o filtro de datas em Movimentações.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {academyId && activeTab === 'movimentacoes' ? (
           <TransacoesTab
             academyId={academyId}
             financeConfig={financeConfig}
+            isOwner={isOwner}
             onTransactionsChange={setTransactionsForNl}
+            periodFrom={periodFrom}
+            periodTo={periodTo}
+            onPeriodFiltersChange={(from, to) => {
+              setPeriodFrom(from);
+              setPeriodTo(to);
+            }}
+            onTxMutated={loadPeriodSummary}
           />
         ) : null}
         {academyId && activeTab === 'fechamento' && modules?.finance === true ? (

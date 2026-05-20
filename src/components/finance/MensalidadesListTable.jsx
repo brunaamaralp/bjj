@@ -29,6 +29,7 @@ function StatusBadge({ variant, children }) {
     soon: AlertTriangle,
     none: null,
     frozen: Pause,
+    cancelled: CircleDashed,
   };
   const Icon = icons[variant];
   return (
@@ -59,6 +60,7 @@ export default function MensalidadesListTable({
   openPaymentModal,
   handleEstornar,
   configuredTurmas = [],
+  canReverse = true,
 }) {
   const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState({});
@@ -185,6 +187,9 @@ export default function MensalidadesListTable({
       const m = METHOD_LABELS[payment.method] || payment.method;
       const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
       badgeLabel = `Pago · ${m}${pd ? ` · ${pd}` : ''}`;
+    } else if (dbStatus === 'cancelled') {
+      badgeVariant = 'cancelled';
+      badgeLabel = 'Cancelado';
     } else if (statusKey === 'pending') {
       badgeVariant = 'pending';
       badgeLabel = 'Inadimplente';
@@ -268,17 +273,19 @@ export default function MensalidadesListTable({
               <span className="mensal-action-check" aria-label="Pago">
                 <Check size={16} strokeWidth={2.5} />
               </span>
-              <button
-                type="button"
-                className="mensal-btn-estornar mensal-btn-estornar--hover"
-                onClick={() => requestEstornar(payment)}
-                disabled={reversingPaymentId === payment.$id}
-              >
-                {reversingPaymentId === payment.$id ? (
-                  <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
-                ) : null}
-                Estornar
-              </button>
+              {canReverse ? (
+                <button
+                  type="button"
+                  className="mensal-btn-estornar mensal-btn-estornar--hover"
+                  onClick={() => requestEstornar(payment)}
+                  disabled={reversingPaymentId === payment.$id}
+                >
+                  {reversingPaymentId === payment.$id ? (
+                    <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
+                  ) : null}
+                  Estornar
+                </button>
+              ) : null}
             </div>
           ) : isActiveAttention ? (
             <div className="mensal-action-attention">
@@ -337,6 +344,9 @@ export default function MensalidadesListTable({
     } else if (statusKey === 'paid' && payment) {
       badgeVariant = 'paid';
       badgeLabel = 'Pago';
+    } else if (dbStatus === 'cancelled') {
+      badgeVariant = 'cancelled';
+      badgeLabel = 'Cancelado';
     } else if (statusKey === 'pending') {
       badgeVariant = 'pending';
       badgeLabel = 'Inadimplente';
@@ -394,7 +404,7 @@ export default function MensalidadesListTable({
         </div>
         {!studentFrozen ? (
           <div className="mensal-mobile-card__actions">
-            {isPaid && payment ? (
+            {isPaid && payment && canReverse ? (
               <button
                 type="button"
                 className="mensal-btn-estornar mensal-mobile-estornar"

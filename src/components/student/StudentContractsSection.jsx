@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import '../contracts/contracts.css';
 import { Plus, Eye, FileSignature } from 'lucide-react';
 import { useContractsList } from '../../features/contracts/queries.js';
-import { mapContractDisplayStatus } from '../../features/contracts/status.js';
+import { mapContractDisplayStatusForRecord } from '../../features/contracts/status.js';
+import { isInactiveStudent } from '../../lib/studentStatus.js';
+import { useLeadStore } from '../../store/useLeadStore.js';
 import ContractStatusBadge from '../contracts/ContractStatusBadge.js';
 import CreateContractModal from '../contracts/CreateContractModal.js';
 import ContractDetailsDrawer from '../contracts/ContractDetailsDrawer.js';
@@ -19,6 +21,12 @@ function formatDate(iso) {
 export default function StudentContractsSection({ leadId }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const leads = useLeadStore((s) => s.leads);
+  const lead = useMemo(
+    () => (leads || []).find((l) => String(l.id) === String(leadId)),
+    [leads, leadId]
+  );
+  const studentInactive = lead ? isInactiveStudent(lead) : false;
 
   const { data, isLoading, isError, error, refetch } = useContractsList({
     leadId: leadId || undefined,
@@ -27,29 +35,38 @@ export default function StudentContractsSection({ leadId }) {
   });
 
   const rows = useMemo(() => {
-    return (data?.data || []).map((c) => {
-      const signersSigned = c.signersSigned ?? 0;
-      const signersTotal = c.signersTotal ?? 0;
-      return {
-        ...c,
-        displayStatus: mapContractDisplayStatus(c.status, signersSigned, signersTotal),
-      };
-    });
+    return (data?.data || []).map((c) => ({
+      ...c,
+      displayStatus: mapContractDisplayStatusForRecord(c),
+    }));
   }, [data?.data]);
 
   if (!leadId) return null;
 
   return (
     <div className="student-contracts-section">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-small text-muted" style={{ margin: 0 }}>
+      <div className="student-contracts-section-head">
+        <p className="text-small text-muted student-contracts-intro">
           Contratos digitais enviados para este aluno assinar via Autentique.
         </p>
-        <button type="button" className="btn-primary" onClick={() => setCreateOpen(true)}>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => setCreateOpen(true)}
+          disabled={studentInactive}
+          title={studentInactive ? 'Aluno desligado — não é possível enviar novo contrato' : undefined}
+        >
           <Plus size={16} />
           Novo contrato
         </button>
       </div>
+
+      {studentInactive ? (
+        <p className="text-small text-muted student-contracts-inactive-hint">
+          Aluno desligado ou inativo: novos contratos estão bloqueados. Contratos já enviados continuam
+          sendo atualizados pela Autentique.
+        </p>
+      ) : null}
 
       {isLoading ? (
         <PageSkeleton variant="list" rows={3} />
@@ -62,9 +79,13 @@ export default function StudentContractsSection({ leadId }) {
         <EmptyState
           variant="embedded"
           title="Nenhum contrato ainda"
-          description="Envie um contrato para o aluno assinar digitalmente."
+          description="Envie um contrato para o aluno assinar digitalmente. Se ele não assinar dentro do prazo da academia, o status ficará Expirado — use Reenviar (novo link) ou cancele e gere um novo contrato na aba Contratos."
           icon={FileSignature}
-          primaryAction={{ label: 'Criar contrato', onClick: () => setCreateOpen(true) }}
+          primaryAction={
+            studentInactive
+              ? undefined
+              : { label: 'Criar contrato', onClick: () => setCreateOpen(true) }
+          }
         />
       ) : (
         <ul className="student-contracts-list">
@@ -73,6 +94,9 @@ export default function StudentContractsSection({ leadId }) {
               <div className="student-contracts-item-main">
                 <strong>{row.name}</strong>
                 <span className="text-small text-muted">{formatDate(row.createdAt)}</span>
+                {row.expiresAt ? (
+                  <span className="text-small text-muted">Prazo: {formatDate(row.expiresAt)}</span>
+                ) : null}
               </div>
               <div className="student-contracts-item-actions">
                 <ContractStatusBadge status={row.displayStatus} />
@@ -96,7 +120,18 @@ export default function StudentContractsSection({ leadId }) {
         }}
       />
 
-      <ContractDetailsDrawer contractId={selectedId} onClose={() => setSelectedId(null)} />
+      <ContractDetailsDrawer
+        contractId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onResend={() => {
+          setSelectedId(null);
+          setCreateOpen(true);
+        }}
+        onCancelAndNew={() => {
+          setSelectedId(null);
+          setCreateOpen(true);
+        }}
+      />
     </div>
   );
 }

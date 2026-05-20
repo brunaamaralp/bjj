@@ -1,5 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchContracts, fetchContractById, createContractRequest } from './api.js';
+import {
+  fetchContracts,
+  fetchContractById,
+  createContractRequest,
+  cancelContractRequest,
+} from './api.js';
 import {
   fetchContractTemplates,
   createContractTemplateRequest,
@@ -28,6 +33,16 @@ export function useContractDetail(id: string | null, enabled = true) {
     queryKey: contractKeys.detail(id || ''),
     queryFn: () => fetchContractById(id!),
     enabled: Boolean(id) && enabled,
+  });
+}
+
+export function useCancelContract() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cancelContractRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: contractKeys.all });
+    },
   });
 }
 

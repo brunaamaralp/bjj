@@ -38,6 +38,7 @@ export default function SalesNewSaleTab() {
   const [alunoSuggestions, setAlunoSuggestions] = useState([]);
   const [alunoBusy, setAlunoBusy] = useState(false);
   const [alunoNomeSel, setAlunoNomeSel] = useState('');
+  const [alunoPhoneSel, setAlunoPhoneSel] = useState('');
 
   const [clienteNome, setClienteNome] = useState('');
   const [clienteTelefone, setClienteTelefone] = useState('');
@@ -96,6 +97,7 @@ export default function SalesNewSaleTab() {
             sale_price: product.sale_price,
             cost_price: product.cost_price,
             disponivel: product.current_quantity,
+            expected_quantity: product.current_quantity,
           },
         ]);
         const totalCents = Math.round(unit * qty * 100);
@@ -258,7 +260,11 @@ export default function SalesNewSaleTab() {
           addToast({ type: 'error', message: 'Quantidade acima do estoque disponível' });
           return;
         }
-        next[idx] = { ...next[idx], quantidade: newQ };
+        next[idx] = {
+          ...next[idx],
+          quantidade: newQ,
+          expected_quantity: product.current_quantity,
+        };
         setCart(next);
       } else {
         setCart((prev) => [
@@ -272,6 +278,7 @@ export default function SalesNewSaleTab() {
             sale_price: product.sale_price,
             cost_price: product.cost_price,
             disponivel: product.current_quantity,
+            expected_quantity: product.current_quantity,
           },
         ]);
       }
@@ -356,6 +363,7 @@ export default function SalesNewSaleTab() {
   const chooseAluno = (s) => {
     setAlunoId(s.id);
     setAlunoNomeSel(`${s.nome}${s.phone ? ` • ${s.phone}` : ''}`);
+    setAlunoPhoneSel(String(s.phone || '').trim());
     setClienteNome('');
     setClienteTelefone('');
     setAlunoSuggestions([]);
@@ -365,6 +373,7 @@ export default function SalesNewSaleTab() {
   const clearAluno = () => {
     setAlunoId('');
     setAlunoNomeSel('');
+    setAlunoPhoneSel('');
     setAlunoSearchText('');
   };
 
@@ -403,6 +412,8 @@ export default function SalesNewSaleTab() {
         item_estoque_id: it.item_estoque_id,
         quantidade: Number(it.quantidade),
         preco_unitario: unit,
+        expected_quantity:
+          it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
       };
     });
 
@@ -420,6 +431,14 @@ export default function SalesNewSaleTab() {
     });
 
     const st = useSalesStore.getState();
+    if (st.error === 'no_stock' || st.error === 'stock_stale') {
+      addToast({
+        type: 'warning',
+        message: 'Estoque insuficiente — o catálogo foi atualizado. Revise os itens.',
+      });
+      void reloadCatalog();
+      return;
+    }
     if (st.error) {
       addToast({ type: 'error', message: 'Não foi possível registrar a venda. Revise as informações e tente novamente.' });
       return;
@@ -432,12 +451,15 @@ export default function SalesNewSaleTab() {
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const trocoWarnings = Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [];
 
+    const clientPhone = clienteTelefone.trim() || alunoPhoneSel || '';
+
     setReceipt({
       vendaId,
       date: dateStr,
       time: timeStr,
       canal: 'presencial',
       clientName: clientDisplayName,
+      clientPhone: clientPhone.trim(),
       forma: buildFormaPagamentoResumo(pagamentos),
       pagamentos,
       trocoWarnings,
@@ -577,12 +599,11 @@ export default function SalesNewSaleTab() {
                 </div>
               </div>
 
-              <SalesPaymentBlock
-                totalCents={totalFinalCents}
-                payments={payments}
-                onChange={setPayments}
-                disabled={creating || cart.length === 0}
-              />
+              <p className="sales-price-hint text-small text-muted" role="status">
+                {salesSettings.lockPriceEdit
+                  ? 'Preços bloqueados pela academia'
+                  : 'Você pode ajustar preços unitários'}
+              </p>
 
               <SalesCart
                 cart={cart}
@@ -627,6 +648,13 @@ export default function SalesNewSaleTab() {
                   </div>
                 )}
               </div>
+
+              <SalesPaymentBlock
+                totalCents={totalFinalCents}
+                payments={payments}
+                onChange={setPayments}
+                disabled={creating || cart.length === 0}
+              />
 
               <div className="sales-collab-toggle">
                 <label className="sales-collab-toggle__label">

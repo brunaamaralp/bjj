@@ -1,3 +1,23 @@
+.student-contract-header-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.student-contract-header-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .contracts-page {
   padding-top: 20px;
   padding-bottom: 32px;
@@ -84,6 +104,24 @@
   align-items: center;
   gap: 6px;
   margin-top: 6px;
+}
+
+.student-contracts-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.student-contracts-intro {
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+.student-contracts-inactive-hint {
+  margin: 0 0 12px;
 }
 
 .student-contracts-list {
@@ -194,6 +232,12 @@
   color: #991b1b;
 }
 
+.contract-badge--expired {
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+}
+
 .contract-badge--partial {
   background: #dbeafe;
   color: #1e40af;
@@ -258,6 +302,60 @@
   padding: 0;
 }
 
+.contracts-modal-title {
+  margin: 0;
+}
+
+.contracts-modal-steps {
+  margin: 4px 0 0;
+}
+
+.contracts-email-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: rgba(180, 83, 9, 0.1);
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.contracts-optional-name {
+  margin-bottom: 12px;
+}
+
+.contracts-optional-name summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.contracts-preview-block {
+  margin-bottom: 12px;
+}
+
+.contracts-preview-iframe {
+  width: 100%;
+  height: 280px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.contracts-drawer-expired-actions {
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.contracts-drawer-expired-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .contracts-modal-header {
   display: flex;
   align-items: center;
@@ -276,6 +374,21 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.contract-template-pdf-notice {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(180, 83, 9, 0.1);
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.contract-template-editor-hint {
+  margin-top: 8px;
 }
 
 .contract-template-editor-vars {

@@ -9,6 +9,7 @@ import {
   parseAcademySettings,
   readStockCheckSchedule,
   readStockPurchaseExpenseCategory,
+  readStockSaleIncomeCategory,
   stockSettingsHasPersistedData,
 } from '../../lib/stockSettings';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -23,12 +24,13 @@ const WEEKDAYS = [
   { value: 6, label: 'Sábado' },
 ];
 
-function buildDigest(schedule, expenseCategory) {
+function buildDigest(schedule, expenseCategory, saleCategory) {
   return JSON.stringify({
     enabled: schedule.enabled === true,
     dayOfWeek: schedule.dayOfWeek,
     taskTitle: String(schedule.taskTitle || '').trim(),
     expenseCategory: String(expenseCategory || '').trim(),
+    saleCategory: String(saleCategory || '').trim(),
   });
 }
 
@@ -39,6 +41,7 @@ export default function StockSettingsSection({ academyId, modules }) {
   const [saving, setSaving] = useState(false);
   const [schedule, setSchedule] = useState({ ...DEFAULT_STOCK_CHECK_SCHEDULE });
   const [expenseCategory, setExpenseCategory] = useState(DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY);
+  const [saleCategory, setSaleCategory] = useState('Vendas — produtos');
   const [savedDigest, setSavedDigest] = useState('');
 
   const financeActive = modules?.finance === true;
@@ -53,9 +56,11 @@ export default function StockSettingsSection({ academyId, modules }) {
         const settings = parseAcademySettings(doc.settings);
         const nextSchedule = readStockCheckSchedule(settings);
         const nextCategory = readStockPurchaseExpenseCategory(settings);
+        const nextSaleCategory = readStockSaleIncomeCategory(settings);
         setSchedule(nextSchedule);
         setExpenseCategory(nextCategory);
-        setSavedDigest(buildDigest(nextSchedule, nextCategory));
+        setSaleCategory(nextSaleCategory);
+        setSavedDigest(buildDigest(nextSchedule, nextCategory, nextSaleCategory));
         setShowOnboarding(!stockSettingsHasPersistedData(doc.settings));
       } catch (e) {
         console.error('[StockSettings]', e);
@@ -69,8 +74,8 @@ export default function StockSettingsSection({ academyId, modules }) {
   }, [academyId]);
 
   const hasUnsaved = useMemo(
-    () => loaded && buildDigest(schedule, expenseCategory) !== savedDigest,
-    [loaded, schedule, expenseCategory, savedDigest]
+    () => loaded && buildDigest(schedule, expenseCategory, saleCategory) !== savedDigest,
+    [loaded, schedule, expenseCategory, saleCategory, savedDigest]
   );
 
   if (modules?.inventory !== true) return null;
@@ -80,7 +85,7 @@ export default function StockSettingsSection({ academyId, modules }) {
     setSaving(true);
     try {
       const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-      const merged = mergeStockCheckIntoSettings(doc.settings, schedule, expenseCategory);
+      const merged = mergeStockCheckIntoSettings(doc.settings, schedule, expenseCategory, saleCategory);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
@@ -199,6 +204,24 @@ export default function StockSettingsSection({ academyId, modules }) {
               : 'Ative o módulo Financeiro para vincular compras de estoque a uma categoria do caixa.'}
           </p>
         </div>
+
+        {modules?.sales === true ? (
+          <div className="form-group" style={{ margin: '16px 0 0' }}>
+            <label className="text-small" style={{ fontWeight: 600 }}>
+              Categoria no Caixa (vendas de produtos)
+            </label>
+            <input
+              className="form-input"
+              value={saleCategory}
+              onChange={(e) => setSaleCategory(e.target.value)}
+              placeholder="Vendas — produtos"
+              disabled={!financeActive}
+            />
+            <p className="text-xs text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
+              Usada como planName nos lançamentos automáticos de venda no Caixa.
+            </p>
+          </div>
+        ) : null}
 
         <div
           className="flex justify-end items-center gap-2 mt-4"

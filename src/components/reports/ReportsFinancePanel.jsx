@@ -1,56 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Query } from 'appwrite';
 import { useNavigate } from 'react-router-dom';
-import { Wallet2 } from 'lucide-react';
-import { databases, DB_ID, FINANCIAL_TX_COL } from '../../lib/appwrite';
+import { Download, Wallet2 } from 'lucide-react';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import ReportsTab from '../finance/ReportsTab.jsx';
 import { fmt } from '../finance/financeFmt.js';
 import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
+import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
+import { downloadCsv } from '../../lib/reportsExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
-
-function computeOperationalTotals(transactions) {
-  let received = 0;
-  let expenses = 0;
-  let receivedCount = 0;
-  let expenseCount = 0;
-  const byMethod = {};
-
-  for (const tx of transactions || []) {
-    if (String(tx.status || '').toLowerCase() === 'cancelled') continue;
-    if (String(tx.status || '').toLowerCase() !== 'settled') continue;
-
-    const isExpense = String(tx.type || '').toLowerCase() === 'expense';
-    const net = Number(tx.net);
-    const gross = Number(tx.gross);
-    const amt = Number.isFinite(net) ? net : Number.isFinite(gross) ? gross : 0;
-
-    if (isExpense) {
-      expenses += amt;
-      expenseCount += 1;
-    } else {
-      received += amt;
-      receivedCount += 1;
-      const method = String(tx.method || 'outro').toLowerCase();
-      byMethod[method] = (byMethod[method] || 0) + amt;
-    }
-  }
-
-  const methodRows = Object.entries(byMethod)
-    .map(([method, total]) => ({ method, total }))
-    .sort((a, b) => b.total - a.total);
-
-  return {
-    received,
-    expenses,
-    balance: received - expenses,
-    receivedCount,
-    expenseCount,
-    methodRows,
-  };
-}
 
 const METHOD_LABELS = {
   pix: 'PIX',
@@ -61,46 +20,26 @@ const METHOD_LABELS = {
 };
 
 function OperationalFinanceReport({ academyId, from, to }) {
-  const [transactions, setTransactions] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
     const run = async () => {
-      if (!academyId || !FINANCIAL_TX_COL) {
-        setTransactions([]);
+      if (!academyId) {
+        setData(null);
         return;
       }
       setLoading(true);
       setError('');
       try {
-        const filters = [
-          Query.equal('academyId', academyId),
-          Query.limit(500),
-          Query.orderDesc('$createdAt'),
-        ];
-        if (from) filters.push(Query.greaterThanEqual('$createdAt', new Date(`${from}T00:00:00`).toISOString()));
-        if (to) {
-          const d = new Date(`${to}T00:00:00`);
-          d.setDate(d.getDate() + 1);
-          filters.push(Query.lessThan('$createdAt', d.toISOString()));
-        }
-        const res = await databases.listDocuments(DB_ID, FINANCIAL_TX_COL, filters);
-        if (!active) return;
-        setTransactions(
-          (res.documents || []).map((d) => ({
-            type: d.type || '',
-            method: d.method || '',
-            gross: Number(d.gross || 0),
-            net: Number(d.net || 0),
-            status: d.status || '',
-          }))
-        );
+        const body = await fetchReportsFinanceLight({ academyId, from, to });
+        if (active) setData(body);
       } catch (e) {
         if (active) {
           setError('Não foi possível carregar as movimentações.');
-          setTransactions([]);
+          setData(null);
         }
         console.error(e);
       } finally {
@@ -113,7 +52,34 @@ function OperationalFinanceReport({ academyId, from, to }) {
     };
   }, [academyId, from, to]);
 
-  const totals = useMemo(() => computeOperationalTotals(transactions), [transactions]);
+  const totals = useMemo(() => {
+    if (!data) {
+      return { received: 0, expenses: 0, balance: 0, receivedCount: 0, expenseCount: 0, methodRows: [] };
+    }
+    return {
+      received: data.received,
+      expenses: data.expenses,
+      balance: data.balance,
+      receivedCount: data.receivedCount,
+      expenseCount: data.expenseCount,
+      methodRows: (data.byMethod || []).sort((a, b) => b.total - a.total),
+      truncated: data.truncated,
+      totalLoaded: data.totalLoaded,
+    };
+  }, [data]);
+
+  const exportCsv = () => {
+    const rows = [
+      { metrica: 'Recebido', valor: totals.received },
+      { metrica: 'Despesas', valor: totals.expenses },
+      { metrica: 'Saldo', valor: totals.balance },
+      ...(totals.methodRows || []).map((r) => ({
+        metrica: `Por forma — ${METHOD_LABELS[r.method] || r.method}`,
+        valor: r.total,
+      })),
+    ];
+    downloadCsv(rows, `relatorio-financeiro-${from}_${to}.csv`);
+  };
 
   if (loading) {
     return (
@@ -147,6 +113,18 @@ function OperationalFinanceReport({ academyId, from, to }) {
 
   return (
     <div className="reports-finance-operational mt-2">
+      {totals.truncated ? (
+        <p className="text-small text-muted mb-2" role="status">
+          Mostrando até {totals.totalLoaded} lançamentos — o total pode estar incompleto. Reduza o período no
+          filtro.
+        </p>
+      ) : null}
+      <div className="flex justify-end mb-2">
+        <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
+          <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
+          Exportar CSV
+        </button>
+      </div>
       <div className="reports-kpi-grid">
         <div className="reports-kpi-card reports-kpi-card--success">
           <div className="reports-kpi-card-head">

@@ -6,6 +6,10 @@ import { useStudentStore } from '../store/useStudentStore.js';
 
 /**
  * Move lead → students (mesmo $id). Remove doc de leads.
+ *
+ * Após a migração, a fonte de verdade do cadastro é a coleção students
+ * (nome, telefone e demais campos vivem só no documento de aluno).
+ *
  * @param {object} opts
  * @param {string} opts.leadId
  * @param {object} [opts.lead] — objeto UI; se omitido, busca no store ou Appwrite
@@ -30,7 +34,10 @@ export async function moveLeadToStudent({ leadId, lead = null, overrides = {}, p
     }
   }
 
-  const payload = buildStudentPayloadFromDoc(source, overrides);
+  const payload = {
+    ...buildStudentPayloadFromDoc(source, overrides),
+    updated_at: new Date().toISOString(),
+  };
   const perms = permissions.length ? permissions : undefined;
 
   await databases.createDocument(DB_ID, STUDENTS_COL, id, payload, perms);

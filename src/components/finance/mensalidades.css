@@ -1,0 +1,94 @@
+.mensal-inadimplencia-panel {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+}
+
+.mensal-inadimplencia-panel__title {
+  margin: 0 0 6px;
+}
+
+.mensal-inadimplencia-panel__hint {
+  margin: 0 0 12px;
+}
+
+.mensal-inadimplencia-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mensal-inadimplencia-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 0.5px solid var(--border-light, #e8e8ef);
+}
+
+.mensal-inadimplencia-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.mensal-inadimplencia-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.mensal-inadimplencia-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.mensal-inadimplencia-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.mensal-status-badge--cancelled {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.mensal-collection-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.mensal-collection-rule-card {
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-hover, #fafafa);
+}
+
+.mensal-finance-plans-banner {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+}
+
+.mensal-finance-plans-banner strong {
+  display: block;
+  margin-bottom: 4px;
+}

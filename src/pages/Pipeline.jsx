@@ -26,6 +26,7 @@ import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useTerms, TERMS, contactLabelSingular } from '../lib/terminology.js';
 import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -805,6 +806,12 @@ const Pipeline = () => {
         zapster_instance_id: '',
         templates: { ...DEFAULT_WHATSAPP_TEMPLATES },
     }));
+    const {
+        templates: waTemplatesFromHook,
+        academyName: waAcademyNameHook,
+        zapsterInstanceId: waZapIdHook,
+        automationsRaw: waAutomationsHook,
+    } = useWhatsappTemplates(academyId);
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
     const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
@@ -816,6 +823,17 @@ const Pipeline = () => {
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
     const [nlOpen, setNlOpen] = useState(false);
     const hiddenAtRef = useRef(null);
+
+    useEffect(() => {
+        if (!waTemplatesFromHook) return;
+        setWaOutbound((prev) => ({
+            ...prev,
+            name: waAcademyNameHook || prev.name,
+            zapster_instance_id: waZapIdHook || prev.zapster_instance_id,
+            templates: waTemplatesFromHook,
+        }));
+        setAcademyAutomationsRaw(String(waAutomationsHook || ''));
+    }, [waTemplatesFromHook, waAcademyNameHook, waZapIdHook, waAutomationsHook]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -1071,20 +1089,6 @@ const Pipeline = () => {
         const finalizeStages = (cols) => applyMatriculadoLabel(ensureSpecialColumns(mergeWaitingDecisionStage(cols)));
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
-                let tplParsed = {};
-                try {
-                    const w = doc.whatsappTemplates;
-                    const p = typeof w === 'string' ? JSON.parse(w) : w;
-                    if (p && typeof p === 'object' && !Array.isArray(p)) tplParsed = p;
-                } catch {
-                    tplParsed = {};
-                }
-                setWaOutbound({
-                    name: String(doc?.name || '').trim(),
-                    zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
-                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...tplParsed }
-                });
-                setAcademyAutomationsRaw(String(doc?.automations_config || ''));
                 setAcademySettingsRaw(doc?.settings ?? null);
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(doc));
                 try {

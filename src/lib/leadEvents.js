@@ -7,11 +7,68 @@ import { databases, DB_ID, LEAD_EVENTS_COL } from './appwrite';
 import { ID, Query } from 'appwrite';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import { emitLeadTimelineChanged } from './leadTimelineEvents.js';
+import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 
 /** @param {{ ownerId?: string, teamId?: string, userId?: string }} ctx — ownerId ignorado no cliente (regra Appwrite). */
 function eventPermissions(ctx = {}) {
   return buildClientDocumentPermissions({ teamId: ctx.teamId, userId: ctx.userId });
 }
+
+/**
+ * Payload mínimo de auditoria de aluno (student_id = lead_id na coleção).
+ * @param {object} opts
+ * @param {string} opts.studentId
+ * @param {string} opts.academyId
+ * @param {string} opts.actorUserId
+ * @param {string} opts.type — um de STUDENT_EVENT_TYPES
+ * @param {object} [opts.payload]
+ * @param {string} [opts.text]
+ */
+export function buildStudentAuditPayload({ studentId, academyId, actorUserId, type, payload = {}, text = '' }) {
+  return {
+    student_id: String(studentId || '').trim(),
+    academy_id: String(academyId || '').trim(),
+    actor_user_id: String(actorUserId || 'user').trim(),
+    timestamp: new Date().toISOString(),
+    type: String(type || '').trim(),
+    payload,
+    text: String(text || '').trim(),
+  };
+}
+
+/**
+ * Grava evento tipado de ciclo de vida do aluno.
+ */
+export async function addStudentLifecycleEvent({
+  studentId,
+  academyId,
+  actorUserId,
+  type,
+  payload = {},
+  text = '',
+  permissionContext = {},
+}) {
+  const audit = buildStudentAuditPayload({
+    studentId,
+    academyId,
+    actorUserId,
+    type,
+    payload,
+    text,
+  });
+  return addLeadEvent({
+    academyId: audit.academy_id,
+    leadId: audit.student_id,
+    type: audit.type,
+    text: audit.text || audit.type,
+    at: audit.timestamp,
+    createdBy: audit.actor_user_id,
+    payloadJson: { ...audit.payload, student_id: audit.student_id, actor_user_id: audit.actor_user_id },
+    permissionContext,
+  });
+}
+
+export { STUDENT_EVENT_TYPES };
 
 /**
  * @param {object} opts

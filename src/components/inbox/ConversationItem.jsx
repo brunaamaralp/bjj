@@ -17,6 +17,8 @@ export default function ConversationItem({
   enableLongPress = false,
   onLongPress,
   handoffNowMs,
+  listFilter = 'all',
+  minhaFilaOn = false,
 }) {
   const terms = useTerms();
   const [rowHover, setRowHover] = useState(false);
@@ -27,12 +29,6 @@ export default function ConversationItem({
   const contactType = String(item?._contactType || '').trim() === 'student' ? 'student' : 'lead';
   const lastRole = String(item?._lastRole || '').trim();
   const lastSender = String(item?._lastSender || '').trim();
-  const lastAssistantDot =
-    lastRole === 'assistant'
-      ? lastSender === 'human'
-        ? { bg: '#f59e0b', label: 'Humano' }
-        : { bg: '#22c55e', label: 'Agente IA' }
-      : null;
   const isHighlighted = Boolean(item?._isHighlighted);
   const ticket = ticketChip(item?._ticketStatus, item?._transferTo);
   const ticketStatusLower = String(item?._ticketStatus ?? item?.ticket_status ?? '')
@@ -40,9 +36,21 @@ export default function ConversationItem({
     .toLowerCase();
   const isWaitingCustomer = ticketStatusLower === 'waiting_customer';
 
+  const showContactChip =
+    listFilter === 'lead' ||
+    listFilter === 'student' ||
+    (listFilter === 'all' && !handoffActive && unreadCount <= 0);
+  const showHandoffChip =
+    handoffActive && (listFilter === 'need_human' || listFilter === 'needs_me' || minhaFilaOn);
+  const showIaChip =
+    !handoffActive &&
+    unreadCount <= 0 &&
+    lastRole === 'assistant' &&
+    lastSender !== 'human' &&
+    (listFilter === 'need_human' || listFilter === 'all');
+
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-  const previewMax = handoffActive ? 72 : 52;
-  const preview = rawPrev.length > previewMax ? `${rawPrev.slice(0, previewMax)}…` : rawPrev;
+  const preview = rawPrev.length > 52 ? `${rawPrev.slice(0, 52)}…` : rawPrev;
 
   const profileUrl = String(item?._profileImageUrl || item?.whatsapp_profile_image_url || '').trim();
   const [avatarOk, setAvatarOk] = useState(true);
@@ -50,13 +58,8 @@ export default function ConversationItem({
     setAvatarOk(true);
   }, [profileUrl]);
 
-  const hasLevel1 = unreadCount > 0 || handoffActive;
-  const showLevel2IA = !handoffActive && !hasLevel1;
-  const pureAiLast = lastRole === 'assistant' && lastSender !== 'human';
-  const showDot = Boolean(lastAssistantDot) && !(pureAiLast && showLevel2IA);
-
   const showL2WaitingChip =
-    !hasLevel1 && isWaitingCustomer && Boolean(ticket?.label) && !ticket?.isDefault;
+    !handoffActive && isWaitingCustomer && Boolean(ticket?.label) && !ticket?.isDefault;
 
   const showLevel3 = !enableLongPress && rowHover;
   const showL3Hot = showLevel3 && hotLead;
@@ -65,7 +68,7 @@ export default function ConversationItem({
     showLevel3 &&
     Boolean(ticket?.label) &&
     !ticket?.isDefault &&
-    !(isWaitingCustomer && !hasLevel1);
+    !(isWaitingCustomer && !handoffActive);
 
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
@@ -159,10 +162,19 @@ export default function ConversationItem({
             : '4px solid transparent',
         background: active ? 'var(--v50)' : isHighlighted ? 'rgba(91, 63, 191, 0.08)' : 'transparent',
         cursor: 'pointer',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: compact ? 6 : 8, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: compact ? 6 : 8,
+          alignItems: 'flex-start',
+          width: '100%',
+          minWidth: 0,
+        }}
+      >
         <div style={{ display: 'flex', gap: compact ? 4 : 6, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
           <div
             style={{
@@ -176,7 +188,7 @@ export default function ConversationItem({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 1
+              marginTop: 1,
             }}
             aria-hidden
           >
@@ -191,15 +203,14 @@ export default function ConversationItem({
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <User size={compact ? 16 : 18} strokeWidth={1.75} style={{ color: 'var(--text-muted)', opacity: 0.88 }} aria-hidden />
+              <User
+                size={compact ? 16 : 18}
+                strokeWidth={1.75}
+                style={{ color: 'var(--text-muted)', opacity: 0.88 }}
+                aria-hidden
+              />
             )}
           </div>
-          {showDot ? (
-            <span
-              title={lastAssistantDot.label}
-              style={{ width: 8, height: 8, borderRadius: 999, background: lastAssistantDot.bg, flex: '0 0 auto', marginTop: 4 }}
-            />
-          ) : null}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
               <span
@@ -210,66 +221,34 @@ export default function ConversationItem({
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   flex: 1,
-                  minWidth: 120
+                  minWidth: 80,
                 }}
               >
                 {String(item?._displayTitle || '-')}
               </span>
-              <span
-                className="text-small"
-                style={{
-                  color: 'var(--text-secondary)',
-                  fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
-                  padding: 0,
-                  borderRadius: 0,
-                  fontWeight: 600,
-                  flexShrink: 0
-                }}
-              >
-                {contactType === 'student' ? terms.student : 'Lead'}
-              </span>
-              {handoffActive ? (
+              {showContactChip ? (
                 <span
-                  title="Atendimento com você (handoff ativo)"
-                  className="inbox-status-chip inbox-status-chip-handoff"
+                  className="text-small"
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
-                    fontWeight: 800,
-                    padding: '1px 7px',
-                    borderRadius: 999,
-                    background: 'var(--warning-light)',
-                    color: 'var(--warning-text)',
+                    color: 'var(--text-secondary)',
+                    fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
+                    fontWeight: 600,
                     flexShrink: 0,
-                    lineHeight: 1.25
                   }}
                 >
+                  {contactType === 'student' ? terms.student : 'Lead'}
+                </span>
+              ) : null}
+              {showHandoffChip ? (
+                <span className="inbox-status-chip inbox-status-chip-handoff" style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, background: '#FFF1EB', color: '#C2410C', flexShrink: 0 }}>
                   Com você
                 </span>
               ) : null}
-              {showLevel2IA ? (
-                <span
-                  title="A IA pode responder nesta conversa"
-                  className="inbox-status-chip inbox-status-chip-ia"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
-                    fontWeight: 700,
-                    padding: '1px 6px',
-                    borderRadius: 999,
-                    background: 'var(--inbox-info-badge-bg)',
-                    color: 'var(--inbox-info-badge-fg)',
-                    flexShrink: 0,
-                    lineHeight: 1.25,
-                    opacity: 0.92
-                  }}
-                >
+              {showIaChip ? (
+                <span className="inbox-status-chip inbox-status-chip-ia" style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'var(--v50)', color: 'var(--v700)', flexShrink: 0 }}>
                   IA
                 </span>
               ) : null}
-              {item?.lead_id && <span className="text-small" style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>●</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: compact ? 2 : 3, minWidth: 0 }}>
               <span
@@ -280,7 +259,7 @@ export default function ConversationItem({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  flex: 1
+                  flex: 1,
                 }}
               >
                 {preview || '—'}
@@ -292,53 +271,14 @@ export default function ConversationItem({
               ) : null}
             </div>
             {showL3Hot || showL3AiAlert || showL3Ticket ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  gap: 6,
-                  marginTop: compact ? 4 : 5,
-                  minHeight: 0
-                }}
-              >
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: compact ? 4 : 5 }}>
                 {showL3Hot ? (
-                  <span
-                    title="Lead quente"
-                    className="inbox-status-chip inbox-status-chip-hot"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
-                      fontWeight: 800,
-                      padding: compact ? '2px 5px' : '2px 6px',
-                      borderRadius: 999,
-                      background: 'rgba(245, 158, 11, 0.18)',
-                      color: 'var(--warning-text)',
-                      flexShrink: 0
-                    }}
-                  >
+                  <span title="Lead quente" style={{ display: 'inline-flex', padding: '2px 6px', borderRadius: 999, background: 'rgba(245, 158, 11, 0.18)' }}>
                     <Flame size={compact ? 12 : 13} aria-hidden />
                   </span>
                 ) : null}
                 {showL3AiAlert ? (
-                  <span
-                    title="IA sugere intervenção humana"
-                    className="inbox-status-chip inbox-status-chip-warn"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: compact ? 'var(--inbox-font-meta)' : 'var(--inbox-font-caption)',
-                      fontWeight: 800,
-                      padding: compact ? '2px 5px' : '2px 6px',
-                      borderRadius: 999,
-                      background: 'var(--warning-light)',
-                      color: 'var(--warning-text)',
-                      flexShrink: 0
-                    }}
-                  >
+                  <span title="IA sugere intervenção" style={{ display: 'inline-flex', padding: '2px 6px', borderRadius: 999, background: 'var(--warning-light)' }}>
                     <AlertTriangle size={compact ? 12 : 13} aria-hidden />
                   </span>
                 ) : null}
@@ -351,14 +291,14 @@ export default function ConversationItem({
             ) : null}
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: compact ? 2 : 4, flexShrink: 0, marginLeft: compact ? 4 : 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: compact ? 2 : 4, flexShrink: 0 }}>
           <span
             className="text-small"
             style={{
               color: 'var(--text-secondary)',
               fontWeight: 600,
               fontSize: compact ? 'var(--inbox-font-caption)' : 'var(--inbox-font-secondary)',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
             }}
             title={formatWhen(item?.updated_at) || undefined}
           >
@@ -370,7 +310,7 @@ export default function ConversationItem({
             <span
               className="text-small"
               style={{ background: 'var(--danger)', color: '#fff', padding: '1px 7px', borderRadius: 999, fontWeight: 800 }}
-              title="Mensagens não lidas"
+              title="Mensagens não lidas (unread_count)"
             >
               {unreadCount}
             </span>

@@ -1,4 +1,12 @@
-/** Régua de cobrança configurável por academia (mensalidades inadimplentes). */
+/**
+ * Régua de cobrança configurável por academia (mensalidades inadimplentes).
+ *
+ * Cron `collection-overdue` (lib/server/runCollectionOverdueCron.js):
+ * - Não cria tarefa se payment.status === 'awaiting' (aguardando confirmação).
+ * - Não cria tarefa se o aluno estiver em snooze de régua no mês de referência
+ *   (collection_snooze_month === YYYY-MM no documento do aluno).
+ * - Não envia WhatsApp automaticamente; apenas etiqueta + tarefa para a equipe.
+ */
 
 export const DEFAULT_OVERDUE_LABEL = 'Inadimplente';
 
@@ -190,6 +198,35 @@ export function formatCollectionAttemptText({ stage, result, notes }) {
   const n = String(notes || '').trim();
   if (n) t += ` — ${n}`;
   return t.slice(0, 1000);
+}
+
+/** Texto de tooltip para chips D+N na listagem de mensalidades. */
+export function buildReguaStageTooltip(rule) {
+  const day = Math.trunc(Number(rule?.day) || 0);
+  const label = String(rule?.label || `D+${day}`).trim();
+  if (rule?.escalate) {
+    return `D+${day} (${label}): cria tarefa para o responsável da academia e registra na timeline. Não envia WhatsApp automaticamente.`;
+  }
+  const msg = String(rule?.defaultMessage || '').trim();
+  const msgHint = msg
+    ? ` com esta mensagem sugerida: «${msg.slice(0, 120)}${msg.length > 120 ? '…' : ''}»`
+    : '';
+  return `${day} dia(s) após o vencimento → cria tarefa para a equipe${msgHint}. Aplica a etiqueta de inadimplência se ainda não estiver. Não envia WhatsApp automaticamente.`;
+}
+
+export function isCollectionSnoozed(studentOrDoc, referenceMonth) {
+  const ym = String(referenceMonth || '').trim().slice(0, 7);
+  if (!ym) return false;
+  const snoozeMonth = String(
+    studentOrDoc?.collection_snooze_month ?? studentOrDoc?.collectionSnoozeMonth ?? ''
+  ).trim();
+  if (snoozeMonth !== ym) return false;
+  const until = String(
+    studentOrDoc?.collection_snooze_until ?? studentOrDoc?.collectionSnoozeUntil ?? ''
+  ).trim();
+  if (!until) return true;
+  const t = new Date(until).getTime();
+  return Number.isFinite(t) ? Date.now() <= t : true;
 }
 
 export function academyHasFinanceModule(academyDoc) {

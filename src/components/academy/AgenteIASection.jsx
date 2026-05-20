@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
-import { account } from '../../lib/appwrite';
+import { account, teams } from '../../lib/appwrite';
 import { parseFaqItems } from '../../../lib/whatsappTemplateDefaults.js';
+import { PROMPT_RECOMMENDED_COMBINED_LEN } from '../../../lib/aiPromptLimits.js';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
+import { canEditAgentPrompt, canViewAgentSettings } from '../../lib/canEditAgentPrompt.js';
+import { mapAgentTestErrorMessage } from '../../lib/agentTestErrorMessage.js';
 import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
+import './agent-ia.css';
 
 async function getJwt() {
     const jwt = await account.createJWT();
@@ -60,12 +64,6 @@ function agentDebugEnabled() {
     return false;
 }
 
-const cardBase = {
-    borderRadius: 12,
-    padding: 20,
-    boxShadow: 'none',
-};
-
 const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const terms = useTerms();
     const labels = useLeadStore((s) => s.labels);
@@ -74,8 +72,23 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const academyIdRef = useRef(academyId);
     useEffect(() => { academyIdRef.current = academyId; }, [academyId]);
 
-    const canConfigure = role === 'owner' || role === 'member';
+    const canViewAgent = canViewAgentSettings(role);
+    const userId = useLeadStore((s) => s.userId);
+    const [teamMembership, setTeamMembership] = useState(null);
+    const canEditPrompt = canEditAgentPrompt(userId, academyDoc, teamMembership);
     const isOwner = role === 'owner';
+
+    useEffect(() => {
+        if (!academyDoc?.teamId || !userId) return;
+        if (String(academyDoc.ownerId || '') === String(userId)) return;
+        teams
+            .listMemberships(academyDoc.teamId)
+            .then((res) => {
+                const m = (res.memberships || []).find((x) => String(x.userId) === String(userId));
+                setTeamMembership(m || null);
+            })
+            .catch(() => setTeamMembership(null));
+    }, [academyDoc?.teamId, academyDoc?.ownerId, userId]);
 
     const zap = useZapsterWhatsAppConnection(academyId, {
         onRegisterWebhooksResult: ({ ok }) => {
@@ -178,7 +191,19 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const [editBody, setEditBody] = useState('');
     const [promptIntroBackup, setPromptIntroBackup] = useState('');
     const [promptBodyBackup, setPromptBodyBackup] = useState('');
+    const [promptSuffixBackup, setPromptSuffixBackup] = useState('');
     const [promptUpdatedAt, setPromptUpdatedAt] = useState('');
+    const [showRestoreModal, setShowRestoreModal] = useState(false);
+
+    useEffect(() => {
+        setShowWizard(false);
+        setShowEditor(false);
+        setShowTestChat(false);
+        setShowRestoreModal(false);
+        setEditIntro('');
+        setEditBody('');
+        setWizardAgenteInitial(null);
+    }, [academyId]);
 
     // Dados para o chat de teste
     const [aiName, setAiName] = useState('');
@@ -218,7 +243,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     );
 
     useEffect(() => {
-        if (!academyId || !canConfigure) return;
+        if (!academyId || !canViewAgent) return;
         let cancelled = false;
         (async () => {
             setLoadingPrompt(true);
@@ -236,8 +261,10 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     const intro = String(data.prompt_intro || '');
                     const body = String(data.prompt_body || '');
                     const suffix = String(data.prompt_suffix || '');
-                    const introBackup = String(data.prompt_intro_backup || '');
-                    const bodyBackup = String(data.prompt_body_backup || '');
+                    const snap = data.prompt_backup_snapshot;
+                    const introBackup = String(snap?.intro || data.prompt_intro_backup || '');
+                    const bodyBackup = String(snap?.body || data.prompt_body_backup || '');
+                    const suffixBackup = String(snap?.suffix ?? data.prompt_suffix_backup ?? '');
                     const updatedAt = String(data.prompt_updated_at || '');
                     setPromptIntro(intro);
                     setPromptBody(body);
@@ -247,6 +274,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
                     setPromptIntroBackup(introBackup);
                     setPromptBodyBackup(bodyBackup);
+                    setPromptSuffixBackup(suffixBackup);
                     setPromptUpdatedAt(updatedAt);
 
                     setAiName(String(data.ai_name || '').trim());
@@ -281,14 +309,14 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             }
         })();
         return () => { cancelled = true; };
-    }, [academyId, canConfigure, addToast]);
+    }, [academyId, canViewAgent, addToast]);
 
     useEffect(() => {
-        if (!canConfigure || !promptConfigurado || !academyId) return;
+        if (!canEditPrompt || !promptConfigurado || !academyId) return;
         const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'setup_ai')?.done;
         if (done) return;
         void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
-    }, [canConfigure, promptConfigurado, academyId]);
+    }, [canEditPrompt, promptConfigurado, academyId]);
 
     useEffect(() => {
         // Mantém o nome da academia sincronizado se o props vier atualizado.
@@ -296,6 +324,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     }, [academyDoc?.name]);
 
     async function savePromptSettings(overrides, { successMessage } = {}) {
+        if (!canEditPrompt) return false;
         const use = overrides && typeof overrides === 'object' ? overrides : null;
         const intro = use && 'prompt_intro' in use ? String(use.prompt_intro) : String(promptIntro || '');
         const bodyPut = use && 'prompt_body' in use ? String(use.prompt_body) : String(promptBody || '');
@@ -344,7 +373,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
     async function handleToggleIa(nextActive) {
         const debugOn = agentDebugEnabled();
-        if (!promptConfigurado || togglingIa) return false;
+        if (!canEditPrompt || !promptConfigurado || togglingIa) return false;
         const target = typeof nextActive === 'boolean' ? nextActive : !iaAtiva;
         if (target === iaAtiva) return true;
         setTogglingIa(true);
@@ -374,7 +403,11 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 setIaAtiva(data.ia_ativa === true);
                 return true;
             }
-            addToast({ type: 'error', message: data?.erro || 'Não foi possível atualizar a IA' });
+            const errMsg =
+                data?.code === 'prompt_nao_configurado'
+                    ? 'Configure identidade ou conhecimento do assistente antes de ativar.'
+                    : data?.erro || 'Não foi possível atualizar a IA';
+            addToast({ type: 'error', message: errMsg });
             return false;
         } catch (e) {
             if (debugOn) {
@@ -589,13 +622,26 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     );
 
     const EditorDePrompt = () => {
-        const hasBackup = Boolean(String(promptIntroBackup || '').trim() || String(promptBodyBackup || '').trim());
+        const hasBackup = Boolean(
+            String(promptIntroBackup || '').trim() ||
+                String(promptBodyBackup || '').trim() ||
+                String(promptSuffixBackup || '').trim()
+        );
 
-        const handleRestoreBackup = () => {
-            if (!hasBackup) return;
+        const applyRestoreAndSave = async () => {
+            const ok = await savePromptSettings(
+                {
+                    prompt_intro: promptIntroBackup,
+                    prompt_body: promptBodyBackup,
+                    prompt_suffix: promptSuffixBackup || promptSuffix,
+                },
+                { successMessage: 'Versão anterior restaurada e salva.' }
+            );
+            if (!ok) return;
             setEditIntro(promptIntroBackup);
             setEditBody(promptBodyBackup);
-            addToast({ type: 'info', message: 'Versão anterior restaurada. Salve para confirmar.' });
+            setShowRestoreModal(false);
+            setShowEditor(false);
         };
 
         const handleCancel = () => {
@@ -617,6 +663,47 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
         return (
             <div className="agent-prompt-editor animate-in">
+                {showRestoreModal && (
+                    <div className="agent-restore-modal-backdrop" role="dialog" aria-modal="true">
+                        <div className="agent-restore-modal">
+                            <h4 style={{ margin: '0 0 8px' }}>Restaurar versão anterior?</h4>
+                            <p className="text-small text-light" style={{ margin: 0 }}>
+                                O backup substituirá o prompt atual e será salvo imediatamente.
+                            </p>
+                            <div className="agent-restore-preview">
+                                <div>
+                                    <strong className="text-small">Atual (intro)</strong>
+                                    <pre>{String(editIntro || '').slice(0, 400) || '—'}</pre>
+                                </div>
+                                <div>
+                                    <strong className="text-small">Backup (intro)</strong>
+                                    <pre>{String(promptIntroBackup || '').slice(0, 400) || '—'}</pre>
+                                </div>
+                                <div>
+                                    <strong className="text-small">Atual (conhecimento)</strong>
+                                    <pre>{String(editBody || '').slice(0, 400) || '—'}</pre>
+                                </div>
+                                <div>
+                                    <strong className="text-small">Backup (conhecimento)</strong>
+                                    <pre>{String(promptBodyBackup || '').slice(0, 400) || '—'}</pre>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                <button type="button" className="btn btn-secondary" onClick={() => setShowRestoreModal(false)}>
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    disabled={savingPrompt}
+                                    onClick={() => void applyRestoreAndSave()}
+                                >
+                                    Restaurar e salvar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <header className="agent-prompt-editor__header">
                     <div>
                         <h4 className="agent-prompt-editor__title">Revisar & Editar instruções do assistente</h4>
@@ -646,7 +733,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         placeholder="Ex.: Você é a Ana, atendente do estúdio…"
                         spellCheck
                     />
-                    <div className="agent-prompt-meta">{String(editIntro || '').length} caracteres</div>
+                    <div className="agent-prompt-meta">
+                        {String(editIntro || '').length} caracteres · recomendado até {PROMPT_RECOMMENDED_COMBINED_LEN} no total (intro + conhecimento)
+                    </div>
                 </section>
 
                 <section className="agent-prompt-field" aria-labelledby="agent-prompt-conhecimento">
@@ -660,7 +749,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         onChange={(e) => setEditBody(e.target.value)}
                         {...textareaScrollLockProps}
                         rows={12}
-                        disabled={savingPrompt}
+                        disabled={savingPrompt || !canEditPrompt}
                         placeholder="Ex.: Endereço, modalidades, valores, política de experimental…"
                         spellCheck
                     />
@@ -687,8 +776,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     <button
                         type="button"
                         className="btn btn-outline"
-                        disabled={!hasBackup || savingPrompt}
-                        onClick={() => void handleRestoreBackup()}
+                        disabled={!hasBackup || savingPrompt || !canEditPrompt}
+                        onClick={() => setShowRestoreModal(true)}
                         title={!hasBackup ? 'Nenhuma versão anterior disponível' : 'Restaurar versão anterior'}
                     >
                         ↩ Restaurar versão anterior
@@ -740,6 +829,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             setInput('');
             setSending(true);
 
+            const abort = new AbortController();
+            const timeoutId = setTimeout(() => abort.abort(), 30000);
             try {
                 const jwt = await getJwt();
                 const { blocked, res: resp } = await fetchWithBillingGuard('/api/agent/test', {
@@ -753,17 +844,21 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         academyId,
                         message: userMsg.content,
                         history: historyForRequest
-                    })
+                    }),
+                    signal: abort.signal,
                 });
 
+                clearTimeout(timeoutId);
                 if (blocked || !resp) return;
 
                 const data = await resp.json().catch(() => ({}));
                 if (!resp.ok) {
-                    const fallbackChat =
-                        resp.status === 429
-                            ? String(data?.message || '').trim() || 'Limite diário atingido.'
-                            : 'Erro ao processar. Verifique se o prompt está configurado.';
+                    const fallbackChat = mapAgentTestErrorMessage({
+                        status: resp.status,
+                        code: data?.code || data?.erro,
+                        erro: data?.erro,
+                        message: data?.message,
+                    });
                     if (resp.status === 429) {
                         addToast({ type: 'warning', message: data?.message || 'Limite diário atingido' });
                         setTestsLeftLocal(0);
@@ -772,7 +867,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     }
                     addToast({
                         type: 'error',
-                        message: data?.erro || data?.message || 'Falha ao testar assistente'
+                        message: fallbackChat,
                     });
                     setMessages((prev) => [...prev, { role: 'assistant', content: fallbackChat }]);
                     return;
@@ -797,20 +892,29 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 setTestMessagesToday(nextUsed);
                 setTestMessagesResetDate(todayIso);
             } catch (e) {
-                addToast({ type: 'error', message: e?.message || 'Erro ao enviar teste' });
+                clearTimeout(timeoutId);
+                const aborted = e?.name === 'AbortError';
+                const msg = aborted
+                    ? 'Tempo esgotado — tente novamente.'
+                    : mapAgentTestErrorMessage({ erro: e?.message });
+                addToast({ type: 'error', message: msg });
+                setMessages((prev) => [...prev, { role: 'assistant', content: msg }]);
             } finally {
                 setSending(false);
             }
         };
 
         return (
-            <div className="agent-chat-container" style={{ marginTop: 12 }}>
-                <div className="agent-chat-header" style={{ paddingBottom: 14 }}>
+            <div className="agent-chat-container agent-chat-sandbox">
+                <div className="agent-chat-sandbox__banner" role="status">
+                    Modo teste — mensagens não são enviadas ao aluno
+                </div>
+                <div className="agent-chat-header" style={{ paddingBottom: 14, padding: '12px 14px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                         <div>
-                            <div className="agent-chat-title" style={{ fontSize: 14 }}>Modo de teste — não envia ao WhatsApp</div>
+                            <div className="agent-chat-title" style={{ fontSize: 14 }}>Chat de teste (sandbox)</div>
                             <div className="agent-chat-subtitle" style={{ marginTop: 6 }}>
-                                {testsLeft} de 10 testes restantes hoje
+                                {testsLeft} de 10 testes restantes hoje · FAQ fictícia, sem dados reais da academia
                             </div>
                         </div>
                         <button type="button" className="btn btn-outline" style={{ padding: '6px 12px', flexShrink: 0 }} onClick={handleClose} disabled={sending}>
@@ -897,36 +1001,15 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     const WaStatusIcon = waStatusVisual.Icon;
 
     const card1Connected = zap.waConnected;
-    const card1Style = card1Connected
-        ? {
-            ...cardBase,
-            border: '1px solid rgba(37, 211, 102, 0.3)',
-            background: 'rgba(37, 211, 102, 0.04)',
-        }
-        : {
-            ...cardBase,
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-        };
-
+    const card1Class = `agent-ia-card${card1Connected ? ' agent-ia-card--wa-connected' : ''}`;
     const card2Active = promptConfigurado && iaAtiva;
-    const card2Style = card2Active
-        ? {
-            ...cardBase,
-            border: '1px solid rgba(91, 63, 191, 0.3)',
-            background: 'rgba(91, 63, 191, 0.04)',
-        }
-        : {
-            ...cardBase,
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-        };
+    const card2Class = `agent-ia-card${card2Active ? ' agent-ia-card--assistant-active' : ''}`;
 
-    if (!canConfigure) {
+    if (!canViewAgent) {
         return (
             <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
                 <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-                    Apenas donos e membros da equipe podem configurar o Agente IA.
+                    Você não tem permissão para acessar o Agente IA nesta academia.
                 </div>
             </section>
         );
@@ -935,7 +1018,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Card 1 — WhatsApp */}
-            <div style={card1Style}>
+            <div className={card1Class}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: card1Connected ? 12 : 16, flexWrap: 'wrap' }}>
                     <Smartphone size={22} strokeWidth={1.75} color={card1Connected ? '#25D366' : 'var(--text-secondary)'} aria-hidden />
                     <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
@@ -1268,7 +1351,15 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
             </div>
 
             {/* Card 2 — Assistente */}
-            <div style={card2Style}>
+            <div className={card2Class}>
+                <p className="agent-ia-config-banner" role="note">
+                    Ambiente de configuração — nada aqui vai para alunos até ativar e conectar WhatsApp.
+                </p>
+                {!canEditPrompt && (
+                    <p className="agent-ia-limits-note">
+                        Modo leitura: apenas titular ou administrador pode editar instruções. Você pode testar o assistente.
+                    </p>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                     <Bot size={22} strokeWidth={1.75} color={card2Active ? 'var(--accent, #5b3fbf)' : 'var(--text-secondary)'} aria-hidden />
                     <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
@@ -1276,7 +1367,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     </span>
 
                     {/* Toggle só aparece quando configurado */}
-                    {promptConfigurado && (
+                    {promptConfigurado && canEditPrompt && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
                                 {iaAtiva ? 'Ligado' : 'Desligado'}
@@ -1286,7 +1377,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                 role="switch"
                                 aria-checked={iaAtiva}
                                 onClick={() => void handleToggleIa(!iaAtiva)}
-                                disabled={togglingIa}
+                                disabled={togglingIa || !canEditPrompt}
                                 className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
                                 title={iaAtiva ? 'Desativar assistente' : 'Ativar assistente'}
                             >
@@ -1300,7 +1391,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                     <div className="empresa-skeleton-block" style={{ height: 80 }} aria-busy="true" aria-label="Carregando configurações do assistente" />
                 ) : (
                     <>
-                        {showWizard && (
+                        {showWizard && canEditPrompt && (
                             <div style={{ marginTop: 12 }}>
                                 <AgenteChatSetup
                                     academyId={String(academyId || '')}
@@ -1323,7 +1414,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                             </div>
                         )}
 
-                        {showEditor && <EditorDePrompt />}
+                        {showEditor && canEditPrompt && <EditorDePrompt />}
 
                         {showTestChat && <ChatDeTeste />}
 
@@ -1341,7 +1432,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     onClick={() => {
                                         setShowWizard(true);
                                     }}
-                                    disabled={!canConfigure}
+                                    disabled={!canEditPrompt}
                                 >
                                     Configurar assistente
                                 </button>
@@ -1365,19 +1456,36 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     </div>
 
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                            disabled={loadingPrompt || savingPrompt}
-                                            onClick={() => {
-                                                setEditIntro(promptIntro);
-                                                setEditBody(promptBody);
-                                                setShowEditor(true);
-                                            }}
-                                        >
-                                            Editar prompt
-                                        </button>
+                                        {canEditPrompt && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    style={{ padding: '6px 12px', minHeight: 34 }}
+                                                    disabled={loadingPrompt || savingPrompt}
+                                                    onClick={() => {
+                                                        setEditIntro(promptIntro);
+                                                        setEditBody(promptBody);
+                                                        setShowWizard(false);
+                                                        setShowEditor(true);
+                                                    }}
+                                                >
+                                                    Editar sem wizard
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                                    disabled={loadingPrompt}
+                                                    onClick={() => {
+                                                        setShowWizard(true);
+                                                        setShowEditor(false);
+                                                    }}
+                                                >
+                                                    Reconfigurar (wizard)
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             type="button"
                                             className="btn btn-outline"
@@ -1386,17 +1494,6 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                             onClick={() => setShowTestChat(true)}
                                         >
                                             Testar assistente
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                            disabled={loadingPrompt}
-                                            onClick={() => {
-                                                setShowWizard(true);
-                                            }}
-                                        >
-                                            Reconfigurar
                                         </button>
                                     </div>
                                 </div>
@@ -1439,19 +1536,36 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                     </div>
 
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                            disabled={loadingPrompt}
-                                            onClick={() => {
-                                                setEditIntro(promptIntro);
-                                                setEditBody(promptBody);
-                                                setShowEditor(true);
-                                            }}
-                                        >
-                                            Editar prompt
-                                        </button>
+                                        {canEditPrompt && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    style={{ padding: '6px 12px', minHeight: 34 }}
+                                                    disabled={loadingPrompt}
+                                                    onClick={() => {
+                                                        setEditIntro(promptIntro);
+                                                        setEditBody(promptBody);
+                                                        setShowWizard(false);
+                                                        setShowEditor(true);
+                                                    }}
+                                                >
+                                                    Editar sem wizard
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline"
+                                                    style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                                                    disabled={loadingPrompt}
+                                                    onClick={() => {
+                                                        setShowWizard(true);
+                                                        setShowEditor(false);
+                                                    }}
+                                                >
+                                                    Reconfigurar (wizard)
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             type="button"
                                             className="btn btn-outline"
@@ -1460,15 +1574,6 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                             onClick={() => setShowTestChat(true)}
                                         >
                                             Testar assistente
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{ padding: '6px 12px', minHeight: 34, color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                                            disabled={loadingPrompt}
-                                            onClick={() => setShowWizard(true)}
-                                        >
-                                            Reconfigurar
                                         </button>
                                     </div>
                                 </div>

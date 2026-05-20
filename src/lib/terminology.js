@@ -78,8 +78,8 @@ export const TERMS = {
     matriculaModalTitle: 'Matricular aluno',
     matriculaModalSubtitle: 'Como deseja registrar a matrícula?',
     matriculaModalSimpleCta: 'Só matricular',
-    reportsDrillConvertedTitle: 'Matrículas no período',
-    reportsMetricConvertedShort: 'Matrículas',
+    reportsDrillConvertedTitle: 'Novos alunos no período',
+    reportsMetricConvertedShort: 'Novos alunos',
     reportsExportConvertedFileSlug: 'matriculas',
     reportsClosureRateInsight:
       '{converted} de {completed} que compareceram se matricularam',

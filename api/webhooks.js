@@ -1,14 +1,23 @@
+/**
+ * Webhooks externos.
+ * Asaas = assinatura do Nave (plano da academia); mensalidades de alunos = Appwrite student_payments
+ * sem integração Asaas.
+ */
 import { timingSafeEqual } from 'crypto';
-import { waitUntil } from '@vercel/functions';
 import { isBillingApiLive } from '../lib/server/billingApiEnabled.js';
 import { processAsaasWebhookPayload } from '../lib/billing/webhookHandlers.js';
 import { processAutentiqueWebhook } from '../lib/contracts/autentiqueWebhookHandler.js';
+import { runWebhookJobWithRetry } from '../lib/server/webhookQueue.js';
 
 export const config = {
   api: {
     bodyParser: false,
   },
 };
+
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_PER_IP = Number(process.env.ASAAS_WEBHOOK_RATE_LIMIT_PER_MIN) || 120;
+const rateBuckets = new Map();
 
 function safeCompare(a, b) {
   try {
@@ -19,6 +28,23 @@ function safeCompare(a, b) {
   } catch {
     return false;
   }
+}
+
+function clientIp(req) {
+  const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return fwd || String(req.socket?.remoteAddress || 'unknown');
+}
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const row = rateBuckets.get(ip) || { count: 0, resetAt: now + RATE_WINDOW_MS };
+  if (now > row.resetAt) {
+    row.count = 0;
+    row.resetAt = now + RATE_WINDOW_MS;
+  }
+  row.count += 1;
+  rateBuckets.set(ip, row);
+  return row.count > RATE_MAX_PER_IP;
 }
 
 async function readRawBody(req) {
@@ -43,6 +69,12 @@ async function handleAsaas(req, res) {
     return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
   }
 
+  const ip = clientIp(req);
+  if (isRateLimited(ip)) {
+    console.warn(JSON.stringify({ event: 'asaas_webhook_rejected', reason: 'rate_limit', ip }));
+    return res.status(429).json({ ok: false, error: 'rate_limit' });
+  }
+
   const expected = String(process.env.ASAAS_WEBHOOK_SECRET || '').trim();
   if (!expected) {
     console.error('[asaas webhook] ASAAS_WEBHOOK_SECRET não configurado');
@@ -55,6 +87,14 @@ async function handleAsaas(req, res) {
   const provided = headerToken || qToken;
 
   if (!safeCompare(provided, expected)) {
+    console.warn(
+      JSON.stringify({
+        event: 'asaas_webhook_rejected',
+        reason: 'invalid_token',
+        ip,
+        has_header: Boolean(headerToken),
+      })
+    );
     return res.status(401).json({ ok: false, error: 'invalid_token' });
   }
 
@@ -75,17 +115,13 @@ async function handleAsaas(req, res) {
     return res.status(200).json({ ok: true, received: true, billing_disabled: true });
   }
 
-  waitUntil(
-    (async () => {
-      try {
-        await processAsaasWebhookPayload(body);
-      } catch (e) {
-        console.error('[asaas webhook] process', e);
-      }
-    })()
-  );
-
-  return res.status(200).json({ ok: true, received: true });
+  try {
+    await runWebhookJobWithRetry('asaas', body, () => processAsaasWebhookPayload(body));
+    return res.status(200).json({ ok: true, received: true, processed: true });
+  } catch (e) {
+    console.error('[asaas webhook] process failed after retries', e);
+    return res.status(200).json({ ok: true, received: true, queued_dead_letter: true });
+  }
 }
 
 async function handleAutentique(req, res) {

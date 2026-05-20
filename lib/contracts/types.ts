@@ -17,6 +17,8 @@ export interface ContractCreateInput {
   lead_id?: string;
   template_id?: string;
   signers_links?: string;
+  expires_at?: string;
+  meta_status?: string;
 }
 
 export interface SignerSaveInput {
@@ -44,6 +46,9 @@ export interface ContractRecord {
   updatedAt: string | null;
   signersTotal?: number;
   signersSigned?: number;
+  signersViewed?: number;
+  expiresAt?: string | null;
+  metaStatus?: string | null;
 }
 
 export interface ContractEventRecord {
@@ -76,7 +81,7 @@ export interface ContractWithSigners extends ContractRecord {
 }
 
 export interface ListContractsFilters {
-  /** Status de exibição (pending, partial, completed, cancelled) */
+  /** Status de exibição: sent, viewed, signed, expired, cancelled */
   display_status?: string;
   page?: number;
   limit?: number;
@@ -98,6 +103,7 @@ export interface SignContractData {
   academy_id?: string;
   lead_id?: string;
   template_id?: string;
+  expires_at?: string;
 }
 
 export interface SignContractResult {

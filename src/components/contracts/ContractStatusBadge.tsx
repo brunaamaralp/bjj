@@ -1,17 +1,18 @@
 import React from 'react';
-import type { ContractDisplayStatus } from '../../features/contracts/types.js';
+import type { ContractDisplayStatus } from '../../features/contracts/status.js';
 import { CONTRACT_STATUS_LABELS, signerStatusLabel } from '../../features/contracts/status.js';
 
 const CLASS_MAP: Record<ContractDisplayStatus, string> = {
-  pending: 'contract-badge contract-badge--pending',
-  completed: 'contract-badge contract-badge--completed',
+  sent: 'contract-badge contract-badge--pending',
+  viewed: 'contract-badge contract-badge--partial',
+  signed: 'contract-badge contract-badge--completed',
+  expired: 'contract-badge contract-badge--expired',
   cancelled: 'contract-badge contract-badge--cancelled',
-  partial: 'contract-badge contract-badge--partial',
 };
 
 export default function ContractStatusBadge({ status }: { status: ContractDisplayStatus }) {
   return (
-    <span className={CLASS_MAP[status] || CLASS_MAP.pending}>
+    <span className={CLASS_MAP[status] || CLASS_MAP.sent}>
       {CONTRACT_STATUS_LABELS[status] || status}
     </span>
   );

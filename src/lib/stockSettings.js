@@ -31,6 +31,11 @@ export function readStockPurchaseExpenseCategory(settings) {
   return cat || DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY;
 }
 
+export function readStockSaleIncomeCategory(settings) {
+  const cat = String(settings?.stockSaleIncomeCategory || '').trim();
+  return cat || 'Vendas — produtos';
+}
+
 /** Verdadeiro quando a academia já salvou pelo menos um campo de estoque em settings. */
 export function stockSettingsHasPersistedData(settings) {
   const s = parseAcademySettings(settings);
@@ -40,9 +45,14 @@ export function stockSettingsHasPersistedData(settings) {
   );
 }
 
-export function mergeStockCheckIntoSettings(settings, stockCheckSchedule, stockPurchaseExpenseCategory) {
+export function mergeStockCheckIntoSettings(
+  settings,
+  stockCheckSchedule,
+  stockPurchaseExpenseCategory,
+  stockSaleIncomeCategory
+) {
   const base = parseAcademySettings(settings);
-  return {
+  const merged = {
     ...base,
     stockCheckSchedule: {
       enabled: stockCheckSchedule.enabled === true,
@@ -52,6 +62,11 @@ export function mergeStockCheckIntoSettings(settings, stockCheckSchedule, stockP
     stockPurchaseExpenseCategory:
       String(stockPurchaseExpenseCategory || '').trim() || DEFAULT_STOCK_PURCHASE_EXPENSE_CATEGORY,
   };
+  if (stockSaleIncomeCategory != null) {
+    merged.stockSaleIncomeCategory =
+      String(stockSaleIncomeCategory || '').trim() || readStockSaleIncomeCategory(base);
+  }
+  return merged;
 }
 
 export function academyHasInventoryModule(academyDoc) {

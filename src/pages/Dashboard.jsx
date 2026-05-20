@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Query } from 'appwrite';
 import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, DoorOpen } from 'lucide-react';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
@@ -59,6 +60,12 @@ const Dashboard = () => {
         zapster_instance_id: '',
         templates: DEFAULT_WHATSAPP_TEMPLATES
     });
+    const {
+        templates: dashWaTemplates,
+        academyName: dashWaName,
+        zapsterInstanceId: dashWaZap,
+        error: dashWaError,
+    } = useWhatsappTemplates(academyId);
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
     const [nlOpen, setNlOpen] = useState(false);
@@ -154,35 +161,26 @@ const Dashboard = () => {
     }, [academyId, fetchLeads]);
 
     useEffect(() => {
+        if (!dashWaTemplates) return;
+        setAcademyWaLoadFailed(Boolean(dashWaError));
+        setAcademyWa({
+            name: dashWaName || '',
+            zapster_instance_id: dashWaZap || '',
+            templates: dashWaTemplates,
+        });
+    }, [dashWaTemplates, dashWaName, dashWaZap, dashWaError]);
+
+    useEffect(() => {
         if (!academyId) return;
         let cancelled = false;
-        setAcademyWaLoadFailed(false);
         databases
             .getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then((doc) => {
                 if (cancelled) return;
-                let parsed = {};
-                try {
-                    const raw = doc.whatsappTemplates;
-                    const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
-                    if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p;
-                } catch {
-                    parsed = {};
-                }
-                setAcademyWaLoadFailed(false);
-                setAcademyWa({
-                    name: String(doc?.name || '').trim(),
-                    zapster_instance_id: String(doc?.zapster_instance_id || '').trim(),
-                    templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...parsed }
-                });
                 setDashboardQuickTimes(getAcademyQuickTimeChipValues(doc));
             })
             .catch(() => {
-                if (!cancelled) {
-                    setAcademyWaLoadFailed(true);
-                    setAcademyWa({ name: '', zapster_instance_id: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
-                    setDashboardQuickTimes(getAcademyQuickTimeChipValues(null));
-                }
+                if (!cancelled) setDashboardQuickTimes(getAcademyQuickTimeChipValues(null));
             });
         return () => {
             cancelled = true;

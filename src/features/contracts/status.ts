@@ -1,21 +1,43 @@
-import type { ContractDisplayStatus } from './types.js';
+import type { ContractDisplayStatus } from '../../../lib/contracts/displayStatus.js';
+import type { ContractRecord } from '../../../lib/contracts/types.js';
+import { mapContractDisplayStatus } from '../../../lib/contracts/displayStatus.js';
 
-export { mapContractDisplayStatus } from '../../../lib/contracts/displayStatus.js';
+export type { ContractDisplayStatus };
+export { mapContractDisplayStatus, mapLegacyDisplayStatus } from '../../../lib/contracts/displayStatus.js';
 
 export const CONTRACT_STATUS_LABELS: Record<ContractDisplayStatus, string> = {
-  pending: 'Pendente',
-  completed: 'Concluído',
+  sent: 'Enviado',
+  viewed: 'Visualizado',
+  signed: 'Assinado',
+  expired: 'Expirado',
   cancelled: 'Cancelado',
-  partial: 'Parcial',
 };
 
 export const CONTRACT_STATUS_FILTER_OPTIONS: Array<{ id: 'all' | ContractDisplayStatus; label: string }> = [
   { id: 'all', label: 'Todos' },
-  { id: 'pending', label: 'Pendente' },
-  { id: 'partial', label: 'Parcial' },
-  { id: 'completed', label: 'Concluído' },
+  { id: 'sent', label: 'Enviado' },
+  { id: 'viewed', label: 'Visualizado' },
+  { id: 'signed', label: 'Assinado' },
+  { id: 'expired', label: 'Expirado' },
   { id: 'cancelled', label: 'Cancelado' },
 ];
+
+export function contractDisplayContext(c: ContractRecord) {
+  return {
+    signersViewed: c.signersViewed ?? 0,
+    expiresAt: c.expiresAt ?? null,
+    metaStatus: c.metaStatus ?? null,
+  };
+}
+
+export function mapContractDisplayStatusForRecord(c: ContractRecord): ContractDisplayStatus {
+  return mapContractDisplayStatus(
+    c.status,
+    c.signersSigned ?? 0,
+    c.signersTotal ?? 0,
+    contractDisplayContext(c)
+  );
+}
 
 export function signerStatusLabel(status: string): string {
   const s = String(status || '').toLowerCase();
@@ -34,6 +56,25 @@ export function signerStatusLabel(status: string): string {
     biometric_reset: 'Biometria reiniciada',
   };
   return map[s] || status || '—';
+}
+
+export function contractHeaderChipLabel(
+  displayStatus: ContractDisplayStatus,
+  signedAt?: string | null
+): string {
+  if (displayStatus === 'signed') {
+    if (signedAt) {
+      const d = new Date(signedAt);
+      if (!Number.isNaN(d.getTime())) {
+        return `Assinado em ${d.toLocaleDateString('pt-BR')}`;
+      }
+    }
+    return 'Assinado';
+  }
+  if (displayStatus === 'viewed') return 'Assinatura: visualizado';
+  if (displayStatus === 'expired') return 'Assinatura: expirada';
+  if (displayStatus === 'cancelled') return 'Assinatura: cancelada';
+  return 'Assinatura: aguardando';
 }
 
 export function eventTypeLabel(eventType: string): string {

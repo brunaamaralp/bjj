@@ -1,15 +1,25 @@
 import React, { useMemo } from 'react';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
+import { buildReguaStageTooltip } from '../../lib/collectionRules.js';
 
 export default function MensalidadesStatusFilter({
   filter,
   onFilterChange,
   filterCounts,
   reguaFilterChips,
+  collectionRules,
   overdueLabelName,
   overdueLabelCount,
   overdueLabelId,
 }) {
+  const rulesByDay = useMemo(() => {
+    const map = new Map();
+    for (const r of collectionRules || []) {
+      map.set(Number(r.day), r);
+    }
+    return map;
+  }, [collectionRules]);
+
   const primaryOptions = useMemo(
     () => [
       { id: 'all', label: 'Todos', count: filterCounts.all },
@@ -24,17 +34,25 @@ export default function MensalidadesStatusFilter({
   );
 
   const extraSections = useMemo(() => {
-    const reguaOptions = [...(reguaFilterChips || [])];
+    const reguaOptions = [...(reguaFilterChips || [])].map((chip) => {
+      const day = Number(String(chip.id || '').replace('regua_', ''));
+      const rule = rulesByDay.get(day);
+      return {
+        ...chip,
+        title: rule ? buildReguaStageTooltip(rule) : `Etapa D+${day} da régua de cobrança`,
+      };
+    });
     if (overdueLabelId) {
       reguaOptions.push({
         id: 'overdue_label',
         label: overdueLabelName,
         count: overdueLabelCount,
+        title: 'Alunos com a etiqueta de inadimplência aplicada pelo cron (D+1+).',
       });
     }
     if (!reguaOptions.length) return [];
     return [{ label: 'Régua de cobrança', options: reguaOptions }];
-  }, [reguaFilterChips, overdueLabelId, overdueLabelName, overdueLabelCount]);
+  }, [reguaFilterChips, rulesByDay, overdueLabelId, overdueLabelName, overdueLabelCount]);
 
   return (
     <CompactStatusFilter

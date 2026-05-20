@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
-import { getThreadHandoffBanner } from '../../lib/inboxHandoffPresentation.js';
+import { getThreadHandoffBanner, getThreadHandoffPill } from '../../lib/inboxHandoffPresentation.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import {
   WHATSAPP_TEMPLATE_LABELS,
   applyWhatsappTemplatePlaceholders,
 } from '../../lib/whatsappTemplateDefaults.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
@@ -28,7 +29,7 @@ const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
 const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
 
 function readMinhaFilaFromStorage() {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   try {
     const v = window.localStorage.getItem(MINHA_FILA_STORAGE_KEY);
     if (v === null) return false;
@@ -227,9 +228,10 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
 
-  const [listFilter, setListFilter] = useState('all');
+  const [listFilter, setListFilter] = useState('needs_me');
   const [minhaFilaOn, setMinhaFilaOn] = useState(() => readMinhaFilaFromStorage());
-  const listFilterRef = useRef('all');
+  const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
+  const listFilterRef = useRef('needs_me');
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const listExtraFiltersRef = useRef(null);
@@ -263,8 +265,8 @@ export default function Inbox() {
       return false;
     }
   });
-  const [academyNameForTemplates, setAcademyNameForTemplates] = useState('');
-  const [whatsappTemplatesObj, setWhatsappTemplatesObj] = useState(null);
+  const { templates: whatsappTemplatesHook, academyName: academyNameForTemplates } = useWhatsappTemplates(academyId);
+  const whatsappTemplatesObj = whatsappTemplatesHook || null;
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadPaging, setThreadPaging] = useState(false);
   const [threadCursor, setThreadCursor] = useState(null);
@@ -302,45 +304,6 @@ export default function Inbox() {
       window.removeEventListener('keydown', onKey);
     };
   }, [imageLightboxUrl]);
-
-  useEffect(() => {
-    if (!academyId) {
-      setAcademyNameForTemplates('');
-      setWhatsappTemplatesObj(null);
-      return;
-    }
-    let cancelled = false;
-    databases
-      .getDocument(DB_ID, ACADEMIES_COL, academyId)
-      .then((doc) => {
-        if (cancelled) return;
-        setAcademyNameForTemplates(String(doc?.name || '').trim());
-        try {
-          const w = doc.whatsappTemplates;
-          const parsed = typeof w === 'string' ? JSON.parse(w) : w;
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            const strOnly = {};
-            for (const [k, v] of Object.entries(parsed)) {
-              if (typeof v === 'string' && String(v).trim()) strOnly[k] = v;
-            }
-            setWhatsappTemplatesObj(Object.keys(strOnly).length ? strOnly : null);
-          } else {
-            setWhatsappTemplatesObj(null);
-          }
-        } catch {
-          setWhatsappTemplatesObj(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAcademyNameForTemplates('');
-          setWhatsappTemplatesObj(null);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [academyId]);
 
   const quickTemplates = useMemo(() => {
     const raw = whatsappTemplatesObj;
@@ -489,7 +452,7 @@ export default function Inbox() {
   }, [minhaFilaOn]);
 
   useEffect(() => {
-    if (listFilter === 'my_queue') setListFilter('unread');
+    if (listFilter === 'my_queue') setListFilter('needs_me');
   }, [listFilter]);
 
   useEffect(() => {
@@ -1111,6 +1074,10 @@ export default function Inbox() {
     }
   }
 
+  /**
+   * Marca conversa como lida: unread_count é a fonte do badge na lista (zera só após POST read OK).
+   * Notificação desktop usa last_user_msg_at separadamente — não confundir com o contador.
+   */
   async function markSeen(phone, { notifySuccess = false } = {}) {
     const p = String(phone || '').trim();
     if (!p) return;
@@ -1697,19 +1664,38 @@ export default function Inbox() {
     };
   }, []);
 
-  /** Fallback: Realtime pode não entregar eventos (SDK/protocolo, permissões ou payload). */
+  /** Fallback poll: 60s com Realtime ok; backoff quando aba inativa (visibilitychange). */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!DB_ID || !CONVERSATIONS_COL) return;
-    const POLL_MS = 28000;
-    const tick = () => {
-      if (!academyIdRef.current) return;
-      const fn = loadListRef.current;
-      if (typeof fn === 'function') void fn({ reset: true, silent: true });
+    let hidden = document.visibilityState === 'hidden';
+    let delayMs = realtimeOn ? 60000 : 28000;
+    let timer = null;
+    const schedule = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        if (!academyIdRef.current) {
+          schedule();
+          return;
+        }
+        const fn = loadListRef.current;
+        if (typeof fn === 'function') await fn({ reset: true, silent: true });
+        delayMs = hidden ? Math.min(delayMs * 2, 300000) : realtimeOn ? 60000 : 28000;
+        schedule();
+      }, delayMs);
     };
-    const id = window.setInterval(tick, POLL_MS);
-    return () => window.clearInterval(id);
-  }, []);
+    const onVis = () => {
+      hidden = document.visibilityState === 'hidden';
+      if (!hidden) delayMs = realtimeOn ? 60000 : 28000;
+      schedule();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    schedule();
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [realtimeOn]);
 
   async function setHandoffActive(ativo, { silent = false } = {}) {
     const phone = String(selectedPhoneRef.current || '').trim();
@@ -1753,9 +1739,10 @@ export default function Inbox() {
       if (!silent) {
         addToast({
           type: 'success',
-          message: ativo ? 'Você assumiu o atendimento' : 'IA reativada',
+          message: ativo ? 'Você assumiu esta conversa' : 'IA reativada',
         });
       }
+      if (!ativo) setHandoffReleaseHint(false);
       return true;
     } catch (e) {
       if (!silent) setError(friendlyError(e, 'load'));
@@ -1798,7 +1785,7 @@ export default function Inbox() {
       }
       const shouldAssume = !selected?.need_human;
       if (shouldAssume) {
-        await setHandoffActive(true, { silent: true });
+        await setHandoffActive(true);
       }
       const jwt = await getJwt();
       const resp = await fetch('/api/whatsapp?action=send', {
@@ -2405,7 +2392,7 @@ export default function Inbox() {
       });
     };
 
-    if (minhaFilaOn) {
+    if (minhaFilaOn || listFilter === 'needs_me') {
       return applyLabel(arr.filter((it) => Boolean(it?._handoffActive) && unreadN(it) > 0));
     }
 
@@ -2761,13 +2748,22 @@ export default function Inbox() {
       }
 
       const role = m?.role === 'assistant' ? 'assistant' : 'user';
-      const mine = role === 'assistant';
       const senderKind = senderKindFromMessage(m);
+      const bubbleKind =
+        role === 'assistant' ? (senderKind === 'human' ? 'human' : 'ai') : 'user';
+      const alignEnd = bubbleKind !== 'user';
       const key = messageKey(m);
       const gapOk = ms && lastTs ? ms - lastTs <= 2 * 60 * 1000 : false;
-      const canAppend = group && group.mine === mine && group.senderKind === senderKind && gapOk;
+      const canAppend = group && group.bubbleKind === bubbleKind && gapOk;
       if (!canAppend) {
-        group = { type: 'group', id: `${out.length}-${mine ? 'me' : 'them'}-${senderKind}`, mine, senderKind, items: [] };
+        group = {
+          type: 'group',
+          id: `${out.length}-${bubbleKind}`,
+          bubbleKind,
+          alignEnd,
+          senderKind,
+          items: [],
+        };
         out.push(group);
       }
       group.items.push({ key, m });
@@ -2915,6 +2911,18 @@ export default function Inbox() {
           WebkitOverflowScrolling: 'touch'
         }}
       >
+        <button
+          type="button"
+          className={!minhaFilaOn && listFilter === 'needs_me' ? 'btn btn-primary' : 'btn btn-outline'}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34, fontWeight: 700 }}
+          onClick={() => {
+            setMinhaFilaOn(false);
+            setListFilter('needs_me');
+          }}
+          title="Handoff ativo com mensagens não lidas"
+        >
+          Precisa de mim
+        </button>
         <button
           type="button"
           className={!minhaFilaOn && listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
@@ -3122,6 +3130,8 @@ export default function Inbox() {
             setConversationSheet({ item: it });
           }}
           handoffNowMs={nowMs}
+          listFilter={listFilter}
+          minhaFilaOn={minhaFilaOn}
         />
       </div>
     </div>
@@ -3217,29 +3227,54 @@ export default function Inbox() {
               })()}
             </div>
             {(() => {
+              const pill = getThreadHandoffPill({
+                needHuman: Boolean(selected?.need_human),
+                humanHandoffUntil: selected?.human_handoff_until,
+                nowMs,
+              });
               const banner = getThreadHandoffBanner({
                 needHuman: Boolean(selected?.need_human),
                 humanHandoffUntil: selected?.human_handoff_until,
-                nowMs
+                nowMs,
               });
               return (
-                <div
-                  role="status"
-                  style={{
-                    marginTop: 8,
-                    padding: '8px 12px',
-                    fontSize: 'var(--inbox-font-secondary)',
-                    lineHeight: 1.35,
-                    width: '100%',
-                    maxWidth: '100%',
-                    boxSizing: 'border-box',
-                    borderRadius: 8,
-                    background: banner.bg,
-                    color: banner.color
-                  }}
-                >
-                  {banner.text}
-                </div>
+                <>
+                  <span
+                    role="status"
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 8,
+                      padding: '4px 10px',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      borderRadius: 999,
+                      background: pill.bg,
+                      color: pill.color,
+                      border: pill.border,
+                    }}
+                  >
+                    {pill.label}
+                  </span>
+                  <div
+                    role="status"
+                    style={{
+                      marginTop: 8,
+                      padding: '8px 12px',
+                      fontSize: 'var(--inbox-font-secondary)',
+                      lineHeight: 1.35,
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: 8,
+                      background: handoffReleaseHint ? 'var(--v50, #EEEDFE)' : banner.bg,
+                      color: handoffReleaseHint ? 'var(--v700, #534AB7)' : banner.color,
+                    }}
+                  >
+                    {handoffReleaseHint
+                      ? 'A IA voltará a responder automaticamente'
+                      : banner.text}
+                  </div>
+                </>
               );
             })()}
             {!selected?.lead_id && (
@@ -3395,7 +3430,10 @@ export default function Inbox() {
             <button
               className="btn btn-primary"
               style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => setHandoffActive(false)}
+              onClick={() => {
+                setHandoffReleaseHint(true);
+                void setHandoffActive(false);
+              }}
               disabled={!selectedPhone}
               type="button"
               title="Reativa o agente agora"
@@ -3479,18 +3517,39 @@ export default function Inbox() {
               );
             }
             const g = b;
+            const bubbleStyle =
+              g.bubbleKind === 'human'
+                ? {
+                    background: '#FFFBEB',
+                    border: '1px solid #FCD34D',
+                  }
+                : g.bubbleKind === 'ai'
+                  ? {
+                      background: 'var(--surface)',
+                      border: '1px solid var(--v200, #DDD6FE)',
+                    }
+                  : {
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                    };
             return (
-              <div key={g.id} style={{ display: 'flex', justifyContent: g.mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
+              <div
+                key={g.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: g.alignEnd ? 'flex-end' : 'flex-start',
+                  marginBottom: 10,
+                }}
+              >
                 <div
-                  className={`inbox-bubble ${g.mine ? 'mine' : 'theirs'}`}
+                  className={`inbox-bubble inbox-bubble--${g.bubbleKind || 'user'}`}
                   style={{
                     maxWidth: '72%',
                     width: 'fit-content',
                     padding: '10px 12px',
                     borderRadius: 14,
-                    background: g.mine ? 'var(--accent-light)' : 'var(--surface)',
-                    border: `1px solid ${g.mine ? 'rgba(91, 63, 191, 0.22)' : 'var(--border)'}`,
-                    boxShadow: 'var(--shadow-sm)'
+                    boxShadow: 'var(--shadow-sm)',
+                    ...bubbleStyle,
                   }}
                 >
                   {g.items.map(({ key, m }, idx) => {
@@ -3525,12 +3584,26 @@ export default function Inbox() {
                         style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 10 }}
                         onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
                       >
-                        {idx === 0 && g.mine && (
+                        {idx === 0 && g.bubbleKind !== 'user' && (
                           <div
                             className="inbox-msg-sender-label"
-                            style={{ color: senderKind === 'ai' ? 'var(--accent)' : 'var(--text-secondary)' }}
+                            style={{
+                              color:
+                                g.bubbleKind === 'ai'
+                                  ? 'var(--v700, #534AB7)'
+                                  : '#B45309',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
                           >
-                            {senderKind === 'ai' ? 'Agente IA' : 'Você'}
+                            {g.bubbleKind === 'ai' ? (
+                              <>
+                                <Sparkles size={12} aria-hidden /> Agente IA
+                              </>
+                            ) : (
+                              'Você'
+                            )}
                           </div>
                         )}
                         {showAudioPlayer ? (
