@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MessageCircle, Handshake, Clock } from 'lucide-react';
 import { useTaskStore } from '../../store/useTaskStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
+import { useLeadStore } from '../../store/useLeadStore.js';
 import { apiSnoozeCollectionRegua } from '../../lib/studentPaymentsApi.js';
 import { buildCollectionTaskTitle, buildCollectionTaskDescription } from '../../lib/collectionRules.js';
 import { formatBRL } from '../../lib/moneyBr.js';
@@ -78,7 +79,8 @@ export default function CollectionInadimplenciaPanel({
   const handleSnooze = async (studentId) => {
     setBusyId(studentId);
     try {
-      await apiSnoozeCollectionRegua(studentId, currentMonth);
+      const academyId = useLeadStore.getState().academyId;
+      await apiSnoozeCollectionRegua(studentId, currentMonth, academyId);
       addToast({
         type: 'success',
         message: 'Régua adiada para este aluno até o fim do mês — o cron não criará novas tarefas.',

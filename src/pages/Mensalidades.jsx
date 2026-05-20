@@ -698,7 +698,7 @@ export default function Mensalidades() {
     const previousPayments = payments;
     setPayments((prev) => prev.map((p) => (p.$id === id ? { ...p, status: 'cancelled' } : p)));
     try {
-      await updatePayment(id, { status: 'cancelled' });
+      await updatePayment(id, { status: 'cancelled', academy_id: payment.academy_id });
       const txId = String(payment?.financial_tx_id || '').trim();
       if (txId && FINANCIAL_TX_COL) {
         databases

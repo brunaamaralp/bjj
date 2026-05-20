@@ -1,4 +1,4 @@
-import { LEAD_STATUS } from '../store/useLeadStore.js';
+import { LEAD_STATUS } from './leadStatus.js';
 import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';

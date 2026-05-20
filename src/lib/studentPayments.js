@@ -489,6 +489,7 @@ export async function getMonthlyPayments(academyId, referenceMonth, opts = {}) {
         referenceMonth: ym,
         page,
         limit: pageSize,
+        academyId,
       });
       all = all.concat(batch);
       if (batch.length < pageSize) break;

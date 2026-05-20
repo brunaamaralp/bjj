@@ -189,7 +189,9 @@ export const useLeadStore = create(
         financeConfig: null,
         financeConfigAcademyId: null,
       });
-      void import('./useStudentStore.js').then((m) => m.useStudentStore.getState().resetForAcademyChange());
+      if (typeof window !== 'undefined' && window.useStudentStore?.getState) {
+        window.useStudentStore.getState().resetForAcademyChange();
+      }
       // Notificar store de contabilidade (se existir)
       if (typeof window !== 'undefined' && window.useAccountingStore?.getState()?.loadByAcademy) {
         window.useAccountingStore.getState().loadByAcademy(id);
@@ -208,7 +210,9 @@ export const useLeadStore = create(
          financeConfig: null,
          financeConfigAcademyId: null,
        });
-      void import('./useStudentStore.js').then((m) => m.useStudentStore.getState().resetForAcademyChange());
+      if (typeof window !== 'undefined' && window.useStudentStore?.getState) {
+        window.useStudentStore.getState().resetForAcademyChange();
+      }
     }
   },
   setBillingAccess: (v) => set({ billingAccess: v && typeof v === 'object' ? v : null }),
