@@ -116,12 +116,28 @@ const Dashboard = () => {
     }, [academyList, academyId]);
 
     useEffect(() => {
-        if (!academyId) return;
+        if (!academyId) return undefined;
         const STALE_MS = 5 * 60 * 1000;
         if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) {
-            return;
+            return () => {
+                const { loading } = useLeadStore.getState();
+                if (loading) {
+                    useLeadStore.setState({ loading: false });
+                }
+            };
         }
+        console.debug('[Dashboard] fetchLeads iniciado', {
+            loading: useLeadStore.getState().loading,
+            leadsLength: leads.length,
+            leadsLastFetchedAt,
+        });
         void fetchLeads({ reset: true });
+        return () => {
+            const { loading } = useLeadStore.getState();
+            if (loading) {
+                useLeadStore.setState({ loading: false });
+            }
+        };
     }, [academyId, leads.length, leadsLastFetchedAt, fetchLeads]);
 
     useEffect(() => {

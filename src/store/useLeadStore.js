@@ -268,10 +268,17 @@ export const useLeadStore = create(
     }
     const signal = externalSignal || (reset ? fetchLeadsAbortController?.signal : null);
 
+    const resetLoadingAfterAbort = () => {
+      set({ loading: false, loadingMore: false });
+      console.debug('[LeadStore] fetch abortado — loading resetado', { signal: signal?.aborted });
+    };
+
     if (reset) {
-      if (get().loading && !externalSignal) return;
-    } else {
-      if (get().loadingMore || !get().leadsHasMore || !get().leadsCursor) return;
+      set({ loading: false, leadsError: false });
+    } else if (get().loading) {
+      return;
+    } else if (get().loadingMore || !get().leadsHasMore || !get().leadsCursor) {
+      return;
     }
 
     if (reset) set({ loading: true, leadsError: false });
@@ -292,13 +299,19 @@ export const useLeadStore = create(
       }
 
       const response = await databases.listDocuments(DB_ID, LEADS_COL, queries);
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        resetLoadingAfterAbort();
+        return;
+      }
       const docs = response.documents || [];
       const leads = docs.map((doc) => mapAppwriteDocToLead(doc, operationalStatusSet));
       const lastId = docs.length ? docs[docs.length - 1].$id : null;
       const pageFull = docs.length === LEADS_PAGE_SIZE;
 
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        resetLoadingAfterAbort();
+        return;
+      }
 
       if (reset) {
         set((state) => {
@@ -335,21 +348,30 @@ export const useLeadStore = create(
         });
       }
 
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        resetLoadingAfterAbort();
+        return;
+      }
 
       if (leads.length > 0) {
         const firstLeadDone = Boolean(get().onboardingChecklist?.find((x) => x.id === 'first_lead')?.done);
         if (!firstLeadDone) {
           try {
             await get().completeOnboardingStepIds(['first_lead']);
-            if (signal?.aborted) return;
+            if (signal?.aborted) {
+              resetLoadingAfterAbort();
+              return;
+            }
           } catch (e) {
             console.warn('first_lead onboarding sync failed:', e?.message || e);
           }
         }
       }
     } catch (e) {
-      if (signal?.aborted) return;
+      if (e?.name === 'AbortError' || signal?.aborted) {
+        resetLoadingAfterAbort();
+        return;
+      }
       console.error('fetchLeads error:', e);
       set({ loading: false, loadingMore: false, leadsError: true });
     }
