@@ -15,6 +15,8 @@ import {
   shouldMirrorPaymentToCaixa,
   expectedAmountWithCardFee,
 } from './paymentStatus.js';
+import { applyAccountingSideEffectsAuto } from './financeJournal.js';
+import { FINANCE_CATEGORIES } from './financeCategories.js';
 import {
   PAYMENT_CATEGORY,
   normalizePaymentCategory,
@@ -169,12 +171,12 @@ async function syncFinancialTxMirror({
     );
     const base = mirrorGrossForPayment(status, paidAmt, expected);
     if (Number.isFinite(withFee) && withFee > base) {
-      gross = withFee;
       fee = Math.round((withFee - base) * 100) / 100;
     }
   }
 
   const net = Math.max(0, gross - fee);
+  const competenceMonth = refMonth && /^\d{4}-\d{2}$/.test(refMonth) ? refMonth : '';
   const paymentId = String(paymentDoc?.$id || data.id || '').trim();
   const now = new Date().toISOString();
 
@@ -184,7 +186,9 @@ async function syncFinancialTxMirror({
     lead_id: data.lead_id,
     method: data.method || 'pix',
     installments: Math.min(12, Math.max(1, Number(data.installments) || 1)),
-    type: 'plan',
+    type: FINANCE_CATEGORIES.MENSALIDADE.type,
+    category: FINANCE_CATEGORIES.MENSALIDADE.label,
+    competence_month: competenceMonth,
     planName: data.plan_name || data.note || '',
     gross,
     fee,
@@ -200,27 +204,64 @@ async function syncFinancialTxMirror({
     updated_at: now,
   };
 
+  const stripOptionalMirrorAttrs = (payload) => {
+    const p = { ...payload };
+    for (const key of ['lead_id', 'competence_month', 'category']) {
+      if (key in p) delete p[key];
+    }
+    return p;
+  };
+
   try {
+    let mirrorId = txId;
     if (txId) {
       const updated = await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, txId, mirrorPayload);
-      return updated.$id;
-    }
-    const mirror = permissions
-      ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload, permissions)
-      : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload);
-    return mirror.$id;
-  } catch (err) {
-    const msg = String(err?.message || '');
-    if (msg.includes('Unknown attribute')) {
-      delete mirrorPayload.lead_id;
-      if (txId) {
-        const updated = await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, txId, mirrorPayload);
-        return updated.$id;
-      }
+      mirrorId = updated.$id;
+    } else {
       const mirror = permissions
         ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload, permissions)
         : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload);
-      return mirror.$id;
+      mirrorId = mirror.$id;
+    }
+    applyAccountingSideEffectsAuto(
+      {
+        ...mirrorPayload,
+        id: mirrorId,
+        type: FINANCE_CATEGORIES.MENSALIDADE.type,
+        category: FINANCE_CATEGORIES.MENSALIDADE.label,
+      },
+      data.academy_id
+    );
+    return mirrorId;
+  } catch (err) {
+    const msg = String(err?.message || '');
+    if (msg.includes('Unknown attribute')) {
+      const lean = stripOptionalMirrorAttrs(mirrorPayload);
+      try {
+        let mirrorId = txId;
+        if (txId) {
+          const updated = await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, txId, lean);
+          mirrorId = updated.$id;
+        } else {
+          const mirror = permissions
+            ? await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), lean, permissions)
+            : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), lean);
+          mirrorId = mirror.$id;
+        }
+        applyAccountingSideEffectsAuto(
+          {
+            ...lean,
+            id: mirrorId,
+            type: FINANCE_CATEGORIES.MENSALIDADE.type,
+            category: FINANCE_CATEGORIES.MENSALIDADE.label,
+          },
+          data.academy_id
+        );
+        return mirrorId;
+      } catch (e2) {
+        console.error('financial_tx mirror failed:', e2);
+        return null;
+      }
     }
     console.error('financial_tx mirror failed:', err);
     return null;
@@ -437,19 +478,23 @@ export async function cancelBundleCoverageFromMonth({
   const refund = Number(refundAmount);
   if (FINANCIAL_TX_COL && Number.isFinite(refund) && refund > 0) {
     const permissions = buildPermissions({ registered_by, team_id: '' });
+    const refundSettledAt = new Date().toISOString();
     const mirrorPayload = {
       academyId: academy_id,
       saleId: '',
       lead_id,
       method: method || 'pix',
       installments: 1,
-      type: 'expense',
+      type: FINANCE_CATEGORIES.CANCELAMENTO.type,
+      category: FINANCE_CATEGORIES.CANCELAMENTO.label,
+      competence_month: from_reference_month?.slice(0, 7) || refundSettledAt.slice(0, 7),
       planName: note || `Estorno cobertura — ${from_reference_month}`,
       gross: refund,
       fee: 0,
       net: refund,
+      direction: 'out',
       status: 'settled',
-      settledAt: new Date().toISOString(),
+      settledAt: refundSettledAt,
       note: note || `Estorno parcial plano com cobertura`,
     };
     try {

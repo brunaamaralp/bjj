@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { fetchFinanceSummary } from '../lib/financeTxApi.js';
+import { getFinanceRegime } from '../lib/financeCompetence.js';
 import { useSearchParams } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
@@ -152,7 +153,12 @@ export default function Caixa() {
     if (!academyId) return;
     setSummaryLoading(true);
     try {
-      const s = await fetchFinanceSummary({ academyId, from: periodFrom, to: periodTo });
+      const s = await fetchFinanceSummary({
+        academyId,
+        from: periodFrom,
+        to: periodTo,
+        regime: getFinanceRegime(academyId),
+      });
       setPeriodBalance(s);
     } catch {
       setPeriodBalance(null);

@@ -7,6 +7,9 @@ import {
   roundMoney,
 } from "../salePayments.mjs";
 
+const CAT_VENDA = { type: "product", label: "Vendas de produtos" };
+const CAT_TROCO = { type: "expense_operational", label: "Outras despesas" };
+
 export default async function (req, res) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -60,21 +63,6 @@ export default async function (req, res) {
     if (!DB_ID || !STOCK_ITEMS_COL || !STOCK_MOVES_COL || !SALES_COL || !SALE_ITEMS_COL) {
       return res.json({ error: "missing_env" }, 500);
     }
-
-    async function resolveSaleIncomeCategory() {
-      const fallback = "Vendas — produtos";
-      if (!ACADEMIES_COL || !academy_id) return fallback;
-      try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academy_id);
-        const settings =
-          typeof doc.settings === "string" ? JSON.parse(doc.settings || "{}") : doc.settings || {};
-        return String(settings.stockSaleIncomeCategory || "").trim() || fallback;
-      } catch {
-        return fallback;
-      }
-    }
-
-    const saleIncomeCategory = await resolveSaleIncomeCategory();
 
     async function buildSaleDescription() {
       const parts = [];
@@ -132,8 +120,9 @@ export default async function (req, res) {
           lead_id: aluno_id || "",
           method: method || "pix",
           installments: 1,
-          type: "product",
-          planName: saleIncomeCategory,
+          type: CAT_VENDA.type,
+          category: CAT_VENDA.label,
+          planName: description,
           gross: totalVenda,
           fee: 0,
           net: totalVenda,
@@ -174,8 +163,9 @@ export default async function (req, res) {
             lead_id: aluno_id || "",
             method: p.forma,
             installments: 1,
-            type: "product",
-            planName: saleIncomeCategory,
+            type: CAT_VENDA.type,
+            category: CAT_VENDA.label,
+            planName: description,
             gross,
             fee: 0,
             net: gross,
@@ -212,7 +202,8 @@ export default async function (req, res) {
             lead_id: aluno_id || "",
             method: formaTroco,
             installments: 1,
-            type: "expense",
+            type: CAT_TROCO.type,
+            category: CAT_TROCO.label,
             planName: note,
             gross: troco,
             fee: 0,

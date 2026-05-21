@@ -18,12 +18,27 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
+import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
+import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
+import {
+  FINANCE_REGIME,
+  getFinanceRegime,
+  competenceMonthMissing,
+  currentCompetenceMonth,
+  txTemporalIso,
+} from '../../lib/financeCompetence.js';
+import {
+  FINANCE_CATEGORIES,
+  defaultCategoryForTxType,
+  getCategoryOptionsByNature,
+  resolveFinanceCategory,
+} from '../../lib/financeCategories.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 
-function formatTxDateStr(createdAt) {
-  const dt = new Date(createdAt);
+function formatTxDateStr(iso) {
+  const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return '—';
   return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
 }
@@ -38,12 +53,18 @@ function formatMoneyBRL(value) {
 }
 
 function getTxCategoryBadge(tx) {
-  const t = String(tx.type || '').toLowerCase();
-  if (t === 'plan') return { label: 'Plano', className: 'finance-tx-badge finance-tx-badge--plan' };
-  if (t === 'product') return { label: 'Produto', className: 'finance-tx-badge finance-tx-badge--product' };
-  if (t === 'expense') return { label: 'Despesa', className: 'finance-tx-badge finance-tx-badge--expense' };
-  if (t === 'other') return { label: 'Outro', className: 'finance-tx-badge finance-tx-badge--other' };
-  return null;
+  const label = String(tx.category || '').trim() || defaultCategoryForTxType(tx.type);
+  if (!label) return null;
+  const cat = resolveFinanceCategory(label);
+  const type = cat?.type || String(tx.type || '').toLowerCase();
+  let className = 'finance-tx-badge finance-tx-badge--other';
+  if (type === 'plan' || type === 'enrollment') className = 'finance-tx-badge finance-tx-badge--plan';
+  else if (type === 'product') className = 'finance-tx-badge finance-tx-badge--product';
+  else if (type === 'stock_purchase') className = 'finance-tx-badge finance-tx-badge--expense';
+  else if (type === 'expense' || type === 'expense_operational' || type === 'expense_financial' || type === 'card_fee') {
+    className = 'finance-tx-badge finance-tx-badge--expense';
+  }
+  return { label, className };
 }
 
 function getTxSubtitle(tx) {
@@ -86,6 +107,7 @@ export default function TransacoesTab({
   const [transactions, setTransactions] = useState([]);
   const [showTxModal, setShowTxModal] = useState(false);
   const [txForm, setTxForm] = useState({
+    direction: 'in',
     type: 'plan',
     planName: '',
     method: 'pix',
@@ -93,7 +115,9 @@ export default function TransacoesTab({
     fee: '',
     installments: 1,
     note: '',
-    lead_id: ''
+    lead_id: '',
+    competence_month: currentCompetenceMonth(),
+    category: FINANCE_CATEGORIES.MENSALIDADE.label,
   });
   const [savingTx, setSavingTx] = useState(false);
   const [receiveNow, setReceiveNow] = useState(false);
@@ -105,17 +129,30 @@ export default function TransacoesTab({
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
+  const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
+
+  useEffect(() => {
+    if (academyId) setRegime(getFinanceRegime(academyId));
+  }, [academyId]);
 
   const initialTxForm = () => ({
-    type: 'plan',
+    direction: 'in',
+    type: FINANCE_CATEGORIES.MENSALIDADE.type,
     planName: '',
     method: 'pix',
     gross: '',
     fee: '',
     installments: 1,
     note: '',
-    lead_id: ''
+    lead_id: '',
+    competence_month: currentCompetenceMonth(),
+    category: FINANCE_CATEGORIES.MENSALIDADE.label,
   });
+
+  const categoryOptionGroups = useMemo(
+    () => getCategoryOptionsByNature(txForm.direction === 'out' ? 'out' : 'in'),
+    [txForm.direction]
+  );
 
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
@@ -148,7 +185,7 @@ export default function TransacoesTab({
       }
       setTxLoading(true);
       try {
-        const body = await listFinanceTx({ academyId, from: fromDate, to: toDate, cursor });
+        const body = await listFinanceTx({ academyId, from: fromDate, to: toDate, cursor, regime });
         const items = body.transactions || [];
         setTransactions((prev) => (append ? [...prev, ...items] : items));
         setNextCursor(body.nextCursor || null);
@@ -160,7 +197,7 @@ export default function TransacoesTab({
         setTxLoading(false);
       }
     },
-    [academyId, fromDate, toDate]
+    [academyId, fromDate, toDate, regime]
   );
 
   const requestCloseTxModal = () => {
@@ -172,14 +209,18 @@ export default function TransacoesTab({
     if (String(tx.status || '').toLowerCase() !== 'pending') return;
     const gross = displayGross(tx);
     let feeInput = '';
-    if (tx.type !== 'expense' && Number.isFinite(gross) && gross > 0 && displayFee(tx) > 0) {
+    if (txDirection(tx) !== 'out' && Number.isFinite(gross) && gross > 0 && displayFee(tx) > 0) {
       const pct = (displayFee(tx) / gross) * 100;
       feeInput = Number.isFinite(pct) ? String(Math.round(pct * 100) / 100) : '';
     }
     setEditingTxId(tx.id);
     setEditPreservedSaleId(String(tx.saleId || '').trim());
+    const dir = txDirection(tx) === 'out' ? 'out' : 'in';
+    const catLabel = tx.category || defaultCategoryForTxType(tx.type);
+    const cat = resolveFinanceCategory(catLabel);
     setTxForm({
-      type: tx.type || 'plan',
+      direction: dir,
+      type: cat?.type || tx.type || 'plan',
       planName: tx.planName || '',
       method: tx.method || 'pix',
       gross: Number.isFinite(gross) && gross > 0 ? gross : '',
@@ -187,6 +228,8 @@ export default function TransacoesTab({
       installments: Math.min(12, Math.max(1, Number(tx.installments) || 1)),
       note: tx.note || '',
       lead_id: tx.lead_id || '',
+      competence_month: tx.competence_month || currentCompetenceMonth(),
+      category: catLabel,
     });
     const lead = (leads || []).find((l) => l.id === tx.lead_id);
     setStudentQuery(lead?.name ? String(lead.name) : '');
@@ -326,12 +369,17 @@ export default function TransacoesTab({
       addToast({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
       return;
     }
-    if (txForm.type === 'expense' && !isOwner) {
-      addToast({ type: 'error', message: 'Apenas o titular pode registrar despesa.' });
+    if (txForm.direction === 'out' && !isOwner) {
+      addToast({ type: 'error', message: 'Apenas o titular pode registrar saída.' });
+      return;
+    }
+    const cat = resolveFinanceCategory(txForm.category);
+    if (!cat) {
+      addToast({ type: 'error', message: 'Selecione uma categoria válida.' });
       return;
     }
     const feePct =
-      txForm.type === 'expense' ? 0 : parseFloat(String(txForm.fee || '').replace(',', '.')) || 0;
+      txForm.direction === 'out' ? 0 : parseFloat(String(txForm.fee || '').replace(',', '.')) || 0;
     const installments =
       txForm.method === 'cartão_crédito' ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
     setSavingTx(true);
@@ -341,12 +389,15 @@ export default function TransacoesTab({
         lead_id: txForm.lead_id || '',
         method: txForm.method,
         installments,
-        type: txForm.type,
+        type: cat.type,
+        category: cat.label,
+        competence_month: txForm.competence_month || currentCompetenceMonth(),
         planName: txForm.planName || '',
         gross: grossNum,
         fee: feePct > 0 ? grossNum * (feePct / 100) : 0,
         note: txForm.note || '',
         receive_now: !editingTxId && receiveNow,
+        settledAt: receiveNow ? new Date().toISOString() : undefined,
       };
 
       if (editingTxId) {
@@ -355,6 +406,7 @@ export default function TransacoesTab({
         addToast({ type: 'success', message: 'Transação atualizada.' });
       } else {
         const row = await createFinanceTx({ academyId, payload });
+        if (receiveNow && row) applyAccountingSideEffectsAuto(row, academyId);
         setTransactions((prev) => [row, ...prev]);
         addToast({
           type: 'success',
@@ -377,6 +429,9 @@ export default function TransacoesTab({
       <section className="mt-4 animate-in" style={{ animationDelay: '0.2s' }}>
         <h3 className="navi-section-heading mb-2">Lançamentos</h3>
         <div className="card">
+          {academyId ? (
+            <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-3" />
+          ) : null}
           <div className="finance-tx-toolbar">
             <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div className="form-group" style={{ width: 138 }}>
@@ -449,7 +504,9 @@ export default function TransacoesTab({
                     </td>
                   </tr>
                 ) : transactions.map((tx) => {
-                  const dateStr = formatTxDateStr(tx.createdAt);
+                  const dateStr = formatTxDateStr(txTemporalIso(tx));
+                  const noCompetence =
+                    regime === FINANCE_REGIME.COMPETENCE && competenceMonthMissing(tx);
                   const dir = txDirection(tx);
                   const nature = NATURE_STYLES[dir];
                   const catBadge = getTxCategoryBadge(tx);
@@ -474,7 +531,18 @@ export default function TransacoesTab({
                   const rowBusy = cancelLoadingId === tx.id;
                   return (
                     <tr key={tx.id}>
-                      <td>{dateStr}</td>
+                      <td>
+                        {dateStr}
+                        {noCompetence ? (
+                          <span
+                            className="text-xs"
+                            style={{ display: 'block', color: '#B45309', marginTop: 2 }}
+                            title="Sem competência definida — usando data de pagamento"
+                          >
+                            sem competência
+                          </span>
+                        ) : null}
+                      </td>
                       <td>
                         <span style={{ color: nature.color, fontWeight: 600 }}>{nature.label}</span>
                       </td>
@@ -490,7 +558,7 @@ export default function TransacoesTab({
                       <td className="finance-num">
                         {st === 'pending' ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
-                            {(isOwner || tx.type !== 'expense') ? (
+                            {(isOwner || txDirection(tx) !== 'out') ? (
                               <button
                                 type="button"
                                 className="btn-outline"
@@ -540,7 +608,7 @@ export default function TransacoesTab({
                 return (
                   <article key={tx.id} className="navi-mobile-card finance-mobile-card">
                     <div className="finance-mobile-card__head">
-                      <span className="finance-mobile-card__date">{formatTxDateStr(tx.createdAt)}</span>
+                      <span className="finance-mobile-card__date">{formatTxDateStr(txTemporalIso(tx))}</span>
                       <span
                         className="finance-mobile-card__amount"
                         style={{ color: NATURE_STYLES[txDirection(tx)].color }}
@@ -553,7 +621,7 @@ export default function TransacoesTab({
                     {badge ? <span className={badge.className}>{badge.label}</span> : null}
                     {st === 'pending' ? (
                       <div className="finance-mobile-card__actions">
-                        {(isOwner || tx.type !== 'expense') ? (
+                        {(isOwner || txDirection(tx) !== 'out') ? (
                           <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
                             Editar
                           </button>
@@ -621,24 +689,56 @@ export default function TransacoesTab({
             ) : null}
             <div className="flex-col gap-3">
               <div className="form-group">
-                <label>Tipo</label>
+                <label>Natureza</label>
                 <select
                   className="form-input"
-                  value={txForm.type}
+                  value={txForm.direction}
                   onChange={(e) => {
-                    const nextType = e.target.value;
+                    const dir = e.target.value === 'out' ? 'out' : 'in';
+                    const groups = getCategoryOptionsByNature(dir);
+                    const first = groups.values().next().value?.[0];
+                    const cat = first || (dir === 'out' ? FINANCE_CATEGORIES.OUTRAS_DESPESAS : FINANCE_CATEGORIES.MENSALIDADE);
                     setTxForm((prev) => ({
                       ...prev,
-                      type: nextType,
-                      fee: nextType === 'expense' ? '' : prev.fee,
-                      installments: nextType === 'expense' ? 1 : prev.installments,
+                      direction: dir,
+                      category: cat.label,
+                      type: cat.type,
+                      fee: dir === 'out' ? '' : prev.fee,
+                      installments: dir === 'out' ? 1 : prev.installments,
+                      planName: cat.type === 'plan' ? prev.planName : '',
+                    }));
+                  }}
+                  disabled={Boolean(editingTxId)}
+                >
+                  <option value="in">Entrada</option>
+                  {isOwner ? <option value="out">Saída</option> : null}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Categoria</label>
+                <select
+                  className="form-input"
+                  value={txForm.category}
+                  onChange={(e) => {
+                    const label = e.target.value;
+                    const cat = resolveFinanceCategory(label);
+                    setTxForm((prev) => ({
+                      ...prev,
+                      category: label,
+                      type: cat?.type || prev.type,
+                      planName: cat?.type === 'plan' ? prev.planName : '',
                     }));
                   }}
                 >
-                  <option value="plan">Plano/Mensalidade</option>
-                  <option value="product">Produto</option>
-                  <option value="other">Outro</option>
-                  {isOwner ? <option value="expense">Despesa</option> : null}
+                  {[...categoryOptionGroups.entries()].map(([group, items]) => (
+                    <optgroup key={group} label={group}>
+                      {items.map((c) => (
+                        <option key={c.label} value={c.label}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
               {!editingTxId ? (
@@ -651,7 +751,7 @@ export default function TransacoesTab({
                   Recebido agora (já liquidado no caixa)
                 </label>
               ) : null}
-              {txForm.type === 'plan' && (
+              {resolveFinanceCategory(txForm.category)?.type === 'plan' && (
                 <div className="form-group">
                   <label>Plano</label>
                   <select
@@ -698,7 +798,7 @@ export default function TransacoesTab({
                   }}
                 />
               </div>
-              {txForm.type !== 'expense' ? (
+              {txForm.direction !== 'out' ? (
                 <div className="form-group">
                   <label>Taxa (%)</label>
                   <input
@@ -821,6 +921,15 @@ export default function TransacoesTab({
                     </div>
                   )
                 ) : null}
+              </div>
+              <div className="form-group">
+                <label>Mês de competência</label>
+                <input
+                  type="month"
+                  className="form-input"
+                  value={txForm.competence_month || currentCompetenceMonth()}
+                  onChange={(e) => setTxForm({ ...txForm, competence_month: e.target.value })}
+                />
               </div>
               <div className="form-group">
                 <label>Observação</label>

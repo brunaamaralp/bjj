@@ -8,8 +8,9 @@ async function headers(academyId) {
   };
 }
 
-export async function fetchReportsFinanceLight({ academyId, from, to }) {
+export async function fetchReportsFinanceLight({ academyId, from, to, regime }) {
   const params = new URLSearchParams({ type: 'finance', from, to });
+  if (regime) params.set('regime', regime);
   const res = await fetch(`/api/reports-light?${params}`, { headers: await headers(academyId) });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Erro ao carregar resumo financeiro');

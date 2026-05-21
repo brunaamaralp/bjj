@@ -62,12 +62,15 @@ export function canResetTeamPassword(actorRole, targetRole, actorUserId, targetU
 }
 
 export function canEditField(actorRole, targetRole, field, actorUserId, targetUserId) {
+  if (!canEditTeamMember(actorRole, targetRole, actorUserId, targetUserId)) return false;
+  if (field === 'email') return actorRole === 'owner';
   if (field === 'role') {
-    if (actorRole === 'admin') return false;
     if (targetRole === 'owner') return false;
-    return actorRole === 'owner';
+    if (actorRole === 'owner') return true;
+    if (actorRole === 'admin') return targetRole === 'receptionist';
+    return false;
   }
-  return canEditTeamMember(actorRole, targetRole, actorUserId, targetUserId);
+  return true;
 }
 
 export function resolveActorRoleFromMemberships(memberships, academy, userId) {

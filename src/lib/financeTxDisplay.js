@@ -4,7 +4,9 @@
 
 export function txDirection(tx) {
   if (String(tx?.direction || '').toLowerCase() === 'out') return 'out';
-  if (String(tx?.type || '').toLowerCase() === 'expense') return 'out';
+  const type = String(tx?.type || '').toLowerCase();
+  if (type === 'expense' || type === 'stock_purchase') return 'out';
+  if (type === 'refund') return 'in';
   return 'in';
 }
 

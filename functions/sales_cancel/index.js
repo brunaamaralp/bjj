@@ -110,18 +110,21 @@ export default async function (req, res) {
           });
         }
         if (totalVenda > 0 && !docs.some((d) => String(d.type || "").toLowerCase() === "refund")) {
+          const refundSettledAt = new Date().toISOString();
           const refundPayload = {
             academyId: academy_id || venda.academyId || "",
             saleId: venda_id,
             method: venda.forma_pagamento || "pix",
             installments: 1,
             type: "refund",
+            category: "Cancelamentos",
+            competence_month: refundSettledAt.slice(0, 7),
             planName: estornoNote,
-            gross: -totalVenda,
+            gross: totalVenda,
             fee: 0,
-            net: -totalVenda,
+            net: totalVenda,
             status: "settled",
-            settledAt: new Date().toISOString(),
+            settledAt: refundSettledAt,
             note: estornoNote,
           };
           try {

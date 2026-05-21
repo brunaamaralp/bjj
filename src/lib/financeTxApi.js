@@ -9,11 +9,12 @@ async function financeHeaders(academyId) {
   };
 }
 
-export async function listFinanceTx({ academyId, from, to, cursor }) {
+export async function listFinanceTx({ academyId, from, to, cursor, regime }) {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   if (cursor) params.set('cursor', cursor);
+  if (regime) params.set('regime', regime);
   const res = await fetch(`/api/finance-tx?${params}`, {
     headers: await financeHeaders(academyId),
   });
@@ -44,10 +45,11 @@ export async function patchFinanceTx({ academyId, id, payload }) {
   return body.transaction;
 }
 
-export async function fetchFinanceSummary({ academyId, from, to }) {
+export async function fetchFinanceSummary({ academyId, from, to, regime }) {
   const params = new URLSearchParams({ route: 'summary' });
   if (from) params.set('from', from);
   if (to) params.set('to', to);
+  if (regime) params.set('regime', regime);
   const res = await fetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),
   });
@@ -56,8 +58,9 @@ export async function fetchFinanceSummary({ academyId, from, to }) {
   return body;
 }
 
-export async function fetchMonthlyClosing({ academyId, month }) {
+export async function fetchMonthlyClosing({ academyId, month, regime }) {
   const params = new URLSearchParams({ route: 'closing', month });
+  if (regime) params.set('regime', regime);
   const res = await fetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),
   });

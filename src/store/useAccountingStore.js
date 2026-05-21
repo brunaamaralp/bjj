@@ -1,4 +1,9 @@
 import { create } from 'zustand';
+import {
+  DRE_DISPLAY_GROUPS,
+  UNCLASSIFIED_DRE_GROUP,
+  isKnownDreGroup,
+} from '../lib/financeCategories.js';
 
 const LS_BASE_KEY = 'bjj_accounting_v1';
 
@@ -63,6 +68,7 @@ export function seedAccounts() {
     { id: crypto.randomUUID(), code: '5.1.1', name: 'CMV/CPV', type: 'custo', nature: 'devedora', dreGrupo: 'CMV/CPV', dfcClasse: 'Operacional', dfcSubclasse: 'fornecedores', cash: false, parentCode: '5.1' },
     { id: crypto.randomUUID(), code: '6.2.1', name: 'Despesas Gerais e Adm', type: 'despesa', nature: 'devedora', dreGrupo: 'Despesas Operacionais', dfcClasse: 'Operacional', dfcSubclasse: 'folha', cash: false, parentCode: '6.2' },
     { id: crypto.randomUUID(), code: '7.1.1', name: 'Despesas Financeiras', type: 'despesa', nature: 'devedora', dreGrupo: 'Resultado Financeiro', dfcClasse: 'Financiamento', dfcSubclasse: 'juros', cash: true, parentCode: '7.1' },
+    { id: crypto.randomUUID(), code: '6.3.1', name: 'Depreciação e Amortização', type: 'despesa', nature: 'devedora', dreGrupo: 'Depreciação/Amortização', dfcClasse: 'Operacional', dfcSubclasse: '', cash: false, parentCode: '6.3' },
   ];
   return rows;
 }
@@ -202,33 +208,43 @@ export const useAccountingStore = create((set, get) => ({
 
     dre: (from, to) => {
       const tb = get().trialBalance(from, to);
-      const groups = {
-        'Receita Bruta': 0,
-        'Deduções': 0,
-        'Receita Líquida': 0,
-        'CMV/CPV': 0,
-        'Lucro Bruto': 0,
-        'Despesas Operacionais': 0,
-        'Resultado Operacional': 0,
-        'Resultado Financeiro': 0,
-        'Antes IR/CS': 0,
-        'Imposto s/ Lucro': 0,
-        'Resultado Líquido': 0,
-      };
+      const COMPUTED = new Set([
+        'Receita Líquida',
+        'Lucro Bruto',
+        'Resultado Operacional',
+        'EBITDA',
+        'Antes IR/CS',
+        'Resultado Líquido',
+      ]);
+      const groups = {};
+      for (const g of DRE_DISPLAY_GROUPS) {
+        if (!COMPUTED.has(g)) groups[g] = 0;
+      }
+
       tb.forEach((r) => {
-        const g = r.account.dreGrupo || '';
+        const g = String(r.account.dreGrupo || '').trim();
         const val =
           r.account.type === 'receita'
             ? -(r.account.nature === 'credora' ? -r.balance : r.balance)
             : r.balance;
-        if (!g) return;
+        if (!g || !isKnownDreGroup(g)) {
+          groups[UNCLASSIFIED_DRE_GROUP] = (groups[UNCLASSIFIED_DRE_GROUP] || 0) + val;
+          return;
+        }
+        if (COMPUTED.has(g)) return;
         groups[g] = (groups[g] || 0) + val;
       });
+
       groups['Receita Líquida'] = (groups['Receita Bruta'] || 0) - Math.abs(groups['Deduções'] || 0);
       groups['Lucro Bruto'] = (groups['Receita Líquida'] || 0) - Math.abs(groups['CMV/CPV'] || 0);
-      groups['Resultado Operacional'] = (groups['Lucro Bruto'] || 0) - Math.abs(groups['Despesas Operacionais'] || 0);
-      groups['Antes IR/CS'] = (groups['Resultado Operacional'] || 0) + (groups['Resultado Financeiro'] || 0);
-      groups['Resultado Líquido'] = (groups['Antes IR/CS'] || 0) - Math.abs(groups['Imposto s/ Lucro'] || 0);
+      groups['Resultado Operacional'] =
+        (groups['Lucro Bruto'] || 0) - Math.abs(groups['Despesas Operacionais'] || 0);
+      groups['EBITDA'] =
+        (groups['Resultado Operacional'] || 0) + Math.abs(groups['Depreciação/Amortização'] || 0);
+      groups['Antes IR/CS'] =
+        (groups['Resultado Operacional'] || 0) + (groups['Resultado Financeiro'] || 0);
+      groups['Resultado Líquido'] =
+        (groups['Antes IR/CS'] || 0) - Math.abs(groups['Imposto s/ Lucro'] || 0);
       return groups;
     },
 

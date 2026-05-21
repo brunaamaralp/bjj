@@ -155,7 +155,7 @@ describe('monthlyClosing', () => {
         {
           id: 'txr',
           type: 'refund',
-          gross: -100,
+          gross: 100,
           net: -100,
           status: 'settled',
           settledAt: '2026-05-13T12:00:00Z',

@@ -2,6 +2,12 @@
  * Fechamento mensal — unifica recebimentos de mensalidades, matrículas, produtos e outros.
  */
 import { expectedAmountForStudent, receivedAmountForPayment } from './paymentStatus.js';
+import { FINANCE_REGIME, effectiveCompetenceMonth } from './financeCompetence.js';
+import {
+  categoryIsUnclassified,
+  defaultCategoryForTxType,
+  normalizeFinanceCategory,
+} from './financeCategories.js';
 
 export const CLOSING_ORIGINS = ['mensalidade', 'matricula', 'produto', 'outro'];
 
@@ -105,7 +111,27 @@ function deriveSituation(expected, received, statusHint) {
  * @param {object} params.financeConfig
  * @param {string} params.referenceMonth — YYYY-MM
  */
-export function buildClosingRows({ payments = [], transactions = [], leadById = new Map(), financeConfig = {}, referenceMonth }) {
+function txInClosingMonth(tx, referenceMonth, regime = FINANCE_REGIME.CASH) {
+  const st = String(tx.status || '').toLowerCase();
+  if (st === 'cancelled' && String(tx.type || '').toLowerCase() !== 'refund') return false;
+  if (regime === FINANCE_REGIME.COMPETENCE) {
+    const cm = String(tx.competence_month || '').trim();
+    if (cm === referenceMonth) return true;
+    if (!cm) return dateInReferenceMonth(tx.settledAt || tx.createdAt, referenceMonth);
+    return false;
+  }
+  if (st === 'pending') return dateInReferenceMonth(tx.createdAt, referenceMonth);
+  return dateInReferenceMonth(tx.settledAt || tx.createdAt, referenceMonth);
+}
+
+export function buildClosingRows({
+  payments = [],
+  transactions = [],
+  leadById = new Map(),
+  financeConfig = {},
+  referenceMonth,
+  regime = FINANCE_REGIME.CASH,
+}) {
   const rows = [];
   const linkedTxIds = new Set();
   const originKeysSeen = new Set();
@@ -170,19 +196,32 @@ export function buildClosingRows({ payments = [], transactions = [], leadById = 
     const saleId = String(tx.saleId || '').trim();
     if (saleId) saleIdsInTx.add(saleId);
 
+    if (!txInClosingMonth(tx, referenceMonth, regime)) continue;
+
     const dateIso = tx.settledAt || tx.createdAt;
-    if (!dateInReferenceMonth(dateIso, referenceMonth)) continue;
+    const missingCompetence =
+      regime === FINANCE_REGIME.COMPETENCE && !String(tx.competence_month || '').trim();
 
     const student = tx.lead_id ? leadById.get(String(tx.lead_id)) : null;
     const { name, guardian } = studentDisplayNames(student);
     const gross = roundMoney(tx.gross);
-    const received = st === 'settled' ? roundMoney(tx.net ?? tx.gross) : 0;
+    const typeLc = String(tx.type || '').toLowerCase();
+    let received = 0;
+    if (st === 'settled') {
+      if (typeLc === 'refund') {
+        received = roundMoney(Number(tx.net) || -Number(tx.gross));
+      } else {
+        received = roundMoney(tx.net ?? tx.gross);
+      }
+    }
     const expected = gross;
     const pending = Math.max(0, roundMoney(expected - received));
     const origin = mapTxTypeToOrigin(type);
+    const categoryLabel = normalizeFinanceCategory(tx.category || defaultCategoryForTxType(typeLc));
     const description =
       String(tx.planName || '').trim() ||
       String(tx.note || '').trim() ||
+      categoryLabel ||
       CLOSING_ORIGIN_LABELS[origin] ||
       'Recebimento';
 
@@ -205,6 +244,10 @@ export function buildClosingRows({ payments = [], transactions = [], leadById = 
       situation: deriveSituation(expected, received, st === 'pending' ? 'pending' : 'paid'),
       origin,
       readOnly: true,
+      missingCompetence,
+      competenceMonth: effectiveCompetenceMonth(tx),
+      categoryLabel,
+      categoryUnclassified: categoryIsUnclassified(tx.category),
     });
   }
 

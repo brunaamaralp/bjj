@@ -3,6 +3,7 @@ export const FINANCE_PAGE_CSS = `
           .finance-page-root { width: 100%; box-sizing: border-box; }
           .finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 24px; box-sizing: border-box; padding-bottom: 40px; }
           /* Abas: estilos globais em index.css (.navi-hub-tabs / .finance-tabs) */
+          .finance-regime-active { background: var(--v100, #f3f0ff) !important; border-color: var(--v500, #5B3FBF) !important; color: var(--v500, #5B3FBF) !important; }
           .finance-tx-toolbar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
           .finance-tx-totals {
             display: grid;

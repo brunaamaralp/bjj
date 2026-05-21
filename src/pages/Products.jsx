@@ -23,6 +23,17 @@ const LIFECYCLE_LABELS = {
   sem_estoque: 'Sem estoque',
 };
 
+function ProductStatus({ lifecycleKey }) {
+  const label = LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey;
+  if (lifecycleKey === 'ativo') {
+    return <span className="products-status products-status--ativo">{label}</span>;
+  }
+  return (
+    <span className={`products-status products-status--badge products-status--${lifecycleKey}`}>
+      {label}
+    </span>
+  );
+}
 
 function ProductActionsMenu({ product, isOpen, onToggle, onClose, onDuplicate, onDelete, deleteBusy }) {
   const rootRef = useRef(null);
@@ -226,9 +237,12 @@ export default function Products() {
     );
   };
 
-  const SortHeader = ({ label, sortKey: key, align }) => (
-    <th style={{ textAlign: align || 'left', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort(key)}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+  const SortHeader = ({ label, sortKey: key, className }) => (
+    <th
+      className={`products-table__th${className ? ` ${className}` : ''}`}
+      onClick={() => toggleSort(key)}
+    >
+      <span className="products-table__th-label">
         {label}
         {sort.key === key ? (
           sort.dir === 'asc' ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />
@@ -494,14 +508,23 @@ export default function Products() {
           <>
           <div className="navi-desktop-table-wrap products-desktop-table-wrap">
             <table className="navi-table products-table">
+              <colgroup>
+                <col className="products-table__col-thumb" />
+                <col className="products-table__col-product" />
+                <col className="products-table__col-cat" />
+                <col className="products-table__col-price" />
+                <col className="products-table__col-qty" />
+                <col className="products-table__col-status" />
+                <col className="products-table__col-actions" />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="products-table__thumb-head" />
-                  <SortHeader label="Produto" sortKey="nome" />
-                  <SortHeader label="Categoria" sortKey="categoria" />
-                  <SortHeader label="Preço" sortKey="sale_price" />
-                  <SortHeader label="Saldo total" sortKey="total_quantity" />
-                  <SortHeader label="Status" sortKey="lifecycle" />
+                  <th className="products-table__thumb-head" aria-hidden />
+                  <SortHeader label="Produto" sortKey="nome" className="products-table__col-product" />
+                  <SortHeader label="Categoria" sortKey="categoria" className="products-table__col-cat" />
+                  <SortHeader label="Preço" sortKey="sale_price" className="products-table__col-price" />
+                  <SortHeader label="Saldo" sortKey="total_quantity" className="products-table__col-qty" />
+                  <SortHeader label="Status" sortKey="lifecycle" className="products-table__col-status" />
                   <th className="products-table__actions-head" aria-label="Ações" />
                 </tr>
               </thead>
@@ -514,36 +537,35 @@ export default function Products() {
                     <React.Fragment key={p.id}>
                       <tr className="products-table__row" onClick={() => openEdit(p)}>
                         <td className="products-table__thumb-cell" onClick={(e) => e.stopPropagation()}>
-                          {hasVariants ? (
-                            <button
-                              type="button"
-                              className="products-icon-btn"
-                              aria-expanded={expanded}
-                              aria-label={expanded ? 'Recolher variantes' : 'Expandir variantes'}
-                              onClick={() => toggleExpanded(p.id)}
-                            >
-                              {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                            </button>
-                          ) : null}
-                          <ProductThumb imageUrl={p.image_url} alt={p.nome} size={36} />
-                        </td>
-                        <td>
-                          <div className="products-table__name-row">
-                            <span className="products-table__name">{p.nome}</span>
+                          <div className="products-table__thumb-inner">
                             {hasVariants ? (
-                              <span className="products-table__variation">{p.variant_count} variantes</span>
-                            ) : null}
+                              <button
+                                type="button"
+                                className="products-table__expand-btn"
+                                aria-expanded={expanded}
+                                aria-label={expanded ? 'Recolher variantes' : 'Expandir variantes'}
+                                onClick={() => toggleExpanded(p.id)}
+                              >
+                                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                            ) : (
+                              <span className="products-table__expand-spacer" aria-hidden />
+                            )}
+                            <ProductThumb imageUrl={p.image_url} alt={p.nome} size={32} />
                           </div>
                         </td>
-                        <td className="text-small text-muted">{p.categoria || '—'}</td>
-                        <td className="text-small products-table__price">
+                        <td className="products-table__col-product">
+                          <span className="products-table__name">{p.nome}</span>
+                        </td>
+                        <td className="products-table__col-cat text-small text-muted">{p.categoria || '—'}</td>
+                        <td className="products-table__col-price text-small products-table__price">
                           {p.sale_price != null ? formatBRL(p.sale_price) : '—'}
                         </td>
-                        <td className="products-table__qty">{p.total_quantity ?? p.current_quantity ?? 0}</td>
-                        <td>
-                          <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
-                            {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}
-                          </span>
+                        <td className="products-table__col-qty products-table__qty">
+                          {p.total_quantity ?? p.current_quantity ?? 0}
+                        </td>
+                        <td className="products-table__col-status">
+                          <ProductStatus lifecycleKey={lifecycleKey} />
                         </td>
                         <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
                           <div className="products-table__actions-inner">
@@ -568,23 +590,22 @@ export default function Products() {
                                 className="products-table__row products-table__row--variant"
                                 onClick={() => openEdit(p, { variant: v })}
                               >
-                                <td />
-                                <td className="text-small" style={{ paddingLeft: 28 }}>
+                                <td className="products-table__thumb-cell" aria-hidden />
+                                <td className="products-table__col-product products-table__variant-label">
                                   {[v.size || v.Tamanho, v.color].filter(Boolean).join(' / ') || 'Único'}
                                 </td>
-                                <td />
-                                <td />
-                                <td className="products-table__qty">{v.current_quantity}</td>
-                                <td>
-                                  <span className={`products-lifecycle-badge products-lifecycle-badge--${vLife}`}>
-                                    {LIFECYCLE_LABELS[vLife] || vLife}
-                                  </span>
+                                <td className="products-table__col-cat products-table__cell-empty" aria-hidden />
+                                <td className="products-table__col-price products-table__cell-empty" aria-hidden />
+                                <td className="products-table__col-qty products-table__qty">{v.current_quantity}</td>
+                                <td className="products-table__col-status">
+                                  <ProductStatus lifecycleKey={vLife} />
                                 </td>
                                 <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     type="button"
-                                    className="products-icon-btn"
+                                    className="products-icon-btn products-table__variant-move-btn"
                                     title="Movimentações"
+                                    aria-label="Movimentações"
                                     onClick={() => setMovesProduct(v)}
                                   >
                                     <ArrowLeftRight size={16} aria-hidden />
@@ -611,9 +632,6 @@ export default function Products() {
                     <div className="products-mobile-card__body">
                       <div className="products-mobile-card__title-row">
                         <span className="products-mobile-card__title">{p.nome}</span>
-                        {hasVariants ? (
-                          <span className="products-mobile-card__variation">{p.variant_count} var.</span>
-                        ) : null}
                       </div>
                       <div className="products-mobile-card__meta text-small text-muted">
                         {p.categoria || '—'}
@@ -623,9 +641,7 @@ export default function Products() {
                         <span className="products-mobile-card__dot" aria-hidden>•</span>
                         <span>Saldo: {p.total_quantity ?? p.current_quantity ?? 0}</span>
                       </div>
-                      <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
-                        {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}
-                      </span>
+                      <ProductStatus lifecycleKey={lifecycleKey} />
                     </div>
                   </div>
                   <div className="navi-mobile-card__actions products-mobile-card__actions">

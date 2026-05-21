@@ -5,6 +5,9 @@ import { useAccountingStore } from '../../store/useAccountingStore';
 import { fmt } from './financeFmt.js';
 import { BarChart3 } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
+import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
+import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
+import { buildDreDisplayRows } from '../../lib/financeCategories.js';
 
 function downloadCSV(prefix, headers, rows) {
   const csv = [headers, ...rows]
@@ -40,6 +43,11 @@ export default function ReportsTab({
   const from = embedded && periodFrom != null ? periodFrom : fromLocal;
   const to = embedded && periodTo != null ? periodTo : toLocal;
   const [method, setMethod] = useState('indireto');
+  const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
+
+  useEffect(() => {
+    if (academyId) setRegime(getFinanceRegime(academyId));
+  }, [academyId]);
 
   useEffect(() => {
     if (academyId) loadByAcademy(academyId);
@@ -75,19 +83,7 @@ export default function ReportsTab({
 
   const dreData = useMemo(() => dre(from, to), [from, to, dre]);
   const dfcData = useMemo(() => (method === 'indireto' ? dfcIndireto(from, to) : dfcDireto(from, to)), [method, from, to, dfcIndireto, dfcDireto]);
-  const dreTotals = new Set(['Receita Líquida', 'Lucro Bruto', 'Resultado Operacional', 'Resultado Líquido']);
-  const dreRows = [
-    ['Receita Bruta', dreData['Receita Bruta'] || 0],
-    ['Deduções', -(Math.abs(dreData['Deduções'] || 0))],
-    ['Receita Líquida', dreData['Receita Líquida'] || 0],
-    ['CMV/CPV', -(Math.abs(dreData['CMV/CPV'] || 0))],
-    ['Lucro Bruto', dreData['Lucro Bruto'] || 0],
-    ['Despesas Operacionais', -(Math.abs(dreData['Despesas Operacionais'] || 0))],
-    ['Resultado Financeiro', (dreData['Resultado Financeiro'] || 0)],
-    ['Resultado Operacional', dreData['Resultado Operacional'] || 0],
-    ['Imposto s/ Lucro', -(Math.abs(dreData['Imposto s/ Lucro'] || 0))],
-    ['Resultado Líquido', dreData['Resultado Líquido'] || 0],
-  ];
+  const dreRows = useMemo(() => buildDreDisplayRows(dreData), [dreData]);
   const variacaoCaixa = (dfcData.operacional || 0) + (dfcData.investimento || 0) + (dfcData.financiamento || 0);
   const dfcRows = [
     ['Operacional', dfcData.operacional || 0],
@@ -97,14 +93,14 @@ export default function ReportsTab({
   ];
 
   const hasMovement =
-    dreRows.some(([, v]) => Number(v) !== 0) ||
+    dreRows.some((r) => Number(r.value) !== 0) ||
     dfcRows.some(([, v]) => Number(v) !== 0);
 
   const exportDRE_CSV = useCallback(() => {
     const headers = ['Grupo', 'Valor (R$)'];
-    const rows = dreRows.map(([label, value]) => [
-      label,
-      Number(value || 0).toFixed(2).replace('.', ','),
+    const rows = dreRows.map((r) => [
+      r.group,
+      Number(r.value || 0).toFixed(2).replace('.', ','),
     ]);
     downloadCSV('dre', headers, rows);
   }, [dreRows]);
@@ -132,6 +128,20 @@ export default function ReportsTab({
         </div>
       ) : null}
       <div className="finance-reports-filters">
+        {academyId ? (
+          <FinanceRegimeToggle
+            academyId={academyId}
+            value={regime}
+            onChange={setRegime}
+            className="mb-2"
+          />
+        ) : null}
+        <p className="text-xs text-muted" style={{ width: '100%', margin: '0 0 8px' }} role="status">
+          DRE pelo livro razão · regime {financeRegimeLabel(regime).toLowerCase()}
+          {regime === FINANCE_REGIME.COMPETENCE
+            ? ' (lançamentos sem competência usam data de pagamento no razão)'
+            : ''}
+        </p>
         {!embedded ? (
           <>
             <div className="form-group" style={{ width: 138 }}>
@@ -174,10 +184,24 @@ export default function ReportsTab({
           <div className="finance-reports-block">
             <h4>Demonstração do Resultado (DRE)</h4>
             <div>
-              {dreRows.map(([k, v]) => (
-                <div key={k} className={`finance-reports-row${dreTotals.has(k) ? ' finance-reports-row--total' : ''}`}>
-                  <span>{k}</span>
-                  <span style={{ fontWeight: dreTotals.has(k) ? 600 : 500 }}>{fmt(v)}</span>
+              {dreRows.map((row) => (
+                <div
+                  key={row.group}
+                  className={`finance-reports-row${row.isTotal ? ' finance-reports-row--total' : ''}`}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {row.group}
+                    {row.warn ? (
+                      <span
+                        className="badge badge-warning"
+                        title="Há lançamentos com categoria não mapeada no plano fixo"
+                        style={{ fontSize: 10, fontWeight: 600 }}
+                      >
+                        não classificado
+                      </span>
+                    ) : null}
+                  </span>
+                  <span style={{ fontWeight: row.isTotal ? 600 : 500 }}>{fmt(row.value)}</span>
                 </div>
               ))}
             </div>

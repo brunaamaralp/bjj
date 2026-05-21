@@ -149,19 +149,18 @@ export default async function (req, res) {
       try {
         const acad = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
         if (academyHasFinance(acad)) {
-          const settings = parseSettings(acad.settings);
-          const category =
-            String(settings.stockPurchaseExpenseCategory || "").trim() || "Estoque / Insumos";
           const unit = String(updated.unit || "unidade").trim() || "unidade";
           const price = Number(purchase_price);
           if (Number.isFinite(price) && price > 0) {
+            const stockNote = `Compra de estoque: ${itemName(updated)} — ${quantidade} ${unit}`;
             const fin = await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), {
               academyId,
               saleId: "",
               method: String(payment_method || "pix").trim() || "pix",
               installments: 1,
-              type: "expense",
-              planName: category,
+              type: "stock_purchase",
+              category: "Custo de estoque",
+              planName: stockNote,
               gross: price,
               fee: 0,
               net: price,

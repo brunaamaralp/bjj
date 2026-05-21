@@ -22,6 +22,13 @@ import {
   CLOSING_SITUATION_LABELS,
   mapOriginToTxType,
 } from '../../lib/monthlyClosing.js';
+import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
+import {
+  FINANCE_REGIME,
+  financeRegimeLabel,
+  getFinanceRegime,
+} from '../../lib/financeCompetence.js';
+import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -57,6 +64,8 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
   const addToast = useUiStore((s) => s.addToast);
 
   const [referenceMonth, setReferenceMonth] = useState(currentYm);
+  const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
+  const [operationalReceived, setOperationalReceived] = useState(null);
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -100,7 +109,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     try {
       const ym = referenceMonth;
       try {
-        const data = await fetchMonthlyClosing({ academyId, month: ym });
+        const data = await fetchMonthlyClosing({ academyId, month: ym, regime });
         setPayments(data.payments || []);
         setTransactions(data.transactions || []);
         setPendingInMonth(Number(data.pendingInMonth) || 0);
@@ -118,7 +127,11 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     } finally {
       setLoading(false);
     }
-  }, [academyId, referenceMonth, addToast]);
+  }, [academyId, referenceMonth, regime, addToast]);
+
+  useEffect(() => {
+    if (academyId) setRegime(getFinanceRegime(academyId));
+  }, [academyId]);
 
   useEffect(() => {
     void loadData();
@@ -137,9 +150,34 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
       leadById,
       financeConfig,
       referenceMonth,
+      regime,
     });
     return rows.filter((r) => r.origin !== 'produto' || salesEnabled);
-  }, [payments, transactions, leadById, financeConfig, referenceMonth, salesEnabled]);
+  }, [payments, transactions, leadById, financeConfig, referenceMonth, salesEnabled, regime]);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      if (!academyId || !referenceMonth) {
+        setOperationalReceived(null);
+        return;
+      }
+      const [y, m] = referenceMonth.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      const from = `${referenceMonth}-01`;
+      const to = `${referenceMonth}-${String(lastDay).padStart(2, '0')}`;
+      try {
+        const body = await fetchReportsFinanceLight({ academyId, from, to, regime });
+        if (active) setOperationalReceived(Number(body.received) || 0);
+      } catch {
+        if (active) setOperationalReceived(null);
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [academyId, referenceMonth, regime]);
 
   const methodOptions = useMemo(() => {
     const set = new Set();
@@ -148,6 +186,11 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     }
     return Array.from(set).sort();
   }, [allRows]);
+
+  const unclassifiedCount = useMemo(
+    () => allRows.filter((r) => r.categoryUnclassified).length,
+    [allRows]
+  );
 
   const filteredRows = useMemo(() => {
     const origins = new Set(
@@ -162,6 +205,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
 
   const sortedRows = useMemo(() => sortClosingRows(filteredRows, sortBy), [filteredRows, sortBy]);
   const totals = useMemo(() => computeClosingTotals(sortedRows), [sortedRows]);
+
+  const totalsDiverge =
+    operationalReceived != null && Math.abs(totals.received - operationalReceived) > 0.01;
 
   const studentMatches = useMemo(() => {
     const q = String(manualForm.studentQuery || '').trim().toLowerCase();
@@ -323,6 +369,47 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
       <p className="text-small text-muted mb-2" style={{ lineHeight: 1.5 }}>
         Painel de conferência — não trava lançamentos nem gera documento de fechamento.
       </p>
+      {academyId ? (
+        <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
+      ) : null}
+      <p className="text-xs text-muted mb-2" role="status">
+        Visualizando por {financeRegimeLabel(regime).toLowerCase()}
+        {regime === FINANCE_REGIME.COMPETENCE
+          ? ' · mensalidades pelo mês de referência; demais lançamentos por competência (fallback: data de pagamento)'
+          : ' · transações pelo mês de liquidação (settledAt)'}
+      </p>
+      {totalsDiverge ? (
+        <div
+          className="card mb-3"
+          style={{
+            padding: '12px 14px',
+            borderLeft: '4px solid var(--warning, #B45309)',
+            background: '#FEF3C7',
+          }}
+          role="alert"
+        >
+          <strong>Divergência — verifique o regime de visualização</strong>
+          <p className="text-small" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
+            Fechamento: {fmtMoney(totals.received)} · Relatório operacional: {fmtMoney(operationalReceived)}.
+            Use o mesmo regime (caixa ou competência) nos dois painéis ou confira lançamentos sem competência
+            definida.
+          </p>
+        </div>
+      ) : null}
+      {unclassifiedCount > 0 ? (
+        <div
+          className="card mb-3"
+          style={{
+            padding: '12px 14px',
+            borderLeft: '4px solid var(--warning, #B45309)',
+            background: '#FEF3C7',
+          }}
+          role="alert"
+        >
+          <strong>{unclassifiedCount}</strong> lançamento(s) com categoria não mapeada no plano fixo. Revise em
+          Movimentações ou ajuste o diário contábil.
+        </div>
+      ) : null}
       {pendingInMonth > 0 ? (
         <div
           className="card mb-3"
@@ -595,6 +682,10 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 const dateStr = dt && !Number.isNaN(dt.getTime())
                   ? `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`
                   : '—';
+                const compHint =
+                  row.missingCompetence && regime === FINANCE_REGIME.COMPETENCE
+                    ? ' · sem competência definida'
+                    : '';
                 const nameCell = row.guardian ? `${row.name} (${row.guardian})` : row.name;
                 const sitColor =
                   row.situation === 'recebido'
@@ -605,7 +696,18 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 return (
                   <tr key={row.id}>
                     <td style={{ fontWeight: 500, fontSize: 13 }}>{nameCell}</td>
-                    <td className="text-small">{row.description}</td>
+                    <td className="text-small">
+                      {row.description}
+                      {row.categoryUnclassified ? (
+                        <span
+                          className="badge badge-warning"
+                          style={{ marginLeft: 6, fontSize: 10, verticalAlign: 'middle' }}
+                          title="Categoria não mapeada no plano fixo de categorias"
+                        >
+                          não classificado
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="finance-num">{fmtMoney(row.expected)}</td>
                     <td className="finance-num">{fmtMoney(row.received)}</td>
                     <td className="finance-num">
@@ -616,7 +718,14 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                       )}
                     </td>
                     <td className="text-small">{row.paymentMethod}</td>
-                    <td>{dateStr}</td>
+                    <td>
+                      {dateStr}
+                      {compHint ? (
+                        <span className="text-xs" style={{ display: 'block', color: '#B45309' }}>
+                          {compHint.trim()}
+                        </span>
+                      ) : null}
+                    </td>
                     <td>
                       <span
                         style={{

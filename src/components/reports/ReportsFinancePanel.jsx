@@ -6,6 +6,8 @@ import ReportsTab from '../finance/ReportsTab.jsx';
 import { fmt } from '../finance/financeFmt.js';
 import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
 import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
+import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
+import FinanceRegimeToggle from '../finance/FinanceRegimeToggle.jsx';
 import { downloadCsv } from '../../lib/reportsExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -23,6 +25,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : 'cash'));
 
   useEffect(() => {
     let active = true;
@@ -34,7 +37,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
       setLoading(true);
       setError('');
       try {
-        const body = await fetchReportsFinanceLight({ academyId, from, to });
+        const body = await fetchReportsFinanceLight({ academyId, from, to, regime });
         if (active) setData(body);
       } catch (e) {
         if (active) {
@@ -50,7 +53,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
     return () => {
       active = false;
     };
-  }, [academyId, from, to]);
+  }, [academyId, from, to, regime]);
 
   const totals = useMemo(() => {
     if (!data) {
@@ -113,6 +116,12 @@ function OperationalFinanceReport({ academyId, from, to }) {
 
   return (
     <div className="reports-finance-operational mt-2">
+      {academyId ? (
+        <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
+      ) : null}
+      <p className="text-xs text-muted mb-2" role="status">
+        Movimentações liquidadas · regime {financeRegimeLabel(regime).toLowerCase()}
+      </p>
       {totals.truncated ? (
         <p className="text-small text-muted mb-2" role="status">
           Mostrando até {totals.totalLoaded} lançamentos — o total pode estar incompleto. Reduza o período no

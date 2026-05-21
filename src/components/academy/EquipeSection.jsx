@@ -23,6 +23,7 @@ import {
   canResetTeamPassword,
   canAddTeamMember,
   canViewTeamManagement,
+  canEditField,
 } from '../../lib/teamPermissions.js';
 import {
   createTeamMember,
@@ -216,10 +217,18 @@ function EquipeSection({ academy, academyId }) {
         name: trimmedName,
       };
       const prevEmail = String(editMember.userEmail || editMember.email || '').trim().toLowerCase();
-      if (trimmedEmail && trimmedEmail !== prevEmail) {
+      if (
+        trimmedEmail &&
+        trimmedEmail !== prevEmail &&
+        canEditField(actorRole, targetRole, 'email', userId, editMember.userId)
+      ) {
         payload.email = trimmedEmail;
       }
-      if (isOwner && editForm.role && targetRole !== 'owner') {
+      if (
+        editForm.role &&
+        targetRole !== 'owner' &&
+        canEditField(actorRole, targetRole, 'role', userId, editMember.userId)
+      ) {
         payload.role = editForm.role;
       }
 
@@ -570,22 +579,36 @@ function EquipeSection({ academy, academyId }) {
                       disabled={editSaving}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>E-mail</label>
-                    <input
-                      className="form-input"
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                      disabled={editSaving || !editMember.userId}
-                    />
-                    {!editMember.userId ? (
-                      <p className="text-xs text-muted" style={{ marginTop: 6 }}>
-                        Disponível após o membro aceitar o convite.
-                      </p>
-                    ) : null}
-                  </div>
-                  {isOwner && membershipTeamRole(editMember, academy?.ownerId) !== 'owner' ? (
+                  {canEditField(
+                    actorRole,
+                    membershipTeamRole(editMember, academy?.ownerId),
+                    'email',
+                    userId,
+                    editMember.userId
+                  ) ? (
+                    <div className="form-group">
+                      <label>E-mail</label>
+                      <input
+                        className="form-input"
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                        disabled={editSaving || !editMember.userId}
+                      />
+                      {!editMember.userId ? (
+                        <p className="text-xs text-muted" style={{ marginTop: 6 }}>
+                          Disponível após o membro aceitar o convite.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {canEditField(
+                    actorRole,
+                    membershipTeamRole(editMember, academy?.ownerId),
+                    'role',
+                    userId,
+                    editMember.userId
+                  ) ? (
                     <div className="form-group">
                       <label>Papel</label>
                       <select
@@ -594,7 +617,10 @@ function EquipeSection({ academy, academyId }) {
                         onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
                         disabled={editSaving}
                       >
-                        {ROLE_OPTIONS.map((o) => (
+                        {(isOwner
+                          ? ROLE_OPTIONS
+                          : ROLE_OPTIONS.filter((r) => r.value === 'receptionist')
+                        ).map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
                           </option>
