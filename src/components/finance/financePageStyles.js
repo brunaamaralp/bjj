@@ -69,6 +69,123 @@ export const FINANCE_PAGE_CSS = `
             background: var(--surface-hover);
             color: var(--text-secondary);
           }
+          .finance-forecast-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+          }
+          .finance-forecast-summary__card {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px 16px;
+          }
+          .finance-forecast-summary__value {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 2px 0 0;
+            font-variant-numeric: tabular-nums;
+          }
+          .finance-forecast-chart-card { padding: 16px 18px; }
+          .finance-forecast-weeks { display: flex; flex-direction: column; gap: 12px; }
+          .finance-forecast-week { padding: 14px 16px; }
+          .finance-forecast-week__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-bottom: 10px;
+            border-bottom: 0.5px solid var(--border-light);
+          }
+          .finance-forecast-week__list {
+            list-style: none;
+            margin: 12px 0 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .finance-forecast-week__item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .finance-forecast-week__icon {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: var(--surface-hover);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--v500);
+          }
+          .finance-forecast-week__body {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+          }
+          .finance-forecast-week__label,
+          .finance-forecast-week__link {
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text);
+          }
+          .finance-forecast-week__link:hover { color: var(--v500); text-decoration: underline; }
+          .finance-forecast-week__amount {
+            font-weight: 600;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+          }
+          .bank-recon-summary__grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+          }
+          .bank-recon-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start;
+          }
+          @media (max-width: 900px) {
+            .bank-recon-columns { grid-template-columns: 1fr; }
+          }
+          .bank-recon-col {
+            border: 0.5px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            background: var(--surface);
+            min-height: 200px;
+          }
+          .bank-recon-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: start;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: var(--radius-sm);
+            border: 0.5px solid var(--border-light);
+          }
+          .bank-recon-pair--auto { background: #EAF3DE; border-color: #3B6D1133; }
+          .bank-recon-pair--suggested { background: #FEF3C7; border-color: #B4530933; }
+          .bank-recon-pair--unmatched { background: var(--surface-hover); grid-template-columns: 1fr auto; }
+          .bank-recon-pair__title { font-weight: 600; font-size: 13px; margin: 0 0 4px; }
+          .bank-recon-pair__actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+          .bank-recon-confidence { color: #B45309; font-weight: 600; }
+          .bank-recon-navi-row {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: var(--radius-sm);
+            border: 0.5px dashed var(--border-light);
+          }
           @media (max-width: 767px) {
             .finance-desktop-table-wrap { display: none !important; }
             .finance-mobile-list { display: flex; }

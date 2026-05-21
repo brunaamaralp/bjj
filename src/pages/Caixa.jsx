@@ -9,6 +9,8 @@ import { friendlyError } from '../lib/errorMessages';
 import { resolveHubTab, caixaLegacyTabToSlug } from '../lib/hubTabs';
 import { useUserRole } from '../lib/useUserRole';
 import TransacoesTab from '../components/finance/TransacoesTab.jsx';
+import ForecastTab from '../components/finance/ForecastTab.jsx';
+import ReconciliationTab from '../components/finance/ReconciliationTab.jsx';
 import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
@@ -26,13 +28,15 @@ const defaultFinanceConfig = () => ({
   plans: [],
 });
 
-const MEMBER_TABS = new Set(['movimentacoes', 'fechamento']);
-const OWNER_EXTRA = ['plano', 'razao', 'dre'];
+const MEMBER_TABS = new Set(['movimentacoes', 'previsao', 'fechamento']);
+const OWNER_EXTRA = ['conciliacao', 'plano', 'razao', 'dre'];
 const OWNER_TABS = new Set([...MEMBER_TABS, ...OWNER_EXTRA]);
 
 const TAB_SUBTITLES = {
   movimentacoes: 'Movimentações e lançamentos do dia a dia',
+  previsao: 'Previsão de caixa com base em mensalidades em aberto e lançamentos pendentes',
   fechamento: 'Painel de conferência — não trava lançamentos nem gera documento de fechamento',
+  conciliacao: 'Conciliação de extratos bancários com lançamentos do Nave',
   plano: 'Plano de contas',
   razao: 'Livro razão',
   dre: 'Demonstrações DRE e DFC',
@@ -133,8 +137,16 @@ export default function Caixa() {
   const tabs = useMemo(() => {
     const items = [
       { id: 'movimentacoes', label: 'Movimentações' },
-      ...(modules?.finance === true ? [{ id: 'fechamento', label: 'Fechamento mensal' }] : []),
+      ...(modules?.finance === true
+        ? [
+            { id: 'previsao', label: 'Previsão' },
+            { id: 'fechamento', label: 'Fechamento mensal' },
+          ]
+        : []),
     ];
+    if (isOwner && modules?.finance === true) {
+      items.push({ id: 'conciliacao', label: 'Conciliação' });
+    }
     if (isOwner) {
       items.push(
         { id: 'plano', label: 'Plano de contas' },
@@ -236,6 +248,12 @@ export default function Caixa() {
             }}
             onTxMutated={loadPeriodSummary}
           />
+        ) : null}
+        {academyId && activeTab === 'previsao' && modules?.finance === true ? (
+          <ForecastTab academyId={academyId} />
+        ) : null}
+        {academyId && activeTab === 'conciliacao' && modules?.finance === true && isOwner ? (
+          <ReconciliationTab academyId={academyId} />
         ) : null}
         {academyId && activeTab === 'fechamento' && modules?.finance === true ? (
           <MonthlyClosingTab

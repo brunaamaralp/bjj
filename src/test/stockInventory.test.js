@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveCurrentQuantity,
+  getVariantStockStatus,
+  aggregateParentStockStatus,
   computeStockStatus,
+  buildInventoryParentRows,
   quantityDeltaForMoveType,
   parseStockItemIdFromTaskDescription,
   buildRestockTaskDescription,
@@ -21,11 +24,48 @@ describe('stockInventory', () => {
     ).toBe(5);
   });
 
-  it('computeStockStatus', () => {
-    expect(computeStockStatus(10, 0)).toBe('ok');
-    expect(computeStockStatus(5, 5)).toBe('attention');
-    expect(computeStockStatus(3, 5)).toBe('critical');
-    expect(computeStockStatus(6, 5)).toBe('ok');
+  it('getVariantStockStatus', () => {
+    expect(getVariantStockStatus(10, 0)).toBe('ok');
+    expect(getVariantStockStatus(0, 5)).toBe('critical');
+    expect(getVariantStockStatus(3, 5)).toBe('reorder');
+    expect(getVariantStockStatus(5, 5)).toBe('ok');
+    expect(getVariantStockStatus(6, 5)).toBe('ok');
+    expect(computeStockStatus(0, 0)).toBe('critical');
+  });
+
+  it('aggregateParentStockStatus', () => {
+    expect(aggregateParentStockStatus(['ok', 'ok'])).toBe('ok');
+    expect(aggregateParentStockStatus(['ok', 'reorder'])).toBe('reorder');
+    expect(aggregateParentStockStatus(['ok', 'critical'])).toBe('critical');
+    expect(aggregateParentStockStatus(['reorder', 'reorder'])).toBe('reorder');
+  });
+
+  it('buildInventoryParentRows groups by product_id', () => {
+    const rows = buildInventoryParentRows([
+      {
+        id: 'v1',
+        product_id: 'p1',
+        nome: 'Kimono',
+        categoria: 'Vestuário',
+        current_quantity: 0,
+        minimum_level: 2,
+      },
+      {
+        id: 'v2',
+        product_id: 'p1',
+        nome: 'Kimono',
+        categoria: 'Vestuário',
+        current_quantity: 4,
+        minimum_level: 2,
+      },
+      { id: 'solo', nome: 'Faixa', categoria: 'Acessórios', current_quantity: 1, minimum_level: 0 },
+    ]);
+    expect(rows).toHaveLength(2);
+    const kimono = rows.find((r) => r.product_id === 'p1');
+    expect(kimono.status).toBe('critical');
+    expect(kimono.total_quantity).toBe(4);
+    expect(kimono.variants).toHaveLength(2);
+    expect(kimono.hasVariants).toBe(true);
   });
 
   it('quantityDeltaForMoveType', () => {

@@ -1,4 +1,4 @@
-import { computeStockStatus, resolveCurrentQuantity } from './stockInventory.js';
+import { getVariantStockStatus, resolveCurrentQuantity } from './stockInventory.js';
 
 export const VARIANT_SIZE_PRESETS = ['P', 'M', 'G', 'GG', 'XGG'];
 
@@ -93,7 +93,7 @@ export function mapVariantDoc(doc, parent) {
     unit: String(doc.unit || 'unidade').trim() || 'unidade',
     current_quantity: qty,
     minimum_level: min,
-    status: computeStockStatus(qty, min),
+    status: getVariantStockStatus(qty, min),
     lifecycle,
     legacy_stock_item_id: String(doc.legacy_stock_item_id || '').trim() || null,
     notes: String(doc.notes || '').trim(),

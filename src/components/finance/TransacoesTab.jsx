@@ -13,7 +13,16 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
-import { Receipt } from 'lucide-react';
+import { Receipt, Repeat, ChevronDown, MoreHorizontal } from 'lucide-react';
+import {
+  RECURRENCE_TYPES,
+  WEEKDAY_OPTIONS,
+  buildRecurrenceEndOptions,
+  defaultRecurrenceForm,
+  isRecurrenceTx,
+  recurrenceTooltip,
+  normalizeRecurrenceDay,
+} from '../../lib/financeRecurrence.js';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
@@ -106,7 +115,7 @@ export default function TransacoesTab({
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [showTxModal, setShowTxModal] = useState(false);
-  const [txForm, setTxForm] = useState({
+  const [txForm, setTxForm] = useState(() => ({
     direction: 'in',
     type: 'plan',
     planName: '',
@@ -118,13 +127,18 @@ export default function TransacoesTab({
     lead_id: '',
     competence_month: currentCompetenceMonth(),
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
-  });
+    ...defaultRecurrenceForm(),
+  }));
   const [savingTx, setSavingTx] = useState(false);
   const [receiveNow, setReceiveNow] = useState(false);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalTx, setTotalTx] = useState(0);
   const [cancelLoadingId, setCancelLoadingId] = useState('');
+  const [recurrenceCancelLoadingId, setRecurrenceCancelLoadingId] = useState('');
+  const [menuOpenId, setMenuOpenId] = useState('');
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [editingRecurrenceOnly, setEditingRecurrenceOnly] = useState(false);
   const [editingTxId, setEditingTxId] = useState('');
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
@@ -147,7 +161,10 @@ export default function TransacoesTab({
     lead_id: '',
     competence_month: currentCompetenceMonth(),
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
+    ...defaultRecurrenceForm(),
   });
+
+  const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
 
   const categoryOptionGroups = useMemo(
     () => getCategoryOptionsByNature(txForm.direction === 'out' ? 'out' : 'in'),
@@ -170,6 +187,8 @@ export default function TransacoesTab({
   const resetTxModal = () => {
     setShowTxModal(false);
     setEditingTxId('');
+    setEditingRecurrenceOnly(false);
+    setRecurrenceOpen(false);
     setEditPreservedSaleId('');
     setReceiveNow(false);
     setTxForm(initialTxForm());
@@ -235,6 +254,44 @@ export default function TransacoesTab({
     setStudentQuery(lead?.name ? String(lead.name) : '');
     setStudentPickerOpen(false);
     setShowTxModal(true);
+  };
+
+  const openEditRecurrenceModal = (tx) => {
+    openEditModal(tx);
+    setEditingRecurrenceOnly(true);
+    setRecurrenceOpen(true);
+    setTxForm((f) => ({
+      ...f,
+      repeat_enabled: true,
+      recurrence_type: tx.recurrence_type === RECURRENCE_TYPES.WEEKLY ? RECURRENCE_TYPES.WEEKLY : RECURRENCE_TYPES.MONTHLY,
+      recurrence_day: normalizeRecurrenceDay(
+        tx.recurrence_type === RECURRENCE_TYPES.WEEKLY ? RECURRENCE_TYPES.WEEKLY : RECURRENCE_TYPES.MONTHLY,
+        tx.recurrence_day
+      ),
+      recurrence_end: tx.recurrence_end || '',
+    }));
+    setMenuOpenId('');
+  };
+
+  const cancelRecurrence = async (id) => {
+    const tid = String(id || '').trim();
+    if (!tid || !academyId) return;
+    if (!window.confirm('Cancelar a recorrência deste lançamento? Os lançamentos já gerados permanecem no histórico.')) {
+      return;
+    }
+    setRecurrenceCancelLoadingId(tid);
+    setMenuOpenId('');
+    try {
+      const row = await patchFinanceTx({ academyId, id: tid, payload: { action: 'cancel_recurrence' } });
+      setTransactions((prev) => prev.map((t) => (String(t.id) === tid ? row : t)));
+      addToast({ type: 'success', message: 'Recorrência cancelada.' });
+      if (typeof onTxMutated === 'function') onTxMutated();
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
+    } finally {
+      setRecurrenceCancelLoadingId('');
+    }
   };
 
   useEffect(() => {
@@ -311,6 +368,7 @@ export default function TransacoesTab({
         applySettleAccountingSideEffects(tx, academyId);
       }
       if (typeof onTxMutated === 'function') onTxMutated();
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || '').trim();
@@ -400,11 +458,35 @@ export default function TransacoesTab({
         settledAt: receiveNow ? new Date().toISOString() : undefined,
       };
 
-      if (editingTxId) {
+      if (editingTxId && editingRecurrenceOnly) {
+        if (!txForm.repeat_enabled) {
+          addToast({ type: 'error', message: 'Ative "Repetir automaticamente" para manter a recorrência.' });
+          setSavingTx(false);
+          return;
+        }
+        const row = await patchFinanceTx({
+          academyId,
+          id: editingTxId,
+          payload: {
+            action: 'update_recurrence',
+            recurrence_type: txForm.recurrence_type,
+            recurrence_day: normalizeRecurrenceDay(txForm.recurrence_type, txForm.recurrence_day),
+            recurrence_end: txForm.recurrence_end || '',
+          },
+        });
+        setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
+        addToast({ type: 'success', message: 'Recorrência atualizada.' });
+      } else if (editingTxId) {
         const row = await patchFinanceTx({ academyId, id: editingTxId, payload });
         setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
         addToast({ type: 'success', message: 'Transação atualizada.' });
       } else {
+        if (txForm.repeat_enabled) {
+          payload.is_recurrence_template = true;
+          payload.recurrence_type = txForm.recurrence_type || RECURRENCE_TYPES.MONTHLY;
+          payload.recurrence_day = normalizeRecurrenceDay(payload.recurrence_type, txForm.recurrence_day);
+          if (txForm.recurrence_end) payload.recurrence_end = txForm.recurrence_end;
+        }
         const row = await createFinanceTx({ academyId, payload });
         if (receiveNow && row) applyAccountingSideEffectsAuto(row, academyId);
         setTransactions((prev) => [row, ...prev]);
@@ -415,6 +497,7 @@ export default function TransacoesTab({
       }
       resetTxModal();
       if (typeof onTxMutated === 'function') onTxMutated();
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
       void loadTransactions();
     } catch (e) {
       console.error(e);
@@ -528,11 +611,24 @@ export default function TransacoesTab({
                     ) : (
                       <span className="badge badge-secondary">{tx.status || '—'}</span>
                     );
-                  const rowBusy = cancelLoadingId === tx.id;
+                  const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
+                  const rec = isRecurrenceTx(tx);
+                  const recTip = recurrenceTooltip(tx);
+                  const showRecMenu = isOwner && tx.is_recurrence_template === true;
                   return (
                     <tr key={tx.id}>
                       <td>
-                        {dateStr}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {dateStr}
+                          {rec ? (
+                            <Repeat
+                              size={14}
+                              aria-hidden
+                              title={recTip || 'Lançamento recorrente — gerado automaticamente'}
+                              style={{ color: 'var(--text-secondary)', flexShrink: 0 }}
+                            />
+                          ) : null}
+                        </span>
                         {noCompetence ? (
                           <span
                             className="text-xs"
@@ -556,41 +652,94 @@ export default function TransacoesTab({
                       <td className="finance-num">{netFmt}</td>
                       <td>{statusBadge}</td>
                       <td className="finance-num">
-                        {st === 'pending' ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
-                            {(isOwner || txDirection(tx) !== 'out') ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
+                          {showRecMenu ? (
+                            <div style={{ position: 'relative' }}>
                               <button
                                 type="button"
                                 className="btn-outline"
-                                onClick={() => openEditModal(tx)}
+                                aria-label="Mais opções de recorrência"
                                 disabled={rowBusy}
+                                onClick={() => setMenuOpenId((prev) => (prev === tx.id ? '' : tx.id))}
                               >
-                                Editar
+                                <MoreHorizontal size={16} aria-hidden />
                               </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              className="btn-outline"
-                              onClick={() => void settle(tx.id)}
-                              disabled={rowBusy}
-                            >
-                              Liquidar
-                            </button>
-                            {isOwner ? (
+                              {menuOpenId === tx.id ? (
+                                <div
+                                  className="card"
+                                  style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: '100%',
+                                    marginTop: 4,
+                                    zIndex: 4,
+                                    minWidth: 200,
+                                    padding: 4,
+                                    boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    className="btn-ghost"
+                                    style={{ width: '100%', textAlign: 'left', padding: '8px 10px' }}
+                                    onClick={() => openEditRecurrenceModal(tx)}
+                                  >
+                                    Editar recorrência
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-ghost"
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '8px 10px',
+                                      color: 'var(--danger)',
+                                    }}
+                                    disabled={rowBusy}
+                                    onClick={() => void cancelRecurrence(tx.id)}
+                                  >
+                                    {recurrenceCancelLoadingId === tx.id ? 'Cancelando…' : 'Cancelar recorrência'}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {st === 'pending' ? (
+                            <>
+                              {(isOwner || txDirection(tx) !== 'out') ? (
+                                <button
+                                  type="button"
+                                  className="btn-outline"
+                                  onClick={() => openEditModal(tx)}
+                                  disabled={rowBusy}
+                                >
+                                  Editar
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 className="btn-outline"
-                                onClick={() => void cancelTx(tx.id)}
+                                onClick={() => void settle(tx.id)}
                                 disabled={rowBusy}
-                                style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
                               >
-                                {rowBusy ? 'Cancelando…' : 'Cancelar'}
+                                Liquidar
                               </button>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <span className="text-small" style={{ opacity: 0.75, color: 'var(--text-secondary)' }}>—</span>
-                        )}
+                              {isOwner ? (
+                                <button
+                                  type="button"
+                                  className="btn-outline"
+                                  onClick={() => void cancelTx(tx.id)}
+                                  disabled={rowBusy}
+                                  style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                                >
+                                  {rowBusy ? 'Cancelando…' : 'Cancelar'}
+                                </button>
+                              ) : null}
+                            </>
+                          ) : !showRecMenu ? (
+                            <span className="text-small" style={{ opacity: 0.75, color: 'var(--text-secondary)' }}>—</span>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -604,11 +753,15 @@ export default function TransacoesTab({
                 const displayName = rawName || '—';
                 const badge = getTxCategoryBadge(tx);
                 const st = String(tx.status || '').toLowerCase();
-                const rowBusy = cancelLoadingId === tx.id;
+                const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
+                const rec = isRecurrenceTx(tx);
                 return (
                   <article key={tx.id} className="navi-mobile-card finance-mobile-card">
                     <div className="finance-mobile-card__head">
-                      <span className="finance-mobile-card__date">{formatTxDateStr(txTemporalIso(tx))}</span>
+                      <span className="finance-mobile-card__date" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {formatTxDateStr(txTemporalIso(tx))}
+                        {rec ? <Repeat size={14} title={recurrenceTooltip(tx)} aria-hidden /> : null}
+                      </span>
                       <span
                         className="finance-mobile-card__amount"
                         style={{ color: NATURE_STYLES[txDirection(tx)].color }}
@@ -619,6 +772,22 @@ export default function TransacoesTab({
                     <div className="finance-mobile-card__name">{displayName}</div>
                     <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
                     {badge ? <span className={badge.className}>{badge.label}</span> : null}
+                    {isOwner && tx.is_recurrence_template ? (
+                      <div className="finance-mobile-card__actions">
+                        <button type="button" className="btn-outline btn-sm" onClick={() => openEditRecurrenceModal(tx)}>
+                          Editar recorrência
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm"
+                          disabled={rowBusy}
+                          onClick={() => void cancelRecurrence(tx.id)}
+                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                        >
+                          Cancelar recorrência
+                        </button>
+                      </div>
+                    ) : null}
                     {st === 'pending' ? (
                       <div className="finance-mobile-card__actions">
                         {(isOwner || txDirection(tx) !== 'out') ? (
@@ -680,14 +849,20 @@ export default function TransacoesTab({
             style={{ maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 20 }}
           >
             <h3 id="finance-tx-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>
-              {editingTxId ? 'Editar transação' : 'Nova transação'}
+              {editingRecurrenceOnly
+                ? 'Editar recorrência'
+                : editingTxId
+                  ? 'Editar transação'
+                  : 'Nova transação'}
             </h3>
-            {editingTxId ? (
+            {editingTxId && !editingRecurrenceOnly ? (
               <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>
                 Só é possível editar enquanto o lançamento estiver pendente. Valores liquidados no razão não são alterados automaticamente.
               </p>
             ) : null}
             <div className="flex-col gap-3">
+              {!editingRecurrenceOnly ? (
+              <>
               <div className="form-group">
                 <label>Natureza</label>
                 <select
@@ -941,6 +1116,120 @@ export default function TransacoesTab({
                   placeholder="Opcional"
                 />
               </div>
+              </>
+              ) : null}
+              {!editingTxId || editingRecurrenceOnly ? (
+                <div className="form-group" style={{ borderTop: editingRecurrenceOnly ? 'none' : '1px solid var(--border-light)', paddingTop: editingRecurrenceOnly ? 0 : 12 }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 0',
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setRecurrenceOpen((o) => !o)}
+                  >
+                    <span>Repetir lançamento</span>
+                    <ChevronDown
+                      size={18}
+                      style={{ transform: recurrenceOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+                    />
+                  </button>
+                  {recurrenceOpen ? (
+                    <div className="flex-col gap-3" style={{ marginTop: 8 }}>
+                      <label className="flex items-center gap-2 text-small" style={{ cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(txForm.repeat_enabled)}
+                          onChange={(e) =>
+                            setTxForm((f) => ({
+                              ...f,
+                              repeat_enabled: e.target.checked,
+                              recurrence_type: f.recurrence_type || RECURRENCE_TYPES.MONTHLY,
+                              recurrence_day: f.recurrence_day || 1,
+                            }))
+                          }
+                        />
+                        Repetir automaticamente
+                      </label>
+                      {txForm.repeat_enabled ? (
+                        <>
+                          <div className="form-group">
+                            <label>Frequência</label>
+                            <select
+                              className="form-input"
+                              value={txForm.recurrence_type || RECURRENCE_TYPES.MONTHLY}
+                              onChange={(e) => {
+                                const recurrence_type = e.target.value;
+                                setTxForm((f) => ({
+                                  ...f,
+                                  recurrence_type,
+                                  recurrence_day: normalizeRecurrenceDay(recurrence_type, f.recurrence_day),
+                                }));
+                              }}
+                            >
+                              <option value={RECURRENCE_TYPES.MONTHLY}>Mensal</option>
+                              <option value={RECURRENCE_TYPES.WEEKLY}>Semanal</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>
+                              {txForm.recurrence_type === RECURRENCE_TYPES.WEEKLY ? 'Dia da semana' : 'Dia do mês (1–28)'}
+                            </label>
+                            {txForm.recurrence_type === RECURRENCE_TYPES.WEEKLY ? (
+                              <select
+                                className="form-input"
+                                value={String(txForm.recurrence_day ?? 1)}
+                                onChange={(e) =>
+                                  setTxForm((f) => ({ ...f, recurrence_day: Number(e.target.value) }))
+                                }
+                              >
+                                {WEEKDAY_OPTIONS.map((w) => (
+                                  <option key={w.value} value={w.value}>
+                                    {w.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="number"
+                                className="form-input"
+                                min={1}
+                                max={28}
+                                value={txForm.recurrence_day ?? 1}
+                                onChange={(e) =>
+                                  setTxForm((f) => ({
+                                    ...f,
+                                    recurrence_day: normalizeRecurrenceDay(RECURRENCE_TYPES.MONTHLY, e.target.value),
+                                  }))
+                                }
+                              />
+                            )}
+                          </div>
+                          <div className="form-group">
+                            <label>Até (opcional)</label>
+                            <select
+                              className="form-input"
+                              value={txForm.recurrence_end || ''}
+                              onChange={(e) => setTxForm((f) => ({ ...f, recurrence_end: e.target.value }))}
+                            >
+                              {recurrenceEndOptions.map((o) => (
+                                <option key={o.value || 'none'} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="flex gap-2 mt-3" style={{ justifyContent: 'flex-end' }}>
               <button
@@ -959,7 +1248,11 @@ export default function TransacoesTab({
                 disabled={savingTx}
                 onClick={() => void saveManualTx()}
               >
-                {savingTx ? 'Salvando…' : 'Salvar'}
+                {savingTx
+                  ? 'Salvando…'
+                  : editingRecurrenceOnly
+                    ? 'Salvar recorrência'
+                    : 'Salvar'}
               </button>
             </div>
           </div>

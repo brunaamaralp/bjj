@@ -23,6 +23,9 @@ scripts/*
 !scripts/ensure-academy-attrs.mjs
 !scripts/provision-task-templates-schema.mjs
 !scripts/ensure-lead-payment-attrs.js
+!scripts/provision-bank-reconciliation-schema.mjs
+!scripts/provision-finance-recurrence-schema.mjs
+!scripts/provision-finance-features-schema.mjs
 
 # Editor directories and files
 .vscode/*

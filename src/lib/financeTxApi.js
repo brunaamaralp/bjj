@@ -69,6 +69,17 @@ export async function fetchMonthlyClosing({ academyId, month, regime }) {
   return body;
 }
 
+export async function fetchFinanceForecast({ academyId, from, to, refresh = false }) {
+  const params = new URLSearchParams({ route: 'forecast', from, to });
+  if (refresh) params.set('_', String(Date.now()));
+  const res = await fetch(`/api/finance/forecast?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar previsão');
+  return body;
+}
+
 export async function recordCashClosing({ academyId, referenceMonth, snapshot }) {
   const res = await fetch('/api/finance?route=closing', {
     method: 'POST',

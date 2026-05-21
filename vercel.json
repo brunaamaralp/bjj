@@ -49,6 +49,7 @@
     { "source": "/api/cron/tasks-due", "destination": "/api/cron/reset-usage.js?action=tasks-due" },
     { "source": "/api/cron/collection-overdue", "destination": "/api/cron/reset-usage.js?action=collection-overdue" },
     { "source": "/api/inventory", "destination": "/api/leads.js?route=inventory" },
+    { "source": "/api/inventory/adjust", "destination": "/api/leads.js?route=inventory" },
     { "source": "/api/products", "destination": "/api/leads.js?route=products" },
     { "source": "/api/sales", "destination": "/api/leads.js?hub=sales" },
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
@@ -60,6 +61,8 @@
     { "source": "/api/finance-tx", "destination": "/api/finance.js?route=tx" },
     { "source": "/api/finance/summary", "destination": "/api/finance.js?route=summary" },
     { "source": "/api/finance/closing", "destination": "/api/finance.js?route=closing" },
+    { "source": "/api/finance/forecast", "destination": "/api/finance.js?route=forecast" },
+    { "source": "/api/bank-reconciliation", "destination": "/api/finance.js?finance_hub=bank-reconciliation" },
     { "source": "/api/reports-light", "destination": "/api/reports.js?route=light" },
     { "source": "/api/students/:id/profile", "destination": "/api/leads.js?route=students&action=profile&student_id=$1" },
     { "source": "/api/academy/whatsapp-templates", "destination": "/api/agent.js?route=whatsapp-templates" },
@@ -106,6 +109,10 @@
     {
       "path": "/api/cron/reset-usage?action=sales-reconcile",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage?action=finance-recurrence",
+      "schedule": "0 6 * * *"
     }
   ]
 }

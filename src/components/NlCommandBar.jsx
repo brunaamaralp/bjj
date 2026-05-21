@@ -180,6 +180,9 @@ export default function NlCommandBar({
         const r = result.receipt_summary;
         successSummary = `Venda registrada: ${r.product} · ${formatBrl(r.total)} · ${paymentFormLabel(r.payment_form)}`;
       }
+      if (parsed.action === 'adjust_stock' && result?.toast_message) {
+        successSummary = result.toast_message;
+      }
       setParsed((prev) => (prev ? { ...prev, summary: successSummary } : prev));
       setState('success');
       setTimeout(() => onOpenChange(false), 2500);
@@ -225,7 +228,8 @@ export default function NlCommandBar({
       parsed.action === 'update_student' ||
       parsed.action === 'create_lead' ||
       parsed.action === 'settle_transaction' ||
-      parsed.action === 'update_payment'
+      parsed.action === 'update_payment' ||
+      parsed.action === 'adjust_stock'
     );
 
   return (

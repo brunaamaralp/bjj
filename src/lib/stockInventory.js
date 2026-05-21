@@ -30,20 +30,89 @@ export function resolveCurrentQuantity(item) {
   return legacyAvailable(item);
 }
 
-export function computeStockStatus(currentQty, minimumLevel) {
-  const min = Math.max(0, Number(minimumLevel || 0));
-  const qty = Number(currentQty || 0);
-  if (min <= 0) return 'ok';
-  if (qty < min) return 'critical';
-  if (qty === min) return 'attention';
+/** Status de estoque por variante (ou item avulso). */
+export function getVariantStockStatus(quantity, min) {
+  const qty = Number(quantity ?? 0);
+  const minQty = Number(min);
+  const hasMin = Number.isFinite(minQty) && minQty > 0;
+  if (qty === 0) return 'critical';
+  if (hasMin && qty < minQty) return 'reorder';
   return 'ok';
+}
+
+/** Status agregado do produto pai a partir das variantes. */
+export function aggregateParentStockStatus(variantStatuses) {
+  const list = variantStatuses || [];
+  if (!list.length) return 'ok';
+  if (list.some((s) => s === 'critical')) return 'critical';
+  if (list.some((s) => s === 'reorder')) return 'reorder';
+  return 'ok';
+}
+
+/** @deprecated Alias — use getVariantStockStatus. */
+export function computeStockStatus(currentQty, minimumLevel) {
+  return getVariantStockStatus(currentQty, minimumLevel);
 }
 
 export const STOCK_STATUS_LABELS = {
   ok: 'OK',
-  attention: 'Atenção',
+  reorder: 'A repor',
   critical: 'Crítico',
 };
+
+/** Agrupa itens de inventário (variantes) em linhas pai para a listagem. */
+export function buildInventoryParentRows(items) {
+  const groups = new Map();
+
+  for (const it of items || []) {
+    const pid = String(it.product_id || '').trim();
+    const key = pid || `solo:${it.id}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(it);
+  }
+
+  const rows = [];
+  for (const variants of groups.values()) {
+    const sorted = variants.slice().sort((a, b) => {
+      const la = variantInventoryLabel(a);
+      const lb = variantInventoryLabel(b);
+      return la.localeCompare(lb, 'pt-BR');
+    });
+    const first = sorted[0];
+    const variantRows = sorted.map((v) => ({
+      ...v,
+      status: getVariantStockStatus(v.current_quantity, v.minimum_level),
+    }));
+    const statuses = variantRows.map((v) => v.status);
+    const total_quantity = variantRows.reduce((n, v) => n + Number(v.current_quantity || 0), 0);
+    const hasProductGroup = Boolean(String(first.product_id || '').trim());
+
+    rows.push({
+      id: hasProductGroup ? first.product_id : first.id,
+      product_id: first.product_id || '',
+      nome: String(first.parent_nome || first.nome || '').trim() || 'Item',
+      categoria: first.categoria || '',
+      image_url: first.image_url || '',
+      sale_price: first.sale_price,
+      cost_price: first.cost_price,
+      is_for_sale: first.is_for_sale !== false,
+      total_quantity,
+      status: aggregateParentStockStatus(statuses),
+      variants: variantRows,
+      variant_count: variantRows.length,
+      hasVariants: hasProductGroup && variantRows.length > 1,
+    });
+  }
+
+  return rows.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+export function variantInventoryLabel(variant) {
+  const size = String(variant?.size ?? variant?.Tamanho ?? '').trim();
+  const color = String(variant?.color ?? '').trim();
+  const parts = [size, color].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Único';
+}
 
 /** Rótulo simplificado para histórico de movimentações (entrada / saída / ajuste). */
 export function stockMoveKindLabel(tipo) {

@@ -25,6 +25,19 @@ export default async function handler(req, res) {
     if (route === 'generate-prompt' || url.includes('/generate-prompt')) return generatePromptHandler(req, res);
     if (route === 'test' || url.includes('/test')) return agentTestHandler(req, res);
     if (route === 'nl-action' || url.includes('nl-action')) return nlActionHandler(req, res);
+    if (route === 'inventory-adjust' || url.includes('inventory-adjust')) {
+      const { default: inventoryAdjustAgent } = await import('../lib/server/inventoryAdjustAgent.js');
+      const { Client, Databases } = await import('node-appwrite');
+      const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
+      const projectId =
+        process.env.APPWRITE_PROJECT_ID ||
+        process.env.VITE_APPWRITE_PROJECT ||
+        process.env.VITE_APPWRITE_PROJECT_ID ||
+        '';
+      const apiKey = process.env.APPWRITE_API_KEY || '';
+      const db = new Databases(new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey));
+      return inventoryAdjustAgent(req, res, db);
+    }
     if (route === 'import-finance') return importFinanceHandler(req, res);
     if (route === 'settle-finance-tx') return settleFinanceTxHandler(req, res);
     if (route === 'cancel-finance-tx') return cancelFinanceTxHandler(req, res);

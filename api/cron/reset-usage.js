@@ -17,6 +17,7 @@ import { runPlanFreezeCron } from '../../lib/server/runPlanFreezeCron.js';
 import { runBillingSubscriptionReconcile } from '../../lib/server/billingReconcile.js';
 import { runFinancePendingAlert } from '../../lib/server/runFinancePendingAlert.js';
 import { runSalesReconcileCron } from '../../lib/server/runSalesReconcileCron.js';
+import { runFinanceRecurrenceCron } from '../../lib/server/runFinanceRecurrenceCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -404,6 +405,10 @@ export default async function handler(req, res) {
       process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
     const out = await runPlanFreezeCron(databases, DB_ID, PEOPLE_COL, ACADEMIES_COL);
     return res.status(200).json({ mode: 'plan-freeze', ...out });
+  }
+  if (action === 'finance-recurrence') {
+    const out = await runFinanceRecurrenceCron();
+    return res.status(200).json({ mode: 'finance-recurrence', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

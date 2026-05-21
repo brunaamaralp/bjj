@@ -72,6 +72,21 @@ export const useInventoryStore = create((set) => ({
     }
   },
 
+  adjustStock: async (payload) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await inventoryFetch('/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'adjust', ...payload }),
+      });
+      set({ loading: false });
+      return data;
+    } catch (e) {
+      set({ error: String(e?.message || e), loading: false });
+      return null;
+    }
+  },
+
   checkItem: async (item_estoque_id) => {
     set({ loading: true, error: null });
     try {

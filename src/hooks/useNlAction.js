@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useSalesStore } from '../store/useSalesStore';
+import { useInventoryStore } from '../store/useInventoryStore';
+import { formatAdjustToast } from '../lib/inventoryAdjust';
 import { account, createSessionJwt } from '../lib/appwrite';
 import { createPayment, updatePayment } from '../lib/studentPayments';
 import { useSalesCatalog } from './useSalesCatalog';
@@ -263,6 +265,30 @@ export function useNlAction() {
           );
         }
         return doc;
+      }
+
+      if (parsed.action === 'adjust_stock') {
+        const d = parsed.data || {};
+        const variantId = String(d.variant_id || d.stock_item_id || '').trim();
+        const qtyChange = Number(d.quantity_change);
+        const subtype = String(d.subtype || 'avaria').trim();
+        if (!variantId) throw new Error('Variante não identificada');
+        if (!Number.isFinite(qtyChange) || qtyChange === 0) throw new Error('Quantidade de ajuste inválida');
+
+        const result = await useInventoryStore.getState().adjustStock({
+          variant_id: variantId,
+          quantity_change: qtyChange,
+          subtype,
+          note: d.note != null ? String(d.note).trim() : '',
+        });
+        if (!result?.sucesso) {
+          throw new Error(useInventoryStore.getState().error || 'Erro ao ajustar estoque');
+        }
+        return {
+          quantity_before: result.quantity_before,
+          quantity_after: result.quantity_after,
+          toast_message: formatAdjustToast(result.quantity_before, result.quantity_after),
+        };
       }
 
       if (parsed.action === 'register_sale') {

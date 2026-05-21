@@ -1,4 +1,4 @@
-import { computeStockStatus, itemCategory, itemDisplayName, resolveCurrentQuantity } from './stockInventory.js';
+import { getVariantStockStatus, itemCategory, itemDisplayName, resolveCurrentQuantity } from './stockInventory.js';
 
 export const PRODUCT_UNIT_OPTIONS = [
   { value: 'unidade', label: 'Unidade' },
@@ -113,7 +113,7 @@ export function mapStockProductDoc(doc) {
     unit: String(doc.unit || 'unidade').trim() || 'unidade',
     current_quantity: qty,
     minimum_level: min,
-    status: computeStockStatus(qty, min),
+    status: getVariantStockStatus(qty, min),
     lifecycle,
     notes: String(doc.notes || '').trim(),
     last_updated: doc.last_updated || doc.$updatedAt || '',

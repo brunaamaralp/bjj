@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Upload } from 'lucide-react';
 import { useInventoryStore } from '../store/useInventoryStore';
-import { useProductsStore } from '../store/useProductsStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { refreshStockStores } from '../lib/syncStockStores';
@@ -11,24 +10,21 @@ import InventoryMovesForm from '../components/inventory/InventoryMovesForm';
 import InventoryConfigureModal from '../components/inventory/InventoryConfigureModal';
 import InventoryEntryModal from '../components/inventory/InventoryEntryModal';
 import InventoryCheckModal from '../components/inventory/InventoryCheckModal';
-import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
-
+import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
+import { formatAdjustToast } from '../lib/inventoryAdjust';
 const Inventory = () => {
   const [searchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
   const modules = useLeadStore((s) => s.modules);
-  const { items, loadItems, inventoryMove, checkItem, updateItem, lastResult, loading, error } = useInventoryStore();
-  const { checkDeleteProduct, deleteProduct, deactivateProduct } = useProductsStore();
+  const { items, loadItems, inventoryMove, adjustStock, checkItem, updateItem, lastResult, loading, error } =
+    useInventoryStore();
   const [configItem, setConfigItem] = useState(null);
   const [entryItem, setEntryItem] = useState(null);
   const [checkTarget, setCheckTarget] = useState(null);
+  const [adjustItem, setAdjustItem] = useState(null);
   const addToast = useUiStore((s) => s.addToast);
   const [tab, setTab] = useState('saldo');
   const [movePreset, setMovePreset] = useState({ itemId: '', tipo: 'entrada' });
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleteHasSales, setDeleteHasSales] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     await loadItems();
@@ -40,6 +36,19 @@ const Inventory = () => {
 
   const handleRegisterEntry = (item) => {
     setEntryItem(item);
+  };
+
+  const submitAdjust = async (payload) => {
+    const result = await adjustStock(payload);
+    if (!result?.sucesso) {
+      addToast({ type: 'error', message: useInventoryStore.getState().error || 'Erro no ajuste' });
+      return;
+    }
+    const before = result.quantity_before ?? 0;
+    const after = result.quantity_after ?? 0;
+    addToast({ type: 'success', message: formatAdjustToast(before, after) });
+    setAdjustItem(null);
+    await refreshStockStores();
   };
 
   const submitEntry = async (payload) => {
@@ -91,57 +100,6 @@ const Inventory = () => {
     await refreshStockStores();
   };
 
-  const openDeleteDialog = async (item) => {
-    setDeleteBusy(true);
-    setDeleteTarget(item);
-    const check = await checkDeleteProduct(item.id);
-    setDeleteBusy(false);
-    if (!check) {
-      addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao verificar item' });
-      setDeleteTarget(null);
-      return;
-    }
-    setDeleteHasSales(check.has_sales);
-    setDeleteDialogOpen(true);
-  };
-
-  const closeDeleteDialog = () => {
-    if (deleteBusy) return;
-    setDeleteDialogOpen(false);
-    setDeleteTarget(null);
-    setDeleteHasSales(false);
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleteBusy(true);
-    const result = await deleteProduct(deleteTarget.id);
-    setDeleteBusy(false);
-    if (!result?.ok) {
-      const err = result?.error || useProductsStore.getState().error || '';
-      if (result?.has_sales || /vendas registradas/i.test(err)) {
-        setDeleteHasSales(true);
-        return;
-      }
-      addToast({ type: 'error', message: err || 'Erro ao excluir item' });
-      return;
-    }
-    addToast({ type: 'success', message: 'Item excluído' });
-    closeDeleteDialog();
-    await refreshStockStores();
-  };
-
-  const handleDeactivateFromDelete = async (itemId) => {
-    const updated = await deactivateProduct(itemId);
-    if (!updated) {
-      addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao desativar' });
-      return;
-    }
-    addToast({ type: 'success', message: 'Produto desativado' });
-    closeDeleteDialog();
-    await refreshStockStores();
-  };
-
   if (modules?.inventory !== true) {
     return null;
   }
@@ -190,8 +148,7 @@ const Inventory = () => {
           onRegisterEntry={handleRegisterEntry}
           onRequestCheck={(item) => setCheckTarget(item)}
           onConfigureItem={(item) => setConfigItem(item)}
-          onDeleteItem={(item) => void openDeleteDialog(item)}
-          deleteBusyId={deleteBusy ? deleteTarget?.id : null}
+          onAdjustItem={(item) => setAdjustItem(item)}
         />
       ) : (
         <InventoryMovesForm
@@ -206,16 +163,6 @@ const Inventory = () => {
           onSuccess={onMoveSuccess}
         />
       )}
-
-      <ProductDeleteDialog
-        open={deleteDialogOpen}
-        product={deleteTarget}
-        hasSales={deleteHasSales}
-        loading={deleteBusy || loading}
-        onClose={closeDeleteDialog}
-        onConfirmDelete={() => void confirmDelete()}
-        onConfirmDeactivate={() => deleteTarget && void handleDeactivateFromDelete(deleteTarget.id)}
-      />
 
       <InventoryConfigureModal
         open={Boolean(configItem)}
@@ -240,6 +187,14 @@ const Inventory = () => {
         loading={loading}
         onClose={() => setCheckTarget(null)}
         onConfirm={() => void confirmCheck()}
+      />
+
+      <InventoryAdjustModal
+        open={Boolean(adjustItem)}
+        item={adjustItem}
+        loading={loading}
+        onClose={() => setAdjustItem(null)}
+        onSubmit={submitAdjust}
       />
     </div>
   );
