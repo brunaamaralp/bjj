@@ -10,6 +10,15 @@ import { STUDENT_STATUS } from '../lib/studentStatus.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
 
+let fetchStudentsAbortController = null;
+
+export function cancelFetchStudents() {
+  if (fetchStudentsAbortController) {
+    fetchStudentsAbortController.abort();
+    fetchStudentsAbortController = null;
+  }
+}
+
 const CLIENT_ONLY_KEYS = new Set([
   'id',
   'createdAt',
@@ -150,7 +159,8 @@ export const useStudentStore = create((set, get) => ({
     return getAcademyContext().academyId;
   },
 
-  resetForAcademyChange: () =>
+  resetForAcademyChange: () => {
+    cancelFetchStudents();
     set({
       students: [],
       studentsCursor: null,
@@ -160,7 +170,8 @@ export const useStudentStore = create((set, get) => ({
       loading: false,
       loadingMore: false,
       studentsError: false,
-    }),
+    });
+  },
 
   mergeStudent: (id, updates) => {
     set((state) => ({
@@ -220,12 +231,19 @@ export const useStudentStore = create((set, get) => ({
     const academyId = getAcademyContext().academyId;
     if (!academyId || !STUDENTS_COL) return;
 
+    const externalSignal = opts.signal;
+    if (reset && !externalSignal) {
+      cancelFetchStudents();
+      fetchStudentsAbortController = new AbortController();
+    }
+    const signal = externalSignal || (reset ? fetchStudentsAbortController?.signal : null);
+
     const queryOpts = reset
       ? opts
       : { ...get().lastFetchOpts, ...opts, reset: false };
 
     if (reset) {
-      if (get().loading) return;
+      if (get().loading && !externalSignal) return;
       set({
         lastFetchOpts: {
           search: queryOpts.search,
@@ -293,6 +311,7 @@ export const useStudentStore = create((set, get) => ({
         });
       }
     } catch (e) {
+      if (signal?.aborted) return;
       console.error('[fetchStudents]', academyId, e?.message || e);
       set({ loading: false, loadingMore: false, studentsError: true });
     }

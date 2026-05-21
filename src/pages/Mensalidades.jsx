@@ -34,7 +34,6 @@ import {
 } from '../lib/collectionRules.js';
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../lib/collectionOverdue.js';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
-import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
@@ -235,10 +234,6 @@ export default function Mensalidades() {
     () => readCollectionSettingsFromFinanceConfig(financeConfig),
     [financeConfig]
   );
-
-  useEffect(() => {
-    if (academyId) void prefetchFinanceConfig(academyId);
-  }, [academyId]);
 
   useEffect(() => {
     if (!academyId || financeConfigAcademyId === academyId) return;

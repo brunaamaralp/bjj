@@ -237,6 +237,25 @@ function SideNavAccordion({
   );
 }
 
+function NavModulesSkeleton({ collapsed }) {
+  if (collapsed) {
+    return (
+      <>
+        <div className="navi-side-skeleton-line" aria-hidden />
+        <div className="navi-side-skeleton-line navi-side-skeleton-line--short" aria-hidden />
+      </>
+    );
+  }
+  return (
+    <div className="navi-side-nav-skeleton" aria-hidden>
+      <span className="navi-side-section-title navi-side-skeleton-title">···</span>
+      <div className="navi-side-skeleton-line" />
+      <div className="navi-side-skeleton-line" />
+      <div className="navi-side-skeleton-line navi-side-skeleton-line--short" />
+    </div>
+  );
+}
+
 export default function NaviSidebarNav({
   collapsed,
   sideLinkClass,
@@ -244,6 +263,7 @@ export default function NaviSidebarNav({
   navStudentsLabel,
   newLeadLabel,
   modules,
+  modulesReady = true,
   canConfigureAgenteIa,
   inboxUnread,
 }) {
@@ -330,7 +350,9 @@ export default function NaviSidebarNav({
             />
           )}
         </Link>
-        {automacoesAccordion ? (
+        {!modulesReady ? (
+          <NavModulesSkeleton collapsed={collapsed} />
+        ) : automacoesAccordion ? (
           <SideNavAccordion
             accordion={automacoesAccordion}
             Icon={ICONS.automacoes}
@@ -344,7 +366,11 @@ export default function NaviSidebarNav({
         ) : null}
       </SidebarSection>
 
-      {navModel.financeDirect.length > 0 ? (
+      {!modulesReady ? (
+        <SidebarSection title="Financeiro" collapsed={collapsed} showDivider>
+          <NavModulesSkeleton collapsed={collapsed} />
+        </SidebarSection>
+      ) : navModel.financeDirect.length > 0 ? (
         <SidebarSection title="Financeiro" collapsed={collapsed} showDivider>
           {navModel.financeDirect.map((item) => (
             <SideNavLink
@@ -371,7 +397,11 @@ export default function NaviSidebarNav({
         </SidebarSection>
       ) : null}
 
-      {lojaAccordion ? (
+      {!modulesReady ? (
+        <SidebarSection title="Loja" collapsed={collapsed} showDivider>
+          <NavModulesSkeleton collapsed={collapsed} />
+        </SidebarSection>
+      ) : lojaAccordion ? (
         <SidebarSection title="Loja" collapsed={collapsed} showDivider>
           <SideNavAccordion
             accordion={lojaAccordion}

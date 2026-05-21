@@ -18,7 +18,7 @@ import { isInactiveStudent } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
-import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
+import { preloadLeadProfile } from '../lib/preloadRoutes.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
@@ -82,6 +82,7 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, 
                 cursor: isMoving ? 'wait' : undefined,
                 ...props.style
             }}
+            onMouseEnter={() => { void preloadLeadProfile(); }}
             onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
             {...props}
         >
@@ -559,6 +560,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                         <div
                                             role="button"
                                             tabIndex={0}
+                                            onMouseEnter={() => { void preloadLeadProfile(); }}
                                             onClick={() => navigate(`/lead/${lead.id}`)}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' || e.key === ' ') {
@@ -719,9 +721,6 @@ const Pipeline = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
-    useEffect(() => {
-        if (academyId) void prefetchFinanceConfig(academyId);
-    }, [academyId]);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
     const permCtx = useMemo(() => {

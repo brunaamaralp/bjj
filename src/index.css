@@ -608,6 +608,40 @@ button:active {
   gap: 0;
 }
 
+.navi-side-skeleton-line {
+  height: 36px;
+  margin: 4px 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--border-light) 25%, var(--border-mid) 50%, var(--border-light) 75%);
+  background-size: 200% 100%;
+  animation: navi-side-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.navi-side-skeleton-line--short {
+  width: 72%;
+}
+
+.navi-side-skeleton-title {
+  display: block;
+  height: 10px;
+  width: 4rem;
+  margin: 12px 12px 8px;
+  border-radius: 4px;
+  background: var(--border-light);
+  color: transparent;
+  user-select: none;
+}
+
+.navi-nav-item--skeleton {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+@keyframes navi-side-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
 .navi-side-section--footer,
 .navi-sidebar-footer {
   margin-top: auto;

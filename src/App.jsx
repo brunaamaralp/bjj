@@ -33,17 +33,14 @@ import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
 import { isBillingLive } from './lib/billingEnabled';
 import { Query } from 'appwrite';
-import { useLeadStore } from './store/useLeadStore';
-import { useStudentStore } from './store/useStudentStore';
+import { useLeadStore, cancelFetchLeads } from './store/useLeadStore';
+import { useStudentStore, cancelFetchStudents } from './store/useStudentStore';
+import {
+  getAcademyDocument,
+  applyAcademyDocToLeadStore,
+} from './lib/getAcademyDocument.js';
 import { cleanOldAccountingCache } from './store/useAccountingStore';
 import { useUiStore } from './store/useUiStore';
-import Dashboard from './pages/Dashboard';
-import Pipeline from './pages/Pipeline';
-import LeadProfile from './pages/LeadProfile';
-import StudentProfile from './pages/StudentProfile';
-import NewLead from './pages/NewLead';
-import Students from './pages/Students';
-import Tasks from './pages/Tasks';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
@@ -58,6 +55,14 @@ import {
 } from './components/routing/LegacyRedirects.jsx';
 
 import { lazyWithRetry } from './lib/lazyWithRetry.js';
+
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Pipeline = lazyWithRetry(() => import('./pages/Pipeline'));
+const LeadProfile = lazyWithRetry(() => import('./pages/LeadProfile'));
+const StudentProfile = lazyWithRetry(() => import('./pages/StudentProfile'));
+const NewLead = lazyWithRetry(() => import('./pages/NewLead'));
+const Students = lazyWithRetry(() => import('./pages/Students'));
+const Tasks = lazyWithRetry(() => import('./pages/Tasks'));
 
 const Inbox = lazyWithRetry(() => import('./pages/Inbox'));
 const Reports = lazyWithRetry(() => import('./pages/Reports'));
@@ -199,20 +204,24 @@ const App = () => {
     };
   }, [mobileMenuOpen]);
 
-  const bootModules = useMemo(
-    () => (academyReady ? modules : { sales: true, inventory: true, finance: true }),
-    [academyReady, modules]
-  );
+  const bootstrapAbortRef = React.useRef(null);
+
+  const cancelBootstrap = React.useCallback(() => {
+    bootstrapAbortRef.current?.abort();
+    bootstrapAbortRef.current = null;
+    cancelFetchLeads();
+    cancelFetchStudents();
+  }, []);
 
   const mobileMenuSections = useMemo(
     () =>
       buildMobileDrawerSections({
-        modules: bootModules,
+        modules: academyReady ? modules : { sales: false, inventory: false, finance: false },
         navRole,
         canConfigureAgenteIa,
         pipelineLabel: labels.pipeline || 'Funil',
       }),
-    [bootModules, navRole, canConfigureAgenteIa, labels.pipeline]
+    [academyReady, modules, navRole, canConfigureAgenteIa, labels.pipeline]
   );
 
   const mobileDrawerIconMap = useMemo(
@@ -244,62 +253,37 @@ const App = () => {
   const handleAcademyChange = React.useCallback(
     async (id) => {
       if (!id) return;
+      cancelBootstrap();
+      const ac = new AbortController();
+      bootstrapAbortRef.current = ac;
+      const { signal } = ac;
+
       setAcademyId(id);
+      useStudentStore.getState().resetForAcademyChange();
+      useLeadStore.getState().setDataReady(false);
       useLeadStore.getState().setInboxUnreadConversations(0);
       localStorage.setItem('activeAcademyId', id);
       useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
-        let uiLabels = null;
-        let mods = null;
-        try {
-          if (doc.uiLabels) {
-            uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
-          }
-          if (doc.modules) {
-            mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
-          }
-        } catch {
-          uiLabels = null;
-          mods = null;
-        }
-        const labelVerticalSwitch = String(doc.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
-        if (uiLabels && typeof uiLabels === 'object') {
-          setLabels({
-            leads: uiLabels.leads || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Leads'),
-            students: uiLabels.students || (labelVerticalSwitch === 'physio' ? 'Pacientes' : 'Alunos'),
-            classes: uiLabels.classes || (labelVerticalSwitch === 'physio' ? 'Atendimentos' : 'Aulas'),
-            pipeline: uiLabels.pipeline || 'Funil',
-          });
-        }
-        try {
-          useLeadStore.getState().setVertical(doc.vertical || 'fitness');
-        } catch (e2) {
-          void e2;
-        }
-        if (mods && typeof mods === 'object') {
-          setModules({
-            sales: Boolean(mods.sales),
-            inventory: Boolean(mods.inventory),
-            finance: Boolean(mods.finance),
-          });
-        }
-        useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
-        try {
-          useLeadStore.getState().setTeamId(String(doc.teamId || '').trim() || null);
-        } catch (e2) {
-          void e2;
-        }
+        const doc = await getAcademyDocument(id);
+        if (signal.aborted) return;
+        applyAcademyDocToLeadStore(doc, { setLabels, setModules });
       } catch (e) {
         void e;
+        if (signal.aborted) return;
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       }
       await Promise.all([
-        useLeadStore.getState().fetchLeads(),
-        useStudentStore.getState().fetchStudents(),
+        useLeadStore.getState().fetchLeads({ signal }),
+        useStudentStore.getState().fetchStudents({ signal }),
       ]);
+      if (signal.aborted) return;
+      const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
+      if (financeEnabled) void prefetchFinanceConfig(id);
+      await syncBilling(id);
+      if (!signal.aborted) useLeadStore.getState().setDataReady(true);
     },
-    [setAcademyId, setLabels, setModules]
+    [setAcademyId, setLabels, setModules, cancelBootstrap]
   );
 
   /** Garante trial no servidor (chamar uma vez após definir academia). */
@@ -356,7 +340,8 @@ const App = () => {
   );
 
   useEffect(() => {
-    if (!user || !academyIdStore || !isBillingLive()) {
+    if (!user || !academyIdStore || !academyReady || !isBillingLive()) {
+      if (!academyReady) return undefined;
       useLeadStore.getState().setBillingAccess(null);
       return undefined;
     }
@@ -394,7 +379,7 @@ const App = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, academyIdStore, location.pathname, applyBillingNeedsPlanNudge]);
+  }, [user, academyIdStore, academyReady, location.pathname, applyBillingNeedsPlanNudge]);
 
   useEffect(() => {
     if (!user || !academyIdStore) {
@@ -430,18 +415,44 @@ const App = () => {
       void syncInboxUnreadBadge();
     };
 
-    void syncInboxUnreadBadge();
-    timer = setInterval(() => {
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        void syncInboxUnreadBadge();
+      }, 60000);
+    };
+
+    const onVisibility = () => {
+      if (typeof document === 'undefined') return;
+      if (document.hidden) {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        return;
+      }
       void syncInboxUnreadBadge();
-    }, 20000);
+      startTimer();
+    };
+
+    if (typeof document !== 'undefined' && !document.hidden) {
+      void syncInboxUnreadBadge();
+      startTimer();
+    }
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus);
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
     }
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', onFocus);
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
       }
     };
   }, [user, academyIdStore]);
@@ -464,10 +475,24 @@ const App = () => {
         if (currentUser) {
           setUser(currentUser);
           setAcademyReady(false);
+          useLeadStore.getState().setDataReady(false);
           try { useLeadStore.getState().setUserId(currentUser.$id); } catch (e) { void e; }
           try { await authService.refreshJwt(); } catch (e) { void e; }
-          setSessionChecking(false);
-          void setupAcademy(currentUser).finally(() => setAcademyReady(true));
+          cancelBootstrap();
+          const ac = new AbortController();
+          bootstrapAbortRef.current = ac;
+          try {
+            await setupAcademyPhase1(currentUser, ac.signal);
+            if (ac.signal.aborted) return;
+            setAcademyReady(true);
+            setSessionChecking(false);
+            void setupAcademyPhase2(currentUser, ac.signal);
+          } catch (e) {
+            if (!ac.signal.aborted) {
+              console.error('Bootstrap fase 1:', e);
+            }
+            setSessionChecking(false);
+          }
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
           const path = window.location.pathname;
           const search = window.location.search || '';
@@ -483,6 +508,7 @@ const App = () => {
           if (!authPaths.includes(p)) {
             navigate('/', { replace: true });
           }
+          setSessionChecking(false);
         }
       } catch {
         const p = window.location.pathname;
@@ -490,15 +516,67 @@ const App = () => {
         if (!authPaths.includes(p)) {
           navigate('/', { replace: true });
         }
-      } finally {
         setSessionChecking(false);
       }
     };
     init();
   }, []);
 
-  // Create or find academy for user (opts.vertical só no cadastro: primeiro POST /api/academies/create)
-  const setupAcademy = async (u, opts) => {
+  const migrateCustomLeadQuestionsIfNeeded = async (doc, academyId) => {
+    try {
+      const createId = () => {
+        try {
+          if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        } catch { void 0; }
+        const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+        return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+      };
+
+      let raw = [];
+      if (doc.customLeadQuestions) {
+        raw = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : doc.customLeadQuestions;
+        if (!Array.isArray(raw)) raw = [];
+      }
+
+      let migrated = false;
+      let list = [];
+      if (raw.length > 0 && typeof raw[0] === 'string') {
+        migrated = true;
+        list = raw.map((label) => String(label || '').trim()).filter(Boolean).map((label) => ({ id: createId(), label, type: 'text' }));
+      } else {
+        list = raw.map((q) => {
+          const label = String(q?.label || q?.name || '').trim();
+          let id = String(q?.id || '').trim();
+          const type = String(q?.type || 'text').trim() || 'text';
+          const options = Array.isArray(q?.options)
+            ? q.options.filter(Boolean).map((s) => String(s).trim()).filter(Boolean)
+            : (typeof q?.options === 'string'
+              ? q.options.split(',').map((s) => s.trim()).filter(Boolean)
+              : undefined);
+          if (!label) { migrated = true; return null; }
+          if (!id) { migrated = true; id = createId(); }
+          if (q?.label !== label || q?.id !== id || q?.type !== type) migrated = true;
+          const base = { id, label, type };
+          if (type === 'select') return { ...base, options: options || [] };
+          return base;
+        }).filter(Boolean);
+      }
+
+      if (migrated) {
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+          customLeadQuestions: JSON.stringify(list),
+        }).catch((e) => {
+          console.warn('[setupAcademy] Failed to update customLeadQuestions:', e);
+        });
+        doc.customLeadQuestions = JSON.stringify(list);
+      }
+    } catch (e) {
+      void e;
+    }
+  };
+
+  /** Fase 1: conta, lista de academias, documento e módulos (bloqueia shell). */
+  const setupAcademyPhase1 = async (u, signal, opts) => {
     try {
       if (!u || !u.$id) {
         throw new Error('invalid_user');
@@ -576,11 +654,13 @@ const App = () => {
           );
         }
       }
+      if (signal?.aborted) return academyId;
       setAcademyId(academyId);
       localStorage.setItem('activeAcademyId', academyId);
       useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        const doc = await getAcademyDocument(academyId);
+        if (signal?.aborted) return academyId;
         let ensuredTeamId = String(doc?.teamId || '').trim();
         if (!ensuredTeamId) {
           try {
@@ -599,90 +679,9 @@ const App = () => {
         }
         try { useLeadStore.getState().setTeamId(ensuredTeamId || null); } catch (e) { void e; }
         try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
-        try {
-          const createId = () => {
-            try {
-              if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-            } catch { void 0; }
-            const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
-            return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
-          };
-
-          let raw = [];
-          if (doc.customLeadQuestions) {
-            raw = typeof doc.customLeadQuestions === 'string' ? JSON.parse(doc.customLeadQuestions) : doc.customLeadQuestions;
-            if (!Array.isArray(raw)) raw = [];
-          }
-
-          let migrated = false;
-          let list = [];
-          if (raw.length > 0 && typeof raw[0] === 'string') {
-            migrated = true;
-            list = raw.map((label) => String(label || '').trim()).filter(Boolean).map((label) => ({ id: createId(), label, type: 'text' }));
-          } else {
-            list = raw.map((q) => {
-              const label = String(q?.label || q?.name || '').trim();
-              let id = String(q?.id || '').trim();
-              const type = String(q?.type || 'text').trim() || 'text';
-              const options = Array.isArray(q?.options)
-                ? q.options.filter(Boolean).map((s) => String(s).trim()).filter(Boolean)
-                : (typeof q?.options === 'string'
-                  ? q.options.split(',').map((s) => s.trim()).filter(Boolean)
-                  : undefined);
-              if (!label) { migrated = true; return null; }
-              if (!id) { migrated = true; id = createId(); }
-              if (q?.label !== label || q?.id !== id || q?.type !== type) migrated = true;
-              const base = { id, label, type };
-              if (type === 'select') return { ...base, options: options || [] };
-              return base;
-            }).filter(Boolean);
-          }
-
-          if (migrated) {
-            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-              customLeadQuestions: JSON.stringify(list)
-            }).catch(e => {
-              console.warn('[setupAcademy] Failed to update customLeadQuestions, probably due to permissions:', e);
-            });
-            doc.customLeadQuestions = JSON.stringify(list);
-          }
-        } catch (e) { void e; }
-        let uiLabels = null;
-        let mods = null;
-        try {
-          if (doc.uiLabels) {
-            uiLabels = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
-          }
-          if (doc.modules) {
-            mods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
-          }
-        } catch { uiLabels = null; mods = null; }
-        const labelVertical = String(doc.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
-        if (uiLabels && typeof uiLabels === 'object') {
-          setLabels({
-            leads: uiLabels.leads || (labelVertical === 'physio' ? 'Pacientes' : 'Leads'),
-            students: uiLabels.students || (labelVertical === 'physio' ? 'Pacientes' : 'Alunos'),
-            classes: uiLabels.classes || (labelVertical === 'physio' ? 'Atendimentos' : 'Aulas'),
-            pipeline: uiLabels.pipeline || 'Funil',
-          });
-        }
-        try {
-          useLeadStore.getState().setVertical(doc.vertical || 'fitness');
-        } catch (e) {
-          void e;
-        }
-        if (mods && typeof mods === 'object') {
-          setModules({
-            sales: Boolean(mods.sales),
-            inventory: Boolean(mods.inventory),
-            finance: Boolean(mods.finance),
-          });
-        } else {
-          setModules({ sales: false, inventory: false, finance: false });
-        }
-        try {
-          useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(doc.onboardingChecklist));
-        } catch (e) { void e; }
+        await migrateCustomLeadQuestionsIfNeeded(doc, academyId);
+        if (signal?.aborted) return academyId;
+        applyAcademyDocToLeadStore(doc, { setLabels, setModules });
         if (needsSingletonAcademyList && doc) {
           const single = [
             {
@@ -706,33 +705,42 @@ const App = () => {
         }
       } catch (e) {
         void e;
+        if (signal?.aborted) return academyId;
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       }
-      // Fetch leads after academy is set
       useLeadStore.getState().setAcademyId(academyId);
-      const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
-      const leadsPromise = useLeadStore.getState().fetchLeads();
-      const studentsPromise = useStudentStore.getState().fetchStudents();
-      if (financeEnabled && academyId) {
-        void prefetchFinanceConfig(academyId);
-      }
-      await Promise.all([leadsPromise, studentsPromise]);
-      await syncBilling(academyId);
+      return academyId;
     } catch (e) {
       console.error('Erro ao carregar academia:', e);
-      // Exibir mensagem clara para o usuário
-      // setError('Não foi possível carregar sua academia. Tente novamente ou entre em contato com o administrador.');
-      // Como estamos no App.jsx e não temos 'setError' local, usaremos o toast
       try {
         useUiStore.getState().addToast({
           type: 'error',
           message: `Não foi possível carregar sua ${terms.workspaceNoun}. Tente novamente ou entre em contato com o administrador.`,
-          duration: 6000
+          duration: 6000,
         });
       } catch (toastErr) {
         console.error(toastErr);
       }
-      // NÃO fazer logout automático
+      throw e;
+    }
+  };
+
+  /** Fase 2: leads, alunos, finance config e billing (background). */
+  const setupAcademyPhase2 = async (u, signal) => {
+    const academyId = useLeadStore.getState().academyId;
+    if (!academyId || signal?.aborted) return;
+    try {
+      const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
+      await Promise.all([
+        useLeadStore.getState().fetchLeads({ signal }),
+        useStudentStore.getState().fetchStudents({ signal }),
+      ]);
+      if (signal?.aborted) return;
+      if (financeEnabled) void prefetchFinanceConfig(academyId);
+      await syncBilling(academyId);
+      if (!signal?.aborted) useLeadStore.getState().setDataReady(true);
+    } catch (e) {
+      if (!signal?.aborted) console.error('Bootstrap fase 2:', e);
     }
   };
 
@@ -743,10 +751,16 @@ const App = () => {
     }
     setUser(u);
     setAcademyReady(false);
+    useLeadStore.getState().setDataReady(false);
     try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
     try { await authService.refreshJwt(); } catch (e) { void e; }
-    await setupAcademy(u, opts);
+    cancelBootstrap();
+    const ac = new AbortController();
+    bootstrapAbortRef.current = ac;
+    await setupAcademyPhase1(u, ac.signal, opts);
+    if (ac.signal.aborted) return;
     setAcademyReady(true);
+    void setupAcademyPhase2(u, ac.signal);
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
     navigate('/', { replace: true });
   };
@@ -759,7 +773,9 @@ const App = () => {
     }
     await authService.logout();
     setUser(null);
+    cancelBootstrap();
     setAcademyReady(false);
+    useLeadStore.getState().setDataReady(false);
     useLeadStore.getState().setAcademyId(null);
     useLeadStore.getState().setAcademyList([]);
     useLeadStore.getState().setInboxUnreadConversations(0);
@@ -893,7 +909,8 @@ const App = () => {
             labels={labels}
             navStudentsLabel={navStudentsLabel}
             newLeadLabel={newLeadLabel}
-            modules={bootModules}
+            modules={modules}
+            modulesReady={academyReady}
             navRole={navRole}
             canConfigureAgenteIa={canConfigureAgenteIa}
             inboxUnread={inboxUnread}
@@ -1100,7 +1117,12 @@ const App = () => {
           <GraduationCap size={22} strokeWidth={1.75} />
           <span>{navStudentsLabel}</span>
         </Link>
-        {bootModules.finance === true ? (
+        {!academyReady ? (
+          <span className="navi-nav-item navi-nav-item--skeleton" aria-hidden>
+            <CheckSquare size={22} strokeWidth={1.75} />
+            <span>Tarefas</span>
+          </span>
+        ) : modules.finance === true ? (
           <Link to="/mensalidades" className={`navi-nav-item${isActive('/mensalidades') ? ' active' : ''}`}>
             <Users size={22} strokeWidth={1.75} />
             <span>Mensalidades</span>

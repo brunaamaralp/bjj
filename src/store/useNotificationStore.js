@@ -89,25 +89,59 @@ export const useNotificationStore = create((set, get) => ({
   },
 
   pollingInterval: null,
+  pollingVisibilityHandler: null,
+  pollingContext: null,
+
   startPolling: (academyId, userId) => {
     if (!academyId || !userId) return;
-    if (get().pollingInterval) return;
+    get().stopPolling();
 
-    // Initial fetch
-    get().fetchNotifications(academyId, userId);
+    const ctx = { academyId, userId };
+    const startInterval = () => {
+      const prev = get().pollingInterval;
+      if (prev) clearInterval(prev);
+      const interval = setInterval(() => {
+        get().fetchNotifications(ctx.academyId, ctx.userId, true);
+      }, 60000);
+      set({ pollingInterval: interval });
+    };
 
-    const interval = setInterval(() => {
-      get().fetchNotifications(academyId, userId, true);
-    }, 30000);
+    const onVisibility = () => {
+      if (typeof document === 'undefined') return;
+      if (document.hidden) {
+        const iv = get().pollingInterval;
+        if (iv) {
+          clearInterval(iv);
+          set({ pollingInterval: null });
+        }
+        return;
+      }
+      get().fetchNotifications(ctx.academyId, ctx.userId, true);
+      startInterval();
+    };
 
-    set({ pollingInterval: interval });
+    set({ pollingContext: ctx, pollingVisibilityHandler: onVisibility });
+
+    if (typeof document === 'undefined' || !document.hidden) {
+      get().fetchNotifications(academyId, userId);
+      startInterval();
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
   },
 
   stopPolling: () => {
     const interval = get().pollingInterval;
-    if (interval) {
-      clearInterval(interval);
-      set({ pollingInterval: null });
+    if (interval) clearInterval(interval);
+    const handler = get().pollingVisibilityHandler;
+    if (handler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handler);
     }
-  }
+    set({
+      pollingInterval: null,
+      pollingVisibilityHandler: null,
+      pollingContext: null,
+    });
+  },
 }));

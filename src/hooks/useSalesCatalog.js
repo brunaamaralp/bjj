@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
-import { catalogProductsForSale, enrichCatalogProduct } from '../lib/salesCatalog';
+import { catalogParentsFromVariants } from '../lib/salesCatalog';
 
 async function fetchProductsViaApi(academyId) {
   const jwt = await createSessionJwt();
@@ -19,7 +19,7 @@ async function fetchProductsViaApi(academyId) {
   if (!res.ok) {
     throw new Error(data.erro || data.error || `error_${res.status}`);
   }
-  return data.products || [];
+  return data.variants || data.products || [];
 }
 
 export function useSalesCatalog(academyId) {
@@ -36,7 +36,7 @@ export function useSalesCatalog(academyId) {
     setError(null);
     try {
       const list = await fetchProductsViaApi(academyId);
-      const mapped = catalogProductsForSale((list || []).map(enrichCatalogProduct));
+      const mapped = catalogParentsFromVariants(list);
       setProducts(mapped);
       return mapped;
     } catch (e) {

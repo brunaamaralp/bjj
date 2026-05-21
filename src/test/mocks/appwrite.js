@@ -10,6 +10,8 @@ export const databases = {
   getDocument: vi.fn().mockResolvedValue({})
 };
 
+export const createSessionJwt = vi.fn().mockResolvedValue('mock-jwt-token');
+
 export const ID = { unique: vi.fn(() => 'mock-unique-id') };
 export const Query = {
   equal: vi.fn((k, v) => `equal(${k},${v})`),

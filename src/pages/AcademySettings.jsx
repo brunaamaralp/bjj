@@ -5,6 +5,10 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
 import {
+  getAcademyDocument,
+  invalidateAcademyDocumentCache,
+} from '../lib/getAcademyDocument.js';
+import {
     ChevronLeft,
     ChevronRight,
     Building2,
@@ -294,7 +298,7 @@ const AcademySettings = () => {
         setAcademyLoadState('loading');
         (async () => {
             try {
-                const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+                const doc = await getAcademyDocument(academyId);
                 if (cancelled) return;
                 let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' };
                 let mods = { sales: false, inventory: false, finance: false };
@@ -343,6 +347,7 @@ const AcademySettings = () => {
                         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                             customLeadQuestions: JSON.stringify(normalized.questions)
                         });
+                        invalidateAcademyDocumentCache(academyId);
                     } catch (e) {
                         console.error('[AcademySettings] erro:', e);
                         addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -419,6 +424,7 @@ const AcademySettings = () => {
                 uiLabels: JSON.stringify(academy.uiLabels || {}),
                 modules: JSON.stringify(modulesPayload),
             });
+            invalidateAcademyDocumentCache(academyId);
             try {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
                 useLeadStore.getState().setModules(academy.modules || {});

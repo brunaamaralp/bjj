@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, ChevronUp, ChevronDown, Upload, ArrowLeftRight, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronRight, Upload, ArrowLeftRight, MoreHorizontal } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
-import { filterProductsClient } from '../lib/stockProducts';
+import { filterParentCatalog } from '../lib/productCatalog';
 import { formatBRL } from '../lib/moneyBr';
 import { refreshStockStores } from '../lib/syncStockStores';
 import ProductThumb from '../components/products/ProductThumb';
@@ -23,13 +23,6 @@ const LIFECYCLE_LABELS = {
   sem_estoque: 'Sem estoque',
 };
 
-function productVariationSuffix(p) {
-  const tam = String(p.Tamanho || '').trim();
-  if (tam) return `· ${tam}`;
-  const sku = String(p.sku || '').trim();
-  if (sku && sku !== 'Único') return `· ${sku}`;
-  return '';
-}
 
 function ProductActionsMenu({ product, isOpen, onToggle, onClose, onDuplicate, onDelete, deleteBusy }) {
   const rootRef = useRef(null);
@@ -130,6 +123,7 @@ export default function Products() {
   const [importFilterIds, setImportFilterIds] = useState(null);
   const [movesProduct, setMovesProduct] = useState(null);
   const [actionsMenuId, setActionsMenuId] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   const canAccess = modules?.inventory === true || modules?.sales === true;
 
@@ -167,7 +161,7 @@ export default function Products() {
   }, [products]);
 
   const filtered = useMemo(() => {
-    let list = filterProductsClient(products, {
+    let list = filterParentCatalog(products, {
       search,
       category: categoryFilter,
       statusFilter: statusFilter === 'all' ? '' : statusFilter,
@@ -175,10 +169,21 @@ export default function Products() {
     });
     if (importFilterIds?.length) {
       const idSet = new Set(importFilterIds);
-      list = list.filter((p) => idSet.has(p.id));
+      list = list.filter(
+        (p) => idSet.has(p.id) || (p.variants || []).some((v) => idSet.has(v.id))
+      );
     }
     return list;
   }, [products, search, categoryFilter, statusFilter, typeFilter, importFilterIds]);
+
+  const toggleExpanded = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -204,8 +209,11 @@ export default function Products() {
         case 'tipo':
           out = cmpNum(a.is_for_sale ? 1 : 0, b.is_for_sale ? 1 : 0);
           break;
+        case 'total_quantity':
+          out = cmpNum(a.total_quantity, b.total_quantity);
+          break;
         default:
-          out = cmpStr(a.display_label || a.nome, b.display_label || b.nome);
+          out = cmpStr(a.nome, b.nome);
       }
       return out * dir;
     });
@@ -235,13 +243,17 @@ export default function Products() {
     setModalOpen(true);
   };
 
-  const openEdit = (product) => {
-    setActiveProduct(product);
+  const openEdit = (product, { variant } = {}) => {
+    setActiveProduct(
+      variant
+        ? { ...variant, id: variant.id }
+        : product
+    );
     setModalMode('edit');
     setModalOpen(true);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set('edit', product.id);
+      next.set('edit', (variant || product).id);
       return next;
     });
   };
@@ -276,16 +288,53 @@ export default function Products() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, searchParams]);
 
-  const handleSave = async (payload) => {
-    const isEdit = modalMode === 'edit';
+  const handleSave = async (payload, { isEdit: editFlag, isParent, phase } = {}) => {
+    const isEdit = editFlag ?? modalMode === 'edit';
+
+    if (phase === 'variants') {
+      const result = await useProductsStore.getState().saveProductVariants(payload);
+      if (result.duplicate_indexes?.length) {
+        return result;
+      }
+      if (!result.ok) {
+        addToast({ type: 'error', message: result.erro || 'Erro ao salvar variantes' });
+        return result;
+      }
+      const errCount = (result.errors || []).length;
+      const savedN = result.saved ?? 0;
+      if (errCount > 0) {
+        const first = result.errors[0];
+        addToast({
+          type: 'warning',
+          message: `${savedN} variante(s) salva(s), ${errCount} erro(s)${first?.label ? ` em ${first.label}` : ''}`,
+          duration: 8000,
+        });
+      } else {
+        addToast({ type: 'success', message: `${savedN} variante(s) salva(s)` });
+        closeModal();
+        await refreshStockStores();
+      }
+      return result;
+    }
+
+    if (phase === 'parent' && isEdit && isParent) {
+      const saved = await updateProduct(payload);
+      if (!saved) {
+        addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao salvar produto' });
+        return { ok: false };
+      }
+      return { ok: true };
+    }
+
     const saved = isEdit ? await updateProduct(payload) : await createProduct(payload);
     if (!saved) {
       addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao salvar produto' });
-      return;
+      return { ok: false };
     }
     addToast({ type: 'success', message: isEdit ? 'Produto atualizado' : 'Produto criado' });
     closeModal();
     await refreshStockStores();
+    return { ok: true };
   };
 
   const handleDeactivate = async (itemId) => {
@@ -451,59 +500,101 @@ export default function Products() {
                   <SortHeader label="Produto" sortKey="nome" />
                   <SortHeader label="Categoria" sortKey="categoria" />
                   <SortHeader label="Preço" sortKey="sale_price" />
-                  <SortHeader label="Saldo" sortKey="current_quantity" />
+                  <SortHeader label="Saldo total" sortKey="total_quantity" />
                   <SortHeader label="Status" sortKey="lifecycle" />
                   <th className="products-table__actions-head" aria-label="Ações" />
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((p) => {
-                  const variation = productVariationSuffix(p);
                   const lifecycleKey = p.lifecycle || 'ativo';
+                  const hasVariants = (p.variants || []).length > 1;
+                  const expanded = expandedIds.has(p.id);
                   return (
-                    <tr key={p.id} className="products-table__row" onClick={() => openEdit(p)}>
-                      <td className="products-table__thumb-cell" onClick={(e) => e.stopPropagation()}>
-                        <ProductThumb imageUrl={p.image_url} alt={p.nome || p.display_label} size={36} />
-                      </td>
-                      <td>
-                        <div className="products-table__name-row">
-                          <span className="products-table__name">{p.nome || p.display_label}</span>
-                          {variation ? <span className="products-table__variation">{variation}</span> : null}
-                        </div>
-                      </td>
-                      <td className="text-small text-muted">{p.categoria || '—'}</td>
-                      <td className="text-small products-table__price">
-                        {p.sale_price != null ? formatBRL(p.sale_price) : '—'}
-                      </td>
-                      <td className="products-table__qty">{p.current_quantity}</td>
-                      <td>
-                        <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
-                          {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}
-                        </span>
-                      </td>
-                      <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
-                        <div className="products-table__actions-inner">
-                          <button
-                            type="button"
-                            className="products-icon-btn"
-                            title="Ver movimentações"
-                            aria-label="Ver movimentações"
-                            onClick={() => setMovesProduct(p)}
-                          >
-                            <ArrowLeftRight size={16} aria-hidden />
-                          </button>
-                          <ProductActionsMenu
-                            product={p}
-                            isOpen={actionsMenuId === p.id}
-                            onToggle={() => setActionsMenuId((id) => (id === p.id ? null : p.id))}
-                            onClose={() => setActionsMenuId(null)}
-                            onDuplicate={openDuplicate}
-                            onDelete={(item) => void openDeleteDialog(item)}
-                            deleteBusy={deleteBusy && deleteTarget?.id === p.id}
-                          />
-                        </div>
-                      </td>
-                    </tr>
+                    <React.Fragment key={p.id}>
+                      <tr className="products-table__row" onClick={() => openEdit(p)}>
+                        <td className="products-table__thumb-cell" onClick={(e) => e.stopPropagation()}>
+                          {hasVariants ? (
+                            <button
+                              type="button"
+                              className="products-icon-btn"
+                              aria-expanded={expanded}
+                              aria-label={expanded ? 'Recolher variantes' : 'Expandir variantes'}
+                              onClick={() => toggleExpanded(p.id)}
+                            >
+                              {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </button>
+                          ) : null}
+                          <ProductThumb imageUrl={p.image_url} alt={p.nome} size={36} />
+                        </td>
+                        <td>
+                          <div className="products-table__name-row">
+                            <span className="products-table__name">{p.nome}</span>
+                            {hasVariants ? (
+                              <span className="products-table__variation">{p.variant_count} variantes</span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="text-small text-muted">{p.categoria || '—'}</td>
+                        <td className="text-small products-table__price">
+                          {p.sale_price != null ? formatBRL(p.sale_price) : '—'}
+                        </td>
+                        <td className="products-table__qty">{p.total_quantity ?? p.current_quantity ?? 0}</td>
+                        <td>
+                          <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
+                            {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}
+                          </span>
+                        </td>
+                        <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
+                          <div className="products-table__actions-inner">
+                            <ProductActionsMenu
+                              product={p}
+                              isOpen={actionsMenuId === p.id}
+                              onToggle={() => setActionsMenuId((id) => (id === p.id ? null : p.id))}
+                              onClose={() => setActionsMenuId(null)}
+                              onDuplicate={openDuplicate}
+                              onDelete={(item) => void openDeleteDialog(item.variants?.[0] || item)}
+                              deleteBusy={deleteBusy && deleteTarget?.id === p.id}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                      {expanded && hasVariants
+                        ? (p.variants || []).map((v) => {
+                            const vLife = v.lifecycle || 'ativo';
+                            return (
+                              <tr
+                                key={v.id}
+                                className="products-table__row products-table__row--variant"
+                                onClick={() => openEdit(p, { variant: v })}
+                              >
+                                <td />
+                                <td className="text-small" style={{ paddingLeft: 28 }}>
+                                  {[v.size || v.Tamanho, v.color].filter(Boolean).join(' / ') || 'Único'}
+                                </td>
+                                <td />
+                                <td />
+                                <td className="products-table__qty">{v.current_quantity}</td>
+                                <td>
+                                  <span className={`products-lifecycle-badge products-lifecycle-badge--${vLife}`}>
+                                    {LIFECYCLE_LABELS[vLife] || vLife}
+                                  </span>
+                                </td>
+                                <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    className="products-icon-btn"
+                                    title="Movimentações"
+                                    onClick={() => setMovesProduct(v)}
+                                  >
+                                    <ArrowLeftRight size={16} aria-hidden />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        : null}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -511,16 +602,18 @@ export default function Products() {
           </div>
           <div className="navi-mobile-list products-mobile-list" aria-label="Lista de produtos">
             {sorted.map((p) => {
-              const variation = productVariationSuffix(p);
               const lifecycleKey = p.lifecycle || 'ativo';
+              const hasVariants = (p.variants || []).length > 1;
               return (
                 <article key={p.id} className="navi-mobile-card products-mobile-card">
                   <div className="products-mobile-card__main" onClick={() => openEdit(p)} role="presentation">
-                    <ProductThumb imageUrl={p.image_url} alt={p.nome || p.display_label} size={36} />
+                    <ProductThumb imageUrl={p.image_url} alt={p.nome} size={36} />
                     <div className="products-mobile-card__body">
                       <div className="products-mobile-card__title-row">
-                        <span className="products-mobile-card__title">{p.nome || p.display_label}</span>
-                        {variation ? <span className="products-mobile-card__variation">{variation}</span> : null}
+                        <span className="products-mobile-card__title">{p.nome}</span>
+                        {hasVariants ? (
+                          <span className="products-mobile-card__variation">{p.variant_count} var.</span>
+                        ) : null}
                       </div>
                       <div className="products-mobile-card__meta text-small text-muted">
                         {p.categoria || '—'}
@@ -528,7 +621,7 @@ export default function Products() {
                       <div className="products-mobile-card__row text-small">
                         <span>{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</span>
                         <span className="products-mobile-card__dot" aria-hidden>•</span>
-                        <span>Saldo: {p.current_quantity}</span>
+                        <span>Saldo: {p.total_quantity ?? p.current_quantity ?? 0}</span>
                       </div>
                       <span className={`products-lifecycle-badge products-lifecycle-badge--${lifecycleKey}`}>
                         {LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey}

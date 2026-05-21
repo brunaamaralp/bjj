@@ -26,9 +26,14 @@ Coleções (Collections)
   - Atributos: `academy_id`, `name`, `trigger`, `items_json`, `enabled` (boolean, default true), `created_at`, `updated_at`
   - Gatilhos: `enrollment`, `student_exit`, `student_freeze`, `student_unfreeze`, `student_reactivation`, `student_birthday` (sem cron ainda), `manual`
   - Listagem padrão: só `enabled = true`; configuração usa `?include_disabled=1`
-- STOCK_ITEMS_COL (Itens de Estoque)
-  - Atributos: nome (string), descricao (string), quantidade_total (integer), quantidade_vendida (integer), quantidade_alugada (integer), current_quantity (integer), minimum_level (integer, padrão 0), unit (string), last_updated (datetime), last_checked (datetime), notes (string), academy_id (string)
+- STOCK_ITEMS_COL (Itens de Estoque — legado; após migração `migrated: true`)
+  - Atributos: nome (string), descricao (string), quantidade_total (integer), quantidade_vendida (integer), quantidade_alugada (integer), current_quantity (integer), minimum_level (integer, padrão 0), unit (string), last_updated (datetime), last_checked (datetime), notes (string), academy_id (string), migrated (boolean)
   - Índices sugeridos: full‑text em nome (e opcionalmente descricao) para autocomplete; equality em academy_id
+- PRODUCTS_COL (Produto pai — catálogo)
+  - Provisionar: `node scripts/provision_products_schema.js` (defina `PRODUCTS_COL`, `PRODUCT_VARIANTS_COL`, `STOCK_ITEMS_COL`)
+  - Atributos: name, description, category, sale_price, cost_price, type (`sale`|`supply`|`rental`), is_for_sale, is_active, image_url, academy_id, created_at
+- PRODUCT_VARIANTS_COL (Variantes / SKU de estoque)
+  - Atributos: product_id, size, color, sku, current_quantity, minimum_level, unit, academy_id, legacy_stock_item_id, is_active, last_updated, notes
 - STOCK_MOVES_COL (Movimentações de Estoque)
   - Atributos: item_estoque_id (string), tipo (string: "entrada" | "saida_venda" | "reversao_venda" etc.), quantidade (number), referencia_id (string), motivo (string), usuario_id (string), purchase_price (float, opcional em entrada), academy_id (string), $createdAt (padrão)
 - ACADEMIES_COL — atributo `settings` (string JSON, até 8k): `stockCheckSchedule` (enabled, dayOfWeek, taskTitle), `stockPurchaseExpenseCategory`
@@ -36,7 +41,7 @@ Coleções (Collections)
   - Atributos: aluno_id (string|null), total (number), forma_pagamento (string), status (string: "rascunho" | "concluida" | "cancelada"), idempotency_key (string|null), cancelada_em (string ISO), cancel_motivo (string|null)
   - Índices sugeridos: equality em idempotency_key
 - SALE_ITEMS_COL (Itens de Venda)
-  - Atributos: venda_id (string), item_estoque_id (string), quantidade (number), preco_unitario (number)
+  - Atributos: venda_id (string), item_estoque_id (string), product_variant_id (string, opcional — mesmo id da variante), quantidade (number), preco_unitario (number)
 - CLASSES_COL (Turmas)
   - Atributos: academyId (string), name (string), days (array<integer 0‑6>), time (string HH:mm), coach (string), capacity (integer)
   - Índices sugeridos: equality em academyId; ordenação por name (opcional)
@@ -67,6 +72,8 @@ Variáveis de Ambiente no Frontend (.env)
 - VITE_APPWRITE_STUDENTS_COLLECTION_ID (STUDENTS_COL)
 - VITE_APPWRITE_ACADEMIES_COLLECTION_ID (ACADEMIES_COL)
 - VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID (STOCK_ITEMS_COL)
+- VITE_APPWRITE_PRODUCTS_COLLECTION_ID (PRODUCTS_COL)
+- VITE_APPWRITE_PRODUCT_VARIANTS_COLLECTION_ID (PRODUCT_VARIANTS_COL)
 - VITE_APPWRITE_INVENTORY_MOVE_FN_ID (INVENTORY_MOVE_FN_ID)
 - VITE_APPWRITE_SALES_CREATE_FN_ID (SALES_CREATE_FN_ID)
 - VITE_APPWRITE_SALES_CANCEL_FN_ID (SALES_CANCEL_FN_ID)

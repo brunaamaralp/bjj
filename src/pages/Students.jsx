@@ -12,7 +12,6 @@ import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
-import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { useTerms } from '../lib/terminology.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
@@ -60,9 +59,6 @@ const Students = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
-    useEffect(() => {
-        if (academyId) void prefetchFinanceConfig(academyId);
-    }, [academyId]);
     const { turmas: turmasConfig } = useAcademyTurmas(academyId);
     const controlIdCfg = useAcademyControlId(academyId);
     const studentsLoading = useStudentStore((s) => s.loading);

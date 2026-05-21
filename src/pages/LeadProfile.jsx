@@ -16,7 +16,6 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import { performEnrollment } from '../lib/performEnrollment.js';
-import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { getStudentPayments } from '../lib/studentPayments';
 import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
@@ -153,9 +152,6 @@ const LeadProfile = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
-    useEffect(() => {
-        if (academyId) void prefetchFinanceConfig(academyId);
-    }, [academyId]);
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);

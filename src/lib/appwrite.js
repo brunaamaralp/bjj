@@ -31,6 +31,9 @@ export const CONVERSATIONS_COL = import.meta.env.VITE_APPWRITE_CONVERSATIONS_COL
 export const LABELS_COL = import.meta.env.VITE_APPWRITE_LABELS_COLLECTION_ID || "";
 export const NOTE_NOTIFICATIONS_COL = import.meta.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || "";
 export const STOCK_ITEMS_COL = import.meta.env.VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID || "";
+export const PRODUCTS_COL = import.meta.env.VITE_APPWRITE_PRODUCTS_COLLECTION_ID || "";
+export const PRODUCT_VARIANTS_COL =
+  import.meta.env.VITE_APPWRITE_PRODUCT_VARIANTS_COLLECTION_ID || "";
 export const INVENTORY_MOVE_FN_ID = import.meta.env.VITE_APPWRITE_INVENTORY_MOVE_FN_ID || "";
 export const SALES_CREATE_FN_ID = import.meta.env.VITE_APPWRITE_SALES_CREATE_FN_ID || "";
 export const SALES_CANCEL_FN_ID = import.meta.env.VITE_APPWRITE_SALES_CANCEL_FN_ID || "";

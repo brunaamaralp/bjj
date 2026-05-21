@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { pickProductApiBody } from '../lib/stockProducts';
+import { legacyStockItemsAsParents } from '../lib/productCatalog';
 import { useLeadStore } from './useLeadStore';
 import { useInventoryStore } from './useInventoryStore';
 
@@ -26,19 +27,59 @@ async function productsFetch(path, options = {}) {
   return data;
 }
 
-export const useProductsStore = create((set) => ({
+function normalizeCatalogResponse(data) {
+  const catalogMode = data.catalog_mode || 'legacy';
+  const variants = data.variants || data.products || [];
+  let parentProducts = data.products || [];
+
+  if (catalogMode === 'legacy' && parentProducts.length && !parentProducts[0]?.variants) {
+    parentProducts = legacyStockItemsAsParents(parentProducts);
+  }
+
+  return {
+    catalogMode,
+    parentProducts,
+    variants,
+    needsMigration: Boolean(data.needs_migration),
+  };
+}
+
+export const useProductsStore = create((set, get) => ({
   products: [],
+  variants: [],
+  catalogMode: 'legacy',
+  needsMigration: false,
   loading: false,
   error: null,
 
   loadProducts: async () => {
     set({ loading: true, error: null });
     try {
-      const data = await productsFetch('/api/products');
-      set({ products: data.products || [], loading: false });
-      return data.products || [];
+      let data = await productsFetch('/api/products');
+      let normalized = normalizeCatalogResponse(data);
+
+      if (normalized.needsMigration) {
+        try {
+          data = await productsFetch('/api/products', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'migrate' }),
+          });
+          normalized = normalizeCatalogResponse(data);
+        } catch (migrateErr) {
+          console.warn('[products] migrate:', migrateErr?.message || migrateErr);
+        }
+      }
+
+      set({
+        products: normalized.parentProducts,
+        variants: normalized.variants,
+        catalogMode: normalized.catalogMode,
+        needsMigration: normalized.needsMigration,
+        loading: false,
+      });
+      return normalized.parentProducts;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false, products: [] });
+      set({ error: String(e?.message || e), loading: false, products: [], variants: [] });
       return [];
     }
   },
@@ -46,11 +87,30 @@ export const useProductsStore = create((set) => ({
   createProduct: async (payload) => {
     set({ loading: true, error: null });
     try {
+      const body =
+        Array.isArray(payload.variants) && payload.variants.length
+          ? {
+              action: 'create',
+              name: payload.nome,
+              description: payload.descricao,
+              category: payload.categoria,
+              sale_price: payload.sale_price,
+              cost_price: payload.cost_price,
+              type: payload.type || (payload.is_for_sale === false ? 'supply' : 'sale'),
+              is_for_sale: payload.is_for_sale,
+              is_active: payload.is_active,
+              image_url: payload.image_url,
+              unit: payload.unit,
+              variants: payload.variants,
+            }
+          : { action: 'create', ...pickProductApiBody(payload) };
+
       const data = await productsFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ action: 'create', ...pickProductApiBody(payload) }),
+        body: JSON.stringify(body),
       });
       set({ loading: false });
+      await get().loadProducts();
       return data.product;
     } catch (e) {
       set({ error: String(e?.message || e), loading: false });
@@ -61,11 +121,29 @@ export const useProductsStore = create((set) => ({
   updateProduct: async (payload) => {
     set({ loading: true, error: null });
     try {
+      const isParent = Boolean(payload.product_id);
+      const body = isParent
+        ? {
+            action: 'update',
+            product_id: payload.product_id,
+            name: payload.nome,
+            description: payload.descricao,
+            category: payload.categoria,
+            sale_price: payload.sale_price,
+            cost_price: payload.cost_price,
+            type: payload.type,
+            is_for_sale: payload.is_for_sale,
+            is_active: payload.is_active,
+            image_url: payload.image_url,
+          }
+        : { action: 'update', ...pickProductApiBody(payload, { isEdit: true }) };
+
       const data = await productsFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ action: 'update', ...pickProductApiBody(payload, { isEdit: true }) }),
+        body: JSON.stringify(body),
       });
       set({ loading: false });
+      await get().loadProducts();
       return data.product;
     } catch (e) {
       set({ error: String(e?.message || e), loading: false });
@@ -73,20 +151,26 @@ export const useProductsStore = create((set) => ({
     }
   },
 
-  deactivateProduct: async (item_id) => {
+  deactivateProduct: async (item_id, { product_id } = {}) => {
     set({ loading: true, error: null });
     try {
       const data = await productsFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ action: 'deactivate', item_id }),
+        body: JSON.stringify({
+          action: 'deactivate',
+          item_id,
+          product_id: product_id || undefined,
+        }),
       });
-      set((state) => ({
-        loading: false,
-        products: state.products.map((p) => (p.id === item_id ? data.product : p)),
-      }));
-      useInventoryStore.setState((state) => ({
-        items: state.items.map((it) => (it.id === item_id ? { ...it, is_active: false } : it)),
-      }));
+      await get().loadProducts();
+      set({ loading: false });
+      if (item_id) {
+        useInventoryStore.setState((state) => ({
+          items: state.items.map((it) =>
+            it.id === item_id ? { ...it, is_active: false } : it
+          ),
+        }));
+      }
       return data.product;
     } catch (e) {
       set({ error: String(e?.message || e), loading: false });
@@ -111,6 +195,42 @@ export const useProductsStore = create((set) => ({
     }
   },
 
+  saveProductVariants: async ({ product_id, variants, delete_variant_ids, unit }) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await productsFetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'save_variants',
+          product_id,
+          variants: variants || [],
+          delete_variant_ids: delete_variant_ids || [],
+          unit: unit || 'unidade',
+        }),
+      });
+      if (data.code === 'duplicate_combo') {
+        set({ loading: false });
+        return {
+          ok: false,
+          duplicate_indexes: data.duplicate_indexes || [],
+          erro: data.erro || 'Combinação já existe',
+        };
+      }
+      await get().loadProducts();
+      set({ loading: false });
+      return {
+        ok: true,
+        saved: data.saved ?? 0,
+        errors: data.errors || [],
+        product: data.product,
+      };
+    } catch (e) {
+      const err = String(e?.message || e);
+      set({ error: err, loading: false });
+      return { ok: false, erro: err };
+    }
+  },
+
   deleteProduct: async (item_id) => {
     set({ loading: true, error: null });
     try {
@@ -123,10 +243,8 @@ export const useProductsStore = create((set) => ({
         set({ error: err, loading: false });
         return { ok: false, error: err, has_sales: Boolean(data.has_sales) };
       }
-      set((state) => ({
-        loading: false,
-        products: state.products.filter((p) => p.id !== item_id),
-      }));
+      await get().loadProducts();
+      set({ loading: false });
       useInventoryStore.setState((state) => ({
         items: state.items.filter((it) => it.id !== item_id),
       }));

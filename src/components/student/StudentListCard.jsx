@@ -6,6 +6,7 @@ import ControlIdSyncBadge from './ControlIdSyncBadge.jsx';
 import StudentStatusBadge from './StudentStatusBadge.jsx';
 import { resolveStudentListStatus } from '../../lib/studentDisplayStatus.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
+import { preloadStudentProfile } from '../../lib/preloadRoutes.js';
 
 function StudentListCard({
   student,
@@ -32,6 +33,7 @@ function StudentListCard({
               onOpenProfile(student.id);
             }
           }}
+          onMouseEnter={() => { void preloadStudentProfile(); }}
           onClick={() => onOpenProfile(student.id)}
           style={{
             flex: 1,

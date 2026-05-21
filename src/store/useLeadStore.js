@@ -17,6 +17,15 @@ export { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 
 export const LEADS_PAGE_SIZE = 200;
 
+let fetchLeadsAbortController = null;
+
+export function cancelFetchLeads() {
+  if (fetchLeadsAbortController) {
+    fetchLeadsAbortController.abort();
+    fetchLeadsAbortController = null;
+  }
+}
+
 /** Campos que não são persistidos no Appwrite (aliases / derivados). */
 const CLIENT_ONLY_KEYS = new Set([
   'id',
@@ -160,11 +169,14 @@ export const useLeadStore = create(
   billingAccess: null,
   academyList: [],
   onboardingChecklistReopenNonce: 0,
+  /** Leads/alunos carregados após bootstrap fase 2. */
+  dataReady: false,
   /** Cache de financeConfig (documento academia); invalidar ao trocar academia. */
   financeConfig: null,
   financeConfigAcademyId: null,
 
   setAcademyList: (list) => set({ academyList: Array.isArray(list) ? list : [] }),
+  setDataReady: (ready) => set({ dataReady: Boolean(ready) }),
 
   setFinanceConfig: (config) =>
     set({
@@ -175,6 +187,7 @@ export const useLeadStore = create(
   setAcademyId: (id) => {
     const current = get().academyId;
     if (id && id !== current) {
+      cancelFetchLeads();
       // Troca de academia: reset total de dados sensíveis
       set({
         academyId: id,
@@ -188,8 +201,10 @@ export const useLeadStore = create(
         billingAccess: null,
         financeConfig: null,
         financeConfigAcademyId: null,
+        dataReady: false,
       });
     } else if (!id) {
+       cancelFetchLeads();
        set({
          academyId: null,
          leads: [],
@@ -202,6 +217,7 @@ export const useLeadStore = create(
          academyList: [],
          financeConfig: null,
          financeConfigAcademyId: null,
+         dataReady: false,
        });
     }
   },
@@ -244,8 +260,16 @@ export const useLeadStore = create(
     const reset = opts.reset !== false;
     const academyId = get().academyId;
     if (!academyId) return;
+
+    const externalSignal = opts.signal;
+    if (reset && !externalSignal) {
+      cancelFetchLeads();
+      fetchLeadsAbortController = new AbortController();
+    }
+    const signal = externalSignal || (reset ? fetchLeadsAbortController?.signal : null);
+
     if (reset) {
-      if (get().loading) return;
+      if (get().loading && !externalSignal) return;
     } else {
       if (get().loadingMore || !get().leadsHasMore || !get().leadsCursor) return;
     }
@@ -268,10 +292,13 @@ export const useLeadStore = create(
       }
 
       const response = await databases.listDocuments(DB_ID, LEADS_COL, queries);
+      if (signal?.aborted) return;
       const docs = response.documents || [];
       const leads = docs.map((doc) => mapAppwriteDocToLead(doc, operationalStatusSet));
       const lastId = docs.length ? docs[docs.length - 1].$id : null;
       const pageFull = docs.length === LEADS_PAGE_SIZE;
+
+      if (signal?.aborted) return;
 
       if (reset) {
         set((state) => {
@@ -308,17 +335,21 @@ export const useLeadStore = create(
         });
       }
 
+      if (signal?.aborted) return;
+
       if (leads.length > 0) {
         const firstLeadDone = Boolean(get().onboardingChecklist?.find((x) => x.id === 'first_lead')?.done);
         if (!firstLeadDone) {
           try {
             await get().completeOnboardingStepIds(['first_lead']);
+            if (signal?.aborted) return;
           } catch (e) {
             console.warn('first_lead onboarding sync failed:', e?.message || e);
           }
         }
       }
     } catch (e) {
+      if (signal?.aborted) return;
       console.error('fetchLeads error:', e);
       set({ loading: false, loadingMore: false, leadsError: true });
     }

@@ -10,6 +10,7 @@ import { suggestUnitPrice } from '../../lib/salesCatalog';
 import { readSalesSettings } from '../../lib/salesSettings';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import SalesCatalogPicker from './SalesCatalogPicker';
+import SalesVariantPicker from './SalesVariantPicker';
 import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
 import SalesPaymentBlock from './SalesPaymentBlock';
@@ -50,6 +51,7 @@ export default function SalesNewSaleTab() {
   const [cart, setCart] = useState([]);
   const [localError, setLocalError] = useState('');
   const [flashProductId, setFlashProductId] = useState(null);
+  const [variantPickerParent, setVariantPickerParent] = useState(null);
   const [mobilePanel, setMobilePanel] = useState('catalog');
 
   const [descGeralTipo, setDescGeralTipo] = useState('valor');
@@ -253,7 +255,10 @@ export default function SalesNewSaleTab() {
       }
 
       const unit = price != null ? price : null;
-      const idx = cart.findIndex((c) => c.item_estoque_id === product.id);
+      const stockId = product.id;
+      const idx = cart.findIndex(
+        (c) => c.product_variant_id === stockId || c.item_estoque_id === stockId
+      );
       if (idx >= 0) {
         const next = [...cart];
         const newQ = Number(next[idx].quantidade) + 1;
@@ -271,9 +276,10 @@ export default function SalesNewSaleTab() {
         setCart((prev) => [
           ...prev,
           {
-            item_estoque_id: product.id,
+            item_estoque_id: stockId,
+            product_variant_id: stockId,
             display_label: product.display_label,
-            variacao: product.Tamanho || '',
+            variacao: product.Tamanho || product.size || '',
             quantidade: 1,
             preco_unitario: unit,
             sale_price: product.sale_price,
@@ -284,10 +290,26 @@ export default function SalesNewSaleTab() {
         ]);
       }
 
-      setFlashProductId(product.id);
+      setFlashProductId(stockId);
       window.setTimeout(() => setFlashProductId(null), 420);
     },
     [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast]
+  );
+
+  const handleCatalogPick = useCallback(
+    (parent) => {
+      if (parent._singleVariant) {
+        pickProduct(parent._singleVariant);
+        return;
+      }
+      if ((parent.variants || []).length > 1) {
+        setVariantPickerParent(parent);
+        return;
+      }
+      const only = parent.variants?.[0];
+      if (only) pickProduct(only);
+    },
+    [pickProduct]
   );
 
   const updateCartQty = (idx, val) => {
@@ -410,7 +432,8 @@ export default function SalesNewSaleTab() {
         if (unit < 0) unit = 0;
       }
       return {
-        item_estoque_id: it.item_estoque_id,
+        item_estoque_id: it.product_variant_id || it.item_estoque_id,
+        product_variant_id: it.product_variant_id || it.item_estoque_id,
         quantidade: Number(it.quantidade),
         preco_unitario: unit,
         expected_quantity:
@@ -532,7 +555,7 @@ export default function SalesNewSaleTab() {
             <SalesCatalogPicker
               products={products}
               loading={catalogLoading}
-              onPick={pickProduct}
+              onPick={handleCatalogPick}
               flashProductId={flashProductId}
             />
           </div>
@@ -704,6 +727,17 @@ export default function SalesNewSaleTab() {
           {String(localError || error)}
         </p>
       )}
+
+      {variantPickerParent ? (
+        <SalesVariantPicker
+          parent={variantPickerParent}
+          onClose={() => setVariantPickerParent(null)}
+          onSelect={(variant) => {
+            setVariantPickerParent(null);
+            pickProduct(variant);
+          }}
+        />
+      ) : null}
 
       <SalesReceiptPanel
         receipt={receipt}

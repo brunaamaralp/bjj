@@ -25,6 +25,53 @@ export function catalogProductsForSale(products) {
   return (products || []).filter((p) => p.is_for_sale && p.is_active);
 }
 
+/** Agrupa variantes pelo produto pai para o catálogo de vendas. */
+export function catalogParentsFromVariants(variants) {
+  const list = catalogProductsForSale(variants);
+  const byParent = new Map();
+
+  for (const v of list) {
+    const enriched = enrichCatalogProduct(v);
+    const pid = String(v.product_id || enriched.id || '').trim() || enriched.id;
+    if (!byParent.has(pid)) {
+      byParent.set(pid, {
+        id: pid,
+        nome: enriched.nome,
+        categoria: enriched.categoria,
+        sale_price: enriched.sale_price,
+        image_url: enriched.image_url,
+        variants: [],
+      });
+    }
+    byParent.get(pid).variants.push(enriched);
+  }
+
+  return Array.from(byParent.values())
+    .map((parent) => {
+      const vars = parent.variants.sort((a, b) =>
+        a.display_label.localeCompare(b.display_label, 'pt-BR')
+      );
+      const totalQty = vars.reduce((n, x) => n + Number(x.current_quantity || 0), 0);
+      const canAdd = vars.some((x) => x.canAdd);
+      const stockLevel = vars.some((x) => x.stockLevel === 'ok')
+        ? 'ok'
+        : vars.some((x) => x.stockLevel === 'low')
+          ? 'low'
+          : 'out';
+      return {
+        ...parent,
+        variants: vars,
+        variant_count: vars.length,
+        display_label: parent.nome,
+        current_quantity: totalQty,
+        canAdd,
+        stockLevel,
+        _singleVariant: vars.length === 1 ? vars[0] : null,
+      };
+    })
+    .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+}
+
 export function groupByCategory(products) {
   const map = new Map();
   for (const p of products) {
@@ -36,7 +83,9 @@ export function groupByCategory(products) {
     .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
     .map(([categoria, items]) => ({
       categoria,
-      items: items.sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR')),
+      items: items.sort((a, b) =>
+        String(a.display_label || a.nome).localeCompare(String(b.display_label || b.nome), 'pt-BR')
+      ),
     }));
 }
 
@@ -45,9 +94,16 @@ export function filterCatalogProducts(products, { search, category }) {
   return (products || []).filter((p) => {
     if (category && category !== 'all' && p.categoria !== category) return false;
     if (!q) return true;
-    const hay = `${p.nome} ${p.categoria} ${p.Tamanho} ${p.sku} ${p.descricao} ${p.display_label}`.toLowerCase();
+    const variantHay = (p.variants || [])
+      .map((v) => `${v.nome} ${v.Tamanho} ${v.color} ${v.sku} ${v.display_label}`)
+      .join(' ');
+    const hay = `${p.nome} ${p.categoria} ${p.descricao} ${p.display_label} ${variantHay}`.toLowerCase();
     return hay.includes(q);
   });
+}
+
+export function filterCatalogParents(parents, opts) {
+  return filterCatalogProducts(parents, opts);
 }
 
 export function suggestUnitPrice(product, { collaborator }) {

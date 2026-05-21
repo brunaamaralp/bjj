@@ -1,5 +1,5 @@
-import { databases, DB_ID, ACADEMIES_COL } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
+import { getAcademyDocument } from './getAcademyDocument.js';
 import {
   mergeCollectionIntoFinanceConfig,
   readCollectionSettingsFromAcademy,
@@ -21,7 +21,7 @@ export async function prefetchFinanceConfig(academyId) {
   if (st.financeConfigAcademyId === id && st.financeConfig) return;
 
   try {
-    const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, id);
+    const doc = await getAcademyDocument(id);
     let cfg = null;
     try {
       cfg = doc.financeConfig

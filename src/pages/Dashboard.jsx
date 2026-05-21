@@ -4,7 +4,8 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
 import { Query } from 'appwrite';
-import { databases, DB_ID, ACADEMIES_COL, LEAD_EVENTS_COL } from '../lib/appwrite';
+import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
+import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
@@ -173,8 +174,7 @@ const Dashboard = () => {
     useEffect(() => {
         if (!academyId) return;
         let cancelled = false;
-        databases
-            .getDocument(DB_ID, ACADEMIES_COL, academyId)
+        getAcademyDocument(academyId)
             .then((doc) => {
                 if (cancelled) return;
                 setDashboardQuickTimes(getAcademyQuickTimeChipValues(doc));

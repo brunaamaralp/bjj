@@ -22,6 +22,8 @@ function CatalogCard({ p, flashProductId, onPick }) {
   const priceLabel = p.sale_price != null ? formatBRL(p.sale_price) : 'Preço a definir';
   const isOut = p.stockLevel === 'out';
   const isFlashing = flashProductId === p.id;
+  const variantHint =
+    p.variant_count > 1 ? `${p.variant_count} variantes` : p._singleVariant?.Tamanho || p.Tamanho || null;
   return (
     <button
       type="button"
@@ -30,11 +32,11 @@ function CatalogCard({ p, flashProductId, onPick }) {
       }`}
       disabled={!p.canAdd}
       onClick={() => p.canAdd && onPick(p)}
-      title={p.canAdd ? 'Adicionar ao carrinho' : 'Sem estoque'}
+      title={p.canAdd ? (p.variant_count > 1 ? 'Escolher variante' : 'Adicionar ao carrinho') : 'Sem estoque'}
     >
       <div className="sales-catalog__card-top">
-        <div className="sales-catalog__card-name">{p.display_label}</div>
-        {p.Tamanho ? <span className="sales-catalog__card-var">{p.Tamanho}</span> : null}
+        <div className="sales-catalog__card-name">{p.display_label || p.nome}</div>
+        {variantHint ? <span className="sales-catalog__card-var">{variantHint}</span> : null}
       </div>
       <div className="sales-catalog__card-price">{priceLabel}</div>
       <span className={`sales-stock-badge ${stockBadgeClass(p.stockLevel)}`}>

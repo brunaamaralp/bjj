@@ -34,9 +34,11 @@ export default async function (req, res) {
       if (!Number.isInteger(quantidade) || quantidade < 1) {
         return res.json({ error: "quantidade_invalida" }, 400);
       }
-      if (!it.item_estoque_id || typeof it.preco_unitario !== "number") {
+      const stockId = it.product_variant_id || it.item_estoque_id;
+      if (!stockId || typeof it.preco_unitario !== "number") {
         return res.json({ error: "invalid_item" }, 400);
       }
+      it._stock_id = stockId;
     }
 
     const client = new sdk.Client()
@@ -47,6 +49,8 @@ export default async function (req, res) {
     const databases = new sdk.Databases(client);
     const DB_ID = process.env.DB_ID;
     const STOCK_ITEMS_COL = process.env.STOCK_ITEMS_COL;
+    const PRODUCT_VARIANTS_COL =
+      process.env.PRODUCT_VARIANTS_COL || process.env.VITE_APPWRITE_PRODUCT_VARIANTS_COLLECTION_ID || "";
     const STOCK_MOVES_COL = process.env.STOCK_MOVES_COL;
     const SALES_COL = process.env.SALES_COL;
     const SALE_ITEMS_COL = process.env.SALE_ITEMS_COL;
@@ -76,7 +80,8 @@ export default async function (req, res) {
       const parts = [];
       for (const it of itens) {
         try {
-          const stock = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
+          const stockId = it._stock_id || it.product_variant_id || it.item_estoque_id;
+          const stock = (await getStockDocument(stockId)).doc;
           const name = itemDisplayName(stock);
           parts.push(it.quantidade > 1 ? `${name} x${it.quantidade}` : name);
         } catch {
@@ -267,22 +272,35 @@ export default async function (req, res) {
       }
     }
 
+    async function getStockDocument(stockId) {
+      if (PRODUCT_VARIANTS_COL) {
+        try {
+          return { col: PRODUCT_VARIANTS_COL, doc: await databases.getDocument(DB_ID, PRODUCT_VARIANTS_COL, stockId) };
+        } catch {
+          void 0;
+        }
+      }
+      return { col: STOCK_ITEMS_COL, doc: await databases.getDocument(DB_ID, STOCK_ITEMS_COL, stockId) };
+    }
+
     const stockSnapshots = {};
     for (const it of itens) {
-      const item = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
+      const stockId = it._stock_id;
+      const { col, doc: item } = await getStockDocument(stockId);
       const disponivel = resolveCurrentQuantity(item);
       if (disponivel < it.quantidade) {
         return res.json(
           {
             error: "no_stock",
-            item_estoque_id: it.item_estoque_id,
+            item_estoque_id: stockId,
+            product_variant_id: stockId,
             disponivel,
             nome: itemDisplayName(item),
           },
           409
         );
       }
-      stockSnapshots[it.item_estoque_id] = { current_quantity: disponivel };
+      stockSnapshots[stockId] = { current_quantity: disponivel, col };
     }
 
     const totalVenda = itens.reduce((acc, it) => acc + it.preco_unitario * it.quantidade, 0);
@@ -350,27 +368,43 @@ export default async function (req, res) {
     const updatedStockIds = [];
     try {
       for (const it of itens) {
-        const saleItem = await databases.createDocument(DB_ID, SALE_ITEMS_COL, sdk.ID.unique(), {
+        const stockId = it._stock_id || it.product_variant_id || it.item_estoque_id;
+        const saleItemPayload = {
           venda_id: vendaDoc.$id,
-          item_estoque_id: it.item_estoque_id,
+          item_estoque_id: stockId,
           quantidade: it.quantidade,
           preco_unitario: it.preco_unitario,
-        });
+        };
+        let saleItem;
+        try {
+          saleItem = await databases.createDocument(DB_ID, SALE_ITEMS_COL, sdk.ID.unique(), {
+            ...saleItemPayload,
+            product_variant_id: stockId,
+          });
+        } catch (e) {
+          const msg = String(e?.message || "");
+          if (msg.includes("Unknown attribute")) {
+            saleItem = await databases.createDocument(DB_ID, SALE_ITEMS_COL, sdk.ID.unique(), saleItemPayload);
+          } else {
+            throw e;
+          }
+        }
         createdItems.push(saleItem.$id);
 
-        const snap = stockSnapshots[it.item_estoque_id];
-        const itemDoc = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
+        const snap = stockSnapshots[stockId];
+        const stockCol = snap?.col || STOCK_ITEMS_COL;
+        const itemDoc = await databases.getDocument(DB_ID, stockCol, stockId);
         const prevQty = resolveCurrentQuantity(itemDoc);
         const newQty = Math.max(0, prevQty - it.quantidade);
 
-        await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, {
+        await databases.updateDocument(DB_ID, stockCol, stockId, {
           current_quantity: newQty,
           last_updated: new Date().toISOString(),
         });
-        updatedStockIds.push(it.item_estoque_id);
+        updatedStockIds.push(stockId);
 
         const move = await databases.createDocument(DB_ID, STOCK_MOVES_COL, sdk.ID.unique(), {
-          item_estoque_id: it.item_estoque_id,
+          item_estoque_id: stockId,
           tipo: "saida_venda",
           quantidade: it.quantidade,
           referencia_id: vendaDoc.$id,
@@ -416,8 +450,10 @@ export default async function (req, res) {
       for (const it of itens) {
         try {
           const snap = stockSnapshots[it.item_estoque_id];
-          if (updatedStockIds.includes(it.item_estoque_id) && snap) {
-            await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, {
+          const stockId = it._stock_id || it.product_variant_id || it.item_estoque_id;
+          if (updatedStockIds.includes(stockId) && snap) {
+            const stockCol = snap.col || STOCK_ITEMS_COL;
+            await databases.updateDocument(DB_ID, stockCol, stockId, {
               current_quantity: snap.current_quantity,
               last_updated: new Date().toISOString(),
             });

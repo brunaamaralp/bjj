@@ -66,7 +66,6 @@ import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
 import { resolveStudentListStatus } from '../lib/studentDisplayStatus.js';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
-import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
 import {
     applyRegisteredEmergencyToForm,
@@ -422,10 +421,6 @@ export default function StudentProfile() {
         [academyList, academyId]
     );
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
-
-    useEffect(() => {
-        if (academyId) void prefetchFinanceConfig(academyId);
-    }, [academyId]);
 
     useEffect(() => {
         if (!id) return undefined;
