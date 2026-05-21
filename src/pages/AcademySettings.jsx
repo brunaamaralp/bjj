@@ -99,6 +99,7 @@ const AcademySettings = () => {
     const terms = useTerms();
     const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
+    const academyList = useLeadStore((s) => s.academyList);
     const billingAccess = useLeadStore((s) => s.billingAccess);
     const addToast = useUiStore((s) => s.addToast);
     const taxInputRef = useRef(null);
@@ -133,7 +134,19 @@ const AcademySettings = () => {
     const focus = searchParams.get('focus');
     const autoEditTax = focus === 'tax';
 
-    const role = useUserRole(academy);
+    const academyForRole = useMemo(() => {
+        const fromList = (academyList || []).find((a) => a.id === academyId);
+        const ownerId =
+            academyLoadState === 'ok'
+                ? String(academy.ownerId || fromList?.ownerId || '')
+                : String(fromList?.ownerId || academy.ownerId || '');
+        return {
+            ownerId,
+            teamId: String(academy.teamId || fromList?.teamId || ''),
+        };
+    }, [academy.ownerId, academy.teamId, academyList, academyId, academyLoadState]);
+
+    const role = useUserRole(academyForRole);
 
     const subnavScrollRef = useRef(null);
     const tabButtonRefs = useRef({});
@@ -192,10 +205,13 @@ const AcademySettings = () => {
         btn?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }, [activeTab]);
 
-    // Redirect invalid/disabled tabs and handle ?focus=tax
+    // Redirect invalid/disabled tabs and handle ?focus=tax (only after academy fetch)
     useEffect(() => {
         if (!VALID_TAB_IDS.has(rawTab)) {
             setSearchParams({ tab: 'estudio' }, { replace: true });
+            return;
+        }
+        if (academyLoadState === 'loading' || academyLoadState === 'idle') {
             return;
         }
         if (academyLoadState === 'ok') {
@@ -717,6 +733,15 @@ const AcademySettings = () => {
         .finance-config-jump-link:hover {
           background: var(--surface-hover);
           color: var(--text);
+        }
+        .finance-config-jump-link--active {
+          background: var(--v500);
+          border-color: var(--v500);
+          color: #fff;
+        }
+        .finance-config-jump-link--active:hover {
+          background: var(--v600, var(--v500));
+          color: #fff;
         }
         .finance-installments-toggle {
           display: flex;

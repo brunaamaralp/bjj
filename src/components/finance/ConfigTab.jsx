@@ -3,7 +3,8 @@ import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
-import { Wallet2, CreditCard, Banknote, Trash2, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Wallet2, CreditCard, Banknote, Trash2, Settings2, ChevronDown, ChevronUp, Plus, Sparkles } from 'lucide-react';
 import CollectionRulesSection from './CollectionRulesSection.jsx';
 import './mensalidades.css';
 import ExceptionStatusLabelsSection from './ExceptionStatusLabelsSection.jsx';
@@ -76,16 +77,30 @@ function installmentSummary(parcelado) {
 
 function SectionSaveFooter({ dirty, saving, onSave }) {
   return (
-    <div className="flex gap-2 mt-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="flex gap-2 finance-section-save" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
       {dirty ? (
         <span className="funil-unsaved-pill" role="status">
           Alterações não salvas
         </span>
       ) : null}
-      <button type="button" className="btn-primary" disabled={!dirty || saving} onClick={() => void onSave()}>
+      <button
+        type="button"
+        className="btn-primary finance-section-save__btn"
+        disabled={!dirty || saving}
+        onClick={() => void onSave()}
+      >
         {saving ? 'Salvando…' : 'Salvar'}
       </button>
     </div>
+  );
+}
+
+function FinanceSectionHeading({ icon: Icon, children }) {
+  return (
+    <h3 className="navi-section-heading finance-config-section__heading">
+      <Icon size={18} color="var(--v500)" aria-hidden />
+      {children}
+    </h3>
   );
 }
 
@@ -93,48 +108,51 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="funil-question-row" style={{ marginBottom: 0 }}>
-      <div className="funil-question-row-main">
-        <div className="form-group" style={{ flex: '2 1 160px', margin: 0, minWidth: 0 }}>
-          <label>Nome</label>
-          <input
-            className="form-input"
-            value={pl.name || ''}
-            onChange={(e) => onUpdate(idx, { name: e.target.value })}
-          />
-        </div>
-        <div className="form-group" style={{ flex: '1 1 120px', margin: 0, minWidth: 0 }}>
-          <label>Preço (R$)</label>
-          <input
-            className="form-input"
-            type="number"
-            step="0.01"
-            min={0}
-            value={pl.price ?? 0}
-            onChange={(e) => onUpdate(idx, { price: Number(e.target.value || 0) })}
-          />
-        </div>
-        <div className="funil-question-actions">
-          <button
-            type="button"
-            className="icon-btn icon-only"
-            title={expanded ? 'Fechar detalhes' : 'Duração, descrição e mais'}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <Settings2 size={14} />
-          </button>
-          <button type="button" className="btn-ghost" title="Remover plano" onClick={() => onRemove(idx)}>
-            <Trash2 size={16} />
-          </button>
-        </div>
+    <div className="finance-plan-row">
+      <div className="finance-field-col">
+        <label>Nome</label>
+        <input
+          className="form-input finance-compact-input"
+          value={pl.name || ''}
+          onChange={(e) => onUpdate(idx, { name: e.target.value })}
+        />
+      </div>
+      <div className="finance-field-col">
+        <label>Preço (R$)</label>
+        <input
+          className="form-input finance-compact-input"
+          type="number"
+          step="0.01"
+          min={0}
+          value={pl.price ?? 0}
+          onChange={(e) => onUpdate(idx, { price: Number(e.target.value || 0) })}
+        />
+      </div>
+      <div className="finance-plan-row__actions">
+        <button
+          type="button"
+          className="finance-bank-row__remove"
+          title={expanded ? 'Fechar detalhes' : 'Duração, descrição e mais'}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <Settings2 size={16} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="finance-bank-row__remove"
+          title="Remover plano"
+          onClick={() => onRemove(idx)}
+        >
+          <Trash2 size={16} aria-hidden />
+        </button>
       </div>
       {expanded ? (
-        <div className="funil-question-detail">
+        <div className="finance-plan-detail">
           <div className="form-group" style={{ margin: 0 }}>
             <label>Duração (dias)</label>
             <input
-              className="form-input"
+              className="form-input finance-compact-input"
               type="number"
               min={1}
               value={pl.durationDays ?? 30}
@@ -147,7 +165,7 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
           <div className="form-group" style={{ margin: 0 }}>
             <label>Descrição</label>
             <input
-              className="form-input"
+              className="form-input finance-compact-input"
               value={pl.description || ''}
               onChange={(e) => onUpdate(idx, { description: e.target.value })}
             />
@@ -155,26 +173,21 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
           <div className="form-group" style={{ margin: 0, maxWidth: 280 }}>
             <label>Aplica taxa cartão</label>
             <select
-              className="form-input"
+              className="form-input finance-compact-input"
               value={pl.applyCardFee ? 'sim' : 'nao'}
               onChange={(e) => onUpdate(idx, { applyCardFee: e.target.value === 'sim' })}
             >
               <option value="sim">Sim</option>
               <option value="nao">Não</option>
             </select>
-            <p className="text-xs text-light" style={{ margin: '4px 0 0' }}>
-              Repassa o percentual definido em Taxas de Cartão ao aluno.
-            </p>
           </div>
           {contractTemplates.length > 0 ? (
             <div className="form-group" style={{ margin: 0, maxWidth: 360 }}>
               <label>Modelo de contrato</label>
               <select
-                className="form-input"
+                className="form-input finance-compact-input"
                 value={pl.contractTemplateId || ''}
-                onChange={(e) =>
-                  onUpdate(idx, { contractTemplateId: e.target.value || undefined })
-                }
+                onChange={(e) => onUpdate(idx, { contractTemplateId: e.target.value || undefined })}
               >
                 <option value="">— automático —</option>
                 {contractTemplates.map((t) => (
@@ -202,6 +215,7 @@ export default function ConfigTab({ academyId }) {
   const [overdueLabel, setOverdueLabel] = useState('Inadimplente');
   const [exceptionLabels, setExceptionLabels] = useState(() => readExceptionStatusLabels(null));
   const [installmentsExpanded, setInstallmentsExpanded] = useState(false);
+  const [activeSection, setActiveSection] = useState(FINANCE_SECTIONS[0].id);
 
   const [savedDigests, setSavedDigests] = useState({
     accounts: digestBankAccounts([]),
@@ -329,10 +343,6 @@ export default function ConfigTab({ academyId }) {
     }
   };
 
-  const scrollToSection = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   const updatePlan = (idx, patch) => {
     const arr = [...(financeConfig.plans || [])];
     arr[idx] = { ...(arr[idx] || {}), ...patch };
@@ -341,132 +351,128 @@ export default function ConfigTab({ academyId }) {
 
   const parcelado = financeConfig.cardFees?.credito_parcelado || {};
 
+  const updateBankAccount = (idx, patch) => {
+    const arr = [...(financeConfig.bankAccounts || [])];
+    arr[idx] = { ...(arr[idx] || {}), ...patch };
+    setFinanceConfig({ ...financeConfig, bankAccounts: arr });
+  };
+
   return (
     <div className="academy-finance-config" style={{ paddingTop: 4 }}>
-      <nav className="finance-config-jump" aria-label="Ir para seção do financeiro">
+      <nav className="finance-config-jump" aria-label="Seções do financeiro">
         {FINANCE_SECTIONS.map((s) => (
-          <button key={s.id} type="button" className="finance-config-jump-link" onClick={() => scrollToSection(s.id)}>
+          <button
+            key={s.id}
+            type="button"
+            className={`finance-config-jump-link${activeSection === s.id ? ' finance-config-jump-link--active' : ''}`}
+            aria-current={activeSection === s.id ? 'true' : undefined}
+            onClick={() => setActiveSection(s.id)}
+          >
             {s.label}
           </button>
         ))}
       </nav>
 
-      <section id="finance-accounts" className="mt-2 animate-in empresa-section" style={{ animationDelay: '0.05s', scrollMarginTop: 56 }}>
-        <h3 className="navi-section-heading mb-2">
-          <Banknote size={18} color="var(--v500)" /> Contas bancárias
-        </h3>
-        <div className="card">
-          <div className="flex-col" style={{ gap: 10 }}>
-            {(financeConfig.bankAccounts || []).map((acc, idx) => (
-              <div key={idx} className="flex" style={{ gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Banco</label>
-                  <input
-                    className="form-input"
-                    value={acc.bankName || ''}
-                    onChange={(e) => {
+      {activeSection === 'finance-accounts' ? (
+        <section id="finance-accounts" className="finance-config-section animate-in">
+          <FinanceSectionHeading icon={Banknote}>Contas bancárias</FinanceSectionHeading>
+          <p className="text-small text-muted finance-config-section__hint">
+            Contas usadas em recebimentos e comprovantes. Cadastre banco, agência, conta e PIX.
+          </p>
+          <div className="finance-config-section__body">
+            <div className="finance-bank-list">
+              {(financeConfig.bankAccounts || []).map((acc, idx) => (
+                <div key={idx} className="finance-bank-row">
+                  <div className="finance-field-col">
+                    <label>Banco</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.bankName || ''}
+                      onChange={(e) => updateBankAccount(idx, { bankName: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Agência</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.branch || ''}
+                      onChange={(e) => updateBankAccount(idx, { branch: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Conta</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.account || ''}
+                      onChange={(e) => updateBankAccount(idx, { account: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Titular</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.accountName || ''}
+                      onChange={(e) => updateBankAccount(idx, { accountName: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Chave PIX</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.pixKey || ''}
+                      onChange={(e) => updateBankAccount(idx, { pixKey: e.target.value })}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="finance-bank-row__remove"
+                    title="Remover conta"
+                    aria-label="Remover conta"
+                    onClick={() => {
                       const arr = [...(financeConfig.bankAccounts || [])];
-                      arr[idx] = { ...(arr[idx] || {}), bankName: e.target.value };
+                      arr.splice(idx, 1);
                       setFinanceConfig({ ...financeConfig, bankAccounts: arr });
                     }}
-                  />
+                  >
+                    <Trash2 size={16} aria-hidden />
+                  </button>
                 </div>
-                <div className="form-group" style={{ width: 140 }}>
-                  <label>Agência</label>
-                  <input
-                    className="form-input"
-                    value={acc.branch || ''}
-                    onChange={(e) => {
-                      const arr = [...(financeConfig.bankAccounts || [])];
-                      arr[idx] = { ...(arr[idx] || {}), branch: e.target.value };
-                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                    }}
-                  />
-                </div>
-                <div className="form-group" style={{ width: 180 }}>
-                  <label>Conta</label>
-                  <input
-                    className="form-input"
-                    value={acc.account || ''}
-                    onChange={(e) => {
-                      const arr = [...(financeConfig.bankAccounts || [])];
-                      arr[idx] = { ...(arr[idx] || {}), account: e.target.value };
-                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                    }}
-                  />
-                </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Titular</label>
-                  <input
-                    className="form-input"
-                    value={acc.accountName || ''}
-                    onChange={(e) => {
-                      const arr = [...(financeConfig.bankAccounts || [])];
-                      arr[idx] = { ...(arr[idx] || {}), accountName: e.target.value };
-                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                    }}
-                  />
-                </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Chave PIX</label>
-                  <input
-                    className="form-input"
-                    value={acc.pixKey || ''}
-                    onChange={(e) => {
-                      const arr = [...(financeConfig.bankAccounts || [])];
-                      arr[idx] = { ...(arr[idx] || {}), pixKey: e.target.value };
-                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  title="Remover"
-                  onClick={() => {
-                    const arr = [...(financeConfig.bankAccounts || [])];
-                    arr.splice(idx, 1);
-                    setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                  }}
-                  style={{ alignSelf: 'center' }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-            <div>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  const arr = [...(financeConfig.bankAccounts || [])];
-                  arr.push({ bankName: '', branch: '', account: '', accountName: '', pixKey: '' });
-                  setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                }}
-              >
-                Adicionar conta
-              </button>
+              ))}
             </div>
+            <button
+              type="button"
+              className="finance-config-add-link edit-link"
+              onClick={() => {
+                const arr = [...(financeConfig.bankAccounts || [])];
+                arr.push({ bankName: '', branch: '', account: '', accountName: '', pixKey: '' });
+                setFinanceConfig({ ...financeConfig, bankAccounts: arr });
+              }}
+            >
+              <Plus size={14} aria-hidden />
+              Adicionar conta
+            </button>
+            <SectionSaveFooter
+              dirty={dirty.accounts}
+              saving={savingSection === 'accounts'}
+              onSave={() => persistConfig('accounts', 'Contas bancárias salvas.')}
+            />
           </div>
-          <SectionSaveFooter
-            dirty={dirty.accounts}
-            saving={savingSection === 'accounts'}
-            onSave={() => persistConfig('accounts', 'Contas bancárias salvas.')}
-          />
-        </div>
-      </section>
+          <hr className="finance-config-section__divider" aria-hidden />
+        </section>
+      ) : null}
 
-      <section id="finance-fees" className="mt-4 animate-in empresa-section" style={{ animationDelay: '0.1s', scrollMarginTop: 56 }}>
-        <h3 className="navi-section-heading mb-2">
-          <CreditCard size={18} color="var(--v500)" /> Taxas de cartão
-        </h3>
-        <div className="card">
-          <div className="flex-col gap-4">
-            <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-              <div className="form-group" style={{ flex: 1, minWidth: 120 }}>
+      {activeSection === 'finance-fees' ? (
+        <section id="finance-fees" className="finance-config-section animate-in">
+          <FinanceSectionHeading icon={CreditCard}>Taxas de cartão</FinanceSectionHeading>
+          <p className="text-small text-muted finance-config-section__hint">
+            Percentuais descontados em pagamentos com cartão e PIX na mensalidade.
+          </p>
+          <div className="finance-config-section__body">
+            <div className="finance-fees-row">
+              <div className="finance-field-col">
                 <label>PIX (%)</label>
                 <input
-                  className="form-input"
+                  className="form-input finance-compact-input"
                   type="number"
                   min={0}
                   step="0.01"
@@ -482,10 +488,10 @@ export default function ConfigTab({ academyId }) {
                   }}
                 />
               </div>
-              <div className="form-group" style={{ flex: 1, minWidth: 120 }}>
+              <div className="finance-field-col">
                 <label>Débito (%)</label>
                 <input
-                  className="form-input"
+                  className="form-input finance-compact-input"
                   type="number"
                   min={0}
                   step="0.01"
@@ -501,10 +507,10 @@ export default function ConfigTab({ academyId }) {
                   }}
                 />
               </div>
-              <div className="form-group" style={{ flex: 1, minWidth: 120 }}>
+              <div className="finance-field-col">
                 <label>Crédito à vista (%)</label>
                 <input
-                  className="form-input"
+                  className="form-input finance-compact-input"
                   type="number"
                   min={0}
                   step="0.01"
@@ -521,88 +527,80 @@ export default function ConfigTab({ academyId }) {
                 />
               </div>
             </div>
-            <div>
-              <button
-                type="button"
-                className="finance-installments-toggle"
-                aria-expanded={installmentsExpanded}
-                onClick={() => setInstallmentsExpanded((v) => !v)}
-              >
-                <span className="ctx-label" style={{ fontWeight: 600 }}>
-                  Configurar parcelas
-                </span>
-                <span className="text-small text-muted" style={{ flex: 1, textAlign: 'left' }}>
-                  {installmentSummary(parcelado)}
-                </span>
-                {installmentsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </button>
-              {installmentsExpanded ? (
-                <div className="finance-installments-grid">
-                  {INSTALLMENT_COUNTS.map((n) => (
-                    <div key={n} className="form-group" style={{ margin: 0 }}>
-                      <label style={{ fontSize: 12 }}>{n}x</label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={parcelado[String(n)] ?? 0}
-                        onChange={(e) => {
-                          setFinanceConfig((prev) => {
-                            const mp = { ...((prev.cardFees || {}).credito_parcelado || {}) };
-                            mp[String(n)] = Number(e.target.value || 0);
-                            return {
-                              ...prev,
-                              cardFees: { ...(prev.cardFees || {}), credito_parcelado: mp },
-                            };
-                          });
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <button
+              type="button"
+              className="finance-installments-toggle"
+              aria-expanded={installmentsExpanded}
+              onClick={() => setInstallmentsExpanded((v) => !v)}
+            >
+              <span className="ctx-label" style={{ fontWeight: 600 }}>
+                Configurar parcelas
+              </span>
+              <span className="text-small text-muted" style={{ flex: 1, textAlign: 'left' }}>
+                {installmentSummary(parcelado)}
+              </span>
+              {installmentsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
+            {installmentsExpanded ? (
+              <div className="finance-installments-grid">
+                {INSTALLMENT_COUNTS.map((n) => (
+                  <div key={n} className="finance-field-col">
+                    <label>{n}x</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={parcelado[String(n)] ?? 0}
+                      onChange={(e) => {
+                        setFinanceConfig((prev) => {
+                          const mp = { ...((prev.cardFees || {}).credito_parcelado || {}) };
+                          mp[String(n)] = Number(e.target.value || 0);
+                          return {
+                            ...prev,
+                            cardFees: { ...(prev.cardFees || {}), credito_parcelado: mp },
+                          };
+                        });
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <SectionSaveFooter
+              dirty={dirty.fees}
+              saving={savingSection === 'fees'}
+              onSave={() => persistConfig('fees', 'Taxas de cartão salvas.')}
+            />
           </div>
-          <SectionSaveFooter
-            dirty={dirty.fees}
-            saving={savingSection === 'fees'}
-            onSave={() => persistConfig('fees', 'Taxas de cartão salvas.')}
+          <hr className="finance-config-section__divider" aria-hidden />
+        </section>
+      ) : null}
+
+      {activeSection === 'finance-collection' ? (
+        <div id="finance-collection" className="finance-config-section-wrap">
+          <CollectionRulesSection
+            collectionRules={collectionRules}
+            overdueLabel={overdueLabel}
+            onRulesChange={setCollectionRules}
+            onOverdueLabelChange={setOverdueLabel}
           />
+          <SectionSaveFooter
+            dirty={dirty.collection}
+            saving={savingSection === 'collection'}
+            onSave={() => persistConfig('collection', 'Régua de cobrança salva.')}
+          />
+          <hr className="finance-config-section__divider" aria-hidden />
         </div>
-      </section>
+      ) : null}
 
-      <div id="finance-collection" className="empresa-section" style={{ scrollMarginTop: 56 }}>
-        <CollectionRulesSection
-          collectionRules={collectionRules}
-          overdueLabel={overdueLabel}
-          onRulesChange={setCollectionRules}
-          onOverdueLabelChange={setOverdueLabel}
-        />
-        <SectionSaveFooter
-          dirty={dirty.collection}
-          saving={savingSection === 'collection'}
-          onSave={() => persistConfig('collection', 'Régua de cobrança salva.')}
-        />
-      </div>
-
-      <section id="finance-plans" className="mt-4 animate-in empresa-section mensal-finance-plans-section" style={{ scrollMarginTop: 56 }}>
-        <div className="mensal-finance-plans-banner" role="note">
-          <strong>Planos da academia (mensalidade do aluno)</strong>
-          <span className="text-small text-muted">
-            Valores e duração usados em Mensalidades, matrícula e contratos. Isso é independente do{' '}
-            <strong>plano Nave</strong> (assinatura do sistema / IA), configurado em Conta → Assinatura.
-          </span>
-        </div>
-        <h3 className="navi-section-heading mb-2">
-          <Wallet2 size={18} color="var(--v500)" /> Planos da academia
-        </h3>
-        <p className="text-small text-muted mb-2 mensal-finance-plans-hint">
-          Os nomes cadastrados aqui aparecem como lista no perfil do aluno, nos pagamentos e nas transações — evita erro
-          de digitação.
-        </p>
-        <div className="card">
-          <div className="flex-col" style={{ gap: 10 }}>
+      {activeSection === 'finance-plans' ? (
+        <section id="finance-plans" className="finance-config-section animate-in mensal-finance-plans-section">
+          <FinanceSectionHeading icon={Wallet2}>Planos da academia</FinanceSectionHeading>
+          <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
+            Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos.
+          </p>
+          <div className="finance-config-section__body">
             {(financeConfig.plans || []).map((pl, idx) => (
               <PlanRow
                 key={idx}
@@ -617,42 +615,57 @@ export default function ConfigTab({ academyId }) {
                 }}
               />
             ))}
-            <div>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  const arr = [...(financeConfig.plans || [])];
-                  arr.push({
-                    name: '',
-                    price: 0,
-                    durationDays: 30,
-                    description: '',
-                    applyCardFee: true,
-                  });
-                  setFinanceConfig({ ...financeConfig, plans: arr });
-                }}
-              >
-                Adicionar plano
-              </button>
-            </div>
+            <button
+              type="button"
+              className="finance-config-add-link edit-link"
+              onClick={() => {
+                const arr = [...(financeConfig.plans || [])];
+                arr.push({
+                  name: '',
+                  price: 0,
+                  durationDays: 30,
+                  description: '',
+                  applyCardFee: true,
+                });
+                setFinanceConfig({ ...financeConfig, plans: arr });
+              }}
+            >
+              <Plus size={14} aria-hidden />
+              Adicionar plano
+            </button>
+            <SectionSaveFooter
+              dirty={dirty.plans}
+              saving={savingSection === 'plans'}
+              onSave={() => persistConfig('plans', 'Planos salvos.')}
+            />
           </div>
-          <SectionSaveFooter
-            dirty={dirty.plans}
-            saving={savingSection === 'plans'}
-            onSave={() => persistConfig('plans', 'Planos salvos.')}
-          />
-        </div>
-      </section>
+          <div className="finance-nave-subscription">
+            <h4 className="navi-section-heading finance-nave-subscription__heading">
+              <Sparkles size={16} color="var(--v500)" aria-hidden />
+              Assinatura Nave
+            </h4>
+            <p className="text-small text-muted" style={{ margin: '0 0 8px' }}>
+              Plano do sistema (IA, limites e faturamento) — independente das mensalidades dos alunos.
+            </p>
+            <Link to="/conta" className="edit-link" style={{ fontSize: '0.85rem' }}>
+              Gerenciar em Conta → Assinatura
+            </Link>
+          </div>
+          <hr className="finance-config-section__divider" aria-hidden />
+        </section>
+      ) : null}
 
-      <div id="finance-exceptions" className="empresa-section" style={{ scrollMarginTop: 56 }}>
-        <ExceptionStatusLabelsSection labels={exceptionLabels} onChange={setExceptionLabels} />
-        <SectionSaveFooter
-          dirty={dirty.exceptions}
-          saving={savingSection === 'exceptions'}
-          onSave={() => persistConfig('exceptions', 'Rótulos de exceção salvos.')}
-        />
-      </div>
+      {activeSection === 'finance-exceptions' ? (
+        <div id="finance-exceptions" className="finance-config-section-wrap">
+          <ExceptionStatusLabelsSection labels={exceptionLabels} onChange={setExceptionLabels} />
+          <SectionSaveFooter
+            dirty={dirty.exceptions}
+            saving={savingSection === 'exceptions'}
+            onSave={() => persistConfig('exceptions', 'Rótulos de exceção salvos.')}
+          />
+          <hr className="finance-config-section__divider" aria-hidden />
+        </div>
+      ) : null}
     </div>
   );
 }

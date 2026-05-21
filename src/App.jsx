@@ -469,7 +469,14 @@ const App = () => {
           setSessionChecking(false);
           void setupAcademy(currentUser).finally(() => setAcademyReady(true));
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
-          navigate('/', { replace: true });
+          const path = window.location.pathname;
+          const search = window.location.search || '';
+          const landingPaths = ['/', '/login', '/register', '/cadastro'];
+          if (landingPaths.includes(path)) {
+            navigate('/', { replace: true });
+          } else {
+            navigate(`${path}${search}`, { replace: true });
+          }
         } else {
           const p = window.location.pathname;
           const authPaths = ['/login', '/register', '/cadastro'];
@@ -949,9 +956,14 @@ const App = () => {
 
           <main className="main-content">
             <OnboardingBanner />
-            {!academyReady ? (
-              <PageSkeleton variant="cards" />
-            ) : (
+            {(() => {
+              const bootstrapPaths = ['/empresa', '/conta'];
+              const showRoutesWhileBootstrap =
+                academyReady || bootstrapPaths.includes(location.pathname);
+              if (!showRoutesWhileBootstrap) {
+                return <PageSkeleton variant="cards" />;
+              }
+              return (
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
@@ -1000,7 +1012,8 @@ const App = () => {
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>
-            )}
+              );
+            })()}
           </main>
         </div>
       </div>
