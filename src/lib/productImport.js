@@ -154,8 +154,37 @@ export function classifyImportRow(product) {
   return 'ready';
 }
 
+/** Chave estável para detectar duplicatas (CSV ou catálogo existente). */
+export function importProductDedupKey(product) {
+  const sku = String(product?.sku || '').trim().toLowerCase();
+  if (sku) return `sku:${sku}`;
+  const nome = String(product?.nome || product?.name || '').trim().toLowerCase();
+  const tam = String(product?.Tamanho ?? product?.tamanho ?? '').trim().toLowerCase();
+  return `nome:${nome}|tam:${tam}`;
+}
+
+/** Remove linhas repetidas no CSV (mantém a primeira). */
+export function dedupeImportPreviewRows(rows) {
+  const seen = new Set();
+  return rows.map((row) => {
+    const key = importProductDedupKey(row.data);
+    if (!key || key === 'nome:|tam:') return row;
+    if (seen.has(key)) {
+      return {
+        ...row,
+        status: 'invalid',
+        selected: false,
+        duplicateInFile: true,
+        statusNote: 'Duplicado no arquivo (mesma combinação nome/tamanho ou SKU)',
+      };
+    }
+    seen.add(key);
+    return row;
+  });
+}
+
 export function buildImportPreviewRows(dataRows, columnToField) {
-  return dataRows.map((raw, index) => {
+  const rows = dataRows.map((raw, index) => {
     const data = rowToProduct(raw, columnToField);
     const status = classifyImportRow(data);
     return {
@@ -167,6 +196,7 @@ export function buildImportPreviewRows(dataRows, columnToField) {
       editing: false,
     };
   });
+  return dedupeImportPreviewRows(rows);
 }
 
 export function countByStatus(rows) {

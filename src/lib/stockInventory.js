@@ -82,11 +82,50 @@ export function quantityDeltaForMoveType(tipo, quantidade) {
   }
 }
 
+/** Prefixo do título da tarefa consolidada de reposição. */
+export const STOCK_RESTOCK_TITLE_PREFIX = 'Repor estoque';
+
+export const STOCK_RESTOCK_CONSOLIDATED_FLAG = 'consolidated:true';
+
+export function formatRestockProductLine(item, currentQty, minimumLevel) {
+  const name = itemDisplayName(item);
+  const tam = String(item?.Tamanho ?? item?.tamanho ?? '').trim();
+  const label = tam ? `${name} · ${tam}` : name;
+  const qty = Number(currentQty ?? 0);
+  const min = Number(minimumLevel ?? 0);
+  return `• ${label} — saldo: ${qty}, mínimo: ${min}`;
+}
+
+export function buildConsolidatedRestockTaskTitle(productCount) {
+  const n = Math.max(0, Math.floor(Number(productCount) || 0));
+  const word = n === 1 ? 'produto' : 'produtos';
+  return `${STOCK_RESTOCK_TITLE_PREFIX} — ${n} ${word} em nível crítico`;
+}
+
+/**
+ * @param {{ item: object, currentQty: number, minimumLevel: number }[]} products
+ */
+export function buildConsolidatedRestockTaskDescription(products) {
+  const lines = (products || []).map(({ item, currentQty, minimumLevel }) =>
+    formatRestockProductLine(item, currentQty, minimumLevel)
+  );
+  const ids = (products || []).map((p) => String(p.item?.$id || p.item?.id || '').trim()).filter(Boolean);
+  return [
+    STOCK_RESTOCK_MARKER,
+    STOCK_RESTOCK_CONSOLIDATED_FLAG,
+    `product_ids:${ids.join(',')}`,
+    '',
+    ...lines,
+  ].join('\n');
+}
+
+/** @deprecated Tarefas por produto — mantido para compatibilidade de leitura. */
 export function buildRestockTaskTitle(itemName) {
   const name = String(itemName || '').trim() || 'Item';
   return `Repor estoque: ${name}`;
 }
 
+/** @deprecated Tarefas por produto — mantido para compatibilidade de leitura. */
 export function buildRestockTaskDescription({ itemId, currentQty, unit, minimumLevel }) {
   const u = String(unit || 'unidade').trim() || 'unidade';
   return `${STOCK_RESTOCK_MARKER}\nitem_id:${itemId}\nSaldo atual: ${currentQty} ${u}. Nível mínimo: ${minimumLevel}.`;
@@ -97,8 +136,34 @@ export function parseStockItemIdFromTaskDescription(description) {
   return m ? m[1] : '';
 }
 
+export function parseConsolidatedProductIds(description) {
+  const m = String(description || '').match(/^product_ids:\s*(.+)$/m);
+  if (!m) return [];
+  return m[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export function isStockRestockTask(task) {
   return String(task?.description || '').includes(STOCK_RESTOCK_MARKER);
+}
+
+export function isConsolidatedRestockTask(task) {
+  if (!isStockRestockTask(task)) return false;
+  const desc = String(task?.description || '');
+  if (desc.includes(STOCK_RESTOCK_CONSOLIDATED_FLAG)) return true;
+  const title = String(task?.title || '').trim();
+  return title.startsWith(`${STOCK_RESTOCK_TITLE_PREFIX} —`);
+}
+
+export function isLegacyPerItemRestockTask(task) {
+  return isStockRestockTask(task) && !isConsolidatedRestockTask(task);
+}
+
+export function isOpenTaskStatus(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return s !== 'done' && s !== 'completed' && s !== 'concluida' && s !== 'concluída';
 }
 
 export function isStockWeeklyCheckTask(task, taskTitle) {

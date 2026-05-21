@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyImportRow } from '../lib/productImport.js';
+import { classifyImportRow, importProductDedupKey, dedupeImportPreviewRows } from '../lib/productImport.js';
 
 describe('classifyImportRow', () => {
   it('marks row ready without categoria when nome and price exist', () => {
@@ -20,5 +20,22 @@ describe('classifyImportRow', () => {
         sale_price: null,
       })
     ).toBe('incomplete');
+  });
+});
+
+describe('importProductDedupKey', () => {
+  it('prefers sku when present', () => {
+    expect(importProductDedupKey({ sku: 'ABC', nome: 'X', Tamanho: 'M' })).toBe('sku:abc');
+  });
+
+  it('dedupeImportPreviewRows marks second duplicate invalid', () => {
+    const rows = [
+      { id: 'r0', data: { nome: 'Camisa', Tamanho: 'G', sku: '' }, status: 'ready', selected: true },
+      { id: 'r1', data: { nome: 'Camisa', Tamanho: 'G', sku: '' }, status: 'ready', selected: true },
+    ];
+    const out = dedupeImportPreviewRows(rows);
+    expect(out[0].selected).toBe(true);
+    expect(out[1].duplicateInFile).toBe(true);
+    expect(out[1].selected).toBe(false);
   });
 });

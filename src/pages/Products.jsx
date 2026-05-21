@@ -326,11 +326,11 @@ export default function Products() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleteBusy(true);
-    const ok = await deleteProduct(deleteTarget.id);
+    const result = await deleteProduct(deleteTarget.id);
     setDeleteBusy(false);
-    if (!ok) {
-      const err = useProductsStore.getState().error || '';
-      if (/vendas registradas/i.test(err)) {
+    if (!result?.ok) {
+      const err = result?.error || useProductsStore.getState().error || '';
+      if (result?.has_sales || /vendas registradas/i.test(err)) {
         setDeleteHasSales(true);
         return;
       }

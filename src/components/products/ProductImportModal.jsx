@@ -22,11 +22,10 @@ import {
   buildImportPreviewRows,
   countByStatus,
   classifyImportRow,
+  importProductDedupKey,
 } from '../../lib/productImport';
 
 const STEPS = ['Upload', 'Mapeamento', 'Revisão', 'Importando'];
-const BATCH_SIZE = 10;
-
 async function fetchAiMapping(headers, sampleRows, academyId) {
   const jwt = await createSessionJwt();
   if (!jwt) throw new Error('Sessão inválida. Faça login novamente.');
@@ -322,23 +321,81 @@ export default function ProductImportModal({ open, onClose, onImported }) {
   const runImport = async () => {
     const toImport = previewRows.filter((r) => r.selected);
     if (!toImport.length) return;
-    setStep(3); setImportFinished(false);
-    setImportProgress({ done: 0, total: toImport.length }); setImportResults([]); setCreatedProductIds([]);
-    const results = []; const ids = [];
-    for (let i = 0; i < toImport.length; i += BATCH_SIZE) {
-      const batch = toImport.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async (row) => {
-        try {
-          const product = await createProductApi(row.data, academyId);
-          if (product?.id) ids.push(product.id);
-          results.push({ id: row.id, nome: row.data.nome, ok: true });
-        } catch (err) {
-          results.push({ id: row.id, nome: row.data.nome || '(sem nome)', ok: false, error: err?.message || 'Erro ao criar' });
+    setStep(3);
+    setImportFinished(false);
+    setImportProgress({ done: 0, total: toImport.length });
+    setImportResults([]);
+    setCreatedProductIds([]);
+
+    const results = [];
+    const ids = [];
+    const sessionKeys = new Set();
+    const existingKeys = new Set();
+
+    try {
+      const jwt = await createSessionJwt();
+      if (jwt) {
+        const listRes = await fetch('/api/products', {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            'x-academy-id': String(academyId || '').trim(),
+          },
+        });
+        const listData = await listRes.json().catch(() => ({}));
+        if (listRes.ok && Array.isArray(listData.products)) {
+          for (const p of listData.products) {
+            existingKeys.add(importProductDedupKey(p));
+          }
         }
-      }));
-      setImportResults([...results]); setCreatedProductIds([...ids]);
+      }
+    } catch {
+      void 0;
+    }
+
+    for (const row of toImport) {
+      const key = importProductDedupKey(row.data);
+      if (existingKeys.has(key)) {
+        results.push({
+          id: row.id,
+          nome: row.data.nome || '(sem nome)',
+          ok: false,
+          error: 'Já existe no catálogo (mesmo SKU ou nome+tamanho)',
+        });
+        setImportResults([...results]);
+        setImportProgress({ done: results.length, total: toImport.length });
+        continue;
+      }
+      if (sessionKeys.has(key)) {
+        results.push({
+          id: row.id,
+          nome: row.data.nome || '(sem nome)',
+          ok: false,
+          error: 'Duplicado na mesma importação',
+        });
+        setImportResults([...results]);
+        setImportProgress({ done: results.length, total: toImport.length });
+        continue;
+      }
+
+      try {
+        const product = await createProductApi(row.data, academyId);
+        sessionKeys.add(key);
+        existingKeys.add(key);
+        if (product?.id) ids.push(product.id);
+        results.push({ id: row.id, nome: row.data.nome, ok: true });
+      } catch (err) {
+        results.push({
+          id: row.id,
+          nome: row.data.nome || '(sem nome)',
+          ok: false,
+          error: err?.message || 'Erro ao criar',
+        });
+      }
+      setImportResults([...results]);
+      setCreatedProductIds([...ids]);
       setImportProgress({ done: results.length, total: toImport.length });
     }
+
     setImportFinished(true);
     onImported?.({ ids, reload: true });
   };
@@ -416,7 +473,15 @@ export default function ProductImportModal({ open, onClose, onImported }) {
                 <li key={row.id} className={`product-import-review-item product-import-review-item--${row.status}`}>
                   <label className="product-import-review-check">
                     <input type="checkbox" checked={row.selected} onChange={(e) => updatePreviewRow(row.id, { selected: e.target.checked })} />
-                    <StatusIcon status={row.status} /><RowSummary data={row.data} />
+                    <StatusIcon status={row.status} />
+                    <span className="product-import-row-summary-wrap">
+                      <RowSummary data={row.data} />
+                      {row.duplicateInFile ? (
+                        <span className="text-small" style={{ color: 'var(--danger)', display: 'block' }}>
+                          {row.statusNote || 'Duplicado no arquivo'}
+                        </span>
+                      ) : null}
+                    </span>
                   </label>
                   <div className="product-import-review-actions">
                     {row.status === 'ready' ? <button type="button" className="btn-outline btn-sm" onClick={() => setEditingId(editingId === row.id ? null : row.id)}><Pencil size={14} /> Editar</button> : null}

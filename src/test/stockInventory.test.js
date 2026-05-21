@@ -5,7 +5,11 @@ import {
   quantityDeltaForMoveType,
   parseStockItemIdFromTaskDescription,
   buildRestockTaskDescription,
+  buildConsolidatedRestockTaskTitle,
+  buildConsolidatedRestockTaskDescription,
+  isConsolidatedRestockTask,
   STOCK_RESTOCK_MARKER,
+  STOCK_RESTOCK_CONSOLIDATED_FLAG,
 } from '../lib/stockInventory.js';
 import { readStockCheckSchedule, nextOccurrenceYmd } from '../lib/stockSettings.js';
 
@@ -39,6 +43,33 @@ describe('stockInventory', () => {
     });
     expect(desc).toContain(STOCK_RESTOCK_MARKER);
     expect(parseStockItemIdFromTaskDescription(desc)).toBe('abc123');
+  });
+
+  it('buildConsolidatedRestockTaskTitle pluralizes', () => {
+    expect(buildConsolidatedRestockTaskTitle(1)).toBe('Repor estoque — 1 produto em nível crítico');
+    expect(buildConsolidatedRestockTaskTitle(3)).toBe('Repor estoque — 3 produtos em nível crítico');
+  });
+
+  it('buildConsolidatedRestockTaskDescription lists products', () => {
+    const desc = buildConsolidatedRestockTaskDescription([
+      {
+        item: { $id: 'a1', nome: 'Camisa', Tamanho: 'G' },
+        currentQty: 1,
+        minimumLevel: 3,
+      },
+      {
+        item: { $id: 'a2', nome: 'Bermuda', Tamanho: '42' },
+        currentQty: 0,
+        minimumLevel: 2,
+      },
+    ]);
+    expect(desc).toContain(STOCK_RESTOCK_MARKER);
+    expect(desc).toContain(STOCK_RESTOCK_CONSOLIDATED_FLAG);
+    expect(desc).toContain('product_ids:a1,a2');
+    expect(desc).toContain('Camisa · G — saldo: 1, mínimo: 3');
+    expect(desc).toContain('Bermuda · 42 — saldo: 0, mínimo: 2');
+    const task = { title: buildConsolidatedRestockTaskTitle(2), description: desc, status: 'pending' };
+    expect(isConsolidatedRestockTask(task)).toBe(true);
   });
 });
 

@@ -114,10 +114,15 @@ export const useProductsStore = create((set) => ({
   deleteProduct: async (item_id) => {
     set({ loading: true, error: null });
     try {
-      await productsFetch('/api/products', {
+      const data = await productsFetch('/api/products', {
         method: 'POST',
         body: JSON.stringify({ action: 'delete', item_id }),
       });
+      if (data?.sucesso === false) {
+        const err = String(data.erro || data.error || 'Erro ao excluir produto');
+        set({ error: err, loading: false });
+        return { ok: false, error: err, has_sales: Boolean(data.has_sales) };
+      }
       set((state) => ({
         loading: false,
         products: state.products.filter((p) => p.id !== item_id),
@@ -125,10 +130,11 @@ export const useProductsStore = create((set) => ({
       useInventoryStore.setState((state) => ({
         items: state.items.filter((it) => it.id !== item_id),
       }));
-      return true;
+      return { ok: true };
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
-      return false;
+      const err = String(e?.message || e);
+      set({ error: err, loading: false });
+      return { ok: false, error: err };
     }
   },
 }));
