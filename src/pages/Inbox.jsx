@@ -17,7 +17,7 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, User, X, Zap } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
 import ThreadState from '../components/inbox/ThreadState';
@@ -177,7 +177,10 @@ export default function Inbox() {
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
-  const { waInfo, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId);
+  const { waInfo, waStatus, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, {
+    statusPollWhileMounted: true,
+    watchAcademyStatus: true
+  });
   const terms = useTerms();
   const labels = useLeadStore((s) => s.labels);
   const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
@@ -1286,12 +1289,12 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!academyId) return;
-    const connected = String(waInfo?.status || '').trim() === 'connected';
+    const connected = String(waStatus || '').trim() === 'connected';
     if (!connected) return;
     const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
     if (done) return;
     void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
-  }, [waInfo?.status, academyId]);
+  }, [waStatus, academyId]);
 
   async function loadList({ reset = false, silent = false } = {}) {
     if (!academyIdRef.current) return;
@@ -1585,10 +1588,12 @@ export default function Inbox() {
       console.groupEnd();
     }
 
-    let cancelled = false;
+    const cancelledRef = { current: false };
     let subscription = null;
+    let subscribeTimer = null;
 
     const onRealtimeEvent = (ev) => {
+      if (cancelledRef.current) return;
       const payload = ev && typeof ev === 'object' ? ev.payload : null;
       const academy =
         payload && typeof payload === 'object'
@@ -1624,28 +1629,32 @@ export default function Inbox() {
       }
     };
 
-    void realtime
-      .subscribe(channel, onRealtimeEvent)
-      .then((sub) => {
-        if (cancelled) {
-          void sub?.close?.();
-          return;
-        }
-        subscription = sub;
-        setRealtimeOn(true);
-        if (inboxDebugEnabled) {
-          devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          console.error('[Inbox Realtime] falha ao subscrever:', e);
-          setRealtimeOn(false);
-        }
-      });
+    subscribeTimer = window.setTimeout(() => {
+      if (cancelledRef.current) return;
+      void realtime
+        .subscribe(channel, onRealtimeEvent)
+        .then((sub) => {
+          if (cancelledRef.current) {
+            void sub?.close?.();
+            return;
+          }
+          subscription = sub;
+          setRealtimeOn(true);
+          if (inboxDebugEnabled) {
+            devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
+          }
+        })
+        .catch((e) => {
+          if (!cancelledRef.current) {
+            console.error('[Inbox Realtime] falha ao subscrever:', e);
+            setRealtimeOn(false);
+          }
+        });
+    }, 300);
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
+      if (subscribeTimer) clearTimeout(subscribeTimer);
       if (inboxDebugEnabled) {
         devLog('[Inbox Realtime] cleanup');
       }
@@ -2832,7 +2841,8 @@ export default function Inbox() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [extraFiltersMenuOpen]);
 
-  const waChatConnected = useMemo(() => String(waInfo?.status || '').trim() === 'connected', [waInfo?.status]);
+  const waChatConnected = useMemo(() => String(waStatus || '').trim() === 'connected', [waStatus]);
+  const showWaDisconnectBanner = String(waStatus || '').trim() !== 'connected';
 
   const [inboxVvInset, setInboxVvInset] = useState(0);
   const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
@@ -4691,6 +4701,48 @@ export default function Inbox() {
         boxSizing: 'border-box'
       }}
     >
+      {showWaDisconnectBanner ? (
+        <div
+          role="status"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 10,
+            padding: '10px 14px',
+            marginBottom: 12,
+            borderRadius: 10,
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            color: 'var(--text)',
+            fontSize: '0.9rem',
+            lineHeight: 1.45
+          }}
+        >
+          <AlertTriangle size={18} style={{ flexShrink: 0, color: '#b45309' }} aria-hidden />
+          <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+            WhatsApp desconectado — as mensagens não estão chegando.{' '}
+            <button
+              type="button"
+              onClick={() => navigate('/automacoes?tab=agente')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                color: 'var(--accent, #5b3fbf)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                font: 'inherit'
+              }}
+            >
+              Reconectar →
+            </button>
+          </span>
+        </div>
+      ) : null}
+
       <style dangerouslySetInnerHTML={{ __html: `
         .inbox-msg { border-radius: 12px; padding: 8px; margin: -6px; transition: var(--transition); }
         .inbox-msg.selected { background: var(--v50); outline: 2px solid rgba(91, 63, 191, 0.35); }

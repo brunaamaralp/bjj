@@ -53,9 +53,16 @@ export default function NotificationBell({ academyId, userId }) {
   const handleItemClick = (n) => {
     markAsRead([n.id]);
     setIsOpen(false);
+    const actionUrl = String(n.action_url || '').trim();
+    if (actionUrl) {
+      navigate(actionUrl);
+      return;
+    }
+    if (n.is_system && n.type === 'whatsapp_disconnected') {
+      navigate('/automacoes?tab=agente');
+      return;
+    }
     navigate(`/inbox?phone=${normalizePhone(n.phone_number || '')}&conversation=${n.conversation_id}`);
-    // O sistema de rotas do Inbox parece usar ?phone ou ?conversation. 
-    // No Inbox.jsx, vi que useLocation.search busca 'phone'.
   };
 
   // Auxiliar para normalizar telefone (copiado do Inbox.jsx para garantir consistência)
@@ -259,7 +266,21 @@ export default function NotificationBell({ academyId, userId }) {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.4 }}>
-                      <strong>{n.created_by_name}</strong> adicionou uma nota em <strong>{n.lead_name || 'um lead'}</strong>
+                      {n.is_system ? (
+                        <>
+                          <strong>{n.title || n.lead_name || 'Aviso do sistema'}</strong>
+                          {n.body ? (
+                            <>
+                              {' — '}
+                              <span style={{ fontWeight: 500 }}>{n.body}</span>
+                            </>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <strong>{n.created_by_name}</strong> adicionou uma nota em <strong>{n.lead_name || 'um lead'}</strong>
+                        </>
+                      )}
                     </p>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                       {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}

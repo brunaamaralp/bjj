@@ -1300,9 +1300,9 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         type="button"
                                         className="btn btn-primary"
                                         onClick={() => void zap.createWaInstance()}
-                                        disabled={zap.waLoading || zap.waTokenMissing}
+                                        disabled={zap.waLoading || zap.waTokenMissing || zap.isCreating}
                                     >
-                                        {zap.waLoading ? 'Aguarde…' : 'Conectar WhatsApp'}
+                                        {zap.waLoading || zap.isCreating ? 'Aguarde…' : 'Conectar WhatsApp'}
                                     </button>
                                 )}
                             </div>
