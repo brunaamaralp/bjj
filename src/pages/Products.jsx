@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Copy, Plus, Search, Trash2, ChevronUp, ChevronDown, Upload, Pencil, ArrowLeftRight } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, Upload, ArrowLeftRight, MoreHorizontal } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
@@ -29,6 +29,72 @@ function productVariationSuffix(p) {
   const sku = String(p.sku || '').trim();
   if (sku && sku !== 'Único') return `· ${sku}`;
   return '';
+}
+
+function ProductActionsMenu({ product, isOpen, onToggle, onClose, onDuplicate, onDelete, deleteBusy }) {
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onDocClick = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) onClose();
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen, onClose]);
+
+  return (
+    <div className="products-actions-menu" ref={rootRef}>
+      <button
+        type="button"
+        className="products-icon-btn"
+        title="Mais ações"
+        aria-label="Mais ações"
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+      >
+        <MoreHorizontal size={16} aria-hidden />
+      </button>
+      {isOpen ? (
+        <div className="products-actions-menu__panel" role="menu" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            role="menuitem"
+            className="products-actions-menu__item"
+            onClick={() => {
+              onClose();
+              onDuplicate(product);
+            }}
+          >
+            Duplicar produto
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="products-actions-menu__item products-actions-menu__item--danger"
+            disabled={deleteBusy}
+            onClick={() => {
+              onClose();
+              onDelete(product);
+            }}
+          >
+            Excluir produto
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function Products() {
@@ -63,6 +129,7 @@ export default function Products() {
   const [importOpen, setImportOpen] = useState(false);
   const [importFilterIds, setImportFilterIds] = useState(null);
   const [movesProduct, setMovesProduct] = useState(null);
+  const [actionsMenuId, setActionsMenuId] = useState(null);
 
   const canAccess = modules?.inventory === true || modules?.sales === true;
 
@@ -383,10 +450,10 @@ export default function Products() {
                   <th className="products-table__thumb-head" />
                   <SortHeader label="Produto" sortKey="nome" />
                   <SortHeader label="Categoria" sortKey="categoria" />
-                  <SortHeader label="Preço venda" sortKey="sale_price" />
+                  <SortHeader label="Preço" sortKey="sale_price" />
                   <SortHeader label="Saldo" sortKey="current_quantity" />
                   <SortHeader label="Status" sortKey="lifecycle" />
-                  <th className="products-table__actions-head">Ações</th>
+                  <th className="products-table__actions-head" aria-label="Ações" />
                 </tr>
               </thead>
               <tbody>
@@ -402,11 +469,6 @@ export default function Products() {
                         <div className="products-table__name-row">
                           <span className="products-table__name">{p.nome || p.display_label}</span>
                           {variation ? <span className="products-table__variation">{variation}</span> : null}
-                          {p.is_for_sale ? (
-                            <span className="products-type-badge products-type-badge--sale">Venda</span>
-                          ) : (
-                            <span className="products-type-badge products-type-badge--internal">Insumo</span>
-                          )}
                         </div>
                       </td>
                       <td className="text-small text-muted">{p.categoria || '—'}</td>
@@ -424,31 +486,21 @@ export default function Products() {
                           <button
                             type="button"
                             className="products-icon-btn"
-                            title="Duplicar"
-                            aria-label="Duplicar"
-                            onClick={() => openDuplicate(p)}
-                          >
-                            <Copy size={16} aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            className="products-icon-btn"
                             title="Ver movimentações"
                             aria-label="Ver movimentações"
                             onClick={() => setMovesProduct(p)}
                           >
                             <ArrowLeftRight size={16} aria-hidden />
                           </button>
-                          <button
-                            type="button"
-                            className="products-icon-btn products-icon-btn--danger"
-                            title="Excluir produto"
-                            aria-label="Excluir produto"
-                            onClick={(e) => void openDeleteDialog(p, e)}
-                            disabled={deleteBusy && deleteTarget?.id === p.id}
-                          >
-                            <Trash2 size={16} aria-hidden />
-                          </button>
+                          <ProductActionsMenu
+                            product={p}
+                            isOpen={actionsMenuId === p.id}
+                            onToggle={() => setActionsMenuId((id) => (id === p.id ? null : p.id))}
+                            onClose={() => setActionsMenuId(null)}
+                            onDuplicate={openDuplicate}
+                            onDelete={(item) => void openDeleteDialog(item)}
+                            deleteBusy={deleteBusy && deleteTarget?.id === p.id}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -472,11 +524,6 @@ export default function Products() {
                       </div>
                       <div className="products-mobile-card__meta text-small text-muted">
                         {p.categoria || '—'}
-                        {p.is_for_sale ? (
-                          <span className="products-type-badge products-type-badge--sale">Venda</span>
-                        ) : (
-                          <span className="products-type-badge products-type-badge--internal">Insumo</span>
-                        )}
                       </div>
                       <div className="products-mobile-card__row text-small">
                         <span>{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</span>
@@ -489,12 +536,6 @@ export default function Products() {
                     </div>
                   </div>
                   <div className="navi-mobile-card__actions products-mobile-card__actions">
-                    <button type="button" className="products-icon-btn" title="Editar" aria-label="Editar" onClick={() => openEdit(p)}>
-                      <Pencil size={16} aria-hidden />
-                    </button>
-                    <button type="button" className="products-icon-btn" title="Duplicar" aria-label="Duplicar" onClick={() => openDuplicate(p)}>
-                      <Copy size={16} aria-hidden />
-                    </button>
                     <button
                       type="button"
                       className="products-icon-btn"
@@ -504,16 +545,15 @@ export default function Products() {
                     >
                       <ArrowLeftRight size={16} aria-hidden />
                     </button>
-                    <button
-                      type="button"
-                      className="products-icon-btn products-icon-btn--danger"
-                      title="Excluir produto"
-                      aria-label="Excluir produto"
-                      onClick={(e) => void openDeleteDialog(p, e)}
-                      disabled={deleteBusy && deleteTarget?.id === p.id}
-                    >
-                      <Trash2 size={16} aria-hidden />
-                    </button>
+                    <ProductActionsMenu
+                      product={p}
+                      isOpen={actionsMenuId === p.id}
+                      onToggle={() => setActionsMenuId((id) => (id === p.id ? null : p.id))}
+                      onClose={() => setActionsMenuId(null)}
+                      onDuplicate={openDuplicate}
+                      onDelete={(item) => void openDeleteDialog(item)}
+                      deleteBusy={deleteBusy && deleteTarget?.id === p.id}
+                    />
                   </div>
                 </article>
               );

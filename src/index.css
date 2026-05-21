@@ -2717,21 +2717,23 @@ select.task-select option {
 
 .products-table__name-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
 }
 
 .products-table__name {
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.35;
+  color: var(--text);
 }
 
 .products-table__variation {
   font-size: 12px;
   font-weight: 400;
-  color: var(--text-muted);
+  color: var(--text-muted, #6b6880);
+  white-space: nowrap;
 }
 
 .products-table__price,
@@ -2744,8 +2746,52 @@ select.task-select option {
   text-align: right;
   white-space: nowrap;
   width: 1%;
-  min-width: 120px;
+  min-width: 72px;
   padding-right: 8px;
+}
+
+.products-actions-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.products-actions-menu__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-light, #e8e6f0);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(18, 16, 42, 0.12);
+}
+
+.products-actions-menu__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.products-actions-menu__item:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.products-actions-menu__item--danger {
+  color: var(--danger, #c0392b);
+}
+
+.products-actions-menu__item--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger, #c0392b) 10%, transparent);
 }
 
 .products-table__actions-inner {
@@ -2849,21 +2895,24 @@ select.task-select option {
 
 .products-mobile-card__title-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 0;
+  min-width: 0;
 }
 
 .products-mobile-card__title {
-  font-weight: 600;
+  font-weight: 400;
   font-size: 14px;
   line-height: 1.35;
+  color: var(--text);
 }
 
 .products-mobile-card__variation {
   font-size: 12px;
   font-weight: 400;
-  color: var(--text-muted);
+  color: var(--text-muted, #6b6880);
+  white-space: nowrap;
 }
 
 .products-mobile-card__meta {
