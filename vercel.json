@@ -50,6 +50,7 @@
     { "source": "/api/cron/collection-overdue", "destination": "/api/cron/reset-usage.js?action=collection-overdue" },
     { "source": "/api/inventory", "destination": "/api/leads.js?route=inventory" },
     { "source": "/api/inventory/adjust", "destination": "/api/leads.js?route=inventory" },
+    { "source": "/api/inventory/report", "destination": "/api/leads.js?route=inventory&report=1" },
     { "source": "/api/products", "destination": "/api/leads.js?route=products" },
     { "source": "/api/sales", "destination": "/api/leads.js?hub=sales" },
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },

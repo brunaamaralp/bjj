@@ -9,6 +9,7 @@
     "lint": "eslint src",
     "preview": "vite preview",
     "provision:stock": "node scripts/provision_stock_schema.js",
+    "provision:inventory-cost": "node --env-file=.env scripts/provision-inventory-cost-schema.mjs",
     "migrate:stock-balance": "node scripts/migrate_stock_balance.js",
     "provision:sales": "node scripts/provision_sales_schema.js",
     "provision:core": "node scripts/setup-appwrite.mjs",

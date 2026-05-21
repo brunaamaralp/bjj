@@ -95,6 +95,8 @@ export function mapVariantDoc(doc, parent) {
     minimum_level: min,
     status: getVariantStockStatus(qty, min),
     lifecycle,
+    average_cost: Number(doc.average_cost ?? 0) || 0,
+    last_purchase_cost: Number(doc.last_purchase_cost ?? 0) || 0,
     legacy_stock_item_id: String(doc.legacy_stock_item_id || '').trim() || null,
     notes: String(doc.notes || '').trim(),
     last_updated: doc.last_updated || doc.$updatedAt || '',

@@ -267,6 +267,12 @@ export function useNlAction() {
         return doc;
       }
 
+      if (parsed.action === 'inventory_query') {
+        const resposta = String(parsed.data?.resposta || parsed.summary || '').trim();
+        if (!resposta) throw new Error('Consulta de estoque sem resposta.');
+        return { resposta };
+      }
+
       if (parsed.action === 'adjust_stock') {
         const d = parsed.data || {};
         const variantId = String(d.variant_id || d.stock_item_id || '').trim();

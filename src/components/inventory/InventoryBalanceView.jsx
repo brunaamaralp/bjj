@@ -25,6 +25,15 @@ function isDefaultUnit(unit) {
   return !u || u === 'unidade';
 }
 
+function variantMarginTitle(variant, salePrice) {
+  const sp = Number(salePrice);
+  const avg = Number(variant?.average_cost) || 0;
+  if (!Number.isFinite(sp) || sp <= 0) return undefined;
+  const margin = sp - avg;
+  const pct = Math.round((margin / sp) * 100);
+  return `Margem: ${formatBRL(margin)} (${pct}%)`;
+}
+
 function StockStatusBadge({ status, item, onRegisterEntry }) {
   const label = STOCK_STATUS_LABELS[status] || status;
 
@@ -238,6 +247,7 @@ export default function InventoryBalanceView({
   );
 
   const showMinColumn = anyExpanded || filtered.some((row) => !row.hasVariants);
+  const showAvgCostCol = showPrices && anyExpanded;
 
   const toggleExpanded = (parentId) => {
     setExpandedIds((prev) => {
@@ -317,7 +327,7 @@ export default function InventoryBalanceView({
         </div>
 
         {loading && items.length === 0 ? (
-          <PageSkeleton variant="table" rows={6} columns={showPrices ? 8 : 6} />
+          <PageSkeleton variant="table" rows={6} columns={showPrices ? (showAvgCostCol ? 9 : 8) : 6} />
         ) : filtered.length === 0 ? (
           <EmptyState
             variant="compact"
@@ -340,6 +350,7 @@ export default function InventoryBalanceView({
                   <col className="inventory-table__col-cat" />
                   {showPrices ? <col className="inventory-table__col-price" /> : null}
                   {showPrices ? <col className="inventory-table__col-price" /> : null}
+                  {showAvgCostCol ? <col className="inventory-table__col-price" /> : null}
                   {showUnitColumn ? <col className="inventory-table__col-unit" /> : null}
                   <col className="inventory-table__col-qty" />
                   {showMinColumn ? <col className="inventory-table__col-min" /> : null}
@@ -353,6 +364,7 @@ export default function InventoryBalanceView({
                     <th className="inventory-table__th inventory-table__col-cat">Categoria</th>
                     {showPrices ? <th className="inventory-table__th">Preço venda</th> : null}
                     {showPrices ? <th className="inventory-table__th">Preço custo</th> : null}
+                    {showAvgCostCol ? <th className="inventory-table__th">Custo médio</th> : null}
                     {showUnitColumn ? <th className="inventory-table__th">Unidade</th> : null}
                     <th className="inventory-table__th inventory-table__col-qty">Saldo</th>
                     {showMinColumn ? (
@@ -443,8 +455,15 @@ export default function InventoryBalanceView({
                           ) : null}
                           {showPrices ? (
                             <td className="text-small inventory-table__price">
-                              {parent.cost_price != null ? formatBRL(parent.cost_price) : '—'}
+                              {parent.cost_price != null
+                                ? formatBRL(parent.cost_price)
+                                : solo && Number(soloVariant?.average_cost) > 0
+                                  ? formatBRL(soloVariant.average_cost)
+                                  : '—'}
                             </td>
+                          ) : null}
+                          {showAvgCostCol ? (
+                            <td className="inventory-table__cell-empty" aria-hidden />
                           ) : null}
                           {showUnitColumn ? (
                             <td className="text-small text-muted">
@@ -560,6 +579,14 @@ export default function InventoryBalanceView({
                                   ) : null}
                                   {showPrices ? (
                                     <td className="inventory-table__cell-empty" aria-hidden />
+                                  ) : null}
+                                  {showAvgCostCol ? (
+                                    <td
+                                      className="text-small inventory-table__price"
+                                      title={variantMarginTitle(v, parent.sale_price)}
+                                    >
+                                      {Number(v.average_cost) > 0 ? formatBRL(v.average_cost) : '—'}
+                                    </td>
                                   ) : null}
                                   {showUnitColumn ? (
                                     <td className="text-small text-muted">

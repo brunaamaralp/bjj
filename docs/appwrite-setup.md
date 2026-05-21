@@ -33,7 +33,8 @@ Coleções (Collections)
   - Provisionar: `node scripts/provision_products_schema.js` (defina `PRODUCTS_COL`, `PRODUCT_VARIANTS_COL`, `STOCK_ITEMS_COL`)
   - Atributos: name, description, category, sale_price, cost_price, type (`sale`|`supply`|`rental`), is_for_sale, is_active, image_url, academy_id, created_at
 - PRODUCT_VARIANTS_COL (Variantes / SKU de estoque)
-  - Atributos: product_id, size, color, sku, current_quantity, minimum_level, unit, academy_id, legacy_stock_item_id, is_active, last_updated, notes
+  - Atributos: product_id, size, color, sku, current_quantity, minimum_level, unit, academy_id, legacy_stock_item_id, is_active, last_updated, notes, **average_cost** (float, default 0), **last_purchase_cost** (float, default 0)
+  - Provisionar custo médio + CMV: `npm run provision:inventory-cost`
 - STOCK_MOVES_COL (Movimentações de Estoque)
   - Atributos: item_estoque_id (string), tipo (string: "entrada" | "saida_venda" | "reversao_venda" etc.), quantidade (number), referencia_id (string), motivo (string), usuario_id (string), purchase_price (float, opcional em entrada), academy_id (string), $createdAt (padrão)
 - ACADEMIES_COL — atributo `settings` (string JSON, até 8k): `stockCheckSchedule` (enabled, dayOfWeek, taskTitle), `stockPurchaseExpenseCategory`
@@ -41,7 +42,7 @@ Coleções (Collections)
   - Atributos: aluno_id (string|null), total (number), forma_pagamento (string), status (string: "rascunho" | "concluida" | "cancelada"), idempotency_key (string|null), cancelada_em (string ISO), cancel_motivo (string|null)
   - Índices sugeridos: equality em idempotency_key
 - SALE_ITEMS_COL (Itens de Venda)
-  - Atributos: venda_id (string), item_estoque_id (string), product_variant_id (string, opcional — mesmo id da variante), quantidade (number), preco_unitario (number)
+  - Atributos: venda_id (string), item_estoque_id (string), product_variant_id (string, opcional — mesmo id da variante), quantidade (number), preco_unitario (number), **cmv** (float, opcional — custo da mercadoria vendida no momento da venda)
 - CLASSES_COL (Turmas)
   - Atributos: academyId (string), name (string), days (array<integer 0‑6>), time (string HH:mm), coach (string), capacity (integer)
   - Índices sugeridos: equality em academyId; ordenação por name (opcional)
@@ -59,6 +60,10 @@ Funções (Functions) e Variáveis de Ambiente (Function Variables)
   - Variáveis: DB_ID, STOCK_ITEMS_COL, STOCK_MOVES_COL, SALES_COL, SALE_ITEMS_COL
 - Opcional — Seed Kimonos (INVENTORY_SEED_KIMONOS_FN_ID)
   - Variáveis conforme implementação (normalmente DB_ID, STOCK_ITEMS_COL)
+
+API Vercel (estoque)
+- `GET /api/inventory/report?from=YYYY-MM-DD&to=YYYY-MM-DD` — relatório de giro / curva ABC (rewrite → `leads.js?route=inventory&report=1`)
+- Consulta IA: `POST /api/agent?route=inventory-query` ou NL `inventory_query` (barra de comando)
 
 Observação (Funções)
 - As funções rodam com APPWRITE_FUNCTION_ENDPOINT/PROJECT_ID/API_KEY injetados pelo Appwrite.

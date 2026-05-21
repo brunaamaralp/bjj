@@ -26,6 +26,7 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
 import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
+import ReportsEstoquePanel from '../components/reports/ReportsEstoquePanel.jsx';
 import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
 import { downloadCsv, leadToCsvRow } from '../lib/reportsExport.js';
 
@@ -183,14 +184,15 @@ const pctVar = (cur, prev) => {
     return Math.round(((cur - prev) / prev) * 100);
 };
 
-const REPORT_TABS = new Set(['visao-geral', 'funil', 'alunos', 'financeiro', 'loja']);
+const REPORT_TABS = new Set(['visao-geral', 'funil', 'alunos', 'financeiro', 'loja', 'estoque']);
 
-const REPORT_TAB_ITEMS = [
+const REPORT_TAB_ITEMS_BASE = [
     { id: 'visao-geral', label: 'Visão geral' },
     { id: 'funil', label: 'Funil' },
     { id: 'alunos', label: 'Alunos' },
     { id: 'financeiro', label: 'Financeiro' },
     { id: 'loja', label: 'Loja' },
+    { id: 'estoque', label: 'Estoque' },
 ];
 
 const Reports = () => {
@@ -245,11 +247,22 @@ const Reports = () => {
     const isOwner = navRole === 'owner';
     const hasFinance = modules?.finance === true;
     const hasSales = modules?.sales === true;
+    const hasInventory = modules?.inventory === true;
+
+    const reportTabItems = useMemo(() => {
+        return REPORT_TAB_ITEMS_BASE.filter((t) => {
+            if (t.id === 'financeiro') return hasFinance;
+            if (t.id === 'loja') return hasSales;
+            if (t.id === 'estoque') return hasInventory;
+            return true;
+        });
+    }, [hasFinance, hasSales, hasInventory]);
 
     const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, 'visao-geral');
     const isLeadReportTab = activeTab === 'visao-geral' || activeTab === 'funil';
     const needsFunnelReport = isLeadReportTab || activeTab === 'alunos';
-    const isPeriodTab = needsFunnelReport || activeTab === 'financeiro' || activeTab === 'loja';
+    const isPeriodTab =
+        needsFunnelReport || activeTab === 'financeiro' || activeTab === 'loja' || activeTab === 'estoque';
 
     useEffect(() => {
         const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -581,7 +594,7 @@ const Reports = () => {
                     ) : null}
                 </p>
                 <HubTabBar
-                    tabs={REPORT_TAB_ITEMS}
+                    tabs={reportTabItems}
                     activeId={activeTab}
                     onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
                     ariaLabel="Relatórios"
@@ -1087,6 +1100,15 @@ const Reports = () => {
 
             {activeTab === 'loja' ? (
                 <ReportsLojaPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
+            ) : null}
+
+            {activeTab === 'estoque' ? (
+                <ReportsEstoquePanel
+                    academyId={academyId}
+                    from={range.from}
+                    to={range.to}
+                    hasInventory={hasInventory}
+                />
             ) : null}
 
             {drillKey ? (

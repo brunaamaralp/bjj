@@ -183,6 +183,9 @@ export default function NlCommandBar({
       if (parsed.action === 'adjust_stock' && result?.toast_message) {
         successSummary = result.toast_message;
       }
+      if (parsed.action === 'inventory_query' && result?.resposta) {
+        successSummary = result.resposta;
+      }
       setParsed((prev) => (prev ? { ...prev, summary: successSummary } : prev));
       setState('success');
       setTimeout(() => onOpenChange(false), 2500);
@@ -229,7 +232,8 @@ export default function NlCommandBar({
       parsed.action === 'create_lead' ||
       parsed.action === 'settle_transaction' ||
       parsed.action === 'update_payment' ||
-      parsed.action === 'adjust_stock'
+      parsed.action === 'adjust_stock' ||
+      parsed.action === 'inventory_query'
     );
 
   return (

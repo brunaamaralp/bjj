@@ -38,6 +38,19 @@ export default async function handler(req, res) {
       const db = new Databases(new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey));
       return inventoryAdjustAgent(req, res, db);
     }
+    if (route === 'inventory-query' || url.includes('inventory-query')) {
+      const { default: inventoryQueryAgent } = await import('../lib/server/inventoryReportAgent.js');
+      const { Client, Databases } = await import('node-appwrite');
+      const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
+      const projectId =
+        process.env.APPWRITE_PROJECT_ID ||
+        process.env.VITE_APPWRITE_PROJECT ||
+        process.env.VITE_APPWRITE_PROJECT_ID ||
+        '';
+      const apiKey = process.env.APPWRITE_API_KEY || '';
+      const db = new Databases(new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey));
+      return inventoryQueryAgent(req, res, db);
+    }
     if (route === 'import-finance') return importFinanceHandler(req, res);
     if (route === 'settle-finance-tx') return settleFinanceTxHandler(req, res);
     if (route === 'cancel-finance-tx') return cancelFinanceTxHandler(req, res);

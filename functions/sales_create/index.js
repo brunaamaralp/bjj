@@ -6,6 +6,8 @@ import {
   buildFormaPagamentoResumo,
   roundMoney,
 } from "../salePayments.mjs";
+import { recordSaleItemCmv } from "../../lib/server/saleCmv.js";
+import { variantInventoryLabel } from "../../src/lib/stockInventory.js";
 
 const CAT_VENDA = { type: "product", label: "Vendas de produtos" };
 const CAT_TROCO = { type: "expense_operational", label: "Outras despesas" };
@@ -393,6 +395,29 @@ export default async function (req, res) {
           last_updated: new Date().toISOString(),
         });
         updatedStockIds.push(stockId);
+
+        const parentName = itemDisplayName(itemDoc);
+        const vLabel =
+          stockCol === PRODUCT_VARIANTS_COL
+            ? `${parentName} · ${variantInventoryLabel({
+                size: itemDoc.size,
+                color: itemDoc.color,
+                Tamanho: itemDoc.Tamanho,
+              })}`
+            : parentName;
+
+        await recordSaleItemCmv(databases, {
+          dbId: DB_ID,
+          saleItemsCol: SALE_ITEMS_COL,
+          saleItemId: saleItem.$id,
+          saleItemPatch: {},
+          stockDoc: itemDoc,
+          variantLabel: vLabel,
+          quantity: it.quantidade,
+          academyId: academy_id || itemDoc.academy_id || '',
+          vendaId: vendaDoc.$id,
+          settledAt: new Date().toISOString(),
+        });
 
         const move = await databases.createDocument(DB_ID, STOCK_MOVES_COL, sdk.ID.unique(), {
           item_estoque_id: stockId,
