@@ -28,6 +28,30 @@ export function membershipRoleDisplayLabel(m, academyOwnerId) {
   return 'Recepcionista';
 }
 
+/** Status de acesso: convite pendente ou ativo. */
+export function membershipStatusLabel(m) {
+  const joined = String(m?.joined || '').trim();
+  if (!joined) return 'Convite pendente';
+  return 'Ativo';
+}
+
+export function membershipStatusPillStyle(status) {
+  if (status === 'Convite pendente') {
+    return { background: 'color-mix(in srgb, var(--warning, #c9a227) 16%, transparent)', color: 'var(--warning, #9a7b12)' };
+  }
+  return { background: 'var(--surface-2)', color: 'var(--text-muted)' };
+}
+
+export function membershipJoinedDate(m) {
+  const raw = m?.joined || m?.$createdAt;
+  if (!raw) return '—';
+  try {
+    return new Date(raw).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return '—';
+  }
+}
+
 export function membershipRolePillStyle(label) {
   if (label === 'Titular') {
     return { background: 'var(--accent-light)', color: 'var(--accent)' };

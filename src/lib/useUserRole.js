@@ -1,9 +1,18 @@
 import { useLeadStore } from '../store/useLeadStore';
 
-export function useUserRole(academy) {
-  const userId = useLeadStore((s) => s.userId); // Current user ID stored in the leadStore or we can get it from somewhere
-  
+/**
+ * Papel na academia: owner | admin | member (recepcionista) | guest
+ * @param {object} academy
+ * @param {{ roles?: string[] } | null} [membership] — membership Appwrite do usuário atual no time
+ */
+export function useUserRole(academy, membership = null) {
+  const userId = useLeadStore((s) => s.userId);
+
   if (!academy) return 'guest';
-  if (academy.ownerId === userId) return 'owner';
+  if (String(academy.ownerId || '') === String(userId || '')) return 'owner';
+
+  const roles = Array.isArray(membership?.roles) ? membership.roles : [];
+  if (roles.includes('admin') || roles.includes('owner')) return 'admin';
+
   return 'member';
 }

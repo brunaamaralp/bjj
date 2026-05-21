@@ -285,11 +285,6 @@ export default function InventoryMovesForm({
         <EmptyState variant="compact" tone="dashed" title="Busque um item para movimentar" className="mt-3" />
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .inventory-suggestions { margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-        .inventory-suggestion { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; cursor: pointer; font: inherit; }
-        .inventory-suggestion:hover { background: var(--bg-hover); }
-      `}} />
     </form>
   );
 }

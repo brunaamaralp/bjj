@@ -6,8 +6,11 @@ import { useProductsStore } from '../store/useProductsStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { refreshStockStores } from '../lib/syncStockStores';
-import InventoryBalanceView from '../components/inventory/InventoryBalanceView.jsx';
-import InventoryMovesForm from '../components/inventory/InventoryMovesForm.jsx';
+import InventoryBalanceView from '../components/inventory/InventoryBalanceView';
+import InventoryMovesForm from '../components/inventory/InventoryMovesForm';
+import InventoryConfigureModal from '../components/inventory/InventoryConfigureModal';
+import InventoryEntryModal from '../components/inventory/InventoryEntryModal';
+import InventoryCheckModal from '../components/inventory/InventoryCheckModal';
 import ProductDeleteDialog from '../components/products/ProductDeleteDialog';
 
 const Inventory = () => {
@@ -17,7 +20,8 @@ const Inventory = () => {
   const { items, loadItems, inventoryMove, checkItem, updateItem, lastResult, loading, error } = useInventoryStore();
   const { checkDeleteProduct, deleteProduct, deactivateProduct } = useProductsStore();
   const [configItem, setConfigItem] = useState(null);
-  const [configForm, setConfigForm] = useState({ minimum_level: 0, unit: 'unidade', notes: '' });
+  const [entryItem, setEntryItem] = useState(null);
+  const [checkTarget, setCheckTarget] = useState(null);
   const addToast = useUiStore((s) => s.addToast);
   const [tab, setTab] = useState('saldo');
   const [movePreset, setMovePreset] = useState({ itemId: '', tipo: 'entrada' });
@@ -35,17 +39,34 @@ const Inventory = () => {
   }, [refresh]);
 
   const handleRegisterEntry = (item) => {
-    setMovePreset({ itemId: item.id, tipo: 'entrada' });
-    setTab('movimentos');
+    setEntryItem(item);
   };
 
-  const handleCheckItem = async (item) => {
-    const out = await checkItem(item.id);
+  const submitEntry = async (payload) => {
+    const result = await inventoryMove(payload);
+    if (!result) {
+      addToast({ type: 'error', message: useInventoryStore.getState().error || 'Erro na entrada' });
+      return;
+    }
+    addToast({
+      type: 'success',
+      message: result.financial_tx_id
+        ? 'Entrada e despesa no Caixa registradas'
+        : 'Entrada registrada',
+    });
+    setEntryItem(null);
+    await refreshStockStores();
+  };
+
+  const confirmCheck = async () => {
+    if (!checkTarget) return;
+    const out = await checkItem(checkTarget.id);
     if (!out) {
       addToast({ type: 'error', message: useInventoryStore.getState().error || 'Erro na conferência' });
       return;
     }
-    addToast({ type: 'success', message: `Conferência registrada para ${item.nome}` });
+    addToast({ type: 'success', message: `Conferência registrada para ${checkTarget.nome}` });
+    setCheckTarget(null);
     await refresh();
   };
 
@@ -53,22 +74,13 @@ const Inventory = () => {
     await refreshStockStores();
   };
 
-  const openConfigure = (item) => {
-    setConfigItem(item);
-    setConfigForm({
-      minimum_level: item.minimum_level || 0,
-      unit: item.unit || 'unidade',
-      notes: item.notes || '',
-    });
-  };
-
-  const saveConfigure = async () => {
+  const saveConfigure = async (form) => {
     if (!configItem) return;
     const updated = await updateItem({
       item_estoque_id: configItem.id,
-      minimum_level: Number(configForm.minimum_level) || 0,
-      unit: configForm.unit,
-      notes: configForm.notes,
+      minimum_level: form.minimum_level,
+      unit: form.unit,
+      notes: form.notes,
     });
     if (!updated) {
       addToast({ type: 'error', message: useInventoryStore.getState().error || 'Erro ao salvar' });
@@ -141,10 +153,10 @@ const Inventory = () => {
         <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 12 }}>
           Saldo por item e movimentações
         </p>
-          <div className="page-header-card" style={{ marginBottom: 16 }}>
+        <div className="page-header-card" style={{ marginBottom: 16 }}>
           <div className="page-header-row">
             <div style={{ flex: 1 }} />
-            <Link to="/produtos?import=1" className="btn-action-primary">
+            <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
               <Upload size={14} aria-hidden />
               Importar produtos em lote
             </Link>
@@ -176,8 +188,8 @@ const Inventory = () => {
           highlightItemId={highlightItemId}
           onRefresh={refresh}
           onRegisterEntry={handleRegisterEntry}
-          onCheckItem={handleCheckItem}
-          onConfigureItem={openConfigure}
+          onRequestCheck={(item) => setCheckTarget(item)}
+          onConfigureItem={(item) => setConfigItem(item)}
           onDeleteItem={(item) => void openDeleteDialog(item)}
           deleteBusyId={deleteBusy ? deleteTarget?.id : null}
         />
@@ -205,58 +217,30 @@ const Inventory = () => {
         onConfirmDeactivate={() => deleteTarget && void handleDeactivateFromDelete(deleteTarget.id)}
       />
 
-      {configItem && (
-        <div
-          className="modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setConfigItem(null)}
-        >
-          <div
-            className="card modal-panel"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 400, margin: 'auto', marginTop: '10vh' }}
-          >
-            <h3 className="navi-section-heading">{configItem.nome}</h3>
-            <div className="form-group mt-2">
-              <label>Nível mínimo (0 = sem alerta)</label>
-              <input
-                type="number"
-                min={0}
-                className="form-input"
-                value={configForm.minimum_level}
-                onChange={(e) => setConfigForm((f) => ({ ...f, minimum_level: e.target.value }))}
-              />
-            </div>
-            <div className="form-group mt-2">
-              <label>Unidade</label>
-              <input
-                className="form-input"
-                value={configForm.unit}
-                onChange={(e) => setConfigForm((f) => ({ ...f, unit: e.target.value }))}
-                placeholder="unidade, pacote, kg…"
-              />
-            </div>
-            <div className="form-group mt-2">
-              <label>Observações</label>
-              <textarea
-                className="form-input"
-                rows={2}
-                value={configForm.notes}
-                onChange={(e) => setConfigForm((f) => ({ ...f, notes: e.target.value }))}
-              />
-            </div>
-            <div className="flex gap-2 justify-end mt-3">
-              <button type="button" className="btn-outline" onClick={() => setConfigItem(null)}>
-                Cancelar
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => void saveConfigure()} disabled={loading}>
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <InventoryConfigureModal
+        open={Boolean(configItem)}
+        item={configItem}
+        loading={loading}
+        onClose={() => setConfigItem(null)}
+        onSave={saveConfigure}
+      />
+
+      <InventoryEntryModal
+        open={Boolean(entryItem)}
+        item={entryItem}
+        loading={loading}
+        modulesFinance={modules?.finance === true}
+        onClose={() => setEntryItem(null)}
+        onSubmit={submitEntry}
+      />
+
+      <InventoryCheckModal
+        open={Boolean(checkTarget)}
+        item={checkTarget}
+        loading={loading}
+        onClose={() => setCheckTarget(null)}
+        onConfirm={() => void confirmCheck()}
+      />
     </div>
   );
 };

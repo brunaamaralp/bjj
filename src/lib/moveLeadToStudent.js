@@ -34,10 +34,7 @@ export async function moveLeadToStudent({ leadId, lead = null, overrides = {}, p
     }
   }
 
-  const payload = {
-    ...buildStudentPayloadFromDoc(source, overrides),
-    updated_at: new Date().toISOString(),
-  };
+  const payload = buildStudentPayloadFromDoc(source, overrides);
   const perms = permissions.length ? permissions : undefined;
 
   await databases.createDocument(DB_ID, STUDENTS_COL, id, payload, perms);

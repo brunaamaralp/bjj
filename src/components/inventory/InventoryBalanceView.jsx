@@ -1,17 +1,50 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Pencil, Trash2 } from 'lucide-react';
+import { PackagePlus, ClipboardCheck, AlertTriangle, CheckCircle2, Settings2, Trash2 } from 'lucide-react';
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
 import { formatBRL } from '../../lib/moneyBr';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 
-const STATUS_STYLES = {
-  ok: { color: 'var(--success)', Icon: CheckCircle2, label: STOCK_STATUS_LABELS.ok },
-  attention: { color: 'var(--warning, #c9a227)', Icon: AlertTriangle, label: STOCK_STATUS_LABELS.attention },
-  critical: { color: 'var(--status-danger-text, var(--danger))', Icon: AlertTriangle, label: STOCK_STATUS_LABELS.critical },
-};
+function itemVariationSuffix(it) {
+  const tam = String(it.Tamanho || '').trim();
+  if (tam) return `· ${tam}`;
+  return '';
+}
+
+function isDefaultUnit(unit) {
+  const u = String(unit || '').trim().toLowerCase();
+  return !u || u === 'unidade';
+}
+
+function StockStatusBadge({ status, onCriticalClick, item }) {
+  const label = STOCK_STATUS_LABELS[status] || status;
+  const Icon = status === 'ok' ? CheckCircle2 : AlertTriangle;
+
+  if (status === 'critical' && onCriticalClick && item) {
+    return (
+      <button
+        type="button"
+        className="inventory-status-badge inventory-status-badge--critical inventory-status-badge--clickable"
+        title="Registrar entrada"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCriticalClick(item);
+        }}
+      >
+        <Icon size={14} aria-hidden />
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <span className={`inventory-status-badge inventory-status-badge--${status}`}>
+      <Icon size={14} aria-hidden />
+      {label}
+    </span>
+  );
+}
 
 export default function InventoryBalanceView({
   items,
@@ -19,7 +52,7 @@ export default function InventoryBalanceView({
   highlightItemId = '',
   onRefresh,
   onRegisterEntry,
-  onCheckItem,
+  onRequestCheck,
   onConfigureItem,
   onDeleteItem,
   deleteBusyId = null,
@@ -48,6 +81,11 @@ export default function InventoryBalanceView({
     });
   }, [items, statusFilter, categoryFilter, forSaleOnly]);
 
+  const showUnitColumn = useMemo(
+    () => filtered.some((it) => !isDefaultUnit(it.unit)),
+    [filtered]
+  );
+
   useEffect(() => {
     if (!highlightItemId || loading) return;
     const row = highlightRef.current;
@@ -57,22 +95,22 @@ export default function InventoryBalanceView({
 
   return (
     <section className="mt-4 animate-in">
-      <div className="flex justify-between items-center gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
+      <div className="flex justify-between items-center gap-2 mb-2 inventory-balance-toolbar">
         <h2 className="navi-section-heading" style={{ margin: 0 }}>Saldo atual</h2>
-        <div className="flex gap-2 items-center" style={{ flexWrap: 'wrap' }}>
-          <label className="inventory-show-prices-toggle" title="Exibir colunas de preço de venda e custo">
-            <span className="inventory-show-prices-toggle__track" aria-hidden>
+        <div className="flex gap-2 items-center inventory-balance-toolbar__controls">
+          <label className="navi-inline-toggle" title="Exibir colunas de preço de venda e custo">
+            <span className="navi-inline-toggle__track" aria-hidden>
               <span
-                className={`inventory-show-prices-toggle__thumb${showPrices ? ' inventory-show-prices-toggle__thumb--on' : ''}`}
+                className={`navi-inline-toggle__thumb${showPrices ? ' navi-inline-toggle__thumb--on' : ''}`}
               />
             </span>
             <input
               type="checkbox"
-              className="inventory-show-prices-toggle__input"
+              className="navi-inline-toggle__input"
               checked={showPrices}
               onChange={(e) => setShowPrices(e.target.checked)}
             />
-            <span className="inventory-show-prices-toggle__label">Mostrar preços</span>
+            <span className="navi-inline-toggle__label">Mostrar preços</span>
           </label>
           <button type="button" className="btn-outline btn-sm" onClick={() => void onRefresh()} disabled={loading}>
             {loading ? 'Atualizando…' : 'Atualizar'}
@@ -80,9 +118,9 @@ export default function InventoryBalanceView({
         </div>
       </div>
 
-      <div className="card" style={{ padding: 12 }}>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+      <div className="card inventory-filters-card">
+        <div className="inventory-filters-row">
+          <div className="form-group inventory-filter-field">
             <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todos</option>
@@ -91,7 +129,7 @@ export default function InventoryBalanceView({
               <option value="critical">Crítico</option>
             </select>
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+          <div className="form-group inventory-filter-field">
             <label className="text-xs">Categoria</label>
             <select className="form-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -100,17 +138,24 @@ export default function InventoryBalanceView({
               ))}
             </select>
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
-            <label className="text-xs">&nbsp;</label>
-            <label className="form-input flex items-center gap-2" style={{ cursor: 'pointer', minHeight: 38 }}>
-              <input type="checkbox" checked={forSaleOnly} onChange={(e) => setForSaleOnly(e.target.checked)} />
-              Somente produtos para venda
-            </label>
-          </div>
+          <label className="navi-inline-toggle inventory-filter-toggle" title="Somente produtos para venda">
+            <span className="navi-inline-toggle__track" aria-hidden>
+              <span
+                className={`navi-inline-toggle__thumb${forSaleOnly ? ' navi-inline-toggle__thumb--on' : ''}`}
+              />
+            </span>
+            <input
+              type="checkbox"
+              className="navi-inline-toggle__input"
+              checked={forSaleOnly}
+              onChange={(e) => setForSaleOnly(e.target.checked)}
+            />
+            <span className="navi-inline-toggle__label">Somente produtos para venda</span>
+          </label>
         </div>
 
         {loading && items.length === 0 ? (
-          <PageSkeleton variant="table" rows={6} columns={showPrices ? 9 : 7} />
+          <PageSkeleton variant="table" rows={6} columns={showPrices ? 8 : 6} />
         ) : filtered.length === 0 ? (
           <EmptyState
             variant="compact"
@@ -125,309 +170,239 @@ export default function InventoryBalanceView({
           />
         ) : (
           <>
-          <div className="navi-desktop-table-wrap inventory-desktop-table-wrap" style={{ overflowX: 'auto' }}>
-            <table className="navi-table" style={{ width: '100%', minWidth: showPrices ? 800 : 640 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Item</th>
-                  <th>Categoria</th>
-                  <th>Unidade</th>
-                  {showPrices ? <th>Preço venda</th> : null}
-                  {showPrices ? <th>Preço custo</th> : null}
-                  <th>Saldo</th>
-                  <th>Mín.</th>
-                  <th>
-                    <span className="inventory-th-with-hint">
-                      Status
-                      <Hint
-                        text="OK: acima do mínimo. Atenção: no mínimo. Crítico: abaixo do estoque mínimo."
-                        position="top"
-                      />
-                    </span>
-                  </th>
-                  <th style={{ textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((it) => {
-                  const st = STATUS_STYLES[it.status] || STATUS_STYLES.ok;
-                  const StIcon = st.Icon;
-                  const label = it.Tamanho ? `${it.nome} · ${it.Tamanho}` : it.nome;
-                  const rowClass = [
-                    it.status === 'critical' ? 'inventory-row--critical' : '',
-                    it.status === 'attention' ? 'inventory-row--attention' : '',
-                    highlightItemId === it.id ? 'inventory-row--highlight' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ');
-                  return (
-                    <tr
-                      key={it.id}
-                      ref={highlightItemId === it.id ? highlightRef : undefined}
-                      className={rowClass || undefined}
-                      data-item-id={it.id}
-                    >
-                      <td style={{ fontWeight: 600 }}>{label}</td>
-                      <td className="text-small text-muted">{it.categoria || '—'}</td>
-                      <td className="text-small">{it.unit}</td>
-                      {showPrices ? (
-                        <td className="text-small">{it.sale_price != null ? formatBRL(it.sale_price) : '—'}</td>
-                      ) : null}
-                      {showPrices ? (
-                        <td className="text-small">{it.cost_price != null ? formatBRL(it.cost_price) : '—'}</td>
-                      ) : null}
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{it.current_quantity}</td>
-                      <td className="text-small text-muted">{it.minimum_level > 0 ? it.minimum_level : '—'}</td>
-                      <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: st.color, fontSize: 12, fontWeight: 600 }}>
-                          <StIcon size={14} aria-hidden />
-                          {st.label}
-                        </span>
-                      </td>
-                      <td className="inventory-table__actions">
-                        <div className="inventory-table__actions-inner">
-                          <Link
-                            to={`/produtos?edit=${it.id}`}
-                            className="btn-outline btn-sm"
-                            title="Editar produto"
-                            aria-label="Editar produto"
-                          >
-                            <Pencil size={14} aria-hidden />
-                          </Link>
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm"
-                            onClick={() => onRegisterEntry(it)}
-                            title="Registrar entrada"
-                            aria-label="Registrar entrada"
-                          >
-                            <PackagePlus size={14} aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm"
-                            onClick={() => void onCheckItem(it)}
-                            title="Conferir estoque"
-                            aria-label="Conferir estoque"
-                          >
-                            <ClipboardCheck size={14} aria-hidden />
-                          </button>
-                          {onConfigureItem ? (
-                            <button
-                              type="button"
-                              className="btn-outline btn-sm"
-                              onClick={() => onConfigureItem(it)}
-                              title="Configurar mínimo e unidade"
-                              aria-label="Configurar mínimo e unidade"
-                            >
-                              <Settings2 size={14} aria-hidden />
-                            </button>
-                          ) : null}
-                          {onDeleteItem ? (
-                            <button
-                              type="button"
-                              className="btn-outline btn-sm inventory-delete-btn"
-                              title="Excluir item"
-                              aria-label="Excluir item"
-                              onClick={() => onDeleteItem(it)}
-                              disabled={deleteBusyId === it.id}
-                            >
-                              <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="navi-mobile-list inventory-mobile-list" aria-label="Lista de estoque">
-            {filtered.map((it) => {
-              const st = STATUS_STYLES[it.status] || STATUS_STYLES.ok;
-              const StIcon = st.Icon;
-              const label = it.Tamanho ? `${it.nome} · ${it.Tamanho}` : it.nome;
-              const rowClass = [
-                'navi-mobile-card',
-                'inventory-mobile-card',
-                it.status === 'critical' ? 'inventory-mobile-card--critical' : '',
-                it.status === 'attention' ? 'inventory-mobile-card--attention' : '',
-                highlightItemId === it.id ? 'inventory-row--highlight' : '',
-              ]
-                .filter(Boolean)
-                .join(' ');
-              return (
-                <article
-                  key={it.id}
-                  ref={highlightItemId === it.id ? highlightRef : undefined}
-                  className={rowClass}
-                  data-item-id={it.id}
-                >
-                  <div className="inventory-mobile-card__body">
-                    <div className="inventory-mobile-card__title">{label}</div>
-                    <div className="inventory-mobile-card__meta text-small text-muted">
-                      {it.categoria || '—'} · {it.unit || 'unidade'}
-                    </div>
-                    <div className="inventory-mobile-card__stats text-small">
-                      <span>Saldo: <strong>{it.current_quantity}</strong></span>
-                      <span>Mín: <strong>{it.minimum_level > 0 ? it.minimum_level : '—'}</strong></span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: st.color, fontWeight: 600 }}>
-                        <StIcon size={14} aria-hidden />
-                        {st.label}
+            <div className="navi-desktop-table-wrap inventory-desktop-table-wrap">
+              <table className="navi-table inventory-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Categoria</th>
+                    {showUnitColumn ? <th>Unidade</th> : null}
+                    {showPrices ? <th>Preço venda</th> : null}
+                    {showPrices ? <th>Preço custo</th> : null}
+                    <th>Saldo</th>
+                    <th>
+                      <span className="inventory-th-with-hint">
+                        Mín. ideal
+                        <Hint
+                          text="Quantidade mínima recomendada em estoque. Abaixo disso o status fica Crítico."
+                          position="top"
+                        />
                       </span>
+                    </th>
+                    <th>
+                      <span className="inventory-th-with-hint">
+                        Status
+                        <Hint
+                          text="OK: acima do mínimo. Atenção: no mínimo. Crítico: abaixo do estoque mínimo — clique para registrar entrada."
+                          position="top"
+                        />
+                      </span>
+                    </th>
+                    <th className="inventory-table__actions-head">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((it) => {
+                    const variation = itemVariationSuffix(it);
+                    const qty = Number(it.current_quantity) || 0;
+                    const rowClass = [
+                      it.status === 'critical' ? 'inventory-row--critical' : '',
+                      it.status === 'attention' ? 'inventory-row--attention' : '',
+                      qty === 0 ? 'inventory-row--zero' : '',
+                      highlightItemId === it.id ? 'inventory-row--highlight' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
+                    return (
+                      <tr
+                        key={it.id}
+                        ref={highlightItemId === it.id ? highlightRef : undefined}
+                        className={rowClass || undefined}
+                        data-item-id={it.id}
+                      >
+                        <td>
+                          <div className="inventory-table__name-row">
+                            <span className="inventory-table__name">{it.nome}</span>
+                            {variation ? (
+                              <span className="inventory-table__variation">{variation}</span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="text-small text-muted">{it.categoria || '—'}</td>
+                        {showUnitColumn ? (
+                          <td className="text-small text-muted">
+                            {isDefaultUnit(it.unit) ? '—' : it.unit}
+                          </td>
+                        ) : null}
+                        {showPrices ? (
+                          <td className="text-small inventory-table__price">
+                            {it.sale_price != null ? formatBRL(it.sale_price) : '—'}
+                          </td>
+                        ) : null}
+                        {showPrices ? (
+                          <td className="text-small inventory-table__price">
+                            {it.cost_price != null ? formatBRL(it.cost_price) : '—'}
+                          </td>
+                        ) : null}
+                        <td className="inventory-table__qty">{qty}</td>
+                        <td className="text-small text-muted inventory-table__min">
+                          {it.minimum_level > 0 ? it.minimum_level : '—'}
+                        </td>
+                        <td>
+                          <StockStatusBadge
+                            status={it.status}
+                            item={it}
+                            onCriticalClick={onRegisterEntry}
+                          />
+                        </td>
+                        <td className="inventory-table__actions">
+                          <div className="inventory-table__actions-inner">
+                            <button
+                              type="button"
+                              className="inventory-icon-btn"
+                              onClick={() => onRegisterEntry(it)}
+                              title="Registrar entrada"
+                              aria-label="Registrar entrada"
+                            >
+                              <PackagePlus size={16} aria-hidden />
+                            </button>
+                            {onConfigureItem ? (
+                              <button
+                                type="button"
+                                className="inventory-icon-btn"
+                                onClick={() => onConfigureItem(it)}
+                                title="Ajustar mínimo e unidade"
+                                aria-label="Ajustar mínimo e unidade"
+                              >
+                                <Settings2 size={16} aria-hidden />
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="inventory-icon-btn"
+                              onClick={() => onRequestCheck(it)}
+                              title="Registrar conferência"
+                              aria-label="Registrar conferência"
+                            >
+                              <ClipboardCheck size={16} aria-hidden />
+                            </button>
+                            {onDeleteItem ? (
+                              <button
+                                type="button"
+                                className="inventory-icon-btn inventory-icon-btn--danger"
+                                title="Excluir item"
+                                aria-label="Excluir item"
+                                onClick={() => onDeleteItem(it)}
+                                disabled={deleteBusyId === it.id}
+                              >
+                                <Trash2 size={16} aria-hidden />
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="navi-mobile-list inventory-mobile-list" aria-label="Lista de estoque">
+              {filtered.map((it) => {
+                const variation = itemVariationSuffix(it);
+                const qty = Number(it.current_quantity) || 0;
+                const rowClass = [
+                  'navi-mobile-card',
+                  'inventory-mobile-card',
+                  it.status === 'critical' ? 'inventory-mobile-card--critical' : '',
+                  it.status === 'attention' ? 'inventory-mobile-card--attention' : '',
+                  qty === 0 ? 'inventory-mobile-card--zero' : '',
+                  highlightItemId === it.id ? 'inventory-row--highlight' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+                const unitSuffix = !isDefaultUnit(it.unit) ? ` · ${it.unit}` : '';
+                return (
+                  <article
+                    key={it.id}
+                    ref={highlightItemId === it.id ? highlightRef : undefined}
+                    className={rowClass}
+                    data-item-id={it.id}
+                  >
+                    <div className="inventory-mobile-card__body">
+                      <div className="inventory-mobile-card__title-row">
+                        <span className="inventory-mobile-card__title">{it.nome}</span>
+                        {variation ? (
+                          <span className="inventory-mobile-card__variation">{variation}</span>
+                        ) : null}
+                      </div>
+                      <div className="inventory-mobile-card__meta text-small text-muted">
+                        {it.categoria || '—'}
+                        {unitSuffix}
+                      </div>
+                      <div className="inventory-mobile-card__stats text-small">
+                        <span>
+                          Saldo: <strong>{qty}</strong>
+                        </span>
+                        <span>
+                          Mín. ideal: <strong>{it.minimum_level > 0 ? it.minimum_level : '—'}</strong>
+                        </span>
+                        <StockStatusBadge
+                          status={it.status}
+                          item={it}
+                          onCriticalClick={onRegisterEntry}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="navi-mobile-card__actions inventory-mobile-card__actions">
-                    <Link
-                      to={`/produtos?edit=${it.id}`}
-                      className="btn-outline btn-sm"
-                      title="Editar produto"
-                      aria-label="Editar produto"
-                    >
-                      <Pencil size={14} aria-hidden />
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm"
-                      onClick={() => onRegisterEntry(it)}
-                      title="Registrar entrada"
-                      aria-label="Registrar entrada"
-                    >
-                      <PackagePlus size={14} aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm"
-                      onClick={() => void onCheckItem(it)}
-                      title="Conferir estoque"
-                      aria-label="Conferir estoque"
-                    >
-                      <ClipboardCheck size={14} aria-hidden />
-                    </button>
-                    {onConfigureItem ? (
+                    <div className="navi-mobile-card__actions inventory-mobile-card__actions">
                       <button
                         type="button"
-                        className="btn-outline btn-sm"
-                        onClick={() => onConfigureItem(it)}
-                        title="Configurar mínimo e unidade"
-                        aria-label="Configurar mínimo e unidade"
+                        className="inventory-icon-btn"
+                        onClick={() => onRegisterEntry(it)}
+                        title="Registrar entrada"
+                        aria-label="Registrar entrada"
                       >
-                        <Settings2 size={14} aria-hidden />
+                        <PackagePlus size={16} aria-hidden />
                       </button>
-                    ) : null}
-                    {onDeleteItem ? (
+                      {onConfigureItem ? (
+                        <button
+                          type="button"
+                          className="inventory-icon-btn"
+                          onClick={() => onConfigureItem(it)}
+                          title="Ajustar mínimo e unidade"
+                          aria-label="Ajustar mínimo e unidade"
+                        >
+                          <Settings2 size={16} aria-hidden />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
-                        className="btn-outline btn-sm inventory-delete-btn"
-                        title="Excluir item"
-                        aria-label="Excluir item"
-                        onClick={() => onDeleteItem(it)}
-                        disabled={deleteBusyId === it.id}
+                        className="inventory-icon-btn"
+                        onClick={() => onRequestCheck(it)}
+                        title="Registrar conferência"
+                        aria-label="Registrar conferência"
                       >
-                        <Trash2 size={14} aria-hidden style={{ color: 'var(--status-danger-text, var(--danger))' }} />
+                        <ClipboardCheck size={16} aria-hidden />
                       </button>
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                      {onDeleteItem ? (
+                        <button
+                          type="button"
+                          className="inventory-icon-btn inventory-icon-btn--danger"
+                          title="Excluir item"
+                          aria-label="Excluir item"
+                          onClick={() => onDeleteItem(it)}
+                          disabled={deleteBusyId === it.id}
+                        >
+                          <Trash2 size={16} aria-hidden />
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </>
         )}
       </div>
-      <style>{`
-        .inventory-show-prices-toggle {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          cursor: pointer;
-          user-select: none;
-          padding: 6px 10px;
-          border-radius: 8px;
-          border: 1px solid var(--border-mid);
-          background: var(--surface-1, #fff);
-        }
-        .inventory-show-prices-toggle__input {
-          position: absolute;
-          opacity: 0;
-          width: 0;
-          height: 0;
-          pointer-events: none;
-        }
-        .inventory-show-prices-toggle__track {
-          position: relative;
-          width: 40px;
-          height: 22px;
-          border-radius: 999px;
-          background: var(--border-mid);
-          flex-shrink: 0;
-        }
-        .inventory-show-prices-toggle__thumb {
-          position: absolute;
-          top: 2px;
-          left: 2px;
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          background: #fff;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          transition: transform 0.15s ease;
-        }
-        .inventory-show-prices-toggle__thumb--on {
-          transform: translateX(18px);
-        }
-        .inventory-show-prices-toggle:has(.inventory-show-prices-toggle__input:checked) .inventory-show-prices-toggle__track {
-          background: var(--v500);
-        }
-        .inventory-show-prices-toggle__label {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--mid);
-        }
-        .inventory-row--critical {
-          border-left: 3px solid var(--status-danger-text, var(--danger));
-        }
-        .inventory-row--attention {
-          border-left: 3px solid var(--warning, #c9a227);
-        }
-        .inventory-row--highlight td {
-          background: color-mix(in srgb, var(--v500) 8%, transparent);
-        }
-        .inventory-table__actions {
-          text-align: right;
-          white-space: nowrap;
-          width: 1%;
-        }
-        .inventory-table__actions-inner {
-          display: inline-flex;
-          gap: 4px;
-          justify-content: flex-end;
-          flex-wrap: nowrap;
-        }
-        .inventory-delete-btn { flex-shrink: 0; }
-        .inventory-mobile-list { display: none; }
-        .inventory-mobile-card__body { padding: 12px 14px 10px; }
-        .inventory-mobile-card__title { font-weight: 600; font-size: 14px; line-height: 1.35; }
-        .inventory-mobile-card__meta { margin-top: 4px; }
-        .inventory-mobile-card__stats {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 10px 14px;
-          margin-top: 10px;
-        }
-        .inventory-mobile-card--critical { border-left: 3px solid var(--status-danger-text, var(--danger)); }
-        .inventory-mobile-card--attention { border-left: 3px solid var(--warning, #c9a227); }
-        .inventory-mobile-card__actions {
-          border-top: 0.5px solid var(--border-light);
-          padding: 8px 14px 10px;
-        }
-        @media (max-width: 767px) {
-          .inventory-desktop-table-wrap { display: none !important; }
-          .inventory-mobile-list { display: flex; flex-direction: column; }
-        }
-      `}</style>
     </section>
   );
 }
