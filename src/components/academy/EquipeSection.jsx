@@ -31,6 +31,7 @@ import {
   removeTeamMember,
   resetTeamMemberPassword,
   fetchTeamAuditEvents,
+  fetchTeamMemberships,
 } from '../../lib/teamApi.js';
 
 const ROLE_OPTIONS = [
@@ -82,8 +83,13 @@ function EquipeSection({ academy, academyId }) {
     setMembersLoadError(false);
     setLoadingMembers(true);
     try {
-      const result = await teams.listMemberships(academy.teamId);
-      setMembers(result.memberships || []);
+      if (academyId) {
+        const data = await fetchTeamMemberships(academyId);
+        setMembers(data.memberships || []);
+      } else {
+        const result = await teams.listMemberships(academy.teamId);
+        setMembers(result.memberships || []);
+      }
     } catch (e) {
       console.error('loadMembers error:', e);
       setMembersLoadError(true);
@@ -91,7 +97,7 @@ function EquipeSection({ academy, academyId }) {
     } finally {
       setLoadingMembers(false);
     }
-  }, [academy?.teamId]);
+  }, [academy?.teamId, academyId]);
 
   useEffect(() => {
     if (!academy?.teamId) {
@@ -382,7 +388,46 @@ function EquipeSection({ academy, academyId }) {
               </div>
             ) : null}
             {loadingMembers ? (
-              <p className="text-small text-muted">Carregando equipe…</p>
+              <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">
+                <table className="navi-table equipe-table" aria-busy="true" aria-label="Carregando equipe">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Papel</th>
+                      <th>E-mail</th>
+                      <th>Data de entrada</th>
+                      <th>Status</th>
+                      {canManage ? <th className="equipe-table__actions-head">Ações</th> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[0, 1, 2].map((i) => (
+                      <tr key={`equipe-sk-${i}`} className="equipe-table__skeleton-row" aria-hidden>
+                        <td>
+                          <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--name" />
+                        </td>
+                        <td>
+                          <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--pill" />
+                        </td>
+                        <td>
+                          <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--email" />
+                        </td>
+                        <td>
+                          <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--date" />
+                        </td>
+                        <td>
+                          <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--pill" />
+                        </td>
+                        {canManage ? (
+                          <td>
+                            <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--action" />
+                          </td>
+                        ) : null}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">
                 <table className="navi-table equipe-table">

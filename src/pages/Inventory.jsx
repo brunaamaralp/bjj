@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Upload } from 'lucide-react';
+import { ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -16,6 +17,8 @@ const Inventory = () => {
   const [searchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
   const modules = useLeadStore((s) => s.modules);
+  const academyId = useLeadStore((s) => s.academyId);
+  const [stockConfigOpen, setStockConfigOpen] = useState(false);
   const { items, loadItems, inventoryMove, adjustStock, checkItem, updateItem, lastResult, loading, error } =
     useInventoryStore();
   const [configItem, setConfigItem] = useState(null);
@@ -196,6 +199,26 @@ const Inventory = () => {
         onClose={() => setAdjustItem(null)}
         onSubmit={submitAdjust}
       />
+
+      {academyId ? (
+        <div className="mt-4" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => setStockConfigOpen((v) => !v)}
+            aria-expanded={stockConfigOpen}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            Configurações de estoque
+            {stockConfigOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+          </button>
+          {stockConfigOpen ? (
+            <div className="mt-3 animate-in">
+              <StockSettingsSection academyId={academyId} modules={modules} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };

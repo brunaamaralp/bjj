@@ -10,7 +10,7 @@ import {
 import { parseAcademySettings } from '../../lib/stockSettings';
 
 /**
- * Orientação sobre pós-matrícula e opção legada (uma tarefa em academy.settings).
+ * Orientação sobre pós-matrícula e tarefa adicional opcional (uma tarefa em academy.settings).
  * Oculta quando já existe template com gatilho Matrícula.
  */
 export default function EnrollmentFollowUpSection({
@@ -23,8 +23,8 @@ export default function EnrollmentFollowUpSection({
   const [title, setTitle] = useState(DEFAULT_ENROLLMENT_FOLLOW_UP.title);
   const [days, setDays] = useState(String(DEFAULT_ENROLLMENT_FOLLOW_UP.days));
   const [saving, setSaving] = useState(false);
-  const [hasLegacyConfig, setHasLegacyConfig] = useState(false);
-  const [showLegacy, setShowLegacy] = useState(false);
+  const [hasExtraTask, setHasExtraTask] = useState(false);
+  const [showExtraTask, setShowExtraTask] = useState(false);
 
   useEffect(() => {
     if (!academyId) return;
@@ -38,14 +38,14 @@ export default function EnrollmentFollowUpSection({
           setEnabled(true);
           setTitle(followUp.title);
           setDays(String(followUp.days));
-          setHasLegacyConfig(true);
-          setShowLegacy(true);
+          setHasExtraTask(true);
+          setShowExtraTask(true);
         } else {
           setEnabled(false);
           setTitle(DEFAULT_ENROLLMENT_FOLLOW_UP.title);
           setDays(String(DEFAULT_ENROLLMENT_FOLLOW_UP.days));
-          setHasLegacyConfig(false);
-          setShowLegacy(false);
+          setHasExtraTask(false);
+          setShowExtraTask(false);
         }
       } catch (e) {
         console.error('[EnrollmentFollowUp]', e);
@@ -75,10 +75,10 @@ export default function EnrollmentFollowUpSection({
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      setHasLegacyConfig(enabled);
+      setHasExtraTask(enabled);
       addToast({
         type: 'success',
-        message: enabled ? 'Tarefa extra pós-matrícula salva.' : 'Configuração legada removida.',
+        message: enabled ? 'Tarefa adicional salva.' : 'Tarefa adicional removida.',
       });
     } catch (e) {
       console.error('[EnrollmentFollowUp] save:', e);
@@ -88,7 +88,7 @@ export default function EnrollmentFollowUpSection({
     }
   };
 
-  const clearLegacy = async () => {
+  const clearExtraTask = async () => {
     setEnabled(false);
     setSaving(true);
     try {
@@ -98,9 +98,9 @@ export default function EnrollmentFollowUpSection({
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      setHasLegacyConfig(false);
-      setShowLegacy(false);
-      addToast({ type: 'success', message: 'Configuração legada removida.' });
+      setHasExtraTask(false);
+      setShowExtraTask(false);
+      addToast({ type: 'success', message: 'Tarefa adicional removida.' });
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
@@ -126,7 +126,7 @@ export default function EnrollmentFollowUpSection({
           </p>
         ) : null}
 
-        {hasLegacyConfig ? (
+        {hasExtraTask ? (
           <div
             className="section-error"
             role="alert"
@@ -138,11 +138,11 @@ export default function EnrollmentFollowUpSection({
             }}
           >
             <span>
-              Configuração legada detectada — migre para templates de tarefas com gatilho{' '}
-              <strong>Matrícula</strong> e desative a tarefa única abaixo.
+              Há uma tarefa adicional configurada fora dos templates. Recomendamos usar um template com gatilho{' '}
+              <strong>Matrícula</strong> na seção acima e remover a tarefa adicional abaixo.
             </span>
-            <button type="button" className="btn-outline" disabled={saving} onClick={() => void clearLegacy()}>
-              Remover configuração legada
+            <button type="button" className="btn-outline" disabled={saving} onClick={() => void clearExtraTask()}>
+              Remover tarefa adicional
             </button>
           </div>
         ) : null}
@@ -151,21 +151,21 @@ export default function EnrollmentFollowUpSection({
           type="button"
           className="btn-ghost text-small"
           style={{ marginTop: 12, padding: 0, minHeight: 0 }}
-          onClick={() => setShowLegacy((v) => !v)}
+          onClick={() => setShowExtraTask((v) => !v)}
         >
-          {showLegacy ? 'Ocultar tarefa única extra (legado)' : 'Tarefa única extra (legado)…'}
+          {showExtraTask ? 'Ocultar tarefa adicional ao matricular' : 'Tarefa adicional ao matricular…'}
         </button>
 
-        {showLegacy ? (
+        {showExtraTask ? (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
             <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-              Forma antiga de criar <strong>uma</strong> tarefa fixa após a matrícula (ex.: check-in em 7 dias).
-              Prefira um template com gatilho Matrícula na seção acima.
+              Cria <strong>uma</strong> tarefa fixa após a matrícula (ex.: check-in em 7 dias), além do processo
+              com template Matrícula. Prefira templates na seção acima quando precisar de vários passos.
             </p>
 
             <label className="flex items-center gap-2" style={{ marginBottom: 12, fontSize: 14 }}>
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-              Criar tarefa extra após a matrícula
+              Criar tarefa adicional após a matrícula
             </label>
 
             {enabled && (
@@ -195,7 +195,7 @@ export default function EnrollmentFollowUpSection({
 
             <div className="flex justify-end mt-3">
               <button type="button" className="btn-secondary" onClick={() => void save()} disabled={saving}>
-                {saving ? 'Salvando…' : 'Salvar tarefa extra'}
+                {saving ? 'Salvando…' : 'Salvar tarefa adicional'}
               </button>
             </div>
           </div>

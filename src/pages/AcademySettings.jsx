@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -13,18 +14,12 @@ import {
     ChevronRight,
     Building2,
     Filter,
-    Users,
     Wallet2,
     UserRound,
     CheckSquare,
-    Package,
     ShoppingBag,
-    DoorOpen,
-    ShieldAlert,
 } from 'lucide-react';
-import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
-import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
@@ -32,8 +27,6 @@ import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.j
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
-import EquipeSection from '../components/academy/EquipeSection';
-import AvancadoSection from '../components/academy/AvancadoSection';
 import ConfigTab from '../components/finance/ConfigTab.jsx';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
@@ -48,10 +41,6 @@ const TABS_ALL = [
     { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Modelos e pós-matrícula' },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Planos, taxas e régua' },
     { id: 'vendas', label: 'Vendas', Icon: ShoppingBag, subtitle: 'PDV e comissões' },
-    { id: 'estoque', label: 'Estoque', Icon: Package, subtitle: 'Produtos e movimentação' },
-    { id: 'equipe', label: 'Equipe', Icon: Users, subtitle: 'Membros e permissões' },
-    { id: 'catraca', label: 'Catraca', Icon: DoorOpen, subtitle: 'Integração Control iD' },
-    { id: 'avancado', label: 'Avançado', Icon: ShieldAlert, subtitle: 'Exportação e integrações' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -63,18 +52,11 @@ const TAB_SKELETON_HEIGHT = {
     tarefas: 460,
     financeiro: 520,
     vendas: 320,
-    estoque: 320,
-    equipe: 360,
-    catraca: 300,
-    avancado: 380,
 };
 
 function getTabDisabledState(tabId, { role, modules }) {
     if (tabId === 'financeiro' && role !== 'owner') {
         return { disabled: true, title: 'Disponível para titulares' };
-    }
-    if (tabId === 'estoque' && modules?.inventory !== true) {
-        return { disabled: true, title: 'Módulo inativo — ative em Configurações de módulos' };
     }
     if (tabId === 'vendas' && modules?.sales !== true) {
         return { disabled: true, title: 'Módulo inativo — ative em Configurações de módulos' };
@@ -101,7 +83,6 @@ function EmpresaTabSkeleton({ tabId }) {
 
 const AcademySettings = () => {
     const terms = useTerms();
-    const { leads } = useLeadStore();
     const academyId = useLeadStore((s) => s.academyId);
     const academyList = useLeadStore((s) => s.academyList);
     const billingAccess = useLeadStore((s) => s.billingAccess);
@@ -461,8 +442,9 @@ const AcademySettings = () => {
         el.scrollBy({ left: direction * 160, behavior: 'smooth' });
     };
 
-    if (rawTab === 'automacoes') {
-        return <Navigate to="/automacoes?tab=configuracoes" replace />;
+    const legacyEmpresaRedirect = resolveEmpresaLegacyTabRedirect(rawTab);
+    if (legacyEmpresaRedirect) {
+        return <Navigate to={legacyEmpresaRedirect} replace />;
     }
 
     return (
@@ -614,30 +596,8 @@ const AcademySettings = () => {
                 </>
             )}
 
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'estoque' && academyId && (
-                <StockSettingsSection academyId={academyId} modules={academy.modules} />
-            )}
-
             {!contentLoading && !tabDisabledState.disabled && activeTab === 'vendas' && academyId && (
                 <SalesSettingsSection academyId={academyId} />
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'equipe' && (
-                <EquipeSection
-                    academy={academy}
-                    academyId={academyId}
-                />
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'catraca' && academyId && (
-                <ControlIdCatracaSection academyId={academyId} />
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'avancado' && (
-                <AvancadoSection
-                    academy={academy}
-                    leads={leads}
-                />
             )}
 
             <style dangerouslySetInnerHTML={{

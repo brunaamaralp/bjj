@@ -49,6 +49,14 @@ export function resetTeamMemberPassword(payload) {
   });
 }
 
+export function fetchTeamMemberships(academyId) {
+  const q = new URLSearchParams({
+    academyId: String(academyId || ''),
+    list: '1',
+  });
+  return teamFetch(`/api/team/members?${q.toString()}`);
+}
+
 export function fetchTeamAuditEvents(academyId, { limit = 10, offset = 0 } = {}) {
   const q = new URLSearchParams({
     academyId: String(academyId || ''),

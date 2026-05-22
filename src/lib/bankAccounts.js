@@ -1,5 +1,11 @@
 /** Contas bancárias da academia (financeConfig.bankAccounts). */
 
+/** Mantém só contas com nome de banco preenchido (evita linha vazia na lista). */
+export function filterBankAccountsWithBank(accounts) {
+  const list = Array.isArray(accounts) ? accounts : [];
+  return list.filter((acc) => String(acc?.bankName || '').trim());
+}
+
 export function formatBankAccountLabel(acc) {
   const bank = String(acc?.bankName || '').trim();
   const acct = String(acc?.account || '').trim();

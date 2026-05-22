@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Building2, ChevronDown, CreditCard, LogOut, User } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, Plug, User, Users } from 'lucide-react';
 
 function initialsFromUser(user) {
   const name = String(user?.name || '').trim();
@@ -17,7 +17,6 @@ function initialsFromUser(user) {
 export default function NaviUserMenu({
   user,
   onLogout,
-  myWorkspaceLabel,
   academyList,
   academyId,
   academyName,
@@ -39,7 +38,6 @@ export default function NaviUserMenu({
   const email = String(user?.email || '').trim();
   const initials = useMemo(() => initialsFromUser(user), [user]);
   const showAcademySwitcher = Array.isArray(academyList) && academyList.length > 1;
-  const workspaceLabel = String(myWorkspaceLabel || 'Configurações da academia').trim();
 
   useEffect(() => {
     setOpen(false);
@@ -119,17 +117,21 @@ export default function NaviUserMenu({
 
           <hr className="navi-user-menu-divider" aria-hidden />
 
-          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/conta')}>
-            <User size={16} strokeWidth={1.75} aria-hidden />
-            Minha conta
-          </button>
-          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/conta?tab=assinatura')}>
-            <CreditCard size={16} strokeWidth={1.75} aria-hidden />
-            Assinatura
-          </button>
           <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/empresa')}>
             <Building2 size={16} strokeWidth={1.75} aria-hidden />
-            {workspaceLabel}
+            Minha academia
+          </button>
+          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/equipe')}>
+            <Users size={16} strokeWidth={1.75} aria-hidden />
+            Equipe
+          </button>
+          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/integracoes')}>
+            <Plug size={16} strokeWidth={1.75} aria-hidden />
+            Integrações
+          </button>
+          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/conta')}>
+            <User size={16} strokeWidth={1.75} aria-hidden />
+            Conta
           </button>
 
           <hr className="navi-user-menu-divider" aria-hidden />

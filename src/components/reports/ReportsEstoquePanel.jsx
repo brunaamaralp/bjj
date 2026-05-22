@@ -104,7 +104,7 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
           role="status"
           primaryAction={{
             label: 'Configurar estoque',
-            onClick: () => navigate('/empresa?tab=estoque'),
+            onClick: () => navigate('/loja?tab=estoque'),
           }}
         />
       </div>

@@ -302,7 +302,11 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           className="alunos-inner-divider"
           role="separator"
           aria-hidden="true"
-          style={{ margin: '28px 0', borderTop: '1px solid var(--border-light)', paddingTop: 4 }}
+          style={{
+            margin: '32px 0 0',
+            borderTop: '1px solid var(--border-light)',
+            paddingTop: 24,
+          }}
         />
 
         <ListSubsectionHeader title="Motivos de trancamento" hasUnsaved={canEdit && hasUnsavedFreezeReasons} />

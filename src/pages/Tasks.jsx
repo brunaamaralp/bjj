@@ -4,7 +4,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckSquare,
   PlusCircle,
@@ -1055,7 +1055,13 @@ export default function Tasks() {
                     <p className="task-field-hint task-field-hint--error">Não foi possível carregar a equipe.</p>
                   ) : null}
                   {!membersError && effectiveTeamId && !membersLoading && members.length === 0 ? (
-                    <p className="task-field-hint">Nenhum membro. Cadastre em Configurações → Equipe.</p>
+                    <p className="task-field-hint">
+                      Nenhum membro.{' '}
+                      <Link to="/equipe" className="edit-link">
+                        Cadastre na Equipe
+                      </Link>
+                      .
+                    </p>
                   ) : null}
                 </div>
               </div>

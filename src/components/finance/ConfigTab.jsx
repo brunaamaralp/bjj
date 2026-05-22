@@ -21,6 +21,7 @@ import {
   readCollectionSettingsFromAcademy,
   mergeCollectionIntoFinanceConfig,
 } from '../../lib/collectionRules.js';
+import { filterBankAccountsWithBank } from '../../lib/bankAccounts.js';
 
 const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -226,15 +227,19 @@ export default function ConfigTab({ academyId }) {
   });
 
   const applyLoadedState = useCallback((mergedCfg, coll) => {
-    setFinanceConfig(mergedCfg);
+    const cfg = {
+      ...mergedCfg,
+      bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
+    };
+    setFinanceConfig(cfg);
     setCollectionRules(coll.collectionRules);
     setOverdueLabel(coll.overdueLabel);
     const labels = readExceptionStatusLabels(mergedCfg);
     setExceptionLabels(labels);
     setSavedDigests({
-      accounts: digestBankAccounts(mergedCfg.bankAccounts),
-      fees: digestCardFees(mergedCfg.cardFees),
-      plans: digestPlans(mergedCfg.plans),
+      accounts: digestBankAccounts(cfg.bankAccounts),
+      fees: digestCardFees(cfg.cardFees),
+      plans: digestPlans(cfg.plans),
       collection: digestCollection(coll.collectionRules, coll.overdueLabel),
       exceptions: digestExceptionLabels(labels),
     });
@@ -312,6 +317,10 @@ export default function ConfigTab({ academyId }) {
       overdueLabel,
     });
     mergedCfg = mergeExceptionLabelsIntoFinanceConfig(mergedCfg, exceptionLabels);
+    mergedCfg = {
+      ...mergedCfg,
+      bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
+    };
     return mergedCfg;
   }, [financeConfig, collectionRules, overdueLabel, exceptionLabels]);
 

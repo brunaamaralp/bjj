@@ -8,10 +8,11 @@ import { authService } from '../lib/auth';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PlansTabContent from '../components/account/PlansTabContent.jsx';
+import AvancadoSection from '../components/academy/AvancadoSection';
 import { useUiStore } from '../store/useUiStore';
 import { useTerms } from '../lib/terminology.js';
 
-const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'seguranca']);
+const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'seguranca', 'dados']);
 const MIN_PWD = 8;
 
 function userInitial(email) {
@@ -24,6 +25,8 @@ const UserAccount = ({ user }) => {
   const terms = useTerms();
   const [searchParams, setSearchParams] = useSearchParams();
   const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const leads = useLeadStore((s) => s.leads);
   const reopenOnboardingBanner = useLeadStore((s) => s.reopenOnboardingBanner);
   const addToast = useUiStore((s) => s.addToast);
   const [oldPassword, setOldPassword] = useState('');
@@ -104,10 +107,19 @@ const UserAccount = ({ user }) => {
   const email = user?.email || '';
   const displayName = String(user?.name || '').trim() || email.split('@')[0] || 'Conta';
 
+  const academyForRole = React.useMemo(() => {
+    const fromList = (academyList || []).find((a) => a.id === academyId);
+    return {
+      ownerId: String(fromList?.ownerId || ''),
+      teamId: String(fromList?.teamId || ''),
+    };
+  }, [academyList, academyId]);
+
   const tabs = [
     { id: 'perfil', label: 'Perfil' },
     { id: 'assinatura', label: 'Assinatura' },
     { id: 'seguranca', label: 'Segurança' },
+    { id: 'dados', label: 'Dados' },
   ];
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
@@ -173,6 +185,12 @@ const UserAccount = ({ user }) => {
         )}
 
         {activeTab === 'assinatura' && <PlansTabContent />}
+
+        {activeTab === 'dados' && (
+          <section className="animate-in">
+            <AvancadoSection academy={academyForRole} leads={leads} showAutentique={false} />
+          </section>
+        )}
 
         {activeTab === 'seguranca' && (
           <section className="animate-in">

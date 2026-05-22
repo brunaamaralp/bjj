@@ -24,12 +24,11 @@ const TEMPLATE_VARIABLES = [
   { key: 'footer', label: 'Rodapé do comprovante' },
 ];
 
-function buildDigest(receiptTemplate, receiptFooter, lockPriceEdit, saleIncomeCategory) {
+function buildDigest(receiptTemplate, receiptFooter, lockPriceEdit) {
   return JSON.stringify({
     receiptTemplate: String(receiptTemplate || '').trim(),
     receiptFooter: String(receiptFooter || '').trim(),
     lockPriceEdit: lockPriceEdit === true,
-    saleIncomeCategory: String(saleIncomeCategory || '').trim(),
   });
 }
 
@@ -39,7 +38,6 @@ export default function SalesSettingsSection({ academyId }) {
   const [receiptTemplate, setReceiptTemplate] = useState(DEFAULT_SALES_RECEIPT_TEMPLATE);
   const [receiptFooter, setReceiptFooter] = useState(DEFAULT_SALES_FOOTER);
   const [lockPriceEdit, setLockPriceEdit] = useState(false);
-  const [saleIncomeCategory, setSaleIncomeCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedDigest, setSavedDigest] = useState('');
   const [copiedKey, setCopiedKey] = useState(null);
@@ -55,10 +53,7 @@ export default function SalesSettingsSection({ academyId }) {
         setReceiptTemplate(s.receiptTemplate);
         setReceiptFooter(s.receiptFooter);
         setLockPriceEdit(s.lockPriceEdit);
-        setSaleIncomeCategory(s.saleIncomeCategory || '');
-        setSavedDigest(
-          buildDigest(s.receiptTemplate, s.receiptFooter, s.lockPriceEdit, s.saleIncomeCategory)
-        );
+        setSavedDigest(buildDigest(s.receiptTemplate, s.receiptFooter, s.lockPriceEdit));
       } catch (e) {
         console.error('[SalesSettings]', e);
       } finally {
@@ -73,8 +68,8 @@ export default function SalesSettingsSection({ academyId }) {
   const hasUnsaved = useMemo(
     () =>
       loaded &&
-      buildDigest(receiptTemplate, receiptFooter, lockPriceEdit, saleIncomeCategory) !== savedDigest,
-    [loaded, receiptTemplate, receiptFooter, lockPriceEdit, saleIncomeCategory, savedDigest]
+      buildDigest(receiptTemplate, receiptFooter, lockPriceEdit) !== savedDigest,
+    [loaded, receiptTemplate, receiptFooter, lockPriceEdit, savedDigest]
   );
 
   const copyVariable = async (key) => {
@@ -99,12 +94,11 @@ export default function SalesSettingsSection({ academyId }) {
         receiptTemplate,
         receiptFooter,
         lockPriceEdit,
-        saleIncomeCategory,
       });
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      setSavedDigest(buildDigest(receiptTemplate, receiptFooter, lockPriceEdit, saleIncomeCategory));
+      setSavedDigest(buildDigest(receiptTemplate, receiptFooter, lockPriceEdit));
       addToast({ type: 'success', message: 'Configurações de vendas salvas.' });
     } catch (e) {
       console.error('[SalesSettings] save:', e);
@@ -172,21 +166,6 @@ export default function SalesSettingsSection({ academyId }) {
           <p className="text-xs text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
             Texto exibido no final do comprovante. No modelo, use a variável{' '}
             <code style={{ fontSize: '0.85em' }}>{'{footer}'}</code> para inserir este conteúdo.
-          </p>
-        </div>
-
-        <div className="form-group mt-3">
-          <label>Categoria de receita no Caixa (vendas)</label>
-          <input
-            className="form-input"
-            value={saleIncomeCategory}
-            onChange={(e) => setSaleIncomeCategory(e.target.value)}
-            placeholder="Ex.: Vendas — produtos"
-            maxLength={128}
-          />
-          <p className="text-xs text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
-            Nome do plano/categoria usado ao espelhar vendas no Caixa. Separado da categoria de compra do
-            Estoque.
           </p>
         </div>
 

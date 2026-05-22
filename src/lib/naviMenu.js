@@ -69,6 +69,7 @@ export function isDirectNavPath(pathname) {
 export function getAccordionIdForLocation({ pathname, search }) {
   const p = String(pathname || '');
   if (p === '/automacoes' || p === '/agente-ia') return NAV_ACCORDION_IDS.AUTOMACOES;
+  if (p === '/equipe' || p === '/integracoes') return null;
   if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque') return NAV_ACCORDION_IDS.LOJA;
   if (p === '/caixa' || p === '/finance') return NAV_ACCORDION_IDS.CAIXA;
   if (p === '/reports') return NAV_ACCORDION_IDS.RELATORIOS;

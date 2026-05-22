@@ -3,11 +3,22 @@ import {
   formatBankAccountLabel,
   validateBankAccountForPayment,
   listBankAccountLabels,
+  filterBankAccountsWithBank,
 } from '../lib/bankAccounts.js';
 
 describe('bankAccounts', () => {
   it('formata rótulo banco + conta', () => {
     expect(formatBankAccountLabel({ bankName: 'Nubank', account: '12345-6' })).toBe('Nubank · 12345-6');
+  });
+
+  it('remove contas sem banco na lista', () => {
+    expect(
+      filterBankAccountsWithBank([
+        { bankName: 'Sicoob', account: '1' },
+        { bankName: '', account: '2' },
+        { bankName: '   ', branch: '1' },
+      ])
+    ).toEqual([{ bankName: 'Sicoob', account: '1' }]);
   });
 
   it('exige conta cadastrada quando há opções', () => {

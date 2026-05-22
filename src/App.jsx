@@ -76,6 +76,8 @@ const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
 const Products = lazyWithRetry(() => import('./pages/Products'));
 const Sales = lazyWithRetry(() => import('./pages/Sales'));
 const Loja = lazyWithRetry(() => import('./pages/Loja'));
+const Equipe = lazyWithRetry(() => import('./pages/Equipe'));
+const Integracoes = lazyWithRetry(() => import('./pages/Integracoes'));
 const Contratos = lazyWithRetry(() => import('./pages/Contratos'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
@@ -974,7 +976,7 @@ const App = () => {
           <main className="main-content">
             <OnboardingBanner />
             {(() => {
-              const bootstrapPaths = ['/empresa', '/conta'];
+              const bootstrapPaths = ['/empresa', '/conta', '/equipe', '/integracoes'];
               const showRoutesWhileBootstrap =
                 academyReady || bootstrapPaths.includes(location.pathname);
               if (!showRoutesWhileBootstrap) {
@@ -1023,6 +1025,8 @@ const App = () => {
                   <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
                   <Route path="/planos" element={<PlanosRedirect />} />
                   <Route path="/empresa" element={<AcademySettings />} />
+                  <Route path="/equipe" element={<Equipe />} />
+                  <Route path="/integracoes" element={<Integracoes />} />
                   <Route path="/profile" element={<Navigate to="/conta" replace />} />
                   <Route path="/automacoes" element={<Automacoes />} />
                   <Route path="/templates" element={<TemplatesRedirect />} />

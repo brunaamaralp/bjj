@@ -7,8 +7,9 @@ import { contactLabelSingular } from '../../lib/terminology.js';
 import { normalizeQuestionType } from '../../lib/customLeadQuestions.js';
 import LabelPill from '../shared/LabelPill';
 import EmptyState from '../shared/EmptyState.jsx';
+import { LABEL_PRESET_COLORS } from '../../lib/labelPresetColors.js';
 
-const PRESET_COLORS = ['#5B3FBF', '#F04040', '#F5A623', '#25D366', '#0088CC', '#8E8E8E'];
+const QUESTION_LABEL_MAX = 30;
 
 const QUESTION_TYPE_LABELS = {
     text: 'Texto',
@@ -17,30 +18,41 @@ const QUESTION_TYPE_LABELS = {
     select: 'Lista',
 };
 
-function LabelColorSwatch({ color, selected, onSelect }) {
+function LabelColorSwatch({ preset, selected, onSelect }) {
+    const hex = preset.hex;
+    const bg = preset.cssVar ? `var(${preset.cssVar})` : hex;
     return (
         <button
             type="button"
-            aria-label={`Selecionar cor ${color}`}
+            className={`funil-color-swatch${selected ? ' funil-color-swatch--selected' : ''}`}
+            aria-label={`Selecionar cor ${hex}`}
             aria-pressed={selected}
-            onClick={() => onSelect(color)}
-            style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                padding: 0,
-                cursor: 'pointer',
-                flexShrink: 0,
-                background: color,
-                border: 'none',
-                boxSizing: 'border-box',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                transform: selected ? 'scale(1.18)' : 'scale(1)',
-                boxShadow: selected
-                    ? `0 0 0 2.5px var(--surface), 0 0 0 4px ${color}, 0 2px 6px ${color}55`
-                    : '0 1px 3px rgba(0,0,0,0.18)',
-            }}
+            onClick={() => onSelect(hex)}
+            style={{ '--swatch-color': bg, '--swatch-ring': hex }}
         />
+    );
+}
+
+function LabelColorPicker({ value, onChange, showRequiredHint = false }) {
+    return (
+        <div className="funil-color-picker">
+            <span className="funil-color-picker__label">Cor</span>
+            <div className="funil-color-swatch-group" role="group" aria-label="Cor da etiqueta">
+                {LABEL_PRESET_COLORS.map((preset) => (
+                    <LabelColorSwatch
+                        key={preset.hex}
+                        preset={preset}
+                        selected={value === preset.hex}
+                        onSelect={onChange}
+                    />
+                ))}
+            </div>
+            {showRequiredHint && !value ? (
+                <p className="funil-color-hint" role="status">
+                    Selecione uma cor para continuar
+                </p>
+            ) : null}
+        </div>
     );
 }
 
@@ -80,13 +92,21 @@ function QuestionRow({
     return (
         <div className="funil-question-row">
             <div className="funil-question-row-main">
-                <input
-                    className="form-input"
-                    value={q?.label || ''}
-                    placeholder="Pergunta"
-                    readOnly={!canEdit}
-                    onChange={(e) => onLabelChange(e.target.value)}
-                />
+                <div className="funil-question-field-wrap">
+                    <input
+                        className="form-input"
+                        value={q?.label || ''}
+                        placeholder="Pergunta"
+                        readOnly={!canEdit}
+                        maxLength={QUESTION_LABEL_MAX}
+                        onChange={(e) => onLabelChange(e.target.value)}
+                    />
+                    {canEdit ? (
+                        <span className="funil-char-counter" aria-hidden>
+                            {(q?.label || '').length}/{QUESTION_LABEL_MAX}
+                        </span>
+                    ) : null}
+                </div>
                 <span className="funil-question-type-pill" title="Tipo da resposta">
                     {typeLabel}
                 </span>
@@ -596,19 +616,10 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                                 maxLength={30}
                                                 style={{ width: '100%', boxSizing: 'border-box' }}
                                             />
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>Cor:</span>
-                                                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                    {PRESET_COLORS.map((c) => (
-                                                        <LabelColorSwatch
-                                                            key={c}
-                                                            color={c}
-                                                            selected={editingLabel.color === c}
-                                                            onSelect={(col) => setEditingLabel((v) => ({ ...v, color: col }))}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
+                                            <LabelColorPicker
+                                                value={editingLabel.color}
+                                                onChange={(col) => setEditingLabel((v) => ({ ...v, color: col }))}
+                                            />
                                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                                 <button
                                                     type="button"
@@ -631,13 +642,14 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                         </div>
                                     ) : (
                                         <>
-                                            <LabelPill label={label} showDot={false} />
+                                            <LabelPill label={label} showDot={false} fullName />
                                             {role === 'owner' && (
                                                 <div className="flex gap-1" style={{ marginLeft: 'auto', flexShrink: 0 }}>
                                                     <button
                                                         type="button"
-                                                        className="icon-btn icon-only"
-                                                        title="Editar"
+                                                        className="icon-btn icon-only funil-label-edit-btn"
+                                                        title="Editar etiqueta"
+                                                        aria-label="Editar etiqueta"
                                                         onClick={() =>
                                                             setEditingLabel({
                                                                 $id: label.$id,
@@ -674,9 +686,14 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                 </span>
                                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', gap: 10 }}>
-                                    <div style={{ flex: '1 1 220px', minWidth: 200, position: 'relative' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <LabelColorPicker
+                                    value={newLabelColor}
+                                    onChange={setNewLabelColor}
+                                    showRequiredHint
+                                />
+                                <div className="funil-label-create-row">
+                                    <div className="funil-label-name-field">
                                         <input
                                             className="form-input"
                                             placeholder="Nome da etiqueta"
@@ -688,60 +705,29 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                                                 }
                                             }}
                                             maxLength={30}
-                                            style={{ width: '100%', paddingRight: 48, boxSizing: 'border-box' }}
                                         />
-                                        <span
-                                            className="text-small"
-                                            style={{
-                                                position: 'absolute',
-                                                right: 10,
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                color: 'var(--text-muted)',
-                                                pointerEvents: 'none',
-                                                fontSize: 12,
-                                            }}
-                                        >
+                                        <span className="funil-char-counter" aria-hidden>
                                             {newLabelName.length}/30
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                                        <button
-                                            type="button"
-                                            className="btn-secondary"
-                                            onClick={() => void handleCreateLabel()}
-                                            disabled={!newLabelName.trim() || !newLabelColor || creatingLabel}
-                                            style={{
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: 6,
-                                                whiteSpace: 'nowrap',
-                                                padding: '0 14px',
-                                                minHeight: 40,
-                                            }}
-                                        >
-                                            <Plus size={16} strokeWidth={2} />
-                                            {creatingLabel ? 'Adicionando…' : 'Adicionar'}
-                                        </button>
-                                        {!newLabelColor && (
-                                            <span className="text-small" style={{ color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                                                Selecione uma cor para continuar
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>Cor:</span>
-                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                                        {PRESET_COLORS.map((c) => (
-                                            <LabelColorSwatch
-                                                key={c}
-                                                color={c}
-                                                selected={newLabelColor === c}
-                                                onSelect={setNewLabelColor}
-                                            />
-                                        ))}
-                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary"
+                                        onClick={() => void handleCreateLabel()}
+                                        disabled={!newLabelName.trim() || !newLabelColor || creatingLabel}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            whiteSpace: 'nowrap',
+                                            padding: '0 14px',
+                                            minHeight: 40,
+                                            alignSelf: 'flex-start',
+                                        }}
+                                    >
+                                        <Plus size={16} strokeWidth={2} />
+                                        {creatingLabel ? 'Adicionando…' : 'Adicionar'}
+                                    </button>
                                 </div>
                             </div>
                         </>

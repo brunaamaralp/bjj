@@ -8,7 +8,7 @@ import { exportLeadsSpreadsheet } from '../../lib/exportLeadsSpreadsheet.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ContractsAutentiqueSection from './ContractsAutentiqueSection.jsx';
 
-const AvancadoSection = ({ academy, leads }) => {
+const AvancadoSection = ({ academy, leads, showAutentique = true }) => {
     const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
     const role = useUserRole(academy);
@@ -187,19 +187,23 @@ const AvancadoSection = ({ academy, leads }) => {
                         </div>
                     </section>
 
-                    <div className="funil-section-divider" role="separator" aria-hidden="true" />
+                    {showAutentique ? (
+                        <>
+                            <div className="funil-section-divider" role="separator" aria-hidden="true" />
 
-                    <section
-                        id="avancado-integracoes"
-                        className="empresa-section animate-in"
-                        style={{ animationDelay: '0.1s', scrollMarginTop: 56 }}
-                    >
-                        <h3 className="navi-section-heading mb-2">Integrações avançadas</h3>
-                        <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
-                            Serviços opcionais que exigem configuração fora do Nave.
-                        </p>
-                        <ContractsAutentiqueSection />
-                    </section>
+                            <section
+                                id="avancado-integracoes"
+                                className="empresa-section animate-in"
+                                style={{ animationDelay: '0.1s', scrollMarginTop: 56 }}
+                            >
+                                <h3 className="navi-section-heading mb-2">Integrações avançadas</h3>
+                                <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+                                    Serviços opcionais que exigem configuração fora do Nave.
+                                </p>
+                                <ContractsAutentiqueSection />
+                            </section>
+                        </>
+                    ) : null}
                 </>
             )}
 

@@ -11,7 +11,7 @@ export function membershipSecondaryEmail(m) {
   const name = String(m?.userName || m?.name || '').trim();
   const email = String(m?.userEmail || m?.email || '').trim();
   if (name && email) return email;
-  return '';
+  return email;
 }
 
 /** Rótulo de papel exibido na aba Equipe (alinha com owner / admin / member do Appwrite). */

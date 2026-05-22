@@ -5,14 +5,17 @@ import { X } from 'lucide-react';
  * Displays a colored label pill.
  * @param {{ label: { name: string, color: string }, onRemove?: () => void, small?: boolean, showDot?: boolean }} props
  */
-const LabelPill = ({ label, onRemove, small = false, showDot = true }) => {
+const LabelPill = ({ label, onRemove, small = false, showDot = true, fullName = false }) => {
   if (!label) return null;
 
   const color = String(label.color || '#8E8E8E');
   const size = small ? { fontSize: 11, padding: '2px 7px', gap: 4 } : { fontSize: 12, padding: '3px 9px', gap: 5 };
+  const name = String(label.name || '');
 
   return (
     <span
+      className={fullName ? 'label-pill label-pill--full-name' : 'label-pill'}
+      title={fullName && name ? name : undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -25,9 +28,9 @@ const LabelPill = ({ label, onRemove, small = false, showDot = true }) => {
         padding: size.padding,
         fontWeight: 500,
         lineHeight: 1.3,
-        whiteSpace: 'nowrap',
-        maxWidth: 160,
-        overflow: 'hidden',
+        ...(fullName
+          ? { maxWidth: 'none', whiteSpace: 'normal', overflow: 'visible' }
+          : { whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden' }),
       }}
     >
       {showDot ? (
@@ -41,15 +44,7 @@ const LabelPill = ({ label, onRemove, small = false, showDot = true }) => {
           }}
         />
       ) : null}
-      <span
-        style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label.name}
-      </span>
+      <span className="label-pill__name">{name}</span>
       {onRemove && (
         <button
           type="button"

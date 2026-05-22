@@ -43,7 +43,6 @@ export function mergeSalesIntoSettings(settingsRaw, salesPatch) {
       receiptTemplate: String(salesPatch.receiptTemplate ?? '').trim() || DEFAULT_SALES_RECEIPT_TEMPLATE,
       receiptFooter: String(salesPatch.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
       lockPriceEdit: salesPatch.lockPriceEdit === true,
-      saleIncomeCategory: String(salesPatch.saleIncomeCategory ?? prev.saleIncomeCategory ?? '').trim(),
     },
   };
 }
