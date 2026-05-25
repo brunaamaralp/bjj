@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import { useInventoryStore } from '../store/useInventoryStore';
+import { useProductsStore } from '../store/useProductsStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { refreshStockStores } from '../lib/syncStockStores';
@@ -13,6 +14,7 @@ import InventoryEntryModal from '../components/inventory/InventoryEntryModal';
 import InventoryCheckModal from '../components/inventory/InventoryCheckModal';
 import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
+import { mergeCatalogWithInventoryItems } from '../lib/inventoryCatalogMerge.js';
 const Inventory = () => {
   const [searchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
@@ -21,6 +23,8 @@ const Inventory = () => {
   const [stockConfigOpen, setStockConfigOpen] = useState(false);
   const { items, loadItems, inventoryMove, adjustStock, checkItem, updateItem, lastResult, loading, error } =
     useInventoryStore();
+  const loadProducts = useProductsStore((s) => s.loadProducts);
+  const parentProducts = useProductsStore((s) => s.products);
   const [configItem, setConfigItem] = useState(null);
   const [entryItem, setEntryItem] = useState(null);
   const [checkTarget, setCheckTarget] = useState(null);
@@ -30,8 +34,27 @@ const Inventory = () => {
   const [movePreset, setMovePreset] = useState({ itemId: '', tipo: 'entrada' });
 
   const refresh = useCallback(async () => {
-    await loadItems();
-  }, [loadItems]);
+    await Promise.all([loadItems(), loadProducts()]);
+  }, [loadItems, loadProducts]);
+
+  const itemsWithImages = useMemo(() => {
+    const imageByParent = new Map(
+      (parentProducts || []).map((p) => [String(p.id || '').trim(), String(p.image_url || '').trim()])
+    );
+    return (items || []).map((it) => {
+      const pid = String(it.product_id || '').trim();
+      const fallback = pid ? imageByParent.get(pid) : '';
+      return {
+        ...it,
+        image_url: String(it.image_url || '').trim() || fallback || '',
+      };
+    });
+  }, [items, parentProducts]);
+
+  const catalogParents = useMemo(
+    () => mergeCatalogWithInventoryItems(parentProducts, itemsWithImages),
+    [parentProducts, itemsWithImages]
+  );
 
   useEffect(() => {
     void refresh();
@@ -144,7 +167,8 @@ const Inventory = () => {
 
       {tab === 'saldo' ? (
         <InventoryBalanceView
-          items={items}
+          catalogParents={catalogParents}
+          items={itemsWithImages}
           loading={loading}
           highlightItemId={highlightItemId}
           onRefresh={refresh}

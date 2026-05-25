@@ -56,7 +56,7 @@ export function mapParentProductDoc(doc) {
     type: String(doc.type || 'sale').trim() || 'sale',
     is_for_sale: doc.is_for_sale !== false && String(doc.type || 'sale') !== 'supply',
     is_active: doc.is_active !== false,
-    image_url: String(doc.image_url || '').trim(),
+    image_url: String(doc.image_url || doc.image || doc.photo_url || '').trim(),
     academy_id: String(doc.academy_id || '').trim(),
     created_at: doc.created_at || doc.$createdAt || '',
   };
@@ -84,7 +84,9 @@ export function mapVariantDoc(doc, parent) {
     cost_price: parent?.cost_price ?? null,
     is_for_sale: parent?.is_for_sale !== false,
     is_active: isActive,
-    image_url: parent?.image_url || '',
+    image_url:
+      parent?.image_url ||
+      String(doc.image_url || doc.image || doc.photo_url || '').trim(),
     type: parent?.type || 'sale',
     size,
     color,

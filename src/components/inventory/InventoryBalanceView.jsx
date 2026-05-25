@@ -8,12 +8,14 @@ import {
   ChevronDown,
   MoreHorizontal,
   Settings2,
+  Search,
 } from 'lucide-react';
+import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
 import {
-  STOCK_STATUS_LABELS,
-  buildInventoryParentRows,
-  variantInventoryLabel,
-} from '../../lib/stockInventory';
+  filterInventoryParents,
+  parentSizeSummary,
+  variantSizeLabel,
+} from '../../lib/inventoryCatalogMerge.js';
 import { formatBRL } from '../../lib/moneyBr';
 import ProductThumb from '../products/ProductThumb';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -195,7 +197,8 @@ function ParentActionsMenu({ parent, isOpen, onToggle, onClose, onConfigure, onA
 }
 
 export default function InventoryBalanceView({
-  items,
+  catalogParents = [],
+  items = [],
   loading,
   highlightItemId = '',
   onRefresh,
@@ -205,6 +208,8 @@ export default function InventoryBalanceView({
   onAdjustItem,
 }) {
   const highlightRef = useRef(null);
+  const autoExpandedRef = useRef(false);
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [forSaleOnly, setForSaleOnly] = useState(false);
@@ -213,7 +218,7 @@ export default function InventoryBalanceView({
   const [actionsMenuId, setActionsMenuId] = useState(null);
   const [variantMenuId, setVariantMenuId] = useState(null);
 
-  const parentRows = useMemo(() => buildInventoryParentRows(items), [items]);
+  const parentRows = catalogParents;
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -224,14 +229,33 @@ export default function InventoryBalanceView({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [parentRows]);
 
-  const filtered = useMemo(() => {
-    return parentRows.filter((row) => {
-      if (statusFilter !== 'all' && row.status !== statusFilter) return false;
-      if (categoryFilter !== 'all' && String(row.categoria || '') !== categoryFilter) return false;
-      if (forSaleOnly && row.is_for_sale === false) return false;
-      return true;
-    });
-  }, [parentRows, statusFilter, categoryFilter, forSaleOnly]);
+  const filtered = useMemo(
+    () =>
+      filterInventoryParents(parentRows, {
+        search,
+        category: categoryFilter,
+        statusFilter,
+        forSaleOnly,
+      }),
+    [parentRows, search, categoryFilter, statusFilter, forSaleOnly]
+  );
+
+  const showSizeColumn = useMemo(
+    () =>
+      filtered.some(
+        (row) =>
+          row.hasVariants ||
+          (row.variants || []).some((v) => variantSizeLabel(v) !== 'Único')
+      ),
+    [filtered]
+  );
+
+  useEffect(() => {
+    if (loading || autoExpandedRef.current || !parentRows.length) return;
+    autoExpandedRef.current = true;
+    const ids = parentRows.filter((p) => (p.variants || []).length > 1).map((p) => p.id);
+    setExpandedIds(new Set(ids));
+  }, [loading, parentRows]);
 
   const showUnitColumn = useMemo(
     () =>
@@ -242,11 +266,11 @@ export default function InventoryBalanceView({
   );
 
   const anyExpanded = useMemo(
-    () => filtered.some((row) => row.hasVariants && expandedIds.has(row.id)),
+    () => filtered.some((row) => (row.variants || []).length > 1 && expandedIds.has(row.id)),
     [filtered, expandedIds]
   );
 
-  const showMinColumn = anyExpanded || filtered.some((row) => !row.hasVariants);
+  const showMinColumn = anyExpanded || filtered.some((row) => (row.variants || []).length <= 1);
   const showAvgCostCol = showPrices && anyExpanded;
 
   const toggleExpanded = (parentId) => {
@@ -292,6 +316,29 @@ export default function InventoryBalanceView({
 
       <div className="card inventory-filters-card">
         <div className="inventory-filters-row">
+          <div className="form-group inventory-filter-field" style={{ flex: '1 1 200px', minWidth: 160 }}>
+            <label className="text-xs">Busca</label>
+            <div style={{ position: 'relative' }}>
+              <Search
+                size={14}
+                style={{
+                  position: 'absolute',
+                  left: 10,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  opacity: 0.5,
+                }}
+                aria-hidden
+              />
+              <input
+                className="form-input"
+                style={{ paddingLeft: 30 }}
+                placeholder="Nome, tamanho, categoria…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="form-group inventory-filter-field">
             <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -342,11 +389,12 @@ export default function InventoryBalanceView({
           />
         ) : (
           <>
-            <div className="navi-desktop-table-wrap inventory-desktop-table-wrap">
-              <table className="navi-table inventory-table">
+            <div className="navi-desktop-table-wrap inventory-desktop-table-wrap products-desktop-table-wrap">
+              <table className="navi-table inventory-table products-table">
                 <colgroup>
                   <col className="inventory-table__col-thumb" />
-                  <col className="inventory-table__col-name" />
+                  <col className="inventory-table__col-name products-table__col-product" />
+                  {showSizeColumn ? <col className="inventory-table__col-size" /> : null}
                   <col className="inventory-table__col-cat" />
                   {showPrices ? <col className="inventory-table__col-price" /> : null}
                   {showPrices ? <col className="inventory-table__col-price" /> : null}
@@ -360,7 +408,12 @@ export default function InventoryBalanceView({
                 <thead>
                   <tr>
                     <th className="inventory-table__thumb-head" aria-hidden />
-                    <th className="inventory-table__th inventory-table__col-name">Produto</th>
+                    <th className="inventory-table__th inventory-table__col-name products-table__col-product">
+                      Produto
+                    </th>
+                    {showSizeColumn ? (
+                      <th className="inventory-table__th inventory-table__col-size">Tamanho</th>
+                    ) : null}
                     <th className="inventory-table__th inventory-table__col-cat">Categoria</th>
                     {showPrices ? <th className="inventory-table__th">Preço venda</th> : null}
                     {showPrices ? <th className="inventory-table__th">Preço custo</th> : null}
@@ -402,9 +455,11 @@ export default function InventoryBalanceView({
                 </thead>
                 <tbody>
                   {filtered.map((parent) => {
+                    const variants = parent.variants || [];
+                    const hasVariants = variants.length > 1;
                     const expanded = expandedIds.has(parent.id);
-                    const solo = !parent.hasVariants;
-                    const soloVariant = parent.variants[0];
+                    const solo = !hasVariants;
+                    const soloVariant = variants[0];
                     const rowHighlight =
                       highlightItemId === parent.id ||
                       (parent.variants || []).some((v) => v.id === highlightItemId);
@@ -426,7 +481,7 @@ export default function InventoryBalanceView({
                         >
                           <td className="inventory-table__thumb-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="inventory-table__thumb-inner">
-                              {parent.hasVariants ? (
+                              {hasVariants ? (
                                 <button
                                   type="button"
                                   className="inventory-table__expand-btn"
@@ -442,9 +497,23 @@ export default function InventoryBalanceView({
                               <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={32} />
                             </div>
                           </td>
-                          <td className="inventory-table__col-name">
-                            <span className="inventory-table__name">{parent.nome}</span>
+                          <td className="inventory-table__col-name products-table__col-product">
+                            <span className="inventory-table__name products-table__name">{parent.nome}</span>
+                            {hasVariants ? (
+                              <span className="inventory-table__variant-hint text-small text-muted">
+                                {variants.length} tamanhos
+                              </span>
+                            ) : null}
                           </td>
+                          {showSizeColumn ? (
+                            <td className="inventory-table__col-size text-small">
+                              {solo ? (
+                                <strong className="inventory-table__size-label">{variantSizeLabel(soloVariant)}</strong>
+                              ) : (
+                                <span className="text-muted">{parentSizeSummary(parent)}</span>
+                              )}
+                            </td>
+                          ) : null}
                           <td className="inventory-table__col-cat text-small text-muted">
                             {parent.categoria || '—'}
                           </td>
@@ -547,8 +616,8 @@ export default function InventoryBalanceView({
                             </div>
                           </td>
                         </tr>
-                        {expanded && parent.hasVariants
-                          ? (parent.variants || []).map((v) => {
+                        {expanded && hasVariants
+                          ? variants.map((v) => {
                               const vHighlight = highlightItemId === v.id;
                               const vClass = [
                                 'inventory-table__row',
@@ -567,11 +636,18 @@ export default function InventoryBalanceView({
                                   data-item-id={v.id}
                                 >
                                   <td className="inventory-table__thumb-cell" aria-hidden />
-                                  <td className="inventory-table__col-name inventory-table__variant-label">
-                                    {variantInventoryLabel(v)}
+                                  <td className="inventory-table__col-name products-table__variant-label">
+                                    {parent.nome}
                                   </td>
+                                  {showSizeColumn ? (
+                                    <td className="inventory-table__col-size">
+                                      <strong className="inventory-table__size-label">
+                                        {variantSizeLabel(v)}
+                                      </strong>
+                                    </td>
+                                  ) : null}
                                   <td
-                                    className="inventory-table__col-cat inventory-table__cell-empty"
+                                    className="inventory-table__col-cat inventory-table__cell-empty products-table__cell-empty"
                                     aria-hidden
                                   />
                                   {showPrices ? (
@@ -653,9 +729,11 @@ export default function InventoryBalanceView({
             </div>
             <div className="navi-mobile-list inventory-mobile-list" aria-label="Lista de estoque">
               {filtered.map((parent) => {
+                const variants = parent.variants || [];
+                const hasVariants = variants.length > 1;
                 const expanded = expandedIds.has(parent.id);
-                const solo = !parent.hasVariants;
-                const soloVariant = parent.variants[0];
+                const solo = !hasVariants;
+                const soloVariant = variants[0];
                 const rowHighlight =
                   highlightItemId === parent.id ||
                   (parent.variants || []).some((v) => v.id === highlightItemId);
@@ -680,7 +758,7 @@ export default function InventoryBalanceView({
                       <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={36} />
                       <div className="inventory-mobile-card__body">
                         <div className="inventory-mobile-card__title-row">
-                          {parent.hasVariants ? (
+                          {hasVariants ? (
                             <button
                               type="button"
                               className="inventory-mobile-expand"
@@ -694,6 +772,11 @@ export default function InventoryBalanceView({
                         </div>
                         <div className="inventory-mobile-card__meta text-small text-muted">
                           {parent.categoria || '—'}
+                          {solo && soloVariant ? (
+                            <> · <strong>{variantSizeLabel(soloVariant)}</strong></>
+                          ) : hasVariants ? (
+                            <> · {variants.length} tamanhos</>
+                          ) : null}
                         </div>
                         <div className="inventory-mobile-card__stats text-small">
                           <span>
@@ -734,11 +817,13 @@ export default function InventoryBalanceView({
                         </button>
                       </div>
                     ) : null}
-                    {expanded && parent.hasVariants ? (
+                    {expanded && hasVariants ? (
                       <ul className="inventory-mobile-variants">
-                        {(parent.variants || []).map((v) => (
+                        {variants.map((v) => (
                           <li key={v.id} className="inventory-mobile-variant">
-                            <div className="inventory-mobile-variant__label">{variantInventoryLabel(v)}</div>
+                            <div className="inventory-mobile-variant__label">
+                              <strong>{variantSizeLabel(v)}</strong>
+                            </div>
                             <div className="inventory-mobile-variant__meta text-small">
                               <span>Saldo: {v.current_quantity}</span>
                               {v.minimum_level > 0 ? <span>Mín.: {v.minimum_level}</span> : null}

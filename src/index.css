@@ -3533,12 +3533,32 @@ button.funil-color-swatch {
   --color-neutral-600: #5c5a6e;
   width: 100%;
   table-layout: fixed;
-  min-width: 640px;
+  min-width: 720px;
   border-collapse: collapse;
+}
+
+.inventory-table.products-table tbody tr.products-table__row--variant td,
+.inventory-table.products-table tbody tr.inventory-table__row--variant td {
+  background: var(--color-neutral-50, #f8f7fc);
 }
 
 .inventory-table__col-thumb {
   width: 80px;
+}
+
+.inventory-table__col-size {
+  width: 100px;
+  min-width: 88px;
+}
+
+.inventory-table__size-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.inventory-table__variant-hint {
+  display: block;
+  margin-top: 2px;
 }
 
 .inventory-table__col-cat {
