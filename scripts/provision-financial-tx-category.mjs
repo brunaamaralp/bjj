@@ -1,5 +1,5 @@
 /**
- * Cria o atributo `category` (string, 128) na coleção FINANCIAL_TX.
+ * Provisiona atributos opcionais de FINANCIAL_TX usados pelo Caixa (category, direction, etc.).
  *
  * Uso: npm run provision:financial-tx-category
  * Requer: APPWRITE_API_KEY, VITE_APPWRITE_DATABASE_ID, VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID
@@ -46,11 +46,53 @@ const FINANCIAL_TX_COL =
 async function ensureString(databases, col, key, size, required = false) {
   try {
     await databases.createStringAttribute(DB_ID, col, key, size, required);
-    console.log('created string attribute:', key, `(${size})`);
+    console.log('  + string', key);
     return 'created';
   } catch (e) {
     if (e?.code === 409) {
-      console.log('already exists:', key);
+      console.log('  = string', key, '(exists)');
+      return 'exists';
+    }
+    throw e;
+  }
+}
+
+async function ensureInteger(databases, col, key, required = false) {
+  try {
+    await databases.createIntegerAttribute(DB_ID, col, key, required);
+    console.log('  + integer', key);
+    return 'created';
+  } catch (e) {
+    if (e?.code === 409) {
+      console.log('  = integer', key, '(exists)');
+      return 'exists';
+    }
+    throw e;
+  }
+}
+
+async function ensureBool(databases, col, key, required = false) {
+  try {
+    await databases.createBooleanAttribute(DB_ID, col, key, required);
+    console.log('  + boolean', key);
+    return 'created';
+  } catch (e) {
+    if (e?.code === 409) {
+      console.log('  = boolean', key, '(exists)');
+      return 'exists';
+    }
+    throw e;
+  }
+}
+
+async function ensureDatetime(databases, col, key, required = false) {
+  try {
+    await databases.createDatetimeAttribute(DB_ID, col, key, required);
+    console.log('  + datetime', key);
+    return 'created';
+  } catch (e) {
+    if (e?.code === 409) {
+      console.log('  = datetime', key, '(exists)');
       return 'exists';
     }
     throw e;
@@ -79,9 +121,23 @@ async function main() {
 
   console.log('Database:', DB_ID);
   console.log('Collection:', FINANCIAL_TX_COL);
-  const result = await ensureString(databases, FINANCIAL_TX_COL, 'category', 128, false);
-  console.log('\nAtributo category:', result);
-  console.log('Aguarde alguns segundos no Appwrite antes de criar lançamentos (status do atributo = available).');
+  console.log('\nAtributos FINANCIAL_TX:');
+
+  await ensureString(databases, FINANCIAL_TX_COL, 'category', 128, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'competence_month', 7, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'direction', 8, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'lead_id', 64, false);
+  await ensureBool(databases, FINANCIAL_TX_COL, 'reconciled', false);
+  await ensureDatetime(databases, FINANCIAL_TX_COL, 'reconciled_at', false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'reconciled_by', 64, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'bank_statement_id', 64, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_type', 16, false);
+  await ensureInteger(databases, FINANCIAL_TX_COL, 'recurrence_day', false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_end', 7, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_origin_id', 64, false);
+  await ensureBool(databases, FINANCIAL_TX_COL, 'is_recurrence_template', false);
+
+  console.log('\nConcluído. Aguarde o status "available" no Appwrite antes de salvar lançamentos.');
 }
 
 main().catch((e) => {
