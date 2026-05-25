@@ -657,22 +657,32 @@ export default function Mensalidades() {
         plan_name: payForm.plan_name || student.plan || '',
         note: payForm.note || '',
       });
-      if (payForm.saveAsPreferred) {
-        await updateStudent(student.id, {
-          preferredPaymentMethod: payForm.method,
-          preferredPaymentAccount: payForm.account || '',
-          dueDay: dueDayValid ? dueDayNum : null,
-        });
-      } else if (dueDayValid || String(student?.dueDay || '').trim()) {
-        await updateStudent(student.id, { dueDay: dueDayValid ? dueDayNum : null });
-      }
       setPayments((prev) => [
         ...(prev || []).filter(
           (p) => String(p.lead_id) !== String(student.id) && p.$id !== optimisticId
         ),
         doc,
       ]);
-      addToast({ type: 'success', message: 'Pagamento registrado.' });
+      let studentPrefsWarning = '';
+      try {
+        if (payForm.saveAsPreferred) {
+          await updateStudent(student.id, {
+            preferredPaymentMethod: payForm.method,
+            preferredPaymentAccount: payForm.account || '',
+            dueDay: dueDayValid ? dueDayNum : null,
+          });
+        } else if (dueDayValid || String(student?.dueDay || '').trim()) {
+          await updateStudent(student.id, { dueDay: dueDayValid ? dueDayNum : null });
+        }
+      } catch (prefErr) {
+        console.warn('[Mensalidades] updateStudent após pagamento:', prefErr);
+        studentPrefsWarning =
+          ' Pagamento salvo; preferências do aluno (forma de pagamento/vencimento) não foram gravadas no cadastro.';
+      }
+      addToast({
+        type: studentPrefsWarning ? 'warning' : 'success',
+        message: `Pagamento registrado.${studentPrefsWarning}`,
+      });
     } catch (e) {
       setPayments(previousPayments);
       setSelectedStudent(student);

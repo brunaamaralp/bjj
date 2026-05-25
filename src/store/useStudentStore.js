@@ -7,6 +7,7 @@ import { mapAppwriteDocToStudent } from '../lib/mapAppwriteStudentDoc.js';
 import { buildStudentPayloadFromDoc } from '../lib/leadStudentPayload.js';
 import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyContext.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
+import { stripUnknownStudentPatch } from '../lib/studentAppwritePatch.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
 
@@ -352,7 +353,17 @@ export const useStudentStore = create((set, get) => ({
     }
 
     const patch = updatesToStudentPatch(filtered, current);
-    await databases.updateDocument(DB_ID, STUDENTS_COL, id, patch);
+    if (Object.keys(patch).length > 0) {
+      try {
+        await databases.updateDocument(DB_ID, STUDENTS_COL, id, patch);
+      } catch (e) {
+        const msg = String(e?.message || '');
+        if (!/unknown attribute/i.test(msg)) throw e;
+        const lean = stripUnknownStudentPatch(patch, msg);
+        if (Object.keys(lean).length === 0) throw e;
+        await databases.updateDocument(DB_ID, STUDENTS_COL, id, lean);
+      }
+    }
 
     const merged = { ...current, ...updates };
     if (filtered.labelIds) merged.labelIds = filtered.labelIds;

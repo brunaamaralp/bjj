@@ -47,19 +47,21 @@ const PROJECT_ID =
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
+const STUDENTS_COL =
+  process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || process.env.APPWRITE_STUDENTS_COLLECTION_ID || '';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function ensureStringAttr(databases, key, size, required = false) {
+async function ensureStringAttr(databases, collectionId, key, size, required = false) {
   try {
-    await databases.createStringAttribute(DB_ID, LEADS_COL, key, size, required);
-    console.log(`✅ Criado: ${key} (string, ${size}, required=${required})`);
+    await databases.createStringAttribute(DB_ID, collectionId, key, size, required);
+    console.log(`✅ [${collectionId}] Criado: ${key} (string, ${size}, required=${required})`);
     await sleep(1500);
   } catch (e) {
     if (e.code === 409) {
-      console.log(`⏭️  ${key} já existe`);
+      console.log(`⏭️  [${collectionId}] ${key} já existe`);
     } else {
-      console.error(`❌ ${key}: ${e.message}`);
+      console.error(`❌ [${collectionId}] ${key}: ${e.message}`);
       throw e;
     }
   }
@@ -78,9 +80,17 @@ async function main() {
   const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
   const databases = new Databases(client);
 
-  console.log('Provisionando atributos de pagamento habitual em leads...\n');
-  await ensureStringAttr(databases, 'preferred_payment_method', 64, false);
-  await ensureStringAttr(databases, 'preferred_payment_account', 128, false);
+  const targets = [{ id: LEADS_COL, label: 'leads' }];
+  if (STUDENTS_COL && STUDENTS_COL !== LEADS_COL) {
+    targets.push({ id: STUDENTS_COL, label: 'students' });
+  }
+
+  for (const { id, label } of targets) {
+    console.log(`\nProvisionando pagamento habitual em ${label} (${id})...\n`);
+    await ensureStringAttr(databases, id, 'preferred_payment_method', 64, false);
+    await ensureStringAttr(databases, id, 'preferred_payment_account', 128, false);
+  }
+
   console.log('\n✅ Concluído. Aguarde alguns segundos até os atributos ficarem disponíveis no Appwrite.');
 }
 
