@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { createSessionJwt } from '../../lib/appwrite';
 import { listFinanceTx, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
 import {
@@ -223,6 +224,15 @@ export default function TransacoesTab({
     if (savingTx) return;
     resetTxModal();
   };
+
+  useEffect(() => {
+    if (!showTxModal) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') requestCloseTxModal();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showTxModal, savingTx]); // eslint-disable-line react-hooks/exhaustive-deps -- requestCloseTxModal checks savingTx
 
   const openEditModal = (tx) => {
     if (String(tx.status || '').toLowerCase() !== 'pending') return;
@@ -833,20 +843,15 @@ export default function TransacoesTab({
         </div>
       </section>
 
-      {showTxModal && (
-        <div
-          className="navi-modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="finance-tx-modal-title"
-          onClick={() => {
-            requestCloseTxModal();
-          }}
-        >
+      {showTxModal && typeof document !== 'undefined'
+        ? createPortal(
+        <div className="navi-modal-overlay" role="presentation">
           <div
-            className="card"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 20 }}
+            className="card navi-modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="finance-tx-modal-title"
+            style={{ maxWidth: 520, padding: 20 }}
           >
             <h3 id="finance-tx-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>
               {editingRecurrenceOnly
@@ -1256,8 +1261,10 @@ export default function TransacoesTab({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+        : null}
     </>
   );
 }

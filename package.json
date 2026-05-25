@@ -25,6 +25,7 @@
     "provision:bank-reconciliation": "node scripts/provision-bank-reconciliation-schema.mjs",
     "provision:finance-recurrence": "node scripts/provision-finance-recurrence-schema.mjs",
     "provision:finance-features": "node scripts/provision-finance-features-schema.mjs",
+    "provision:financial-tx-category": "node --env-file=.env scripts/provision-financial-tx-category.mjs",
     "provision:plan-freeze": "node --env-file=.env scripts/provision-plan-freeze-schema.mjs",
     "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
     "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",
