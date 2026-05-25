@@ -40,13 +40,12 @@ const STUDENT_TURMA_KEY = (() => {
   return raw || 'turma';
 })();
 
-const STUDENT_DUE_DAY_KEY = (() => {
+/** false = não gravar; true = gravar em due_day (nome no Appwrite). */
+const STUDENT_DUE_DAY_ENABLED = (() => {
   const raw = String(import.meta.env.VITE_APPWRITE_LEAD_DUE_DAY_ATTR || '').trim();
   const lower = raw.toLowerCase();
-  if (!raw || ['off', 'false', '0', 'no', 'none'].includes(lower)) return null;
-  if (lower === 'due_day') return 'due_day';
-  if (lower === 'dueday') return 'dueDay';
-  return null;
+  if (!raw || ['off', 'false', '0', 'no', 'none'].includes(lower)) return false;
+  return true;
 })();
 
 function permissionContextFromStore() {
@@ -72,9 +71,11 @@ function updatesToStudentPatch(updates, current) {
     copyIf('source_origin', String(u.sourceOrigin ?? u.origin ?? '').trim().slice(0, 128));
   }
   if (u.plan !== undefined) copyIf('plan', u.plan);
-  if (u.dueDay !== undefined && STUDENT_DUE_DAY_KEY) {
+  if (u.dueDay !== undefined && STUDENT_DUE_DAY_ENABLED) {
     const n = Number(u.dueDay);
-    patch[STUDENT_DUE_DAY_KEY] = Number.isFinite(n) && n >= 1 && n <= 31 ? Math.trunc(n) : null;
+    if (Number.isFinite(n) && n >= 1 && n <= 31) {
+      patch.due_day = Math.trunc(n);
+    }
   }
   if (u.enrollmentDate !== undefined) copyIf('enrollmentDate', u.enrollmentDate);
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
