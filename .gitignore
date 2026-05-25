@@ -26,6 +26,7 @@ scripts/*
 !scripts/provision-bank-reconciliation-schema.mjs
 !scripts/provision-finance-recurrence-schema.mjs
 !scripts/provision-finance-features-schema.mjs
+!scripts/provision-financial-tx-category.mjs
 !scripts/provision-inventory-cost-schema.mjs
 
 # Editor directories and files
