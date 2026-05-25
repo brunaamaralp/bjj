@@ -2,6 +2,12 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTaskStore } from '../store/useTaskStore';
 import { useLeadStore } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore';
+import {
+  buildTaskLinkablePeople,
+  filterTaskLinkablePeople,
+  profilePathForLinkablePerson,
+} from '../lib/taskLinkablePeople.js';
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -68,6 +74,7 @@ export default function Tasks() {
   const labels = useLeadStore((s) => s.labels);
   const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
   const { academyId, teamId, leads, userId, academyList } = useLeadStore();
+  const students = useStudentStore((s) => s.students);
   const { tasks, loading, error, filters, setFilter, fetchTasks, createTask, updateTask, deleteTask, patchTaskLocal, isUpdating } =
     useTaskStore();
   const addToast = useUiStore((s) => s.addToast);
@@ -84,6 +91,18 @@ export default function Tasks() {
     const acad = (academyList || []).find((a) => a.id === academyId);
     return String(acad?.teamId || teamId || '').trim();
   }, [academyList, academyId, teamId]);
+
+  const linkablePeople = useMemo(
+    () => buildTaskLinkablePeople(leads, students),
+    [leads, students]
+  );
+
+  const linkableById = useMemo(() => {
+    const map = new Map();
+    for (const p of linkablePeople) map.set(p.id, p);
+    return map;
+  }, [linkablePeople]);
+
   const [collectionModalTask, setCollectionModalTask] = useState(null);
   const [collectionSaving, setCollectionSaving] = useState(false);
   const [showModal, setShowModal] = useState(initNew);
@@ -93,6 +112,38 @@ export default function Tasks() {
   const [leadSearch, setLeadSearch] = useState('');
   const [showLeadDrop, setShowLeadDrop] = useState(false);
   const leadDropRef = useRef(null);
+
+  const filteredLinkablePeople = useMemo(
+    () => filterTaskLinkablePeople(linkablePeople, leadSearch),
+    [linkablePeople, leadSearch]
+  );
+
+  // Carrega todas as páginas de leads + alunos ao abrir o modal (matriculados saem de leads).
+  useEffect(() => {
+    if (!showModal || !academyId) return;
+    let cancelled = false;
+    (async () => {
+      let guard = 0;
+      while (!cancelled && useLeadStore.getState().leadsHasMore && guard < 40) {
+        await useLeadStore.getState().fetchMoreLeads();
+        guard += 1;
+      }
+      guard = 0;
+      while (!cancelled && useStudentStore.getState().studentsHasMore && guard < 40) {
+        await useStudentStore.getState().fetchMoreStudents();
+        guard += 1;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showModal, academyId]);
+
+  useEffect(() => {
+    if (!initLeadId) return;
+    const person = linkableById.get(initLeadId);
+    if (person?.name) setLeadSearch(person.name);
+  }, [initLeadId, linkableById]);
 
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -235,7 +286,7 @@ export default function Tasks() {
         due_date: todayYmd,
         assigned_to: '',
         lead_id: filters.lead_id || '',
-        lead_name: filters.lead_id ? leads.find((l) => l.id === filters.lead_id)?.name || '' : '',
+        lead_name: filters.lead_id ? linkableById.get(filters.lead_id)?.name || '' : '',
       });
       setQuickTitle('');
       addToast({ type: 'success', message: 'Tarefa criada' });
@@ -291,7 +342,7 @@ export default function Tasks() {
       if (!map[lid]) {
         map[lid] = {
           leadId: lid,
-          leadName: String(t.lead_name || '').trim() || leads.find((l) => l.id === lid)?.name || 'Aluno',
+          leadName: String(t.lead_name || '').trim() || linkableById.get(lid)?.name || 'Aluno',
           tasks: [],
         };
       }
@@ -300,7 +351,7 @@ export default function Tasks() {
     return Object.values(map).sort((a, b) =>
       String(a.leadName).localeCompare(String(b.leadName), 'pt-BR')
     );
-  }, [filteredTasks, leads]);
+  }, [filteredTasks, linkableById]);
 
   const kanbanColumns = useMemo(() => {
     const atrasadas = [];
@@ -376,8 +427,7 @@ export default function Tasks() {
     try {
       let leadName = '';
       if (form.lead_id) {
-        const lead = leads.find(l => l.id === form.lead_id);
-        if (lead) leadName = lead.name;
+        leadName = linkableById.get(form.lead_id)?.name || '';
       }
       
       const payload = { ...form, lead_name: leadName };
@@ -406,8 +456,8 @@ export default function Tasks() {
       assigned_to: t.assigned_to || '',
       lead_id: t.lead_id || ''
     });
-    const lead = leads.find(l => l.id === t.lead_id);
-    setLeadSearch(lead ? lead.name : '');
+    const person = linkableById.get(t.lead_id);
+    setLeadSearch(person?.name || '');
     setShowModal(true);
   };
 
@@ -419,8 +469,9 @@ export default function Tasks() {
 
   const openNew = () => {
     setEditingTask(null);
-    setForm({ title: '', description: '', due_date: '', assigned_to: '', lead_id: filters.lead_id || '' });
-    setLeadSearch('');
+    const lid = filters.lead_id || '';
+    setForm({ title: '', description: '', due_date: '', assigned_to: '', lead_id: lid });
+    setLeadSearch(lid ? linkableById.get(lid)?.name || '' : '');
     setShowModal(true);
   };
 
@@ -538,16 +589,22 @@ export default function Tasks() {
                   tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/lead/${t.lead_id}`);
+                    const path =
+                      profilePathForLinkablePerson(linkableById.get(t.lead_id)) ||
+                      `/student/${t.lead_id}`;
+                    navigate(path);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.stopPropagation();
-                      navigate(`/lead/${t.lead_id}`);
+                      const path =
+                        profilePathForLinkablePerson(linkableById.get(t.lead_id)) ||
+                        `/student/${t.lead_id}`;
+                      navigate(path);
                     }
                   }}
                 >
-                  <User size={12} /> {t.lead_name || 'Aluno'}
+                  <User size={12} /> {t.lead_name || linkableById.get(t.lead_id)?.name || 'Aluno'}
                 </span>
               ) : null}
               {t.due_date ? (
@@ -720,7 +777,7 @@ export default function Tasks() {
                 navigate('/tarefas');
               }}
             >
-              Aluno: {leads.find(l => l.id === filters.lead_id)?.name || 'Desconhecido'} ✕
+              Aluno: {linkableById.get(filters.lead_id)?.name || 'Desconhecido'} ✕
             </button>
           )}
         </div>
@@ -1097,28 +1154,32 @@ export default function Tasks() {
                 </div>
                 {showLeadDrop && (
                   <div className="task-lead-drop">
-                    {leads
-                      .filter(l => !leadSearch || l.name?.toLowerCase().includes(leadSearch.toLowerCase()))
-                      .slice(0, 20)
-                      .map(l => (
+                    {filteredLinkablePeople.slice(0, 80).map((p) => (
                         <button
-                          key={l.id}
+                          key={p.id}
                           type="button"
                           className="task-lead-option"
                           onMouseDown={() => {
-                            setForm(f => ({ ...f, lead_id: l.id }));
-                            setLeadSearch(l.name);
+                            setForm(f => ({ ...f, lead_id: p.id }));
+                            setLeadSearch(p.name);
                             setShowLeadDrop(false);
                           }}
                         >
-                          <span className="task-lead-name">{l.name}</span>
-                          <span className="task-lead-phone">{l.phone || ''}</span>
+                          <span className="task-lead-name">{p.name}</span>
+                          <span className="task-lead-phone">
+                            {p.phone || ''}
+                            {p.kind === 'student' ? ` · ${terms.student}` : ` · ${contactLabel}`}
+                          </span>
                         </button>
-                      ))
-                    }
-                    {leads.filter(l => !leadSearch || l.name?.toLowerCase().includes(leadSearch.toLowerCase())).length === 0 && (
+                      ))}
+                    {filteredLinkablePeople.length > 80 ? (
+                      <p className="task-lead-more-hint text-muted text-sm px-3 py-2 mb-0">
+                        Mostrando 80 de {filteredLinkablePeople.length}. Refine a busca por nome ou telefone.
+                      </p>
+                    ) : null}
+                    {filteredLinkablePeople.length === 0 ? (
                       <EmptyState variant="bare" title="Nenhum resultado" role="none" className="task-lead-empty-state" />
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -1204,10 +1265,13 @@ export default function Tasks() {
                     className="task-drawer-link"
                     onClick={() => {
                       setDetailTask(null);
-                      navigate(`/lead/${detailTask.lead_id}`);
+                      const path =
+                        profilePathForLinkablePerson(linkableById.get(detailTask.lead_id)) ||
+                        `/student/${detailTask.lead_id}`;
+                      navigate(path);
                     }}
                   >
-                    {detailTask.lead_name || detailTask.lead_id}
+                    {detailTask.lead_name || linkableById.get(detailTask.lead_id)?.name || detailTask.lead_id}
                   </button>
                 ) : (
                   <p className="task-drawer-value">—</p>
