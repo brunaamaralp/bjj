@@ -4,7 +4,7 @@ import { Plus, Search, ChevronUp, ChevronDown, ChevronRight, Upload, ArrowLeftRi
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
-import { filterParentCatalog } from '../lib/productCatalog';
+import { filterParentCatalog, findParentByProductOrVariantId } from '../lib/productCatalog';
 import { formatBRL } from '../lib/moneyBr';
 import { refreshStockStores } from '../lib/syncStockStores';
 import ProductThumb from '../components/products/ProductThumb';
@@ -35,8 +35,33 @@ function ProductStatus({ lifecycleKey }) {
   );
 }
 
-function ProductActionsMenu({ product, isOpen, onToggle, onClose, onDuplicate, onDelete, deleteBusy }) {
+function ProductActionsMenu({
+  product,
+  isOpen,
+  onToggle,
+  onClose,
+  onDuplicate,
+  onDelete,
+  onManageSizes,
+  showManageSizes,
+  deleteBusy,
+}) {
   const rootRef = useRef(null);
+
+  const runMenuAction = (e, action) => {
+    e.preventDefault();
+    e.stopPropagation();
+    action();
+    onClose();
+  };
+
+  const menuItemHandlers = (action) => ({
+    onMouseDown: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    onClick: (e) => runMenuAction(e, action),
+  });
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -76,22 +101,26 @@ function ProductActionsMenu({ product, isOpen, onToggle, onClose, onDuplicate, o
             type="button"
             role="menuitem"
             className="products-actions-menu__item"
-            onClick={() => {
-              onClose();
-              onDuplicate(product);
-            }}
+            {...menuItemHandlers(() => onDuplicate(product))}
           >
             Duplicar produto
           </button>
+          {showManageSizes ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="products-actions-menu__item"
+              {...menuItemHandlers(() => onManageSizes(product))}
+            >
+              {product?._legacy ? 'Adicionar tamanho' : 'Gerenciar tamanhos'}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"
             className="products-actions-menu__item products-actions-menu__item--danger"
             disabled={deleteBusy}
-            onClick={() => {
-              onClose();
-              onDelete(product);
-            }}
+            {...menuItemHandlers(() => onDelete(product))}
           >
             Excluir produto
           </button>
@@ -124,6 +153,8 @@ export default function Products() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [activeProduct, setActiveProduct] = useState(null);
+  const [catalogProduct, setCatalogProduct] = useState(null);
+  const [modalInitialStep, setModalInitialStep] = useState(1);
   const [sort, setSort] = useState({ key: 'nome', dir: 'asc' });
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteHasSales, setDeleteHasSales] = useState(false);
@@ -252,34 +283,53 @@ export default function Products() {
 
   const openCreate = () => {
     setActiveProduct(null);
+    setCatalogProduct(null);
+    setModalInitialStep(1);
     setModalMode('create');
     setModalOpen(true);
   };
 
-  const openEdit = (product, { variant } = {}) => {
-    setActiveProduct(
-      variant
-        ? { ...variant, id: variant.id }
-        : product
-    );
+  const openEdit = (parent, { step = 1 } = {}) => {
+    setCatalogProduct(parent);
+    setActiveProduct(parent);
+    setModalInitialStep(step);
     setModalMode('edit');
     setModalOpen(true);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set('edit', (variant || product).id);
+      next.set('edit', parent.id);
       return next;
     });
   };
 
+  const openManageSizes = (parent) => {
+    if (catalogMode === 'legacy') {
+      openDuplicate(parent);
+      return;
+    }
+    openEdit(parent, { step: 2 });
+  };
+
   const openDuplicate = (product) => {
     setActiveProduct(product);
+    setCatalogProduct(null);
+    setModalInitialStep(1);
     setModalMode('duplicate');
     setModalOpen(true);
+    setActionsMenuId(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('edit');
+      next.set('duplicate', product.id);
+      return next;
+    });
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setActiveProduct(null);
+    setCatalogProduct(null);
+    setModalInitialStep(1);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('edit');
@@ -294,10 +344,16 @@ export default function Products() {
     const dupId = searchParams.get('duplicate');
     const id = editId || dupId;
     if (!id) return;
-    const p = products.find((x) => x.id === id);
-    if (!p) return;
-    if (dupId) openDuplicate(p);
-    else openEdit(p);
+    const parent = findParentByProductOrVariantId(products, id);
+    if (!parent) return;
+    if (dupId) {
+      if (modalOpen && modalMode === 'duplicate' && activeProduct?.id === parent.id) return;
+      openDuplicate(parent);
+    } else {
+      if (modalOpen && modalMode === 'edit' && catalogProduct?.id === parent.id) return;
+      const isVariantId = parent.id !== id;
+      openEdit(parent, { step: isVariantId ? 2 : 1 });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, searchParams]);
 
@@ -344,7 +400,10 @@ export default function Products() {
       addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao salvar produto' });
       return { ok: false };
     }
-    addToast({ type: 'success', message: isEdit ? 'Produto atualizado' : 'Produto criado' });
+    addToast({
+      type: 'success',
+      message: isEdit ? 'Produto atualizado' : modalMode === 'duplicate' ? 'Produto duplicado' : 'Produto criado',
+    });
     closeModal();
     await refreshStockStores();
     return { ok: true };
@@ -585,6 +644,8 @@ export default function Products() {
                               onToggle={() => setActionsMenuId((id) => (id === p.id ? null : p.id))}
                               onClose={() => setActionsMenuId(null)}
                               onDuplicate={openDuplicate}
+                              onManageSizes={openManageSizes}
+                              showManageSizes
                               onDelete={(item) => void openDeleteDialog(item.variants?.[0] || item)}
                               deleteBusy={deleteBusy && deleteTarget?.id === p.id}
                             />
@@ -598,7 +659,7 @@ export default function Products() {
                               <tr
                                 key={v.id}
                                 className="products-table__row products-table__row--variant"
-                                onClick={() => openEdit(p, { variant: v })}
+                                onClick={() => openManageSizes(p)}
                               >
                                 <td className="products-table__thumb-cell" aria-hidden />
                                 <td className="products-table__col-product products-table__variant-label">
@@ -670,6 +731,8 @@ export default function Products() {
                       onToggle={() => setActionsMenuId((id) => (id === p.id ? null : p.id))}
                       onClose={() => setActionsMenuId(null)}
                       onDuplicate={openDuplicate}
+                      onManageSizes={openManageSizes}
+                      showManageSizes
                       onDelete={(item) => void openDeleteDialog(item)}
                       deleteBusy={deleteBusy && deleteTarget?.id === p.id}
                     />
@@ -686,6 +749,8 @@ export default function Products() {
         open={modalOpen}
         onClose={closeModal}
         product={activeProduct}
+        catalogProduct={catalogProduct}
+        initialStep={modalInitialStep}
         categories={categories}
         mode={modalMode}
         catalogMode={catalogMode}

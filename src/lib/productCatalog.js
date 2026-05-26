@@ -236,6 +236,19 @@ export function emptyVariantRow() {
   return { size: '', color: '', initial_quantity: '0', minimum_level: '0', sku: '' };
 }
 
+/** Linhas de variantes para duplicar um produto (sem ids, saldo zerado). */
+export function duplicateVariantRowsFromProduct(product) {
+  const list = product?.variants || [];
+  if (!list.length) return applyDefaultSizePresets([], { forCreate: true });
+  return list.map((v) => ({
+    size: v.size || v.Tamanho || '',
+    color: v.color || '',
+    initial_quantity: '0',
+    minimum_level: String(v.minimum_level ?? 0),
+    sku: '',
+  }));
+}
+
 /** Chave normalizada para combinação tamanho + cor. */
 export function variantComboKey(size, color) {
   const s = String(size ?? '').trim().toLowerCase() || 'único';
@@ -432,16 +445,40 @@ export function normalizeVariantsInput(rows) {
   return out;
 }
 
-export function applyDefaultSizePresets(existingRows = []) {
-  const active = (existingRows || []).filter((r) => !r._deleted);
+export function isBlankVariantRow(row) {
+  if (!row || row._deleted) return true;
+  if (row._isNew === false) return false;
+  if (Number(row.current_quantity) > 0) return false;
+  const size = String(row.size ?? row.Tamanho ?? '').trim();
+  const color = String(row.color ?? '').trim();
+  const sku = String(row.sku ?? '').trim();
+  const hasQty = Math.trunc(Number(row.initial_quantity) || 0) > 0;
+  return !size && !color && !sku && !hasQty;
+}
+
+export function applyDefaultSizePresets(existingRows = [], { forCreate = false } = {}) {
+  const active = (existingRows || []).filter((r) => !r._deleted && !isBlankVariantRow(r));
   const existingSizes = new Set(
-    active.map((r) => String(r.size || '').trim().toUpperCase()).filter(Boolean)
+    active.map((r) => String(r.size || r.Tamanho || '').trim().toUpperCase()).filter(Boolean)
   );
+  const factory = forCreate ? emptyVariantRow : emptyEditVariantRow;
   const added = VARIANT_SIZE_PRESETS.filter((s) => !existingSizes.has(s.toUpperCase())).map((size) => ({
-    ...emptyEditVariantRow(),
+    ...factory(),
     size,
     initial_quantity: '0',
     minimum_level: '0',
   }));
-  return [...(existingRows || []), ...added];
+  return [...active, ...added];
+}
+
+/** Localiza o produto-pai na listagem a partir do id do pai ou de uma variante. */
+export function findParentByProductOrVariantId(products, id) {
+  const needle = String(id || '').trim();
+  if (!needle) return null;
+  const direct = (products || []).find((p) => p.id === needle);
+  if (direct) return direct;
+  for (const p of products || []) {
+    if ((p.variants || []).some((v) => v.id === needle)) return p;
+  }
+  return null;
 }

@@ -23,6 +23,7 @@
     "provision:academy-attrs": "node scripts/ensure-academy-attrs.mjs",
     "provision:student-payments": "node scripts/provision_student_payments_schema.js",
     "provision:task-templates": "node scripts/provision-task-templates-schema.mjs",
+    "provision:products-catalog": "node scripts/provision-products-catalog-schema.mjs",
     "provision:academy-events": "node scripts/provision-academy-events-schema.mjs",
     "provision:bank-reconciliation": "node scripts/provision-bank-reconciliation-schema.mjs",
     "provision:finance-recurrence": "node scripts/provision-finance-recurrence-schema.mjs",

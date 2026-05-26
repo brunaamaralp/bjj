@@ -494,11 +494,19 @@ const Students = () => {
                         >
                             <Download size={14} /> {exporting ? 'Exportando...' : 'Exportar'}
                         </button>
-                        <button type="button" className="btn-action-ghost" onClick={() => setShowCreateStudent(true)}>
-                            <UserPlus size={14} /> Cadastrar {studentSingular.toLowerCase()}
-                        </button>
-                        <button type="button" className="btn-action-primary" onClick={() => setShowImport(true)}>
+                        <button
+                            type="button"
+                            className="btn-action-ghost"
+                            onClick={() => setShowImport(true)}
+                        >
                             <Upload size={14} /> Importar
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-action-primary students-register-btn"
+                            onClick={() => setShowCreateStudent(true)}
+                        >
+                            <UserPlus size={16} strokeWidth={2.25} aria-hidden /> Cadastrar {studentSingular.toLowerCase()}
                         </button>
                         </div>
                     </div>
@@ -1387,6 +1395,19 @@ const Students = () => {
           .students-header-row-search { flex-direction: column; align-items: stretch; }
           .students-header-search { flex: 1 1 100%; max-width: none; min-width: 0; }
           .students-header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+          .students-register-btn {
+            flex: 1 1 100%;
+            justify-content: center;
+            padding: 10px 18px;
+            font-size: 14px;
+          }
+        }
+        .students-register-btn {
+          font-weight: 600;
+          box-shadow: 0 1px 4px rgba(91, 63, 191, 0.28);
+        }
+        .students-register-btn:hover {
+          box-shadow: 0 2px 8px rgba(91, 63, 191, 0.32);
         }
         @media (max-width: 640px) {
           .students-create-grid {

@@ -4,6 +4,7 @@ import { Plus, Trash2, X } from 'lucide-react';
 import {
   emptyVariantRow,
   applyDefaultSizePresets,
+  duplicateVariantRowsFromProduct,
   normalizeVariantsInput,
   variantRowsFromProduct,
   emptyEditVariantRow,
@@ -63,6 +64,15 @@ function parentFormFromProduct(p) {
     unit: p?.unit || 'unidade',
     supplier: p?.supplier || '',
   };
+}
+
+function parentFormFromProductForDuplicate(p) {
+  const base = parentFormFromProduct(p);
+  const nome = String(base.nome || '').trim();
+  if (nome && !/\(cópia\)$/i.test(nome)) {
+    base.nome = `${nome} (cópia)`;
+  }
+  return base;
 }
 
 function Field({ label, hint, required, children }) {
@@ -208,10 +218,16 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
   );
 }
 
+function isCatalogParentRow(row) {
+  return Boolean(row?.id) && !String(row.id).startsWith('legacy-group:');
+}
+
 export default function ProductFormModal({
   open,
   onClose,
   product,
+  catalogProduct = null,
+  initialStep = 1,
   categories,
   mode,
   loading,
@@ -223,12 +239,12 @@ export default function ProductFormModal({
   const isEdit = mode === 'edit';
   const isDuplicate = mode === 'duplicate';
   const isCreate = !isEdit && !isDuplicate;
-  const isRealParent =
-    isEdit && product?.id && !String(product.id).startsWith('legacy-group:');
+  const parentRow = catalogProduct || product;
+  const isRealParent = isEdit && isCatalogParentRow(parentRow);
   const parentVariantCatalog = catalogMode !== 'legacy';
   const useEditWizard =
-    parentVariantCatalog && isRealParent && Array.isArray(product?.variants);
-  const useVariantWizard = parentVariantCatalog && isCreate;
+    parentVariantCatalog && isRealParent && Array.isArray(parentRow?.variants);
+  const useVariantWizard = parentVariantCatalog && (isCreate || isDuplicate);
 
   const [step, setStep] = useState(1);
   const isMobile = useMatchMobile();
@@ -261,16 +277,25 @@ export default function ProductFormModal({
     setDeactivateConfirm(null);
 
     if (useVariantWizard) {
-      const emptyParent = emptyParentForm();
-      const emptyVariants = [emptyVariantRow()];
+      const initialParent = isDuplicate && product
+        ? parentFormFromProductForDuplicate(product)
+        : emptyParentForm();
+      const initialVariants = isDuplicate && product
+        ? duplicateVariantRowsFromProduct(product)
+        : [emptyVariantRow()];
       setStep(1);
-      setParentForm(emptyParent);
-      setVariants(emptyVariants);
-      initialSnapshotRef.current = { mode: 'createWizard', parentForm: emptyParent, variants: emptyVariants };
+      setParentForm(initialParent);
+      setVariants(initialVariants);
+      initialSnapshotRef.current = {
+        mode: 'createWizard',
+        parentForm: initialParent,
+        variants: initialVariants,
+      };
     } else if (useEditWizard) {
-      const initialParent = parentFormFromProduct(product);
-      const initialEditVariants = variantRowsFromProduct(product);
-      setStep(1);
+      const initialParent = parentFormFromProduct(parentRow);
+      const initialEditVariants = variantRowsFromProduct(parentRow);
+      const startStep = initialStep === 2 ? 2 : 1;
+      setStep(startStep);
       setParentForm(initialParent);
       setEditVariants(initialEditVariants);
       initialSnapshotRef.current = {
@@ -282,8 +307,8 @@ export default function ProductFormModal({
     } else {
       setStep(1);
       const lf = {
-        ...parentFormFromProduct(product),
-        Tamanho: isDuplicate ? '' : product?.Tamanho || '',
+        ...(isDuplicate ? parentFormFromProductForDuplicate(product) : parentFormFromProduct(product)),
+        Tamanho: isDuplicate ? '' : product?.Tamanho || product?.variants?.[0]?.size || '',
         initial_quantity: '',
         minimum_level: String(product?.minimum_level ?? 3),
         notes: product?.notes || '',
@@ -292,7 +317,7 @@ export default function ProductFormModal({
       initialSnapshotRef.current = { mode: 'legacy', legacyForm: lf };
     }
     setDiscardOpen(false);
-  }, [open, product, isDuplicate, useVariantWizard, useEditWizard]);
+  }, [open, product, parentRow, isDuplicate, useVariantWizard, useEditWizard, initialStep]);
 
   const isFormDirty = useCallback(() => {
     const snap = initialSnapshotRef.current;
@@ -358,7 +383,7 @@ export default function ProductFormModal({
       : String(parentForm.categoriaSelect || parentForm.categoria || '').trim();
 
   const buildParentPayload = () => ({
-    product_id: product?.id,
+    product_id: parentRow?.id,
     nome: parentForm.nome.trim(),
     categoria: resolvedCategoria(),
     descricao: parentForm.descricao.trim(),
@@ -379,6 +404,9 @@ export default function ProductFormModal({
     if (useEditWizard) {
       const parentRes = await onSave(buildParentPayload(), { isEdit: true, isParent: true, phase: 'parent' });
       if (parentRes?.ok === false) return;
+    }
+    if (useVariantWizard) {
+      setVariants((rows) => applyDefaultSizePresets(rows, { forCreate: true }));
     }
     setStep(2);
   };
@@ -455,7 +483,7 @@ export default function ProductFormModal({
 
       const result = await onSave(
         {
-          product_id: product.id,
+          product_id: parentRow.id,
           variants: variantPayload,
           delete_variant_ids: pendingDeleteIds,
           unit: parentForm.unit,
@@ -714,7 +742,7 @@ export default function ProductFormModal({
               <h3 className="navi-section-heading" style={{ margin: 0 }}>{title}</h3>
               {(useVariantWizard || useEditWizard) && (
                 <p className="text-small text-muted" style={{ margin: '4px 0 0' }}>
-                  Passo {step} de 2 — {step === 1 ? 'Dados do produto' : 'Variantes'}
+                  Passo {step} de 2 — {step === 1 ? 'Dados do produto' : 'Tamanhos'}
                 </p>
               )}
             </div>
@@ -728,6 +756,19 @@ export default function ProductFormModal({
               <>
                 <div className="product-form-modal__body">
                 <ParentFields parentForm={parentForm} setParentForm={setParentForm} categoryOptions={categoryOptions} />
+                {useEditWizard ? (
+                  <p className="text-small text-muted mt-2" style={{ marginBottom: 0 }}>
+                    <button
+                      type="button"
+                      className="btn-link"
+                      style={{ padding: 0, fontSize: 'inherit' }}
+                      disabled={loading}
+                      onClick={() => void goStep2()}
+                    >
+                      Gerenciar tamanhos e variantes →
+                    </button>
+                  </p>
+                ) : null}
                 </div>
                 <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={requestClose} disabled={loading}>
@@ -739,7 +780,7 @@ export default function ProductFormModal({
                     onClick={() => void goStep2()}
                     disabled={!parentForm.nome.trim() || loading}
                   >
-                    Próximo: variantes
+                    {useEditWizard ? 'Salvar e ir para tamanhos' : 'Próximo: tamanhos'}
                   </button>
                 </div>
               </>
@@ -755,8 +796,8 @@ export default function ProductFormModal({
                   <button type="button" className="btn-outline" onClick={() => setVariants((rows) => [...rows, emptyVariantRow()])}>
                     <Plus size={14} aria-hidden /> Adicionar variante
                   </button>
-                  <button type="button" className="btn-outline" onClick={() => setVariants((rows) => applyDefaultSizePresets(rows))}>
-                    Adicionar tamanhos padrão
+                  <button type="button" className="btn-outline" onClick={() => setVariants((rows) => applyDefaultSizePresets(rows, { forCreate: true }))}>
+                    Adicionar tamanhos padrão (P–XGG)
                   </button>
                 </div>
                 <div className="product-variants-editor product-variants-editor--create">
@@ -785,7 +826,7 @@ export default function ProductFormModal({
                 <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>Voltar</button>
                   <button type="submit" className="btn-secondary" disabled={loading || variants.length === 0}>
-                    {loading ? 'Salvando…' : 'Criar produto'}
+                    {loading ? 'Salvando…' : isDuplicate ? 'Duplicar produto' : 'Criar produto'}
                   </button>
                 </div>
               </>
@@ -825,7 +866,7 @@ export default function ProductFormModal({
                     className="btn-outline"
                     onClick={() => setEditVariants((rows) => applyDefaultSizePresets(rows))}
                   >
-                    Adicionar tamanhos padrão
+                    Adicionar tamanhos padrão (P–XGG)
                   </button>
                 </div>
 
@@ -881,7 +922,7 @@ export default function ProductFormModal({
                 <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={requestClose} disabled={loading}>Cancelar</button>
                   <button type="submit" className="btn-secondary" disabled={loading}>
-                    {loading ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar produto'}
+                    {loading ? 'Salvando…' : isDuplicate ? 'Duplicar produto' : isEdit ? 'Salvar' : 'Criar produto'}
                   </button>
                 </div>
               </>
