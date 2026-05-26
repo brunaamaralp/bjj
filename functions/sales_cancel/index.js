@@ -152,6 +152,7 @@ export default async function (req, res) {
         product_id: itemStock.product_id || null,
         unit_price: unitPrice > 0 ? roundMoney(unitPrice) : null,
         line_total: unitPrice > 0 ? roundMoney(unitPrice * qty) : null,
+        payment_status_at_move: "cancelled",
         usuario_name: canceladoPor || null,
         notes: String(motivo || "").trim().slice(0, 512) || null,
         source: "pos",
