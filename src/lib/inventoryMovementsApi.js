@@ -38,3 +38,28 @@ export async function fetchInventoryMovements({
   }
   return data;
 }
+
+export async function fetchStockMovesConciliation({
+  from,
+  to,
+  academyId,
+  status_filter = 'divergent',
+}) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+  const aid = academyId || useLeadStore.getState().academyId;
+  if (!aid) throw new Error('academy_required');
+
+  const params = new URLSearchParams({ conciliation: '1', from, to, status_filter });
+  const res = await fetch(`/api/inventory/movements/conciliation?${params}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': aid,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.erro || data.error || `error_${res.status}`);
+  }
+  return data;
+}

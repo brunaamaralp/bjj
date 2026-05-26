@@ -105,6 +105,7 @@ export default function Products() {
   const modules = useLeadStore((s) => s.modules);
   const {
     products,
+    catalogMode,
     loadProducts,
     createProduct,
     updateProduct,
@@ -555,7 +556,18 @@ export default function Products() {
                           </div>
                         </td>
                         <td className="products-table__col-product">
-                          <span className="products-table__name">{p.nome}</span>
+                          <span
+                            className="products-table__name"
+                            title={p.supplier ? `Fornecedor: ${p.supplier}` : undefined}
+                          >
+                            {p.nome}
+                            {p.supplier ? (
+                              <span className="products-table__supplier text-small text-muted">
+                                {' '}
+                                · {p.supplier}
+                              </span>
+                            ) : null}
+                          </span>
                         </td>
                         <td className="products-table__col-cat text-small text-muted">{p.categoria || '—'}</td>
                         <td className="products-table__col-price text-small products-table__price">
@@ -678,6 +690,7 @@ export default function Products() {
         product={activeProduct}
         categories={categories}
         mode={modalMode}
+        catalogMode={catalogMode}
         loading={loading || deleteBusy}
         onSave={handleSave}
         onDeactivate={handleDeactivate}

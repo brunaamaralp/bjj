@@ -33,6 +33,7 @@ import StudentPaymentModal, {
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { useCanManageStudentPayments } from '../lib/canManageStudentPayments.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
+import { fetchReportsByStudent } from '../lib/reportsByStudentApi.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -393,6 +394,7 @@ export default function StudentProfile() {
     const [freqErrorCode, setFreqErrorCode] = useState(null);
     const [payments, setPayments] = useState([]);
     const [sales, setSales] = useState([]);
+    const [extratoUnificado, setExtratoUnificado] = useState(null);
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [paymentsError, setPaymentsError] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -618,21 +620,32 @@ export default function StudentProfile() {
                       return [];
                   })
                 : Promise.resolve([]);
-            const [docs, status, salesList, freezes] = await Promise.all([
+            const extratoPromise = canViewFinance
+                ? fetchReportsByStudent(leadId, { academyId }).catch((err) => {
+                      console.warn('fetchReportsByStudent:', leadId, err?.message || err);
+                      return null;
+                  })
+                : Promise.resolve(null);
+            const [docs, status, salesList, freezes, extrato] = await Promise.all([
                 canViewFinance ? getStudentPayments(leadId, academyId) : Promise.resolve([]),
                 canViewFinance ? getPaymentStatus(leadId, academyId) : Promise.resolve({ status: 'none', payment: null }),
                 salesPromise,
                 listPlanFreezes(leadId, academyId).catch(() => []),
+                extratoPromise,
             ]);
             setPayments(docs);
             setPaymentStatus(status);
             setSales(salesList);
             setPlanFreezes(freezes);
+            setExtratoUnificado(
+                extrato ? { timeline: extrato.timeline || [], totals: extrato.totals || null } : null
+            );
         } catch (e) {
             console.error(e);
             setPaymentsError(true);
             setPayments([]);
             setSales([]);
+            setExtratoUnificado(null);
             setPaymentStatus({ status: 'none', payment: null });
         } finally {
             setLoadingPayments(false);
@@ -2502,6 +2515,7 @@ export default function StudentProfile() {
                         canManagePayments={canManagePayments}
                         onEditPayment={openEditPaymentModal}
                         onDeletePayment={setDeletePaymentTarget}
+                        extratoUnificado={extratoUnificado}
                     />
                 ) : null}
 

@@ -9,7 +9,10 @@ import {
   emptyEditVariantRow,
   findDuplicateVariantIndexes,
   variantLabelForRow,
-  normalizeVariantEditRow,
+  variantLifecycleLabel,
+  buildVariantsSavePayload,
+  hasVariantsToSave,
+  variantRowIsDirty,
 } from '../../lib/productCatalog';
 import { centsToNumber, formatBRLFromCents, maskFromNumber, parseMaskToCents } from '../../lib/moneyBr';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
@@ -29,6 +32,7 @@ function emptyParentForm() {
     is_active: true,
     image_url: '',
     unit: 'unidade',
+    supplier: '',
   };
 }
 
@@ -55,6 +59,7 @@ function parentFormFromProduct(p) {
     is_active: p?.is_active !== false,
     image_url: p?.image_url || '',
     unit: p?.unit || 'unidade',
+    supplier: p?.supplier || '',
   };
 }
 
@@ -116,6 +121,15 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
             onChange={(e) => setParentForm((f) => ({ ...f, categoria: e.target.value }))}
           />
         )}
+      </Field>
+      <Field label="Fornecedor" hint="Opcional — fabricante ou distribuidor">
+        <input
+          className="form-input"
+          maxLength={120}
+          value={parentForm.supplier}
+          onChange={(e) => setParentForm((f) => ({ ...f, supplier: e.target.value }))}
+          placeholder="Ex.: Atama, Vulkan…"
+        />
       </Field>
       <Field label="Descrição">
         <textarea
@@ -199,6 +213,7 @@ export default function ProductFormModal({
   categories,
   mode,
   loading,
+  catalogMode = 'legacy',
   onSave,
   onDeactivate,
   onRequestDelete,
@@ -208,18 +223,21 @@ export default function ProductFormModal({
   const isCreate = !isEdit && !isDuplicate;
   const isRealParent =
     isEdit && product?.id && !String(product.id).startsWith('legacy-group:');
-  const useEditWizard = isRealParent && Array.isArray(product?.variants);
-  const useVariantWizard = isCreate;
+  const parentVariantCatalog = catalogMode !== 'legacy';
+  const useEditWizard =
+    parentVariantCatalog && isRealParent && Array.isArray(product?.variants);
+  const useVariantWizard = parentVariantCatalog && isCreate;
 
   const [step, setStep] = useState(1);
   const [parentForm, setParentForm] = useState(emptyParentForm);
   const [legacyForm, setLegacyForm] = useState(emptyLegacyForm);
   const [variants, setVariants] = useState([emptyVariantRow()]);
-  const [editVariants, setEditVariants] = useState([emptyEditVariantRow()]);
+  const [editVariants, setEditVariants] = useState([]);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [serverDupIndexes, setServerDupIndexes] = useState([]);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deactivateConfirm, setDeactivateConfirm] = useState(null);
   const [saveSummary, setSaveSummary] = useState('');
 
   const duplicateIndexes = useMemo(() => {
@@ -234,6 +252,7 @@ export default function ProductFormModal({
     setPendingDeleteIds([]);
     setSaveSummary('');
     setDeleteConfirm(null);
+    setDeactivateConfirm(null);
 
     if (useVariantWizard) {
       setStep(1);
@@ -281,6 +300,16 @@ export default function ProductFormModal({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [categories, parentForm.categoria, legacyForm.categoria, useVariantWizard, useEditWizard]);
 
+  const existingEditVariants = useMemo(
+    () => editVariants.map((row, idx) => ({ row, idx })).filter(({ row }) => !row._isNew),
+    [editVariants]
+  );
+  const newEditVariants = useMemo(
+    () => editVariants.map((row, idx) => ({ row, idx })).filter(({ row }) => row._isNew),
+    [editVariants]
+  );
+  const canSaveVariants = hasVariantsToSave(editVariants, pendingDeleteIds);
+
   if (!open || typeof document === 'undefined') return null;
 
   const resolvedCategoria = () =>
@@ -300,6 +329,7 @@ export default function ProductFormModal({
     is_active: parentForm.is_active,
     image_url: parentForm.image_url.trim(),
     unit: parentForm.unit,
+    supplier: parentForm.supplier.trim(),
   });
 
   const goStep2 = async () => {
@@ -314,8 +344,35 @@ export default function ProductFormModal({
   };
 
   const patchVariantRow = (idx, patch) => {
-    setEditVariants((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch, _error: '' } : r)));
+    setEditVariants((rows) =>
+      rows.map((r, i) => {
+        if (i !== idx) return r;
+        const next = { ...r, ...patch, _error: '' };
+        if (!next._isNew) next._dirty = variantRowIsDirty(next);
+        return next;
+      })
+    );
     setServerDupIndexes([]);
+  };
+
+  const requestVariantActive = (idx, nextActive) => {
+    const row = editVariants[idx];
+    if (!row) return;
+    if (nextActive) {
+      patchVariantRow(idx, { is_active: true });
+      return;
+    }
+    if (!row._isNew && Number(row.current_quantity) > 0) {
+      setDeactivateConfirm({ idx, row });
+      return;
+    }
+    patchVariantRow(idx, { is_active: false });
+  };
+
+  const applyDeactivateVariant = () => {
+    if (!deactivateConfirm) return;
+    patchVariantRow(deactivateConfirm.idx, { is_active: false });
+    setDeactivateConfirm(null);
   };
 
   const confirmDeleteVariant = (row, idx) => {
@@ -353,19 +410,8 @@ export default function ProductFormModal({
         return;
       }
 
-      const variantPayload = editVariants
-        .filter((r) => !r._removed)
-        .map((r) => {
-          const norm = normalizeVariantEditRow(r);
-          return {
-            id: r.id || null,
-            size: norm.size,
-            color: norm.color,
-            sku: norm.sku,
-            minimum_level: norm.minimum_level,
-            initial_quantity: r._isNew ? norm.initial_quantity : undefined,
-          };
-        });
+      const variantPayload = buildVariantsSavePayload(editVariants);
+      if (!variantPayload.length && !pendingDeleteIds.length) return;
 
       const result = await onSave(
         {
@@ -434,19 +480,114 @@ export default function ProductFormModal({
   const title = isEdit ? 'Editar produto' : isDuplicate ? 'Duplicar produto' : 'Novo produto';
   const wideModal = (useVariantWizard || useEditWizard) && step === 2;
 
-  const renderEditVariantRow = (row, idx) => {
+  const renderExistingVariantCard = ({ row, idx }) => {
     const isDup = duplicateIndexes.has(idx);
-    const canDelete = row._isNew || Number(row.current_quantity) === 0;
     const label = variantLabelForRow(row);
+    const statusLabel = variantLifecycleLabel(row.lifecycle);
+    const canDelete = Number(row.current_quantity) === 0;
 
     return (
+      <article
+        key={row.id}
+        className={`product-variant-card${isDup ? ' product-variant-card--error' : ''}${!row.is_active ? ' product-variant-card--inactive' : ''}`}
+      >
+        <div className="product-variant-card__head">
+          <div>
+            <strong>{label}</strong>
+            <span className="text-small text-muted" style={{ marginLeft: 8 }}>
+              Saldo: {row.current_quantity}
+            </span>
+          </div>
+          <span className={`product-variant-card__badge product-variant-card__badge--${row.lifecycle || 'ativo'}`}>
+            {statusLabel}
+          </span>
+        </div>
+        <div className="product-variant-card__readonly">
+          <span><span className="text-muted">Tamanho:</span> {row.size || '—'}</span>
+          <span><span className="text-muted">Cor:</span> {row.color || '—'}</span>
+          <span><span className="text-muted">SKU:</span> {row.sku || '—'}</span>
+        </div>
+        <div className="product-variant-card__fields">
+          <Field label="Preço específico" hint="Vazio = preço do produto pai">
+            <input
+              className="form-input"
+              inputMode="numeric"
+              placeholder="R$ 0,00"
+              value={row.priceOverrideMask}
+              onChange={(e) =>
+                patchVariantRow(idx, {
+                  priceOverrideMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
+                })
+              }
+            />
+          </Field>
+          <Field label="Custo específico" hint="Vazio = custo do produto pai">
+            <input
+              className="form-input"
+              inputMode="numeric"
+              placeholder="R$ 0,00"
+              value={row.costOverrideMask}
+              onChange={(e) =>
+                patchVariantRow(idx, {
+                  costOverrideMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
+                })
+              }
+            />
+          </Field>
+          <Field label="Mín. ideal">
+            <input
+              type="number"
+              min={0}
+              className="form-input"
+              value={row.minimum_level}
+              onChange={(e) => patchVariantRow(idx, { minimum_level: e.target.value })}
+            />
+          </Field>
+          <Field label="Fornecedor" hint="Opcional — sobrescreve o do pai nesta variante">
+            <input
+              className="form-input"
+              maxLength={120}
+              value={row.supplier}
+              onChange={(e) => patchVariantRow(idx, { supplier: e.target.value })}
+            />
+          </Field>
+        </div>
+        <div className="product-variant-card__foot">
+          <ToggleRow
+            label="Variante ativa"
+            checked={row.is_active !== false}
+            onChange={(v) => requestVariantActive(idx, v)}
+          />
+          <button
+            type="button"
+            className="btn-ghost"
+            aria-label="Excluir variante"
+            disabled={!canDelete}
+            title={canDelete ? 'Excluir variante' : 'Zere o saldo antes de excluir'}
+            onClick={() => confirmDeleteVariant(row, idx)}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+        {isDup ? (
+          <p className="product-variant-card__err">Combinação já existe nesta lista</p>
+        ) : row._error ? (
+          <p className="product-variant-card__err">{row._error}</p>
+        ) : null}
+      </article>
+    );
+  };
+
+  const renderNewVariantRow = ({ row, idx }) => {
+    const isDup = duplicateIndexes.has(idx);
+    return (
       <div
-        key={row.id || `new-${idx}`}
-        className={`product-variants-editor__row${isDup ? ' product-variants-editor__row--error' : ''}`}
+        key={`new-${idx}`}
+        className={`product-variants-editor__row product-variants-editor__row--new${isDup ? ' product-variants-editor__row--error' : ''}`}
       >
         <input
           className="form-input"
-          placeholder="Tamanho"
+          placeholder="Tamanho *"
           maxLength={16}
           value={row.size}
           onChange={(e) => patchVariantRow(idx, { size: e.target.value })}
@@ -459,12 +600,32 @@ export default function ProductFormModal({
           onChange={(e) => patchVariantRow(idx, { color: e.target.value })}
         />
         <input
-          className="form-input product-variants-editor__readonly"
-          readOnly
-          disabled
-          title="Altere o saldo pela página de Estoque"
-          value={row._isNew ? '' : String(row.current_quantity)}
-          placeholder={row._isNew ? '—' : '0'}
+          className="form-input"
+          placeholder="SKU"
+          maxLength={64}
+          value={row.sku}
+          onChange={(e) => patchVariantRow(idx, { sku: e.target.value })}
+        />
+        <input
+          type="number"
+          min={0}
+          className="form-input"
+          placeholder="Estoque ini."
+          title="Saldo inicial"
+          value={row.initial_quantity}
+          onChange={(e) => patchVariantRow(idx, { initial_quantity: e.target.value })}
+        />
+        <input
+          className="form-input"
+          inputMode="numeric"
+          placeholder="Preço esp."
+          title="Preço específico (opcional)"
+          value={row.priceOverrideMask}
+          onChange={(e) =>
+            patchVariantRow(idx, {
+              priceOverrideMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
+            })
+          }
         />
         <input
           type="number"
@@ -474,32 +635,10 @@ export default function ProductFormModal({
           value={row.minimum_level}
           onChange={(e) => patchVariantRow(idx, { minimum_level: e.target.value })}
         />
-        <input
-          className="form-input"
-          placeholder="SKU"
-          maxLength={64}
-          value={row.sku}
-          onChange={(e) => patchVariantRow(idx, { sku: e.target.value })}
-        />
-        {row._isNew ? (
-          <input
-            type="number"
-            min={0}
-            className="form-input"
-            placeholder="Saldo ini."
-            title="Saldo inicial (só na criação da variante)"
-            value={row.initial_quantity}
-            onChange={(e) => patchVariantRow(idx, { initial_quantity: e.target.value })}
-          />
-        ) : (
-          <span className="product-variants-editor__spacer" aria-hidden />
-        )}
         <button
           type="button"
           className="btn-ghost"
-          aria-label="Excluir variante"
-          disabled={!canDelete}
-          title={canDelete ? 'Excluir variante' : 'Zere o saldo antes de excluir'}
+          aria-label="Remover linha"
           onClick={() => confirmDeleteVariant(row, idx)}
         >
           <Trash2 size={16} />
@@ -508,11 +647,6 @@ export default function ProductFormModal({
           <span className="product-variants-editor__inline-err">Combinação já existe</span>
         ) : row._error ? (
           <span className="product-variants-editor__inline-err">{row._error}</span>
-        ) : null}
-        {!row._isNew && row.current_quantity > 0 ? (
-          <span className="product-variants-editor__hint text-xs text-muted">
-            Saldo: altere em Estoque
-          </span>
         ) : null}
       </div>
     );
@@ -608,36 +742,69 @@ export default function ProductFormModal({
 
             {useEditWizard && step === 2 ? (
               <>
-                <p className="text-small text-muted" style={{ marginBottom: 8 }}>
-                  <strong>{parentForm.nome}</strong> — edite variantes abaixo. Saldo atual só muda em Estoque.
+                <h4 className="navi-section-heading" style={{ margin: '0 0 8px', fontSize: '1rem' }}>
+                  Tamanhos / Variantes
+                </h4>
+                <p className="text-small text-muted" style={{ marginBottom: 12 }}>
+                  <strong>{parentForm.nome}</strong> — tamanho e cor de variantes já cadastradas não podem ser alterados.
+                  O saldo só muda em Estoque.
                 </p>
-                <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
-                  <button type="button" className="btn-outline" onClick={() => setEditVariants((rows) => [...rows, emptyEditVariantRow()])}>
-                    <Plus size={14} aria-hidden /> Adicionar variante
+
+                {existingEditVariants.length > 0 ? (
+                  <div className="product-variant-cards">
+                    {existingEditVariants.map(renderExistingVariantCard)}
+                  </div>
+                ) : (
+                  <p className="text-small text-muted" style={{ marginBottom: 12 }}>
+                    Nenhum tamanho cadastrado ainda.
+                  </p>
+                )}
+
+                <div className="flex gap-2 mb-2 mt-3" style={{ flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => setEditVariants((rows) => [...rows, emptyEditVariantRow()])}
+                  >
+                    <Plus size={14} aria-hidden /> Adicionar tamanho
                   </button>
-                  <button type="button" className="btn-outline" onClick={() => setEditVariants((rows) => applyDefaultSizePresets(rows))}>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => setEditVariants((rows) => applyDefaultSizePresets(rows))}
+                  >
                     Adicionar tamanhos padrão
                   </button>
                 </div>
-                <div className="product-variants-editor product-variants-editor--edit">
-                  <div className="product-variants-editor__head text-small text-muted">
-                    <span>Tamanho</span>
-                    <span>Cor</span>
-                    <span title="Altere o saldo pela página de Estoque">Saldo atual</span>
-                    <span>Mín. ideal</span>
-                    <span>SKU</span>
-                    <span>Saldo ini.</span>
-                    <span />
+
+                {newEditVariants.length > 0 ? (
+                  <div className="product-variants-editor product-variants-editor--new-rows">
+                    <div className="product-variants-editor__head text-small text-muted">
+                      <span>Tamanho</span>
+                      <span>Cor</span>
+                      <span>SKU</span>
+                      <span>Estoque ini.</span>
+                      <span>Preço esp.</span>
+                      <span>Mín.</span>
+                      <span />
+                    </div>
+                    {newEditVariants.map(renderNewVariantRow)}
                   </div>
-                  {editVariants.map((row, idx) => renderEditVariantRow(row, idx))}
-                </div>
+                ) : null}
+
                 {saveSummary ? (
                   <p className="text-small mt-2" style={{ color: 'var(--warning, #c9a227)' }}>{saveSummary}</p>
                 ) : null}
                 <div className="flex gap-2 justify-end mt-4">
-                  <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>Voltar</button>
-                  <button type="submit" className="btn-secondary" disabled={loading || editVariants.length === 0}>
-                    {loading ? 'Salvando…' : 'Salvar variantes'}
+                  <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>
+                    Voltar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-secondary"
+                    disabled={loading || !canSaveVariants}
+                  >
+                    {loading ? 'Salvando…' : 'Salvar alterações'}
                   </button>
                 </div>
               </>
@@ -693,6 +860,21 @@ export default function ProductFormModal({
         onConfirm={applyDeleteVariant}
       />
 
+      <ConfirmDialog
+        open={Boolean(deactivateConfirm)}
+        title="Desativar este tamanho?"
+        description={
+          deactivateConfirm
+            ? `Esse tamanho tem ${deactivateConfirm.row.current_quantity} unidade(s) em estoque. Deseja continuar?`
+            : ''
+        }
+        confirmLabel="Desativar"
+        cancelLabel="Cancelar"
+        confirmVariant="danger"
+        onClose={() => setDeactivateConfirm(null)}
+        onConfirm={applyDeactivateVariant}
+      />
+
       <style dangerouslySetInnerHTML={{
         __html: `
           .product-variants-editor__head,
@@ -702,14 +884,72 @@ export default function ProductFormModal({
             gap: 8px;
             align-items: center;
           }
-          .product-variants-editor--edit .product-variants-editor__row {
+          .product-variants-editor--new-rows .product-variants-editor__row--new {
             display: grid;
-            grid-template-columns: 1fr 1fr 72px 72px 1fr 72px 36px;
+            grid-template-columns: 1fr 1fr 1fr 90px 1fr 70px 36px;
             gap: 8px;
             align-items: start;
             margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border, #eee);
+          }
+          .product-variant-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 42vh;
+            overflow-y: auto;
+            padding-right: 4px;
+          }
+          .product-variant-card {
+            border: 1px solid var(--border, #e5e5e5);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--surface, #fff);
+          }
+          .product-variant-card--inactive { opacity: 0.85; }
+          .product-variant-card--error { border-color: var(--danger, #dc2626); }
+          .product-variant-card__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+          }
+          .product-variant-card__badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--surface-muted, #f4f4f5);
+          }
+          .product-variant-card__badge--ativo { color: var(--success, #16a34a); }
+          .product-variant-card__badge--inativo { color: var(--muted, #71717a); }
+          .product-variant-card__badge--sem_estoque { color: var(--warning, #ca8a04); }
+          .product-variant-card__readonly {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            font-size: 13px;
+            margin-bottom: 8px;
+          }
+          .product-variant-card__fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 12px;
+          }
+          @media (max-width: 520px) {
+            .product-variant-card__fields { grid-template-columns: 1fr; }
+          }
+          .product-variant-card__foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border, #eee);
+          }
+          .product-variant-card__err {
+            margin: 8px 0 0;
+            font-size: 12px;
+            color: var(--danger, #dc2626);
           }
           .product-variants-editor__row--error .form-input {
             border-color: var(--danger, #dc2626);

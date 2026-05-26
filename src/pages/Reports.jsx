@@ -28,6 +28,7 @@ import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
 import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
 import ReportsEstoquePanel from '../components/reports/ReportsEstoquePanel.jsx';
 import ReportsMovimentacoesPanel from '../components/reports/ReportsMovimentacoesPanel.jsx';
+import ReportsOperadorPanel from '../components/reports/ReportsOperadorPanel.jsx';
 import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
 import { downloadCsv, leadToCsvRow } from '../lib/reportsExport.js';
 
@@ -193,6 +194,7 @@ const REPORT_TABS = new Set([
     'loja',
     'estoque',
     'movimentacoes',
+    'operador',
 ]);
 
 const REPORT_TAB_ITEMS_BASE = [
@@ -203,6 +205,7 @@ const REPORT_TAB_ITEMS_BASE = [
     { id: 'loja', label: 'Loja' },
     { id: 'estoque', label: 'Estoque' },
     { id: 'movimentacoes', label: 'Movimentações' },
+    { id: 'operador', label: 'Por Operador' },
 ];
 
 const Reports = () => {
@@ -264,6 +267,7 @@ const Reports = () => {
             if (t.id === 'financeiro') return hasFinance;
             if (t.id === 'loja') return hasSales;
             if (t.id === 'estoque' || t.id === 'movimentacoes') return hasInventory;
+            if (t.id === 'operador') return hasSales;
             return true;
         });
     }, [hasFinance, hasSales, hasInventory]);
@@ -276,7 +280,8 @@ const Reports = () => {
         activeTab === 'financeiro' ||
         activeTab === 'loja' ||
         activeTab === 'estoque' ||
-        activeTab === 'movimentacoes';
+        activeTab === 'movimentacoes' ||
+        activeTab === 'operador';
 
     useEffect(() => {
         const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -1131,6 +1136,15 @@ const Reports = () => {
                     from={range.from}
                     to={range.to}
                     hasInventory={hasInventory}
+                />
+            ) : null}
+
+            {activeTab === 'operador' ? (
+                <ReportsOperadorPanel
+                    academyId={academyId}
+                    from={range.from}
+                    to={range.to}
+                    hasSales={hasSales}
                 />
             ) : null}
 

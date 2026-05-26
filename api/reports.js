@@ -3,6 +3,8 @@ import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js'
 import { aggregateLeadsReport } from '../lib/server/reportsAggregate.js';
 import { loadReportSnapshot, saveReportSnapshot } from '../lib/server/reportSnapshots.js';
 import reportsLightHandler from '../lib/server/reportsLightHandler.js';
+import reportsByOperatorHandler from '../lib/server/reportsByOperatorHandler.js';
+import reportsByStudentHandler from '../lib/server/reportsByStudentHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -46,6 +48,12 @@ export default async function handler(req, res) {
   const route = String(req.query.route || '').trim();
   if (route === 'light') {
     return reportsLightHandler(req, res);
+  }
+  if (route === 'by-operator') {
+    return reportsByOperatorHandler(req, res);
+  }
+  if (route === 'by-student') {
+    return reportsByStudentHandler(req, res);
   }
 
   if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed' });

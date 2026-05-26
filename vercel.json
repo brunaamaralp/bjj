@@ -51,6 +51,7 @@
     { "source": "/api/inventory", "destination": "/api/leads.js?route=inventory" },
     { "source": "/api/inventory/adjust", "destination": "/api/leads.js?route=inventory" },
     { "source": "/api/inventory/report", "destination": "/api/leads.js?route=inventory&report=1" },
+    { "source": "/api/inventory/movements/conciliation", "destination": "/api/leads.js?route=inventory&conciliation=1" },
     { "source": "/api/inventory/movements", "destination": "/api/leads.js?route=inventory&movements=1" },
     { "source": "/api/products", "destination": "/api/leads.js?route=products" },
     { "source": "/api/sales", "destination": "/api/leads.js?hub=sales" },
@@ -66,6 +67,8 @@
     { "source": "/api/finance/forecast", "destination": "/api/finance.js?route=forecast" },
     { "source": "/api/bank-reconciliation", "destination": "/api/finance.js?finance_hub=bank-reconciliation" },
     { "source": "/api/reports-light", "destination": "/api/reports.js?route=light" },
+    { "source": "/api/reports/by-operator", "destination": "/api/reports.js?route=by-operator" },
+    { "source": "/api/reports/by-student", "destination": "/api/reports.js?route=by-student" },
     { "source": "/api/students/:id/profile", "destination": "/api/leads.js?route=students&action=profile&student_id=$1" },
     { "source": "/api/academy/whatsapp-templates", "destination": "/api/agent.js?route=whatsapp-templates" },
 

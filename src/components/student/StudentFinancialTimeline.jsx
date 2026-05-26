@@ -8,7 +8,9 @@ import {
   ChevronUp,
   Lock,
   Pause,
+  Download,
 } from 'lucide-react';
+import { downloadCsv } from '../../lib/reportsExport.js';
 import PlanFreezePanel from './PlanFreezePanel.jsx';
 import {
   canStartPlanFreeze,
@@ -287,6 +289,62 @@ function ProductTimelineRow({ item }) {
   );
 }
 
+function ExtratoTotalsCard({ totals }) {
+  if (!totals) return null;
+  return (
+    <div
+      style={{
+        padding: '12px 14px',
+        borderRadius: 10,
+        border: '1px solid var(--border-light)',
+        background: 'var(--surface-muted, #f8fafc)',
+        marginBottom: 12,
+        fontSize: 13,
+        lineHeight: 1.55,
+      }}
+    >
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>Resumo do extrato</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px' }}>
+        <span>
+          <strong>Produtos:</strong> {fmtMoney(totals.total_gasto_produtos)}
+        </span>
+        <span>
+          <strong>Mensalidades pagas:</strong> {fmtMoney(totals.total_pago_mensalidades)}
+        </span>
+        <span>
+          <strong>Em aberto:</strong> {fmtMoney(totals.total_em_aberto)}
+        </span>
+        {totals.primeira_compra ? (
+          <span>
+            <strong>1ª compra:</strong> {formatDd(totals.primeira_compra)}
+          </span>
+        ) : null}
+        {totals.ultima_compra ? (
+          <span>
+            <strong>Última compra:</strong> {formatDd(totals.ultima_compra)}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function UnifiedExtratoRow({ row }) {
+  const Icon = row.type === 'product_sale' ? ShoppingBag : Calendar;
+  const iconColor = row.type === 'product_sale' ? '#3B6D11' : '#5B3FBF';
+  const badge =
+    row.status === 'paid'
+      ? { label: 'Pago', tone: 'success' }
+      : row.status === 'cancelled'
+        ? { label: 'Cancelado', tone: 'muted' }
+        : row.status === 'pending'
+          ? { label: 'Pendente', tone: 'danger' }
+          : { label: row.status, tone: 'muted' };
+  return (
+    <TimelineRow icon={Icon} iconColor={iconColor} item={{ title: row.description, sortDate: row.date, amount: row.amount, badge, subtitle: [row.method, row.operador_nome].filter(Boolean).join(' · ') }} />
+  );
+}
+
 function FinancialSummaryCard({ summary }) {
   const situationColor =
     summary.situationTone === 'success'
@@ -363,6 +421,7 @@ export default function StudentFinancialTimeline({
   canManagePayments = false,
   onEditPayment,
   onDeletePayment,
+  extratoUnificado = null,
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('12m');
@@ -421,8 +480,50 @@ export default function StudentFinancialTimeline({
 
   const showEmpty = filteredItems.length === 0 && !loading;
 
+  const exportExtratoCsv = () => {
+    const rows = (extratoUnificado?.timeline || []).map((r) => ({
+      data: formatDd(r.date),
+      tipo: r.type === 'product_sale' ? 'Venda produto' : 'Mensalidade',
+      descricao: r.description,
+      valor: r.amount,
+      metodo: r.method,
+      status: r.status,
+      operador: r.operador_nome || '',
+      referencia: r.reference_id || '',
+    }));
+    downloadCsv(rows, `extrato-${student?.id || 'aluno'}.csv`);
+  };
+
   return (
     <div>
+      {extratoUnificado?.totals ? (
+        <>
+          <ExtratoTotalsCard totals={extratoUnificado.totals} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button
+              type="button"
+              className="btn-outline btn-sm"
+              onClick={exportExtratoCsv}
+              disabled={!extratoUnificado.timeline?.length}
+            >
+              <Download size={14} aria-hidden style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              Exportar extrato CSV
+            </button>
+          </div>
+          {extratoUnificado.timeline?.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {extratoUnificado.timeline.slice(0, 30).map((row) => (
+                <UnifiedExtratoRow key={`${row.type}-${row.reference_id}-${row.date}`} row={row} />
+              ))}
+            </div>
+          ) : null}
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '16px 0' }} />
+          <p className="text-small text-muted" style={{ margin: '0 0 12px' }}>
+            Detalhamento por tipo (mensalidades, planos e produtos)
+          </p>
+        </>
+      ) : null}
+
       <FinancialSummaryCard summary={summary} />
 
       {freezeActive ? (

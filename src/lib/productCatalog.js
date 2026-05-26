@@ -1,4 +1,5 @@
 import { getVariantStockStatus, resolveCurrentQuantity } from './stockInventory.js';
+import { centsToNumber, maskFromNumber, parseMaskToCents } from './moneyBr.js';
 
 export const VARIANT_SIZE_PRESETS = ['P', 'M', 'G', 'GG', 'XGG'];
 
@@ -57,6 +58,7 @@ export function mapParentProductDoc(doc) {
     is_for_sale: doc.is_for_sale !== false && String(doc.type || 'sale') !== 'supply',
     is_active: doc.is_active !== false,
     image_url: String(doc.image_url || doc.image || doc.photo_url || '').trim(),
+    supplier: String(doc.supplier || '').trim(),
     academy_id: String(doc.academy_id || '').trim(),
     created_at: doc.created_at || doc.$createdAt || '',
   };
@@ -68,6 +70,14 @@ export function mapVariantDoc(doc, parent) {
   const parentName = parent?.nome || String(doc.parent_name || '').trim();
   const size = String(doc.size ?? doc.Tamanho ?? '').trim();
   const color = String(doc.color ?? '').trim();
+  const priceOverride =
+    doc.price_override != null && doc.price_override !== ''
+      ? parseOptionalPrice(doc.price_override)
+      : null;
+  const costOverride =
+    doc.cost_override != null && doc.cost_override !== ''
+      ? parseOptionalPrice(doc.cost_override)
+      : null;
   const isActive = parent?.is_active !== false && doc.is_active !== false;
 
   let lifecycle = 'ativo';
@@ -80,8 +90,10 @@ export function mapVariantDoc(doc, parent) {
     nome: parentName,
     descricao: parent?.descricao || '',
     categoria: parent?.categoria || 'Sem categoria',
-    sale_price: parent?.sale_price ?? null,
-    cost_price: parent?.cost_price ?? null,
+    sale_price: priceOverride ?? parent?.sale_price ?? null,
+    cost_price: costOverride ?? parent?.cost_price ?? null,
+    price_override: priceOverride,
+    cost_override: costOverride,
     is_for_sale: parent?.is_for_sale !== false,
     is_active: isActive,
     image_url:
@@ -209,6 +221,7 @@ export function filterParentCatalog(parents, { search, category, statusFilter, t
         p.nome,
         p.categoria,
         p.descricao,
+        p.supplier,
         ...(p.variants || []).flatMap((v) => [v.size, v.color, v.sku, v.display_label]),
       ]
         .join(' ')
@@ -261,30 +274,139 @@ export function emptyEditVariantRow() {
     sku: '',
     minimum_level: '0',
     initial_quantity: '0',
+    priceOverrideMask: '',
+    costOverrideMask: '',
+    supplier: '',
+    is_active: true,
     current_quantity: 0,
+    lifecycle: 'ativo',
     _isNew: true,
+    _dirty: true,
     _deleted: false,
     _error: '',
     _duplicate: false,
+    _initial: null,
   };
+}
+
+export function variantLifecycleLabel(lifecycle) {
+  const key = String(lifecycle || 'ativo').toLowerCase();
+  if (key === 'inativo') return 'Inativo';
+  if (key === 'sem_estoque') return 'Sem estoque';
+  return 'Ativo';
 }
 
 export function variantRowsFromProduct(product) {
   const list = product?.variants || [];
-  if (!list.length) return [emptyEditVariantRow()];
-  return list.map((v) => ({
-    id: v.id,
-    size: v.size || v.Tamanho || '',
-    color: v.color || '',
-    sku: v.sku || '',
-    minimum_level: String(v.minimum_level ?? 0),
-    initial_quantity: '0',
-    current_quantity: Number(v.current_quantity) || 0,
-    _isNew: false,
-    _deleted: false,
-    _error: '',
-    _duplicate: false,
-  }));
+  if (!list.length) return [];
+  return list.map((v) => {
+    const size = v.size || v.Tamanho || '';
+    const color = v.color || '';
+    const sku = v.sku || '';
+    const minimum_level = String(v.minimum_level ?? 0);
+    const priceOverride =
+      v.price_override != null && v.price_override !== '' ? Number(v.price_override) : null;
+    const costOverride =
+      v.cost_override != null && v.cost_override !== '' ? Number(v.cost_override) : null;
+    const is_active = v.is_active !== false && String(v.lifecycle || '') !== 'inativo';
+    return {
+      id: v.id,
+      size,
+      color,
+      sku,
+      minimum_level,
+      initial_quantity: '0',
+      priceOverrideMask: priceOverride != null ? maskFromNumber(priceOverride) : '',
+      costOverrideMask: costOverride != null ? maskFromNumber(costOverride) : '',
+      supplier: String(v.supplier || '').trim(),
+      is_active,
+      current_quantity: Number(v.current_quantity) || 0,
+      lifecycle: v.lifecycle || 'ativo',
+      _isNew: false,
+      _dirty: false,
+      _deleted: false,
+      _error: '',
+      _duplicate: false,
+      _initial: {
+        size,
+        color,
+        sku,
+        minimum_level,
+        priceOverrideMask: priceOverride != null ? maskFromNumber(priceOverride) : '',
+        costOverrideMask: costOverride != null ? maskFromNumber(costOverride) : '',
+        supplier: String(v.supplier || '').trim(),
+        is_active,
+      },
+    };
+  });
+}
+
+export function variantRowIsDirty(row) {
+  if (row._isNew || !row._initial) return Boolean(row._dirty);
+  const init = row._initial;
+  return (
+    String(row.minimum_level) !== String(init.minimum_level) ||
+    String(row.sku || '').trim() !== String(init.sku || '').trim() ||
+    String(row.priceOverrideMask || '') !== String(init.priceOverrideMask || '') ||
+    String(row.costOverrideMask || '') !== String(init.costOverrideMask || '') ||
+    String(row.supplier || '').trim() !== String(init.supplier || '').trim() ||
+    Boolean(row.is_active) !== Boolean(init.is_active)
+  );
+}
+
+function maskToOptionalPrice(mask) {
+  const raw = String(mask ?? '').trim();
+  if (!raw) return null;
+  const cents = parseMaskToCents(raw);
+  if (cents == null) return null;
+  return centsToNumber(cents);
+}
+
+/** Linhas novas ou alteradas para `save_variants` (existentes intactas ficam de fora). */
+export function buildVariantsSavePayload(editVariants) {
+  const payload = [];
+  for (const r of editVariants || []) {
+    if (r._removed) continue;
+    const norm = normalizeVariantEditRow(r);
+    const price_override = maskToOptionalPrice(r.priceOverrideMask);
+    const cost_override = maskToOptionalPrice(r.costOverrideMask);
+    const supplier = String(r.supplier || '').trim().slice(0, 120);
+
+    if (r._isNew) {
+      payload.push({
+        id: null,
+        size: norm.size,
+        color: norm.color,
+        sku: norm.sku,
+        minimum_level: norm.minimum_level,
+        initial_quantity: norm.initial_quantity,
+        price_override,
+        cost_override,
+        supplier: supplier || undefined,
+      });
+      continue;
+    }
+
+    if (!r.id || !variantRowIsDirty(r)) continue;
+    const init = r._initial || {};
+    payload.push({
+      id: r.id,
+      size: String(init.size ?? norm.size).trim() || norm.size,
+      color: String(init.color ?? norm.color).trim(),
+      sku: norm.sku,
+      minimum_level: norm.minimum_level,
+      is_active: r.is_active !== false,
+      price_override,
+      cost_override,
+      supplier: supplier || undefined,
+    });
+  }
+  return payload;
+}
+
+export function hasVariantsToSave(editVariants, pendingDeleteIds = []) {
+  if (pendingDeleteIds.length > 0) return true;
+  return (editVariants || []).some((r) => !r._removed && (r._isNew || variantRowIsDirty(r)));
 }
 
 export function normalizeVariantEditRow(row) {
