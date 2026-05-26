@@ -211,7 +211,7 @@ export const FINANCE_PAGE_CSS = `
           .finance-accounts-row .finance-accounts-delete { opacity: 0.35; transition: opacity 0.15s ease; }
           .finance-accounts-row:hover .finance-accounts-delete { opacity: 1; }
           .finance-accounts-row--unused { opacity: 0.72; }
-          .finance-accounts-protected-hint { margin: 6px 0 0; font-size: 11px; line-height: 1.35; color: #B45309; max-width: 220px; }
+          .finance-accounts-protected-hint { margin: 6px 0 0; font-size: 11px; line-height: 1.35; color: var(--text-secondary); max-width: 260px; display: inline-flex; align-items: center; }
           .finance-accounts-usage { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
           .finance-accounts-usage--active { background: rgba(91, 63, 191, 0.12); color: var(--v500, #5B3FBF); }
           .finance-accounts-usage--empty { color: var(--text-muted, #888); font-weight: 400; }

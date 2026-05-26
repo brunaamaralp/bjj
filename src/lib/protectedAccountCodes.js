@@ -25,7 +25,7 @@ export function isProtectedAccountCode(code) {
 }
 
 export const PROTECTED_CODE_EDIT_WARNING =
-  'Este código é usado pelo espelho contábil automático. Alterar pode afetar lançamentos e o DRE.';
+  'Código do sistema (espelho automático). Evite alterar para não quebrar lançamentos.';
 
 export const PROTECTED_CODE_DELETE_MESSAGE =
   'Esta conta é usada pelo sistema para lançamentos automáticos e não pode ser excluída.';

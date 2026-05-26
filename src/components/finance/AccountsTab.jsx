@@ -106,9 +106,13 @@ function UsageBadge({ count }) {
 
 function AccountsMobileDrawer({ open, account, onClose, onSave, persistField }) {
   const [local, setLocal] = useState(account || EMPTY_DRAFT);
+  const [codeFocused, setCodeFocused] = useState(false);
 
   useEffect(() => {
-    if (open && account) setLocal({ ...EMPTY_DRAFT, ...account });
+    if (open && account) {
+      setLocal({ ...EMPTY_DRAFT, ...account });
+      setCodeFocused(false);
+    }
   }, [open, account]);
 
   if (!open || !account) return null;
@@ -143,10 +147,13 @@ function AccountsMobileDrawer({ open, account, onClose, onSave, persistField }) 
             className="form-input"
             value={local.code}
             onChange={(e) => patch({ code: e.target.value })}
+            onFocus={() => setCodeFocused(true)}
+            onBlur={() => setCodeFocused(false)}
           />
-          {protectedRow ? (
+          {protectedRow && codeFocused ? (
             <p className="finance-accounts-protected-hint" role="status">
-              ⚠️ {PROTECTED_CODE_EDIT_WARNING}
+              <Lock size={12} aria-hidden style={{ marginRight: 6, opacity: 0.8 }} />
+              {PROTECTED_CODE_EDIT_WARNING}
             </p>
           ) : null}
         </div>
@@ -217,6 +224,7 @@ export default function AccountsTab({
   const storageWarning = Boolean(academyId) && !ACCOUNTS_COL;
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [mobileEdit, setMobileEdit] = useState(null);
+  const [codeFocusId, setCodeFocusId] = useState(null);
 
   const sortedAccounts = useMemo(() => {
     const copy = Array.isArray(accounts) ? [...accounts] : [];
@@ -509,10 +517,13 @@ export default function AccountsTab({
                     className="form-input"
                     value={a.code}
                     onChange={(e) => persistField(a.id, { code: e.target.value })}
+                    onFocus={() => setCodeFocusId(a.id)}
+                    onBlur={() => setCodeFocusId((cur) => (cur === a.id ? null : cur))}
                   />
-                  {protectedRow ? (
+                  {protectedRow && codeFocusId === a.id ? (
                     <p className="finance-accounts-protected-hint" role="status">
-                      ⚠️ {PROTECTED_CODE_EDIT_WARNING}
+                      <Lock size={12} aria-hidden style={{ marginRight: 6, opacity: 0.8 }} />
+                      {PROTECTED_CODE_EDIT_WARNING}
                     </p>
                   ) : null}
                 </td>
