@@ -210,6 +210,25 @@ export const FINANCE_PAGE_CSS = `
           }
           .finance-accounts-row .finance-accounts-delete { opacity: 0.35; transition: opacity 0.15s ease; }
           .finance-accounts-row:hover .finance-accounts-delete { opacity: 1; }
+          .finance-accounts-row--unused { opacity: 0.72; }
+          .finance-accounts-protected-hint { margin: 6px 0 0; font-size: 11px; line-height: 1.35; color: #B45309; max-width: 220px; }
+          .finance-accounts-usage { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+          .finance-accounts-usage--active { background: rgba(91, 63, 191, 0.12); color: var(--v500, #5B3FBF); }
+          .finance-accounts-usage--empty { color: var(--text-muted, #888); font-weight: 400; }
+          .finance-accounts-mobile-card.finance-accounts-row--unused { opacity: 0.85; }
+          .finance-accounts-drawer-backdrop {
+            position: fixed; inset: 0; z-index: 1100;
+            background: rgba(0,0,0,0.45);
+            display: flex; align-items: flex-end; justify-content: center;
+            padding: 12px;
+          }
+          .finance-accounts-drawer {
+            width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+            padding: 16px; margin: 0;
+          }
+          @media (min-width: 720px) {
+            .finance-accounts-drawer-backdrop { align-items: center; }
+          }
           .finance-reports-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 20px; }
           .finance-reports-block { background: var(--surface); border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 16px; }
           .finance-reports-block h4 { font-size: 15px; font-weight: 500; margin: 0 0 14px; color: var(--ink); }

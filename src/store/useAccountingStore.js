@@ -4,6 +4,7 @@ import {
   UNCLASSIFIED_DRE_GROUP,
   isKnownDreGroup,
 } from '../lib/financeCategories.js';
+import { isProtectedAccountCode } from '../lib/protectedAccountCodes.js';
 
 const LS_BASE_KEY = 'bjj_accounting_v1';
 
@@ -85,6 +86,24 @@ function endOfDay(d) {
   return dt.toISOString();
 }
 
+/** Contagem de linhas do razão por código de conta (só com journal já no store). */
+export function buildAccountUsageByCode(accounts, journal) {
+  const list = Array.isArray(journal) ? journal : [];
+  if (list.length === 0) return {};
+  const idToCode = new Map(
+    (Array.isArray(accounts) ? accounts : []).map((a) => [a.id, String(a.code || '').trim()])
+  );
+  const map = {};
+  for (const entry of list) {
+    for (const line of entry.lines || []) {
+      const code = idToCode.get(line.accountId);
+      if (!code) continue;
+      map[code] = (map[code] || 0) + 1;
+    }
+  }
+  return map;
+}
+
 export const useAccountingStore = create((set, get) => ({
     accounts: seedAccounts(),
     journal: [],
@@ -135,6 +154,7 @@ export const useAccountingStore = create((set, get) => ({
       set((state) => {
         const acc = state.accounts.find((a) => a.id === id);
         if (!acc) return {};
+        if (isProtectedAccountCode(acc.code)) return {};
         const hasChildren = state.accounts.some((a) => a.code.startsWith(acc.code + '.'));
         if (hasChildren) return {};
         const next = { ...state, accounts: state.accounts.filter((a) => a.id !== id) };

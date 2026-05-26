@@ -9,6 +9,7 @@ import JournalTab from './JournalTab.jsx';
 import ReportsTab from './ReportsTab.jsx';
 import ImportFinanceModal from './ImportFinanceModal.jsx';
 import { useTerms } from '../../lib/terminology.js';
+import { exportAccountsCsv } from '../../lib/exportAccountsCsv.js';
 
 const defaultFinanceConfig = () => ({
   cardFees: {
@@ -196,9 +197,19 @@ export default function CaixaAccountingPanel({ activeTab, onGoToRazao }) {
           updateAccount={updateAccount}
           deleteAccount={deleteAccount}
           headingActions={
-            <button type="button" className="btn-action-ghost" onClick={() => setShowImportModal(true)}>
-              ↑ Importar planilha
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn-action-ghost"
+                disabled={!accounts?.length}
+                onClick={() => exportAccountsCsv(accounts)}
+              >
+                ↓ Exportar plano
+              </button>
+              <button type="button" className="btn-action-ghost" onClick={() => setShowImportModal(true)}>
+                ↑ Importar planilha
+              </button>
+            </>
           }
         />
       )}
