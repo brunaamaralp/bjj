@@ -156,6 +156,23 @@ export const STOCK_RESTOCK_TITLE_PREFIX = 'Repor estoque';
 
 export const STOCK_RESTOCK_CONSOLIDATED_FLAG = 'consolidated:true';
 
+/** Limite do atributo `description` na coleção tasks (Appwrite). */
+export const TASK_DESCRIPTION_MAX = 2000;
+
+/** Garante string válida para gravar em tasks (tipo + tamanho). */
+export function taskDescriptionForAppwrite(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.slice(0, TASK_DESCRIPTION_MAX);
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).slice(0, TASK_DESCRIPTION_MAX);
+  }
+  try {
+    return JSON.stringify(value).slice(0, TASK_DESCRIPTION_MAX);
+  } catch {
+    return String(value).slice(0, TASK_DESCRIPTION_MAX);
+  }
+}
+
 export function formatRestockProductLine(item, currentQty, minimumLevel) {
   const name = itemDisplayName(item);
   const tam = String(item?.Tamanho ?? item?.tamanho ?? '').trim();
@@ -179,13 +196,29 @@ export function buildConsolidatedRestockTaskDescription(products) {
     formatRestockProductLine(item, currentQty, minimumLevel)
   );
   const ids = (products || []).map((p) => String(p.item?.$id || p.item?.id || '').trim()).filter(Boolean);
-  return [
-    STOCK_RESTOCK_MARKER,
-    STOCK_RESTOCK_CONSOLIDATED_FLAG,
-    `product_ids:${ids.join(',')}`,
-    '',
-    ...lines,
-  ].join('\n');
+  let idsLine = `product_ids:${ids.join(',')}`;
+  const max = TASK_DESCRIPTION_MAX;
+  if (idsLine.length > 400) {
+    idsLine = `product_ids_count:${ids.length}`;
+  }
+  const header = [STOCK_RESTOCK_MARKER, STOCK_RESTOCK_CONSOLIDATED_FLAG, idsLine, ''];
+  const suffix = '\n… (lista truncada — abra o estoque para ver todos)';
+  let body = '';
+  let truncated = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const candidate = [...header, body, line].filter((x) => x !== '').join('\n');
+    const withSuffix = candidate.length > max - suffix.length ? candidate + suffix : candidate;
+    if (withSuffix.length > max) {
+      truncated = true;
+      break;
+    }
+    body = body ? `${body}\n${line}` : line;
+  }
+  const full = [...header, body].join('\n');
+  if (!truncated) return taskDescriptionForAppwrite(full);
+  const capped = [...header, body].filter(Boolean).join('\n') + suffix;
+  return taskDescriptionForAppwrite(capped);
 }
 
 /** @deprecated Tarefas por produto — mantido para compatibilidade de leitura. */
@@ -197,7 +230,9 @@ export function buildRestockTaskTitle(itemName) {
 /** @deprecated Tarefas por produto — mantido para compatibilidade de leitura. */
 export function buildRestockTaskDescription({ itemId, currentQty, unit, minimumLevel }) {
   const u = String(unit || 'unidade').trim() || 'unidade';
-  return `${STOCK_RESTOCK_MARKER}\nitem_id:${itemId}\nSaldo atual: ${currentQty} ${u}. Nível mínimo: ${minimumLevel}.`;
+  return taskDescriptionForAppwrite(
+    `${STOCK_RESTOCK_MARKER}\nitem_id:${itemId}\nSaldo atual: ${currentQty} ${u}. Nível mínimo: ${minimumLevel}.`
+  );
 }
 
 export function parseStockItemIdFromTaskDescription(description) {

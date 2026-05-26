@@ -10,6 +10,8 @@ import {
   buildRestockTaskDescription,
   buildConsolidatedRestockTaskTitle,
   buildConsolidatedRestockTaskDescription,
+  taskDescriptionForAppwrite,
+  TASK_DESCRIPTION_MAX,
   isConsolidatedRestockTask,
   STOCK_RESTOCK_MARKER,
   STOCK_RESTOCK_CONSOLIDATED_FLAG,
@@ -110,6 +112,17 @@ describe('stockInventory', () => {
     expect(desc).toContain('Bermuda · 42 — saldo: 0, mínimo: 2');
     const task = { title: buildConsolidatedRestockTaskTitle(2), description: desc, status: 'pending' };
     expect(isConsolidatedRestockTask(task)).toBe(true);
+  });
+
+  it('buildConsolidatedRestockTaskDescription respects TASK_DESCRIPTION_MAX', () => {
+    const many = Array.from({ length: 80 }, (_, i) => ({
+      item: { $id: `id-${i}`, nome: `Produto longo número ${i}`, Tamanho: 'G' },
+      currentQty: 0,
+      minimumLevel: 5,
+    }));
+    const desc = buildConsolidatedRestockTaskDescription(many);
+    expect(desc.length).toBeLessThanOrEqual(TASK_DESCRIPTION_MAX);
+    expect(taskDescriptionForAppwrite(desc).length).toBeLessThanOrEqual(TASK_DESCRIPTION_MAX);
   });
 });
 

@@ -2,6 +2,7 @@ import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import taskTemplatesHandler from '../lib/server/taskTemplatesHandler.js';
+import { taskDescriptionForAppwrite } from '../src/lib/stockInventory.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -136,7 +137,7 @@ export default async function handler(req, res) {
     const payload = {
       academy_id: academyId,
       title,
-      description: String(req.body.description || ''),
+      description: taskDescriptionForAppwrite(req.body.description),
       status: String(req.body.status || 'pending'),
       due_date: String(req.body.due_date || ''),
       assigned_to: String(req.body.assigned_to || ''),

@@ -1,6 +1,51 @@
 import sdk from "node-appwrite";
 import { resolveCurrentQuantity, itemDisplayName } from "../stockBalance.mjs";
 
+const TRACE_ATTRS = [
+  "movement_kind",
+  "product_id",
+  "sale_id",
+  "sale_item_id",
+  "lead_id",
+  "unit_price",
+  "line_total",
+  "payment_status_at_move",
+  "payment_method",
+  "usuario_name",
+  "cmv_unit",
+  "source",
+  "notes",
+];
+
+function roundMoney(n) {
+  return Math.round(Number(n) * 100) / 100;
+}
+
+async function createStockMoveEnriched(databases, DB_ID, col, payload) {
+  let doc = { ...payload };
+  for (let i = 0; i < TRACE_ATTRS.length + 3; i++) {
+    try {
+      return await databases.createDocument(DB_ID, col, sdk.ID.unique(), doc);
+    } catch (e) {
+      const msg = String(e?.message || "");
+      const m = msg.match(/Unknown attribute:\s*"?([^"\s]+)"?/i);
+      if (!m) throw e;
+      const next = { ...doc };
+      delete next[m[1]];
+      doc = next;
+    }
+  }
+  return databases.createDocument(DB_ID, col, sdk.ID.unique(), {
+    item_estoque_id: payload.item_estoque_id,
+    tipo: payload.tipo,
+    quantidade: payload.quantidade,
+    referencia_id: payload.referencia_id,
+    motivo: payload.motivo,
+    usuario_id: payload.usuario_id,
+    academy_id: payload.academy_id,
+  });
+}
+
 export default async function (req, res) {
   let venda_id;
   try {
@@ -60,32 +105,62 @@ export default async function (req, res) {
     ]);
     const itens = itemsResp.documents;
     const revertedItems = [];
+    const canceladoPor = String(
+      req.headers["x-user-name"] || venda.created_by_name || ""
+    ).trim();
+    const usuarioId = String(req.headers["x-user-id"] || venda.created_by || "").trim();
+    const PRODUCT_VARIANTS_COL = process.env.PRODUCT_VARIANTS_COL || "";
 
     for (const it of itens) {
       const qty = Number(it.quantidade || 0);
       if (qty <= 0) continue;
 
-      const itemStock = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id);
+      const stockId = String(it.product_variant_id || it.item_estoque_id || "").trim();
+      let itemStock;
+      let stockCol = STOCK_ITEMS_COL;
+      try {
+        itemStock = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, stockId);
+      } catch {
+        if (PRODUCT_VARIANTS_COL) {
+          itemStock = await databases.getDocument(DB_ID, PRODUCT_VARIANTS_COL, stockId);
+          stockCol = PRODUCT_VARIANTS_COL;
+        } else {
+          throw new Error("stock_item_not_found");
+        }
+      }
       const prevQty = resolveCurrentQuantity(itemStock);
       const newQty = prevQty + qty;
 
-      await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, it.item_estoque_id, {
+      await databases.updateDocument(DB_ID, stockCol, stockId, {
         current_quantity: newQty,
         last_updated: new Date().toISOString(),
       });
 
-      await databases.createDocument(DB_ID, STOCK_MOVES_COL, sdk.ID.unique(), {
-        item_estoque_id: it.item_estoque_id,
+      const unitPrice = Number(it.preco_unitario) || 0;
+      const movePayload = {
+        item_estoque_id: stockId,
         tipo: "reversao_venda",
         quantidade: qty,
         referencia_id: venda_id,
         motivo,
-        usuario_id: req.headers["x-user-id"] || "",
+        usuario_id: usuarioId,
         academy_id: academy_id || itemStock.academy_id || null,
-      });
+        movement_kind: "return",
+        sale_id: venda_id,
+        sale_item_id: it.$id || null,
+        lead_id: venda.aluno_id || null,
+        product_id: itemStock.product_id || null,
+        unit_price: unitPrice > 0 ? roundMoney(unitPrice) : null,
+        line_total: unitPrice > 0 ? roundMoney(unitPrice * qty) : null,
+        usuario_name: canceladoPor || null,
+        notes: String(motivo || "").trim().slice(0, 512) || null,
+        source: "pos",
+      };
+
+      await createStockMoveEnriched(databases, DB_ID, STOCK_MOVES_COL, movePayload);
 
       revertedItems.push({
-        item_estoque_id: it.item_estoque_id,
+        item_estoque_id: stockId,
         display_label: itemDisplayName(itemStock),
         quantidade: qty,
       });

@@ -27,6 +27,7 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
 import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
 import ReportsEstoquePanel from '../components/reports/ReportsEstoquePanel.jsx';
+import ReportsMovimentacoesPanel from '../components/reports/ReportsMovimentacoesPanel.jsx';
 import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
 import { downloadCsv, leadToCsvRow } from '../lib/reportsExport.js';
 
@@ -184,7 +185,15 @@ const pctVar = (cur, prev) => {
     return Math.round(((cur - prev) / prev) * 100);
 };
 
-const REPORT_TABS = new Set(['visao-geral', 'funil', 'alunos', 'financeiro', 'loja', 'estoque']);
+const REPORT_TABS = new Set([
+    'visao-geral',
+    'funil',
+    'alunos',
+    'financeiro',
+    'loja',
+    'estoque',
+    'movimentacoes',
+]);
 
 const REPORT_TAB_ITEMS_BASE = [
     { id: 'visao-geral', label: 'Visão geral' },
@@ -193,6 +202,7 @@ const REPORT_TAB_ITEMS_BASE = [
     { id: 'financeiro', label: 'Financeiro' },
     { id: 'loja', label: 'Loja' },
     { id: 'estoque', label: 'Estoque' },
+    { id: 'movimentacoes', label: 'Movimentações' },
 ];
 
 const Reports = () => {
@@ -253,7 +263,7 @@ const Reports = () => {
         return REPORT_TAB_ITEMS_BASE.filter((t) => {
             if (t.id === 'financeiro') return hasFinance;
             if (t.id === 'loja') return hasSales;
-            if (t.id === 'estoque') return hasInventory;
+            if (t.id === 'estoque' || t.id === 'movimentacoes') return hasInventory;
             return true;
         });
     }, [hasFinance, hasSales, hasInventory]);
@@ -262,7 +272,11 @@ const Reports = () => {
     const isLeadReportTab = activeTab === 'visao-geral' || activeTab === 'funil';
     const needsFunnelReport = isLeadReportTab || activeTab === 'alunos';
     const isPeriodTab =
-        needsFunnelReport || activeTab === 'financeiro' || activeTab === 'loja' || activeTab === 'estoque';
+        needsFunnelReport ||
+        activeTab === 'financeiro' ||
+        activeTab === 'loja' ||
+        activeTab === 'estoque' ||
+        activeTab === 'movimentacoes';
 
     useEffect(() => {
         const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -1104,6 +1118,15 @@ const Reports = () => {
 
             {activeTab === 'estoque' ? (
                 <ReportsEstoquePanel
+                    academyId={academyId}
+                    from={range.from}
+                    to={range.to}
+                    hasInventory={hasInventory}
+                />
+            ) : null}
+
+            {activeTab === 'movimentacoes' ? (
+                <ReportsMovimentacoesPanel
                     academyId={academyId}
                     from={range.from}
                     to={range.to}
