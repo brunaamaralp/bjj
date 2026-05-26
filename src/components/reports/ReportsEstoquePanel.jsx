@@ -198,7 +198,7 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
                 role="status"
               />
             ) : (
-              <div className="navi-desktop-table-wrap">
+              <div className="reports-estoque-table-wrap">
                 <table className="navi-table">
                   <thead>
                     <tr>

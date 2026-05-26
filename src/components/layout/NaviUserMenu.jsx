@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, LogOut, Plug, User, Users } from 'lucide-react';
+import { matchNavTarget } from '../../lib/naviMenu.js';
 
 function initialsFromUser(user) {
   const name = String(user?.name || '').trim();
@@ -64,6 +65,11 @@ export default function NaviUserMenu({
     navigate(path);
   };
 
+  const menuItemClass = (path) => {
+    const active = matchNavTarget(path, location);
+    return `navi-user-menu-item${active ? ' navi-user-menu-item--active' : ''}`;
+  };
+
   return (
     <div className="navi-user-menu" ref={rootRef}>
       <button
@@ -117,19 +123,19 @@ export default function NaviUserMenu({
 
           <hr className="navi-user-menu-divider" aria-hidden />
 
-          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/empresa')}>
+          <button type="button" role="menuitem" className={menuItemClass('/empresa')} onClick={() => go('/empresa')}>
             <Building2 size={16} strokeWidth={1.75} aria-hidden />
             Minha academia
           </button>
-          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/equipe')}>
+          <button type="button" role="menuitem" className={menuItemClass('/equipe')} onClick={() => go('/equipe')}>
             <Users size={16} strokeWidth={1.75} aria-hidden />
             Equipe
           </button>
-          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/integracoes')}>
+          <button type="button" role="menuitem" className={menuItemClass('/integracoes')} onClick={() => go('/integracoes')}>
             <Plug size={16} strokeWidth={1.75} aria-hidden />
             Integrações
           </button>
-          <button type="button" role="menuitem" className="navi-user-menu-item" onClick={() => go('/conta')}>
+          <button type="button" role="menuitem" className={menuItemClass('/conta')} onClick={() => go('/conta')}>
             <User size={16} strokeWidth={1.75} aria-hidden />
             Conta
           </button>

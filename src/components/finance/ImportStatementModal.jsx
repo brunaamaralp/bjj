@@ -153,7 +153,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
               </p>
             </div>
 
-            <div className="finance-table-wrap" style={{ marginTop: 12, maxHeight: 320 }}>
+            <div className="finance-table-wrap finance-table-wrap--modal" style={{ marginTop: 12 }}>
               <table className="finance-table">
                 <thead>
                   <tr>

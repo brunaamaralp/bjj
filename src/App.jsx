@@ -89,7 +89,14 @@ import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
-import { getNewLeadLabel, buildMobileDrawerSections, matchNavTarget } from './lib/naviMenu.js';
+import {
+  getNewLeadLabel,
+  buildMobileDrawerSections,
+  isSidebarNavItemActive,
+  isStudentProfilePath,
+  matchNavTarget,
+} from './lib/naviMenu.js';
+import { NAV_PUSH_EVENT } from './lib/navPush.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
 import RouteFallback from './components/shared/RouteFallback.jsx';
@@ -137,7 +144,12 @@ const App = () => {
       : false
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    if (path === '/students') {
+      return location.pathname === '/students' || isStudentProfilePath(location.pathname);
+    }
+    return location.pathname === path;
+  };
   const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
   const academyIdStore = useLeadStore((s) => s.academyId);
   const academyName = useMemo(() => {
@@ -199,6 +211,15 @@ const App = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const onNavPush = (e) => {
+      const path = String(e?.detail || '').trim();
+      if (path) navigate(path);
+    };
+    window.addEventListener(NAV_PUSH_EVENT, onNavPush);
+    return () => window.removeEventListener(NAV_PUSH_EVENT, onNavPush);
+  }, [navigate]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
@@ -1045,6 +1066,11 @@ const App = () => {
               }
               return (
               <Suspense fallback={<RouteFallback />}>
+                {/*
+                  TODO: Attendance — src/pages/Attendance.jsx (Control iD /presenca) sem rota.
+                  Adicionar <Route path="/presenca" element={<Attendance />} /> e item no menu
+                  quando o time confirmar o lançamento da feature.
+                */}
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/login" element={<Navigate to="/" replace />} />
@@ -1140,7 +1166,7 @@ const App = () => {
                     {sec.items.map((item) => {
                       const Icon = mobileDrawerIconMap[item.iconKey] || LayoutGrid;
                       const dest = item.toFull || item.to;
-                      const active = matchNavTarget(dest, location);
+                      const active = isSidebarNavItemActive(dest, location);
                       return (
                         <Link
                           key={`${dest}-${item.label}`}

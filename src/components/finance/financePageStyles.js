@@ -190,9 +190,10 @@ export const FINANCE_PAGE_CSS = `
             .finance-desktop-table-wrap { display: none !important; }
             .finance-mobile-list { display: flex; }
           }
-          .finance-table-wrap { width: 100%; overflow-x: auto; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
+          .finance-table-wrap { width: 100%; max-height: calc(100vh - 320px); overflow: auto; -webkit-overflow-scrolling: touch; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
+          .finance-table-wrap--modal { max-height: 60vh; overflow: auto; -webkit-overflow-scrolling: touch; }
           .finance-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-          .finance-table thead th { text-align: left; padding: 10px 12px; background: var(--surface-hover); border-bottom: 1px solid var(--border-light); font-weight: 600; color: var(--mid); white-space: nowrap; }
+          .finance-table thead th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 10px 12px; background: var(--surface-hover); border-bottom: 1px solid var(--border-light); font-weight: 600; color: var(--mid); white-space: nowrap; }
           .finance-table thead th.finance-num { text-align: right; }
           .finance-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--border-light); vertical-align: middle; }
           .finance-table tbody tr:hover { background: var(--surface-hover); }

@@ -1,3 +1,5 @@
+import { matchPath } from 'react-router-dom';
+
 /** Labels e estrutura compartilhada entre sidebar desktop e drawer mobile. */
 
 export const NAV_ACCORDION_IDS = {
@@ -40,6 +42,37 @@ export function matchNavTarget(to, { pathname, search }) {
     if (current.get(key) !== value) return false;
   }
   return true;
+}
+
+export function isLeadProfilePath(pathname) {
+  return Boolean(matchPath({ path: '/lead/:id', end: true }, String(pathname || '')));
+}
+
+export function isStudentProfilePath(pathname) {
+  return Boolean(matchPath({ path: '/student/:id', end: true }, String(pathname || '')));
+}
+
+/**
+ * Destaque de item da sidebar / drawer (inclui perfis com :id).
+ * @param {string} to — destino do link (path ou path?query)
+ * @param {{ pathname: string, search?: string }} location
+ */
+export function isSidebarNavItemActive(to, location) {
+  const raw = String(to || '').trim();
+  const qIndex = raw.indexOf('?');
+  const pathOnly = qIndex >= 0 ? raw.slice(0, qIndex) : raw;
+  const loc = {
+    pathname: String(location?.pathname || ''),
+    search: location?.search || '',
+  };
+
+  if (pathOnly === '/pipeline') {
+    return matchNavTarget(to, loc) || isLeadProfilePath(loc.pathname);
+  }
+  if (pathOnly === '/students') {
+    return matchNavTarget(to, loc) || isStudentProfilePath(loc.pathname);
+  }
+  return matchNavTarget(to, loc);
 }
 
 /** Rotas diretas (sem accordion) — ao navegar aqui, accordions devem fechar. */

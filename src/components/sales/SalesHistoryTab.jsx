@@ -210,7 +210,14 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         </div>
       </div>
 
-      <div className="card mt-3" style={{ overflowX: 'auto' }}>
+      <div
+        className="card mt-3 sales-history-table-wrap"
+        style={{
+          maxHeight: 'calc(100vh - 320px)',
+          overflow: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {loading ? (
           <div className="p-3">
             <PageSkeleton variant="list" rows={5} />
@@ -314,6 +321,13 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         .sales-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .sales-table th, .sales-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-light); }
         .sales-table th { font-weight: 600; font-size: 12px; opacity: 0.8; }
+        .sales-history-table-wrap .sales-table thead th {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: var(--surface, #fff);
+          opacity: 1;
+        }
         .sales-table__row-clickable { cursor: pointer; }
         .sales-table__row-clickable:hover { background: var(--bg-hover); }
         .sales-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }

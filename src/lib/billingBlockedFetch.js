@@ -1,4 +1,5 @@
 import { useUiStore } from '../store/useUiStore';
+import { dispatchNavPush } from './navPush.js';
 
 /**
  * Se a resposta for 402 (billing), mostra toast e redireciona para assinatura em /conta.
@@ -25,7 +26,7 @@ export async function consumeBillingBlockedResponse(res) {
     void 0;
   }
   setTimeout(() => {
-    if (typeof window !== 'undefined') window.location.assign('/conta?tab=assinatura');
+    dispatchNavPush('/conta?tab=assinatura');
   }, 2000);
   return true;
 }

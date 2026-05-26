@@ -845,6 +845,12 @@ button:active {
   background: var(--v50);
 }
 
+.navi-user-menu-item--active {
+  background: var(--v50);
+  color: var(--v700);
+  font-weight: 600;
+}
+
 .navi-user-menu-item--danger {
   color: var(--danger);
 }
@@ -2884,8 +2890,19 @@ button.funil-color-swatch {
 }
 
 .products-desktop-table-wrap {
-  overflow-x: auto;
+  max-height: calc(100vh - 300px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding-right: 4px;
+  position: relative;
+}
+
+.products-desktop-table-wrap .products-table thead th,
+.products-desktop-table-wrap .navi-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-hover, #f4f4f8);
 }
 
 .products-table {
@@ -3545,7 +3562,18 @@ button.funil-color-swatch {
 }
 
 .inventory-desktop-table-wrap {
-  overflow-x: auto;
+  max-height: calc(100vh - 300px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.inventory-desktop-table-wrap .inventory-table thead th,
+.inventory-desktop-table-wrap .products-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-hover, #f4f4f8);
 }
 
 .inventory-table {
@@ -4038,6 +4066,11 @@ button.funil-color-swatch {
 }
 
 /* Equipe — tabela e auditoria */
+.equipe-desktop-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .equipe-table {
   width: 100%;
   min-width: 720px;
@@ -5050,8 +5083,16 @@ input[type='datetime-local'].form-input:focus {
 .attendance-table-wrap {
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
+  max-height: calc(100vh - 280px);
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.attendance-table-wrap .attendance-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f9fafb;
 }
 
 .attendance-table {
@@ -6122,7 +6163,16 @@ input[type='datetime-local'].form-input:focus {
   background: var(--surface);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-sm);
-  overflow-x: auto;
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mensalidades-page .mensal-table-wrap--desktop .mensal-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-hover, #f4f4f8);
 }
 
 .mensalidades-page .mensal-table td {
@@ -6586,9 +6636,91 @@ input[type='datetime-local'].form-input:focus {
   color: var(--text);
 }
 
+.reports-estoque-table-wrap {
+  max-height: calc(100vh - 360px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.reports-estoque-table-wrap .navi-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-hover, #f4f4f8);
+}
+
 .mensal-table-wrap--scroll-hint {
   position: relative;
   overflow-x: auto;
+}
+
+.finance-table-wrap,
+.products-desktop-table-wrap,
+.inventory-desktop-table-wrap,
+.reports-mov-table-wrap,
+.reports-estoque-table-wrap {
+  position: relative;
+}
+
+.finance-table-wrap::after,
+.products-desktop-table-wrap::after,
+.inventory-desktop-table-wrap::after,
+.reports-estoque-table-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 100%;
+  background: linear-gradient(to right, transparent, var(--surface, rgba(255, 255, 255, 0.9)));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.monthly-payment-grid .mensal-table-wrap--scroll-hint .mensal-table thead th:first-child,
+.monthly-payment-grid .mensal-table-wrap--scroll-hint tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface, #fff);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
+}
+
+.monthly-payment-grid .mensal-table-wrap--scroll-hint .mensal-table thead th:nth-child(2),
+.monthly-payment-grid .mensal-table-wrap--scroll-hint td.mensal-cell-name--grid {
+  position: sticky;
+  left: 28px;
+  z-index: 2;
+  background: var(--surface, #fff);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
+}
+
+.monthly-payment-grid .mensal-table-wrap--scroll-hint .mensal-table thead th:first-child,
+.monthly-payment-grid .mensal-table-wrap--scroll-hint .mensal-table thead th:nth-child(2) {
+  z-index: 3;
+}
+
+.monthly-payment-grid .mensal-table-wrap--scroll-hint tbody tr:hover td:first-child,
+.monthly-payment-grid .mensal-table-wrap--scroll-hint tbody tr:hover td.mensal-cell-name--grid {
+  background: var(--surface-hover, #f4f4f8);
+}
+
+.payment-exceptions-view .mensal-table thead th:first-child,
+.payment-exceptions-view .mensal-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface, #fff);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
+}
+
+.payment-exceptions-view .mensal-table thead th:first-child {
+  z-index: 3;
+}
+
+.payment-exceptions-view .mensal-table tbody tr:hover td:first-child {
+  background: var(--surface-hover, #f4f4f8);
 }
 
 .monthly-payment-grid .mensal-table-wrap--scroll-hint::after {

@@ -316,6 +316,29 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         .reports-conc-badge--danger { background: #fee2e2; color: #991b1b; }
         .reports-conc-badge--info { background: #dbeafe; color: #1e40af; }
         .reports-conc-badge--ok { background: #dcfce7; color: #166534; }
+        .reports-mov-table-wrap {
+          max-height: calc(100vh - 360px);
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+          position: relative;
+        }
+        .reports-mov-table-wrap .reports-moves-table thead th {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: var(--surface, #fff);
+        }
+        .reports-mov-table-wrap::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 32px;
+          height: 100%;
+          background: linear-gradient(to right, transparent, var(--surface, rgba(255, 255, 255, 0.9)));
+          pointer-events: none;
+          z-index: 1;
+        }
       `}</style>
       <div className="mt-4">
         <div className="reports-moves-view-tabs" role="tablist">
@@ -407,7 +430,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                     role="status"
                   />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="reports-mov-table-wrap">
                     <table className="reports-moves-table">
                       <thead>
                         <tr>
@@ -555,7 +578,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                 role="status"
               />
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div className="reports-mov-table-wrap">
                 <table className="reports-moves-table">
                   <thead>
                     <tr>

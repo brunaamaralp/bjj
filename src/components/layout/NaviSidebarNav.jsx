@@ -29,6 +29,7 @@ import {
   isAccordionChildActive,
   isAccordionParentPartial,
   isDirectNavPath,
+  isSidebarNavItemActive,
   matchNavTarget,
   NAV_ACCORDION_IDS,
 } from '../../lib/naviMenu.js';
@@ -88,6 +89,7 @@ function SideNavLink({
   action = false,
   footer = false,
 }) {
+  const location = useLocation();
   const iconSize = action && !collapsed ? 20 : 20;
   const IconComponent = action && collapsed ? Plus : Icon;
   const inner = (
@@ -108,20 +110,34 @@ function SideNavLink({
     .filter(Boolean)
     .join(' ');
 
-  const resolvedClass =
-    typeof className === 'function'
-      ? (state) => [className(state), modifiers].filter(Boolean).join(' ')
-      : [className || 'navi-side-link', modifiers].filter(Boolean).join(' ');
+  const resolveNavClass = (state) => {
+    const navActive = Boolean(state?.isActive) || isSidebarNavItemActive(to, location);
+    const merged = { ...state, isActive: navActive };
+    if (typeof className === 'function') {
+      return [className(merged), modifiers].filter(Boolean).join(' ');
+    }
+    return [
+      className || 'navi-side-link',
+      modifiers,
+      navActive ? 'active navi-side-link--active' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  };
 
   if (useNavLink) {
     return (
-      <NavLink to={to} end={end} className={resolvedClass} title={title}>
+      <NavLink to={to} end={end} className={resolveNavClass} title={title}>
         {inner}
       </NavLink>
     );
   }
   return (
-    <Link to={to} className={resolvedClass} title={title}>
+    <Link
+      to={to}
+      className={resolveNavClass({ isActive: isSidebarNavItemActive(to, location) })}
+      title={title}
+    >
       {inner}
     </Link>
   );
