@@ -471,6 +471,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         ) : null}
 
         {panelView === 'movements' ? (
+        <>
         <div className="reports-moves-filters" role="search">
           <div className="form-group">
             <label className="text-small text-muted">Produto</label>
@@ -632,6 +633,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
             ) : null}
           </div>
         ) : null}
+        </>
         ) : null}
       </div>
 
