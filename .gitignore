@@ -28,6 +28,7 @@ scripts/*
 !scripts/provision-finance-features-schema.mjs
 !scripts/provision-financial-tx-category.mjs
 !scripts/provision-inventory-cost-schema.mjs
+!scripts/verify-schema.mjs
 
 # Editor directories and files
 .vscode/*
