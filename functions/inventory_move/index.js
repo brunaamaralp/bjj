@@ -66,7 +66,16 @@ export default async function (req, res) {
     }
 
     const item = await databases.getDocument(DB_ID, STOCK_ITEMS_COL, item_estoque_id);
-    const academyId = String(academy_id || item.academy_id || "").trim();
+
+    const itemAcademyId = String(item.academy_id || item.academyId || "").trim();
+    const requestAcademyId = String(academy_id || body.academyId || "").trim();
+    if (!requestAcademyId) {
+      return res.json({ ok: false, error: "academy_id obrigatório" }, 400);
+    }
+    if (!itemAcademyId || String(itemAcademyId) !== String(requestAcademyId)) {
+      return res.json({ ok: false, error: "forbidden" }, 403);
+    }
+    const academyId = requestAcademyId;
     const delta = quantityDeltaForMoveType(tipo, quantidade);
     const prevQty = resolveCurrentQuantity(item);
     if (delta < 0 && prevQty + delta < 0) {

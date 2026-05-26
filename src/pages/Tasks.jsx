@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { createPortal } from 'react-dom';
 import { useTaskStore } from '../store/useTaskStore';
 import { useLeadStore } from '../store/useLeadStore';
@@ -68,15 +69,102 @@ function isDueInCurrentWeek(dueStr) {
   return dDue.getTime() >= mon.getTime() && dDue.getTime() <= dSun.getTime();
 }
 
+const TASKS_KANBAN_VIRTUAL_THRESHOLD = 20;
+
+function TasksKanbanColumnBody({
+  tasks,
+  renderCard,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+}) {
+  const scrollRef = useRef(null);
+  const shouldVirtualize = tasks.length > TASKS_KANBAN_VIRTUAL_THRESHOLD;
+  const virtualizer = useVirtualizer({
+    count: shouldVirtualize ? tasks.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+  });
+
+  return (
+    <div
+      ref={scrollRef}
+      className="tasks-kanban-col-body task-list"
+      style={{ overflow: 'auto', maxHeight: 'min(70vh, 720px)', position: 'relative' }}
+    >
+      {shouldVirtualize ? (
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const t = tasks[virtualRow.index];
+            if (!t) return null;
+            return (
+              <div
+                key={t.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {renderCard(t)}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        tasks.map((t) => <React.Fragment key={t.id}>{renderCard(t)}</React.Fragment>)
+      )}
+      {hasMore ? (
+        <button
+          type="button"
+          className="btn-action-ghost"
+          style={{ width: '100%', marginTop: 8 }}
+          disabled={loadingMore}
+          onClick={onLoadMore}
+        >
+          {loadingMore ? 'Carregando…' : 'Carregar mais'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Tasks() {
   const navigate = useNavigate();
   const terms = useTerms();
   const labels = useLeadStore((s) => s.labels);
   const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
-  const { academyId, teamId, leads, userId, academyList } = useLeadStore();
+  const academyId = useLeadStore((s) => s.academyId);
+  const teamId = useLeadStore((s) => s.teamId);
+  const leads = useLeadStore((s) => s.leads);
+  const userId = useLeadStore((s) => s.userId);
+  const academyList = useLeadStore((s) => s.academyList);
   const students = useStudentStore((s) => s.students);
-  const { tasks, loading, error, filters, setFilter, fetchTasks, createTask, updateTask, deleteTask, patchTaskLocal, isUpdating } =
-    useTaskStore();
+  const tasks = useTaskStore((s) => s.tasks);
+  const loading = useTaskStore((s) => s.loading);
+  const loadingMore = useTaskStore((s) => s.loadingMore);
+  const tasksHasMore = useTaskStore((s) => s.tasksHasMore);
+  const error = useTaskStore((s) => s.error);
+  const filters = useTaskStore((s) => s.filters);
+  const setFilter = useTaskStore((s) => s.setFilter);
+  const fetchTasks = useTaskStore((s) => s.fetchTasks);
+  const fetchMoreTasks = useTaskStore((s) => s.fetchMoreTasks);
+  const createTask = useTaskStore((s) => s.createTask);
+  const updateTask = useTaskStore((s) => s.updateTask);
+  const deleteTask = useTaskStore((s) => s.deleteTask);
+  const patchTaskLocal = useTaskStore((s) => s.patchTaskLocal);
+  const isUpdating = useTaskStore((s) => s.isUpdating);
   const addToast = useUiStore((s) => s.addToast);
 
   const [searchParams] = useSearchParams();
@@ -216,10 +304,35 @@ export default function Tasks() {
     };
   }, [effectiveTeamId]);
 
-  // Fetch tasks
+  const filterLeadId = filters.lead_id;
+  const filterStatus = filters.status;
+  const filterAssigned = filters.assigned_to;
+  const tasksLastFetchedAt = useTaskStore((s) => s.tasksLastFetchedAt);
+  const STALE_MS = 5 * 60 * 1000;
+
   useEffect(() => {
-    if (academyId) fetchTasks(academyId);
-  }, [academyId, fetchTasks]);
+    if (!academyId) return;
+    const stale = !tasksLastFetchedAt || Date.now() - tasksLastFetchedAt > STALE_MS;
+    const hasFilter =
+      (filterStatus && filterStatus !== 'all') ||
+      Boolean(filterAssigned) ||
+      Boolean(filterLeadId);
+    if (!stale && !hasFilter && tasks.length > 0) return;
+    void fetchTasks(academyId, { reset: true });
+  }, [
+    academyId,
+    filterLeadId,
+    filterStatus,
+    filterAssigned,
+    fetchTasks,
+    tasksLastFetchedAt,
+    tasks.length,
+  ]);
+
+  const handleLoadMoreTasks = useCallback(() => {
+    if (!academyId || loadingMore || !tasksHasMore) return;
+    void fetchMoreTasks(academyId);
+  }, [academyId, loadingMore, tasksHasMore, fetchMoreTasks]);
 
   useEffect(() => {
     if (!showLeadDrop) return;
@@ -895,9 +1008,13 @@ export default function Tasks() {
                 <span className="tasks-kanban-col-title">Atrasadas</span>
                 <span className="tasks-kanban-badge">{kanbanColumns.atrasadas.length}</span>
               </div>
-              <div className="tasks-kanban-col-body task-list">
-                {kanbanColumns.atrasadas.map((t) => renderOneTaskCard(t))}
-              </div>
+              <TasksKanbanColumnBody
+                tasks={kanbanColumns.atrasadas}
+                renderCard={(t) => renderOneTaskCard(t)}
+                hasMore={tasksHasMore}
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMoreTasks}
+              />
             </div>
             ) : null}
             <div className="tasks-kanban-col tasks-kanban-col--todo">
@@ -943,18 +1060,26 @@ export default function Tasks() {
                 </button>
               </div>
               {quickError ? <p className="tasks-quick-create-error">{quickError}</p> : null}
-              <div className="tasks-kanban-col-body task-list">
-                {kanbanColumns.aFazer.map((t) => renderOneTaskCard(t))}
-              </div>
+              <TasksKanbanColumnBody
+                tasks={kanbanColumns.aFazer}
+                renderCard={(t) => renderOneTaskCard(t)}
+                hasMore={tasksHasMore}
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMoreTasks}
+              />
             </div>
             <div className="tasks-kanban-col tasks-kanban-col--done">
               <div className="tasks-kanban-col-head">
                 <span className="tasks-kanban-col-title">Concluídas</span>
                 <span className="tasks-kanban-badge">{kanbanColumns.concluidas.length}</span>
               </div>
-              <div className="tasks-kanban-col-body task-list">
-                {kanbanColumns.concluidas.map((t) => renderOneTaskCard(t))}
-              </div>
+              <TasksKanbanColumnBody
+                tasks={kanbanColumns.concluidas}
+                renderCard={(t) => renderOneTaskCard(t)}
+                hasMore={tasksHasMore}
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMoreTasks}
+              />
             </div>
           </div>
         ) : (

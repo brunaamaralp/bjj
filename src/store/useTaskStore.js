@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from './useLeadStore';
 
-function buildQueryString(academyId, filters) {
+function buildQueryString(academyId, filters, opts = {}) {
   const qs = new URLSearchParams();
   qs.set('academy_id', academyId);
   if (filters) {
@@ -14,6 +14,10 @@ function buildQueryString(academyId, filters) {
     if (assignedTo) qs.set('assigned_to', assignedTo);
     if (leadId) qs.set('lead_id', leadId);
   }
+  const limit = Number(opts.limit);
+  if (Number.isFinite(limit) && limit > 0) qs.set('limit', String(Math.trunc(limit)));
+  const cursor = String(opts.cursor || '').trim();
+  if (cursor) qs.set('cursor', cursor);
   return qs.toString();
 }
 
@@ -24,6 +28,10 @@ function withoutUpdatingId(ids, taskId) {
 export const useTaskStore = create((set, get) => ({
   tasks: [],
   loading: false,
+  loadingMore: false,
+  tasksHasMore: false,
+  tasksCursor: null,
+  tasksLastFetchedAt: null,
   error: null,
   updatingTaskIds: [],
   filters: { status: 'all', assigned_to: null, lead_id: null },
@@ -43,19 +51,32 @@ export const useTaskStore = create((set, get) => ({
   fetchTasks: async (academyId, opts = {}) => {
     const academy = String(academyId || '').trim();
     if (!academy) return;
-    if (get().loading && opts.silent !== true) return;
 
-    if (opts.silent !== true) set({ loading: true, error: null });
+    const reset = opts.reset !== false;
+    if (reset) {
+      if (get().loading && opts.silent !== true) return;
+    } else if (get().loadingMore || !get().tasksHasMore || !get().tasksCursor) {
+      return;
+    }
+
+    if (reset) {
+      if (opts.silent !== true) set({ loading: true, error: null });
+    } else {
+      set({ loadingMore: true, error: null });
+    }
 
     try {
       const jwt = await createSessionJwt();
       if (!jwt) {
-        set({ loading: false, error: 'Sessão inválida' });
+        set({ loading: false, loadingMore: false, error: 'Sessão inválida' });
         return;
       }
 
       const effectiveFilters = opts.filters || get().filters;
-      const qs = buildQueryString(academy, effectiveFilters);
+      const qs = buildQueryString(academy, effectiveFilters, {
+        limit: opts.limit || 50,
+        cursor: reset ? '' : get().tasksCursor,
+      });
 
       const res = await fetch(`/api/tasks?${qs}`, {
         headers: {
@@ -66,15 +87,50 @@ export const useTaskStore = create((set, get) => ({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) {
-        set({ loading: false, error: data?.erro || `HTTP ${res.status}` });
+        set({ loading: false, loadingMore: false, error: data?.erro || `HTTP ${res.status}` });
         return;
       }
 
-      set({ tasks: data.tasks || [], loading: false, error: null });
+      const incoming = data.tasks || [];
+      const nextCursor = data.next_cursor ? String(data.next_cursor) : null;
+      const hasMore = Boolean(data.has_more);
+
+      if (reset) {
+        set({
+          tasks: incoming,
+          tasksCursor: nextCursor,
+          tasksHasMore: hasMore,
+          loading: false,
+          loadingMore: false,
+          error: null,
+          tasksLastFetchedAt: Date.now(),
+        });
+      } else {
+        set((state) => {
+          const existingIds = new Set((state.tasks || []).map((t) => t.id));
+          const appended = incoming.filter((t) => !existingIds.has(t.id));
+          return {
+            tasks: [...(state.tasks || []), ...appended],
+            tasksCursor: nextCursor,
+            tasksHasMore: hasMore,
+            loadingMore: false,
+            error: null,
+            tasksLastFetchedAt: Date.now(),
+          };
+        });
+      }
     } catch (e) {
       console.error('[useTaskStore] fetchTasks error:', e);
-      set({ loading: false, error: e?.message || 'Erro ao buscar tarefas' });
+      set({
+        loading: false,
+        loadingMore: false,
+        error: e?.message || 'Erro ao buscar tarefas',
+      });
     }
+  },
+
+  fetchMoreTasks: async (academyId, opts = {}) => {
+    await get().fetchTasks(academyId, { ...opts, reset: false });
   },
 
   createTask: async (payload) => {

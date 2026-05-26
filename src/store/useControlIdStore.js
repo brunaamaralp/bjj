@@ -3,6 +3,26 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import * as controlId from '../services/controlIdService';
 import { createSessionJwt } from '../lib/appwrite';
 
+const CONTROLID_STORE_KEY = 'controlid-store';
+
+/** Remove senha legada persistida antes do hydrate do Zustand. */
+function migrateControlIdStoreLegacyPassword() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const stored = localStorage.getItem(CONTROLID_STORE_KEY);
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (parsed?.state?.devicePassword) {
+      delete parsed.state.devicePassword;
+      localStorage.setItem(CONTROLID_STORE_KEY, JSON.stringify(parsed));
+    }
+  } catch {
+    void 0;
+  }
+}
+
+migrateControlIdStoreLegacyPassword();
+
 // Gera device_id numérico a partir do $id do Appwrite (últimos 8 chars hex → decimal, capped em 99999)
 function buildDeviceId(appwriteId) {
   const hex = String(appwriteId || '').slice(-8);
@@ -128,13 +148,12 @@ export const useControlIdStore = create(
       },
     }),
     {
-      name: 'controlid-store',
+      name: CONTROLID_STORE_KEY,
       storage: createJSONStorage(() => localStorage),
-      // Só persiste configuração e última sync — não os dados de presença
+      // Só persiste IP/usuário e última sync — nunca senha nem presença
       partialize: (state) => ({
         deviceIp: state.deviceIp,
         deviceUsername: state.deviceUsername,
-        devicePassword: state.devicePassword,
         lastSync: state.lastSync,
       }),
     }

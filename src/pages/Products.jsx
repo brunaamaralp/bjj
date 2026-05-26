@@ -103,18 +103,16 @@ function ProductActionsMenu({ product, isOpen, onToggle, onClose, onDuplicate, o
 
 export default function Products() {
   const modules = useLeadStore((s) => s.modules);
-  const {
-    products,
-    catalogMode,
-    loadProducts,
-    createProduct,
-    updateProduct,
-    deactivateProduct,
-    checkDeleteProduct,
-    deleteProduct,
-    loading,
-    error,
-  } = useProductsStore();
+  const products = useProductsStore((s) => s.products);
+  const catalogMode = useProductsStore((s) => s.catalogMode);
+  const loadProducts = useProductsStore((s) => s.loadProducts);
+  const createProduct = useProductsStore((s) => s.createProduct);
+  const updateProduct = useProductsStore((s) => s.updateProduct);
+  const deactivateProduct = useProductsStore((s) => s.deactivateProduct);
+  const checkDeleteProduct = useProductsStore((s) => s.checkDeleteProduct);
+  const deleteProduct = useProductsStore((s) => s.deleteProduct);
+  const loading = useProductsStore((s) => s.loading);
+  const error = useProductsStore((s) => s.error);
   const addToast = useUiStore((s) => s.addToast);
   const [searchParams, setSearchParams] = useSearchParams();
 

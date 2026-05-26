@@ -5,6 +5,7 @@ import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
+import { saveAcademySettingsApi } from '../lib/academySettingsApi.js';
 import {
   getAcademyDocument,
   invalidateAcademyDocumentCache,
@@ -395,15 +396,15 @@ const AcademySettings = () => {
                 void 0;
             }
             const vertical = String(academy.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
-            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+            await saveAcademySettingsApi(academyId, {
                 name: academy.name,
                 phone: String(academy.phone || '').replace(/\D/g, ''),
                 email: academy.email,
                 address: academy.address,
                 quickTimes: academy.quickTimes || '',
                 vertical,
-                uiLabels: JSON.stringify(academy.uiLabels || {}),
-                modules: JSON.stringify(modulesPayload),
+                uiLabels: academy.uiLabels || {},
+                modules: modulesPayload,
             });
             invalidateAcademyDocumentCache(academyId);
             try {

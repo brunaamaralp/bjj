@@ -135,9 +135,9 @@ export default function JournalTab({
                 <label>Débito (R$)</label>
                 <input
                   className="form-input"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   placeholder="0,00"
                   value={l.debit}
                   onChange={(e) => {
@@ -151,9 +151,9 @@ export default function JournalTab({
                 <label>Crédito (R$)</label>
                 <input
                   className="form-input"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   placeholder="0,00"
                   value={l.credit}
                   onChange={(e) => {

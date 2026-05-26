@@ -304,7 +304,13 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
         }
         .import-header h3 { font-size: 1.1rem; }
         .import-body { padding: 20px; overflow-y: auto; flex: 1; }
-        .import-footer { padding: 16px 20px; border-top: 1px solid var(--border-light); display: flex; gap: 10px; }
+        .import-footer {
+          padding: 16px 20px;
+          padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+          border-top: 1px solid var(--border-light);
+          display: flex;
+          gap: 10px;
+        }
         .upload-zone {
           border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px 20px;
           text-align: center; cursor: pointer; transition: var(--transition);

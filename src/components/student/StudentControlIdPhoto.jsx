@@ -132,7 +132,13 @@ export default function StudentControlIdPhoto({
           }}
         >
           {photoUrl ? (
-            <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img
+              src={photoUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           ) : (
             <Camera size={32} style={{ color: 'var(--text-muted)' }} aria-hidden />
           )}

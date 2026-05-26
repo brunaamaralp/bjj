@@ -28,7 +28,10 @@ import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
 
 export default function SalesNewSaleTab() {
-  const { createSale, creating, lastSale, error } = useSalesStore();
+  const createSale = useSalesStore((s) => s.createSale);
+  const creating = useSalesStore((s) => s.creating);
+  const lastSale = useSalesStore((s) => s.lastSale);
+  const error = useSalesStore((s) => s.error);
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
   const { products, loading: catalogLoading, reload: reloadCatalog, error: catalogError } =

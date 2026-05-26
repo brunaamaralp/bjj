@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import ConversationItem from './ConversationItem';
 import EmptyState from '../shared/EmptyState.jsx';
 
@@ -53,6 +53,11 @@ export default function ConversationList(props) {
   const groups = useMemo(() => safeGrouped(groupedItems).filter((g) => g.items.length > 0), [groupedItems]);
   const flatCount = useMemo(() => groups.reduce((n, g) => n + g.items.length, 0), [groups]);
 
+  const handleSelectConversation = useCallback(
+    (it) => onSelectConversation(it),
+    [onSelectConversation]
+  );
+
   const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
 
   return (
@@ -74,7 +79,7 @@ export default function ConversationList(props) {
                 key={`${group.key}:${String(it?.id || phone || idx)}`}
                 item={it}
                 active={phone === selectedPhone}
-                onSelect={() => onSelectConversation(it)}
+                onSelectConversation={handleSelectConversation}
                 ticketChip={ticketChip}
                 formatTimeOnly={formatTimeOnly}
                 formatWhen={formatWhen}

@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingBag, ChevronRight } from 'lucide-react';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
+import { useUserRole } from '../../lib/useUserRole';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { readSalesSettings, SALES_CHANNEL_OPTIONS } from '../../lib/salesSettings';
 import {
@@ -24,15 +26,32 @@ import CancelReceiptPanel from './CancelReceiptPanel';
 
 export default function SalesHistoryTab({ onSwitchTab }) {
   const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const academyDoc = useMemo(() => {
+    if (!academyId) return null;
+    const a = (academyList || []).find((x) => x.id === academyId);
+    if (!a) return null;
+    return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
+  }, [academyList, academyId]);
+  const navRole = useUserRole(academyDoc);
+  const canCancelSale = navRole === 'owner' || navRole === 'admin';
+
   const addToast = useUiStore((s) => s.addToast);
-  const { fetchSalesList, fetchSaleDetail, cancelSale, cancelling, error } = useSalesStore();
+  const fetchSalesList = useSalesStore((s) => s.fetchSalesList);
+  const fetchSaleDetail = useSalesStore((s) => s.fetchSaleDetail);
+  const cancelSale = useSalesStore((s) => s.cancelSale);
+  const cancelling = useSalesStore((s) => s.cancelling);
+  const error = useSalesStore((s) => s.error);
 
   const [period, setPeriod] = useState(defaultPeriodRange);
   const [statusFilter, setStatusFilter] = useState('all');
   const [canalFilter, setCanalFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [sales, setSales] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -44,6 +63,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
 
   const [salesSettings, setSalesSettings] = useState(() => readSalesSettings(null));
   const [academyName, setAcademyName] = useState('');
+  const isMobile = useMatchMobile();
 
   useEffect(() => {
     if (!academyId || !ACADEMIES_COL || !DB_ID) return;
@@ -63,20 +83,41 @@ export default function SalesHistoryTab({ onSwitchTab }) {
     };
   }, [academyId]);
 
-  const loadSales = useCallback(async () => {
-    if (!academyId) return;
-    setLoading(true);
-    setLoadError('');
-    try {
-      const list = await fetchSalesList({ from: period.from, to: period.to });
-      setSales(list);
-    } catch (e) {
-      setLoadError(e);
-      setSales([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [academyId, period.from, period.to, fetchSalesList]);
+  const loadSales = useCallback(
+    async ({ append = false, cursor = null } = {}) => {
+      if (!academyId) return;
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+        setLoadError('');
+        setNextCursor(null);
+        setHasMore(false);
+      }
+      try {
+        const body = await fetchSalesList({
+          from: period.from,
+          to: period.to,
+          limit: 50,
+          cursor: append ? cursor : undefined,
+        });
+        const list = body.sales || [];
+        setSales((prev) => (append ? [...prev, ...list] : list));
+        setNextCursor(body.next_cursor || null);
+        setHasMore(Boolean(body.has_more));
+      } catch (e) {
+        setLoadError(e);
+        if (!append) {
+          setSales([]);
+          setNextCursor(null);
+          setHasMore(false);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [academyId, period.from, period.to, fetchSalesList]
+  );
 
   useEffect(() => {
     void loadSales();
@@ -244,6 +285,66 @@ export default function SalesHistoryTab({ onSwitchTab }) {
               role="status"
             />
           </div>
+        ) : isMobile ? (
+          <div className="sales-history-mobile-list">
+            {filtered.map((row) => {
+              const cancelled = String(row.status).toLowerCase() === 'cancelada';
+              return (
+                <article key={row.id} className="navi-mobile-card sales-history-mobile-card">
+                  <div className="sales-history-mobile-card__head">
+                    <div className="sales-history-mobile-card__main">
+                      <div className="sales-history-mobile-card__title">
+                        {formatDateTimeBr(row.created_at)}
+                        <span className="sales-history-mobile-card__id"> · {formatSaleIdShort(row.id)}</span>
+                      </div>
+                      <div className="sales-history-mobile-card__client">{row.client_name || '—'}</div>
+                      <div className="sales-history-mobile-card__meta text-small text-muted">
+                        {row.canal_label}
+                        {row.items_summary ? ` · ${row.items_summary}` : ''}
+                      </div>
+                      <div className="sales-history-mobile-card__amount">
+                        <strong>{row.total_label || formatBRL(row.total)}</strong>
+                        {row.payment_label ? (
+                          <span className="text-small text-muted"> · {row.payment_label}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span
+                      className={
+                        cancelled ? 'sales-badge sales-badge--danger' : 'sales-badge sales-badge--ok'
+                      }
+                    >
+                      {saleStatusLabel(row.status)}
+                    </span>
+                  </div>
+                  <div className="navi-mobile-card__actions sales-history-mobile-card__actions">
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      style={{ minHeight: 44, flex: 1, justifyContent: 'center' }}
+                      onClick={() => openDetail(row)}
+                    >
+                      Ver detalhes
+                      <ChevronRight size={16} aria-hidden style={{ marginLeft: 4 }} />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+            {hasMore ? (
+              <div className="p-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  style={{ width: '100%', minHeight: 44 }}
+                  disabled={loadingMore}
+                  onClick={() => void loadSales({ append: true, cursor: nextCursor })}
+                >
+                  {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : (
           <table className="sales-table">
             <thead>
@@ -289,6 +390,18 @@ export default function SalesHistoryTab({ onSwitchTab }) {
             </tbody>
           </table>
         )}
+        {!loading && !loadError && filtered.length > 0 && hasMore ? (
+          <div className="p-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+            <button
+              type="button"
+              className="btn-outline btn-sm"
+              disabled={loadingMore}
+              onClick={() => void loadSales({ append: true, cursor: nextCursor })}
+            >
+              {loadingMore ? 'Carregando…' : 'Carregar mais'}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <SaleDetailModal
@@ -297,6 +410,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}
         onCancelClick={() => setCancelOpen(true)}
+        canCancelSale={canCancelSale}
       />
 
       <SalesCancelModal
@@ -345,6 +459,20 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         .sales-detail-span-2 { grid-column: 1 / -1; }
         .btn-danger { background: var(--danger, #dc2626); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
         .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+        .sales-history-mobile-list { display: flex; flex-direction: column; }
+        .sales-history-mobile-card { margin: 0; border-radius: 0; border-left: none; border-right: none; }
+        .sales-history-mobile-card:first-child { border-top: none; }
+        .sales-history-mobile-card__head {
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+          padding: 12px 14px;
+        }
+        .sales-history-mobile-card__main { flex: 1; min-width: 0; }
+        .sales-history-mobile-card__title { font-weight: 600; font-size: 14px; }
+        .sales-history-mobile-card__id { font-weight: 500; color: var(--text-muted); font-size: 12px; }
+        .sales-history-mobile-card__client { font-weight: 600; font-size: 14px; margin-top: 4px; }
+        .sales-history-mobile-card__meta { margin-top: 2px; }
+        .sales-history-mobile-card__amount { margin-top: 6px; font-variant-numeric: tabular-nums; }
+        .sales-history-mobile-card__actions { padding: 0 14px 12px; border-top: 0.5px solid var(--border-light); }
       `}</style>
     </>
   );

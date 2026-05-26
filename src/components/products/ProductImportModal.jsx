@@ -187,17 +187,18 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
         <div className="form-group" style={{ flex: '1 1 100px', margin: 0 }}>
           <label className="text-xs">Preço venda</label>
           <input
-            type="number"
-            min={0}
-            step="0.01"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
             className={`form-input${highlightMissing && !(Number(data.sale_price) > 0) ? ' product-import-input--warn' : ''}`}
             value={data.sale_price ?? ''}
-            onChange={(e) =>
+            onChange={(e) => {
+              const raw = String(e.target.value || '').replace(',', '.');
               onChange({
                 ...data,
-                sale_price: e.target.value === '' ? null : Number(e.target.value),
-              })
-            }
+                sale_price: raw === '' ? null : Number(raw),
+              });
+            }}
           />
         </div>
         <div className="form-group" style={{ flex: '1 1 80px', margin: 0 }}>

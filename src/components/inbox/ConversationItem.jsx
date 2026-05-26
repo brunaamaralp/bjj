@@ -5,10 +5,10 @@ import { useTerms } from '../../lib/terminology.js';
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
 
-export default function ConversationItem({
+function ConversationItem({
   item,
   active,
-  onSelect,
+  onSelectConversation,
   ticketChip,
   formatTimeOnly,
   formatWhen,
@@ -86,8 +86,8 @@ export default function ConversationItem({
       longPressFiredRef.current = false;
       return;
     }
-    onSelect?.();
-  }, [onSelect]);
+    onSelectConversation?.(item);
+  }, [onSelectConversation, item]);
 
   const handleTouchStart = useCallback(
     (e) => {
@@ -320,3 +320,5 @@ export default function ConversationItem({
     </button>
   );
 }
+
+export default React.memo(ConversationItem);

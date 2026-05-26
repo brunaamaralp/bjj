@@ -121,10 +121,23 @@ const Students = () => {
         [debouncedSearch, filtroPlano, filtroTurma, showInactive]
     );
 
+    const lastFetchedAt = useStudentStore((s) => s.lastFetchedAt);
+    const STALE_MS = 2 * 60 * 1000;
+    const hasServerFilters = useMemo(
+        () =>
+            debouncedSearch.trim().length >= 2 ||
+            filtroPlano !== 'Todos' ||
+            (filtroTurma !== 'Todas' && filtroTurma !== 'Sem turma') ||
+            showInactive,
+        [debouncedSearch, filtroPlano, filtroTurma, showInactive]
+    );
+
     useEffect(() => {
         if (!academyId) return;
+        const stale = !lastFetchedAt || Date.now() - lastFetchedAt > STALE_MS;
+        if (!stale && !hasServerFilters && students.length > 0) return;
         void fetchStudents({ reset: true, ...serverFetchOpts });
-    }, [academyId, serverFetchOpts, fetchStudents]);
+    }, [academyId, serverFetchOpts, fetchStudents, lastFetchedAt, hasServerFilters, students.length]);
 
     const serverSearchActive = debouncedSearch.trim().length >= 2;
 

@@ -27,6 +27,27 @@ const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
 const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
+const MAX_INBOX_LIST_ITEMS = 150;
+
+/** Mantém no máximo MAX_INBOX_LIST_ITEMS; preserva conversa selecionada se sair da janela. */
+function capInboxListItems(items, selectedPhone) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length <= MAX_INBOX_LIST_ITEMS) return list;
+  const selected = String(selectedPhone || '').trim();
+  let trimmed = list.slice(-MAX_INBOX_LIST_ITEMS);
+  if (selected) {
+    const selectedItem = list.find((it) => String(it?.phone_number || '').trim() === selected);
+    if (selectedItem) {
+      const inTrimmed = trimmed.some(
+        (it) => String(it?.phone_number || '').trim() === selected
+      );
+      if (!inTrimmed) {
+        trimmed = [selectedItem, ...trimmed.slice(0, MAX_INBOX_LIST_ITEMS - 1)];
+      }
+    }
+  }
+  return trimmed;
+}
 
 function readMinhaFilaFromStorage() {
   if (typeof window === 'undefined') return true;
@@ -352,6 +373,7 @@ export default function Inbox() {
   const prevAcademyIdForInboxRef = useRef('');
   const inboxAutoSelectDoneRef = useRef(false);
   const handleSelectConversationRef = useRef(() => {});
+  const markSeenRef = useRef(null);
   const messageFlagsMigrationDoneRef = useRef(false);
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
   const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
@@ -1129,6 +1151,7 @@ export default function Inbox() {
       }
     }
   }
+  markSeenRef.current = markSeen;
 
   async function markUnread(phone) {
     const p = String(phone || '').trim();
@@ -1357,7 +1380,7 @@ export default function Inbox() {
           seen.add(k);
           deduped.push(it);
         }
-        return deduped;
+        return capInboxListItems(deduped, selectedPhoneRef.current);
       });
       if (reset && notifiedOnceRef.current) {
         const selected = String(selectedPhoneRef.current || '').trim();
@@ -2484,10 +2507,10 @@ export default function Inbox() {
     return out;
   }, [groupedFilteredItems]);
 
-  const handleSelectConversation = (it) => {
+  const handleSelectConversation = useCallback((it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
-    
+
     setThreadCursor(null);
     setThreadHasMore(false);
     setSelected((prev) => {
@@ -2516,9 +2539,9 @@ export default function Inbox() {
 
     const unreadCount = Number(it?._unreadCount ?? it?.unread_count ?? 0);
     if (unreadCount > 0) {
-      markSeen(phone);
+      markSeenRef.current?.(phone);
     }
-  };
+  }, []);
 
   handleSelectConversationRef.current = handleSelectConversation;
 
@@ -2724,19 +2747,63 @@ export default function Inbox() {
   };
 
   useEffect(() => {
-    if (!autoRefresh) return;
-    const periodMs = realtimeOn ? 30000 : 10000;
-    const id = setInterval(() => {
+    if (!autoRefresh) return undefined;
+
+    const INTERVAL_ACTIVE_LIST_MS = realtimeOn ? 30_000 : 15_000;
+    const INTERVAL_ACTIVE_THREAD_MS = realtimeOn ? 15_000 : 15_000;
+    const INTERVAL_INACTIVE_MS = 60_000;
+
+    const runListRefresh = () => {
       const fn = loadListRef.current;
       if (typeof fn === 'function') fn({ reset: true, silent: true });
+    };
+
+    const runThreadRefresh = () => {
       const phone = selectedPhoneRef.current;
-      if (phone && !String(draftRef.current || '').trim()) {
-        const fnThread = loadThreadRef.current;
-        if (typeof fnThread === 'function') fnThread(phone, { silent: true });
+      if (!phone || String(draftRef.current || '').trim()) return;
+      const fnThread = loadThreadRef.current;
+      if (typeof fnThread === 'function') fnThread(phone, { silent: true });
+    };
+
+    const runAutoRefresh = () => {
+      runListRefresh();
+      runThreadRefresh();
+    };
+
+    let listTimer = null;
+    let threadTimer = null;
+
+    const clearTimers = () => {
+      if (listTimer) clearInterval(listTimer);
+      if (threadTimer) clearInterval(threadTimer);
+      listTimer = null;
+      threadTimer = null;
+    };
+
+    const startTimers = () => {
+      clearTimers();
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      const listMs = hidden ? INTERVAL_INACTIVE_MS : INTERVAL_ACTIVE_LIST_MS;
+      const threadMs = hidden ? INTERVAL_INACTIVE_MS : INTERVAL_ACTIVE_THREAD_MS;
+      listTimer = setInterval(runListRefresh, listMs);
+      threadTimer = setInterval(runThreadRefresh, threadMs);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        runAutoRefresh();
       }
-    }, periodMs);
-    return () => clearInterval(id);
-  }, [searchQuery, realtimeOn]);
+      startTimers();
+    };
+
+    runAutoRefresh();
+    startTimers();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearTimers();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [autoRefresh, realtimeOn]);
 
   const threadBlocks = useMemo(() => {
     const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
@@ -2924,7 +2991,7 @@ export default function Inbox() {
         <button
           type="button"
           className={!minhaFilaOn && listFilter === 'needs_me' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34, fontWeight: 700 }}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, fontWeight: 700, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
             setListFilter('needs_me');
@@ -2936,7 +3003,7 @@ export default function Inbox() {
         <button
           type="button"
           className={!minhaFilaOn && listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
             setListFilter('unread');
@@ -2963,7 +3030,7 @@ export default function Inbox() {
         <button
           type="button"
           className={!minhaFilaOn && listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34 }}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
             setListFilter('need_human');
@@ -2974,7 +3041,7 @@ export default function Inbox() {
         <button
           type="button"
           className={!minhaFilaOn && listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 34 }}
+          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
             setListFilter('waiting_customer');
@@ -2987,7 +3054,7 @@ export default function Inbox() {
           <button
             type="button"
             className={extraFiltersMenuOpen || inboxExtraFilterActive ? 'btn btn-secondary' : 'btn btn-outline'}
-            style={{ padding: '6px 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            style={{ padding: '6px 10px', minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, boxSizing: 'border-box' }}
             onClick={() => setExtraFiltersMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={extraFiltersMenuOpen}
@@ -3645,6 +3712,8 @@ export default function Inbox() {
                             <img
                               src={mediaUrlNorm}
                               alt="Imagem"
+                              loading="lazy"
+                              decoding="async"
                               style={{
                                 maxWidth: '100%',
                                 maxHeight: 300,

@@ -101,9 +101,9 @@ export default function InventoryEntryModal({
                 <div className="form-group" style={{ flex: '1 1 140px', margin: 0 }}>
                   <label>Valor total pago (R$)</label>
                   <input
-                    type="number"
-                    min={0}
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
                     className="form-input"
                     value={purchasePrice}
                     onChange={(e) => setPurchasePrice(e.target.value)}

@@ -1,7 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle } from 'lucide-react';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PaymentStatusPopover from './PaymentStatusPopover.jsx';
+import PaymentExceptionMobileCard from './PaymentExceptionMobileCard.jsx';
 import { saveMonthlyPayment } from '../../lib/studentPayments';
 import { mapDbStatusFromGridForm } from '../../lib/paymentStatus';
 import {
@@ -59,6 +61,7 @@ export default function PaymentExceptionsView({
   const [noteDraft, setNoteDraft] = useState('');
   const [resolvedFlash, setResolvedFlash] = useState(() => new Set());
   const [resolvedSnapshot, setResolvedSnapshot] = useState({});
+  const isMobile = useMatchMobile();
 
   const exceptionRows = useMemo(() => {
     return students
@@ -308,6 +311,66 @@ export default function PaymentExceptionsView({
     return k;
   };
 
+  const openPopoverForRow = (row, anchorRect) => {
+    const rect =
+      anchorRect ||
+      {
+        top: window.innerHeight * 0.35,
+        left: window.innerWidth * 0.5 - 140,
+        bottom: window.innerHeight * 0.35 + 1,
+        right: window.innerWidth * 0.5 + 140,
+        width: 0,
+        height: 0,
+      };
+    setPopover({ row, anchorRect: rect });
+  };
+
+  const renderMobileList = () => (
+    <div className="mensal-mobile-grid mensal-mobile-grid--exceptions">
+      {loading ? (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando…</div>
+      ) : displayRows.length === 0 ? (
+        <div style={{ padding: 24 }}>
+          <EmptyState
+            variant="table-cell"
+            icon={AlertCircle}
+            title="Nenhuma pendência este mês"
+            description={
+              exceptionRows.length === 0
+                ? 'Todos os pagamentos estão em dia ou aguardando confirmação conforme esperado.'
+                : 'Nenhum caso corresponde aos filtros selecionados.'
+            }
+          />
+        </div>
+      ) : (
+        displayRows.map((row) => (
+          <PaymentExceptionMobileCard
+            key={row.student.id}
+            row={row}
+            currentMonth={currentMonth}
+            statusLabels={statusLabels}
+            flash={resolvedFlash.has(row.student.id)}
+            isSaving={savingId === row.student.id}
+            editingNoteId={editingNoteId}
+            noteDraft={noteDraft}
+            fmtMoney={fmtMoney}
+            onUpdate={(e) => {
+              const rect = e?.currentTarget?.getBoundingClientRect?.();
+              openPopoverForRow(row, rect);
+            }}
+            onNoteOpen={() => {
+              setEditingNoteId(row.student.id);
+              setNoteDraft(row.note);
+            }}
+            onNoteDraftChange={setNoteDraft}
+            onNoteSave={() => void saveNoteInline(row)}
+            onNoteCancel={() => setEditingNoteId(null)}
+          />
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div className="payment-exceptions-view">
       <div
@@ -404,6 +467,9 @@ export default function PaymentExceptionsView({
         </div>
       </div>
 
+      {isMobile ? (
+        renderMobileList()
+      ) : (
       <div className="mensal-table-wrap" style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
         <table className="mensal-table" style={{ minWidth: 980 }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover, #f4f4f8)' }}>
@@ -559,6 +625,7 @@ export default function PaymentExceptionsView({
           </tbody>
         </table>
       </div>
+      )}
 
       {popover && typeof document !== 'undefined'
         ? createPortal(

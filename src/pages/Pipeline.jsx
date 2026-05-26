@@ -29,6 +29,7 @@ import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useTerms, TERMS, contactLabelSingular } from '../lib/terminology.js';
+import { useUserRole } from '../lib/useUserRole.js';
 import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
@@ -66,7 +67,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     const slaClass =
         slaAlert?.urgency === 'critical'
@@ -242,9 +243,11 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, 
                                 <button className="menu-item danger-text" onClick={(e) => handleMarkAsLost(e, lead)}>
                                     <MessageCircle size={16} /> Marcar como perdido
                                 </button>
-                                <button className="menu-item danger-text" onClick={(e) => handleDeleteLead(e, lead.id)}>
-                                    <StickyNote size={16} className="text-danger" /> Excluir lead
-                                </button>
+                                {canDeleteLead ? (
+                                    <button className="menu-item danger-text" onClick={(e) => handleDeleteLead(e, lead.id)}>
+                                        <StickyNote size={16} className="text-danger" /> Excluir lead
+                                    </button>
+                                ) : null}
                             </div>
                         </div>
                     )}
@@ -680,8 +683,10 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                     title="WhatsApp"
                                                     onClick={(e) => handleSplitWaMain(e, lead)}
                                                     style={{
-                                                        width: 32,
-                                                        height: 32,
+                                                        minWidth: 44,
+                                                        minHeight: 44,
+                                                        width: 44,
+                                                        height: 44,
                                                         background: '#25D366',
                                                         border: 'none',
                                                         borderRadius: 8,
@@ -690,6 +695,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
                                                         flexShrink: 0,
+                                                        boxSizing: 'border-box',
                                                     }}
                                                 >
                                                     <MessageCircle size={16} color="#fff" />
@@ -714,7 +720,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                 <button
                                                     type="button"
                                                     className="btn btn-outline btn-sm"
-                                                    style={{ flexShrink: 0, minHeight: 36, fontSize: 12 }}
+                                                    style={{ flexShrink: 0, minHeight: 44, fontSize: 12, boxSizing: 'border-box' }}
                                                     onClick={() => {
                                                         if (moveOpen) {
                                                             setMobileMoveLeadId(null);
@@ -747,7 +753,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                         <button
                                                             type="button"
                                                             className="btn btn-primary btn-sm"
-                                                            style={{ flexShrink: 0, minHeight: 36 }}
+                                                            style={{ flexShrink: 0, minHeight: 44, boxSizing: 'border-box' }}
                                                             disabled={!mobileMoveTarget}
                                                             onClick={(e) => {
                                                                 void moveToStatus(e, lead.id, mobileMoveTarget);
@@ -775,7 +781,12 @@ const MobileLeadList = React.memo(function MobileLeadList({
 
 const Pipeline = () => {
     const navigate = useNavigate();
-    const { leads, importLeads, updateLead, fetchMoreLeads, deleteLead, fetchLeads } = useLeadStore();
+    const leads = useLeadStore((s) => s.leads);
+    const importLeads = useLeadStore((s) => s.importLeads);
+    const updateLead = useLeadStore((s) => s.updateLead);
+    const fetchMoreLeads = useLeadStore((s) => s.fetchMoreLeads);
+    const deleteLead = useLeadStore((s) => s.deleteLead);
+    const fetchLeads = useLeadStore((s) => s.fetchLeads);
     const leadsError = useLeadStore((s) => s.leadsError);
     const addToast = useUiStore((s) => s.addToast);
     const labels = useLeadStore((s) => s.labels);
@@ -791,6 +802,15 @@ const Pipeline = () => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
+
+    const academyDocForRole = useMemo(() => {
+        if (!academyId) return null;
+        const a = (academyList || []).find((x) => x.id === academyId);
+        if (!a) return null;
+        return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
+    }, [academyList, academyId]);
+    const navRole = useUserRole(academyDocForRole);
+    const canDeleteLead = navRole === 'owner' || navRole === 'admin';
 
     const patchLeadLocal = useCallback((leadId, patch) => {
         useLeadStore.setState((state) => ({
@@ -989,21 +1009,21 @@ const Pipeline = () => {
         }
     };
 
-    const handleCopyPhone = (e, lead) => {
+    const handleCopyPhone = useCallback((e, lead) => {
         e.stopPropagation();
         navigator.clipboard.writeText(lead.phone || '');
         setCopiedId(lead.id);
         setOpenMenuId(null);
         setTimeout(() => setCopiedId(null), 2000);
-    };
+    }, []);
 
-    const handleMarkAsLost = (e, lead) => {
+    const handleMarkAsLost = useCallback((e, lead) => {
         e.stopPropagation();
         setOpenMenuId(null);
         setLostModalLead(lead);
-    };
+    }, []);
 
-    const handleDeleteLead = (e, leadId) => {
+    const handleDeleteLead = useCallback((e, leadId) => {
         e.stopPropagation();
         setOpenMenuId(null);
         setConfirmModal({
@@ -1021,7 +1041,7 @@ const Pipeline = () => {
                 }
             }
         });
-    };
+    }, [contactLabel, deleteLead, addToast]);
 
     const stepKanbanScrollFromClientX = (clientX) => {
         const el = kanbanWrapperRef.current;
@@ -1193,7 +1213,7 @@ const Pipeline = () => {
         [waOutbound.templates]
     );
 
-    const sendTemplateFromPipeline = async (e, lead, key) => {
+    const sendTemplateFromPipeline = useCallback(async (e, lead, key) => {
         e.stopPropagation();
         setOpenMenuId(null);
         await sendWhatsappTemplateOutbound({
@@ -1207,7 +1227,7 @@ const Pipeline = () => {
                 addToast({ type: 'success', message: t.message });
             }
         });
-    };
+    }, [academyId, waOutbound, addToast]);
 
     const automationConfig = useMemo(
         () => parseAutomationsConfig(academyAutomationsRaw),
@@ -1237,7 +1257,7 @@ const Pipeline = () => {
         return date.toISOString();
     }, []);
 
-    const handleWhatsApp = (e, lead) => {
+    const handleWhatsApp = useCallback((e, lead) => {
         e.stopPropagation();
         const digits = normalizeKanbanPhone(lead?.phone);
         if (!digits) {
@@ -1245,7 +1265,7 @@ const Pipeline = () => {
             return;
         }
         navigate(`/inbox?phone=${encodeURIComponent(digits)}`);
-    };
+    }, [navigate, contactLabel, addToast]);
 
     const handleReschedule = async (lead, ymd, time, note) => {
         const patch = buildSchedulePatch(lead, { date: ymd, time });
@@ -1288,15 +1308,15 @@ const Pipeline = () => {
         await handleReschedule(scheduleModalLead, date, time, note);
     };
 
-    const openMover = (e, leadId) => {
+    const openMover = useCallback((e, leadId) => {
         e.stopPropagation();
         setMoverOpenId(prev => prev === leadId ? null : leadId);
-    };
+    }, []);
     const openLostModal = (leadId, onConfirm) => {
         const lead = getLeadById(leadId);
         setLostModal({ leadId, leadName: lead?.name || contactLabel, onConfirm });
     };
-    const handleConfirmPresence = async (e, lead) => {
+    const handleConfirmPresence = useCallback(async (e, lead) => {
         e.stopPropagation();
         try {
             await updateLead(lead.id, {
@@ -1325,7 +1345,7 @@ const Pipeline = () => {
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
         }
-    };
+    }, [updateLead, academyId, waOutbound, academyAutomationsRaw, userId, permCtx, terms.attendance, addToast]);
 
     const handleMissedWithReason = async (lead, reason) => {
         try {
@@ -1644,7 +1664,7 @@ const Pipeline = () => {
         setDragOver(resolveDropStageId(over));
     };
 
-    const moveToStatus = async (e, leadId, stageId) => {
+    const moveToStatus = useCallback(async (e, leadId, stageId) => {
         e.stopPropagation();
         const lead = getLeadById(leadId);
         if (!lead) return;
@@ -1738,25 +1758,39 @@ const Pipeline = () => {
             });
         }
         setMoverOpenId(null);
-    };
+    }, [
+        getLeadById,
+        mapLeadToStageId,
+        academyId,
+        userId,
+        permCtx,
+        beginLeadMove,
+        patchLeadLocal,
+        updateLead,
+        revertLeads,
+        endLeadMove,
+        automationConfig,
+        upsertPendingEntry,
+        addToast,
+    ]);
 
-    const handleSplitWaMain = (e, lead) => {
+    const handleSplitWaMain = useCallback((e, lead) => {
         e.stopPropagation();
         handleWhatsApp(e, lead);
-    };
+    }, [handleWhatsApp]);
 
-    const toggleWaDropdown = (e, leadId) => {
+    const toggleWaDropdown = useCallback((e, leadId) => {
         e.stopPropagation();
         setWaDropdownOpenId(prev => prev === leadId ? null : leadId);
         setOpenMenuId(null);
-    };
-    const openNote = (e, lead) => {
+    }, []);
+    const openNote = useCallback((e, lead) => {
         e.stopPropagation();
         setNoteLead(lead);
         setNoteText('');
         setNoteError('');
         setNoteOpen(true);
-    };
+    }, []);
     const saveNote = async () => {
         if (!noteLead) {
             return;
@@ -1778,6 +1812,70 @@ const Pipeline = () => {
         setNoteOpen(false);
         addToast({ type: 'success', message: 'Observação salva' });
     };
+
+    const scheduleModalLeadId = scheduleModalLead?.id ?? null;
+    const pipelineMenuTrialLc = terms.trial.toLowerCase();
+    const pipelineMenuAttendanceLc = terms.attendance.toLowerCase();
+    const pipelineMenuEnrollment = terms.enrollment;
+
+    const cardProps = useMemo(
+        () => ({
+            navigate,
+            openNote,
+            openMenuId,
+            scheduleModalLeadId,
+            moverOpenId,
+            setOpenMenuId,
+            setWaDropdownOpenId,
+            handleSplitWaMain,
+            toggleWaDropdown,
+            waDropdownOpenId,
+            templateSendKeys,
+            sendTemplateFromPipeline,
+            stages: displayStages,
+            moveToStatus,
+            handleCopyPhone,
+            copiedId,
+            handleMarkAsLost,
+            handleDeleteLead,
+            canDeleteLead,
+            onOpenScheduleModal: setScheduleModalLead,
+            handleConfirmPresence,
+            setMissedModalLead,
+            setMatriculaModalOpen,
+            openMover,
+            setDragTargetLead,
+            mapLeadToStageId,
+            pipelineMenuTrialLc,
+            pipelineMenuAttendanceLc,
+            pipelineMenuEnrollment,
+        }),
+        [
+            navigate,
+            openNote,
+            openMenuId,
+            scheduleModalLeadId,
+            moverOpenId,
+            waDropdownOpenId,
+            templateSendKeys,
+            sendTemplateFromPipeline,
+            displayStages,
+            moveToStatus,
+            handleCopyPhone,
+            copiedId,
+            handleMarkAsLost,
+            handleDeleteLead,
+            canDeleteLead,
+            handleSplitWaMain,
+            toggleWaDropdown,
+            handleConfirmPresence,
+            openMover,
+            mapLeadToStageId,
+            pipelineMenuTrialLc,
+            pipelineMenuAttendanceLc,
+            pipelineMenuEnrollment,
+        ]
+    );
 
     return (
         <div className="pipeline-container">
@@ -2085,36 +2183,7 @@ const Pipeline = () => {
                                         savingLeadIds={savingLeadIds}
                                         movingLeadIds={movingLeadIds}
                                         slaAlerts={slaAlerts}
-                                        cardProps={{
-                                            navigate,
-                                            openNote,
-                                            openMenuId,
-                                            scheduleModalLeadId: scheduleModalLead?.id ?? null,
-                                            moverOpenId,
-                                            setOpenMenuId,
-                                            setWaDropdownOpenId,
-                                            handleSplitWaMain,
-                                            toggleWaDropdown,
-                                            waDropdownOpenId,
-                                            templateSendKeys,
-                                            sendTemplateFromPipeline,
-                                            stages: displayStages,
-                                            moveToStatus,
-                                            handleCopyPhone,
-                                            copiedId,
-                                            handleMarkAsLost,
-                                            handleDeleteLead,
-                                            onOpenScheduleModal: setScheduleModalLead,
-                                            handleConfirmPresence,
-                                            setMissedModalLead,
-                                            setMatriculaModalOpen,
-                                            openMover,
-                                            setDragTargetLead,
-                                            mapLeadToStageId,
-                                            pipelineMenuTrialLc: terms.trial.toLowerCase(),
-                                            pipelineMenuAttendanceLc: terms.attendance.toLowerCase(),
-                                            pipelineMenuEnrollment: terms.enrollment,
-                                        }}
+                                        cardProps={cardProps}
                                     />
                                 </SortableContext>
 
@@ -2169,6 +2238,7 @@ const Pipeline = () => {
                             copiedId={copiedId}
                             handleMarkAsLost={handleMarkAsLost}
                             handleDeleteLead={handleDeleteLead}
+                            canDeleteLead={canDeleteLead}
                             onOpenScheduleModal={setScheduleModalLead}
                             handleConfirmPresence={handleConfirmPresence}
                             setMissedModalLead={setMissedModalLead}

@@ -1,3 +1,9 @@
+/**
+ * Hub do agente e rotas administrativas (Vercel Hobby).
+ * Sub-rotas: process, respond, ai-prompt, nl-action, inventory-adjust/query,
+ * import-finance, academy-create, team-members, whatsapp-templates, academy-settings.
+ */
+import { Client, Databases } from 'node-appwrite';
 import processHandler from '../lib/server/agentProcess.js';
 import respondHandler from '../lib/server/agentRespond.js';
 import aiPromptHandler from '../lib/server/aiPrompt.js';
@@ -11,6 +17,22 @@ import cancelFinanceTxHandler from '../lib/server/cancelFinanceTxHandler.js';
 import academyCreateHandler from '../lib/server/academiesCreate.js';
 import teamMembersHandler from '../lib/server/teamMembers.js';
 import academyWhatsappTemplatesHandler from '../lib/server/academyWhatsappTemplatesHandler.js';
+import academySettingsHandler from '../lib/server/academySettingsHandler.js';
+
+const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
+const PROJECT_ID =
+  process.env.APPWRITE_PROJECT_ID ||
+  process.env.APPWRITE_PROJECT ||
+  process.env.VITE_APPWRITE_PROJECT ||
+  process.env.VITE_APPWRITE_PROJECT_ID ||
+  '';
+const API_KEY = process.env.APPWRITE_API_KEY || '';
+
+const adminClient =
+  PROJECT_ID && API_KEY
+    ? new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY)
+    : null;
+const adminDatabases = adminClient ? new Databases(adminClient) : null;
 
 export default async function handler(req, res) {
   try {
@@ -27,29 +49,17 @@ export default async function handler(req, res) {
     if (route === 'nl-action' || url.includes('nl-action')) return nlActionHandler(req, res);
     if (route === 'inventory-adjust' || url.includes('inventory-adjust')) {
       const { default: inventoryAdjustAgent } = await import('../lib/server/inventoryAdjustAgent.js');
-      const { Client, Databases } = await import('node-appwrite');
-      const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
-      const projectId =
-        process.env.APPWRITE_PROJECT_ID ||
-        process.env.VITE_APPWRITE_PROJECT ||
-        process.env.VITE_APPWRITE_PROJECT_ID ||
-        '';
-      const apiKey = process.env.APPWRITE_API_KEY || '';
-      const db = new Databases(new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey));
-      return inventoryAdjustAgent(req, res, db);
+      if (!adminDatabases) {
+        return res.status(500).json({ error: 'appwrite_not_configured' });
+      }
+      return inventoryAdjustAgent(req, res, adminDatabases);
     }
     if (route === 'inventory-query' || url.includes('inventory-query')) {
       const { default: inventoryQueryAgent } = await import('../lib/server/inventoryReportAgent.js');
-      const { Client, Databases } = await import('node-appwrite');
-      const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
-      const projectId =
-        process.env.APPWRITE_PROJECT_ID ||
-        process.env.VITE_APPWRITE_PROJECT ||
-        process.env.VITE_APPWRITE_PROJECT_ID ||
-        '';
-      const apiKey = process.env.APPWRITE_API_KEY || '';
-      const db = new Databases(new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey));
-      return inventoryQueryAgent(req, res, db);
+      if (!adminDatabases) {
+        return res.status(500).json({ error: 'appwrite_not_configured' });
+      }
+      return inventoryQueryAgent(req, res, adminDatabases);
     }
     if (route === 'import-finance') return importFinanceHandler(req, res);
     if (route === 'settle-finance-tx') return settleFinanceTxHandler(req, res);
@@ -58,6 +68,9 @@ export default async function handler(req, res) {
     if (route === 'team-members') return teamMembersHandler(req, res);
     if (route === 'whatsapp-templates' || url.includes('/whatsapp-templates')) {
       return academyWhatsappTemplatesHandler(req, res);
+    }
+    if (route === 'academy-settings' || url.includes('/academy/settings')) {
+      return academySettingsHandler(req, res);
     }
     return res.status(404).json({ error: 'invalid_agent_action' });
   } catch (error) {

@@ -1,7 +1,8 @@
 /**
  * Hub financeiro (Vercel Hobby: uma função para tx, mensalidades, resumos, previsão e conciliação).
- * ?route=tx | student-payments | summary | closing | forecast
- * /api/bank-reconciliation → ?finance_hub=bank-reconciliation&route=list|detail|import|...
+ * Rotas: ?route=tx | student-payments | summary | closing | forecast
+ * Conciliação: ?finance_hub=bank-reconciliation&route=list|detail|import|…
+ * Rewrites: /api/student-payments, /api/finance-tx, /api/finance/*, /api/bank-reconciliation
  */
 import financeSummaryHandler from '../lib/server/financeSummaryHandler.js';
 import financeClosingHandler from '../lib/server/financeClosingHandler.js';

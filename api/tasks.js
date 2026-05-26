@@ -109,18 +109,33 @@ export default async function handler(req, res) {
     const status = String(req.query.status || '').trim();
     const assignedTo = String(req.query.assigned_to || '').trim();
     const leadId = String(req.query.lead_id || '').trim();
+    const cursor = String(req.query.cursor || '').trim();
+    const limitRaw = Number(req.query.limit);
+    const pageLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.trunc(limitRaw), 100) : 50;
 
     try {
-      const queries = [Query.equal('academy_id', [academyId]), Query.limit(500)];
-      if (status) queries.push(Query.equal('status', [status]));
+      const queries = [
+        Query.equal('academy_id', [academyId]),
+        Query.orderDesc('$createdAt'),
+        Query.limit(pageLimit),
+      ];
+      if (status && status !== 'all') queries.push(Query.equal('status', [status]));
       if (assignedTo) queries.push(Query.equal('assigned_to', [assignedTo]));
       if (leadId) queries.push(Query.equal('lead_id', [leadId]));
+      if (cursor) queries.push(Query.cursorAfter(cursor));
 
       const list = await databases.listDocuments(DB_ID, TASKS_COL, queries);
       const docs = Array.isArray(list?.documents) ? list.documents : [];
       const tasks = docs.map(mapTask).sort((a, b) => dueSortKey(a.due_date) - dueSortKey(b.due_date));
+      const lastId = docs.length ? docs[docs.length - 1].$id : null;
+      const pageFull = docs.length === pageLimit;
 
-      return json(res, 200, { sucesso: true, tasks });
+      return json(res, 200, {
+        sucesso: true,
+        tasks,
+        next_cursor: pageFull && lastId ? lastId : null,
+        has_more: pageFull && Boolean(lastId),
+      });
     } catch (e) {
       console.error('[tasks] Erro ao listar:', e);
       return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao buscar tarefas' });

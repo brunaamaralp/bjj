@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { DoorOpen } from 'lucide-react';
-import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
-import { readControlIdConfig } from '../../../lib/controlidSettings.js';
+import { useAcademyControlId } from '../../hooks/useAcademyControlId.js';
 import { testControlIdConnection, saveControlIdConfig } from '../../lib/controlidApi';
 import EmptyState from '../shared/EmptyState.jsx';
 
 export default function ControlIdCatracaSection({ academyId }) {
   const addToast = useUiStore((s) => s.addToast);
+  const controlId = useAcademyControlId(academyId);
+
   const [enabled, setEnabled] = useState(false);
   const [ip, setIp] = useState('192.168.1.100');
   const [port, setPort] = useState('80');
@@ -18,31 +19,26 @@ export default function ControlIdCatracaSection({ academyId }) {
   const [portals, setPortals] = useState([]);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [hasStoredPassword, setHasStoredPassword] = useState(false);
+
+  const hasStoredPassword = controlId.configured;
 
   useEffect(() => {
-    if (!academyId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-        if (cancelled) return;
-        const cfg = readControlIdConfig(doc.settings);
-        setEnabled(cfg.enabled);
-        setIp(cfg.ip || '192.168.1.100');
-        setPort(String(cfg.port || 80));
-        setUsername(cfg.username || 'admin');
-        setPortalId(String(cfg.portal_id || 1));
-        setHasStoredPassword(Boolean(cfg.passwordEncrypted));
-        setPassword('');
-      } catch (e) {
-        console.error('[ControlIdCatraca]', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [academyId]);
+    if (controlId.loading) return;
+    setEnabled(controlId.enabled);
+    setIp(controlId.ip || '192.168.1.100');
+    setPort(String(controlId.port || 80));
+    setUsername(controlId.username || 'admin');
+    setPortalId(String(controlId.portal_id || 1));
+    setPassword('');
+  }, [
+    controlId.loading,
+    controlId.enabled,
+    controlId.ip,
+    controlId.port,
+    controlId.username,
+    controlId.portal_id,
+    controlId.configured,
+  ]);
 
   const canTestWithoutTypingPassword = hasStoredPassword && !String(password || '').trim();
 
@@ -89,7 +85,6 @@ export default function ControlIdCatracaSection({ academyId }) {
         portal_id: Number(portalId) || 1,
       });
       if (!data.sucesso) throw new Error(data.erro || 'Erro ao salvar');
-      setHasStoredPassword(Boolean(password) || hasStoredPassword);
       setPassword('');
       addToast({ type: 'success', message: 'Configuração da catraca salva.' });
     } catch (e) {

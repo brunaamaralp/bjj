@@ -155,6 +155,7 @@ export const useStudentStore = create((set, get) => ({
   studentsCursor: null,
   studentsTotal: null,
   lastFetchOpts: {},
+  lastFetchedAt: null,
   paymentStatusByStudentId: {},
 
   get academyId() {
@@ -169,6 +170,7 @@ export const useStudentStore = create((set, get) => ({
       studentsHasMore: false,
       studentsTotal: null,
       lastFetchOpts: {},
+      lastFetchedAt: null,
       loading: false,
       loadingMore: false,
       studentsError: false,
@@ -297,6 +299,7 @@ export const useStudentStore = create((set, get) => ({
           studentsHasMore: pageFull,
           studentsCursor: pageFull && lastId ? lastId : null,
           studentsTotal: total,
+          lastFetchedAt: Date.now(),
         });
       } else {
         set((state) => {

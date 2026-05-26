@@ -21,6 +21,12 @@ const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJE
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 
+const adminClient =
+  PROJECT_ID && API_KEY
+    ? new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY)
+    : null;
+const databases = adminClient ? new Databases(adminClient) : null;
+
 function json(res, status, obj) { res.status(status).json(obj); }
 
 export default async function handler(req, res) {
@@ -39,8 +45,7 @@ export default async function handler(req, res) {
 
   try {
     const me = await getAppwriteUserFromJwt(jwt);
-    const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
-    const databases = new Databases(adminClient);
+    if (!databases) return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite incompleta.' });
 
     if (action === 'status') {
       const storeId = String(req.query?.storeId || '').trim();

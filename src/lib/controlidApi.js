@@ -21,6 +21,23 @@ function routeUrl(route) {
   return `/api/leads?route=${encodeURIComponent(route)}`;
 }
 
+/** Status público da integração (sem senha/ciphertext). */
+export async function fetchControlIdStatus(academyId) {
+  const jwt = await createSessionJwt();
+  const res = await authedFetch('/api/control-id/status', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': academyId,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.sucesso === false) {
+    throw new Error(data?.erro || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 async function controlIdFetch(route, { method = 'POST', academyId, body } = {}) {
   const jwt = await createSessionJwt();
   const headers = {

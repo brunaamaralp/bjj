@@ -221,7 +221,7 @@ const Reports = () => {
         }),
         [terms.reportsDrillConvertedTitle, contactsPlural]
     );
-    const { leads } = useLeadStore();
+    const leads = useLeadStore((s) => s.leads);
     const leadsLoading = useLeadStore((s) => s.loading);
 
     const [preset, setPreset] = useState('month');

@@ -1,7 +1,14 @@
+/**
+ * Hub WhatsApp + Zapster (Vercel Hobby: evita function extra em api/zapster.js).
+ * Rotas Zapster: ?route=webhook | ?route=instances (rewrites em vercel.json).
+ * Rotas WhatsApp: ?action=send | reconcile | cancel | …
+ */
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
 import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
+import instancesHandler from '../lib/server/zapsterInstances.js';
+import webhookHandler from '../lib/server/zapsterWebhook.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -15,6 +22,26 @@ const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || proce
 
 const ZAPSTER_API_BASE_URL = process.env.ZAPSTER_API_BASE_URL || 'https://api.zapsterapi.com';
 const ZAPSTER_TOKEN = process.env.ZAPSTER_TOKEN || process.env.ZAPSTER_API_TOKEN || '';
+
+function firstQueryString(v) {
+  if (v == null) return '';
+  if (Array.isArray(v)) return String(v[0] ?? '').trim();
+  return String(v).trim();
+}
+
+function hasZapsterApiToken() {
+  return Boolean(String(process.env.ZAPSTER_API_TOKEN || process.env.ZAPSTER_TOKEN || '').trim());
+}
+
+function zapsterTokenMissingResponse(res) {
+  return res.status(503).json({
+    sucesso: false,
+    erro: 'Serviço de WhatsApp não configurado.',
+    detalhe:
+      'A variável ZAPSTER_API_TOKEN não está definida. Configure nas variáveis de ambiente do projeto (ou defina ZAPSTER_TOKEN como alternativa).',
+    codigo: 'ZAPSTER_TOKEN_MISSING',
+  });
+}
 
 const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(adminClient);
@@ -569,6 +596,24 @@ async function zapsterCancelMessage(id) {
 
 export default async function handler(req, res) {
   try {
+    const url = String(req.url || '');
+    const qRoute = firstQueryString(req.query.route);
+    const isZapsterWebhook =
+      qRoute === 'webhook' || url.includes('/webhook/zapster') || url.includes('route=webhook');
+    if (isZapsterWebhook) {
+      return webhookHandler(req, res);
+    }
+    const isZapsterInstances =
+      qRoute === 'instances' ||
+      url.includes('/api/zapster/instances') ||
+      url.includes('/api/zapster');
+    if (isZapsterInstances) {
+      if (!hasZapsterApiToken()) {
+        return zapsterTokenMissingResponse(res);
+      }
+      return instancesHandler(req, res);
+    }
+
     if (!ensureConfigOk(res)) return;
 
     const action = String(req.query?.action || '').trim().toLowerCase();

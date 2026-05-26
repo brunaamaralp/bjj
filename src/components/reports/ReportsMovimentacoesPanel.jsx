@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { Download, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
@@ -22,6 +23,8 @@ const CONCILIATION_FILTER_OPTIONS = [
   { value: 'settled', label: 'Quitados hoje' },
   { value: 'all', label: 'Todos' },
 ];
+
+const MOVES_VIRTUAL_THRESHOLD = 25;
 
 const KIND_OPTIONS = [
   { value: '', label: 'Todos' },
@@ -258,6 +261,46 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
       return true;
     });
   }, [rows, clientSearch]);
+
+  const movTableScrollRef = useRef(null);
+  const shouldVirtualizeMoves = filtered.length > MOVES_VIRTUAL_THRESHOLD;
+  const movesRowVirtualizer = useVirtualizer({
+    count: shouldVirtualizeMoves ? filtered.length : 0,
+    getScrollElement: () => movTableScrollRef.current,
+    estimateSize: () => 44,
+    overscan: 10,
+  });
+
+  const renderMoveRow = useCallback(
+    (r) => (
+      <tr key={r.move_id}>
+        <td>{formatMoveDate(r.date)}</td>
+        <td>{productSizeLabel(r)}</td>
+        <td>{r.movement_kind_label || r.tipo}</td>
+        <td>{r.cliente_nome}</td>
+        <td>{r.operador_nome}</td>
+        <td>{r.quantidade}</td>
+        <td>{r.unit_price != null ? formatBRL(r.unit_price) : '—'}</td>
+        <td>{r.line_total != null ? formatBRL(r.line_total) : '—'}</td>
+        <td>{r.payment_status_label || '—'}</td>
+        <td>
+          {r.sale_id ? (
+            <button
+              type="button"
+              className="reports-moves-sale-chip"
+              title={`Ver venda ${r.sale_id}`}
+              onClick={() => void openSaleDetail(r.sale_id)}
+            >
+              #{formatSaleIdShort(r.sale_id)}
+            </button>
+          ) : (
+            '—'
+          )}
+        </td>
+      </tr>
+    ),
+    [openSaleDetail]
+  );
 
   const exportCsv = () => {
     const csvRows = filtered.map((r) => ({
@@ -578,7 +621,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                 role="status"
               />
             ) : (
-              <div className="reports-mov-table-wrap">
+              <div className="reports-mov-table-wrap" ref={movTableScrollRef}>
                 <table className="reports-moves-table">
                   <thead>
                     <tr>
@@ -595,33 +638,40 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((r) => (
-                      <tr key={r.move_id}>
-                        <td>{formatMoveDate(r.date)}</td>
-                        <td>{productSizeLabel(r)}</td>
-                        <td>{r.movement_kind_label || r.tipo}</td>
-                        <td>{r.cliente_nome}</td>
-                        <td>{r.operador_nome}</td>
-                        <td>{r.quantidade}</td>
-                        <td>{r.unit_price != null ? formatBRL(r.unit_price) : '—'}</td>
-                        <td>{r.line_total != null ? formatBRL(r.line_total) : '—'}</td>
-                        <td>{r.payment_status_label || '—'}</td>
-                        <td>
-                          {r.sale_id ? (
-                            <button
-                              type="button"
-                              className="reports-moves-sale-chip"
-                              title={`Ver venda ${r.sale_id}`}
-                              onClick={() => void openSaleDetail(r.sale_id)}
-                            >
-                              #{formatSaleIdShort(r.sale_id)}
-                            </button>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {shouldVirtualizeMoves
+                      ? (() => {
+                          const virtualItems = movesRowVirtualizer.getVirtualItems();
+                          const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+                          const paddingBottom =
+                            virtualItems.length > 0
+                              ? movesRowVirtualizer.getTotalSize() -
+                                virtualItems[virtualItems.length - 1].end
+                              : 0;
+                          return (
+                            <>
+                              {paddingTop > 0 ? (
+                                <tr aria-hidden="true">
+                                  <td
+                                    colSpan={10}
+                                    style={{ height: paddingTop, padding: 0, border: 'none' }}
+                                  />
+                                </tr>
+                              ) : null}
+                              {virtualItems.map((virtualRow) =>
+                                renderMoveRow(filtered[virtualRow.index])
+                              )}
+                              {paddingBottom > 0 ? (
+                                <tr aria-hidden="true">
+                                  <td
+                                    colSpan={10}
+                                    style={{ height: paddingBottom, padding: 0, border: 'none' }}
+                                  />
+                                </tr>
+                              ) : null}
+                            </>
+                          );
+                        })()
+                      : filtered.map((r) => renderMoveRow(r))}
                   </tbody>
                 </table>
               </div>

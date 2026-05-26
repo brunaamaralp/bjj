@@ -1,5 +1,10 @@
 import sdk from "node-appwrite";
 import { resolveCurrentQuantity, itemDisplayName } from "../stockBalance.mjs";
+import {
+  getUserFromRequest,
+  assertUserAcademyAccess,
+  isAcademyOwnerOrAdminUser,
+} from "../academyAuth.mjs";
 
 const TRACE_ATTRS = [
   "movement_kind",
@@ -60,6 +65,9 @@ export default async function (req, res) {
     if (!venda_id) return res.json({ error: "invalid_payload" }, 400);
     if (!String(motivo || "").trim()) return res.json({ error: "motivo_required" }, 400);
 
+    const me = await getUserFromRequest(req);
+    if (!me) return res.json({ ok: false, error: "unauthorized" }, 401);
+
     const client = new sdk.Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_ENDPOINT || process.env.APPWRITE_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT)
@@ -78,9 +86,22 @@ export default async function (req, res) {
 
     const venda = await databases.getDocument(DB_ID, SALES_COL, venda_id);
     if (!venda) return res.json({ error: "not_found" }, 404);
-    if (academy_id && venda.academyId && String(venda.academyId) !== String(academy_id)) {
-      return res.json({ error: "forbidden_tenant" }, 403);
+
+    const vendaAcademyId = String(venda.academyId || venda.academy_id || "").trim();
+    if (!vendaAcademyId) return res.json({ ok: false, error: "academy_missing" }, 400);
+
+    const bodyAcademyId = String(academy_id || "").trim();
+    if (bodyAcademyId && String(bodyAcademyId) !== String(vendaAcademyId)) {
+      return res.json({ ok: false, error: "forbidden" }, 403);
     }
+
+    const accessCtx = await assertUserAcademyAccess(me, vendaAcademyId, databases);
+    if (!accessCtx) return res.json({ ok: false, error: "forbidden" }, 403);
+
+    const canCancel = await isAcademyOwnerOrAdminUser(accessCtx.academyDoc, me.$id, accessCtx.teamsApi);
+    if (!canCancel) return res.json({ ok: false, error: "forbidden" }, 403);
+
+    const academyId = vendaAcademyId;
 
     if (String(venda.status || "").toLowerCase() === "cancelada") {
       console.log(JSON.stringify({ level: "info", action: "sales_cancel_idempotent_hit", venda_id }));
@@ -128,6 +149,10 @@ export default async function (req, res) {
           throw new Error("stock_item_not_found");
         }
       }
+      const stockAcademyId = String(itemStock.academy_id || itemStock.academyId || "").trim();
+      if (stockAcademyId && String(stockAcademyId) !== String(academyId)) {
+        return res.json({ ok: false, error: "forbidden" }, 403);
+      }
       const prevQty = resolveCurrentQuantity(itemStock);
       const newQty = prevQty + qty;
 
@@ -144,7 +169,7 @@ export default async function (req, res) {
         referencia_id: venda_id,
         motivo,
         usuario_id: usuarioId,
-        academy_id: academy_id || itemStock.academy_id || null,
+        academy_id: academyId || itemStock.academy_id || null,
         movement_kind: "return",
         sale_id: venda_id,
         sale_item_id: it.$id || null,
@@ -188,7 +213,7 @@ export default async function (req, res) {
         if (totalVenda > 0 && !docs.some((d) => String(d.type || "").toLowerCase() === "refund")) {
           const refundSettledAt = new Date().toISOString();
           const refundPayload = {
-            academyId: academy_id || venda.academyId || "",
+            academyId: academyId || venda.academyId || "",
             saleId: venda_id,
             method: venda.forma_pagamento || "pix",
             installments: 1,

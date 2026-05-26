@@ -34,7 +34,13 @@ const DEFAULT_STAGE_SLA_DAYS = 3;
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { leads, loading, fetchLeads, academyId, academyList, leadsError, leadsLastFetchedAt } = useLeadStore();
+    const leads = useLeadStore((s) => s.leads);
+    const loading = useLeadStore((s) => s.loading);
+    const fetchLeads = useLeadStore((s) => s.fetchLeads);
+    const academyId = useLeadStore((s) => s.academyId);
+    const academyList = useLeadStore((s) => s.academyList);
+    const leadsError = useLeadStore((s) => s.leadsError);
+    const leadsLastFetchedAt = useLeadStore((s) => s.leadsLastFetchedAt);
     const vertical = useLeadStore((s) => s.vertical);
     const terms = useTerms();
     const labels = useLeadStore((s) => s.labels);

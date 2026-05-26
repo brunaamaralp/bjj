@@ -4,7 +4,7 @@ import { formatBRL } from '../../lib/moneyBr';
 import { formatDateTimeBr, saleStatusLabel } from '../../lib/salesHistory';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 
-export default function SaleDetailModal({ open, sale, loading, onClose, onCancelClick }) {
+export default function SaleDetailModal({ open, sale, loading, onClose, onCancelClick, canCancelSale = false }) {
   useModalA11y({ isOpen: open && Boolean(sale), onClose });
 
   if (!open || !sale) return null;
@@ -83,12 +83,12 @@ export default function SaleDetailModal({ open, sale, loading, onClose, onCancel
               <strong>Total:</strong> {formatBRL(sale.total)}
             </div>
 
-            {isConcluida && (
+            {isConcluida && canCancelSale ? (
               <button type="button" className="btn-outline mt-4" onClick={onCancelClick}>
                 <XCircle size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
                 Cancelar venda
               </button>
-            )}
+            ) : null}
           </>
         )}
       </div>

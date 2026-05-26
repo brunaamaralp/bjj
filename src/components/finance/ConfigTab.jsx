@@ -122,11 +122,15 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
         <label>Preço (R$)</label>
         <input
           className="form-input finance-compact-input"
-          type="number"
-          step="0.01"
-          min={0}
+          type="text"
+          inputMode="decimal"
+          pattern="[0-9]*[.,]?[0-9]*"
           value={pl.price ?? 0}
-          onChange={(e) => onUpdate(idx, { price: Number(e.target.value || 0) })}
+          onChange={(e) => {
+            const raw = String(e.target.value || '').replace(',', '.');
+            const n = parseFloat(raw);
+            onUpdate(idx, { price: Number.isFinite(n) ? n : 0 });
+          }}
         />
       </div>
       <div className="finance-plan-row__actions">

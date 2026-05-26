@@ -34,6 +34,8 @@ import {
   fetchTeamMemberships,
 } from '../../lib/teamApi.js';
 import { friendlyError } from '../../lib/errorMessages.js';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
 
 const ROLE_OPTIONS = [
   { value: 'receptionist', label: 'Recepcionista' },
@@ -389,6 +391,9 @@ function EquipeSection({ academy, academyId }) {
               </div>
             ) : null}
             {loadingMembers ? (
+              isMobile ? (
+                <PageSkeleton variant="list" rows={4} />
+              ) : (
               <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">
                 <table className="navi-table equipe-table" aria-busy="true" aria-label="Carregando equipe">
                   <thead>
@@ -428,6 +433,76 @@ function EquipeSection({ academy, academyId }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              )
+            ) : isMobile ? (
+              <div className="equipe-mobile-list">
+                {members.map((m) => {
+                  const roleLabel = membershipRoleDisplayLabel(m, academy?.ownerId);
+                  const status = membershipStatusLabel(m);
+                  const email = membershipSecondaryEmail(m) || String(m.userEmail || m.email || '—');
+                  const targetRole = membershipTeamRole(m, academy?.ownerId);
+                  const showActions =
+                    canManage &&
+                    (canEditTeamMember(actorRole, targetRole, userId, m.userId) ||
+                      canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ||
+                      canResetTeamPassword(actorRole, targetRole, userId, m.userId));
+                  return (
+                    <article key={m.$id} className="navi-mobile-card equipe-mobile-card">
+                      <div className="equipe-mobile-card__head">
+                        <div className="equipe-mobile-card__text">
+                          <div className="equipe-mobile-card__name">{membershipPrimaryLabel(m)}</div>
+                          <div className="equipe-mobile-card__email text-small text-muted">{email}</div>
+                          <div className="equipe-mobile-card__meta text-small text-muted">
+                            Entrada: {membershipJoinedDate(m)}
+                          </div>
+                        </div>
+                        <div className="equipe-mobile-card__badges">
+                          <span className="type-pill" style={membershipRolePillStyle(roleLabel)}>
+                            {roleLabel}
+                          </span>
+                          <span className="type-pill" style={membershipStatusPillStyle(status)}>
+                            {status}
+                          </span>
+                        </div>
+                      </div>
+                      {showActions ? (
+                        <div className="equipe-mobile-card__actions">
+                          {canEditTeamMember(actorRole, targetRole, userId, m.userId) ? (
+                            <button
+                              type="button"
+                              className="btn-outline equipe-mobile-action"
+                              onClick={() => openEditMember(m)}
+                            >
+                              <Pencil size={16} aria-hidden /> Editar
+                            </button>
+                          ) : null}
+                          {canResetTeamPassword(actorRole, targetRole, userId, m.userId) ? (
+                            <button
+                              type="button"
+                              className="btn-outline equipe-mobile-action"
+                              onClick={() => setResetTarget(m)}
+                            >
+                              <KeyRound size={16} aria-hidden /> Senha
+                            </button>
+                          ) : null}
+                          {canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ? (
+                            <button
+                              type="button"
+                              className="btn-outline equipe-mobile-action equipe-mobile-action--danger"
+                              onClick={() => setRemoveTarget(m)}
+                            >
+                              <Trash2 size={16} aria-hidden /> Remover
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+                {members.length === 0 && !membersLoadError ? (
+                  <EmptyState variant="compact" tone="dashed" title="Nenhum membro listado." role="status" />
+                ) : null}
               </div>
             ) : (
               <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">

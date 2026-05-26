@@ -1,16 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { createPortal } from 'react-dom';
-import {
-  ChevronDown,
-  ChevronRight,
-  MessageSquare,
-  Check,
-  Clock,
-  CircleAlert,
-  CircleDashed,
-  CalendarCheck,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PaymentStatusPopover from './PaymentStatusPopover.jsx';
+import MonthlyGridMobileCard from './MonthlyGridMobileCard.jsx';
+import { GridStatusBadgeButton } from './gridStatusBadge.jsx';
 import { getStudentPayments, saveMonthlyPayment } from '../../lib/studentPayments';
 import {
   expectedAmountForStudent,
@@ -23,7 +18,6 @@ import {
   resolveGridDisplayStatus,
   mapDbStatusFromGridForm,
 } from '../../lib/paymentStatus';
-import { formatReferenceMonthShort } from '../../lib/bundleCoverage.js';
 import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import { Users } from 'lucide-react';
@@ -39,25 +33,6 @@ function studentTurma(student) {
   return String(
     student?.turma || student?.className || student?.class_name || student?.classId || ''
   ).trim();
-}
-
-const GRID_BADGE_ICONS = {
-  paid: Check,
-  covered: CalendarCheck,
-  awaiting: Clock,
-  pending: CircleAlert,
-  partial: CircleDashed,
-  none: null,
-};
-
-function GridStatusBadgeContent({ statusKey, label }) {
-  const Icon = GRID_BADGE_ICONS[statusKey];
-  return (
-    <>
-      {Icon ? <Icon size={12} strokeWidth={2.25} aria-hidden /> : null}
-      <span>{label}</span>
-    </>
-  );
 }
 
 export default function MonthlyPaymentGrid({
@@ -87,6 +62,8 @@ export default function MonthlyPaymentGrid({
   const [historyLoading, setHistoryLoading] = useState(null);
   const [notePopoverId, setNotePopoverId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
+  const isMobile = useMatchMobile();
+  const tableScrollRef = useRef(null);
 
   const turmas = useMemo(() => {
     const set = new Set();
@@ -141,6 +118,25 @@ export default function MonthlyPaymentGrid({
     });
     return copy;
   }, [filteredRows, sortBy]);
+
+  const desktopTableRows = useMemo(() => {
+    const items = [];
+    for (const row of sortedRows) {
+      items.push({ kind: 'main', row, id: row.student.id });
+      if (expandedId === row.student.id) {
+        items.push({ kind: 'history', row, id: `${row.student.id}-history` });
+      }
+    }
+    return items;
+  }, [sortedRows, expandedId]);
+
+  const shouldVirtualizeDesktop = !isMobile && desktopTableRows.length > 20;
+  const rowVirtualizer = useVirtualizer({
+    count: shouldVirtualizeDesktop ? desktopTableRows.length : 0,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: (index) => (desktopTableRows[index]?.kind === 'history' ? 56 : 52),
+    overscan: 10,
+  });
 
   const totals = useMemo(() => {
     let expectedTotal = 0;
@@ -309,6 +305,190 @@ export default function MonthlyPaymentGrid({
 
   const monthHistoryKeys = monthKeysBack(currentMonth, 6);
 
+  const openPopoverForRow = useCallback((row, anchorRect) => {
+    const rect =
+      anchorRect ||
+      {
+        top: window.innerHeight * 0.35,
+        left: window.innerWidth * 0.5 - 140,
+        bottom: window.innerHeight * 0.35 + 1,
+        right: window.innerWidth * 0.5 + 140,
+        width: 0,
+        height: 0,
+      };
+    setPopover({ row, anchorRect: rect });
+  }, []);
+
+  const renderDesktopMainRow = (row) => {
+    const { student, payment, expected, display, note } = row;
+    const isExpanded = expandedId === student.id;
+
+    return (
+      <tr
+        key={student.id}
+        className={[
+          savingId === student.id ? 'grid-row-saving' : '',
+          display.key === 'covered' ? 'grid-row-covered' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={display.key === 'covered' ? { opacity: 0.85 } : undefined}
+      >
+        <td>
+          <button
+            type="button"
+            className="btn-action-ghost"
+            style={{ padding: 2 }}
+            onClick={() => toggleExpand(row)}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        </td>
+        <td className="mensal-cell-name mensal-cell-name--grid">
+          <span className="mensal-cell-name__title" title={student.name || undefined}>
+            {student.name || '—'}
+          </span>
+        </td>
+        <td className="text-small">{student.plan || payment?.plan_name || '—'}</td>
+        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+          {expected > 0 ? fmtMoney(expected) : '—'}
+        </td>
+        <td className="text-small">{formatDueDayLabel(student)}</td>
+        <td className="text-small">
+          {student.preferredPaymentAccount || payment?.account ? (
+            student.preferredPaymentAccount || payment?.account
+          ) : (
+            <span className="mensal-cell-faint">—</span>
+          )}
+        </td>
+        <td>
+          <GridStatusBadgeButton
+            display={display}
+            payment={payment}
+            onCoveredExpand={() => toggleExpand(row)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              openPopoverForRow(row, rect);
+            }}
+          />
+        </td>
+        <td className="text-small" style={{ maxWidth: 200 }}>
+          {notePopoverId === student.id ? (
+            <input
+              className="form-input"
+              style={{ fontSize: 12, padding: '4px 8px' }}
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              onBlur={() => void saveNoteInline(row)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void saveNoteInline(row);
+                if (e.key === 'Escape') setNotePopoverId(null);
+              }}
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNotePopoverId(student.id);
+                setNoteDraft(note);
+              }}
+              className={`grid-note-icon-btn${note ? ' grid-note-icon-btn--has-note' : ''}`}
+              title={note || 'Adicionar nota'}
+              aria-label={note ? 'Ver ou editar nota' : 'Adicionar nota'}
+            >
+              <MessageSquare size={14} />
+              {note ? <span className="grid-note-icon-btn__dot" aria-hidden /> : null}
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
+  const renderDesktopHistoryRow = (row) => {
+    const { student } = row;
+    const hist = historyByLead[student.id];
+
+    return (
+      <tr key={`${student.id}-history`} className="grid-history-row">
+        <td colSpan={8} className="grid-history-panel">
+          {historyLoading === student.id ? (
+            <span className="text-xs text-muted">Carregando histórico…</span>
+          ) : (
+            <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="text-xs text-muted" style={{ marginRight: 4 }}>
+                Últimos 6 meses:
+              </span>
+              {monthHistoryKeys.map((ym) => {
+                const p = hist?.[ym];
+                const hKey = historyStatusForMonth(student, p, ym);
+                const lbl = HISTORY_BADGE[hKey] || '—';
+                const short = ym.slice(5);
+                return (
+                  <span
+                    key={ym}
+                    title={`${short}: ${GRID_STATUS_LABELS[hKey] || hKey}`}
+                    style={{
+                      fontSize: 10,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: 'var(--surface)',
+                      border: '0.5px solid var(--border-light)',
+                    }}
+                  >
+                    {short}:{lbl}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
+  const renderMobileList = () => (
+    <div className="mensal-mobile-grid">
+      {loading ? (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando…</div>
+      ) : sortedRows.length === 0 ? (
+        <div style={{ padding: 24 }}>
+          <EmptyState variant="table-cell" icon={Users} title="Nenhum registro neste filtro" />
+        </div>
+      ) : (
+        sortedRows.map((row) => (
+          <MonthlyGridMobileCard
+            key={row.student.id}
+            row={row}
+            monthHistoryKeys={monthHistoryKeys}
+            history={historyByLead[row.student.id]}
+            historyLoading={historyLoading === row.student.id}
+            isExpanded={expandedId === row.student.id}
+            isSaving={savingId === row.student.id}
+            notePopoverId={notePopoverId}
+            noteDraft={noteDraft}
+            fmtMoney={fmtMoney}
+            onToggleExpand={() => toggleExpand(row)}
+            onStatusClick={(e) => {
+              if (row.display.key === 'covered') return;
+              const rect = e?.currentTarget?.getBoundingClientRect?.();
+              openPopoverForRow(row, rect);
+            }}
+            onNoteOpen={() => {
+              setNotePopoverId(row.student.id);
+              setNoteDraft(row.note);
+            }}
+            onNoteDraftChange={setNoteDraft}
+            onNoteSave={() => void saveNoteInline(row)}
+            onNoteCancel={() => setNotePopoverId(null)}
+          />
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div className="monthly-payment-grid">
       <div
@@ -372,8 +552,25 @@ export default function MonthlyPaymentGrid({
         </div>
       </div>
 
-      <div className="mensal-table-wrap mensal-table-wrap--scroll-hint" style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
-        <table className="mensal-table monthly-grid-table" style={{ minWidth: 960 }}>
+      {isMobile ? (
+        renderMobileList()
+      ) : (
+      <div
+        ref={tableScrollRef}
+        className="mensal-table-wrap mensal-table-wrap--scroll-hint"
+        style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}
+      >
+        <table className="mensal-table monthly-grid-table" style={{ minWidth: 960, tableLayout: 'fixed', width: '100%' }}>
+          <colgroup>
+            <col style={{ width: 28 }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: 48 }} />
+          </colgroup>
           <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover, #f4f4f8)' }}>
             <tr>
               <th style={{ width: 28 }} />
@@ -399,152 +596,48 @@ export default function MonthlyPaymentGrid({
                   <EmptyState variant="table-cell" icon={Users} title="Nenhum registro neste filtro" />
                 </td>
               </tr>
-            ) : (
-              sortedRows.map((row) => {
-                const { student, payment, expected, display, note } = row;
-                const isExpanded = expandedId === student.id;
-                const hist = historyByLead[student.id];
-
+            ) : shouldVirtualizeDesktop ? (
+              (() => {
+                const virtualRows = rowVirtualizer.getVirtualItems();
+                const paddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+                const paddingBottom =
+                  virtualRows.length > 0
+                    ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+                    : 0;
                 return (
-                  <React.Fragment key={student.id}>
-                    <tr
-                      className={[
-                        savingId === student.id ? 'grid-row-saving' : '',
-                        display.key === 'covered' ? 'grid-row-covered' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={display.key === 'covered' ? { opacity: 0.85 } : undefined}
-                    >
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-action-ghost"
-                          style={{ padding: 2 }}
-                          onClick={() => toggleExpand(row)}
-                          aria-expanded={isExpanded}
-                        >
-                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </button>
-                      </td>
-                      <td className="mensal-cell-name mensal-cell-name--grid">
-                        <span className="mensal-cell-name__title" title={student.name || undefined}>
-                          {student.name || '—'}
-                        </span>
-                      </td>
-                      <td className="text-small">{student.plan || payment?.plan_name || '—'}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
-                        {expected > 0 ? fmtMoney(expected) : '—'}
-                      </td>
-                      <td className="text-small">{formatDueDayLabel(student)}</td>
-                      <td className="text-small">
-                        {student.preferredPaymentAccount || payment?.account ? (
-                          student.preferredPaymentAccount || payment?.account
-                        ) : (
-                          <span className="mensal-cell-faint">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={`grid-status-badge grid-status-badge--${display.key}`}
-                          style={{ cursor: display.key === 'covered' ? 'default' : 'pointer' }}
-                          title={
-                            display.key === 'covered' && payment?.note
-                              ? String(payment.note)
-                              : display.key === 'covered'
-                                ? 'Coberto por plano com cobertura'
-                                : undefined
-                          }
-                          onClick={(e) => {
-                            if (display.key === 'covered') {
-                              toggleExpand(row);
-                              return;
-                            }
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setPopover({
-                              row,
-                              anchorRect: rect,
-                            });
-                          }}
-                        >
-                          <GridStatusBadgeContent statusKey={display.key} label={display.label} />
-                        </button>
-                      </td>
-                      <td className="text-small" style={{ maxWidth: 200 }}>
-                        {notePopoverId === student.id ? (
-                          <input
-                            className="form-input"
-                            style={{ fontSize: 12, padding: '4px 8px' }}
-                            value={noteDraft}
-                            onChange={(e) => setNoteDraft(e.target.value)}
-                            onBlur={() => void saveNoteInline(row)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') void saveNoteInline(row);
-                              if (e.key === 'Escape') setNotePopoverId(null);
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNotePopoverId(student.id);
-                              setNoteDraft(note);
-                            }}
-                            className={`grid-note-icon-btn${note ? ' grid-note-icon-btn--has-note' : ''}`}
-                            title={note || 'Adicionar nota'}
-                            aria-label={note ? 'Ver ou editar nota' : 'Adicionar nota'}
-                          >
-                            <MessageSquare size={14} />
-                            {note ? <span className="grid-note-icon-btn__dot" aria-hidden /> : null}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                    {isExpanded ? (
-                      <tr className="grid-history-row">
-                        <td colSpan={8} className="grid-history-panel">
-                          {historyLoading === student.id ? (
-                            <span className="text-xs text-muted">Carregando histórico…</span>
-                          ) : (
-                            <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-                              <span className="text-xs text-muted" style={{ marginRight: 4 }}>
-                                Últimos 6 meses:
-                              </span>
-                              {monthHistoryKeys.map((ym) => {
-                                const p = hist?.[ym];
-                                const hKey = historyStatusForMonth(student, p, ym);
-                                const lbl = HISTORY_BADGE[hKey] || '—';
-                                const short = ym.slice(5);
-                                return (
-                                  <span
-                                    key={ym}
-                                    title={`${short}: ${GRID_STATUS_LABELS[hKey] || hKey}`}
-                                    style={{
-                                      fontSize: 10,
-                                      padding: '2px 6px',
-                                      borderRadius: 4,
-                                      background: 'var(--surface)',
-                                      border: '0.5px solid var(--border-light)',
-                                    }}
-                                  >
-                                    {short}:{lbl}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </td>
+                  <>
+                    {paddingTop > 0 ? (
+                      <tr aria-hidden="true" style={{ height: paddingTop, border: 0, visibility: 'hidden' }}>
+                        <td colSpan={8} />
                       </tr>
                     ) : null}
-                  </React.Fragment>
+                    {virtualRows.map((virtualRow) => {
+                      const item = desktopTableRows[virtualRow.index];
+                      if (!item) return null;
+                      return item.kind === 'history'
+                        ? renderDesktopHistoryRow(item.row)
+                        : renderDesktopMainRow(item.row);
+                    })}
+                    {paddingBottom > 0 ? (
+                      <tr aria-hidden="true" style={{ height: paddingBottom, border: 0, visibility: 'hidden' }}>
+                        <td colSpan={8} />
+                      </tr>
+                    ) : null}
+                  </>
                 );
-              })
+              })()
+            ) : (
+              sortedRows.map((row) => (
+                <React.Fragment key={row.student.id}>
+                  {renderDesktopMainRow(row)}
+                  {expandedId === row.student.id ? renderDesktopHistoryRow(row) : null}
+                </React.Fragment>
+              ))
             )}
           </tbody>
         </table>
       </div>
+      )}
 
       {popover && typeof document !== 'undefined'
         ? createPortal(

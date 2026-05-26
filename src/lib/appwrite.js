@@ -61,24 +61,20 @@ export const KIMONO_SIZES = {
     infantil: ['M00', 'M0', 'M1', 'M2', 'M3', 'M4']
 };
 
-console.log('🔌 Appwrite Config Loaded:');
-console.log('   - Build Marker:', buildMarker);
-console.log('   - Endpoint:', endpoint);
-console.log('   - Project (env):', import.meta.env.VITE_APPWRITE_PROJECT_ID || import.meta.env.VITE_APPWRITE_PROJECT || '(unset)');
-console.log('   - Project:', project);
-if (endpointFallback) {
-    console.log('   - Endpoint Fallback:', endpointFallback);
-    console.log('   - Using Endpoint:', selectedEndpoint);
+if (import.meta.env.DEV) {
+  console.log('Appwrite config:', {
+    buildMarker,
+    endpoint,
+    project,
+    database: DB_ID,
+    leadsCol: LEADS_COL,
+    studentsCol: STUDENTS_COL || '(unset)',
+    academiesCol: ACADEMIES_COL,
+    inventoryMoveFn: INVENTORY_MOVE_FN_ID || '(unset)',
+    salesCreateFn: SALES_CREATE_FN_ID || '(unset)',
+    salesCancelFn: SALES_CANCEL_FN_ID || '(unset)',
+  });
 }
-console.log('   - Database:', DB_ID);
-console.log('   - Leads Col:', LEADS_COL);
-console.log('   - Students Col:', STUDENTS_COL || '(unset)');
-console.log('   - Academies Col:', ACADEMIES_COL);
-console.log('   - Stock Items Col:', STOCK_ITEMS_COL || '(unset)');
-console.log('   - Fn Inventory Move:', INVENTORY_MOVE_FN_ID || '(unset)');
-console.log('   - Fn Sales Create:', SALES_CREATE_FN_ID || '(unset)');
-console.log('   - Fn Sales Cancel:', SALES_CANCEL_FN_ID || '(unset)');
-console.log('   - Fn Inventory Seed Kimonos:', INVENTORY_SEED_KIMONOS_FN_ID || '(unset)');
 
 export const ENDPOINT = endpoint;
 export { APPWRITE_PROJECT as PROJECT_ID };

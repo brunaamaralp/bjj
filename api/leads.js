@@ -20,6 +20,7 @@ import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
 import {
+  controlidStatusHandler,
   controlidTestHandler,
   controlidSaveConfigHandler,
   controlidSyncHandler,
@@ -245,6 +246,7 @@ export default async function handler(req, res) {
   if (req.query.route === 'sales') return salesHistoryHandler(req, res);
   if (req.query.route === 'sales_by_student') return salesByStudentHandler(req, res);
   if (req.query.route === 'students') return studentsHandler(req, res);
+  if (req.query.route === 'controlid_status') return controlidStatusHandler(req, res);
   if (req.query.route === 'controlid_test') return controlidTestHandler(req, res);
   if (req.query.route === 'controlid_save_config') return controlidSaveConfigHandler(req, res);
   if (req.query.route === 'controlid_sync') return controlidSyncHandler(req, res);
@@ -385,17 +387,28 @@ export default async function handler(req, res) {
 
 async function handleAttendanceGet(req, res, academyId) {
   const { student_id, start, end } = req.query;
+  const cursor = String(req.query.cursor || '').trim();
+  const limitRaw = Number(req.query.limit);
+  const pageLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.trunc(limitRaw), 100) : 100;
   const filters = [
     Query.equal('academy_id', academyId),
     Query.orderDesc('checked_in_at'),
-    Query.limit(500),
+    Query.limit(pageLimit),
   ];
   if (student_id) filters.push(Query.equal('student_id', student_id));
   if (start) filters.push(Query.greaterThanEqual('checked_in_at', start));
   if (end) filters.push(Query.lessThanEqual('checked_in_at', end));
+  if (cursor) filters.push(Query.cursorAfter(cursor));
   try {
     const result = await databases.listDocuments(DB_ID, ATTENDANCE_COL, filters);
-    return res.json({ sucesso: true, records: result.documents });
+    const docs = result.documents || [];
+    const lastId = docs.length ? docs[docs.length - 1].$id : null;
+    return res.json({
+      sucesso: true,
+      records: docs,
+      next_cursor: docs.length === pageLimit && lastId ? lastId : null,
+      has_more: docs.length === pageLimit && Boolean(lastId),
+    });
   } catch (err) {
     return json(res, 500, { sucesso: false, erro: err.message });
   }
@@ -410,13 +423,18 @@ async function handleAttendancePost(req, res, academyId) {
 
   let students = [];
   try {
-    const result = await databases.listDocuments(DB_ID, PEOPLE_COL, [
-      Query.equal('academyId', academyId),
-      Query.limit(1000),
-    ]);
-    students = (result.documents || []).filter(
-      (s) => s?.controlid_user_id != null || s?.device_id != null
-    );
+    const PAGE = 100;
+    let cursor = null;
+    for (;;) {
+      const queries = [Query.equal('academyId', academyId), Query.limit(PAGE)];
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const result = await databases.listDocuments(DB_ID, PEOPLE_COL, queries);
+      const batch = result.documents || [];
+      students.push(...batch);
+      if (batch.length < PAGE) break;
+      cursor = batch[batch.length - 1].$id;
+    }
+    students = students.filter((s) => s?.controlid_user_id != null || s?.device_id != null);
   } catch (err) {
     return json(res, 500, { sucesso: false, erro: 'Erro ao buscar alunos' });
   }

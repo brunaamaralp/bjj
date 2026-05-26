@@ -16,6 +16,8 @@ import {
 } from '../../lib/productCatalog';
 import { centsToNumber, formatBRLFromCents, maskFromNumber, parseMaskToCents } from '../../lib/moneyBr';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
+import useVisualViewportKeyboardOffset from '../../hooks/useVisualViewportKeyboardOffset.js';
 
 const NEW_CAT = '__nova__';
 
@@ -229,6 +231,9 @@ export default function ProductFormModal({
   const useVariantWizard = parentVariantCatalog && isCreate;
 
   const [step, setStep] = useState(1);
+  const isMobile = useMatchMobile();
+  const keyboardOffset = useVisualViewportKeyboardOffset(open && isMobile);
+  const footerPadStyle = isMobile ? { paddingBottom: keyboardOffset + 12 } : undefined;
   const [parentForm, setParentForm] = useState(emptyParentForm);
   const [legacyForm, setLegacyForm] = useState(emptyLegacyForm);
   const [variants, setVariants] = useState([emptyVariantRow()]);
@@ -691,13 +696,20 @@ export default function ProductFormModal({
     <>
       <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
         <div
-          className="card navi-modal-dialog"
+          className="card navi-modal-dialog product-form-modal-dialog"
           role="dialog"
           aria-modal="true"
-          style={{ maxWidth: wideModal ? 760 : 560, padding: 20 }}
+          style={{
+            maxWidth: wideModal ? 760 : 560,
+            padding: 0,
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
           onClick={(ev) => ev.stopPropagation()}
         >
-          <div className="flex justify-between items-center gap-2" style={{ marginBottom: 8 }}>
+          <div className="flex justify-between items-center gap-2" style={{ marginBottom: 8, padding: '20px 20px 0', flexShrink: 0 }}>
             <div>
               <h3 className="navi-section-heading" style={{ margin: 0 }}>{title}</h3>
               {(useVariantWizard || useEditWizard) && (
@@ -711,11 +723,13 @@ export default function ProductFormModal({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             {((useVariantWizard || useEditWizard) && step === 1) ? (
               <>
+                <div className="product-form-modal__body">
                 <ParentFields parentForm={parentForm} setParentForm={setParentForm} categoryOptions={categoryOptions} />
-                <div className="flex gap-2 justify-end mt-4">
+                </div>
+                <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={requestClose} disabled={loading}>
                     Cancelar
                   </button>
@@ -733,6 +747,7 @@ export default function ProductFormModal({
 
             {useVariantWizard && step === 2 ? (
               <>
+                <div className="product-form-modal__body">
                 <p className="text-small text-muted" style={{ marginBottom: 8 }}>
                   Produto: <strong>{parentForm.nome}</strong>
                 </p>
@@ -766,7 +781,8 @@ export default function ProductFormModal({
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 justify-end mt-4">
+                </div>
+                <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>Voltar</button>
                   <button type="submit" className="btn-secondary" disabled={loading || variants.length === 0}>
                     {loading ? 'Salvando…' : 'Criar produto'}
@@ -777,6 +793,7 @@ export default function ProductFormModal({
 
             {useEditWizard && step === 2 ? (
               <>
+                <div className="product-form-modal__body">
                 <h4 className="navi-section-heading" style={{ margin: '0 0 8px', fontSize: '1rem' }}>
                   Tamanhos / Variantes
                 </h4>
@@ -830,7 +847,8 @@ export default function ProductFormModal({
                 {saveSummary ? (
                   <p className="text-small mt-2" style={{ color: 'var(--warning, #c9a227)' }}>{saveSummary}</p>
                 ) : null}
-                <div className="flex gap-2 justify-end mt-4">
+                </div>
+                <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>
                     Voltar
                   </button>
@@ -847,6 +865,7 @@ export default function ProductFormModal({
 
             {!useVariantWizard && !useEditWizard ? (
               <>
+                <div className="product-form-modal__body">
                 <Field label="Nome" required>
                   <input className="form-input" maxLength={128} value={legacyForm.nome} onChange={(e) => setLegacyForm((f) => ({ ...f, nome: e.target.value }))} />
                 </Field>
@@ -858,7 +877,8 @@ export default function ProductFormModal({
                     <input type="number" min={0} className="form-input" value={legacyForm.initial_quantity} onChange={(e) => setLegacyForm((f) => ({ ...f, initial_quantity: e.target.value }))} />
                   </Field>
                 )}
-                <div className="flex gap-2 justify-end mt-4">
+                </div>
+                <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
                   <button type="button" className="btn-outline" onClick={requestClose} disabled={loading}>Cancelar</button>
                   <button type="submit" className="btn-secondary" disabled={loading}>
                     {loading ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar produto'}
@@ -1004,6 +1024,13 @@ export default function ProductFormModal({
           }
           .product-variants-editor__spacer { display: block; }
           .product-variants-editor__head { margin-bottom: 6px; }
+          .product-form-modal-dialog { max-height: 90vh; }
+          .product-form-modal__body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+          .product-form-footer {
+            position: sticky; bottom: 0; z-index: 1; flex-shrink: 0;
+            background: var(--surface, #fff); border-top: 1px solid var(--border-light, #e8e6f0);
+            padding: 12px 20px; margin: 0 -20px -20px;
+          }
         `,
       }} />
     </>,

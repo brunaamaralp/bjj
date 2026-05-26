@@ -83,14 +83,17 @@ export default function NotificationBell({ academyId, userId }) {
         style={{
           background: 'none',
           border: 'none',
-          padding: 8,
+          padding: 0,
+          minWidth: 44,
+          minHeight: 44,
           cursor: 'pointer',
           color: 'rgba(255,255,255,0.85)',
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'color 0.2s'
+          transition: 'color 0.2s',
+          boxSizing: 'border-box',
         }}
       >
         <Bell size={20} strokeWidth={2} />

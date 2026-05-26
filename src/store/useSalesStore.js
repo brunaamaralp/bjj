@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { functions, SALES_CANCEL_FN_ID } from '../lib/appwrite';
+import { functions, SALES_CANCEL_FN_ID, createSessionJwt } from '../lib/appwrite';
 import { salesFetch, SalesApiError } from '../lib/salesApi';
 import { useLeadStore } from './useLeadStore';
 
@@ -49,13 +49,19 @@ export const useSalesStore = create((set) => ({
     }
   },
 
-  fetchSalesList: async ({ from, to }) => {
+  fetchSalesList: async ({ from, to, limit = 50, cursor } = {}) => {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    params.set('limit', String(limit));
+    if (cursor) params.set('cursor', String(cursor));
     const qs = params.toString();
-    const data = await salesFetch(qs ? `/api/sales?${qs}` : '/api/sales');
-    return data.sales || [];
+    const data = await salesFetch(`/api/sales?${qs}`);
+    return {
+      sales: data.sales || [],
+      next_cursor: data.next_cursor || null,
+      has_more: Boolean(data.has_more),
+    };
   },
 
   fetchSaleDetail: async (saleId) => {
@@ -75,10 +81,18 @@ export const useSalesStore = create((set) => ({
     set({ cancelling: true, error: null });
     try {
       const academyId = useLeadStore.getState().academyId || null;
+      const jwt = await createSessionJwt();
+      if (!jwt) {
+        set({ error: 'session_required', cancelling: false });
+        return null;
+      }
       const exec = await functions.createExecution(
         SALES_CANCEL_FN_ID,
         JSON.stringify({ venda_id, motivo: String(motivo).trim(), academy_id: academyId }),
-        false
+        false,
+        undefined,
+        undefined,
+        { Authorization: `Bearer ${jwt}` }
       );
       const code = exec.responseStatusCode || 200;
       let body = {};

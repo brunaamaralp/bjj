@@ -21,8 +21,15 @@ const Inventory = () => {
   const modules = useLeadStore((s) => s.modules);
   const academyId = useLeadStore((s) => s.academyId);
   const [stockConfigOpen, setStockConfigOpen] = useState(false);
-  const { items, loadItems, inventoryMove, adjustStock, checkItem, updateItem, lastResult, loading, error } =
-    useInventoryStore();
+  const items = useInventoryStore((s) => s.items);
+  const loadItems = useInventoryStore((s) => s.loadItems);
+  const inventoryMove = useInventoryStore((s) => s.inventoryMove);
+  const adjustStock = useInventoryStore((s) => s.adjustStock);
+  const checkItem = useInventoryStore((s) => s.checkItem);
+  const updateItem = useInventoryStore((s) => s.updateItem);
+  const lastResult = useInventoryStore((s) => s.lastResult);
+  const loading = useInventoryStore((s) => s.loading);
+  const error = useInventoryStore((s) => s.error);
   const loadProducts = useProductsStore((s) => s.loadProducts);
   const parentProducts = useProductsStore((s) => s.products);
   const [configItem, setConfigItem] = useState(null);
