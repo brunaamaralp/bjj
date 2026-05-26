@@ -33,6 +33,7 @@ import {
   fetchTeamAuditEvents,
   fetchTeamMemberships,
 } from '../../lib/teamApi.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 const ROLE_OPTIONS = [
   { value: 'receptionist', label: 'Recepcionista' },
@@ -175,7 +176,7 @@ function EquipeSection({ academy, academyId }) {
       if (isOwner) void loadAudit(0, false);
     } catch (error) {
       const status = error?.status;
-      let msg = error?.message || 'Não foi possível adicionar o membro.';
+      let msg = friendlyError(error, 'save');
       if (status === 401) msg = 'Sessão expirada, faça login novamente.';
       if (status === 403) msg = 'Você não tem permissão para adicionar membros.';
       if (status === 409) msg = 'Já existe uma conta com este e-mail.';
@@ -249,7 +250,7 @@ function EquipeSection({ academy, academyId }) {
       if (isOwner) void loadAudit(0, false);
     } catch (error) {
       const status = error?.status;
-      let msg = error?.message || 'Não foi possível salvar.';
+      let msg = friendlyError(error, 'save');
       if (status === 403) msg = 'Sem permissão para editar este membro.';
       setEditError(msg);
     } finally {
@@ -272,7 +273,7 @@ function EquipeSection({ academy, academyId }) {
     } catch (error) {
       addToast({
         type: 'error',
-        message: error?.message || 'Não foi possível remover o membro.',
+        message: friendlyError(error, 'delete'),
       });
     } finally {
       setRemoveBusy(false);
@@ -297,7 +298,7 @@ function EquipeSection({ academy, academyId }) {
     } catch (error) {
       addToast({
         type: 'error',
-        message: error?.message || 'Não foi possível enviar o e-mail de redefinição.',
+        message: friendlyError(error, 'send'),
       });
     } finally {
       setResetBusy(false);

@@ -18,6 +18,7 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ContractTemplateEditor from './ContractTemplateEditor.js';
 import './contracts.css';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 type EditorMode = 'create' | 'edit' | null;
 
@@ -252,7 +253,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         {isLoading ? <PageSkeleton variant="table" rows={4} columns={4} /> : null}
         {isError ? (
           <ErrorBanner
-            message={error instanceof Error ? error.message : 'Erro ao carregar modelos'}
+            message={friendlyError(error, 'load')}
             onRetry={() => refetch()}
           />
         ) : null}

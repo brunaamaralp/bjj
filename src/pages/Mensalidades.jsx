@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
@@ -37,6 +37,8 @@ import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import { formatPaymentDateLabel, isPaymentDateInFuture } from '../lib/validations.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -180,6 +182,8 @@ export default function Mensalidades() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
   const [payForm, setPayForm] = useState({});
+  const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
+  const skipFuturePaidDateRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [nlOpen, setNlOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list');
@@ -609,6 +613,13 @@ export default function Mensalidades() {
       return;
     }
 
+    const paidAtYmd = String(payForm.paid_at || '').trim();
+    if (!skipFuturePaidDateRef.current && isPaymentDateInFuture(paidAtYmd)) {
+      setFuturePaidDateLabel(formatPaymentDateLabel(paidAtYmd));
+      return;
+    }
+    skipFuturePaidDateRef.current = false;
+
     const student = selectedStudent;
     const payFormSnapshot = { ...payForm };
     const previousPayments = payments;
@@ -683,6 +694,13 @@ export default function Mensalidades() {
         type: studentPrefsWarning ? 'warning' : 'success',
         message: `Pagamento registrado.${studentPrefsWarning}`,
       });
+      if (doc?.warning) {
+        addToast({
+          type: 'warning',
+          message: String(doc.warning || '').trim() || 'Pagamento registrado, mas houve um problema ao atualizar o caixa.',
+          duration: 10000,
+        });
+      }
     } catch (e) {
       setPayments(previousPayments);
       setSelectedStudent(student);
@@ -706,9 +724,17 @@ export default function Mensalidades() {
       await updatePayment(id, { status: 'cancelled', academy_id: payment.academy_id });
       const txId = String(payment?.financial_tx_id || '').trim();
       if (txId && FINANCIAL_TX_COL) {
-        databases
-          .updateDocument(DB_ID, FINANCIAL_TX_COL, txId, { status: 'cancelled' })
-          .catch((err) => console.error('financial_tx estorno sync failed:', err));
+        try {
+          await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, txId, { status: 'cancelled' });
+        } catch (err) {
+          console.error('Falha no sync financeiro após estorno:', err);
+          addToast({
+            type: 'warning',
+            message:
+              'Pagamento estornado, mas houve um problema ao atualizar o caixa. Verifique os lançamentos financeiros.',
+            duration: 10000,
+          });
+        }
       }
       addToast({ type: 'success', message: 'Pagamento estornado.' });
     } catch (e) {
@@ -1507,6 +1533,21 @@ export default function Mensalidades() {
         academyName={academyName}
         recentPayments={recentPaymentsForNl}
         onCorrect={handleNlCorrect}
+      />
+
+      <ConfirmDialog
+        open={Boolean(futurePaidDateLabel)}
+        title="Data de pagamento futura"
+        description={`A data de pagamento (${futurePaidDateLabel}) é futura. Confirma o registro mesmo assim?`}
+        confirmLabel="Confirmar registro"
+        confirmVariant="primary"
+        loading={savingPayment}
+        onConfirm={() => {
+          setFuturePaidDateLabel(null);
+          skipFuturePaidDateRef.current = true;
+          void handleSavePayment();
+        }}
+        onClose={() => !savingPayment && setFuturePaidDateLabel(null)}
       />
     </div>
   );

@@ -845,13 +845,14 @@ export default function TransacoesTab({
 
       {showTxModal && typeof document !== 'undefined'
         ? createPortal(
-        <div className="navi-modal-overlay" role="presentation">
+        <div className="navi-modal-overlay" role="presentation" onClick={requestCloseTxModal}>
           <div
             className="card navi-modal-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="finance-tx-modal-title"
             style={{ maxWidth: 520, padding: 20 }}
+            onClick={(e) => e.stopPropagation()}
           >
             <h3 id="finance-tx-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>
               {editingRecurrenceOnly

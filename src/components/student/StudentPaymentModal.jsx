@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DateInput } from '../DateInput';
 import BankAccountSelect from '../finance/BankAccountSelect.jsx';
@@ -8,6 +8,7 @@ import StudentProductSaleStep from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -84,6 +85,18 @@ export default function StudentPaymentModal({
 }) {
   const [productStep, setProductStep] = useState(false);
 
+  const handleClose = useCallback(() => {
+    setProductStep(false);
+    onClose();
+  }, [onClose]);
+
+  const requestClose = useCallback(() => {
+    if (saving) return;
+    handleClose();
+  }, [saving, handleClose]);
+
+  useModalA11y({ isOpen: open && Boolean(student), onClose: requestClose });
+
   if (!open || !student || typeof document === 'undefined') return null;
 
   const isProduct = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
@@ -101,11 +114,6 @@ export default function StudentPaymentModal({
     { value: PAYMENT_CATEGORY.FEE, label: 'Taxa / avulso' },
     { value: PAYMENT_CATEGORY.OTHER, label: 'Outro' },
   ];
-
-  const handleClose = () => {
-    setProductStep(false);
-    onClose();
-  };
 
   return createPortal(
     <div

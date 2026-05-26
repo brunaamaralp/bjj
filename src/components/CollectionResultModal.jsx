@@ -1,23 +1,32 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { X } from 'lucide-react';
 import { COLLECTION_RESULT_OPTIONS } from '../lib/collectionRules.js';
+import { useModalA11y } from '../hooks/useModalA11y.js';
 
 export default function CollectionResultModal({ open, stageLabel, onCancel, onConfirm, saving }) {
   const [result, setResult] = useState('no_response');
   const [notes, setNotes] = useState('');
+
+  const requestClose = useCallback(() => {
+    if (saving) return;
+    onCancel();
+  }, [saving, onCancel]);
+
+  useModalA11y({ isOpen: open, onClose: requestClose });
 
   if (!open) return null;
 
   return (
     <div
       className="modal-overlay"
-      style={{ zIndex: 1200 }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="collection-result-title"
+      role="presentation"
+      onClick={requestClose}
     >
       <div
         className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="collection-result-title"
         style={{ maxWidth: 420, width: '100%', padding: 20 }}
         onClick={(e) => e.stopPropagation()}
       >

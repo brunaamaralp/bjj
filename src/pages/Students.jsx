@@ -21,6 +21,8 @@ import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentListCard from '../components/student/StudentListCard.jsx';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { maskCpfForExport } from '../lib/maskCpf.js';
+import { maskPhone } from '../lib/masks.js';
+import { friendlyError } from '../lib/errorMessages.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -99,6 +101,7 @@ const Students = () => {
         age: '',
         plan: '',
     });
+    const [phoneError, setPhoneError] = useState('');
 
     const planOptions = useMemo(() => {
         const names = (financeConfig?.plans || [])
@@ -257,6 +260,7 @@ const Students = () => {
             age: '',
             plan: '',
         });
+        setPhoneError('');
     };
 
     const handleCreateStudent = async (e) => {
@@ -272,9 +276,14 @@ const Students = () => {
             addToast({ type: 'warning', message: 'Selecione o plano para matricular o aluno.' });
             return;
         }
+        const cleanPhone = normalizePhone(newStudent.phone);
+        if (!cleanPhone || cleanPhone.length < 10) {
+            setPhoneError('Telefone obrigatório (mínimo 10 dígitos)');
+            return;
+        }
+        setPhoneError('');
         setCreatingStudent(true);
         try {
-            const cleanPhone = normalizePhone(newStudent.phone);
             const created = await addStudent({
                 name,
                 phone: cleanPhone,
@@ -306,7 +315,7 @@ const Students = () => {
             resetNewStudentForm();
             if (created?.id) navigate(`/student/${created.id}`);
         } catch (err) {
-            addToast({ type: 'error', message: err?.message || `Erro ao cadastrar ${terms.student.toLowerCase()}.` });
+            addToast({ type: 'error', message: friendlyError(err, 'save') });
         } finally {
             setCreatingStudent(false);
         }
@@ -838,13 +847,18 @@ const Students = () => {
                                 />
                             </label>
                             <label>
-                                Telefone
+                                Telefone*
                                 <input
                                     type="tel"
                                     value={newStudent.phone}
-                                    onChange={(e) => setNewStudent((prev) => ({ ...prev, phone: e.target.value }))}
+                                    onChange={(e) => {
+                                        setPhoneError('');
+                                        setNewStudent((prev) => ({ ...prev, phone: maskPhone(e.target.value) }));
+                                    }}
                                     placeholder="(11) 99999-0000"
+                                    required
                                 />
+                                {phoneError ? <p className="field-error">{phoneError}</p> : null}
                             </label>
                             <label>
                                 Perfil

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Upload } from 'lucide-react';
 import {
   detectAndParseBankFile,
@@ -94,18 +95,19 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
     }
   };
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       className="navi-modal-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="import-statement-title"
+      role="presentation"
       onClick={handleClose}
     >
       <div
         className="card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-statement-title"
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: 720, width: '100%', maxHeight: '90vh', overflow: 'auto', padding: 20 }}
       >
@@ -196,6 +198,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

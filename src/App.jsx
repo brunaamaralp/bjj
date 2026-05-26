@@ -46,6 +46,8 @@ import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
 import NaviUserMenu from './components/layout/NaviUserMenu.jsx';
+import ErrorBanner from './components/shared/ErrorBanner.jsx';
+import { OfflineBanner } from './components/shared/OfflineBanner.jsx';
 import {
   PlanosRedirect,
   FinanceRedirect,
@@ -114,6 +116,7 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [sessionChecking, setSessionChecking] = useState(true);
   const [academyReady, setAcademyReady] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState(false);
   const setAcademyId = useLeadStore((s) => s.setAcademyId);
   const labels = useLeadStore((s) => s.labels);
   const setLabels = useLeadStore((s) => s.setLabels);
@@ -478,6 +481,7 @@ const App = () => {
           setUser(currentUser);
           setAcademyReady(false);
           useLeadStore.getState().setDataReady(false);
+          setBootstrapError(false);
           try { useLeadStore.getState().setUserId(currentUser.$id); } catch (e) { void e; }
           try { await authService.refreshJwt(); } catch (e) { void e; }
           cancelBootstrap();
@@ -492,6 +496,7 @@ const App = () => {
           } catch (e) {
             if (!ac.signal.aborted) {
               console.error('Bootstrap fase 1:', e);
+              setBootstrapError(true);
             }
             setSessionChecking(false);
           }
@@ -742,7 +747,19 @@ const App = () => {
       await syncBilling(academyId);
       if (!signal?.aborted) useLeadStore.getState().setDataReady(true);
     } catch (e) {
-      if (!signal?.aborted) console.error('Bootstrap fase 2:', e);
+      if (!signal?.aborted) {
+        console.error('Bootstrap fase 2:', e);
+        try {
+          useUiStore.getState().addToast({
+            type: 'warning',
+            message: 'Alguns dados não carregaram. Recarregue a página se as listas estiverem vazias.',
+            duration: 8000,
+          });
+        } catch {
+          void 0;
+        }
+        useLeadStore.getState().setDataReady(true);
+      }
     }
   };
 
@@ -784,9 +801,47 @@ const App = () => {
     useLeadStore.setState({ leads: [] });
   };
 
+  if (bootstrapError) {
+    return (
+      <>
+        <OfflineBanner />
+        <div
+        className="app-container"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          padding: '2rem 1rem',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ maxWidth: 520, width: '100%' }}>
+          <ErrorBanner
+            message="Não foi possível carregar sua academia. Verifique sua conexão e tente novamente."
+            onRetry={() => window.location.reload()}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() => void handleLogout()}
+          style={{ minWidth: 160 }}
+        >
+          Sair da conta
+        </button>
+      </div>
+      </>
+    );
+  }
+
   if (sessionChecking) {
     return (
-      <div className="navi-bootstrap-loader" role="status" aria-live="polite" aria-label="Iniciando">
+      <>
+        <OfflineBanner />
+        <div className="navi-bootstrap-loader" role="status" aria-live="polite" aria-label="Iniciando">
         <div className="navi-bootstrap-loader__brand">
           <NaviLogo size={48} variant="white" />
           <NaviWordmark fontSize={20} variant="light" />
@@ -842,12 +897,15 @@ const App = () => {
           }
         `}} />
       </div>
+      </>
     );
   }
 
   if (!user) {
     return (
-      <div className="app-container">
+      <>
+        <OfflineBanner />
+        <div className="app-container">
         <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/welcome" element={<Navigate to="/" replace />} />
@@ -857,10 +915,13 @@ const App = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    <OfflineBanner />
     <ErrorBoundary>
     <div className="app-container navi-authed">
       <div className="navi-shell">
@@ -1209,6 +1270,7 @@ const App = () => {
         `}} />
     </div>
     </ErrorBoundary>
+    </>
   );
 };
 

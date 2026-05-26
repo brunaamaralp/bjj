@@ -1402,6 +1402,28 @@ select.task-select option {
   overscroll-behavior: contain;
 }
 
+/* Pipeline — notas, confirmações e “não compareceu” */
+.note-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.note-modal {
+  background: var(--navi-surface, var(--surface, #fff));
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
 .error {
   color: var(--c500);
   font-size: 0.75rem;
@@ -2332,7 +2354,7 @@ button.funil-color-swatch {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 9999;
+  z-index: 10050;
 }
 
 .navi-toast {
@@ -6890,11 +6912,42 @@ input[type='datetime-local'].form-input:focus {
   to { transform: rotate(360deg); }
 }
 
+/* Confirmações inline (Dashboard gate, Agente IA, Avançado) */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+  padding: 1rem;
+}
+
+.confirm-modal {
+  background: var(--navi-surface, var(--surface, #fff));
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.confirm-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--danger-light);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ConfirmDialog */
 .navi-confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 400;
+  z-index: 10002;
   background: rgba(18, 16, 42, 0.5);
   backdrop-filter: blur(4px);
   display: flex;

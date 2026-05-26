@@ -11,6 +11,7 @@ import { resolveSignerShortLink } from '../../../lib/contracts/signersLinks.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 interface ContractDetailsDrawerProps {
   contractId: string | null;
@@ -120,7 +121,10 @@ export default function ContractDetailsDrawer({
           {isLoading ? (
             <PageSkeleton variant="list" rows={4} />
           ) : isError ? (
-            <ErrorBanner message={error instanceof Error ? error.message : 'Erro ao carregar contrato'} />
+            <ErrorBanner
+              message={friendlyError(error, 'load')}
+              onRetry={() => void refetch()}
+            />
           ) : contract ? (
             <>
               <div className="contracts-drawer-section">

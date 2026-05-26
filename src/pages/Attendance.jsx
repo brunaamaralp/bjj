@@ -7,6 +7,8 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 
 function formatDate(iso) {
   try {
@@ -30,10 +32,20 @@ export default function Attendance() {
   const [showSettings, setShowSettings] = useState(!deviceIp);
   const [form, setForm] = useState({ ip: deviceIp, username: deviceUsername, password: devicePassword });
   const [loading, setLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState(null);
 
   useEffect(() => {
     if (academyId && deviceIp) {
-      fetchAttendance(academyId).catch(() => {});
+      setLoading(true);
+      setAttendanceError(null);
+      fetchAttendance(academyId)
+        .catch((err) => {
+          console.error('Erro ao carregar presença:', err);
+          setAttendanceError(
+            'Não foi possível carregar os registros de presença. Tente recarregar a página.'
+          );
+        })
+        .finally(() => setLoading(false));
     }
   }, [academyId, deviceIp]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -126,7 +138,26 @@ export default function Attendance() {
       )}
 
       {/* Attendance table */}
-      {attendance.length === 0 ? (
+      {attendanceError ? (
+        <ErrorBanner
+          message={attendanceError}
+          onRetry={() => {
+            if (!academyId) return;
+            setLoading(true);
+            setAttendanceError(null);
+            fetchAttendance(academyId)
+              .catch((err) => {
+                console.error('Erro ao carregar presença:', err);
+                setAttendanceError(
+                  'Não foi possível carregar os registros de presença. Tente recarregar a página.'
+                );
+              })
+              .finally(() => setLoading(false));
+          }}
+        />
+      ) : loading ? (
+        <PageSkeleton variant="table" rows={8} columns={6} />
+      ) : attendance.length === 0 ? (
         <EmptyState
           variant="default"
           tone="dashed"

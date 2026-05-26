@@ -822,22 +822,6 @@ const AcademySettings = () => {
           background: var(--danger); color: white;
           border-radius: var(--radius-sm); font-weight: 700;
         }
-        .confirm-overlay {
-          position: fixed; inset: 0; background: rgba(18, 16, 42, 0.5);
-          backdrop-filter: blur(4px); z-index: 200;
-          display: flex; align-items: center; justify-content: center;
-          padding: 20px; animation: fadeIn 0.2s ease;
-        }
-        .confirm-modal {
-          background: var(--surface); border-radius: var(--radius);
-          padding: 24px; width: 100%; max-width: 360px; text-align: center;
-          animation: fadeInUp 0.3s ease;
-        }
-        .confirm-icon-wrap {
-          width: 56px; height: 56px; border-radius: 50%;
-          background: var(--danger-light); margin: 0 auto 16px;
-          display: flex; align-items: center; justify-content: center;
-        }
         .field-error {
           margin-top: 6px; font-size: 0.75rem; color: var(--danger); font-weight: 600;
         }

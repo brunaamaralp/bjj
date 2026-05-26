@@ -1,4 +1,5 @@
 import { createSessionJwt } from './appwrite.js';
+import { authedFetch } from './authInterceptor.js';
 
 export async function fetchProductStockMoves(itemId, academyId) {
   const jwt = await createSessionJwt();
@@ -6,7 +7,7 @@ export async function fetchProductStockMoves(itemId, academyId) {
   const aid = String(academyId || '').trim();
   if (!aid || !itemId) throw new Error('params_required');
 
-  const res = await fetch(`/api/inventory?item_id=${encodeURIComponent(itemId)}`, {
+  const res = await authedFetch(`/api/inventory?item_id=${encodeURIComponent(itemId)}`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
       'x-academy-id': aid,

@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite.js';
 import { useLeadStore } from '../store/useLeadStore.js';
+import { authedFetch } from './authInterceptor.js';
 
 async function studentsFetch(path, options = {}) {
   const jwt = await createSessionJwt();
@@ -7,7 +8,7 @@ async function studentsFetch(path, options = {}) {
   const academyId = useLeadStore.getState().academyId;
   if (!academyId) throw new Error('academy_required');
 
-  const res = await fetch(path, {
+  const res = await authedFetch(path, {
     ...options,
     headers: {
       Authorization: `Bearer ${jwt}`,

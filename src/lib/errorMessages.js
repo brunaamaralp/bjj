@@ -28,9 +28,21 @@ const ERROR_MAP = {
   'unauthorized':
     'Sem permissão para esta ação.',
 
+  // Auth
+  'Invalid credentials':
+    'Email ou senha incorretos.',
+  'already exists':
+    'Este email já está cadastrado.',
+  'Rate limit':
+    'Muitas tentativas. Aguarde alguns segundos.',
+  '429':
+    'Muitas tentativas. Aguarde alguns segundos.',
+
   // Rede
   'Failed to fetch':
     'Sem conexão. Verifique sua internet.',
+  'fetch failed':
+    'Sem conexão. Verifique sua internet e tente novamente.',
   'NetworkError':
     'Sem conexão. Verifique sua internet.',
   'AbortError':
@@ -77,4 +89,28 @@ export function friendlyError(err, context = 'action') {
 
   // Fallback por contexto
   return DEFAULT_ERRORS[context] ?? DEFAULT_ERRORS.action;
+}
+
+const SALE_ERROR_CODES = {
+  no_stock: 'Produto sem estoque disponível.',
+  stock_stale: 'Estoque atualizado. Verifique as quantidades.',
+  session_required: 'Sessão expirada. Faça login novamente.',
+  academy_required: 'Academia não selecionada. Recarregue a página.',
+  invalid_items: 'Um ou mais itens estão inválidos.',
+  duplicate_sale: 'Esta venda já foi registrada.',
+  create_failed: 'Não foi possível registrar a venda. Revise as informações e tente novamente.',
+  server_error: 'Não foi possível registrar a venda. Tente novamente.',
+};
+
+/**
+ * Mensagens amigáveis para erros de venda (códigos da API / SalesApiError).
+ */
+export function friendlySaleError(err) {
+  if (!err) return null;
+  const code =
+    typeof err === 'string'
+      ? err.trim()
+      : String(err?.code || err?.message || '').trim();
+  if (code && SALE_ERROR_CODES[code]) return SALE_ERROR_CODES[code];
+  return friendlyError(err, 'action');
 }

@@ -95,7 +95,7 @@ const NewLead = () => {
 
     const onSubmit = async (data) => {
         if (!academyId) {
-            alert('Erro: Academia não identificada. Por favor, recarregue a página.');
+            addToast({ type: 'error', message: 'Academia não identificada. Recarregue a página e tente novamente.' });
             return;
         }
         if (phoneChecking) {

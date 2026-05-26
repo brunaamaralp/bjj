@@ -9,6 +9,7 @@ import { useSalesCatalog } from '../../hooks/useSalesCatalog';
 import { suggestUnitPrice } from '../../lib/salesCatalog';
 import { readSalesSettings } from '../../lib/salesSettings';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
+import { maskPhone } from '../../lib/masks.js';
 import SalesCatalogPicker from './SalesCatalogPicker';
 import SalesVariantPicker from './SalesVariantPicker';
 import SalesCart from './SalesCart';
@@ -24,6 +25,7 @@ import {
   normalizePaymentForma,
 } from '../../lib/salePayments';
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
+import { friendlySaleError } from '../../lib/errorMessages.js';
 
 export default function SalesNewSaleTab() {
   const { createSale, creating, lastSale, error } = useSalesStore();
@@ -448,7 +450,7 @@ export default function SalesNewSaleTab() {
       aluno_id: alunoId || null,
       pagamentos,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
-      cliente_telefone: !alunoId ? clienteTelefone.trim() || null : null,
+      cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
       venda_colaborador: vendaColaborador,
       itens,
       idempotency_key: idempotencyKeyRef.current,
@@ -621,7 +623,7 @@ export default function SalesNewSaleTab() {
                     className="form-input"
                     maxLength={20}
                     value={clienteTelefone}
-                    onChange={(e) => setClienteTelefone(e.target.value)}
+                    onChange={(e) => setClienteTelefone(maskPhone(e.target.value))}
                     placeholder="(00) 00000-0000"
                     tabIndex={alunoId ? -1 : 0}
                   />
@@ -722,11 +724,11 @@ export default function SalesNewSaleTab() {
         </div>
       </form>
 
-      {(localError || error) && (
+      {(localError || error) ? (
         <p className="text-small mt-2" style={{ color: 'var(--danger)' }}>
-          {String(localError || error)}
+          {friendlySaleError(localError || error)}
         </p>
-      )}
+      ) : null}
 
       {variantPickerParent ? (
         <SalesVariantPicker

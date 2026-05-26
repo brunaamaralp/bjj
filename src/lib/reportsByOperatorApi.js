@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
+import { authedFetch } from './authInterceptor.js';
 
 export async function fetchReportsByOperator({ from, to, academyId, usuario_id } = {}) {
   const jwt = await createSessionJwt();
@@ -12,7 +13,7 @@ export async function fetchReportsByOperator({ from, to, academyId, usuario_id }
   if (to) params.set('to', to);
   if (usuario_id) params.set('usuario_id', usuario_id);
 
-  const res = await fetch(`/api/reports/by-operator?${params}`, {
+  const res = await authedFetch(`/api/reports/by-operator?${params}`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
       'x-academy-id': aid,

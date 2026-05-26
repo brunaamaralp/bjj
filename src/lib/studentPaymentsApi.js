@@ -1,4 +1,5 @@
 import { createSessionJwt } from './appwrite.js';
+import { authedFetch } from './authInterceptor.js';
 
 export class StudentPaymentsApiError extends Error {
   constructor(message, { status } = {}) {
@@ -22,7 +23,7 @@ async function paymentsFetch(path, options = {}, academyId) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(path, { ...options, headers });
+  const res = await authedFetch(path, { ...options, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
     throw new StudentPaymentsApiError(data.erro || data.error || `HTTP ${res.status}`, {

@@ -1,14 +1,22 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export default function InventoryCheckModal({ open, item, loading, onClose, onConfirm }) {
+  const requestClose = useCallback(() => {
+    if (loading) return;
+    onClose();
+  }, [loading, onClose]);
+
+  useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
+
   if (!open || !item || typeof document === 'undefined') return null;
 
   const label = item.Tamanho ? `${item.nome} · ${item.Tamanho}` : item.nome;
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
       <div
         className="card navi-modal-dialog"
         role="dialog"

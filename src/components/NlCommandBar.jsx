@@ -258,7 +258,7 @@ export default function NlCommandBar({
           alignItems: 'flex-start',
           justifyContent: 'center',
           paddingTop: '15vh',
-          zIndex: 200,
+          zIndex: 9999,
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'all' : 'none',
           transition: 'opacity 0.2s'

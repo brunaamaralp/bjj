@@ -1,4 +1,5 @@
 import { createSessionJwt } from './appwrite.js';
+import { authedFetch } from './authInterceptor.js';
 
 async function headers(academyId) {
   const jwt = await createSessionJwt();
@@ -11,7 +12,7 @@ async function headers(academyId) {
 export async function fetchReportsFinanceLight({ academyId, from, to, regime }) {
   const params = new URLSearchParams({ type: 'finance', from, to });
   if (regime) params.set('regime', regime);
-  const res = await fetch(`/api/reports-light?${params}`, { headers: await headers(academyId) });
+  const res = await authedFetch(`/api/reports-light?${params}`, { headers: await headers(academyId) });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Erro ao carregar resumo financeiro');
   return body;
@@ -19,7 +20,7 @@ export async function fetchReportsFinanceLight({ academyId, from, to, regime }) 
 
 export async function fetchReportsSalesLight({ academyId, from, to }) {
   const params = new URLSearchParams({ type: 'sales', from, to });
-  const res = await fetch(`/api/reports-light?${params}`, { headers: await headers(academyId) });
+  const res = await authedFetch(`/api/reports-light?${params}`, { headers: await headers(academyId) });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Erro ao carregar resumo da loja');
   return body;

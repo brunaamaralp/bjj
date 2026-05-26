@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -306,12 +307,75 @@ const SortableLeadCard = ({ lead, ...props }) => {
     );
 };
 
-const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => {
-    const { setNodeRef } = useDroppable({ id });
+const PIPELINE_VIRTUAL_THRESHOLD = 20;
+
+function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts }) {
+    const shouldVirtualize = leads.length > PIPELINE_VIRTUAL_THRESHOLD;
+    const virtualizer = useVirtualizer({
+        count: shouldVirtualize ? leads.length : 0,
+        getScrollElement: () => scrollRef?.current ?? null,
+        estimateSize: () => 112,
+        gap: 8,
+        overscan: 4,
+    });
+
+    const renderLead = (lead) => (
+        <SortableLeadCard
+            key={lead.id}
+            lead={lead}
+            isMoving={savingLeadIds.has(lead.id) || movingLeadIds.has(lead.id)}
+            slaAlert={slaAlerts[lead.id]}
+            {...cardProps}
+        />
+    );
+
+    if (!shouldVirtualize) {
+        return leads.map((lead) => renderLead(lead));
+    }
 
     return (
         <div
-            ref={setNodeRef}
+            style={{
+                height: virtualizer.getTotalSize(),
+                width: '100%',
+                position: 'relative',
+            }}
+        >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+                const lead = leads[virtualRow.index];
+                if (!lead) return null;
+                return (
+                    <div
+                        key={lead.id}
+                        data-index={virtualRow.index}
+                        ref={virtualizer.measureElement}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                    >
+                        {renderLead(lead)}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => {
+    const scrollRef = useRef(null);
+    const { setNodeRef } = useDroppable({ id });
+    const setColumnRef = useCallback((node) => {
+        setNodeRef(node);
+        scrollRef.current = node;
+    }, [setNodeRef]);
+
+    return (
+        <div
+            ref={setColumnRef}
             className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
         >
             <div className="col-header">
@@ -327,7 +391,7 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
                 </span>
             </div>
             <div className="col-content">
-                {children}
+                {typeof children === 'function' ? children(scrollRef) : children}
             </div>
         </div>
     );
@@ -759,6 +823,7 @@ const Pipeline = () => {
     const [showImport, setShowImport] = useState(false);
     const [pipelineQuickTimes, setPipelineQuickTimes] = useState([]);
     const [movingLeadIds, setMovingLeadIds] = useState(() => new Set());
+    const [savingLeadIds, setSavingLeadIds] = useState(() => new Set());
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const [noteOpen, setNoteOpen] = useState(false);
@@ -1340,6 +1405,10 @@ const Pipeline = () => {
             setEditStages(false);
         } catch (e) {
             console.error('saveStages error', e);
+            addToast({
+                type: 'error',
+                message: 'Erro ao salvar configuração do funil.',
+            });
         }
     };
     const addStage = () => {
@@ -1541,6 +1610,11 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
+            setSavingLeadIds((prev) => {
+                const next = new Set(prev);
+                next.add(leadId);
+                return next;
+            });
             await updateLead(leadId, payload);
             if (status === PIPELINE_WAITING_DECISION_STAGE) {
                 const cfg = automationConfig?.waiting_decision;
@@ -1557,6 +1631,11 @@ const Pipeline = () => {
             addToast({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
         } finally {
             endLeadMove(leadId);
+            setSavingLeadIds((prev) => {
+                const next = new Set(prev);
+                next.delete(leadId);
+                return next;
+            });
         }
     };
 
@@ -1629,6 +1708,11 @@ const Pipeline = () => {
                     permissionContext: permCtx
                 });
             }
+                setSavingLeadIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(leadId);
+                    return next;
+                });
             await updateLead(leadId, payload);
             if (toStage === PIPELINE_WAITING_DECISION_STAGE) {
                 const cfg = automationConfig?.waiting_decision;
@@ -1647,6 +1731,11 @@ const Pipeline = () => {
             return;
         } finally {
             endLeadMove(leadId);
+            setSavingLeadIds((prev) => {
+                const next = new Set(prev);
+                next.delete(leadId);
+                return next;
+            });
         }
         setMoverOpenId(null);
     };
@@ -1987,43 +2076,46 @@ const Pipeline = () => {
                                 hasOverlayOpen={colLeads.some((l) => l.id === openMenuId || l.id === scheduleModalLead?.id || l.id === moverOpenId)}
                                 leads={colLeads}
                             >
+                                {(scrollRef) => (
+                                    <>
                                 <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                                    {colLeads.map((lead) => (
-                                        <SortableLeadCard
-                                            key={lead.id}
-                                            lead={lead}
-                                            isMoving={movingLeadIds.has(lead.id)}
-                                            slaAlert={slaAlerts[lead.id]}
-                                            navigate={navigate}
-                                            openNote={openNote}
-                                            openMenuId={openMenuId}
-                                            scheduleModalLeadId={scheduleModalLead?.id ?? null}
-                                            moverOpenId={moverOpenId}
-                                            setOpenMenuId={setOpenMenuId}
-                                            setWaDropdownOpenId={setWaDropdownOpenId}
-                                            handleSplitWaMain={handleSplitWaMain}
-                                            toggleWaDropdown={toggleWaDropdown}
-                                            waDropdownOpenId={waDropdownOpenId}
-                                            templateSendKeys={templateSendKeys}
-                                            sendTemplateFromPipeline={sendTemplateFromPipeline}
-                                            stages={displayStages}
-                                            moveToStatus={moveToStatus}
-                                            handleCopyPhone={handleCopyPhone}
-                                            copiedId={copiedId}
-                                            handleMarkAsLost={handleMarkAsLost}
-                                            handleDeleteLead={handleDeleteLead}
-                                            onOpenScheduleModal={setScheduleModalLead}
-                                            handleConfirmPresence={handleConfirmPresence}
-                                            setMissedModalLead={setMissedModalLead}
-                                            setMatriculaModalOpen={setMatriculaModalOpen}
-                                            openMover={openMover}
-                                            setDragTargetLead={setDragTargetLead}
-                                            mapLeadToStageId={mapLeadToStageId}
-                                            pipelineMenuTrialLc={terms.trial.toLowerCase()}
-                                            pipelineMenuAttendanceLc={terms.attendance.toLowerCase()}
-                                            pipelineMenuEnrollment={terms.enrollment}
-                                        />
-                                    ))}
+                                    <PipelineColumnLeads
+                                        scrollRef={scrollRef}
+                                        leads={colLeads}
+                                        savingLeadIds={savingLeadIds}
+                                        movingLeadIds={movingLeadIds}
+                                        slaAlerts={slaAlerts}
+                                        cardProps={{
+                                            navigate,
+                                            openNote,
+                                            openMenuId,
+                                            scheduleModalLeadId: scheduleModalLead?.id ?? null,
+                                            moverOpenId,
+                                            setOpenMenuId,
+                                            setWaDropdownOpenId,
+                                            handleSplitWaMain,
+                                            toggleWaDropdown,
+                                            waDropdownOpenId,
+                                            templateSendKeys,
+                                            sendTemplateFromPipeline,
+                                            stages: displayStages,
+                                            moveToStatus,
+                                            handleCopyPhone,
+                                            copiedId,
+                                            handleMarkAsLost,
+                                            handleDeleteLead,
+                                            onOpenScheduleModal: setScheduleModalLead,
+                                            handleConfirmPresence,
+                                            setMissedModalLead,
+                                            setMatriculaModalOpen,
+                                            openMover,
+                                            setDragTargetLead,
+                                            mapLeadToStageId,
+                                            pipelineMenuTrialLc: terms.trial.toLowerCase(),
+                                            pipelineMenuAttendanceLc: terms.attendance.toLowerCase(),
+                                            pipelineMenuEnrollment: terms.enrollment,
+                                        }}
+                                    />
                                 </SortableContext>
 
                                 {colLeads.length === 0 && (() => {
@@ -2046,6 +2138,8 @@ const Pipeline = () => {
                                         />
                                     );
                                 })()}
+                                    </>
+                                )}
                             </Column>
                         );
                     })}

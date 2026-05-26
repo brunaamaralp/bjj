@@ -1,8 +1,11 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export default function SalesVariantPicker({ parent, onSelect, onClose }) {
+  useModalA11y({ isOpen: Boolean(parent), onClose });
+
   if (!parent) return null;
   const variants = (parent.variants || []).filter((v) => v.canAdd);
 

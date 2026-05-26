@@ -15,6 +15,7 @@ import ContractDetailsDrawer from './ContractDetailsDrawer.js';
 import ContractLeadFilter from './ContractLeadFilter.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import './contracts.css';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 const PAGE_SIZE = 20;
 
@@ -150,7 +151,7 @@ export default function ContractsPageContent({ embedded = false }: ContractsPage
           <PageSkeleton variant="table" rows={6} columns={6} />
         ) : isError ? (
           <ErrorBanner
-            message={error instanceof Error ? error.message : 'Não foi possível carregar os contratos'}
+            message={friendlyError(error, 'load')}
             onRetry={() => refetch()}
           />
         ) : showEmptyCta ? (

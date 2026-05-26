@@ -1,9 +1,10 @@
 import { createSessionJwt } from './appwrite.js';
+import { authedFetch } from './authInterceptor.js';
 
 async function teamFetch(path, options = {}) {
   const jwt = await createSessionJwt();
   if (!jwt) throw new Error('session_required');
-  const res = await fetch(path, {
+  const res = await authedFetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

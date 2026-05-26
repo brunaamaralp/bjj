@@ -77,7 +77,7 @@ export default function ScheduleModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 200,
+        zIndex: 9999,
       }}
     >
       <div

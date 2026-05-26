@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
+import { authedFetch } from './authInterceptor.js';
 
 export class SalesApiError extends Error {
   constructor(message, { status, code, body } = {}) {
@@ -17,7 +18,7 @@ export async function salesFetch(path, options = {}) {
   const academyId = useLeadStore.getState().academyId;
   if (!academyId) throw new SalesApiError('academy_required');
 
-  const res = await fetch(path, {
+  const res = await authedFetch(path, {
     ...options,
     headers: {
       Authorization: `Bearer ${jwt}`,

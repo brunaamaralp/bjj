@@ -1,4 +1,5 @@
 import { createSessionJwt } from './appwrite.js';
+import { authedFetch } from './authInterceptor.js';
 
 async function financeHeaders(academyId) {
   const jwt = await createSessionJwt();
@@ -15,7 +16,7 @@ export async function listFinanceTx({ academyId, from, to, cursor, regime }) {
   if (to) params.set('to', to);
   if (cursor) params.set('cursor', cursor);
   if (regime) params.set('regime', regime);
-  const res = await fetch(`/api/finance-tx?${params}`, {
+  const res = await authedFetch(`/api/finance-tx?${params}`, {
     headers: await financeHeaders(academyId),
   });
   const body = await res.json().catch(() => ({}));
@@ -24,7 +25,7 @@ export async function listFinanceTx({ academyId, from, to, cursor, regime }) {
 }
 
 export async function createFinanceTx({ academyId, payload }) {
-  const res = await fetch('/api/finance-tx', {
+  const res = await authedFetch('/api/finance-tx', {
     method: 'POST',
     headers: await financeHeaders(academyId),
     body: JSON.stringify(payload),
@@ -35,7 +36,7 @@ export async function createFinanceTx({ academyId, payload }) {
 }
 
 export async function patchFinanceTx({ academyId, id, payload }) {
-  const res = await fetch(`/api/finance-tx?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`/api/finance-tx?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: await financeHeaders(academyId),
     body: JSON.stringify(payload),
@@ -50,7 +51,7 @@ export async function fetchFinanceSummary({ academyId, from, to, regime }) {
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   if (regime) params.set('regime', regime);
-  const res = await fetch(`/api/finance?${params}`, {
+  const res = await authedFetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),
   });
   const body = await res.json().catch(() => ({}));
@@ -61,7 +62,7 @@ export async function fetchFinanceSummary({ academyId, from, to, regime }) {
 export async function fetchMonthlyClosing({ academyId, month, regime }) {
   const params = new URLSearchParams({ route: 'closing', month });
   if (regime) params.set('regime', regime);
-  const res = await fetch(`/api/finance?${params}`, {
+  const res = await authedFetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),
   });
   const body = await res.json().catch(() => ({}));
@@ -72,7 +73,7 @@ export async function fetchMonthlyClosing({ academyId, month, regime }) {
 export async function fetchFinanceForecast({ academyId, from, to, refresh = false }) {
   const params = new URLSearchParams({ route: 'forecast', from, to });
   if (refresh) params.set('_', String(Date.now()));
-  const res = await fetch(`/api/finance/forecast?${params}`, {
+  const res = await authedFetch(`/api/finance/forecast?${params}`, {
     headers: await financeHeaders(academyId),
   });
   const body = await res.json().catch(() => ({}));
@@ -81,7 +82,7 @@ export async function fetchFinanceForecast({ academyId, from, to, refresh = fals
 }
 
 export async function recordCashClosing({ academyId, referenceMonth, snapshot }) {
-  const res = await fetch('/api/finance?route=closing', {
+  const res = await authedFetch('/api/finance?route=closing', {
     method: 'POST',
     headers: await financeHeaders(academyId),
     body: JSON.stringify({ reference_month: referenceMonth, snapshot }),

@@ -43,7 +43,11 @@ const OPTIONAL_ATTRS = [
   'payment_category',
   'bundle_months',
   'bundle_origin_id',
+  'financial_tx_sync_pending',
 ];
+
+const MIRROR_SYNC_WARNING =
+  'Pagamento registrado, mas houve um problema ao lançar no caixa. Um administrador deve verificar os lançamentos financeiros.';
 
 function buildPaymentPayload(data) {
   const status = String(data.status || 'pending').toLowerCase();
@@ -124,6 +128,23 @@ async function writePaymentDocument(writeFn, payload) {
   return writeFn(current);
 }
 
+async function markFinancialTxSyncPending(paymentId) {
+  const id = String(paymentId || '').trim();
+  if (!id || !PAYMENTS_COL) return;
+  try {
+    await databases.updateDocument(DB_ID, PAYMENTS_COL, id, { financial_tx_sync_pending: true });
+  } catch {
+    try {
+      await writePaymentDocument(
+        (p) => databases.updateDocument(DB_ID, PAYMENTS_COL, id, p),
+        { financial_tx_sync_pending: true }
+      );
+    } catch {
+      void 0;
+    }
+  }
+}
+
 async function syncFinancialTxMirror({
   paymentDoc,
   data,
@@ -133,7 +154,7 @@ async function syncFinancialTxMirror({
   financeConfig = null,
   student = null,
 }) {
-  if (skipMirror || !FINANCIAL_TX_COL) return null;
+  if (skipMirror || !FINANCIAL_TX_COL) return { mirrorId: null };
 
   const status = String(data.status || '').toLowerCase();
   const expected = Number(data.expected_amount);
@@ -154,11 +175,11 @@ async function syncFinancialTxMirror({
         console.error('financial_tx cancel on awaiting failed:', err);
       }
     }
-    return null;
+    return { mirrorId: null };
   }
 
   let gross = mirrorGrossForPayment(status, paidAmt, expected);
-  if (!Number.isFinite(gross) || gross <= 0) return txId || null;
+  if (!Number.isFinite(gross) || gross <= 0) return { mirrorId: txId || null };
 
   let fee = 0;
   if (financeConfig && student) {
@@ -232,7 +253,7 @@ async function syncFinancialTxMirror({
       },
       data.academy_id
     );
-    return mirrorId;
+    return { mirrorId };
   } catch (err) {
     const msg = String(err?.message || '');
     if (msg.includes('Unknown attribute')) {
@@ -257,14 +278,15 @@ async function syncFinancialTxMirror({
           },
           data.academy_id
         );
-        return mirrorId;
+        return { mirrorId };
       } catch (e2) {
         console.error('financial_tx mirror failed:', e2);
-        return null;
       }
+    } else {
+      console.error('financial_tx mirror failed:', err);
     }
-    console.error('financial_tx mirror failed:', err);
-    return null;
+    await markFinancialTxSyncPending(paymentId);
+    return { mirrorId: null, warning: MIRROR_SYNC_WARNING };
   }
 }
 
@@ -324,7 +346,7 @@ async function persistPaymentDocument({ data, existingId, permissions, skipMirro
     );
   }
 
-  const mirrorId = await syncFinancialTxMirror({
+  const mirrorResult = await syncFinancialTxMirror({
     paymentDoc: doc,
     data: mergedData,
     permissions,
@@ -333,9 +355,12 @@ async function persistPaymentDocument({ data, existingId, permissions, skipMirro
     financeConfig,
     student,
   });
+  const mirrorId = mirrorResult?.mirrorId ?? null;
   if (mirrorId) await attachFinancialTxRef(doc.$id, mirrorId);
 
-  return mirrorId ? { ...doc, financial_tx_id: mirrorId } : doc;
+  const result = mirrorId ? { ...doc, financial_tx_id: mirrorId } : doc;
+  if (mirrorResult?.warning) return { ...result, warning: mirrorResult.warning };
+  return result;
 }
 
 /**

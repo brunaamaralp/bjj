@@ -33,7 +33,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
   const [search, setSearch] = useState('');
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState('');
+  const [loadError, setLoadError] = useState(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSale, setDetailSale] = useState(null);
@@ -71,7 +71,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
       const list = await fetchSalesList({ from: period.from, to: period.to });
       setSales(list);
     } catch (e) {
-      setLoadError(String(e?.message || e));
+      setLoadError(e);
       setSales([]);
     } finally {
       setLoading(false);
@@ -97,7 +97,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
       const full = await fetchSaleDetail(row.id);
       if (full) setDetailSale(full);
     } catch (e) {
-      addToast({ type: 'error', message: String(e?.message || e) });
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setDetailLoading(false);
     }

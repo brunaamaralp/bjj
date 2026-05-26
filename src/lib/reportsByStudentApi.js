@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
+import { authedFetch } from './authInterceptor.js';
 
 export async function fetchReportsByStudent(leadId, { academyId } = {}) {
   const id = String(leadId || '').trim();
@@ -10,7 +11,7 @@ export async function fetchReportsByStudent(leadId, { academyId } = {}) {
   if (!aid) throw new Error('academy_required');
 
   const params = new URLSearchParams({ route: 'by-student', lead_id: id });
-  const res = await fetch(`/api/reports/by-student?${params}`, {
+  const res = await authedFetch(`/api/reports/by-student?${params}`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
       'x-academy-id': aid,

@@ -580,7 +580,7 @@ export default function ProductImportModal({ open, onClose, onImported }) {
         .product-import-live-ok { color: var(--success); }
         .product-import-live-fail { color: var(--danger); }
         .product-import-fail-list { font-size: 0.88rem; color: var(--danger); padding-left: 1.2rem; }
-        .import-overlay { position: fixed; inset: 0; background: rgba(18,16,42,0.5); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+        .import-overlay { position: fixed; inset: 0; background: rgba(18,16,42,0.5); backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: flex-end; justify-content: center; }
         .import-modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-height: 90vh; display: flex; flex-direction: column; }
         .import-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 12px; }
         .import-body { padding: 12px 20px; overflow-y: auto; flex: 1; }

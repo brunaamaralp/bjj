@@ -4,6 +4,7 @@ import { Eye, EyeOff, LogIn, X } from 'lucide-react';
 import NaviLogo from '../components/NaviLogo.jsx';
 import NaviWordmark from '../components/NaviWordmark.jsx';
 import { useNavigate, Link } from 'react-router-dom';
+import { friendlyError } from '../lib/errorMessages';
 
 const Login = ({ onLogin }) => {
     const navigate = useNavigate();
@@ -25,7 +26,7 @@ const Login = ({ onLogin }) => {
         } catch (err) {
             if (err.code === 401) setError('E-mail ou senha incorretos.');
             else if (err.code === 409) setError('Este e-mail já está cadastrado.');
-            else setError(err.message || 'Erro ao fazer login.');
+            else setError(friendlyError(err));
         } finally {
             setLoading(false);
         }

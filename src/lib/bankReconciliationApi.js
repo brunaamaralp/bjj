@@ -1,4 +1,5 @@
 import { createSessionJwt } from './appwrite.js';
+import { authedFetch } from './authInterceptor.js';
 
 async function headers(academyId) {
   const jwt = await createSessionJwt();
@@ -16,7 +17,7 @@ async function parseJson(res) {
 }
 
 export async function listBankStatements(academyId) {
-  const res = await fetch('/api/bank-reconciliation?route=list', {
+  const res = await authedFetch('/api/bank-reconciliation?route=list', {
     headers: await headers(academyId),
   });
   return parseJson(res);
@@ -24,14 +25,14 @@ export async function listBankStatements(academyId) {
 
 export async function getBankStatementDetail(academyId, statementId) {
   const params = new URLSearchParams({ route: 'detail', statement_id: statementId });
-  const res = await fetch(`/api/bank-reconciliation?${params}`, {
+  const res = await authedFetch(`/api/bank-reconciliation?${params}`, {
     headers: await headers(academyId),
   });
   return parseJson(res);
 }
 
 export async function importBankStatement(academyId, payload) {
-  const res = await fetch('/api/bank-reconciliation?route=import', {
+  const res = await authedFetch('/api/bank-reconciliation?route=import', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify(payload),
@@ -40,7 +41,7 @@ export async function importBankStatement(academyId, payload) {
 }
 
 export async function confirmBankMatch(academyId, { item_id, transaction_id }) {
-  const res = await fetch('/api/bank-reconciliation?route=confirm-match', {
+  const res = await authedFetch('/api/bank-reconciliation?route=confirm-match', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify({ item_id, transaction_id }),
@@ -49,7 +50,7 @@ export async function confirmBankMatch(academyId, { item_id, transaction_id }) {
 }
 
 export async function confirmAllBankMatches(academyId, statement_id) {
-  const res = await fetch('/api/bank-reconciliation?route=confirm-all', {
+  const res = await authedFetch('/api/bank-reconciliation?route=confirm-all', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify({ statement_id }),
@@ -58,7 +59,7 @@ export async function confirmAllBankMatches(academyId, statement_id) {
 }
 
 export async function ignoreBankItem(academyId, item_id) {
-  const res = await fetch('/api/bank-reconciliation?route=ignore-item', {
+  const res = await authedFetch('/api/bank-reconciliation?route=ignore-item', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify({ item_id }),
@@ -67,7 +68,7 @@ export async function ignoreBankItem(academyId, item_id) {
 }
 
 export async function manualReconcileTx(academyId, { transaction_id, statement_id, justification }) {
-  const res = await fetch('/api/bank-reconciliation?route=manual-reconcile', {
+  const res = await authedFetch('/api/bank-reconciliation?route=manual-reconcile', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify({ transaction_id, statement_id, justification }),
@@ -76,7 +77,7 @@ export async function manualReconcileTx(academyId, { transaction_id, statement_i
 }
 
 export async function createTxFromBankItem(academyId, { item_id, category }) {
-  const res = await fetch('/api/bank-reconciliation?route=create-tx', {
+  const res = await authedFetch('/api/bank-reconciliation?route=create-tx', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify({ item_id, category }),
@@ -85,7 +86,7 @@ export async function createTxFromBankItem(academyId, { item_id, category }) {
 }
 
 export async function completeBankReconciliation(academyId, { statement_id, completion_note }) {
-  const res = await fetch('/api/bank-reconciliation?route=complete', {
+  const res = await authedFetch('/api/bank-reconciliation?route=complete', {
     method: 'POST',
     headers: await headers(academyId),
     body: JSON.stringify({ statement_id, completion_note }),

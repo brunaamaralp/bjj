@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertTriangle, EyeOff, Gift, ClipboardList } from 'lucide-react';
 import {
@@ -7,6 +7,7 @@ import {
   ADJUSTMENT_SUBTYPE_ICON,
 } from '../../lib/inventoryAdjust';
 import { variantInventoryLabel } from '../../lib/stockInventory';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 const SUBTYPE_ICONS = {
   AlertTriangle,
@@ -25,14 +26,23 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
   const [subtype, setSubtype] = useState('avaria');
   const [quantidade, setQuantidade] = useState('');
   const [note, setNote] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (open) {
       setSubtype('avaria');
       setQuantidade('');
       setNote('');
+      setError('');
     }
   }, [open, item?.id]);
+
+  const requestClose = useCallback(() => {
+    if (loading) return;
+    onClose();
+  }, [loading, onClose]);
+
+  useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
 
   if (!open || !item || typeof document === 'undefined') return null;
 
@@ -45,7 +55,11 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
   const handleSubmit = (e) => {
     e.preventDefault();
     const qty = Number(String(quantidade).replace(',', '.'));
-    if (!Number.isFinite(qty) || qty === 0) return;
+    if (!Number.isFinite(qty) || qty === 0) {
+      setError('Informe uma quantidade válida maior que zero');
+      return;
+    }
+    setError('');
     onSubmit({
       variant_id: item.id,
       quantity_change: qty,
@@ -55,7 +69,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
   };
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
       <div
         className="card navi-modal-dialog"
         role="dialog"
@@ -102,11 +116,15 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
               type="number"
               className="form-input"
               value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
+              onChange={(e) => {
+                setError('');
+                setQuantidade(e.target.value);
+              }}
               placeholder="Ex.: -2 para perda, +1 para correção"
               required
               autoFocus
             />
+            {error ? <p className="field-error">{error}</p> : null}
             <p className="text-xs text-muted" style={{ marginTop: 4 }}>
               Use valor negativo para reduzir o saldo e positivo para aumentar.
             </p>

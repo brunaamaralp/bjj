@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export default function InventoryConfigureModal({ open, item, loading, onClose, onSave }) {
   const [form, setForm] = useState({ minimum_level: 0, unit: 'unidade', notes: '' });
@@ -14,6 +15,13 @@ export default function InventoryConfigureModal({ open, item, loading, onClose, 
     });
   }, [item]);
 
+  const requestClose = useCallback(() => {
+    if (loading) return;
+    onClose();
+  }, [loading, onClose]);
+
+  useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
+
   if (!open || !item || typeof document === 'undefined') return null;
 
   const handleSubmit = (e) => {
@@ -26,7 +34,7 @@ export default function InventoryConfigureModal({ open, item, loading, onClose, 
   };
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
       <div
         className="card navi-modal-dialog"
         role="dialog"

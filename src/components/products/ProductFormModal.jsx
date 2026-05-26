@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Trash2, X } from 'lucide-react';
 import {
@@ -239,6 +239,7 @@ export default function ProductFormModal({
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState(null);
   const [saveSummary, setSaveSummary] = useState('');
+  const initialSnapshotRef = useRef(null);
 
   const duplicateIndexes = useMemo(() => {
     const local = findDuplicateVariantIndexes(editVariants);
@@ -255,13 +256,24 @@ export default function ProductFormModal({
     setDeactivateConfirm(null);
 
     if (useVariantWizard) {
+      const emptyParent = emptyParentForm();
+      const emptyVariants = [emptyVariantRow()];
       setStep(1);
-      setParentForm(emptyParentForm());
-      setVariants([emptyVariantRow()]);
+      setParentForm(emptyParent);
+      setVariants(emptyVariants);
+      initialSnapshotRef.current = { mode: 'createWizard', parentForm: emptyParent, variants: emptyVariants };
     } else if (useEditWizard) {
+      const initialParent = parentFormFromProduct(product);
+      const initialEditVariants = variantRowsFromProduct(product);
       setStep(1);
-      setParentForm(parentFormFromProduct(product));
-      setEditVariants(variantRowsFromProduct(product));
+      setParentForm(initialParent);
+      setEditVariants(initialEditVariants);
+      initialSnapshotRef.current = {
+        mode: 'editWizard',
+        parentForm: initialParent,
+        editVariants: initialEditVariants,
+        pendingDeleteIds: [],
+      };
     } else {
       setStep(1);
       const lf = {
@@ -272,14 +284,37 @@ export default function ProductFormModal({
         notes: product?.notes || '',
       };
       setLegacyForm(lf);
+      initialSnapshotRef.current = { mode: 'legacy', legacyForm: lf };
     }
     setDiscardOpen(false);
   }, [open, product, isDuplicate, useVariantWizard, useEditWizard]);
 
+  const isFormDirty = useCallback(() => {
+    const snap = initialSnapshotRef.current;
+    if (!snap) return false;
+    if (snap.mode === 'createWizard') {
+      return (
+        JSON.stringify(parentForm) !== JSON.stringify(snap.parentForm) ||
+        JSON.stringify(variants) !== JSON.stringify(snap.variants)
+      );
+    }
+    if (snap.mode === 'editWizard') {
+      return (
+        JSON.stringify(parentForm) !== JSON.stringify(snap.parentForm) ||
+        hasVariantsToSave(editVariants, pendingDeleteIds)
+      );
+    }
+    return JSON.stringify(legacyForm) !== JSON.stringify(snap.legacyForm);
+  }, [parentForm, variants, editVariants, pendingDeleteIds, legacyForm]);
+
   const requestClose = useCallback(() => {
     if (loading) return;
-    setDiscardOpen(true);
-  }, [loading]);
+    if (isFormDirty()) {
+      setDiscardOpen(true);
+    } else {
+      onClose();
+    }
+  }, [loading, isFormDirty, onClose]);
 
   useEffect(() => {
     if (!open) return undefined;

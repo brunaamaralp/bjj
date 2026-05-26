@@ -288,7 +288,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
                 __html: `
         .import-overlay {
           position: fixed; inset: 0; background: rgba(18,16,42,0.5); backdrop-filter: blur(4px);
-          z-index: 200; display: flex; align-items: flex-end; justify-content: center;
+          z-index: 10000; display: flex; align-items: flex-end; justify-content: center;
           animation: fadeIn 0.2s ease;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

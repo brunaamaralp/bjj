@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
+import { authedFetch } from './authInterceptor.js';
 
 export async function fetchInventoryMovements({
   from,
@@ -26,7 +27,7 @@ export async function fetchInventoryMovements({
   if (usuario_id) params.set('usuario_id', usuario_id);
   if (cursor) params.set('cursor', cursor);
 
-  const res = await fetch(`/api/inventory/movements?${params}`, {
+  const res = await authedFetch(`/api/inventory/movements?${params}`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
       'x-academy-id': aid,
@@ -51,7 +52,7 @@ export async function fetchStockMovesConciliation({
   if (!aid) throw new Error('academy_required');
 
   const params = new URLSearchParams({ conciliation: '1', from, to, status_filter });
-  const res = await fetch(`/api/inventory/movements/conciliation?${params}`, {
+  const res = await authedFetch(`/api/inventory/movements/conciliation?${params}`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
       'x-academy-id': aid,

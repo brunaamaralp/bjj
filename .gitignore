@@ -29,6 +29,9 @@ scripts/*
 !scripts/provision-financial-tx-category.mjs
 !scripts/provision-inventory-cost-schema.mjs
 !scripts/verify-schema.mjs
+!scripts/verify-and-fix-schema.mjs
+!scripts/verify-and-fix-schema-crm.mjs
+!scripts/verify-and-fix-schema-integrations.mjs
 
 # Editor directories and files
 .vscode/*

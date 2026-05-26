@@ -1,4 +1,5 @@
 import { createSessionJwt } from './appwrite';
+import { authedFetch } from './authInterceptor.js';
 
 const LOCAL_BASE = String(import.meta.env.VITE_CONTROLID_API_BASE || '').trim().replace(/\/+$/, '');
 
@@ -28,7 +29,7 @@ async function controlIdFetch(route, { method = 'POST', academyId, body } = {}) 
   };
   if (body != null) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(routeUrl(route), {
+  const res = await authedFetch(routeUrl(route), {
     method,
     headers,
     body: body != null ? JSON.stringify(body) : undefined,

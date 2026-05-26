@@ -1,10 +1,25 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { CANCEL_REASON_OPTIONS, formatCancelMotivo } from '../../lib/salesHistory';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export default function SalesCancelModal({ open, sale, loading, onClose, onConfirm }) {
   const [categoria, setCategoria] = useState('desistencia');
   const [outroTexto, setOutroTexto] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setCategoria('desistencia');
+      setOutroTexto('');
+    }
+  }, [open]);
+
+  const requestClose = useCallback(() => {
+    if (loading) return;
+    onClose();
+  }, [loading, onClose]);
+
+  useModalA11y({ isOpen: open && Boolean(sale), onClose: requestClose });
 
   if (!open || !sale) return null;
 

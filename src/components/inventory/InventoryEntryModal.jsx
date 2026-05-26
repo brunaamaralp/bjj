@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export default function InventoryEntryModal({
   open,
@@ -13,21 +14,34 @@ export default function InventoryEntryModal({
   const [quantidade, setQuantidade] = useState(1);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (open) {
       setQuantidade(1);
       setPurchasePrice('');
       setPaymentMethod('pix');
+      setError('');
     }
   }, [open, item?.id]);
+
+  const requestClose = useCallback(() => {
+    if (loading) return;
+    onClose();
+  }, [loading, onClose]);
+
+  useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
 
   if (!open || !item || typeof document === 'undefined') return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const qty = Number(quantidade);
-    if (!Number.isFinite(qty) || qty <= 0) return;
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError('Informe uma quantidade válida maior que zero');
+      return;
+    }
+    setError('');
     const payload = {
       item_estoque_id: item.id,
       tipo: 'entrada',
@@ -46,7 +60,7 @@ export default function InventoryEntryModal({
   const label = item.Tamanho ? `${item.nome} · ${item.Tamanho}` : item.nome;
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
       <div
         className="card navi-modal-dialog"
         role="dialog"
@@ -72,9 +86,13 @@ export default function InventoryEntryModal({
               min={1}
               className="form-input"
               value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
+              onChange={(e) => {
+                setError('');
+                setQuantidade(e.target.value);
+              }}
               autoFocus
             />
+            {error ? <p className="field-error">{error}</p> : null}
           </div>
           {modulesFinance ? (
             <div className="card mt-2" style={{ padding: 12, border: '1px dashed var(--border-light)' }}>

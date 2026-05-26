@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
@@ -81,6 +81,12 @@ import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
+import {
+    findDuplicateStudentCpf,
+    formatPaymentDateLabel,
+    isPaymentDateInFuture,
+    isValidCPF,
+} from '../lib/validations.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -366,6 +372,9 @@ export default function StudentProfile() {
         dueDay: '',
     });
     const [savingData, setSavingData] = useState(false);
+    const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
+    const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
+    const skipFuturePaidDateRef = useRef(false);
     const [timelineOpen, setTimelineOpen] = useState(true);
     const [activeTab, setActiveTab] = useState('frequency');
     const [waCtx, setWaCtx] = useState({
@@ -941,6 +950,27 @@ export default function StudentProfile() {
             addToast({ type: 'error', message: 'Informe o nome do aluno.' });
             return;
         }
+
+        const cpfDigits = String(dataForm.cpf || '').replace(/\D/g, '');
+        const cpfRespDigits = String(dataForm.cpfResponsavel || '').replace(/\D/g, '');
+        setCpfErrors({ cpf: '', cpfResponsavel: '' });
+
+        if (cpfDigits) {
+            if (!isValidCPF(cpfDigits)) {
+                setCpfErrors((prev) => ({ ...prev, cpf: 'CPF inválido' }));
+                return;
+            }
+            const dupCpf = await findDuplicateStudentCpf(academyId, cpfDigits, leadId);
+            if (dupCpf) {
+                setCpfErrors((prev) => ({ ...prev, cpf: 'CPF já cadastrado para outro aluno' }));
+                return;
+            }
+        }
+        if (cpfRespDigits && !isValidCPF(cpfRespDigits)) {
+            setCpfErrors((prev) => ({ ...prev, cpfResponsavel: 'CPF inválido' }));
+            return;
+        }
+
         setSavingData(true);
         try {
             const dueRaw = String(dataForm.dueDay ?? '').trim();
@@ -979,7 +1009,7 @@ export default function StudentProfile() {
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, dataForm, updateStudent, addToast, financeConfig]);
+    }, [student, savingData, leadId, academyId, dataForm, updateStudent, addToast, financeConfig]);
 
     const sendTemplateKey = async (key) => {
         if (sendingWhatsapp || !student) return;
@@ -1216,6 +1246,13 @@ export default function StudentProfile() {
             payForm.paid_at
                 ? new Date(payForm.paid_at).toISOString()
                 : null;
+
+        const paidAtYmd = payForm.paid_at ? String(payForm.paid_at).slice(0, 10) : '';
+        if (!skipFuturePaidDateRef.current && paidAtIso && isPaymentDateInFuture(paidAtYmd)) {
+            setFuturePaidDateLabel(formatPaymentDateLabel(paidAtYmd));
+            return;
+        }
+        skipFuturePaidDateRef.current = false;
 
         const data = {
             lead_id: student.id,
@@ -1530,13 +1567,40 @@ export default function StudentProfile() {
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => {
                         let v = e.target.value;
-                        if (field.key === 'cpf' || field.key === 'cpfResponsavel') v = maskCPF(e.target.value);
-                        else if (field.key === 'phone') v = maskPhone(e.target.value);
+                        if (field.key === 'cpf' || field.key === 'cpfResponsavel') {
+                            v = maskCPF(e.target.value);
+                            setCpfErrors((prev) => ({ ...prev, [field.key]: '' }));
+                        } else if (field.key === 'phone') v = maskPhone(e.target.value);
                         setDataForm((p) => ({ ...p, [field.key]: v }));
                     }}
+                    onBlur={
+                        field.key === 'cpf' || field.key === 'cpfResponsavel'
+                            ? () => {
+                                  const digits = String(dataForm[field.key] || '').replace(/\D/g, '');
+                                  if (!digits) {
+                                      setCpfErrors((prev) => ({ ...prev, [field.key]: '' }));
+                                      return;
+                                  }
+                                  setCpfErrors((prev) => ({
+                                      ...prev,
+                                      [field.key]: isValidCPF(digits) ? '' : 'CPF inválido',
+                                  }));
+                              }
+                            : undefined
+                    }
                     style={dataFormInputStyle}
                 />
             )}
+            {field.key === 'cpf' && cpfErrors.cpf ? (
+                <p className="field-error" style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--danger)' }}>
+                    {cpfErrors.cpf}
+                </p>
+            ) : null}
+            {field.key === 'cpfResponsavel' && cpfErrors.cpfResponsavel ? (
+                <p className="field-error" style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--danger)' }}>
+                    {cpfErrors.cpfResponsavel}
+                </p>
+            ) : null}
             {field.key === 'enrollmentDate' ? (
                 <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                     Padrão: data do cadastro. Altere se a matrícula for retroativa.
@@ -2859,6 +2923,21 @@ export default function StudentProfile() {
                 loading={deletePaymentBusy}
                 onConfirm={() => void handleConfirmDeletePayment()}
                 onClose={() => !deletePaymentBusy && setDeletePaymentTarget(null)}
+            />
+
+            <ConfirmDialog
+                open={Boolean(futurePaidDateLabel)}
+                title="Data de pagamento futura"
+                description={`A data de pagamento (${futurePaidDateLabel}) é futura. Confirma o registro mesmo assim?`}
+                confirmLabel="Confirmar registro"
+                confirmVariant="primary"
+                loading={savingPayment}
+                onConfirm={() => {
+                    setFuturePaidDateLabel(null);
+                    skipFuturePaidDateRef.current = true;
+                    void saveStudentPayment();
+                }}
+                onClose={() => !savingPayment && setFuturePaidDateLabel(null)}
             />
         </div>
     );

@@ -5,6 +5,7 @@ import NaviLogo from '../components/NaviLogo.jsx';
 import NaviWordmark from '../components/NaviWordmark.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { TERMS } from '../lib/terminology.js';
+import { friendlyError } from '../lib/errorMessages';
 
 const Register = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const Register = ({ onLogin }) => {
       if (err.code === 409) {
         setError('Não foi possível criar a conta. Verifique os dados e tente novamente.');
       } else {
-        setError(err.message || 'Erro ao criar conta.');
+        setError(friendlyError(err));
       }
     } finally {
       setLoading(false);

@@ -331,6 +331,7 @@ export default function ImportFinanceModal({
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .import-overlay { z-index: 10000; }
         .import-finance-modal { max-width: 760px; }
         .finance-import-center { min-height: 180px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-secondary); }
         .finance-import-center .spin { animation: spin 1s linear infinite; }

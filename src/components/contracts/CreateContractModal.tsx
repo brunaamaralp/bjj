@@ -16,6 +16,7 @@ import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { isInactiveStudent } from '../../lib/studentStatus.js';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 type Step = 'template' | 'signers' | 'send';
 
@@ -118,6 +119,8 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
     setPreviewUrl(null);
     onClose();
   }, [createMutation.isPending, onClose, reset]);
+
+  useModalA11y({ isOpen: open, onClose: close });
 
   const goNextFromTemplate = async () => {
     const ok = await trigger('templateId');
