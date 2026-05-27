@@ -189,7 +189,10 @@ const App = () => {
     const onChange = () => {
       const next = mq.matches;
       setIsMobileViewport(next);
-      if (!next) setMobileMoreOpen(false);
+      if (!next) {
+        setMobileMoreOpen(false);
+        setMobileNavDrawerOpen(false);
+      }
     };
     onChange();
     mq.addEventListener('change', onChange);
@@ -198,6 +201,7 @@ const App = () => {
 
   useEffect(() => {
     setMobileMoreOpen(false);
+    setMobileNavDrawerOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {

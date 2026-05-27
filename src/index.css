@@ -2712,17 +2712,29 @@ button.funil-color-swatch {
 .navi-sidebar--collapsed .navi-side-link--action,
 .navi-sidebar--collapsed .navi-sidebar-link--action-collapsed,
 .navi-sidebar--collapsed .navi-side-link--action-collapsed {
-  margin-top: 8px;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  margin-top: 0;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
   padding: 0 !important;
   margin-left: auto;
   margin-right: auto;
   border-radius: 50% !important;
-  border: 1.5px solid var(--v500) !important;
-  background: rgba(91, 63, 191, 0.08) !important;
+  border: none !important;
+  background: var(--v500) !important;
   box-shadow: none !important;
+}
+
+.navi-sidebar--collapsed .navi-sidebar-link--action-secondary {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 !important;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 50% !important;
+  border: 1px solid var(--v500) !important;
+  background: transparent !important;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link--action.active,
