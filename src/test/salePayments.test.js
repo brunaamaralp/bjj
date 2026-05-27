@@ -42,6 +42,10 @@ describe('salePayments', () => {
     expect(api[0].forma_troco).toBe('pix');
   });
 
+  it('UI aceita pagamento vazio quando deferred', () => {
+    expect(paymentsUiValid([], 50000, { deferred: true }).ok).toBe(true);
+  });
+
   it('UI bloqueia soma diferente do total', () => {
     const rows = [
       { id: '1', forma: 'pix', valorCents: 10000, recebidoCents: 10000, formaTroco: 'pix' },

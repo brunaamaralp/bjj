@@ -323,7 +323,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     <section className="mt-4 animate-in monthly-closing-tab">
       <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
         <h3 className="navi-section-heading" style={{ margin: 0 }}>
-          Fechamento mensal
+          Conferência do mês
         </h3>
         <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <div
@@ -387,7 +387,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         >
           <strong>Divergência — verifique o regime de visualização</strong>
           <p className="text-small" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
-            Fechamento: {fmtMoney(totals.received)} · Relatório operacional: {fmtMoney(operationalReceived)}.
+            Conferência: {fmtMoney(totals.received)} · Relatório operacional: {fmtMoney(operationalReceived)}.
             Use o mesmo regime (caixa ou competência) nos dois painéis ou confira lançamentos sem competência
             definida.
           </p>

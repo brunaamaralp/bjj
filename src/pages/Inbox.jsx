@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { account, realtime, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
+import { account, realtime, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
+import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { getThreadHandoffBanner, getThreadHandoffPill } from '../../lib/inboxHandoffPresentation.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
@@ -196,6 +197,28 @@ export default function Inbox() {
   );
   const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
+
+  useEffect(() => {
+    const teamId = String(academyDoc?.teamId || '').trim();
+    if (!teamId) {
+      setTeamMembers([]);
+      return undefined;
+    }
+    let cancelled = false;
+    teams
+      .listMemberships(teamId)
+      .then((res) => {
+        if (cancelled) return;
+        const rows = (res.memberships || []).filter((m) => String(m?.joined || '').trim());
+        setTeamMembers(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academyDoc?.teamId]);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
   const { waInfo, waStatus, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, {
@@ -273,6 +296,8 @@ export default function Inbox() {
     return Math.max(300, Math.min(480, n));
   });
   const [leadPanel, setLeadPanel] = useState(null);
+  const [transferToDraft, setTransferToDraft] = useState('');
+  const [teamMembers, setTeamMembers] = useState([]);
   const [leadNameDraft, setLeadNameDraft] = useState('');
   const [contactNameDraft, setContactNameDraft] = useState('');
   const [editingContactName, setEditingContactName] = useState(false);
@@ -2374,6 +2399,7 @@ export default function Inbox() {
         _ticketStatus: ticketStatus,
         _transferTo: transferTo,
         _archived: Boolean(it?.archived),
+        _hasLinkedLead: Boolean(String(it?.lead_id || '').trim()),
         _isHighlighted: Boolean(highlighted && typeof highlighted === 'object' && highlighted[phone] && Number(highlighted[phone]) > Date.now())
       };
     });
@@ -2621,13 +2647,11 @@ export default function Inbox() {
         addToast({ type: 'success', message: 'Conversa reaberta' });
       } else if (s === 'waiting_customer') {
         addToast({ type: 'success', message: 'Marcado como aguardando cliente' });
-      // TODO: transferência real exige:
-      // - transferred_to_user_id
-      // - notificação para destinatário
-      // - fila "transferidas para mim" por atendente
-      // Reativar quando multi-atendente for implementado.
       } else if (s === 'transferred') {
-        addToast({ type: 'success', message: 'Conversa transferida' });
+        addToast({
+          type: 'success',
+          message: nextTransferTo ? `Conversa transferida para ${nextTransferTo}` : 'Conversa transferida',
+        });
       }
       return true;
     } catch (e) {
@@ -2637,6 +2661,19 @@ export default function Inbox() {
       setTicketUpdating(false);
     }
   }
+
+  const confirmTransferConversation = useCallback(async () => {
+    const dest = String(transferToDraft || '').trim();
+    if (!dest) {
+      addToast({ type: 'error', message: 'Escolha quem vai receber a conversa.' });
+      return;
+    }
+    const ok = await updateTicket({ status: 'transferred', transferTo: dest });
+    if (ok) {
+      setTransferToDraft('');
+      setLeadPanel(null);
+    }
+  }, [transferToDraft, addToast]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -3356,6 +3393,19 @@ export default function Inbox() {
             })()}
             {!selected?.lead_id && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <span
+                  className="text-small"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: 'var(--v50, #EEEDFE)',
+                    color: 'var(--v700, #534AB7)',
+                  }}
+                >
+                  Sem contato
+                </span>
                 {editingContactName ? (
                   <>
                     <input
@@ -4511,6 +4561,15 @@ export default function Inbox() {
           <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
             Recarregar
           </button>
+          <button
+            className="btn btn-outline"
+            style={{ padding: '6px 10px', minHeight: 34 }}
+            type="button"
+            onClick={() => setLeadPanel((v) => (v === 'transfer' ? null : 'transfer'))}
+            disabled={!selectedPhone || ticketUpdating}
+          >
+            Transferir
+          </button>
           {canConfigureAgenteIa && (
             <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
               Configurar IA
@@ -4574,10 +4633,10 @@ export default function Inbox() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {!selected?.lead_id && (
                   <>
-                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))} disabled={!selectedPhone || linkingLead}>
+                    <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))} disabled={!selectedPhone || linkingLead}>
                       Converter em contato
                     </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))} disabled={!selectedPhone || linkingLead}>
+                    <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))} disabled={!selectedPhone || linkingLead}>
                       Associar contato
                     </button>
                   </>
@@ -4646,6 +4705,68 @@ export default function Inbox() {
           </div>
         </div>
       )}
+
+      {leadPanel === 'transfer' && selectedPhone ? (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
+          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
+            Transferir conversa
+          </div>
+          <p className="navi-subtitle" style={{ marginTop: 0, marginBottom: 10 }}>
+            O destinatário verá o status &quot;Transferido&quot; no ticket desta conversa.
+          </p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <div className="ctx-label" style={{ marginBottom: 6 }}>
+                Atendente
+              </div>
+              <select
+                className="input"
+                value={transferToDraft}
+                onChange={(e) => setTransferToDraft(e.target.value)}
+                disabled={ticketUpdating || teamMembers.length === 0}
+              >
+                <option value="">Selecione…</option>
+                {teamMembers.map((m) => {
+                  const label = membershipPrimaryLabel(m);
+                  return (
+                    <option key={String(m.userId || m.$id || label)} value={label}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+              {teamMembers.length === 0 ? (
+                <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>
+                  Nenhum membro ativo na equipe.
+                </p>
+              ) : null}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', minHeight: 34 }}
+                type="button"
+                onClick={() => {
+                  setLeadPanel(null);
+                  setTransferToDraft('');
+                }}
+                disabled={ticketUpdating}
+              >
+                Fechar
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ padding: '6px 10px', minHeight: 34 }}
+                type="button"
+                onClick={() => void confirmTransferConversation()}
+                disabled={ticketUpdating || !transferToDraft}
+              >
+                {ticketUpdating ? 'Transferindo…' : 'Confirmar transferência'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {leadPanel === 'associate' && !selected?.lead_id && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
@@ -5357,6 +5478,22 @@ export default function Inbox() {
                     Aguardando cliente
                     <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
                       Ticket
+                    </span>
+                  </button>
+                  <button
+                    className="inbox-menu-item"
+                    type="button"
+                    onClick={() => {
+                      setLeadPanel('transfer');
+                      if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                      else setContextOpen(true);
+                      closeMenu();
+                    }}
+                    disabled={!phone || ticketUpdating}
+                  >
+                    Transferir conversa
+                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
+                      Equipe
                     </span>
                   </button>
                   {listFilter !== 'archived' && !isConvArchived && (

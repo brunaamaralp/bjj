@@ -75,7 +75,7 @@ const TAB_SUBTITLES = {
 
   [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Cobrança e controle de mensalidades',
 
-  [FINANCEIRO_SECTIONS.CONFIG]: 'Planos, taxas, contas, régua e contabilidade',
+  [FINANCEIRO_SECTIONS.CONFIG]: 'Planos de mensalidade, taxas, contas, régua e contabilidade',
 
   movimentacoes: 'Movimentações e lançamentos do dia a dia',
 

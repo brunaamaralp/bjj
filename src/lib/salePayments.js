@@ -210,7 +210,8 @@ export function buildReceiptPaymentsText(pagamentos, totalVenda) {
   return lines.join('\n');
 }
 
-export function paymentsUiValid(rows, totalCents) {
+export function paymentsUiValid(rows, totalCents, opts = {}) {
+  if (opts?.deferred === true) return { ok: true, deferred: true };
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
   if (!rows?.length) return { ok: false, reason: 'empty' };
   if (rows.length > MAX_SALE_PAYMENTS) return { ok: false, reason: 'max' };

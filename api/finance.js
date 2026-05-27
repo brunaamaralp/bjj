@@ -1,3 +1,6 @@
+// Módulo financeiro da academia: mensalidades de alunos
+// (student_payments) e lançamentos do caixa (financial_tx).
+// Não tem relação com a assinatura do Nave — ver api/billing.js.
 /**
  * Hub financeiro (Vercel Hobby: uma função para tx, mensalidades, resumos, previsão e conciliação).
  * Rotas: ?route=tx | student-payments | summary | closing | forecast

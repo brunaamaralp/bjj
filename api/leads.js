@@ -16,9 +16,11 @@ import aiProductImportHandler from '../lib/server/aiProductImportHandler.js';
 import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesCreateHandler from '../lib/server/salesCreateHandler.js';
 import salesReconcileHandler from '../lib/server/salesReconcileHandler.js';
+import salesLiquidateHandler from '../lib/server/salesLiquidateHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
+import publicEnrollmentHandler from '../lib/server/publicEnrollmentHandler.js';
 import {
   controlidStatusHandler,
   controlidTestHandler,
@@ -234,11 +236,15 @@ export default async function handler(req, res) {
     const action = String(req.query?.action || '').trim();
     if (action === 'reconcile') return salesReconcileHandler(req, res);
     if (req.method === 'POST') return salesCreateHandler(req, res);
+    if (req.method === 'PATCH') return salesLiquidateHandler(req, res);
     if (req.method === 'GET') return salesHistoryHandler(req, res);
-    res.setHeader('Allow', 'GET, POST');
+    res.setHeader('Allow', 'GET, POST, PATCH');
     return res.status(405).json({ ok: false, error: 'method_not_allowed' });
   }
 
+  if (req.query.route === 'public-enrollment' || req.query.route === 'public-enrollment-config') {
+    return publicEnrollmentHandler(req, res);
+  }
   if (req.query.route === 'labels') return labelsHandler(req, res);
   if (req.query.route === 'inventory') return inventoryHandler(req, res);
   if (req.query.route === 'products') return productsHandler(req, res);

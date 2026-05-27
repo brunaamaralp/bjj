@@ -18,6 +18,7 @@ import {
   serializeStudentFreezeReasons,
 } from '../../lib/studentFreezeConfig.js';
 import AcademyTurmasSection from './AcademyTurmasSection.jsx';
+import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
 
 function ListSubsectionHeader({ title, hasUnsaved }) {
   return (
@@ -330,6 +331,13 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           resetLabel="Restaurar motivos padrão"
         />
       </div>
+
+      <PublicEnrollmentSection
+        academyId={academyId}
+        academy={academy}
+        setAcademy={setAcademy}
+        canEdit={canEdit}
+      />
 
       <div className="funil-section-divider" role="separator" aria-hidden="true" />
 

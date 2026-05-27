@@ -6,6 +6,7 @@ import { useSalesCatalog } from '../../hooks/useSalesCatalog';
 import { suggestUnitPrice } from '../../lib/salesCatalog';
 import { readSalesSettings } from '../../lib/salesSettings';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { DateInput } from '../DateInput';
 import SalesCatalogPicker from '../sales/SalesCatalogPicker';
 import SalesPaymentBlock from '../sales/SalesPaymentBlock';
 import SalesReceiptPanel from '../sales/SalesReceiptPanel';
@@ -32,6 +33,8 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
   const [receipt, setReceipt] = useState(null);
   const [localError, setLocalError] = useState('');
   const [flashProductId, setFlashProductId] = useState(null);
+  const [receiveLater, setReceiveLater] = useState(false);
+  const [dueDate, setDueDate] = useState('');
 
   const idempotencyKeyRef = useRef(
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -65,8 +68,8 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
   const totalFinalCents = useMemo(() => Math.max(0, Math.round(round2(totalCart) * 100)), [totalCart]);
 
   const paymentValid = useMemo(
-    () => paymentsUiValid(payments, totalFinalCents),
-    [payments, totalFinalCents]
+    () => paymentsUiValid(payments, totalFinalCents, { deferred: receiveLater }),
+    [payments, totalFinalCents, receiveLater]
   );
 
   useEffect(() => {
@@ -127,7 +130,12 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       setLocalError('Adicione pelo menos um produto');
       return;
     }
-    if (!paymentValid.ok) {
+    if (receiveLater) {
+      if (!String(dueDate || '').trim()) {
+        setLocalError('Informe a data de vencimento.');
+        return;
+      }
+    } else if (!paymentValid.ok) {
       setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
       return;
     }
@@ -145,15 +153,23 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       preco_unitario: round2(Number(it.preco_unitario)),
     }));
 
-    const pagamentos = serializePagamentosForApi(payments);
+    const pagamentos = receiveLater ? [] : serializePagamentosForApi(payments);
     const now = new Date();
 
-    await createSale({
+    const salePayload = {
       aluno_id: student.id,
-      pagamentos,
       itens,
       idempotency_key: idempotencyKeyRef.current,
-    });
+    };
+    if (receiveLater) {
+      salePayload.deferred = true;
+      salePayload.due_date = String(dueDate).slice(0, 10);
+      salePayload.pagamentos = [];
+    } else {
+      salePayload.pagamentos = pagamentos;
+    }
+
+    await createSale(salePayload);
 
     const st = useSalesStore.getState();
     if (st.error) {
@@ -161,7 +177,10 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       return;
     }
 
-    addToast({ type: 'success', message: 'Venda registrada.' });
+    addToast({
+      type: 'success',
+      message: receiveLater ? 'Venda registrada — pagamento pendente.' : 'Venda registrada.',
+    });
     const vendaId = st.lastSale?.venda_id || '';
     const totalFinal = round2(totalCart);
     setReceipt({
@@ -170,7 +189,7 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       canal: 'presencial',
       clientName: student.name || 'Aluno',
-      forma: buildFormaPagamentoResumo(pagamentos),
+      forma: receiveLater ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
       pagamentos,
       trocoWarnings: Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [],
       items: cart.map((it) => ({
@@ -249,12 +268,47 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
           ))}
         </div>
       ) : null}
-      <SalesPaymentBlock
-        totalCents={totalFinalCents}
-        payments={payments}
-        onChange={setPayments}
-        disabled={creating || cart.length === 0}
-      />
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 14,
+          cursor: creating ? 'default' : 'pointer',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={receiveLater}
+          disabled={creating || cart.length === 0}
+          onChange={(e) => {
+            setReceiveLater(e.target.checked);
+            setLocalError('');
+          }}
+        />
+        Receber depois
+      </label>
+      {receiveLater ? (
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+            Data de vencimento <span style={{ color: 'var(--danger)' }}>*</span>
+          </label>
+          <DateInput
+            type="date"
+            value={dueDate}
+            disabled={creating || cart.length === 0}
+            onChange={(e) => setDueDate(e.target.value)}
+            required
+          />
+        </div>
+      ) : (
+        <SalesPaymentBlock
+          totalCents={totalFinalCents}
+          payments={payments}
+          onChange={setPayments}
+          disabled={creating || cart.length === 0}
+        />
+      )}
       <button
         type="button"
         className="btn-primary"

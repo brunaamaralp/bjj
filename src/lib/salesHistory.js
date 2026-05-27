@@ -182,5 +182,13 @@ export function saleStatusLabel(status) {
   const st = String(status || '').toLowerCase();
   if (st === 'cancelada') return 'Cancelada';
   if (st === 'concluida') return 'Concluída';
+  if (st === 'pendente') return 'Pendente';
   return status || '—';
+}
+
+export function saleStatusBadgeClass(status) {
+  const st = String(status || '').toLowerCase();
+  if (st === 'cancelada') return 'sales-badge sales-badge--danger';
+  if (st === 'pendente') return 'sales-badge sales-badge--pending';
+  return 'sales-badge sales-badge--ok';
 }

@@ -341,7 +341,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules }) {
               <li>
                 <AlertCircle size={16} aria-hidden />
                 <span>
-                  <strong>{closingDivergences}</strong> item(ns) com divergência no fechamento de{' '}
+                  <strong>{closingDivergences}</strong> item(ns) com divergência na conferência de{' '}
                   {monthLabel}
                 </span>
                 <Link to="/financeiro?tab=fechamento">Conferir</Link>
@@ -353,6 +353,15 @@ export default function VisaoGeralTab({ academyId, financeModule, modules }) {
               <li className="financeiro-overview-alerts--ok">Nenhum alerta no momento.</li>
             ) : null}
           </ul>
+        </OverviewCard>
+
+        <OverviewCard title="Relatório detalhado" eyebrow="Exportação">
+          <p className="text-small text-muted" style={{ margin: '0 0 12px' }}>
+            Totais por período, forma de pagamento e demonstrações contábeis (owner) em Relatórios.
+          </p>
+          <Link to="/reports?tab=financeiro" className="btn-outline btn-sm financeiro-overview-cta">
+            Exportar relatório detalhado <ArrowRight size={14} />
+          </Link>
         </OverviewCard>
       </div>
     </div>

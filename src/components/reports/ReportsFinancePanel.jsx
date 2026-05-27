@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Wallet2 } from 'lucide-react';
+import { Download, Wallet2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import ReportsTab from '../finance/ReportsTab.jsx';
 import { fmt } from '../finance/financeFmt.js';
@@ -211,6 +212,12 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
 
   return (
     <>
+      <p className="mt-4 mb-0" style={{ marginTop: 16 }}>
+        <Link to="/financeiro" className="edit-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <ArrowLeft size={16} aria-hidden />
+          Financeiro
+        </Link>
+      </p>
       <div className="card mt-4" style={{ padding: '16px 18px' }}>
         {isOwner ? (
           <>

@@ -1,16 +1,87 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, XCircle } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
-import { formatDateTimeBr, saleStatusLabel } from '../../lib/salesHistory';
+import { formatDateTimeBr, saleStatusLabel, saleStatusBadgeClass } from '../../lib/salesHistory';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
+import { useSalesStore } from '../../store/useSalesStore';
+import { useUiStore } from '../../store/useUiStore';
+import SalesPaymentBlock from './SalesPaymentBlock';
+import {
+  createEmptyPaymentRow,
+  serializePagamentosForApi,
+  paymentsUiValid,
+  rebalancePaymentsForTotal,
+} from '../../lib/salePayments';
 
-export default function SaleDetailModal({ open, sale, loading, onClose, onCancelClick, canCancelSale = false }) {
+export default function SaleDetailModal({
+  open,
+  sale,
+  loading,
+  onClose,
+  onCancelClick,
+  canCancelSale = false,
+  onLiquidated,
+}) {
+  const liquidateSale = useSalesStore((s) => s.liquidateSale);
+  const creating = useSalesStore((s) => s.creating);
+  const addToast = useUiStore((s) => s.addToast);
+
+  const [liquidateOpen, setLiquidateOpen] = useState(false);
+  const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
+  const [liquidateError, setLiquidateError] = useState('');
+
+  const totalCents = useMemo(
+    () => Math.max(0, Math.round((Number(sale?.total) || 0) * 100)),
+    [sale?.total]
+  );
+
   useModalA11y({ isOpen: open && Boolean(sale), onClose });
+
+  useEffect(() => {
+    if (!open || !sale) {
+      setLiquidateOpen(false);
+      setLiquidateError('');
+      return;
+    }
+    setPayments([createEmptyPaymentRow(totalCents)]);
+  }, [open, sale?.id, totalCents]);
+
+  useEffect(() => {
+    if (!liquidateOpen) return;
+    setPayments((prev) => {
+      if (prev.length === 1) {
+        return [{ ...prev[0], valorCents: totalCents, recebidoCents: totalCents }];
+      }
+      return rebalancePaymentsForTotal(prev, totalCents);
+    });
+  }, [liquidateOpen, totalCents]);
 
   if (!open || !sale) return null;
 
-  const isConcluida = String(sale.status).toLowerCase() === 'concluida';
-  const isCancelada = String(sale.status).toLowerCase() === 'cancelada';
+  const statusLower = String(sale.status).toLowerCase();
+  const isConcluida = statusLower === 'concluida';
+  const isCancelada = statusLower === 'cancelada';
+  const isPendente = statusLower === 'pendente';
+
+  const paymentValid = paymentsUiValid(payments, totalCents);
+
+  const handleLiquidate = async () => {
+    setLiquidateError('');
+    if (!paymentValid.ok) {
+      setLiquidateError('Ajuste os valores de pagamento para fechar o total da venda.');
+      return;
+    }
+    const pagamentos = serializePagamentosForApi(payments);
+    const result = await liquidateSale({ venda_id: sale.id, pagamentos });
+    if (!result?.ok) {
+      addToast({ type: 'error', message: 'Não foi possível registrar o pagamento.' });
+      return;
+    }
+    addToast({ type: 'success', message: 'Pagamento registrado.' });
+    setLiquidateOpen(false);
+    onLiquidated?.(result);
+    onClose();
+  };
 
   return (
     <div className="sales-modal-backdrop" role="presentation" onClick={onClose}>
@@ -45,10 +116,13 @@ export default function SaleDetailModal({ open, sale, loading, onClose, onCancel
               <div><strong>Pagamento:</strong> {sale.payment_label}</div>
               <div>
                 <strong>Status:</strong>{' '}
-                <span className={isCancelada ? 'sales-badge sales-badge--danger' : 'sales-badge sales-badge--ok'}>
+                <span className={saleStatusBadgeClass(sale.status)}>
                   {saleStatusLabel(sale.status)}
                 </span>
               </div>
+              {isPendente && sale.due_date ? (
+                <div><strong>Vencimento:</strong> {String(sale.due_date).slice(0, 10).split('-').reverse().join('/')}</div>
+              ) : null}
               {isCancelada && (
                 <>
                   <div><strong>Cancelada em:</strong> {formatDateTimeBr(sale.cancelada_em)}</div>
@@ -83,6 +157,59 @@ export default function SaleDetailModal({ open, sale, loading, onClose, onCancel
               <strong>Total:</strong> {formatBRL(sale.total)}
             </div>
 
+            {isPendente && !liquidateOpen ? (
+              <button
+                type="button"
+                className="btn-primary mt-4"
+                style={{ width: '100%' }}
+                onClick={() => setLiquidateOpen(true)}
+              >
+                Registrar pagamento
+              </button>
+            ) : null}
+
+            {isPendente && liquidateOpen ? (
+              <div className="mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <h4 className="navi-section-heading" style={{ fontSize: 14, margin: 0 }}>
+                  Registrar pagamento
+                </h4>
+                {liquidateError ? (
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)' }} role="alert">
+                    {liquidateError}
+                  </p>
+                ) : null}
+                <SalesPaymentBlock
+                  totalCents={totalCents}
+                  payments={payments}
+                  onChange={setPayments}
+                  disabled={creating}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    style={{ flex: 1 }}
+                    disabled={creating}
+                    onClick={() => {
+                      setLiquidateOpen(false);
+                      setLiquidateError('');
+                    }}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ flex: 1 }}
+                    disabled={creating}
+                    onClick={() => void handleLiquidate()}
+                  >
+                    {creating ? 'Registrando…' : 'Confirmar'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             {isConcluida && canCancelSale ? (
               <button type="button" className="btn-outline mt-4" onClick={onCancelClick}>
                 <XCircle size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
@@ -115,5 +242,3 @@ export default function SaleDetailModal({ open, sale, loading, onClose, onCancel
     </div>
   );
 }
-
-

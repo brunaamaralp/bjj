@@ -26,7 +26,8 @@ describe('mobileMoreNav', () => {
       isOwner: false,
       pipelineLabel: 'Funil',
     });
-    expect(member.some((i) => i.id === 'mensalidades')).toBe(true);
+    expect(member.some((i) => i.id === 'financeiro')).toBe(true);
+    expect(member.some((i) => i.id === 'mensalidades')).toBe(false);
     expect(member.some((i) => i.id === 'equipe')).toBe(false);
 
     const owner = buildMobileMoreItems({

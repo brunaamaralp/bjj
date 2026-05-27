@@ -6598,9 +6598,38 @@ input[type='datetime-local'].form-input:focus {
   }
 }
 
+/* —— Modais de vendas (histórico, detalhe, nova venda) —— */
+.sales-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 16px;
+}
+
+.sales-modal {
+  max-width: 420px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.sales-modal--wide {
+  max-width: 560px;
+}
+
 /* —— Modal Nova Venda (atalho sidebar) —— */
 .nova-venda-modal-backdrop {
+  position: fixed;
+  inset: 0;
   z-index: 2400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .nova-venda-modal {
@@ -9074,4 +9103,61 @@ input[type='datetime-local'].form-input:focus {
 }
 .dashboard-zero-welcome__link:hover {
   text-decoration: underline;
+}
+
+/* —— Cadastro público do aluno (/inscricao/:token) —— */
+.public-enrollment-page {
+  min-height: 100vh;
+  background: var(--bg-page, #f6f5fa);
+  display: flex;
+  flex-direction: column;
+}
+
+.public-enrollment-page__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-card, #fff);
+}
+
+.public-enrollment-page__main {
+  flex: 1;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+.public-enrollment-title {
+  font-size: 1.35rem;
+  margin: 0 0 8px;
+}
+
+.public-enrollment-subtitle {
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+  line-height: 1.45;
+}
+
+.public-enrollment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.public-enrollment-card {
+  padding: 16px;
+}
+
+.public-enrollment-card--success {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.public-enrollment-submit {
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
 }

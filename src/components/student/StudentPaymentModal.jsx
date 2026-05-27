@@ -84,9 +84,11 @@ export default function StudentPaymentModal({
   formError = '',
 }) {
   const [productStep, setProductStep] = useState(false);
+  const [showProductDeferHint, setShowProductDeferHint] = useState(false);
 
   const handleClose = useCallback(() => {
     setProductStep(false);
+    setShowProductDeferHint(false);
     onClose();
   }, [onClose]);
 
@@ -154,10 +156,29 @@ export default function StudentPaymentModal({
         ) : null}
 
         {isProduct ? (
-          <StudentProductSaleStep
+          <>
+            {showProductDeferHint ? (
+              <p
+                role="status"
+                style={{
+                  margin: '0 0 12px',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: 'var(--surface-2, rgba(148,163,184,0.12))',
+                  color: 'var(--text-secondary)',
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                }}
+              >
+                Para venda de produto com pagamento posterior, use &quot;Registrar venda&quot; e marque
+                &quot;Receber depois&quot;.
+              </p>
+            ) : null}
+            <StudentProductSaleStep
             student={student}
             onBack={() => {
               setProductStep(false);
+              setShowProductDeferHint(false);
               setPayForm((p) => ({ ...p, payment_type: PAYMENT_CATEGORY.PLAN }));
             }}
             onComplete={() => {
@@ -166,6 +187,7 @@ export default function StudentPaymentModal({
               handleClose();
             }}
           />
+          </>
         ) : (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -194,9 +216,11 @@ export default function StudentPaymentModal({
                         onChange={() => {
                           if (opt.value === PAYMENT_MODAL_PRODUCT) {
                             setProductStep(true);
+                            setShowProductDeferHint(true);
                             setPayForm((p) => ({ ...p, payment_type: PAYMENT_MODAL_PRODUCT }));
                             return;
                           }
+                          setShowProductDeferHint(false);
                           setPayForm((p) => ({
                             ...p,
                             payment_type: opt.value,

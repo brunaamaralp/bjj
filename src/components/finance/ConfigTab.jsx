@@ -41,7 +41,7 @@ import { filterBankAccountsWithBank } from '../../lib/bankAccounts.js';
 const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 const FINANCE_SECTIONS = [
-  { id: 'finance-plans', label: 'Planos' },
+  { id: 'finance-plans', label: 'Planos de mensalidade' },
   { id: 'finance-fees', label: 'Taxas' },
   { id: 'finance-accounts', label: 'Bancos' },
   { id: 'finance-collection', label: 'Régua' },
@@ -428,7 +428,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
 
       {isSectionOpen('finance-plans', layout, activeSection) ? (
         <section id="finance-plans" className="finance-config-section animate-in mensal-finance-plans-section">
-          <FinanceSectionHeading icon={Wallet2}>Planos da academia</FinanceSectionHeading>
+          <FinanceSectionHeading icon={Wallet2}>Planos de mensalidade</FinanceSectionHeading>
           <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
             Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos.
           </p>
@@ -468,7 +468,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
             <SectionSaveFooter
               dirty={dirty.plans}
               saving={savingSection === 'plans'}
-              onSave={() => persistConfig('plans', 'Planos salvos.')}
+              onSave={() => persistConfig('plans', 'Planos de mensalidade salvos.')}
             />
           </div>
           <div className="finance-nave-subscription">

@@ -1,3 +1,5 @@
+// academyPlans = planos de mensalidade de alunos (financeConfig).
+// planConfig = assinatura comercial do Nave (Asaas). São coisas distintas.
 /**
  * Fonte única da verdade para planos comerciais do Nave.
  * Usado tanto no frontend (UI de planos) quanto no backend (webhookHandlers).

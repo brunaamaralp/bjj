@@ -1,3 +1,6 @@
+// Assinatura comercial do Nave (academia como cliente do sistema).
+// Integração com Asaas: checkout, status, webhook.
+// Mensalidades de alunos NÃO passam por aqui — ver api/finance.js.
 import { Client, Databases } from 'node-appwrite';
 import { isBillingApiLive } from '../lib/server/billingApiEnabled.js';
 import {

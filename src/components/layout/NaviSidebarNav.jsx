@@ -112,7 +112,10 @@ function SideNavLink({
     .join(' ');
 
   const resolveNavClass = (state) => {
-    const navActive = Boolean(state?.isActive) || isSidebarNavItemActive(to, location);
+    const hasQuery = String(to || '').includes('?');
+    const navActive = hasQuery
+      ? isSidebarNavItemActive(to, location)
+      : Boolean(state?.isActive) || isSidebarNavItemActive(to, location);
     const merged = { ...state, isActive: navActive };
     if (typeof className === 'function') {
       return [className(merged), modifiers].filter(Boolean).join(' ');
@@ -168,16 +171,17 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
               label={child.label}
               Icon={Icon}
               collapsed={collapsed}
-              className={({ isActive }) =>
-                [
+              className={({ isActive }) => {
+                const active = isActive || childActive;
+                return [
                   typeof sideLinkClass === 'function'
-                    ? sideLinkClass({ isActive: isActive || childActive })
+                    ? sideLinkClass({ isActive: active })
                     : sideLinkClass || 'navi-sidebar-link',
-                  isActive || childActive ? 'active navi-sidebar-link--active' : '',
+                  active ? 'active navi-sidebar-link--active' : '',
                 ]
                   .filter(Boolean)
-                  .join(' ')
-              }
+                  .join(' ');
+              }}
             />
           </React.Fragment>
         );
@@ -285,12 +289,14 @@ function SideNavAccordion({
                 <li role="listitem">
                   <NavLink
                     to={child.to}
-                    className={({ isActive }) =>
-                      [
+                    className={() => {
+                      const active =
+                        childActive || isSidebarNavItemActive(child.to, location);
+                      return [
                         'navi-sidebar-link navi-sidebar-link--child',
-                        isActive || childActive ? 'active navi-sidebar-link--active' : '',
-                      ].join(' ')
-                    }
+                        active ? 'active navi-sidebar-link--active' : '',
+                      ].join(' ');
+                    }}
                   >
                     <span className="navi-sidebar-link__label">{child.label}</span>
                   </NavLink>

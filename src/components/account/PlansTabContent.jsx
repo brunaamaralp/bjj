@@ -76,7 +76,8 @@ export default function PlansTabContent() {
   return (
     <div>
       <p className="navi-subtitle" style={{ marginTop: 0, marginBottom: 20 }}>
-        Pague com PIX, boleto ou cartão — via Asaas, com segurança. 30 dias grátis em qualquer plano.
+        Assinatura do Nave — pague com PIX, boleto ou cartão via Asaas. 30 dias grátis em qualquer plano do
+        sistema.
       </p>
       {!billingLive && (
         <p
@@ -125,7 +126,7 @@ export default function PlansTabContent() {
               )}
               {isCurrentPlan && (
                 <div style={{ background: 'var(--success)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, textAlign: 'center', padding: '5px 0', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  ✓ Plano atual
+                  ✓ Assinatura ativa
                 </div>
               )}
               <div style={{ padding: '20px 24px 16px' }}>
@@ -158,7 +159,7 @@ export default function PlansTabContent() {
               <div style={{ padding: '0 24px 24px' }}>
                 {isCurrentPlan ? (
                   <div style={{ textAlign: 'center', padding: '10px', borderRadius: 'var(--radius-sm)', background: 'var(--success-light, rgba(34,197,94,0.1))', color: 'var(--success)', fontWeight: 600, fontSize: '0.875rem' }}>
-                    Plano ativo
+                    Assinatura ativa
                   </div>
                 ) : (
                   <button type="button" className={isStudio ? 'btn-primary' : 'btn-outline'} style={{ width: '100%', justifyContent: 'center' }} onClick={() => handleCheckout(key)} disabled={!billingLive && currentPlan !== key}>
@@ -170,7 +171,11 @@ export default function PlansTabContent() {
           );
         })}
       </div>
-      {loadingStatus && academyId && <p className="navi-subtitle" style={{ textAlign: 'center', marginTop: 20 }}>Carregando plano atual…</p>}
+      {loadingStatus && academyId && (
+        <p className="navi-subtitle" style={{ textAlign: 'center', marginTop: 20 }}>
+          Carregando assinatura do Nave…
+        </p>
+      )}
       <p className="navi-subtitle" style={{ textAlign: 'center', marginTop: 24, fontSize: '0.8rem' }}>
         Dúvidas?{' '}
         <a href="https://api.whatsapp.com/send?phone=5511999999999" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>

@@ -3,7 +3,8 @@ export const PIPELINE_STAGE_HINTS = {
   Novo: 'Contatos que acabaram de entrar no funil.',
   'Aula experimental': 'Agendados para aula ou avaliação experimental.',
   'Aguardando decisão': 'Compareceram e aguardam retorno ou matrícula.',
-  Matriculado: 'Já matriculados — acompanhamento pós-conversão.',
+  Matriculado:
+    'Zona de matrícula: arraste um card aqui para abrir o cadastro. Após confirmar, o contato vira aluno e sai do funil.',
   'Não compareceu': 'Não compareceram à aula ou avaliação agendada.',
   Perdidos: 'Contatos que não seguiram no funil.',
 };

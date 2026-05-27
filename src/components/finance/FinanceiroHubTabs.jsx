@@ -17,7 +17,7 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
     ];
     if (access?.financeModule) {
       tabs.push({ id: 'previsao', label: 'Previsão' });
-      tabs.push({ id: 'fechamento', label: 'Fechamento' });
+      tabs.push({ id: 'fechamento', label: 'Conferência do mês' });
     }
     if (access?.isOwner && access?.financeModule) {
       tabs.push({ id: 'conciliacao', label: 'Conciliação' });

@@ -57,7 +57,7 @@ export default function NovaVendaModal({ open, onClose }) {
 
   return createPortal(
     <div
-      className="sales-modal-backdrop nova-venda-modal-backdrop"
+      className="nova-venda-modal-backdrop"
       role="presentation"
       onClick={requestClose}
     >

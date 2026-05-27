@@ -13,6 +13,8 @@ export const useSalesStore = create((set) => ({
     aluno_id = null,
     forma_pagamento,
     pagamentos,
+    deferred = false,
+    due_date = null,
     cliente_nome = null,
     cliente_telefone = null,
     venda_colaborador = false,
@@ -30,7 +32,11 @@ export const useSalesStore = create((set) => ({
         itens,
         academy_id: academyId,
       };
-      if (Array.isArray(pagamentos) && pagamentos.length > 0) {
+      if (deferred === true) {
+        payload.deferred = true;
+        payload.due_date = due_date;
+        payload.pagamentos = [];
+      } else if (Array.isArray(pagamentos) && pagamentos.length > 0) {
         payload.pagamentos = pagamentos;
       } else {
         payload.forma_pagamento = forma_pagamento;
@@ -67,6 +73,28 @@ export const useSalesStore = create((set) => ({
   fetchSaleDetail: async (saleId) => {
     const data = await salesFetch(`/api/sales?id=${encodeURIComponent(saleId)}`);
     return data.sale || null;
+  },
+
+  liquidateSale: async ({ venda_id, pagamentos }) => {
+    set({ creating: true, error: null });
+    try {
+      const academyId = useLeadStore.getState().academyId || null;
+      const body = await salesFetch('/api/sales', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: venda_id,
+          action: 'liquidar',
+          pagamentos,
+          academy_id: academyId,
+        }),
+      });
+      set({ creating: false, error: null, lastSale: body });
+      return body;
+    } catch (e) {
+      const code = e instanceof SalesApiError ? e.code : String(e?.message || e);
+      set({ error: code, creating: false });
+      return null;
+    }
   },
 
   cancelSale: async ({ venda_id, motivo }) => {

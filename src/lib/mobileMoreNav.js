@@ -32,10 +32,7 @@ export function buildMobileMoreItems({ modules, isOwner, pipelineLabel = 'Funil'
   ];
 
   if (modules?.finance === true) {
-    items.push(
-      { id: 'mensalidades', label: 'Mensalidades', to: '/financeiro?tab=mensalidades', iconKey: 'mensalidades' },
-      { id: 'financeiro', label: 'Financeiro', to: '/financeiro', iconKey: 'financeiro' }
-    );
+    items.push({ id: 'financeiro', label: 'Financeiro', to: '/financeiro', iconKey: 'financeiro' });
   }
 
   if (modules?.sales === true || modules?.inventory === true) {
@@ -72,17 +69,8 @@ export function isMobileMoreItemActive(item, location) {
     return matchNavTarget('/pipeline', loc) || isLeadProfilePath(loc.pathname);
   }
   if (id === 'tarefas') return loc.pathname === '/tarefas';
-  if (id === 'mensalidades') {
-    if (loc.pathname === '/mensalidades') return true;
-    if (loc.pathname === '/financeiro' || loc.pathname === '/caixa') {
-      const tab = String(new URLSearchParams(loc.search).get('tab') || '').toLowerCase();
-      return tab === 'mensalidades';
-    }
-    return false;
-  }
   if (id === 'financeiro') {
-    if (loc.pathname === '/mensalidades') return false;
-    return isFinanceiroHubPath(loc.pathname);
+    return isFinanceiroHubPath(loc.pathname) || loc.pathname === '/mensalidades';
   }
   if (id === 'loja') {
     return (

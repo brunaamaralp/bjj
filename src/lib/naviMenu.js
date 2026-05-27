@@ -141,10 +141,8 @@ export function isAccordionChildActive(child, location) {
       if (tab === FINANCEIRO_SECTIONS.CONFIG) return true;
       return CONTABILIDADE_TAB_IDS.has(tab);
     }
-    if (child.group === 'Contabilidade') return CONTABILIDADE_TAB_IDS.has(tab);
-    if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) {
-      return ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'].includes(tab);
-    }
+    if (child.group === 'Contabilidade') return child.id === tab;
+    if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) return child.id === tab;
   }
   return matchNavTarget(child.to, location);
 }
@@ -234,7 +232,7 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       },
       {
         id: 'fechamento',
-        label: 'Fechamento',
+        label: 'Conferência do mês',
         to: `${FINANCEIRO_HUB_PATH}?tab=fechamento`,
         iconKey: 'fechamento',
         group: FINANCEIRO_NAV_GROUP_OPERACOES,

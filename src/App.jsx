@@ -63,6 +63,7 @@ const Loja = lazyWithRetry(() => import('./pages/Loja'));
 const Equipe = lazyWithRetry(() => import('./pages/Equipe'));
 const Integracoes = lazyWithRetry(() => import('./pages/Integracoes'));
 const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
+const PublicStudentEnrollment = lazyWithRetry(() => import('./pages/PublicStudentEnrollment'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -350,7 +351,7 @@ const App = () => {
           useUiStore.getState().addToast({
             type: 'warning',
             message:
-              'Quando o trial acabar, será preciso escolher um plano. Abra Planos ou Conta → Assinatura quando quiser configurar.',
+              'Quando o trial acabar, será preciso ativar a assinatura do Nave. Abra Conta → Assinatura quando quiser configurar.',
             duration: 9000,
           });
         } catch {
@@ -523,15 +524,17 @@ const App = () => {
           const path = window.location.pathname;
           const search = window.location.search || '';
           const landingPaths = ['/', '/login', '/register', '/cadastro'];
-          if (landingPaths.includes(path)) {
+          const publicEnrollmentPath = path.startsWith('/inscricao/');
+          if (landingPaths.includes(path) && !publicEnrollmentPath) {
             navigate('/', { replace: true });
-          } else {
+          } else if (!publicEnrollmentPath) {
             navigate(`${path}${search}`, { replace: true });
           }
         } else {
           const p = window.location.pathname;
           const authPaths = ['/login', '/register', '/cadastro'];
-          if (!authPaths.includes(p)) {
+          const publicEnrollmentPath = p.startsWith('/inscricao/');
+          if (!authPaths.includes(p) && !publicEnrollmentPath) {
             navigate('/', { replace: true });
           }
           setSessionChecking(false);
@@ -539,7 +542,8 @@ const App = () => {
       } catch {
         const p = window.location.pathname;
         const authPaths = ['/login', '/register', '/cadastro'];
-        if (!authPaths.includes(p)) {
+        const publicEnrollmentPath = p.startsWith('/inscricao/');
+        if (!authPaths.includes(p) && !publicEnrollmentPath) {
           navigate('/', { replace: true });
         }
         setSessionChecking(false);
@@ -916,6 +920,20 @@ const App = () => {
           }
         `}} />
       </div>
+      </>
+    );
+  }
+
+  if (/^\/inscricao\/[^/]+/.test(location.pathname)) {
+    return (
+      <>
+        <OfflineBanner />
+        <NaviToasts />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/inscricao/:token" element={<PublicStudentEnrollment />} />
+          </Routes>
+        </Suspense>
       </>
     );
   }

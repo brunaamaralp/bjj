@@ -45,6 +45,10 @@ function hasLeadDisplayValue(val) {
     return Boolean(s) && s !== '-';
 }
 
+function normalizeLeadPhoneForInbox(v) {
+    return String(v || '').replace(/\D/g, '');
+}
+
 function expectedPipelineStageForStatus(status) {
     switch (status) {
         case LEAD_STATUS.SCHEDULED:
@@ -144,7 +148,7 @@ const LeadProfile = () => {
     useEffect(() => {
         if (loading || studentsLoading || lead) return;
         const student = useStudentStore.getState().getStudentById(id);
-        if (student) navigate(`/students/${id}`, { replace: true });
+        if (student) navigate(`/student/${id}`, { replace: true });
     }, [loading, studentsLoading, lead, id, navigate]);
     const updateLead = useLeadStore((s) => s.updateLead);
     const deleteLead = useLeadStore((s) => s.deleteLead);
@@ -1284,11 +1288,24 @@ const LeadProfile = () => {
                     {/* Comunicação */}
                     <div className="profile-section">
                         <h3 className="section-title">Comunicação</h3>
-                        <div className="comm-actions-wrap" style={{ position: 'relative' }}>
+                        <div className="comm-actions-wrap" style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                            {normalizeLeadPhoneForInbox(lead.phone) ? (
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40 }}
+                                    onClick={() =>
+                                        navigate(`/inbox?phone=${encodeURIComponent(normalizeLeadPhoneForInbox(lead.phone))}`)
+                                    }
+                                >
+                                    <MessageCircle size={16} aria-hidden />
+                                    Abrir conversa
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
                                 className="comm-btn-primary"
-                                disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
+                                disabled={!normalizeLeadPhoneForInbox(lead.phone) || sendingWhatsapp}
                                 onClick={() => handleWhatsAppPrimary()}
                             >
                                 <MessageCircle size={16} /> {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}

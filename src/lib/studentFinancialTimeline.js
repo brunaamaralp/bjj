@@ -154,8 +154,8 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
       subtitle: sale.payment_label || sale.forma_pagamento || '',
       amount: Number(sale.total || 0),
       badge: {
-        label: st === 'cancelada' ? 'Cancelada' : 'Concluída',
-        tone: st === 'cancelada' ? 'muted' : 'success',
+        label: st === 'cancelada' ? 'Cancelada' : st === 'pendente' ? 'Pendente' : 'Concluída',
+        tone: st === 'cancelada' ? 'muted' : st === 'pendente' ? 'warning' : 'success',
       },
       sale,
     });

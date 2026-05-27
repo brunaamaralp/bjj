@@ -17,6 +17,7 @@ import {
   formatDateTimeBr,
   formatSaleIdShort,
   saleStatusLabel,
+  saleStatusBadgeClass,
 } from '../../lib/salesHistory';
 import { formatBRL } from '../../lib/moneyBr';
 import { friendlyError } from '../../lib/errorMessages';
@@ -288,7 +289,6 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         ) : isMobile ? (
           <div className="sales-history-mobile-list">
             {filtered.map((row) => {
-              const cancelled = String(row.status).toLowerCase() === 'cancelada';
               return (
                 <article key={row.id} className="navi-mobile-card sales-history-mobile-card">
                   <div className="sales-history-mobile-card__head">
@@ -309,11 +309,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
                         ) : null}
                       </div>
                     </div>
-                    <span
-                      className={
-                        cancelled ? 'sales-badge sales-badge--danger' : 'sales-badge sales-badge--ok'
-                      }
-                    >
+                    <span className={saleStatusBadgeClass(row.status)}>
                       {saleStatusLabel(row.status)}
                     </span>
                   </div>
@@ -361,7 +357,6 @@ export default function SalesHistoryTab({ onSwitchTab }) {
             </thead>
             <tbody>
               {filtered.map((row) => {
-                const cancelled = String(row.status).toLowerCase() === 'cancelada';
                 return (
                   <tr
                     key={row.id}
@@ -376,11 +371,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
                     <td>{row.total_label || formatBRL(row.total)}</td>
                     <td>{row.payment_label}</td>
                     <td>
-                      <span
-                        className={
-                          cancelled ? 'sales-badge sales-badge--danger' : 'sales-badge sales-badge--ok'
-                        }
-                      >
+                      <span className={saleStatusBadgeClass(row.status)}>
                         {saleStatusLabel(row.status)}
                       </span>
                     </td>
@@ -411,6 +402,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         onClose={() => setDetailOpen(false)}
         onCancelClick={() => setCancelOpen(true)}
         canCancelSale={canCancelSale}
+        onLiquidated={() => void loadSales()}
       />
 
       <SalesCancelModal
@@ -447,14 +439,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         .sales-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
         .sales-badge--ok { background: rgba(34, 197, 94, 0.15); color: var(--success, #16a34a); }
         .sales-badge--danger { background: rgba(239, 68, 68, 0.15); color: var(--danger, #dc2626); }
-        .sales-modal-backdrop {
-          position: fixed; inset: 0; z-index: 1000;
-          background: rgba(0,0,0,0.45);
-          display: flex; align-items: center; justify-content: center;
-          padding: 16px;
-        }
-        .sales-modal { max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto; }
-        .sales-modal--wide { max-width: 560px; }
+        .sales-badge--pending { background: rgba(245, 158, 11, 0.15); color: #b45309; }
         .sales-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
         .sales-detail-span-2 { grid-column: 1 / -1; }
         .btn-danger { background: var(--danger, #dc2626); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }

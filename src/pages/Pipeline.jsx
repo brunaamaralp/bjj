@@ -2191,8 +2191,14 @@ const Pipeline = () => {
                                     const scopeLabel = searchStageScopeOptions.find((o) => o.value === searchStageScope)?.label || '';
                                     const hasSearchQuery = Boolean(String(kanbanSearch || '').trim() || normalizeKanbanPhone(kanbanSearch));
                                     const inStageScope = searchStageScope === 'all' || col.id === searchStageScope;
+                                    const isEnrollmentDropCol = String(col.id || '').trim() === 'Matriculado';
                                     let hint = 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.';
-                                    if (searchStageScope !== 'all' && col.id !== searchStageScope) {
+                                    let emptyTitle = `Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`;
+                                    if (isEnrollmentDropCol && searchStageScope === 'all' && !hasSearchQuery) {
+                                        emptyTitle = 'Arraste aqui para matricular';
+                                        hint =
+                                            'Esta coluna não guarda cards: ao confirmar a matrícula, o contato vira aluno e some do funil. Use o arraste para abrir o cadastro.';
+                                    } else if (searchStageScope !== 'all' && col.id !== searchStageScope) {
                                         hint = `“Buscar em” está em “${scopeLabel}”. Troque para “Todas as etapas” para ver todas as colunas.`;
                                     } else if (hasSearchQuery && inStageScope) {
                                         hint = 'Nenhum resultado para nome ou telefone. Ajuste a busca ou a etapa em “Buscar em”.';
@@ -2201,7 +2207,7 @@ const Pipeline = () => {
                                         <EmptyState
                                             variant="column"
                                             tone="dashed"
-                                            title={`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}
+                                            title={emptyTitle}
                                             description={hint}
                                             role="none"
                                         />

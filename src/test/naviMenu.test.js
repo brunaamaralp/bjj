@@ -67,6 +67,18 @@ describe('naviMenu', () => {
         { pathname: '/financeiro', search: '?tab=mensalidades' }
       )
     ).toBe(true);
+    expect(
+      isAccordionChildActive(
+        { id: 'previsao', to: '/financeiro?tab=previsao', group: 'Operações' },
+        { pathname: '/financeiro', search: '?tab=movimentacoes' }
+      )
+    ).toBe(false);
+    expect(
+      isAccordionChildActive(
+        { id: 'movimentacoes', to: '/financeiro?tab=movimentacoes', group: 'Operações' },
+        { pathname: '/financeiro', search: '?tab=previsao' }
+      )
+    ).toBe(false);
   });
 
   it('buildSidebarNavModel respects modules and owner', () => {

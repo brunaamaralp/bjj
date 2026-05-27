@@ -35,6 +35,8 @@ function ConversationItem({
     .trim()
     .toLowerCase();
   const isWaitingCustomer = ticketStatusLower === 'waiting_customer';
+  const hasLinkedLead = Boolean(String(item?.lead_id || '').trim());
+  const showSemContatoChip = !hasLinkedLead;
 
   const showContactChip =
     listFilter === 'lead' ||
@@ -237,6 +239,23 @@ function ConversationItem({
                   }}
                 >
                   {contactType === 'student' ? terms.student : 'Lead'}
+                </span>
+              ) : null}
+              {showSemContatoChip ? (
+                <span
+                  className="inbox-status-chip inbox-status-chip-unlinked"
+                  title="Conversa sem contato vinculado no funil"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: '1px 7px',
+                    borderRadius: 999,
+                    background: 'var(--v50, #EEEDFE)',
+                    color: 'var(--v700, #534AB7)',
+                    flexShrink: 0,
+                  }}
+                >
+                  Sem contato
                 </span>
               ) : null}
               {showHandoffChip ? (

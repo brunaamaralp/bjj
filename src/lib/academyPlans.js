@@ -1,3 +1,5 @@
+// academyPlans = planos de mensalidade de alunos (financeConfig).
+// planConfig = assinatura comercial do Nave (Asaas). São coisas distintas.
 /** Planos da academia (financeConfig.plans) — evita digitação livre inconsistente. */
 
 export function getConfiguredPlans(financeConfig) {

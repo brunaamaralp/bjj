@@ -33,6 +33,8 @@
     { "source": "/api/task-templates", "destination": "/api/tasks.js?route=task-templates" },
     { "source": "/api/conversation-notes/:note_id(.*)", "destination": "/api/conversations.js?route=notes&note_id=$1" },
     { "source": "/api/conversation-notes", "destination": "/api/conversations.js?route=notes" },
+    { "source": "/api/public-enrollment", "destination": "/api/leads.js?route=public-enrollment" },
+    { "source": "/api/public-enrollment-config", "destination": "/api/leads.js?route=public-enrollment-config" },
     { "source": "/api/labels", "destination": "/api/leads.js?route=labels" },
     { "source": "/api/labels/:id", "destination": "/api/leads.js?route=labels&id=:id" },
     { "source": "/api/control-id/status", "destination": "/api/leads.js?route=controlid_status" },
