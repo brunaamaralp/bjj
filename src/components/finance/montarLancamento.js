@@ -123,8 +123,13 @@ export function montarLancamento(tx, accounts, academyId) {
   if (lines.length < 2) return null;
 
   const txId = String(tx.id || tx.$id || '').trim();
-  const cat = resolveFinanceCategory(tx?.category);
-  const label = cat?.label || tx.planName || tx.type || 'transação';
+  const catRaw = String(tx?.category || '').trim();
+  const typeRaw = String(tx?.type || '').trim();
+  const catResolved =
+    resolveFinanceCategory(catRaw) ||
+    resolveFinanceCategory(defaultCategoryForTxType(catRaw)) ||
+    resolveFinanceCategory(defaultCategoryForTxType(typeRaw));
+  const label = catResolved?.label || String(tx.planName || '').trim() || defaultCategoryForTxType(typeRaw) || typeRaw || 'transação';
   return {
     date: journalDateFromTx(tx),
     memo: `Liquidação: ${label}${txId ? ` · ${txId}` : ''}`,

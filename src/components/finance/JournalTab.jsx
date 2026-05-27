@@ -84,6 +84,27 @@ export default function JournalTab({
     return d.toLocaleDateString('pt-BR');
   };
 
+  const formatMemoForDisplay = (rawMemo) => {
+    const s = String(rawMemo || '').trim();
+    if (!s) return '—';
+
+    // Ex.: "Liquidação: product · 6a039baa00144eefddd3"
+    // Mantemos o memo completo como `title`, mas escondemos o ID no texto exibido.
+    const sep = ' · ';
+    const idx = s.lastIndexOf(sep);
+    if (idx > 0) {
+      const left = s.slice(0, idx).trim();
+      const right = s.slice(idx + sep.length).trim();
+      const leftNorm = String(left || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      if (leftNorm.startsWith('liquidacao:') && /^[0-9a-z]{10,}$/i.test(right)) return left;
+    }
+
+    return s;
+  };
+
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
       <div className="finance-journal-head">
@@ -269,7 +290,12 @@ export default function JournalTab({
                     <tr key={e.id}>
                       <td>{formatJournalListDate(e.date)}</td>
                       <td>
-                        <div className="finance-journal-memo" title={e.memo || '—'}>{e.memo || '—'}</div>
+                        <div
+                          className="finance-journal-memo"
+                          title={e.memo || '—'}
+                        >
+                          {formatMemoForDisplay(e.memo)}
+                        </div>
                         {detail ? (
                           <div className="text-small" style={{ marginTop: 4, color: 'var(--text-secondary)', lineHeight: 1.35, whiteSpace: 'normal' }}>
                             {detail}
