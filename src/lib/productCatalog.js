@@ -233,7 +233,14 @@ export function filterParentCatalog(parents, { search, category, statusFilter, t
 }
 
 export function emptyVariantRow() {
-  return { size: '', color: '', initial_quantity: '0', minimum_level: '0', sku: '' };
+  return {
+    size: '',
+    color: '',
+    initial_quantity: '0',
+    minimum_level: '0',
+    sku: '',
+    priceOverrideMask: '',
+  };
 }
 
 /** Linhas de variantes para duplicar um produto (sem ids, saldo zerado). */
@@ -298,6 +305,7 @@ export function emptyEditVariantRow() {
     _deleted: false,
     _error: '',
     _duplicate: false,
+    _savedSuccess: false,
     _initial: null,
   };
 }
@@ -440,7 +448,10 @@ export function normalizeVariantsInput(rows) {
     const sku = String(row.sku ?? '').trim().slice(0, 64);
     const initial_quantity = Math.max(0, Math.trunc(Number(row.initial_quantity) || 0));
     const minimum_level = Math.max(0, Math.trunc(Number(row.minimum_level) || 0));
-    out.push({ size, color, sku, initial_quantity, minimum_level });
+    const price_override = maskToOptionalPrice(row.priceOverrideMask);
+    const entry = { size, color, sku, initial_quantity, minimum_level };
+    if (price_override != null) entry.price_override = price_override;
+    out.push(entry);
   }
   return out;
 }

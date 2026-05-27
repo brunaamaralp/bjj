@@ -65,7 +65,7 @@ export function saleInPeriod(sale, from, to) {
 export function resolveClientName(sale, leadNames = {}) {
   if (sale.cliente_nome) return String(sale.cliente_nome).trim();
   if (sale.aluno_id && leadNames[sale.aluno_id]) return leadNames[sale.aluno_id];
-  return '—';
+  return 'Cliente avulso';
 }
 
 export function formatItemsSummary(items, firstLabel) {

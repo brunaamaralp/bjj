@@ -125,6 +125,7 @@ export function getAccordionIdForLocation({ pathname, search }) {
 const CONTABILIDADE_TAB_IDS = new Set(['plano', 'razao', 'dre', 'contabilidade']);
 
 export function isAccordionChildActive(child, location) {
+  if (child.action) return false;
   if (child.id === 'agente' && location.pathname === '/agente-ia') return true;
   if (child.id === 'mensalidades') {
     if (location.pathname === '/mensalidades') return true;
@@ -173,9 +174,17 @@ export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
   };
 }
 
+export const NOVA_VENDA_MENU_ACTION = 'openNovaVendaModal';
+
 export function buildLojaAccordion({ modules }) {
   const children = [];
   if (modules.sales === true) {
+    children.push({
+      id: 'nova-venda',
+      label: 'Nova venda',
+      iconKey: 'novaVenda',
+      action: NOVA_VENDA_MENU_ACTION,
+    });
     children.push({ id: 'vendas', label: 'Vendas', to: '/loja?tab=vendas', iconKey: 'vendas' });
   }
   if (modules.inventory === true || modules.sales === true) {
@@ -377,7 +386,14 @@ export function flattenNavItemsForMobile(model) {
 
   const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
   if (loja) {
-    for (const c of loja.children) push({ ...c, iconKey: c.iconKey || 'loja', section: 'Vendas' });
+    for (const c of loja.children) {
+      push({
+        ...c,
+        iconKey: c.iconKey || 'loja',
+        section: 'Vendas',
+        to: c.to || (c.action === NOVA_VENDA_MENU_ACTION ? '/loja' : '/loja'),
+      });
+    }
   }
 
   const rel = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);

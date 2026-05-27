@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
 import { catalogParentsFromVariants } from '../lib/salesCatalog';
+import { REFRESH_SALES_CATALOG_EVENT } from '../lib/salesCatalogRefresh';
 
 async function fetchProductsViaApi(academyId) {
   const jwt = await createSessionJwt();
@@ -52,5 +53,14 @@ export function useSalesCatalog(academyId) {
     void load();
   }, [load]);
 
-  return { products, loading, error, reload: load };
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onRefresh = () => {
+      void load();
+    };
+    window.addEventListener(REFRESH_SALES_CATALOG_EVENT, onRefresh);
+    return () => window.removeEventListener(REFRESH_SALES_CATALOG_EVENT, onRefresh);
+  }, [load]);
+
+  return { products, loading, error, reload: load, refreshCatalog: load };
 }

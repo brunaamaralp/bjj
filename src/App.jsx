@@ -1156,7 +1156,6 @@ const App = () => {
             onClose={closeMobileNavDrawer}
             sections={mobileDrawerSections}
             newLeadLabel={newLeadLabel}
-            salesEnabled={modules?.sales === true}
           />
           <NaviMobileMoreSheet open={mobileMoreOpen} onClose={closeMobileMore} items={mobileMoreItems} />
         </>

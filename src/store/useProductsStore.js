@@ -4,6 +4,7 @@ import { pickProductApiBody } from '../lib/stockProducts';
 import { legacyStockItemsAsParents } from '../lib/productCatalog';
 import { useLeadStore } from './useLeadStore';
 import { useInventoryStore } from './useInventoryStore';
+import { dispatchRefreshSalesCatalog } from '../lib/salesCatalogRefresh.js';
 
 async function productsFetch(path, options = {}) {
   const jwt = await createSessionJwt();
@@ -218,6 +219,7 @@ export const useProductsStore = create((set, get) => ({
       }
       await get().loadProducts();
       set({ loading: false });
+      dispatchRefreshSalesCatalog();
       return {
         ok: true,
         saved: data.saved ?? 0,

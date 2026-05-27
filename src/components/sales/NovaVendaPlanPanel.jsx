@@ -1,3 +1,6 @@
+// Desacoplado do modal Nova Venda em 2026-05-27.
+// Reutilizado em: perfil do lead (LeadCloseSaleModal), funil (Pipeline).
+
 import React, { useCallback, useEffect, useState } from 'react';
 import { Query } from 'appwrite';
 import { databases, DB_ID, STUDENTS_COL } from '../../lib/appwrite';
@@ -24,7 +27,16 @@ function mapStudentDoc(doc) {
   };
 }
 
-export default function NovaVendaPlanPanel({ onComplete, onBack }) {
+function buildPayFormForContact(contact) {
+  return { ...buildDefaultPayForm(contact), payment_type: PAYMENT_CATEGORY.PLAN };
+}
+
+export default function NovaVendaPlanPanel({
+  onComplete,
+  onBack,
+  prefilledStudent = null,
+  showNotStudentHint = false,
+}) {
   const academyId = useLeadStore((s) => s.academyId);
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const userId = useLeadStore((s) => s.userId);
@@ -33,8 +45,10 @@ export default function NovaVendaPlanPanel({ onComplete, onBack }) {
   const [searchText, setSearchText] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [student, setStudent] = useState(null);
-  const [payForm, setPayForm] = useState(null);
+  const [student, setStudent] = useState(() => prefilledStudent || null);
+  const [payForm, setPayForm] = useState(() =>
+    prefilledStudent ? buildPayFormForContact(prefilledStudent) : null
+  );
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -43,6 +57,14 @@ export default function NovaVendaPlanPanel({ onComplete, onBack }) {
   }, [academyId]);
 
   useEffect(() => {
+    if (!prefilledStudent) return;
+    setStudent(prefilledStudent);
+    setPayForm(buildPayFormForContact(prefilledStudent));
+    setFormError('');
+  }, [prefilledStudent?.id]);
+
+  useEffect(() => {
+    if (prefilledStudent) return undefined;
     if (!academyId || !STUDENTS_COL || !DB_ID || searchText.trim().length < 2) {
       setSuggestions([]);
       return undefined;
@@ -69,13 +91,13 @@ export default function NovaVendaPlanPanel({ onComplete, onBack }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [academyId, searchText]);
+  }, [academyId, searchText, prefilledStudent]);
 
   const chooseStudent = useCallback((s) => {
     setStudent(s);
     setSearchText(s.name);
     setSuggestions([]);
-    setPayForm({ ...buildDefaultPayForm(s), payment_type: PAYMENT_CATEGORY.PLAN });
+    setPayForm(buildPayFormForContact(s));
     setFormError('');
   }, []);
 
@@ -145,7 +167,9 @@ export default function NovaVendaPlanPanel({ onComplete, onBack }) {
       if (doc?.warning) {
         addToast({
           type: 'warning',
-          message: String(doc.warning || '').trim() || 'Pagamento registrado, mas houve um problema ao atualizar o caixa.',
+          message:
+            String(doc.warning || '').trim() ||
+            'Pagamento registrado, mas houve um problema ao atualizar o caixa.',
           duration: 10000,
         });
       }
@@ -166,22 +190,44 @@ export default function NovaVendaPlanPanel({ onComplete, onBack }) {
 
   if (student && payForm) {
     return (
-      <StudentPaymentModal
-        open
-        student={student}
-        academyId={academyId}
-        financeConfig={financeConfig}
-        payForm={payForm}
-        setPayForm={setPayForm}
-        saving={saving}
-        inputStyle={inputStyle}
-        onClose={() => {
-          if (!saving) clearStudent();
-        }}
-        onSave={handleSave}
-        salesEnabled={false}
-        formError={formError}
-      />
+      <>
+        {showNotStudentHint ? (
+          <p
+            role="status"
+            style={{
+              margin: '0 0 12px',
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: 'var(--surface-2, rgba(148,163,184,0.12))',
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+              lineHeight: 1.45,
+            }}
+          >
+            Este contato ainda não é aluno. O pagamento será registrado e a matrícula pode ser feita
+            em seguida.
+          </p>
+        ) : null}
+        <StudentPaymentModal
+          open
+          student={student}
+          academyId={academyId}
+          financeConfig={financeConfig}
+          payForm={payForm}
+          setPayForm={setPayForm}
+          saving={saving}
+          inputStyle={inputStyle}
+          onClose={() => {
+            if (!saving) {
+              if (prefilledStudent) onBack?.();
+              else clearStudent();
+            }
+          }}
+          onSave={handleSave}
+          salesEnabled={false}
+          formError={formError}
+        />
+      </>
     );
   }
 

@@ -22,7 +22,7 @@ import {
   Package,
   Boxes,
   ChevronDown,
-  Tag,
+  ShoppingCart,
 } from 'lucide-react';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 import {
@@ -34,6 +34,7 @@ import {
   isSidebarNavItemActive,
   matchNavTarget,
   NAV_ACCORDION_IDS,
+  NOVA_VENDA_MENU_ACTION,
 } from '../../lib/naviMenu.js';
 
 const ICONS = {
@@ -53,6 +54,7 @@ const ICONS = {
   fechamento: Lock,
   contabilidade: Calculator,
   vendas: Receipt,
+  novaVenda: ShoppingCart,
   produtos: Package,
   estoque: Boxes,
   relatorios: BarChart3,
@@ -158,6 +160,23 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
         const childActive = isAccordionChildActive(child, location);
         const prevGroup = idx > 0 ? items[idx - 1]?.group : null;
         const showGroup = child.group && child.group !== prevGroup;
+
+        if (child.action === NOVA_VENDA_MENU_ACTION) {
+          return (
+            <button
+              key={child.id}
+              type="button"
+              className="navi-sidebar-link navi-sidebar-link--child"
+              title={collapsed ? child.label : undefined}
+              onClick={() => dispatchOpenNovaVendaModal()}
+            >
+              <span className="navi-sidebar-link__icon">
+                <Icon size={20} strokeWidth={1.75} />
+              </span>
+              <span className="navi-sidebar-link__label">{child.label}</span>
+            </button>
+          );
+        }
 
         return (
           <React.Fragment key={child.id}>
@@ -381,8 +400,7 @@ export default function NaviSidebarNav({
   const relatoriosAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
 
   const conversasActive = matchNavTarget('/inbox', location);
-  const salesEnabled = modules?.sales === true;
-  const showSidebarActions = Boolean(navModel.newLead) || salesEnabled;
+  const showSidebarActions = Boolean(navModel.newLead);
 
   return (
     <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
@@ -398,21 +416,6 @@ export default function NaviSidebarNav({
                 className={sideLinkClass}
                 action
               />
-            ) : null}
-            {salesEnabled ? (
-              <button
-                type="button"
-                className={`navi-sidebar-link navi-sidebar-link--action-secondary${
-                  collapsed ? ' navi-sidebar-link--action-collapsed' : ''
-                }`}
-                onClick={() => dispatchOpenNovaVendaModal()}
-                title={collapsed ? 'Nova Venda' : undefined}
-              >
-                <span className="navi-sidebar-link__icon">
-                  <Tag size={20} strokeWidth={1.75} />
-                </span>
-                <span className="navi-sidebar-link__label">Nova Venda</span>
-              </button>
             ) : null}
           </div>
         ) : null}

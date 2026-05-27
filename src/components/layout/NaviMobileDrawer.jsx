@@ -12,10 +12,10 @@ import {
   ShoppingBag,
   BarChart3,
   Receipt,
-  Tag,
+  ShoppingCart,
   X,
 } from 'lucide-react';
-import { isSidebarNavItemActive } from '../../lib/naviMenu.js';
+import { isSidebarNavItemActive, NOVA_VENDA_MENU_ACTION } from '../../lib/naviMenu.js';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 
 const ICONS = {
@@ -37,7 +37,6 @@ export default function NaviMobileDrawer({
   onClose,
   sections,
   newLeadLabel,
-  salesEnabled = false,
 }) {
   const location = useLocation();
 
@@ -73,30 +72,18 @@ export default function NaviMobileDrawer({
             </button>
           </div>
           <nav className="navi-mobile-drawer__nav" aria-label="Navegação principal">
-            {(newLeadLabel || salesEnabled) && (
+            {newLeadLabel ? (
               <div className="navi-mobile-drawer__actions">
-                {newLeadLabel ? (
-                  <Link
-                    to="/new-lead"
-                    className="navi-mobile-drawer__action navi-mobile-drawer__action--primary"
-                    onClick={onClose}
-                  >
-                    <PlusCircle size={18} strokeWidth={2.25} aria-hidden />
-                    <span>{newLeadLabel}</span>
-                  </Link>
-                ) : null}
-                {salesEnabled ? (
-                  <button
-                    type="button"
-                    className="navi-mobile-drawer__action navi-mobile-drawer__action--secondary"
-                    onClick={handleNovaVenda}
-                  >
-                    <Tag size={18} strokeWidth={1.75} aria-hidden />
-                    <span>Nova Venda</span>
-                  </button>
-                ) : null}
+                <Link
+                  to="/new-lead"
+                  className="navi-mobile-drawer__action navi-mobile-drawer__action--primary"
+                  onClick={onClose}
+                >
+                  <PlusCircle size={18} strokeWidth={2.25} aria-hidden />
+                  <span>{newLeadLabel}</span>
+                </Link>
               </div>
-            )}
+            ) : null}
             {sections.map((section) => (
               <div key={section.title ?? '_root'} className="navi-mobile-drawer__section">
                 {section.title ? (
@@ -104,6 +91,19 @@ export default function NaviMobileDrawer({
                 ) : null}
                 {section.items.map((item) => {
                   const Icon = ICONS[item.iconKey] || LayoutGrid;
+                  if (item.action === NOVA_VENDA_MENU_ACTION) {
+                    return (
+                      <button
+                        key={`${item.id}-${item.label}`}
+                        type="button"
+                        className="navi-mobile-drawer__link"
+                        onClick={handleNovaVenda}
+                      >
+                        <Icon size={20} strokeWidth={1.75} aria-hidden />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  }
                   const active = isSidebarNavItemActive(item.toFull || item.to, location);
                   return (
                     <NavLink

@@ -10,6 +10,7 @@ import {
   applyDefaultSizePresets,
   duplicateVariantRowsFromProduct,
   findParentByProductOrVariantId,
+  normalizeVariantsInput,
 } from '../lib/productCatalog.js';
 
 describe('productCatalog', () => {
@@ -86,6 +87,24 @@ describe('productCatalog', () => {
     expect(findParentByProductOrVariantId(products, 'parent-1')?.id).toBe('parent-1');
     expect(findParentByProductOrVariantId(products, 'var-g')?.id).toBe('parent-1');
     expect(findParentByProductOrVariantId(products, 'missing')).toBeNull();
+  });
+
+  it('normalizeVariantsInput includes price_override when mask is set', () => {
+    const out = normalizeVariantsInput([
+      {
+        size: 'M',
+        color: '',
+        sku: '',
+        initial_quantity: '0',
+        minimum_level: '0',
+        priceOverrideMask: 'R$ 10,00',
+      },
+    ]);
+    expect(out[0].price_override).toBe(10);
+    const empty = normalizeVariantsInput([
+      { size: 'G', color: '', sku: '', initial_quantity: '0', minimum_level: '0', priceOverrideMask: '' },
+    ]);
+    expect(empty[0].price_override).toBeUndefined();
   });
 
   it('filterParentCatalog status sem_estoque uses all variants', () => {

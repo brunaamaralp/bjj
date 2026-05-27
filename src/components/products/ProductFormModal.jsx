@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react';
 import {
   emptyVariantRow,
   applyDefaultSizePresets,
@@ -21,6 +21,71 @@ import useMatchMobile from '../../hooks/useMatchMobile.js';
 import useVisualViewportKeyboardOffset from '../../hooks/useVisualViewportKeyboardOffset.js';
 
 const NEW_CAT = '__nova__';
+
+const VARIANT_SIZE_COLOR_READONLY_TITLE =
+  'Tamanho e cor não podem ser alterados. Para mudar, remova esta variante e cadastre uma nova.';
+const VARIANT_SKU_READONLY_HINT = 'SKU não pode ser alterado após cadastro.';
+const VARIANT_DUP_INLINE_MSG = 'Combinação tamanho/cor já existe neste produto.';
+
+function snapshotEditRowInitial(row) {
+  return {
+    size: row.size,
+    color: row.color,
+    sku: row.sku,
+    minimum_level: row.minimum_level,
+    priceOverrideMask: row.priceOverrideMask || '',
+    costOverrideMask: row.costOverrideMask || '',
+    supplier: String(row.supplier || '').trim(),
+    is_active: row.is_active !== false,
+  };
+}
+
+function VariantRowField({ label, children, className }) {
+  return (
+    <div className={`product-variants-editor__field${className ? ` ${className}` : ''}`}>
+      <label className="product-variants-editor__field-label">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function ProductFormStepper({ step, onStepClick, canGoToStep1 }) {
+  const step1Done = step > 1;
+  return (
+    <nav className="product-form-stepper" aria-label="Progresso do cadastro">
+      <button
+        type="button"
+        className={`product-form-stepper__step${step === 1 ? ' product-form-stepper__step--active' : ''}${step1Done ? ' product-form-stepper__step--done' : ''}`}
+        onClick={() => canGoToStep1 && step > 1 && onStepClick(1)}
+        disabled={!canGoToStep1 || step === 1}
+        aria-current={step === 1 ? 'step' : undefined}
+      >
+        <span className="product-form-stepper__bullet" aria-hidden>
+          {step1Done ? <Check size={12} strokeWidth={3} /> : '1'}
+        </span>
+        <span className="product-form-stepper__label">Produto</span>
+      </button>
+      <span className="product-form-stepper__connector" aria-hidden />
+      <div
+        className={`product-form-stepper__step${step === 2 ? ' product-form-stepper__step--active' : ''}`}
+        aria-current={step === 2 ? 'step' : undefined}
+      >
+        <span className="product-form-stepper__bullet" aria-hidden>2</span>
+        <span className="product-form-stepper__label">Tamanhos</span>
+      </div>
+    </nav>
+  );
+}
+
+function VariantsSection({ title, hint, children, className }) {
+  return (
+    <section className={`product-form-variants-section${className ? ` ${className}` : ''}`}>
+      <h4 className="product-form-variants-section__title">{title}</h4>
+      {hint ? <p className="text-small text-muted product-form-variants-section__hint">{hint}</p> : null}
+      {children}
+    </section>
+  );
+}
 
 function emptyParentForm() {
   return {
@@ -263,13 +328,21 @@ export default function ProductFormModal({
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState(null);
   const [saveSummary, setSaveSummary] = useState('');
+  const [partialSaveNotice, setPartialSaveNotice] = useState(false);
+  const [expandedVariantIds, setExpandedVariantIds] = useState(() => new Set());
   const initialSnapshotRef = useRef(null);
+  const lastAddedRowRef = useRef(null);
 
   const duplicateIndexes = useMemo(() => {
     const local = findDuplicateVariantIndexes(editVariants);
     const merged = new Set([...local, ...serverDupIndexes]);
     return merged;
   }, [editVariants, serverDupIndexes]);
+
+  const createWizardDuplicateIndexes = useMemo(
+    () => findDuplicateVariantIndexes(variants),
+    [variants]
+  );
 
   /* eslint-disable react-hooks/set-state-in-effect */
   // This effect resets local UI state when opening the modal.
@@ -278,6 +351,8 @@ export default function ProductFormModal({
     setServerDupIndexes([]);
     setPendingDeleteIds([]);
     setSaveSummary('');
+    setPartialSaveNotice(false);
+    setExpandedVariantIds(new Set());
     setDeleteConfirm(null);
     setDeactivateConfirm(null);
 
@@ -381,6 +456,111 @@ export default function ProductFormModal({
   );
   const canSaveVariants = hasVariantsToSave(editVariants, pendingDeleteIds);
 
+  useEffect(() => {
+    if (step !== 2 || !useEditWizard) return;
+    setExpandedVariantIds((prev) => {
+      const next = new Set(prev);
+      for (const row of editVariants) {
+        if (row._isNew || !row.id) continue;
+        if (row._error || row._dirty || row._savedSuccess) next.add(row.id);
+      }
+      return next;
+    });
+  }, [step, useEditWizard, editVariants]);
+
+  const modalTitle = useMemo(() => {
+    if ((useVariantWizard || useEditWizard) && step === 2) {
+      const nome = String(parentForm.nome || '').trim() || 'Produto';
+      return `Tamanhos — ${nome}`;
+    }
+    if (isEdit) return 'Editar produto';
+    if (isDuplicate) return 'Duplicar produto';
+    return 'Novo produto';
+  }, [useVariantWizard, useEditWizard, step, parentForm.nome, isEdit, isDuplicate]);
+
+  const renderVariantAddActions = ({ onAddRow, onApplyPresets, addLabel }) => (
+    <div className="product-form-variants-actions flex gap-2" style={{ flexWrap: 'wrap' }}>
+      <button type="button" className="btn-outline" onClick={onAddRow}>
+        <Plus size={14} aria-hidden /> {addLabel}
+      </button>
+      <button type="button" className="btn-outline" onClick={onApplyPresets}>
+        Tamanhos padrão (P–XGG)
+      </button>
+    </div>
+  );
+
+  const renderVariantsStepFooter = ({
+    submitLabel,
+    submitDisabled,
+    submitTitle,
+  }) => (
+    <div className="product-form-footer product-form-footer--variants flex gap-2 justify-end" style={footerPadStyle}>
+      <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>
+        Voltar
+      </button>
+      <button
+        type="button"
+        className="btn-outline"
+        onClick={() => {
+          setPartialSaveNotice(false);
+          onClose();
+        }}
+        disabled={loading}
+      >
+        Fechar
+      </button>
+      <button
+        type="submit"
+        className="btn-secondary"
+        disabled={submitDisabled}
+        title={submitTitle}
+      >
+        {loading ? 'Salvando…' : submitLabel}
+      </button>
+    </div>
+  );
+
+  const renderNewVariantsGrid = ({
+    rows,
+    rowEntries,
+    duplicateIndexSet,
+    onPatch,
+    onRemove,
+    rowKeyPrefix,
+    showHead = true,
+  }) => (
+    <div className="product-variants-editor product-variants-editor--new-rows">
+      {showHead ? (
+        <div className="product-variants-editor__head text-small text-muted" aria-hidden="true">
+          <span>Tamanho</span>
+          <span>Cor</span>
+          <span>SKU</span>
+          <span>Saldo ini.</span>
+          <span>Preço esp.</span>
+          <span>Mín.</span>
+          <span />
+        </div>
+      ) : null}
+      {(rowEntries || rows.map((row, idx) => ({ row, idx }))).map(({ row, idx }, mapIdx, arr) => {
+        const isLast = mapIdx === arr.length - 1;
+        return (
+          <div key={`${rowKeyPrefix}-${idx}`} ref={isLast ? lastAddedRowRef : undefined}>
+            {renderVariantInputRow({
+              row,
+              idx,
+              isDup: duplicateIndexSet.has(idx),
+              hasError: Boolean(row._error),
+              onPatch,
+              onRemove,
+              rowKeyPrefix,
+              savedSuccess: Boolean(row._savedSuccess),
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   if (!open || typeof document === 'undefined') return null;
 
   const resolvedCategoria = () =>
@@ -411,22 +591,51 @@ export default function ProductFormModal({
       const parentRes = await onSave(buildParentPayload(), { isEdit: true, isParent: true, phase: 'parent' });
       if (parentRes?.ok === false) return;
     }
-    if (useVariantWizard) {
-      setVariants((rows) => applyDefaultSizePresets(rows, { forCreate: true }));
-    }
     setStep(2);
+  };
+
+  const toggleVariantCardExpanded = (variantId) => {
+    if (!variantId) return;
+    setExpandedVariantIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(variantId)) next.delete(variantId);
+      else next.add(variantId);
+      return next;
+    });
+  };
+
+  const addCreateVariantRow = () => {
+    setVariants((rows) => [...rows, emptyVariantRow()]);
+    requestAnimationFrame(() => {
+      lastAddedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  };
+
+  const addEditVariantRow = () => {
+    setEditVariants((rows) => [...rows, emptyEditVariantRow()]);
+    requestAnimationFrame(() => {
+      lastAddedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   };
 
   const patchVariantRow = (idx, patch) => {
     setEditVariants((rows) =>
       rows.map((r, i) => {
         if (i !== idx) return r;
-        const next = { ...r, ...patch, _error: '' };
+        const next = { ...r, ...patch, _error: '', _savedSuccess: false };
         if (!next._isNew) next._dirty = variantRowIsDirty(next);
         return next;
       })
     );
     setServerDupIndexes([]);
+    setPartialSaveNotice(false);
+    setSaveSummary('');
+  };
+
+  const patchCreateVariantRow = (idx, patch) => {
+    setVariants((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, ...patch } : r))
+    );
   };
 
   const requestVariantActive = (idx, nextActive) => {
@@ -471,6 +680,8 @@ export default function ProductFormModal({
     e.preventDefault();
 
     if (useVariantWizard && step === 2) {
+      const dup = findDuplicateVariantIndexes(variants);
+      if (dup.size > 0) return;
       const normalized = normalizeVariantsInput(variants);
       if (!normalized.length) return;
       onSave({ ...buildParentPayload(), variants: normalized }, { isEdit: false, isParent: true });
@@ -503,22 +714,55 @@ export default function ProductFormModal({
       }
 
       if (result?.errors?.length) {
-        const nextRows = [...editVariants];
+        const errById = new Map();
+        const errByLabel = new Map();
         for (const err of result.errors) {
-          const idx = nextRows.findIndex(
-            (r) =>
-              (err.variant_id && r.id === err.variant_id) ||
-              variantLabelForRow(r) === err.label
-          );
-          if (idx >= 0) {
-            nextRows[idx] = { ...nextRows[idx], _error: err.message };
-          }
+          if (err.variant_id) errById.set(err.variant_id, err.message);
+          if (err.label) errByLabel.set(err.label, err.message);
         }
+
+        const payloadLabel = (p) => {
+          const size = String(p.size ?? '').trim() || 'Único';
+          const color = String(p.color ?? '').trim();
+          return color ? `${size} / ${color}` : size;
+        };
+        const payloadKeys = new Set(
+          variantPayload.map((p) => (p.id ? p.id : `new:${payloadLabel(p)}`))
+        );
+
+        const nextRows = editVariants.map((r) => {
+          const label = variantLabelForRow(r);
+          const key = r.id ? r.id : `new:${label}`;
+          const inPayload =
+            payloadKeys.has(key) ||
+            variantPayload.some(
+              (p) =>
+                (p.id && p.id === r.id) ||
+                (!p.id && r._isNew && payloadLabel(p) === label)
+            );
+          if (!inPayload) return { ...r, _savedSuccess: false };
+
+          const errMsg =
+            (r.id && errById.get(r.id)) || errByLabel.get(label) || null;
+          if (errMsg) {
+            return { ...r, _error: errMsg, _savedSuccess: false };
+          }
+          return {
+            ...r,
+            _error: '',
+            _savedSuccess: true,
+            _dirty: false,
+            _initial: snapshotEditRowInitial(r),
+          };
+        });
         setEditVariants(nextRows);
         const savedN = result.saved ?? 0;
         const errN = result.errors.length;
+        setPartialSaveNotice(savedN > 0 && errN > 0);
         setSaveSummary(
-          `${savedN} variante(s) salva(s), ${errN} erro(s)${errN === 1 && result.errors[0]?.label ? ` em ${result.errors[0].label}` : ''}`
+          savedN > 0 && errN > 0
+            ? ''
+            : `${savedN} variante(s) salva(s), ${errN} erro(s)${errN === 1 && result.errors[0]?.label ? ` em ${result.errors[0].label}` : ''}`
         );
       }
       return;
@@ -551,31 +795,78 @@ export default function ProductFormModal({
     onSave(payload, { isEdit });
   };
 
-  const title = isEdit ? 'Editar produto' : isDuplicate ? 'Duplicar produto' : 'Novo produto';
   const wideModal = (useVariantWizard || useEditWizard) && step === 2;
+  const showWizardChrome = useVariantWizard || useEditWizard;
 
   const renderExistingVariantCard = ({ row, idx }) => {
     const isDup = duplicateIndexes.has(idx);
+    const hasError = Boolean(row._error);
     const label = variantLabelForRow(row);
     const statusLabel = variantLifecycleLabel(row.lifecycle);
     const canDelete = Number(row.current_quantity) === 0;
+    const sizeLabel = String(row.size || '').trim() || 'Único';
+    const colorLabel = String(row.color || '').trim() || '—';
+    const expanded = row.id ? expandedVariantIds.has(row.id) : true;
 
     return (
       <article
         key={row.id}
-        className={`product-variant-card${isDup ? ' product-variant-card--error' : ''}${!row.is_active ? ' product-variant-card--inactive' : ''}`}
+        className={`product-variant-card${isDup || hasError ? ' product-variant-card--error' : ''}${row._savedSuccess ? ' product-variant-card--saved' : ''}${!row.is_active ? ' product-variant-card--inactive' : ''}${expanded ? ' product-variant-card--expanded' : ' product-variant-card--collapsed'}`}
       >
-        <div className="product-variant-card__identity">
+        <button
+          type="button"
+          className="product-variant-card__identity product-variant-card__identity-toggle"
+          onClick={() => toggleVariantCardExpanded(row.id)}
+          aria-expanded={expanded}
+        >
           <div className="product-variant-card__identity-main">
             <span className="product-variant-card__identity-label">{label}</span>
             <div className="product-variant-card__identity-meta">
               <span><span className="text-muted">Saldo:</span> {row.current_quantity}</span>
-              <span><span className="text-muted">SKU:</span> {row.sku || '—'}</span>
+              {row.sku ? (
+                <span><span className="text-muted">SKU:</span> {row.sku}</span>
+              ) : null}
             </div>
           </div>
-          <span className={`product-variant-card__status-chip product-variant-card__status-chip--${row.lifecycle || 'ativo'}`}>
-            {statusLabel}
-          </span>
+          <div className="product-variant-card__identity-badges">
+            {row._savedSuccess ? (
+              <span className="product-variant-card__saved-badge">Salvo</span>
+            ) : null}
+            <span className={`product-variant-card__status-chip product-variant-card__status-chip--${row.lifecycle || 'ativo'}`}>
+              {statusLabel}
+            </span>
+            <ChevronDown
+              size={18}
+              className="product-variant-card__chevron"
+              aria-hidden
+            />
+          </div>
+        </button>
+        {expanded ? (
+        <>
+        <div className="product-variant-card__readonly-grid">
+          <div
+            className="product-variant-card__readonly-field"
+            title={VARIANT_SIZE_COLOR_READONLY_TITLE}
+          >
+            <span className="product-variant-card__readonly-label">Tamanho</span>
+            <span className="product-variant-card__readonly-value">{sizeLabel}</span>
+          </div>
+          <div
+            className="product-variant-card__readonly-field"
+            title={VARIANT_SIZE_COLOR_READONLY_TITLE}
+          >
+            <span className="product-variant-card__readonly-label">Cor</span>
+            <span className="product-variant-card__readonly-value">{colorLabel}</span>
+          </div>
+          <div
+            className="product-variant-card__readonly-field product-variant-card__readonly-field--sku"
+            title={VARIANT_SKU_READONLY_HINT}
+          >
+            <span className="product-variant-card__readonly-label">SKU</span>
+            <span className="product-variant-card__readonly-value">{row.sku || '—'}</span>
+            <p className="product-variant-card__readonly-hint">{VARIANT_SKU_READONLY_HINT}</p>
+          </div>
         </div>
         <div className="product-variant-card__fields">
           <Field label="Preço específico" hint="Vazio = preço do produto pai">
@@ -640,87 +931,117 @@ export default function ProductFormModal({
           </button>
         </div>
         {isDup ? (
-          <p className="product-variant-card__err">Combinação já existe nesta lista</p>
+          <p className="product-variant-card__err">{VARIANT_DUP_INLINE_MSG}</p>
         ) : row._error ? (
           <p className="product-variant-card__err">{row._error}</p>
+        ) : null}
+        </>
         ) : null}
       </article>
     );
   };
 
-  const renderNewVariantRow = ({ row, idx }) => {
-    const isDup = duplicateIndexes.has(idx);
-    return (
-      <div
-        key={`new-${idx}`}
-        className={`product-variants-editor__row product-variants-editor__row--new${isDup ? ' product-variants-editor__row--error' : ''}`}
-      >
+  const renderVariantInputRow = ({
+    row,
+    idx,
+    isDup,
+    hasError,
+    onPatch,
+    onRemove,
+    rowKeyPrefix = 'new',
+    savedSuccess = false,
+  }) => (
+    <div
+      key={`${rowKeyPrefix}-${idx}`}
+      className={`product-variants-editor__row product-variants-editor__row--new new-variant-row${isDup || hasError ? ' product-variants-editor__row--error' : ''}${savedSuccess ? ' product-variants-editor__row--saved' : ''}`}
+    >
+      {savedSuccess ? (
+        <span className="product-variants-editor__saved-badge">Salvo</span>
+      ) : null}
+      <VariantRowField label="Tamanho">
         <input
           className="form-input"
+          aria-label="Tamanho"
           placeholder="Tamanho *"
           maxLength={16}
           value={row.size}
-          onChange={(e) => patchVariantRow(idx, { size: e.target.value })}
+          onChange={(e) => onPatch(idx, { size: e.target.value })}
         />
+      </VariantRowField>
+      <VariantRowField label="Cor">
         <input
           className="form-input"
+          aria-label="Cor"
           placeholder="Cor"
           maxLength={32}
           value={row.color}
-          onChange={(e) => patchVariantRow(idx, { color: e.target.value })}
+          onChange={(e) => onPatch(idx, { color: e.target.value })}
         />
+      </VariantRowField>
+      <VariantRowField label="SKU">
         <input
           className="form-input"
+          aria-label="SKU"
           placeholder="SKU"
           maxLength={64}
           value={row.sku}
-          onChange={(e) => patchVariantRow(idx, { sku: e.target.value })}
+          onChange={(e) => onPatch(idx, { sku: e.target.value })}
         />
+      </VariantRowField>
+      <VariantRowField label="Saldo ini.">
         <input
           type="number"
           min={0}
           className="form-input"
-          placeholder="Estoque ini."
-          title="Saldo inicial"
+          aria-label="Saldo inicial"
+          placeholder="0"
           value={row.initial_quantity}
-          onChange={(e) => patchVariantRow(idx, { initial_quantity: e.target.value })}
+          onChange={(e) => onPatch(idx, { initial_quantity: e.target.value })}
         />
+      </VariantRowField>
+      <VariantRowField label="Preço esp.">
         <input
           className="form-input"
           inputMode="numeric"
-          placeholder="Preço esp."
-          title="Preço específico (opcional)"
-          value={row.priceOverrideMask}
+          aria-label="Preço específico"
+          placeholder="= pai"
+          title="Vazio = herda o preço do produto pai"
+          value={row.priceOverrideMask || ''}
           onChange={(e) =>
-            patchVariantRow(idx, {
+            onPatch(idx, {
               priceOverrideMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
             })
           }
         />
+      </VariantRowField>
+      <VariantRowField label="Mín.">
         <input
           type="number"
           min={0}
           className="form-input"
-          placeholder="Mín."
+          aria-label="Estoque mínimo"
+          placeholder="0"
           value={row.minimum_level}
-          onChange={(e) => patchVariantRow(idx, { minimum_level: e.target.value })}
+          onChange={(e) => onPatch(idx, { minimum_level: e.target.value })}
         />
+      </VariantRowField>
+      <div className="product-variants-editor__row-actions">
         <button
           type="button"
           className="btn-ghost"
           aria-label="Remover linha"
-          onClick={() => confirmDeleteVariant(row, idx)}
+          onClick={() => onRemove(row, idx)}
         >
           <Trash2 size={16} />
         </button>
-        {isDup ? (
-          <span className="product-variants-editor__inline-err">Combinação já existe</span>
-        ) : row._error ? (
-          <span className="product-variants-editor__inline-err">{row._error}</span>
-        ) : null}
       </div>
-    );
-  };
+      {isDup ? (
+        <span className="product-variants-editor__inline-err">{VARIANT_DUP_INLINE_MSG}</span>
+      ) : row._error ? (
+        <span className="product-variants-editor__inline-err">{row._error}</span>
+      ) : null}
+    </div>
+  );
 
   return createPortal(
     <>
@@ -732,13 +1053,17 @@ export default function ProductFormModal({
           onClick={(ev) => ev.stopPropagation()}
         >
           <div className="flex justify-between items-center gap-2 product-form-modal-header">
-            <div>
-              <h3 className="navi-section-heading product-form-modal-title">{title}</h3>
-              {(useVariantWizard || useEditWizard) && (
-                <p className="text-small text-muted product-form-modal-step">
-                  Passo {step} de 2 — {step === 1 ? 'Dados do produto' : 'Tamanhos'}
-                </p>
-              )}
+            <div className="product-form-modal-header__main">
+              <h3 className="navi-section-heading product-form-modal-title">{modalTitle}</h3>
+              {showWizardChrome ? (
+                <ProductFormStepper
+                  step={step}
+                  canGoToStep1
+                  onStepClick={(n) => {
+                    if (n === 1) setStep(1);
+                  }}
+                />
+              ) : null}
             </div>
             <button type="button" className="btn-action-ghost" onClick={requestClose} disabled={loading} aria-label="Fechar">
               <X size={18} />
@@ -780,121 +1105,104 @@ export default function ProductFormModal({
               </>
             ) : null}
 
-            {useVariantWizard && step === 2 ? (
+            {(useVariantWizard || useEditWizard) && step === 2 ? (
               <>
-                <div className="product-form-modal__body">
-                <p className="text-small text-muted" style={{ marginBottom: 8 }}>
-                  Produto: <strong>{parentForm.nome}</strong>
-                </p>
-                <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
-                  <button type="button" className="btn-outline" onClick={() => setVariants((rows) => [...rows, emptyVariantRow()])}>
-                    <Plus size={14} aria-hidden /> Adicionar variante
-                  </button>
-                  <button type="button" className="btn-outline" onClick={() => setVariants((rows) => applyDefaultSizePresets(rows, { forCreate: true }))}>
-                    Adicionar tamanhos padrão (P–XGG)
-                  </button>
-                </div>
-                <div className="product-variants-editor product-variants-editor--create">
-                  <div className="product-variants-editor__head text-small text-muted">
-                    <span>Tamanho</span>
-                    <span>Cor</span>
-                    <span>Saldo inicial</span>
-                    <span>Mín.</span>
-                    <span>SKU</span>
-                    <span />
-                  </div>
-                  {variants.map((row, idx) => (
-                    <div key={idx} className="product-variants-editor__row product-variants-editor__row--create">
-                      <input className="form-input" value={row.size} onChange={(e) => setVariants((rows) => rows.map((r, i) => (i === idx ? { ...r, size: e.target.value } : r)))} />
-                      <input className="form-input" value={row.color} onChange={(e) => setVariants((rows) => rows.map((r, i) => (i === idx ? { ...r, color: e.target.value } : r)))} />
-                      <input type="number" min={0} className="form-input" value={row.initial_quantity} onChange={(e) => setVariants((rows) => rows.map((r, i) => (i === idx ? { ...r, initial_quantity: e.target.value } : r)))} />
-                      <input type="number" min={0} className="form-input" value={row.minimum_level ?? '0'} onChange={(e) => setVariants((rows) => rows.map((r, i) => (i === idx ? { ...r, minimum_level: e.target.value } : r)))} />
-                      <input className="form-input" value={row.sku} onChange={(e) => setVariants((rows) => rows.map((r, i) => (i === idx ? { ...r, sku: e.target.value } : r)))} />
-                      <button type="button" className="btn-ghost" disabled={variants.length <= 1} onClick={() => setVariants((rows) => rows.filter((_, i) => i !== idx))}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                </div>
-                <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
-                  <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>Voltar</button>
-                  <button type="submit" className="btn-secondary" disabled={loading || variants.length === 0}>
-                    {loading ? 'Salvando…' : isDuplicate ? 'Duplicar produto' : 'Criar produto'}
-                  </button>
-                </div>
-              </>
-            ) : null}
-
-            {useEditWizard && step === 2 ? (
-              <>
-                <div className="product-form-modal__body">
-                <h4 className="navi-section-heading" style={{ margin: '0 0 8px', fontSize: '1rem' }}>
-                  Tamanhos / Variantes
-                </h4>
-                <p className="text-small text-muted" style={{ marginBottom: 12 }}>
-                  <strong>{parentForm.nome}</strong> — tamanho e cor de variantes já cadastradas não podem ser alterados.
-                  O saldo só muda em Estoque.
-                </p>
-
-                {existingEditVariants.length > 0 ? (
-                  <div className="product-variant-cards">
-                    {existingEditVariants.map(renderExistingVariantCard)}
-                  </div>
-                ) : (
-                  <p className="text-small text-muted" style={{ marginBottom: 12 }}>
-                    Nenhum tamanho cadastrado ainda.
+                <div className="product-form-modal__body product-form-modal__body--variants-step">
+                {partialSaveNotice ? (
+                  <p className="product-form-partial-save-banner" role="status">
+                    Alguns tamanhos foram salvos. Veja os itens com erro abaixo.
                   </p>
-                )}
-
-                <div className="flex gap-2 mb-2 mt-3" style={{ flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => setEditVariants((rows) => [...rows, emptyEditVariantRow()])}
-                  >
-                    <Plus size={14} aria-hidden /> Adicionar tamanho
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => setEditVariants((rows) => applyDefaultSizePresets(rows))}
-                  >
-                    Adicionar tamanhos padrão (P–XGG)
-                  </button>
-                </div>
-
-                {newEditVariants.length > 0 ? (
-                  <div className="product-variants-editor product-variants-editor--new-rows">
-                    <div className="product-variants-editor__head text-small text-muted">
-                      <span>Tamanho</span>
-                      <span>Cor</span>
-                      <span>SKU</span>
-                      <span>Estoque ini.</span>
-                      <span>Preço esp.</span>
-                      <span>Mín.</span>
-                      <span />
-                    </div>
-                    {newEditVariants.map(renderNewVariantRow)}
-                  </div>
                 ) : null}
+
+                {useEditWizard ? (
+                  <VariantsSection
+                    title="Cadastrados"
+                    hint="Tamanho, cor e SKU não podem ser alterados. O saldo só muda em Estoque. Toque no card para ver preços e opções."
+                  >
+                    {existingEditVariants.length > 0 ? (
+                      <div className="product-variant-cards">
+                        {existingEditVariants.map(renderExistingVariantCard)}
+                      </div>
+                    ) : (
+                      <p className="text-small text-muted product-form-variants-empty">
+                        Nenhum tamanho cadastrado ainda.
+                      </p>
+                    )}
+                  </VariantsSection>
+                ) : null}
+
+                <VariantsSection
+                  title="Adicionar tamanhos"
+                  hint={
+                    useEditWizard
+                      ? 'Inclua novos tamanhos ou use o preset P–XGG para adicionar vários de uma vez.'
+                      : 'Defina cada tamanho do produto ou use o preset P–XGG para adicionar P, M, G, GG e XGG.'
+                  }
+                  className={useEditWizard ? 'product-form-variants-section--add' : ''}
+                >
+                  {renderVariantAddActions({
+                    addLabel: useEditWizard ? 'Uma linha' : 'Uma linha',
+                    onAddRow: useEditWizard ? addEditVariantRow : addCreateVariantRow,
+                    onApplyPresets: () => {
+                      if (useEditWizard) {
+                        setEditVariants((rows) => applyDefaultSizePresets(rows));
+                      } else {
+                        setVariants((rows) => applyDefaultSizePresets(rows, { forCreate: true }));
+                      }
+                    },
+                  })}
+
+                  {useVariantWizard ? (
+                    <VariantsSection
+                      title="Tamanhos do produto"
+                      className="product-form-variants-section--nested"
+                    >
+                      {renderNewVariantsGrid({
+                        rows: variants,
+                        duplicateIndexSet: createWizardDuplicateIndexes,
+                        onPatch: patchCreateVariantRow,
+                        onRemove: (_row, rowIdx) => {
+                          if (variants.length <= 1) return;
+                          setVariants((rows) => rows.filter((_, i) => i !== rowIdx));
+                        },
+                        rowKeyPrefix: 'create',
+                      })}
+                    </VariantsSection>
+                  ) : null}
+
+                  {useEditWizard && newEditVariants.length > 0 ? (
+                    <VariantsSection
+                      title="Novos tamanhos"
+                      className="product-form-variants-section--nested"
+                    >
+                      {renderNewVariantsGrid({
+                        rowEntries: newEditVariants,
+                        duplicateIndexSet: duplicateIndexes,
+                        onPatch: patchVariantRow,
+                        onRemove: confirmDeleteVariant,
+                        rowKeyPrefix: 'new',
+                      })}
+                    </VariantsSection>
+                  ) : null}
+                </VariantsSection>
 
                 {saveSummary ? (
-                  <p className="text-small mt-2" style={{ color: 'var(--warning, #c9a227)' }}>{saveSummary}</p>
+                  <p className="text-small mt-2 product-form-save-summary">{saveSummary}</p>
                 ) : null}
                 </div>
-                <div className="product-form-footer flex gap-2 justify-end" style={footerPadStyle}>
-                  <button type="button" className="btn-outline" onClick={() => setStep(1)} disabled={loading}>
-                    Voltar
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-secondary"
-                    disabled={loading || !canSaveVariants}
-                  >
-                    {loading ? 'Salvando…' : 'Salvar alterações'}
-                  </button>
-                </div>
+                {renderVariantsStepFooter({
+                  submitLabel: useVariantWizard
+                    ? isDuplicate
+                      ? 'Duplicar produto'
+                      : 'Criar produto'
+                    : 'Salvar alterações',
+                  submitDisabled: useVariantWizard
+                    ? loading || variants.length === 0 || createWizardDuplicateIndexes.size > 0
+                    : loading || !canSaveVariants,
+                  submitTitle: useVariantWizard && createWizardDuplicateIndexes.size > 0
+                    ? 'Corrija as variantes duplicadas antes de salvar.'
+                    : undefined,
+                })}
               </>
             ) : null}
 
