@@ -1362,9 +1362,19 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.55 }}>
                                             {isOwner ? (
                                                 <>
-                                                    No celular, abra o <strong>WhatsApp</strong> → menu (três pontos ou configurações) →{' '}
-                                                    <strong>Aparelhos conectados</strong> → <strong>Conectar um aparelho</strong>. Depois toque em{' '}
-                                                    <strong>Exibir código QR</strong> aqui e aponte a câmera para a tela.
+                                                    {String(zap.waInfo?.status || '').trim().toLowerCase() === 'offline' ? (
+                                                        <>
+                                                            A conexão está <strong>pausada</strong>. Toque em <strong>Exibir código QR</strong> — o sistema
+                                                            religa a instância e prepara o pareamento (pode levar até ~15 s). Se não aparecer, use{' '}
+                                                            <strong>Reiniciar conexão</strong> em &quot;Precisa de ajuda?&quot; abaixo.
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            No celular, abra o <strong>WhatsApp</strong> → menu (três pontos ou configurações) →{' '}
+                                                            <strong>Aparelhos conectados</strong> → <strong>Conectar um aparelho</strong>. Depois toque em{' '}
+                                                            <strong>Exibir código QR</strong> aqui e aponte a câmera para a tela.
+                                                        </>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <>Somente o dono da academia pode abrir o código QR nesta página. Use o botão acima para ver se a conexão já foi feita.</>
@@ -1375,10 +1385,10 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                 <button
                                                     type="button"
                                                     className="btn btn-primary"
-                                                    onClick={() => zap.revealWaQrCode()}
+                                                    onClick={() => void zap.revealWaQrCode()}
                                                     disabled={zap.waLoading || zap.waTokenMissing}
                                                 >
-                                                    Exibir código QR
+                                                    {zap.waLoading ? 'Preparando QR…' : 'Exibir código QR'}
                                                 </button>
                                             </div>
                                         ) : null}
@@ -1423,8 +1433,10 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                     {zap.waInfo?.status === 'connected'
                                                         ? 'WhatsApp já conectado. Não há QR disponível no momento.'
                                                         : zap.waQrError
-                                                            ? 'Não foi possível carregar o QR. Use "Gerar novo QR" abaixo ou atualize o status acima.'
-                                                            : 'Carregando imagem do QR…'}
+                                                            ? 'Não foi possível carregar o QR (a instância pode estar pausada). Use "Gerar novo QR" ou "Reiniciar conexão" em Precisa de ajuda?'
+                                                            : zap.waLoading
+                                                              ? 'Preparando instância e QR… aguarde alguns segundos.'
+                                                              : 'Carregando imagem do QR…'}
                                                 </div>
                                             )}
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>

@@ -62,6 +62,15 @@ function collectWaApiErrorText(data, raw) {
 /**
  * Instância sumiu na Zapster mas o Appwrite ainda tem instance_id (ou a API devolveu erro explícito).
  */
+function isWaStatusAwaitingQr(status) {
+  const k = String(status || '').trim().toLowerCase();
+  return ['qrcode', 'scanning', 'open'].includes(k);
+}
+
+function waSleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function isInstanceNotFoundResponse(resp, data, raw) {
   if (resp && Number(resp.status) === 404) return true;
   const text = collectWaApiErrorText(data, raw);
@@ -171,6 +180,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const waPersistFailedRef = useRef(false);
   const isCreatingRef = useRef(false);
   const isFetchingWaInfoRef = useRef(false);
+  const waInfoRef = useRef({ instance_id: null, status: 'disconnected', qrcode: null });
+  const hookMountedRef = useRef(true);
   const deferredTimersRef = useRef([]);
 
   useEffect(() => {
@@ -198,6 +209,10 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   useEffect(() => {
     waPersistFailedRef.current = waPersistFailed;
   }, [waPersistFailed]);
+
+  useEffect(() => {
+    waInfoRef.current = waInfo;
+  }, [waInfo]);
 
   /** Instância órfã (Zapster sem o id): limpa UI sem toast nem connectionError. */
   const resetWaToNoInstanceSilently = useCallback(() => {
@@ -498,12 +513,31 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     }
   }, [fetchWaInfo]);
 
-  const revealWaQrCode = useCallback(() => {
+  const revealWaQrCode = useCallback(async () => {
     if (!academyIdRef.current) return;
     setWaQrShown(true);
     setWaQrError(false);
-    setWaQrTick((v) => v + 1);
-    void fetchWaInfo({ silent: true, quiet: true });
+    setWaQrLoadFailedOnce(false);
+    setConnectionError('');
+    setWaLoading(true);
+    try {
+      await fetchWaInfo({ silent: true, quiet: true });
+      const st = String(waInfoRef.current?.status || '').trim().toLowerCase();
+      if (st === 'connected') {
+        useUiStore.getState().addToast({
+          type: 'info',
+          message: 'WhatsApp já está conectado — não é necessário escanear o QR.'
+        });
+        return;
+      }
+      if (!isWaStatusAwaitingQr(st)) {
+        await waSleep(1200);
+        await fetchWaInfo({ silent: true, quiet: true });
+      }
+      setWaQrTick((v) => v + 1);
+    } finally {
+      setWaLoading(false);
+    }
   }, [fetchWaInfo]);
 
   const refreshWaQrCode = useCallback(() => {
@@ -520,55 +554,71 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const fetchQrCode = useCallback(async (instanceId) => {
     const id = String(instanceId || '').trim();
     if (!id || !academyIdRef.current) return null;
+    const maxAttempts = 5;
     try {
       const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(
-        `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
-        { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') } }
-      );
-      if (blocked || !resp || !resp.ok) {
-        if (resp && !resp.ok) {
-          /** 406 = QR indisponível (ex.: já conectado) — não é falha que mereça toast de erro. */
-          if (resp.status === 406) {
-            try {
-              await resp.text();
-            } catch {
-              void 0;
-            }
-            return null;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const { blocked, res: resp } = await fetchWithBillingGuard(
+          `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
+          { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') } }
+        );
+        if (blocked || !resp) return null;
+
+        if (resp.ok) {
+          const blob = await resp.blob();
+          return URL.createObjectURL(blob);
+        }
+
+        const ct = String(resp.headers.get('content-type') || '');
+        let errJson = null;
+        if (ct.includes('application/json')) {
+          try {
+            errJson = await resp.json();
+          } catch {
+            void 0;
           }
-          const ct = String(resp.headers.get('content-type') || '');
-          if (ct.includes('application/json')) {
-            try {
-              const j = await resp.json();
-              if (resp.status === 404 && String(j?.error || '').trim() === 'instance_not_found') {
-                setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
-                setWaQrShown(false);
-                setWaQrError(false);
-                setWaQrLoadFailedOnce(false);
-                setWaQrTick(0);
-                return null;
-              }
-              const msg = String(j?.detalhe || j?.erro || j?.codigo || '').trim();
-              if (msg) {
-                useUiStore.getState().addToast({
-                  type: 'error',
-                  message: msg.length > 220 ? `${msg.slice(0, 220)}…` : msg
-                });
-              }
-            } catch {
-              void 0;
-            }
+        } else {
+          try {
+            await resp.text();
+          } catch {
+            void 0;
           }
+        }
+
+        if (resp.status === 404 && String(errJson?.error || '').trim() === 'instance_not_found') {
+          setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+          setWaQrShown(false);
+          setWaQrError(false);
+          setWaQrLoadFailedOnce(false);
+          setWaQrTick(0);
+          return null;
+        }
+
+        const st = String(waInfoRef.current?.status || '').trim().toLowerCase();
+        if (resp.status === 406 && st === 'connected') {
+          return null;
+        }
+
+        if (resp.status === 406 && attempt < maxAttempts - 1) {
+          await waSleep(2500);
+          await fetchWaInfo({ silent: true, quiet: true });
+          continue;
+        }
+
+        const msg = String(errJson?.detalhe || errJson?.erro || errJson?.codigo || '').trim();
+        if (msg && resp.status !== 406) {
+          useUiStore.getState().addToast({
+            type: 'error',
+            message: msg.length > 220 ? `${msg.slice(0, 220)}…` : msg
+          });
         }
         return null;
       }
-      const blob = await resp.blob();
-      return URL.createObjectURL(blob);
+      return null;
     } catch {
       return null;
     }
-  }, []);
+  }, [fetchWaInfo]);
 
   const recoverZapsterInstance = useCallback(async () => {
     if (!academyIdRef.current) return;
@@ -690,25 +740,30 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
         throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao conectar o WhatsApp'));
       }
-      useUiStore.getState().addToast({ type: 'success', message: 'WhatsApp conectado' });
+      setWaQrShown(true);
+      setWaQrError(false);
+      setWaQrLoadFailedOnce(false);
       await fetchWaInfo({ silent: true });
-      await new Promise((r) => {
-        const t = setTimeout(r, 3000);
-        deferredTimersRef.current.push(t);
-      });
-      try {
-        const qrUrl = await fetchQrCode(id);
-        if (qrUrl) URL.revokeObjectURL(qrUrl);
-      } catch {
-        void 0;
+      const stAfter = String(waInfoRef.current?.status || '').trim().toLowerCase();
+      if (stAfter === 'connected') {
+        useUiStore.getState().addToast({ type: 'success', message: 'WhatsApp conectado' });
+      } else {
+        useUiStore.getState().addToast({
+          type: 'success',
+          message: 'Instância iniciada. Aguarde o QR aparecer abaixo ou use Reiniciar conexão.'
+        });
       }
+      await waSleep(3000);
+      if (!hookMountedRef.current) return;
+      await fetchWaInfo({ silent: true, quiet: true });
+      if (!hookMountedRef.current) return;
       refreshWaQrCode();
     } catch (e) {
       setConnectionError(String(e?.message || '') || 'Erro');
     } finally {
-      setWaLoading(false);
+      if (hookMountedRef.current) setWaLoading(false);
     }
-  }, [waInfo?.instance_id, fetchWaInfo, fetchQrCode, refreshWaQrCode]);
+  }, [waInfo?.instance_id, fetchWaInfo, refreshWaQrCode]);
 
   const powerOffInstance = useCallback(async () => {
     const id = String(waInfo?.instance_id || '').trim();
@@ -765,17 +820,25 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (isZapsterTokenMissingPayload(errData)) setWaTokenMissing(true);
         throw new Error(normalizeApiError(raw, String(errData.erro || '').trim() || 'Falha ao reiniciar o WhatsApp'));
       }
-      useUiStore.getState().addToast({ type: 'success', message: 'Reiniciando WhatsApp…' });
-      const t = setTimeout(() => {
-        void fetchWaInfo({ silent: true });
-      }, 1200);
-      deferredTimersRef.current.push(t);
+      setWaQrShown(true);
+      setWaQrError(false);
+      setWaQrLoadFailedOnce(false);
+      useUiStore.getState().addToast({ type: 'success', message: 'Reiniciando WhatsApp… aguarde o QR.' });
+      const t1 = setTimeout(() => {
+        if (!hookMountedRef.current) return;
+        void fetchWaInfo({ silent: true, quiet: true });
+      }, 1500);
+      const t2 = setTimeout(() => {
+        if (!hookMountedRef.current) return;
+        refreshWaQrCode();
+      }, 4000);
+      deferredTimersRef.current.push(t1, t2);
     } catch (e) {
       setConnectionError(String(e?.message || '') || 'Erro');
     } finally {
       setWaLoading(false);
     }
-  }, [waInfo?.instance_id, fetchWaInfo]);
+  }, [waInfo?.instance_id, fetchWaInfo, refreshWaQrCode]);
 
   /**
    * Sincroniza API reconcile (24h).
@@ -957,7 +1020,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   }, [academyId, options?.statusPollWhileMounted, fetchWaInfo]);
 
   useEffect(() => {
+    hookMountedRef.current = true;
     return () => {
+      hookMountedRef.current = false;
       for (const t of deferredTimersRef.current) {
         clearTimeout(t);
       }
