@@ -367,7 +367,6 @@ export function flattenNavItemsForMobile(model) {
 
   const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
   if (financeiro) {
-    push({ to: financeiro.defaultTo, label: 'Financeiro', iconKey: 'financeiro', section: 'Financeiro' });
     for (const c of financeiro.children) {
       push({
         ...c,
@@ -380,7 +379,6 @@ export function flattenNavItemsForMobile(model) {
 
   const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
   if (loja) {
-    push({ to: loja.defaultTo, label: 'Vendas', iconKey: 'loja', section: 'Vendas' });
     for (const c of loja.children) push({ ...c, iconKey: c.iconKey || 'loja', section: 'Vendas' });
   }
 

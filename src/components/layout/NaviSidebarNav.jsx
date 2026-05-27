@@ -144,6 +144,48 @@ function SideNavLink({
   );
 }
 
+/** Links diretos sob título de seção (Financeiro, Vendas) — sem accordion duplicado. */
+function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
+  if (!items?.length) return null;
+
+  return (
+    <>
+      {items.map((child, idx) => {
+        const Icon = ICONS[child.iconKey] || LayoutGrid;
+        const childActive = isAccordionChildActive(child, location);
+        const prevGroup = idx > 0 ? items[idx - 1]?.group : null;
+        const showGroup = child.group && child.group !== prevGroup;
+
+        return (
+          <React.Fragment key={child.id}>
+            {showGroup && !collapsed ? (
+              <div className="navi-sidebar-subgroup" role="presentation">
+                <span className="navi-sidebar-subgroup__label">{child.group}</span>
+              </div>
+            ) : null}
+            <SideNavLink
+              to={child.to}
+              label={child.label}
+              Icon={Icon}
+              collapsed={collapsed}
+              className={({ isActive }) =>
+                [
+                  typeof sideLinkClass === 'function'
+                    ? sideLinkClass({ isActive: isActive || childActive })
+                    : sideLinkClass || 'navi-sidebar-link',
+                  isActive || childActive ? 'active navi-sidebar-link--active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }
+            />
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
 function SideNavAccordion({
   accordion,
   Icon,
@@ -421,13 +463,9 @@ export default function NaviSidebarNav({
         </SidebarSection>
       ) : financeiroAccordion ? (
         <SidebarSection title="Financeiro" collapsed={collapsed} showDivider>
-          <SideNavAccordion
-            accordion={financeiroAccordion}
-            Icon={ICONS.financeiro}
+          <SideNavSectionItems
+            items={financeiroAccordion.children}
             collapsed={collapsed}
-            expanded={expandedAccordionId === financeiroAccordion.id}
-            onExpandExclusive={expandExclusive}
-            onToggle={toggleAccordion}
             sideLinkClass={sideLinkClass}
             location={location}
           />
@@ -440,13 +478,9 @@ export default function NaviSidebarNav({
         </SidebarSection>
       ) : lojaAccordion ? (
         <SidebarSection title="Vendas" collapsed={collapsed} showDivider>
-          <SideNavAccordion
-            accordion={lojaAccordion}
-            Icon={ICONS.loja}
+          <SideNavSectionItems
+            items={lojaAccordion.children}
             collapsed={collapsed}
-            expanded={expandedAccordionId === lojaAccordion.id}
-            onExpandExclusive={expandExclusive}
-            onToggle={toggleAccordion}
             sideLinkClass={sideLinkClass}
             location={location}
           />

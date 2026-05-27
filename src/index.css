@@ -2058,8 +2058,8 @@ button.funil-color-swatch {
 .navi-sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin-bottom: 4px;
+  gap: 3px;
+  margin-bottom: 8px;
 }
 
 .navi-sidebar-section--titled {
@@ -2123,8 +2123,8 @@ button.funil-color-swatch {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 7px 13px;
+  gap: 12px;
+  padding: 8px 13px;
   margin: 0 10px;
   border: none;
   border-radius: 8px;
@@ -2227,14 +2227,32 @@ button.funil-color-swatch {
 }
 
 .navi-sidebar-accordion__trigger {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
-  gap: 11px;
+  gap: 12px;
   padding: 0;
   margin: 0;
   text-align: left;
   cursor: pointer;
   color: inherit;
+}
+
+.navi-sidebar-subgroup {
+  margin: 4px 0 0;
+  padding: 0 16px 0 32px;
+}
+
+.navi-sidebar-subgroup__label {
+  display: block;
+  padding: 4px 0 2px;
+  font-family: var(--ff-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .navi-sidebar-accordion__chevron {
@@ -2278,8 +2296,8 @@ button.funil-color-swatch {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin: 0;
+  gap: 3px;
+  margin: 2px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -2309,8 +2327,8 @@ button.funil-color-swatch {
 .navi-sidebar-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 6px 10px 12px;
+  gap: 10px;
+  padding: 8px 10px 14px;
 }
 
 /* Novo Lead + Nova Venda — mesma altura e conteúdo centralizado */
@@ -2414,8 +2432,8 @@ button.funil-color-swatch {
 .navi-side-section.navi-sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin-bottom: 4px;
+  gap: 3px;
+  margin-bottom: 8px;
 }
 .navi-side-section--titled,
 .navi-sidebar-section--titled { margin-top: 0; }
@@ -2585,8 +2603,8 @@ button.funil-color-swatch {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin: 0;
+  gap: 3px;
+  margin: 2px 0 0;
   padding: 0;
   list-style: none;
 }
