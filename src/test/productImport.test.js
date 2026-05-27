@@ -38,4 +38,11 @@ describe('importProductDedupKey', () => {
     expect(out[1].duplicateInFile).toBe(true);
     expect(out[1].selected).toBe(false);
   });
+
+  it('uses color in nome+tamanho dedupe key', () => {
+    expect(importProductDedupKey({ nome: 'Camisa', Tamanho: 'G', color: 'Azul', sku: '' })).toBe(
+      'nome:camisa|tam:g|color:azul'
+    );
+    expect(importProductDedupKey({ nome: 'Camisa', Tamanho: 'G', color: '', sku: '' })).toBe('nome:camisa|tam:g|color:');
+  });
 });

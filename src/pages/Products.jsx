@@ -831,7 +831,6 @@ export default function Products() {
           <div className="navi-mobile-list products-mobile-list" aria-label="Lista de produtos">
             {sorted.map((p) => {
               const lifecycleKey = p.lifecycle || 'ativo';
-              const hasVariants = (p.variants || []).length > 1;
               return (
                 <article key={p.id} className="navi-mobile-card products-mobile-card">
                   <div className="products-mobile-card__main" onClick={() => openEdit(p)} role="presentation">

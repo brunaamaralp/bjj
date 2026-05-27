@@ -4,6 +4,7 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
+  FileSpreadsheet,
   Loader2,
   Pencil,
   Upload,
@@ -25,7 +26,44 @@ import {
   importProductDedupKey,
 } from '../../lib/productImport';
 
-const STEPS = ['Upload', 'Mapeamento', 'Revisão', 'Importando'];
+// Internamente ainda temos 4 estados, mas a UI agrupa em 3 etapas:
+// Upload -> Processando (IA/importação) -> Preview.
+const STEPS = ['Upload', 'Processando', 'Preview'];
+
+function downloadProductImportTemplate() {
+  const headers = ['Nome', 'Categoria', 'Tamanho', 'Preço de venda', 'Qtd. inicial'];
+  const sampleRows = [
+    ['Kimono Atama', 'Vestuário', 'A2', '499,90', '2'],
+    ['Rashguard', 'Vestuário', 'M', '159,90', '0'],
+  ];
+  const csv = [headers, ...sampleRows]
+    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'modelo-produtos-nave.csv';
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function PulsingDots() {
+  return (
+    <div className="product-import-dots" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function extractHintFromErrorMessage(msg) {
+  const m = String(msg || '');
+  const idx = m.indexOf(' HINT: ');
+  if (idx === -1) return null;
+  return m.slice(idx + 8).trim() || null;
+}
 async function fetchAiMapping(headers, sampleRows, academyId) {
   const jwt = await createSessionJwt();
   if (!jwt) throw new Error('Sessão inválida. Faça login novamente.');
@@ -46,7 +84,9 @@ async function fetchAiMapping(headers, sampleRows, academyId) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data?.error || data?.erro || 'Erro ao consultar IA');
+    const base = data?.error || data?.erro || 'Erro ao consultar IA';
+    const hint = String(data?.hint || '').trim();
+    throw new Error(hint ? `${base} HINT: ${hint}` : base);
   }
   return data;
 }
@@ -104,6 +144,27 @@ function parseCsvFile(file) {
   });
 }
 
+function parseXlsxFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(evt.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const jsonRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const rows = Array.isArray(jsonRows) ? jsonRows : [];
+        const headers = rows.length ? Object.keys(rows[0]).map((h) => String(h).trim()).filter(Boolean) : [];
+        resolve({ headers, rows, delimiter: '' });
+      } catch {
+        reject(new Error('Erro ao ler a planilha. Verifique o formato.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Erro ao ler o arquivo'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function ConfidenceDot({ level }) {
   if (level === 'high') {
     return (
@@ -157,8 +218,8 @@ function RowSummary({ data }) {
 function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
   return (
     <div className="product-import-edit-panel">
-      <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-        <div className="form-group" style={{ flex: '1 1 160px', margin: 0 }}>
+      <div className="product-import-edit-grid">
+        <div className="form-group">
           <label className="text-xs">Nome *</label>
           <input
             className={`form-input${highlightMissing && !data.nome?.trim() ? ' product-import-input--warn' : ''}`}
@@ -166,7 +227,7 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
             onChange={(e) => onChange({ ...data, nome: e.target.value })}
           />
         </div>
-        <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
+        <div className="form-group">
           <label className="text-xs">Categoria</label>
           <input
             className="form-input"
@@ -174,7 +235,7 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
             onChange={(e) => onChange({ ...data, categoria: e.target.value })}
           />
         </div>
-        <div className="form-group" style={{ flex: '0 1 80px', margin: 0 }}>
+        <div className="form-group">
           <label className="text-xs">Tamanho</label>
           <input
             className="form-input"
@@ -183,8 +244,8 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
           />
         </div>
       </div>
-      <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
-        <div className="form-group" style={{ flex: '1 1 100px', margin: 0 }}>
+      <div className="product-import-edit-grid product-import-edit-grid--secondary">
+        <div className="form-group">
           <label className="text-xs">Preço venda</label>
           <input
             type="text"
@@ -201,7 +262,7 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
             }}
           />
         </div>
-        <div className="form-group" style={{ flex: '1 1 80px', margin: 0 }}>
+        <div className="form-group">
           <label className="text-xs">Qtd. inicial</label>
           <input
             type="number"
@@ -214,7 +275,7 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
           />
         </div>
       </div>
-      <div className="flex justify-end mt-2">
+      <div className="product-import-edit-actions">
         <button type="button" className="btn-secondary btn-sm" onClick={onClose}>
           Aplicar
         </button>
@@ -270,11 +331,14 @@ export default function ProductImportModal({ open, onClose, onImported }) {
 
   const processFile = async (file) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.csv')) { setError('Selecione um arquivo .csv'); return; }
+    const nameLower = String(file.name || '').toLowerCase();
+    const isCsv = nameLower.endsWith('.csv');
+    const isXlsx = nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls');
+    if (!isCsv && !isXlsx) { setError('Selecione um arquivo CSV ou Excel (.xlsx/.xls)'); return; }
     setError(''); setFileName(file.name);
     try {
-      const parsed = await parseCsvFile(file);
-      if (!parsed.headers.length) { setError('Não foi possível ler os cabeçalhos do CSV.'); return; }
+      const parsed = isCsv ? await parseCsvFile(file) : await parseXlsxFile(file);
+      if (!parsed.headers.length) { setError('Não foi possível ler os cabeçalhos da planilha.'); return; }
       let rows = parsed.rows;
       let warning = '';
       if (rows.length > MAX_IMPORT_ROWS) {
@@ -288,15 +352,15 @@ export default function ProductImportModal({ open, onClose, onImported }) {
         setColumnToField(columnMappingFromAi(ai.mapping, parsed.headers));
         setColumnConfidence(columnConfidenceFromAi(ai.confidence, ai.mapping, parsed.headers));
         setAiSuggestions(ai.suggestions || '');
-      } catch {
+      } catch (e) {
         const empty = {};
         for (const h of parsed.headers) empty[h] = '';
         setColumnToField(empty);
         setColumnConfidence(Object.fromEntries(parsed.headers.map((h) => [h, 'unmapped'])));
-        setAiSuggestions('Não foi possível obter sugestão da IA. Mapeie as colunas manualmente.');
+        setAiSuggestions(e?.message || 'Não foi possível obter sugestão da IA. Mapeie as colunas manualmente.');
       } finally { setAiLoading(false); }
     } catch (err) {
-      setError(err?.message || 'Erro ao processar o CSV.');
+      setError(err?.message || 'Erro ao processar a planilha.');
     } finally { if (fileRef.current) fileRef.current.value = ''; }
   };
 
@@ -404,41 +468,136 @@ export default function ProductImportModal({ open, onClose, onImported }) {
   if (!open) return null;
   const previewSample = dataRows.slice(0, 3);
   const progressPct = importProgress.total ? (importProgress.done / importProgress.total) * 100 : 0;
+  const isProcessing = (step === 1 && aiLoading) || step === 3;
+  const uiStep = step === 0 ? 0 : isProcessing ? 1 : 2;
+  const hasSelectedFile = Boolean(fileName);
 
   return (
-    <div className="import-overlay" role="dialog" aria-modal="true">
-      <div className="import-modal product-import-modal">
-        <div className="import-header">
-          <h3 className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0 }}>Importar produtos (CSV)</h3>
-          <button type="button" className="icon-btn" onClick={handleClose} aria-label="Fechar" disabled={step === 3 && !importFinished}><X size={18} /></button>
-        </div>
+    <div className="product-import-overlay" role="dialog" aria-modal="true" aria-labelledby="product-import-title">
+      <div className="product-import-modal">
+        {isProcessing ? (
+          <div className="product-import-progress" aria-hidden="true">
+            <div className="product-import-progress-bar" />
+          </div>
+        ) : null}
+        <header className="product-import-header">
+          <div>
+            <h2 id="product-import-title" className="product-import-title">Importar produtos</h2>
+            {uiStep === 0 ? (
+              <p className="product-import-subtitle">Envie um CSV com seu catálogo. A IA sugere o mapeamento das colunas.</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="product-import-icon-btn"
+            onClick={handleClose}
+            aria-label="Fechar"
+            disabled={step === 3 && !importFinished}
+          >
+            <X size={18} />
+          </button>
+        </header>
         <div className="product-import-stepper">
           {STEPS.map((label, i) => (
-            <span key={label} className={`product-import-step${i === step ? ' product-import-step--active' : ''}${i < step ? ' product-import-step--done' : ''}`}>{i + 1}. {label}</span>
+            <span
+              key={label}
+              className={`product-import-step${i === uiStep ? ' product-import-step--active' : ''}${i < uiStep ? ' product-import-step--done' : ''}`}
+            >
+              {i + 1}. {label}
+            </span>
           ))}
         </div>
-        <div className="import-body">
+        <div className="product-import-body">
           {step === 0 && (
             <>
-              <p className="navi-subtitle" style={{ marginTop: 0 }}>Envie um CSV com seu catálogo. A IA sugere o mapeamento das colunas.</p>
-              <div className={`upload-zone${dragOver ? ' upload-zone--active' : ''}`}
+              <div
+                className={`product-import-dropzone${dragOver ? ' product-import-dropzone--drag' : ''}${error ? ' product-import-dropzone--error' : ''}`}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => { e.preventDefault(); setDragOver(false); void processFile(e.dataTransfer.files?.[0]); }}
-                onClick={() => fileRef.current?.click()}>
-                <Upload size={32} color="var(--accent)" style={{ marginBottom: 10 }} />
-                <p style={{ fontWeight: 600, margin: 0 }}>Arraste o CSV ou clique para selecionar</p>
-                <p className="navi-subtitle" style={{ marginTop: 8 }}>Apenas .csv · máx. {MAX_IMPORT_ROWS} linhas</p>
-                <button type="button" className="btn-outline btn-sm mt-2" onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}>Selecionar arquivo</button>
-                <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => void processFile(e.target.files?.[0])} />
+                onClick={() => fileRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileRef.current?.click();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Selecionar ou arrastar CSV de produtos"
+              >
+                {error ? (
+                  <div className="product-import-error-banner" role="alert">
+                    <AlertCircle size={18} aria-hidden />
+                    <div className="product-import-error-banner-text">
+                      <strong>Não consegui processar esse arquivo.</strong>
+                      <span>{extractHintFromErrorMessage(error) || error}</span>
+                      <button
+                        type="button"
+                        className="product-import-link"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadProductImportTemplate();
+                        }}
+                      >
+                        Baixar planilha modelo do Nave
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {hasSelectedFile ? (
+                  <div className="product-import-file-chip" onClick={(e) => e.stopPropagation()}>
+                    <FileSpreadsheet size={20} aria-hidden />
+                    <span className="product-import-file-name">{fileName}</span>
+                    <button
+                      type="button"
+                      className="product-import-link product-import-file-change"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      Trocar arquivo
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="product-import-upload-icon" aria-hidden>
+                      <Upload size={40} strokeWidth={1.75} />
+                    </div>
+                    <p className="product-import-drop-title">Clique ou arraste sua planilha aqui</p>
+                    <p className="product-import-drop-hint">CSV, Excel (.xlsx) ou .xls · máx. {MAX_IMPORT_ROWS} linhas</p>
+                  </>
+                )}
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="product-import-file-input"
+                  onChange={(e) => void processFile(e.target.files?.[0])}
+                  aria-hidden
+                  tabIndex={-1}
+                />
               </div>
-              {fileName ? <p className="text-small text-muted mt-2">{fileName}</p> : null}
-              {error ? <div className="import-error mt-2"><AlertCircle size={16} /> {error}</div> : null}
+              <button
+                type="button"
+                className="product-import-template-btn"
+                onClick={downloadProductImportTemplate}
+              >
+                Baixar modelo CSV/XLSX
+              </button>
             </>
           )}
-          {step === 1 && (aiLoading ? (
-            <div className="product-import-center"><Loader2 className="product-import-spin" size={24} /><p>Analisando colunas com IA…</p></div>
-          ) : (
+          {(step === 1 && aiLoading) && (
+            <div className="product-import-processing" role="status" aria-live="polite">
+              <div className="product-import-file-chip product-import-file-chip--center">
+                <FileSpreadsheet size={22} aria-hidden />
+                <span className="product-import-file-name">{fileName || 'Planilha'}</span>
+              </div>
+              <PulsingDots />
+              <p className="product-import-processing-text">Interpretando sua planilha...</p>
+            </div>
+          )}
+          {step === 1 && !aiLoading && (
             <>
               {rowLimitWarning ? <div className="product-import-warn-banner"><AlertCircle size={16} /> {rowLimitWarning}</div> : null}
               {aiSuggestions ? <p className="product-import-ai-tip">{aiSuggestions}</p> : null}
@@ -461,7 +620,7 @@ export default function ProductImportModal({ open, onClose, onImported }) {
                 ))}</tbody>
               </table>
             </>
-          ))}
+          )}
           {step === 2 && (
             <>
               <div className="product-import-summary-bar">
@@ -469,41 +628,127 @@ export default function ProductImportModal({ open, onClose, onImported }) {
                 <span className="product-import-summary-warn">⚠ {statusCounts.incomplete || 0} incompletos</span>
                 <span className="product-import-summary-invalid">✗ {statusCounts.invalid || 0} inválidos</span>
               </div>
-              <button type="button" className="btn-outline btn-sm mb-2" onClick={selectAllReady}>Selecionar todos prontos</button>
-              <ul className="product-import-review-list">{previewRows.map((row) => (
-                <li key={row.id} className={`product-import-review-item product-import-review-item--${row.status}`}>
-                  <label className="product-import-review-check">
-                    <input type="checkbox" checked={row.selected} onChange={(e) => updatePreviewRow(row.id, { selected: e.target.checked })} />
-                    <StatusIcon status={row.status} />
-                    <span className="product-import-row-summary-wrap">
-                      <RowSummary data={row.data} />
-                      {row.duplicateInFile ? (
-                        <span className="text-small" style={{ color: 'var(--danger)', display: 'block' }}>
-                          {row.statusNote || 'Duplicado no arquivo'}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                  <div className="product-import-review-actions">
-                    {row.status === 'ready' ? <button type="button" className="btn-outline btn-sm" onClick={() => setEditingId(editingId === row.id ? null : row.id)}><Pencil size={14} /> Editar</button> : null}
-                    {row.status === 'incomplete' ? <button type="button" className="btn-outline btn-sm" onClick={() => setEditingId(row.id)}>Completar</button> : null}
-                    {row.status === 'invalid' ? <button type="button" className="btn-outline btn-sm" onClick={() => setEditingId(row.id)}>Corrigir</button> : null}
+
+              <div className="product-import-preview-toolbar">
+                <button type="button" className="btn-outline btn-sm" onClick={selectAllReady}>Selecionar todos prontos</button>
+              </div>
+
+              {previewRows.length === 0 ? (
+                <div className="product-import-empty" role="status">
+                  <div className="product-import-empty-icon" aria-hidden>
+                    <FileSpreadsheet size={48} strokeWidth={1.25} />
                   </div>
-                  {editingId === row.id ? (
-                    <EditRowPanel data={row.data} highlightMissing={row.status !== 'ready'}
-                      onChange={(data) => { const status = classifyImportRow(data); updatePreviewRow(row.id, { data, status, selected: status === 'ready' ? true : row.selected }); }}
-                      onClose={() => setEditingId(null)} />
-                  ) : null}
-                </li>
-              ))}</ul>
+                  <h3 className="product-import-empty-title">Nenhum produto identificado</h3>
+                  <p className="product-import-empty-desc">
+                    Não encontramos nenhum produto válido neste arquivo. Baixe o modelo e tente novamente.
+                  </p>
+                  <button type="button" className="product-import-btn-primary" onClick={downloadProductImportTemplate}>
+                    Baixar modelo
+                  </button>
+                  <button type="button" className="product-import-link" onClick={() => setStep(0)}>
+                    Enviar outro arquivo
+                  </button>
+                </div>
+              ) : (
+                <div className="product-import-table-scroll" role="region" aria-label="Pré-visualização dos produtos">
+                  <table className="product-import-data-table">
+                    <thead>
+                      <tr>
+                        <th aria-label="Selecionar" />
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Tamanho</th>
+                        <th>Cor</th>
+                        <th>Preço</th>
+                        <th>Qtd. inicial</th>
+                        <th aria-label="Editar" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row) => {
+                        const nome = String(row.data?.nome || '').trim();
+                        const categoria = String(row.data?.categoria || '').trim();
+                        const tamanho = String(row.data?.Tamanho || '').trim();
+                        const cor = String(row.data?.color || '').trim();
+                        const priceOk = row.data?.sale_price != null && Number(row.data.sale_price) > 0;
+                        const price = priceOk ? formatBRL(row.data.sale_price) : '—';
+                        const qty = Number(row.data?.initial_quantity ?? 0) || 0;
+                        const highlightMissing = !nome || !priceOk;
+                        return (
+                          <tr
+                            key={row.id}
+                            className={highlightMissing ? 'product-import-row--warn' : undefined}
+                          >
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={row.selected}
+                                disabled={row.status !== 'ready'}
+                                onChange={(e) => updatePreviewRow(row.id, { selected: e.target.checked })}
+                                aria-label="Selecionar produto"
+                              />
+                            </td>
+                            <td>
+                              {highlightMissing ? <AlertCircle size={14} className="product-import-row-icon" aria-hidden /> : null}
+                              {nome || '—'}
+                              {row.duplicateInFile ? (
+                                <div className="text-small product-import-row-note">
+                                  {row.statusNote || 'Duplicado no arquivo'}
+                                </div>
+                              ) : null}
+                            </td>
+                            <td>{categoria || '—'}</td>
+                            <td>{tamanho || '—'}</td>
+                            <td>{cor || '—'}</td>
+                            <td>{price}</td>
+                            <td>{qty}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn-outline btn-sm"
+                                onClick={() => setEditingId(editingId === row.id ? null : row.id)}
+                              >
+                                <Pencil size={14} aria-hidden /> Editar
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {editingId ? (
+                <EditRowPanel
+                  data={previewRows.find((r) => r.id === editingId)?.data || {}}
+                  highlightMissing
+                  onChange={(data) => {
+                    const status = classifyImportRow(data);
+                    const row = previewRows.find((r) => r.id === editingId);
+                    updatePreviewRow(editingId, { data, status, selected: status === 'ready' ? true : row?.selected });
+                  }}
+                  onClose={() => setEditingId(null)}
+                />
+              ) : null}
             </>
           )}
           {step === 3 && (
             <>
               {!importFinished ? (
                 <>
-                  <p className="navi-subtitle">Importando… {importProgress.done} de {importProgress.total}</p>
-                  <div className="product-import-progress-track"><div className="product-import-progress-bar" style={{ width: `${progressPct}%` }} /></div>
+                  <div className="product-import-processing" role="status" aria-live="polite">
+                    <div className="product-import-file-chip product-import-file-chip--center">
+                      <FileSpreadsheet size={22} aria-hidden />
+                      <span className="product-import-file-name">{fileName || 'Planilha'}</span>
+                    </div>
+                    <PulsingDots />
+                    <p className="product-import-processing-text">Interpretando sua planilha...</p>
+                    <div className="product-import-progress-track" aria-hidden="true">
+                      <div className="product-import-progress-fill" style={{ width: `${progressPct}%` }} />
+                    </div>
+                    <p className="text-small text-muted">Importando… {importProgress.done} de {importProgress.total}</p>
+                  </div>
                 </>
               ) : (
                 <div>
@@ -524,74 +769,51 @@ export default function ProductImportModal({ open, onClose, onImported }) {
             </>
           )}
         </div>
-        <div className="import-footer">
-          {step === 0 ? <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={handleClose}>Cancelar</button> : null}
-          {step === 1 && !aiLoading ? (<>
-            <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setStep(0)}>Voltar</button>
-            <button type="button" className="btn-secondary" style={{ flex: 1.3 }} disabled={!nomeMapped} onClick={goToReview}>Continuar</button>
-          </>) : null}
-          {step === 2 ? (<>
-            <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setStep(1)}>Voltar</button>
-            <button type="button" className="btn-secondary" style={{ flex: 1.3 }} disabled={selectedCount === 0} onClick={() => void runImport()}>Importar {selectedCount} produto{selectedCount !== 1 ? 's' : ''}</button>
-          </>) : null}
-          {step === 3 && importFinished ? (<>
-            <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={handleClose}>Fechar</button>
-            <button type="button" className="btn-secondary" style={{ flex: 1.3 }} onClick={() => { onImported?.({ ids: createdProductIds, viewFilter: true }); resetState(); onClose?.(); }}>Ver produtos importados</button>
-          </>) : null}
-        </div>
+        <footer className="product-import-footer">
+          {step === 0 ? (
+            <button type="button" className="product-import-btn-ghost" onClick={handleClose}>
+              Cancelar
+            </button>
+          ) : null}
+          {step === 1 && !aiLoading ? (
+            <>
+              <button type="button" className="product-import-btn-ghost" onClick={() => setStep(0)}>
+                Voltar
+              </button>
+              <button type="button" className="product-import-btn-primary" disabled={!nomeMapped} onClick={goToReview}>
+                Continuar
+              </button>
+            </>
+          ) : null}
+          {step === 2 ? (
+            <>
+              <button type="button" className="product-import-btn-ghost" onClick={() => setStep(1)}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="product-import-btn-primary"
+                disabled={selectedCount === 0}
+                onClick={() => void runImport()}
+              >
+                Importar {selectedCount} produto{selectedCount !== 1 ? 's' : ''}
+              </button>
+            </>
+          ) : null}
+          {step === 3 && importFinished ? (
+            <>
+              <button type="button" className="product-import-btn-ghost" onClick={handleClose}>Fechar</button>
+              <button
+                type="button"
+                className="product-import-btn-primary"
+                onClick={() => { onImported?.({ ids: createdProductIds, viewFilter: true }); resetState(); onClose?.(); }}
+              >
+                Ver produtos importados
+              </button>
+            </>
+          ) : null}
+        </footer>
       </div>
-      <style>{`
-        .product-import-modal { max-width: 720px; }
-        .product-import-stepper { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 12px; border-bottom: 1px solid var(--border-light); font-size: 0.75rem; }
-        .product-import-step { color: var(--text-muted); }
-        .product-import-step--active { color: var(--accent); font-weight: 700; }
-        .product-import-step--done { color: var(--success); }
-        .product-import-center { min-height: 160px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; }
-        .product-import-spin { animation: product-import-spin 1s linear infinite; }
-        @keyframes product-import-spin { to { transform: rotate(360deg); } }
-        .upload-zone--active { border-color: var(--accent); background: var(--accent-light); }
-        .product-import-warn-banner, .product-import-ai-tip { padding: 10px 12px; border-radius: 10px; font-size: 0.88rem; margin-bottom: 10px; display: flex; gap: 8px; }
-        .product-import-warn-banner { background: rgba(201,162,39,0.12); color: var(--warning, #a67c00); }
-        .product-import-ai-tip { background: #EEEDFE; color: #3d2f93; }
-        .product-import-map-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-        .product-import-map-table th, .product-import-map-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-light); }
-        .product-import-conf { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; }
-        .product-import-conf-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .product-import-conf-dot--high { background: var(--success); }
-        .product-import-conf-dot--medium { border: 2px solid var(--warning, #c9a227); background: transparent; box-sizing: border-box; }
-        .product-import-conf-dot--none { background: var(--text-muted); opacity: 0.4; }
-        .product-import-summary-bar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-weight: 600; }
-        .product-import-summary-ready { color: var(--success); }
-        .product-import-summary-warn { color: var(--warning, #c9a227); }
-        .product-import-summary-invalid { color: var(--danger); }
-        .product-import-review-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
-        .product-import-review-item { border: 1px solid var(--border-light); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
-        .product-import-review-check { display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 0; }
-        .product-import-row-summary { font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .product-import-review-actions { margin-top: 6px; }
-        .product-import-status--ready { color: var(--success); flex-shrink: 0; }
-        .product-import-status--warn { color: var(--warning, #c9a227); flex-shrink: 0; }
-        .product-import-status--invalid { color: var(--danger); flex-shrink: 0; }
-        .product-import-edit-panel { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-light); }
-        .product-import-input--warn { border-color: var(--warning, #c9a227); }
-        .product-import-progress-track { height: 8px; background: var(--border-light); border-radius: 4px; overflow: hidden; }
-        .product-import-progress-bar { height: 100%; background: var(--accent); transition: width 0.2s; }
-        .product-import-live-list { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
-        .product-import-live-list li { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 4px 0; }
-        .product-import-live-ok { color: var(--success); }
-        .product-import-live-fail { color: var(--danger); }
-        .product-import-fail-list { font-size: 0.88rem; color: var(--danger); padding-left: 1.2rem; }
-        .import-overlay { position: fixed; inset: 0; background: rgba(18,16,42,0.5); backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: flex-end; justify-content: center; }
-        .import-modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-height: 90vh; display: flex; flex-direction: column; }
-        .import-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 12px; }
-        .import-body { padding: 12px 20px; overflow-y: auto; flex: 1; }
-        .import-footer { padding: 16px 20px; border-top: 1px solid var(--border-light); display: flex; gap: 10px; }
-        .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px 20px; text-align: center; cursor: pointer; background: var(--surface-hover); }
-        .preview-table-wrapper { max-height: 120px; overflow: auto; border: 1px solid var(--border-light); border-radius: 8px; }
-        .preview-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-        .preview-table th, .preview-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-light); }
-        .import-error { display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(225,93,75,0.1); color: var(--danger); border-radius: 8px; }
-      `}</style>
     </div>
   );
 }

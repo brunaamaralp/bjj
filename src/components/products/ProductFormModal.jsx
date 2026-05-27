@@ -79,7 +79,7 @@ function Field({ label, hint, required, children }) {
   return (
     <div className="form-group mt-2">
       <label>{label}{required ? ' *' : ''}</label>
-      {hint ? <p className="text-xs text-muted" style={{ margin: '2px 0 4px' }}>{hint}</p> : null}
+      {hint ? <p className="text-xs text-muted product-form-field-hint">{hint}</p> : null}
       {children}
     </div>
   );
@@ -87,31 +87,31 @@ function Field({ label, hint, required, children }) {
 
 function ToggleRow({ label, checked, onChange }) {
   return (
-    <div className="form-group mt-2 flex items-center gap-2" style={{ justifyContent: 'space-between' }}>
-      <label style={{ margin: 0 }}>{label}</label>
+    <div className="form-group mt-2 flex items-center gap-2 product-form-toggle-row">
+      <label>{label}</label>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </div>
   );
 }
 
-function ParentFields({ parentForm, setParentForm, categoryOptions }) {
+function ProductBaseFields({ form, setForm, categoryOptions }) {
   return (
     <>
       <Field label="Nome" required>
         <input
           className="form-input"
           maxLength={128}
-          value={parentForm.nome}
-          onChange={(e) => setParentForm((f) => ({ ...f, nome: e.target.value }))}
+          value={form.nome}
+          onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
         />
       </Field>
       <Field label="Categoria" required>
         <select
           className="form-input"
-          value={parentForm.categoriaSelect || parentForm.categoria || ''}
+          value={form.categoriaSelect || form.categoria || ''}
           onChange={(e) => {
             const v = e.target.value;
-            setParentForm((f) => ({
+            setForm((f) => ({
               ...f,
               categoriaSelect: v,
               categoria: v === NEW_CAT ? f.categoria : v,
@@ -124,13 +124,13 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
           ))}
           <option value={NEW_CAT}>Nova categoria…</option>
         </select>
-        {parentForm.categoriaSelect === NEW_CAT && (
+        {form.categoriaSelect === NEW_CAT && (
           <input
             className="form-input mt-1"
             placeholder="Nome da categoria"
             maxLength={64}
-            value={parentForm.categoria}
-            onChange={(e) => setParentForm((f) => ({ ...f, categoria: e.target.value }))}
+            value={form.categoria}
+            onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
           />
         )}
       </Field>
@@ -138,8 +138,8 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
         <input
           className="form-input"
           maxLength={120}
-          value={parentForm.supplier}
-          onChange={(e) => setParentForm((f) => ({ ...f, supplier: e.target.value }))}
+          value={form.supplier}
+          onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))}
           placeholder="Ex.: Atama, Vulkan…"
         />
       </Field>
@@ -148,19 +148,19 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
           className="form-input"
           rows={2}
           maxLength={512}
-          value={parentForm.descricao}
-          onChange={(e) => setParentForm((f) => ({ ...f, descricao: e.target.value }))}
+          value={form.descricao}
+          onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
         />
       </Field>
-      <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+      <div className="flex gap-2 product-form-prices-row">
         <Field label="Preço de venda">
           <input
             className="form-input"
             inputMode="numeric"
             placeholder="R$ 0,00"
-            value={parentForm.saleMask}
+            value={form.saleMask}
             onChange={(e) =>
-              setParentForm((f) => ({
+              setForm((f) => ({
                 ...f,
                 saleMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
               }))
@@ -172,9 +172,9 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
             className="form-input"
             inputMode="numeric"
             placeholder="R$ 0,00"
-            value={parentForm.costMask}
+            value={form.costMask}
             onChange={(e) =>
-              setParentForm((f) => ({
+              setForm((f) => ({
                 ...f,
                 costMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
               }))
@@ -185,10 +185,10 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
       <Field label="Tipo">
         <select
           className="form-input"
-          value={parentForm.type}
+          value={form.type}
           onChange={(e) => {
             const type = e.target.value;
-            setParentForm((f) => ({
+            setForm((f) => ({
               ...f,
               type,
               is_for_sale: type !== 'supply',
@@ -202,16 +202,16 @@ function ParentFields({ parentForm, setParentForm, categoryOptions }) {
       </Field>
       <ToggleRow
         label="É para venda?"
-        checked={parentForm.is_for_sale}
-        onChange={(v) => setParentForm((f) => ({ ...f, is_for_sale: v }))}
+        checked={form.is_for_sale}
+        onChange={(v) => setForm((f) => ({ ...f, is_for_sale: v }))}
       />
       <Field label="URL da imagem">
         <input
           className="form-input"
           type="url"
           placeholder="https://…"
-          value={parentForm.image_url}
-          onChange={(e) => setParentForm((f) => ({ ...f, image_url: e.target.value }))}
+          value={form.image_url}
+          onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
         />
       </Field>
     </>
@@ -233,8 +233,11 @@ export default function ProductFormModal({
   loading,
   catalogMode = 'legacy',
   onSave,
-  onDeactivate,
-  onRequestDelete,
+  // Props are accepted for API parity (used in other UIs).
+  // eslint-disable-next-line no-unused-vars
+  onDeactivate: _onDeactivate,
+  // eslint-disable-next-line no-unused-vars
+  onRequestDelete: _onRequestDelete,
 }) {
   const isEdit = mode === 'edit';
   const isDuplicate = mode === 'duplicate';
@@ -268,6 +271,8 @@ export default function ProductFormModal({
     return merged;
   }, [editVariants, serverDupIndexes]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
+  // This effect resets local UI state when opening the modal.
   useEffect(() => {
     if (!open) return;
     setServerDupIndexes([]);
@@ -318,6 +323,7 @@ export default function ProductFormModal({
     }
     setDiscardOpen(false);
   }, [open, product, parentRow, isDuplicate, useVariantWizard, useEditWizard, initialStep]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const isFormDirty = useCallback(() => {
     const snap = initialSnapshotRef.current;
@@ -559,21 +565,17 @@ export default function ProductFormModal({
         key={row.id}
         className={`product-variant-card${isDup ? ' product-variant-card--error' : ''}${!row.is_active ? ' product-variant-card--inactive' : ''}`}
       >
-        <div className="product-variant-card__head">
-          <div>
-            <strong>{label}</strong>
-            <span className="text-small text-muted" style={{ marginLeft: 8 }}>
-              Saldo: {row.current_quantity}
-            </span>
+        <div className="product-variant-card__identity">
+          <div className="product-variant-card__identity-main">
+            <span className="product-variant-card__identity-label">{label}</span>
+            <div className="product-variant-card__identity-meta">
+              <span><span className="text-muted">Saldo:</span> {row.current_quantity}</span>
+              <span><span className="text-muted">SKU:</span> {row.sku || '—'}</span>
+            </div>
           </div>
-          <span className={`product-variant-card__badge product-variant-card__badge--${row.lifecycle || 'ativo'}`}>
+          <span className={`product-variant-card__status-chip product-variant-card__status-chip--${row.lifecycle || 'ativo'}`}>
             {statusLabel}
           </span>
-        </div>
-        <div className="product-variant-card__readonly">
-          <span><span className="text-muted">Tamanho:</span> {row.size || '—'}</span>
-          <span><span className="text-muted">Cor:</span> {row.color || '—'}</span>
-          <span><span className="text-muted">SKU:</span> {row.sku || '—'}</span>
         </div>
         <div className="product-variant-card__fields">
           <Field label="Preço específico" hint="Vazio = preço do produto pai">
@@ -628,7 +630,7 @@ export default function ProductFormModal({
           />
           <button
             type="button"
-            className="btn-ghost"
+            className="product-variant-card__remove"
             aria-label="Excluir variante"
             disabled={!canDelete}
             title={canDelete ? 'Excluir variante' : 'Zere o saldo antes de excluir'}
@@ -724,24 +726,16 @@ export default function ProductFormModal({
     <>
       <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
         <div
-          className="card navi-modal-dialog product-form-modal-dialog"
+          className={`card navi-modal-dialog product-form-modal-dialog${wideModal ? ' product-form-modal-dialog--wide' : ''}`}
           role="dialog"
           aria-modal="true"
-          style={{
-            maxWidth: wideModal ? 760 : 560,
-            padding: 0,
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
           onClick={(ev) => ev.stopPropagation()}
         >
-          <div className="flex justify-between items-center gap-2" style={{ marginBottom: 8, padding: '20px 20px 0', flexShrink: 0 }}>
+          <div className="flex justify-between items-center gap-2 product-form-modal-header">
             <div>
-              <h3 className="navi-section-heading" style={{ margin: 0 }}>{title}</h3>
+              <h3 className="navi-section-heading product-form-modal-title">{title}</h3>
               {(useVariantWizard || useEditWizard) && (
-                <p className="text-small text-muted" style={{ margin: '4px 0 0' }}>
+                <p className="text-small text-muted product-form-modal-step">
                   Passo {step} de 2 — {step === 1 ? 'Dados do produto' : 'Tamanhos'}
                 </p>
               )}
@@ -751,11 +745,11 @@ export default function ProductFormModal({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <form onSubmit={handleSubmit} className="product-form-modal-form">
             {((useVariantWizard || useEditWizard) && step === 1) ? (
               <>
                 <div className="product-form-modal__body">
-                <ParentFields parentForm={parentForm} setParentForm={setParentForm} categoryOptions={categoryOptions} />
+                <ProductBaseFields form={parentForm} setForm={setParentForm} categoryOptions={categoryOptions} />
                 {useEditWizard ? (
                   <p className="text-small text-muted mt-2" style={{ marginBottom: 0 }}>
                     <button
@@ -907,9 +901,7 @@ export default function ProductFormModal({
             {!useVariantWizard && !useEditWizard ? (
               <>
                 <div className="product-form-modal__body">
-                <Field label="Nome" required>
-                  <input className="form-input" maxLength={128} value={legacyForm.nome} onChange={(e) => setLegacyForm((f) => ({ ...f, nome: e.target.value }))} />
-                </Field>
+                <ProductBaseFields form={legacyForm} setForm={setLegacyForm} categoryOptions={categoryOptions} />
                 <Field label="Variação / Tamanho">
                   <input className="form-input" maxLength={16} value={legacyForm.Tamanho} onChange={(e) => setLegacyForm((f) => ({ ...f, Tamanho: e.target.value }))} />
                 </Field>
@@ -970,110 +962,6 @@ export default function ProductFormModal({
         onClose={() => setDeactivateConfirm(null)}
         onConfirm={applyDeactivateVariant}
       />
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .product-variants-editor__head,
-          .product-variants-editor__row--create {
-            display: grid;
-            grid-template-columns: 1fr 1fr 90px 70px 1fr 36px;
-            gap: 8px;
-            align-items: center;
-          }
-          .product-variants-editor--new-rows .product-variants-editor__row--new {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 90px 1fr 70px 36px;
-            gap: 8px;
-            align-items: start;
-            margin-bottom: 10px;
-          }
-          .product-variant-cards {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 42vh;
-            overflow-y: auto;
-            padding-right: 4px;
-          }
-          .product-variant-card {
-            border: 1px solid var(--border, #e5e5e5);
-            border-radius: 8px;
-            padding: 12px;
-            background: var(--surface, #fff);
-          }
-          .product-variant-card--inactive { opacity: 0.85; }
-          .product-variant-card--error { border-color: var(--danger, #dc2626); }
-          .product-variant-card__head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 8px;
-          }
-          .product-variant-card__badge {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: var(--surface-muted, #f4f4f5);
-          }
-          .product-variant-card__badge--ativo { color: var(--success, #16a34a); }
-          .product-variant-card__badge--inativo { color: var(--muted, #71717a); }
-          .product-variant-card__badge--sem_estoque { color: var(--warning, #ca8a04); }
-          .product-variant-card__readonly {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px 20px;
-            font-size: 13px;
-            margin-bottom: 8px;
-          }
-          .product-variant-card__fields {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px 12px;
-          }
-          @media (max-width: 520px) {
-            .product-variant-card__fields { grid-template-columns: 1fr; }
-          }
-          .product-variant-card__foot {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid var(--border, #eee);
-          }
-          .product-variant-card__err {
-            margin: 8px 0 0;
-            font-size: 12px;
-            color: var(--danger, #dc2626);
-          }
-          .product-variants-editor__row--error .form-input {
-            border-color: var(--danger, #dc2626);
-          }
-          .product-variants-editor__readonly {
-            opacity: 0.65;
-            cursor: not-allowed;
-            background: var(--surface-muted, #f4f4f5);
-          }
-          .product-variants-editor__inline-err {
-            grid-column: 1 / -1;
-            font-size: 12px;
-            color: var(--danger, #dc2626);
-          }
-          .product-variants-editor__hint {
-            grid-column: 1 / -1;
-          }
-          .product-variants-editor__spacer { display: block; }
-          .product-variants-editor__head { margin-bottom: 6px; }
-          .product-form-modal-dialog { max-height: 90vh; }
-          .product-form-modal__body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-          .product-form-footer {
-            position: sticky; bottom: 0; z-index: 1; flex-shrink: 0;
-            background: var(--surface, #fff); border-top: 1px solid var(--border-light, #e8e6f0);
-            padding: 12px 20px; margin: 0 -20px -20px;
-          }
-        `,
-      }} />
     </>,
     document.body
   );

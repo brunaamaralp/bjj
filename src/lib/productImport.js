@@ -7,6 +7,7 @@ export const IMPORT_FIELD_OPTIONS = [
   { value: 'nome', label: 'Nome' },
   { value: 'categoria', label: 'Categoria' },
   { value: 'Tamanho', label: 'Tamanho' },
+  { value: 'color', label: 'Cor' },
   { value: 'descricao', label: 'Descrição' },
   { value: 'sale_price', label: 'Preço de venda' },
   { value: 'cost_price', label: 'Preço de custo' },
@@ -94,6 +95,7 @@ export function rowToProduct(rawRow, columnToField) {
     nome: '',
     categoria: '',
     Tamanho: '',
+    color: '',
     descricao: '',
     sale_price: null,
     cost_price: null,
@@ -112,6 +114,7 @@ export function rowToProduct(rawRow, columnToField) {
       case 'nome':
       case 'categoria':
       case 'Tamanho':
+      case 'color':
       case 'descricao':
       case 'unit':
       case 'sku':
@@ -160,7 +163,8 @@ export function importProductDedupKey(product) {
   if (sku) return `sku:${sku}`;
   const nome = String(product?.nome || product?.name || '').trim().toLowerCase();
   const tam = String(product?.Tamanho ?? product?.tamanho ?? '').trim().toLowerCase();
-  return `nome:${nome}|tam:${tam}`;
+  const color = String(product?.color ?? product?.cor ?? '').trim().toLowerCase();
+  return `nome:${nome}|tam:${tam}|color:${color}`;
 }
 
 /** Remove linhas repetidas no CSV (mantém a primeira). */
@@ -168,14 +172,14 @@ export function dedupeImportPreviewRows(rows) {
   const seen = new Set();
   return rows.map((row) => {
     const key = importProductDedupKey(row.data);
-    if (!key || key === 'nome:|tam:') return row;
+    if (!key || key === 'nome:|tam:|color:') return row;
     if (seen.has(key)) {
       return {
         ...row,
         status: 'invalid',
         selected: false,
         duplicateInFile: true,
-        statusNote: 'Duplicado no arquivo (mesma combinação nome/tamanho ou SKU)',
+        statusNote: 'Duplicado no arquivo (mesma combinação nome/tamanho/cor ou SKU)',
       };
     }
     seen.add(key);
@@ -226,13 +230,22 @@ export function groupImportRowsByProductName(rows) {
 export function buildParentCreateBodyFromImportRows(rows) {
   const first = rows[0] || {};
   const nome = String(first.nome || first.name || '').trim();
-  const variants = rows.map((r) => ({
-    size: String(r.Tamanho ?? r.tamanho ?? '').trim() || 'Único',
-    color: String(r.color ?? '').trim(),
-    sku: String(r.sku ?? '').trim(),
-    initial_quantity: Math.max(0, Math.trunc(Number(r.initial_quantity) || 0)),
-    minimum_level: Math.max(0, Math.trunc(Number(r.minimum_level) || 0)),
-  }));
+  const variants = [];
+  const seen = new Set();
+  for (const r of rows || []) {
+    const size = String(r.Tamanho ?? r.tamanho ?? '').trim() || 'Único';
+    const color = String(r.color ?? r.cor ?? '').trim(); // vazio = comportamento atual
+    const key = `${size.toLowerCase()}\0${color.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    variants.push({
+      size,
+      color,
+      sku: String(r.sku ?? '').trim(),
+      initial_quantity: Math.max(0, Math.trunc(Number(r.initial_quantity) || 0)),
+      minimum_level: Math.max(0, Math.trunc(Number(r.minimum_level) || 0)),
+    });
+  }
 
   return {
     name: nome,
