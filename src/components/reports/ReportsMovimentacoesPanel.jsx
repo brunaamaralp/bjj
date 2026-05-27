@@ -15,7 +15,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
-import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
+import '../finance/finance.css';
 
 const CONCILIATION_FILTER_OPTIONS = [
   { value: 'divergent', label: 'Divergentes' },
@@ -339,7 +339,6 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
       <style>{`
         .reports-moves-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; align-items: flex-end; }
         .reports-moves-filters .form-group { margin: 0; min-width: 140px; }

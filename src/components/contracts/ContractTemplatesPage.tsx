@@ -155,7 +155,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     return (
       <div className="container contracts-page">
         <p className="text-muted">Apenas o proprietário da academia pode gerenciar modelos de contrato.</p>
-        <Link to={embedded ? '/contratos?tab=lista' : '/contratos'} className="btn-outline" style={{ marginTop: 12 }}>
+        <Link to="/alunos?tab=contratos" className="btn-outline" style={{ marginTop: 12 }}>
           Voltar aos contratos
         </Link>
       </div>
@@ -169,8 +169,8 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       <div className="contracts-page-header animate-in">
         <div>
           {!embedded ? (
-            <Link to="/contratos" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8 }}>
-              <ArrowLeft size={14} /> Contratos
+            <Link to="/empresa" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8 }}>
+              <ArrowLeft size={14} /> Configurações
             </Link>
           ) : null}
           <h1 className="navi-page-title flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
             Modelos de contrato
           </h1>
           <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-            Editor de contratos com variáveis. Vincule planos em Financeiro → Configurações.
+            Editor de contratos com variáveis. Vincule planos na aba Financeiro desta página.
           </p>
         </div>
         {!editorMode ? (

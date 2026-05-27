@@ -92,8 +92,8 @@ export default function ContractsPageContent({ embedded = false }: ContractsPage
         <RefreshCw size={14} className={isFetching ? 'animate-spin' : undefined} />
         Atualizar
       </button>
-      {!embedded && navRole === 'owner' ? (
-        <Link to="/contratos?tab=modelos" className="btn-outline flex items-center gap-1">
+      {navRole === 'owner' ? (
+        <Link to="/empresa?tab=contratos" className="btn-outline flex items-center gap-1">
           <FileText size={14} />
           Modelos
         </Link>

@@ -86,6 +86,9 @@ export function describeAppwriteError(err) {
     if (/invalid type|must be a valid/i.test(msg)) {
       return `Valor inválido no campo "${label}". Verifique o formato do dado.`;
     }
+    if (/must be an array/i.test(msg)) {
+      return `O campo "${label}" está com formato incompatível no Appwrite. Execute: npm run provision:task-templates`;
+    }
     return `Erro no campo "${label}". Verifique o valor informado.`;
   }
 

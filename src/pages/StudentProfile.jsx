@@ -2565,7 +2565,7 @@ export default function StudentProfile() {
                         onRegisterPayment={(presetType) => openPaymentModal(presetType)}
                         onGoMensalidades={() => {
                             const q = encodeURIComponent(String(student.name || '').trim());
-                            navigate(q ? `/mensalidades?search=${q}` : '/mensalidades');
+                            navigate(q ? `/financeiro?tab=mensalidades&search=${q}` : '/financeiro?tab=mensalidades');
                         }}
                         onGoSales={() => navigate('/vendas?tab=history')}
                         onCancelCoverage={handleCancelCoverage}

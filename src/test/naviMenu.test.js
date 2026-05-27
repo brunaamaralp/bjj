@@ -7,6 +7,7 @@ import {
   getAccordionIdForLocation,
   isDirectNavPath,
   isAccordionChildActive,
+  NAV_ACCORDION_IDS,
 } from '../lib/naviMenu.js';
 
 describe('naviMenu', () => {
@@ -27,8 +28,10 @@ describe('naviMenu', () => {
   it('getAccordionIdForLocation maps hub routes', () => {
     expect(getAccordionIdForLocation({ pathname: '/automacoes', search: '' })).toBe('automacoes');
     expect(getAccordionIdForLocation({ pathname: '/agente-ia', search: '' })).toBe('automacoes');
-    expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=movimentacoes' })).toBe('caixa');
-    expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=fechamento' })).toBe('caixa');
+    expect(getAccordionIdForLocation({ pathname: '/financeiro', search: '?tab=movimentacoes' })).toBe(
+      'financeiro'
+    );
+    expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=fechamento' })).toBe('financeiro');
     expect(getAccordionIdForLocation({ pathname: '/loja', search: '?tab=vendas' })).toBe('loja');
     expect(getAccordionIdForLocation({ pathname: '/students', search: '' })).toBe(null);
   });
@@ -38,7 +41,7 @@ describe('naviMenu', () => {
     expect(isDirectNavPath('/automacoes')).toBe(false);
   });
 
-  it('isAccordionChildActive for agente and contabilidade', () => {
+  it('isAccordionChildActive for agente, contabilidade e grupos do financeiro', () => {
     expect(
       isAccordionChildActive(
         { id: 'agente', to: '/automacoes?tab=agente' },
@@ -47,38 +50,61 @@ describe('naviMenu', () => {
     ).toBe(true);
     expect(
       isAccordionChildActive(
-        { id: 'contabilidade', to: '/caixa?tab=contabilidade' },
-        { pathname: '/caixa', search: '?tab=plano' }
+        { id: 'plano', to: '/financeiro?tab=plano', group: 'Contabilidade' },
+        { pathname: '/financeiro', search: '?tab=plano' }
+      )
+    ).toBe(true);
+    expect(
+      isAccordionChildActive(
+        { id: 'movimentacoes', to: '/financeiro?tab=movimentacoes', group: 'Caixa' },
+        { pathname: '/financeiro', search: '?tab=movimentacoes' }
+      )
+    ).toBe(true);
+    expect(
+      isAccordionChildActive(
+        { id: 'mensalidades', to: '/financeiro?tab=mensalidades' },
+        { pathname: '/financeiro', search: '?tab=mensalidades' }
       )
     ).toBe(true);
   });
 
-  it('buildSidebarNavModel respects modules', () => {
+  it('buildSidebarNavModel respects modules and owner', () => {
     const model = buildSidebarNavModel({
       modules: { finance: true, inventory: true, sales: true },
       canConfigureAgenteIa: true,
       pipelineLabel: 'Funil',
       navStudentsLabel: 'Alunos',
       newLeadLabel: 'Novo Lead',
+      isOwner: true,
     });
-    expect(model.accordions.map((a) => a.id)).toContain('caixa');
+    expect(model.accordions.map((a) => a.id)).toContain('financeiro');
     expect(model.accordions.map((a) => a.id)).toContain('loja');
-    const auto = model.accordions.find((a) => a.id === 'automacoes');
-    expect(auto.children.map((c) => c.id)).toEqual(['modelos', 'configuracoes', 'agente']);
-    const caixa = model.accordions.find((a) => a.id === 'caixa');
-    expect(caixa.children.map((c) => c.to)).toEqual([
-      '/caixa?tab=movimentacoes',
-      '/caixa?tab=fechamento',
-      '/caixa?tab=contabilidade',
-    ]);
-    const loja = model.accordions.find((a) => a.id === 'loja');
-    expect(loja.children.map((c) => c.id)).toEqual(['vendas', 'produtos', 'estoque']);
+    const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
+    expect(financeiro.label).toBe('Financeiro');
+    expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'mensalidades')).toBe(true);
+    expect(financeiro.children.some((c) => c.group === 'Caixa' && c.id === 'movimentacoes')).toBe(true);
+    expect(financeiro.children.some((c) => c.group === 'Contabilidade' && c.id === 'plano')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(true);
+    expect(model.financeDirect).toEqual([]);
+  });
+
+  it('buildSidebarNavModel hides contabilidade for non-owner', () => {
+    const model = buildSidebarNavModel({
+      modules: { finance: true, inventory: false, sales: false },
+      canConfigureAgenteIa: false,
+      isOwner: false,
+    });
+    const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
+    expect(financeiro.children.some((c) => c.group === 'Contabilidade')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'conciliacao')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(false);
   });
 
   it('buildMobileDrawerSections respects modules', () => {
     const all = buildMobileDrawerSections({
       modules: { finance: true, inventory: true, sales: true },
-      navRole: 'owner',
+      isOwner: true,
       canConfigureAgenteIa: true,
       pipelineLabel: 'Funil',
     });
@@ -88,7 +114,7 @@ describe('naviMenu', () => {
 
     const none = buildMobileDrawerSections({
       modules: { finance: false, inventory: false, sales: false },
-      navRole: 'member',
+      isOwner: false,
       canConfigureAgenteIa: false,
       pipelineLabel: 'Funil',
     });

@@ -1,7 +1,7 @@
 'use client';
 
-import ContractsPageContent from '../../../src/components/contracts/ContractsPageContent';
+import { ContratosRedirect } from '../../../src/components/routing/LegacyRedirects.jsx';
 
 export default function ContratosPage() {
-  return <ContractsPageContent />;
+  return <ContratosRedirect />;
 }

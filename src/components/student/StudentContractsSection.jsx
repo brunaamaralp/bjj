@@ -79,7 +79,7 @@ export default function StudentContractsSection({ leadId }) {
         <EmptyState
           variant="embedded"
           title="Nenhum contrato ainda"
-          description="Envie um contrato para o aluno assinar digitalmente. Se ele não assinar dentro do prazo da academia, o status ficará Expirado — use Reenviar (novo link) ou cancele e gere um novo contrato na aba Contratos."
+          description="Envie um contrato para o aluno assinar digitalmente. Se ele não assinar dentro do prazo da academia, o status ficará Expirado — use Reenviar (novo link) ou cancele e gere um novo contrato em Alunos → Contratos."
           icon={FileSignature}
           primaryAction={
             studentInactive

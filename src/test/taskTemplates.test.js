@@ -3,6 +3,7 @@ import {
   addDaysToYmd,
   parseTemplateItems,
   serializeTemplateItems,
+  serializeTemplateItemsForStore,
   mapTemplateDoc,
   progressLabelForLead,
   buildTemplateTaskDescription,
@@ -18,6 +19,22 @@ describe('taskTemplates', () => {
   it('parses template items', () => {
     const items = parseTemplateItems('[{"title":"A","offset_days":0,"order":0}]');
     expect(items[0].title).toBe('A');
+  });
+
+  it('parses Appwrite string[] items_json (single JSON blob)', () => {
+    const store = serializeTemplateItemsForStore([{ title: 'A', offset_days: 0, order: 0 }]);
+    expect(store).toHaveLength(1);
+    const items = parseTemplateItems(store);
+    expect(items[0].title).toBe('A');
+  });
+
+  it('parses Appwrite string[] with one JSON string per item', () => {
+    const store = [
+      JSON.stringify({ title: 'A', offset_days: 0, order: 0 }),
+      JSON.stringify({ title: 'B', offset_days: 1, order: 1 }),
+    ];
+    const items = parseTemplateItems(store);
+    expect(items.map((i) => i.title)).toEqual(['A', 'B']);
   });
 
   it('round-trips assigned_to in template items', () => {

@@ -4,7 +4,7 @@ import { Download, Wallet2 } from 'lucide-react';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import ReportsTab from '../finance/ReportsTab.jsx';
 import { fmt } from '../finance/financeFmt.js';
-import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
+import '../finance/finance.css';
 import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
 import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
 import FinanceRegimeToggle from '../finance/FinanceRegimeToggle.jsx';
@@ -211,7 +211,6 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
       <div className="card mt-4" style={{ padding: '16px 18px' }}>
         {isOwner ? (
           <>
@@ -223,7 +222,7 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
               periodFrom={from}
               periodTo={to}
               embedded
-              onGoToLancamentos={() => navigate('/caixa?tab=razao')}
+              onGoToLancamentos={() => navigate('/financeiro?tab=razao')}
             />
           </>
         ) : (

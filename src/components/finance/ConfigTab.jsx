@@ -1,12 +1,27 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, Suspense } from 'react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { Link } from 'react-router-dom';
-import { Wallet2, CreditCard, Banknote, Trash2, Settings2, ChevronDown, ChevronUp, Plus, Sparkles } from 'lucide-react';
+import {
+  Wallet2,
+  CreditCard,
+  Banknote,
+  Trash2,
+  Settings2,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Sparkles,
+  FileSignature,
+} from 'lucide-react';
 import CollectionRulesSection from './CollectionRulesSection.jsx';
-import './mensalidades.css';
+import RouteFallback from '../shared/RouteFallback.jsx';
+import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
+import './finance.css';
+
+const ContractTemplatesPage = lazyWithRetry(() => import('../contracts/ContractTemplatesPage'));
 import ExceptionStatusLabelsSection from './ExceptionStatusLabelsSection.jsx';
 import {
   readExceptionStatusLabels,
@@ -26,11 +41,12 @@ import { filterBankAccountsWithBank } from '../../lib/bankAccounts.js';
 const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 const FINANCE_SECTIONS = [
-  { id: 'finance-accounts', label: 'Contas' },
-  { id: 'finance-fees', label: 'Taxas' },
-  { id: 'finance-collection', label: 'Régua' },
   { id: 'finance-plans', label: 'Planos' },
+  { id: 'finance-fees', label: 'Taxas' },
+  { id: 'finance-accounts', label: 'Bancos' },
+  { id: 'finance-collection', label: 'Régua' },
   { id: 'finance-exceptions', label: 'Exceções' },
+  { id: 'finance-contracts', label: 'Contratos' },
 ];
 
 const defaultFinanceConfig = () => ({
@@ -78,7 +94,7 @@ function installmentSummary(parcelado) {
 
 function SectionSaveFooter({ dirty, saving, onSave }) {
   return (
-    <div className="flex gap-2 finance-section-save" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="flex gap-2 finance-section-save">
       {dirty ? (
         <span className="funil-unsaved-pill" role="status">
           Alterações não salvas
@@ -154,7 +170,7 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
       </div>
       {expanded ? (
         <div className="finance-plan-detail">
-          <div className="form-group" style={{ margin: 0 }}>
+          <div className="form-group finance-form-group--tight">
             <label>Duração (dias)</label>
             <input
               className="form-input finance-compact-input"
@@ -163,11 +179,11 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
               value={pl.durationDays ?? 30}
               onChange={(e) => onUpdate(idx, { durationDays: Number(e.target.value || 0) })}
             />
-            <p className="text-xs text-light" style={{ margin: '4px 0 0' }}>
+            <p className="text-xs text-light finance-form-hint">
               Usado para calcular vencimento da mensalidade.
             </p>
           </div>
-          <div className="form-group" style={{ margin: 0 }}>
+          <div className="form-group finance-form-group--tight">
             <label>Descrição</label>
             <input
               className="form-input finance-compact-input"
@@ -175,7 +191,7 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
               onChange={(e) => onUpdate(idx, { description: e.target.value })}
             />
           </div>
-          <div className="form-group" style={{ margin: 0, maxWidth: 280 }}>
+          <div className="form-group finance-form-group--tight finance-form-group--narrow">
             <label>Aplica taxa cartão</label>
             <select
               className="form-input finance-compact-input"
@@ -187,7 +203,7 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
             </select>
           </div>
           {contractTemplates.length > 0 ? (
-            <div className="form-group" style={{ margin: 0, maxWidth: 360 }}>
+            <div className="form-group finance-form-group--tight finance-form-group--medium">
               <label>Modelo de contrato</label>
               <select
                 className="form-input finance-compact-input"
@@ -371,7 +387,7 @@ export default function ConfigTab({ academyId }) {
   };
 
   return (
-    <div className="academy-finance-config" style={{ paddingTop: 4 }}>
+    <div className="academy-finance-config academy-finance-config--hub">
       <nav className="finance-config-jump" aria-label="Seções do financeiro">
         {FINANCE_SECTIONS.map((s) => (
           <button
@@ -546,10 +562,10 @@ export default function ConfigTab({ academyId }) {
               aria-expanded={installmentsExpanded}
               onClick={() => setInstallmentsExpanded((v) => !v)}
             >
-              <span className="ctx-label" style={{ fontWeight: 600 }}>
+              <span className="ctx-label finance-installments-toggle__label">
                 Configurar parcelas
               </span>
-              <span className="text-small text-muted" style={{ flex: 1, textAlign: 'left' }}>
+              <span className="text-small text-muted finance-installments-toggle__summary">
                 {installmentSummary(parcelado)}
               </span>
               {installmentsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -657,10 +673,10 @@ export default function ConfigTab({ academyId }) {
               <Sparkles size={16} color="var(--v500)" aria-hidden />
               Assinatura Nave
             </h4>
-            <p className="text-small text-muted" style={{ margin: '0 0 8px' }}>
+            <p className="text-small text-muted finance-nave-subscription__text">
               Plano do sistema (IA, limites e faturamento) — independente das mensalidades dos alunos.
             </p>
-            <Link to="/conta" className="edit-link" style={{ fontSize: '0.85rem' }}>
+            <Link to="/conta" className="edit-link finance-nave-subscription__link">
               Gerenciar em Conta → Assinatura
             </Link>
           </div>
@@ -678,6 +694,18 @@ export default function ConfigTab({ academyId }) {
           />
           <hr className="finance-config-section__divider" aria-hidden />
         </div>
+      ) : null}
+
+      {activeSection === 'finance-contracts' ? (
+        <section id="finance-contracts" className="finance-config-section animate-in finance-config-contracts">
+          <FinanceSectionHeading icon={FileSignature}>Modelos de contrato</FinanceSectionHeading>
+          <p className="text-small text-muted finance-config-section__hint">
+            Modelos usados na matrícula e assinatura digital dos alunos.
+          </p>
+          <Suspense fallback={<RouteFallback />}>
+            <ContractTemplatesPage embedded />
+          </Suspense>
+        </section>
       ) : null}
     </div>
   );

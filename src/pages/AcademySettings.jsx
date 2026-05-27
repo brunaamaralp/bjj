@@ -19,7 +19,12 @@ import {
     UserRound,
     CheckSquare,
     ShoppingBag,
+    FileSignature,
 } from 'lucide-react';
+import { lazyWithRetry } from '../lib/lazyWithRetry.js';
+import RouteFallback from '../components/shared/RouteFallback.jsx';
+
+const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
@@ -28,7 +33,7 @@ import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.j
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
-import ConfigTab from '../components/finance/ConfigTab.jsx';
+import FinanceiroMovedNotice from '../components/finance/FinanceiroMovedNotice.jsx';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
@@ -41,6 +46,7 @@ const TABS_ALL = [
     { id: 'alunos', label: 'Alunos', Icon: UserRound, subtitle: 'Cadastro e desligamento' },
     { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Modelos e pós-matrícula' },
     { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Planos, taxas e régua' },
+    { id: 'contratos', label: 'Contratos', Icon: FileSignature, subtitle: 'Modelos para assinatura' },
     { id: 'vendas', label: 'Vendas', Icon: ShoppingBag, subtitle: 'PDV e comissões' },
 ];
 
@@ -52,12 +58,21 @@ const TAB_SKELETON_HEIGHT = {
     alunos: 400,
     tarefas: 460,
     financeiro: 520,
+    contratos: 480,
     vendas: 320,
 };
 
 function getTabDisabledState(tabId, { role, modules }) {
     if (tabId === 'financeiro' && role !== 'owner') {
         return { disabled: true, title: 'Disponível para titulares' };
+    }
+    if (tabId === 'contratos') {
+        if (role !== 'owner') {
+            return { disabled: true, title: 'Disponível para titulares' };
+        }
+        if (modules?.finance !== true) {
+            return { disabled: true, title: 'Módulo financeiro inativo — ative em Configurações de módulos' };
+        }
     }
     if (tabId === 'vendas' && modules?.sales !== true) {
         return { disabled: true, title: 'Módulo inativo — ative em Configurações de módulos' };
@@ -577,8 +592,16 @@ const AcademySettings = () => {
             )}
 
             {!contentLoading && !tabDisabledState.disabled && activeTab === 'financeiro' && academyId && (
+                <div className="empresa-section empresa-section--finance-moved">
+                    <FinanceiroMovedNotice />
+                </div>
+            )}
+
+            {!contentLoading && !tabDisabledState.disabled && activeTab === 'contratos' && (
                 <div className="empresa-section" style={{ marginTop: 8 }}>
-                    <ConfigTab academyId={academyId} />
+                    <React.Suspense fallback={<RouteFallback />}>
+                        <ContractTemplatesPage embedded />
+                    </React.Suspense>
                 </div>
             )}
 

@@ -69,7 +69,7 @@ export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, f
       items.push({
         id: 'payments_overdue',
         label: overdue === 1 ? '1 pagamento em atraso' : `${overdue} pagamentos em atraso`,
-        href: '/mensalidades?filtro=pending',
+        href: '/financeiro?tab=mensalidades&filtro=pending',
         count: overdue,
       });
     }

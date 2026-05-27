@@ -91,14 +91,39 @@ function normalizeItem(raw, index) {
   };
 }
 
+function sortTemplateItems(list) {
+  return list
+    .map((item, i) => normalizeItem(item, i))
+    .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, 'pt-BR'));
+}
+
+/** Appwrite armazena items_json como string[] (não string JSON única). */
 export function parseTemplateItems(raw) {
-  if (!raw) return [];
+  if (raw == null || raw === '') return [];
   try {
+    if (Array.isArray(raw)) {
+      if (!raw.length) return [];
+      if (raw.length === 1 && typeof raw[0] === 'string') {
+        const inner = JSON.parse(raw[0]);
+        if (Array.isArray(inner)) return sortTemplateItems(inner);
+        return sortTemplateItems([inner]);
+      }
+      return sortTemplateItems(
+        raw.map((entry, i) => {
+          if (typeof entry === 'string') {
+            try {
+              return JSON.parse(entry);
+            } catch {
+              return { title: entry, order: i };
+            }
+          }
+          return entry;
+        })
+      );
+    }
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item, i) => normalizeItem(item, i))
-      .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, 'pt-BR'));
+    return sortTemplateItems(parsed);
   } catch {
     return [];
   }
@@ -107,6 +132,11 @@ export function parseTemplateItems(raw) {
 export function serializeTemplateItems(items) {
   const list = (items || []).map((item, i) => normalizeItem(item, i));
   return JSON.stringify(list);
+}
+
+/** Valor aceito pelo Appwrite (atributo string[]). */
+export function serializeTemplateItemsForStore(items) {
+  return [serializeTemplateItems(items)];
 }
 
 export function mapTemplateDoc(doc) {

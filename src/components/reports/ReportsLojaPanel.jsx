@@ -9,7 +9,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
-import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
+import '../finance/finance.css';
 
 export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   const navigate = useNavigate();
@@ -92,7 +92,6 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
     <div className="mt-4">
       {loading ? (
         <div className="card" style={{ padding: 16 }}>

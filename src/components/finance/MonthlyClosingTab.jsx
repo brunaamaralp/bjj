@@ -34,11 +34,8 @@ const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
   { value: 'cartao_debito', label: 'Cartão de débito' },
-  { value: 'cartão_débito', label: 'Cartão de débito' },
   { value: 'cartao_credito', label: 'Cartão de crédito' },
-  { value: 'cartão_crédito', label: 'Cartão de crédito' },
   { value: 'transferencia', label: 'Transferência' },
-  { value: 'transferência', label: 'Transferência' },
 ];
 
 function formatMonthTitle(ym) {

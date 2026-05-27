@@ -23,7 +23,7 @@ Coleções (Collections)
   - Índices sugeridos: equality em ownerId
 - TASK_TEMPLATES_COL (Templates de tarefas — processos operacionais)
   - Provisionar: `npm run provision:task-templates`
-  - Atributos: `academy_id`, `name`, `trigger`, `items_json`, `enabled` (boolean, default true), `created_at`, `updated_at`
+  - Atributos: `academy_id`, `name`, `trigger`, `items_json` (string[], um JSON com todos os itens), `enabled` (boolean, default true), `created_at`, `updated_at`
   - Gatilhos: `enrollment`, `student_exit`, `student_freeze`, `student_unfreeze`, `student_reactivation`, `student_birthday` (sem cron ainda), `manual`
   - Listagem padrão: só `enabled = true`; configuração usa `?include_disabled=1`
 - STOCK_ITEMS_COL (Itens de Estoque — legado; após migração `migrated: true`)

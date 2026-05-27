@@ -8,7 +8,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
-import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
+import '../finance/finance.css';
 
 const CURVE_BADGE = {
   A: { label: 'A', className: 'reports-abc-badge reports-abc-badge--a' },
@@ -113,7 +113,6 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
       <style>{`
         .reports-abc-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
         .reports-abc-summary__card { padding: 12px 14px; border-radius: 10px; background: var(--surface-2, #f4f4f8); border: 1px solid var(--border, #e5e5ef); }

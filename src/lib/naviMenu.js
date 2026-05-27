@@ -1,15 +1,20 @@
 import { matchPath } from 'react-router-dom';
+import { FINANCEIRO_SECTIONS } from './financeiroHubTabs.js';
 
 /** Labels e estrutura compartilhada entre sidebar desktop e drawer mobile. */
 
 export const NAV_ACCORDION_IDS = {
   AUTOMACOES: 'automacoes',
   LOJA: 'loja',
-  CAIXA: 'caixa',
+  /** @deprecated use FINANCEIRO */
+  CAIXA: 'financeiro',
+  FINANCEIRO: 'financeiro',
   RELATORIOS: 'relatorios',
 };
 
-/** @typedef {{ id: string, label: string, to: string, iconKey?: string, requireAgent?: boolean }} NavChildItem */
+const FINANCEIRO_HUB_PATH = '/financeiro';
+
+/** @typedef {{ id: string, label: string, to: string, iconKey?: string, requireAgent?: boolean, group?: string | null }} NavChildItem */
 /** @typedef {{ id: string, label: string, iconKey: string, defaultTo: string, children: NavChildItem[] }} NavAccordionItem */
 /** @typedef {{ to: string, label: string, iconKey: string, end?: boolean, action?: boolean }} NavDirectItem */
 
@@ -69,8 +74,10 @@ export function isSidebarNavItemActive(to, location) {
   if (pathOnly === '/pipeline') {
     return matchNavTarget(to, loc) || isLeadProfilePath(loc.pathname);
   }
-  if (pathOnly === '/students') {
-    return matchNavTarget(to, loc) || isStudentProfilePath(loc.pathname);
+  if (pathOnly === '/students' || pathOnly === '/alunos') {
+    const onStudentsHub = loc.pathname === '/students' || loc.pathname === '/alunos';
+    if (onStudentsHub) return true;
+    return isStudentProfilePath(loc.pathname);
   }
   return matchNavTarget(to, loc);
 }
@@ -80,10 +87,9 @@ const DIRECT_NAV_PATHS = new Set([
   '/',
   '/pipeline',
   '/students',
+  '/alunos',
   '/tarefas',
   '/inbox',
-  '/mensalidades',
-  '/contratos',
   '/new-lead',
   '/lead',
   '/student',
@@ -96,6 +102,10 @@ export function isDirectNavPath(pathname) {
   return false;
 }
 
+function isFinanceiroHubPath(pathname) {
+  return pathname === FINANCEIRO_HUB_PATH || pathname === '/caixa' || pathname === '/finance';
+}
+
 /**
  * Retorna id do accordion que deve estar aberto para a rota atual (ou null).
  */
@@ -104,16 +114,31 @@ export function getAccordionIdForLocation({ pathname, search }) {
   if (p === '/automacoes' || p === '/agente-ia') return NAV_ACCORDION_IDS.AUTOMACOES;
   if (p === '/equipe' || p === '/integracoes') return null;
   if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque') return NAV_ACCORDION_IDS.LOJA;
-  if (p === '/caixa' || p === '/finance') return NAV_ACCORDION_IDS.CAIXA;
+  if (isFinanceiroHubPath(p)) return NAV_ACCORDION_IDS.FINANCEIRO;
   if (p === '/reports') return NAV_ACCORDION_IDS.RELATORIOS;
   return null;
 }
 
+const CONTABILIDADE_TAB_IDS = new Set(['plano', 'razao', 'dre', 'contabilidade']);
+
 export function isAccordionChildActive(child, location) {
   if (child.id === 'agente' && location.pathname === '/agente-ia') return true;
-  if (child.id === 'contabilidade' && location.pathname === '/caixa') {
+  if (child.id === 'mensalidades') {
+    if (location.pathname === '/mensalidades') return true;
+    if (isFinanceiroHubPath(location.pathname)) {
+      const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
+      return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
+    }
+  }
+  if (isFinanceiroHubPath(location.pathname)) {
     const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
-    return tab === 'contabilidade' || tab === 'plano' || tab === 'razao' || tab === 'dre';
+    if (child.id === 'visao-geral') return tab === FINANCEIRO_SECTIONS.OVERVIEW || !tab;
+    if (child.id === 'mensalidades') return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
+    if (child.id === 'configuracao') return tab === FINANCEIRO_SECTIONS.CONFIG;
+    if (child.group === 'Contabilidade') return CONTABILIDADE_TAB_IDS.has(tab);
+    if (child.group === 'Caixa') {
+      return ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'].includes(tab);
+    }
   }
   return matchNavTarget(child.to, location);
 }
@@ -170,19 +195,105 @@ export function buildLojaAccordion({ modules }) {
   };
 }
 
-export function buildCaixaAccordion() {
+/**
+ * Accordion do hub Financeiro (/financeiro).
+ * @param {{ isOwner?: boolean, financeModule?: boolean }} opts
+ */
+export function buildFinanceiroAccordion({ isOwner = true, financeModule = true } = {}) {
+  const children = [
+    {
+      id: 'visao-geral',
+      label: 'Visão Geral',
+      to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.OVERVIEW}`,
+      iconKey: 'financeiro',
+    },
+    {
+      id: 'mensalidades',
+      label: 'Mensalidades',
+      to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.MENSALIDADES}`,
+      iconKey: 'mensalidades',
+    },
+    {
+      id: 'movimentacoes',
+      label: 'Movimentações',
+      to: `${FINANCEIRO_HUB_PATH}?tab=movimentacoes`,
+      iconKey: 'movimentacoes',
+      group: 'Caixa',
+    },
+  ];
+
+  if (financeModule) {
+    children.push(
+      {
+        id: 'previsao',
+        label: 'Previsão',
+        to: `${FINANCEIRO_HUB_PATH}?tab=previsao`,
+        iconKey: 'movimentacoes',
+        group: 'Caixa',
+      },
+      {
+        id: 'fechamento',
+        label: 'Fechamento',
+        to: `${FINANCEIRO_HUB_PATH}?tab=fechamento`,
+        iconKey: 'fechamento',
+        group: 'Caixa',
+      }
+    );
+  }
+
+  if (isOwner && financeModule) {
+    children.push({
+      id: 'conciliacao',
+      label: 'Conciliação',
+      to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
+      iconKey: 'movimentacoes',
+      group: 'Caixa',
+    });
+  }
+
+  if (isOwner) {
+    children.push(
+      {
+        id: 'plano',
+        label: 'Plano de contas',
+        to: `${FINANCEIRO_HUB_PATH}?tab=plano`,
+        iconKey: 'contabilidade',
+        group: 'Contabilidade',
+      },
+      {
+        id: 'razao',
+        label: 'Razão',
+        to: `${FINANCEIRO_HUB_PATH}?tab=razao`,
+        iconKey: 'contabilidade',
+        group: 'Contabilidade',
+      },
+      {
+        id: 'dre',
+        label: 'DRE / DFC',
+        to: `${FINANCEIRO_HUB_PATH}?tab=dre`,
+        iconKey: 'contabilidade',
+        group: 'Contabilidade',
+      },
+      {
+        id: 'configuracao',
+        label: 'Configuração',
+        to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.CONFIG}`,
+        iconKey: 'financeiro',
+      }
+    );
+  }
+
   return {
-    id: NAV_ACCORDION_IDS.CAIXA,
-    label: 'Caixa',
-    iconKey: 'caixa',
-    defaultTo: '/caixa?tab=movimentacoes',
-    children: [
-      { id: 'movimentacoes', label: 'Movimentações', to: '/caixa?tab=movimentacoes', iconKey: 'movimentacoes' },
-      { id: 'fechamento', label: 'Fechamento', to: '/caixa?tab=fechamento', iconKey: 'fechamento' },
-      { id: 'contabilidade', label: 'Contabilidade', to: '/caixa?tab=contabilidade', iconKey: 'contabilidade' },
-    ],
+    id: NAV_ACCORDION_IDS.FINANCEIRO,
+    label: 'Financeiro',
+    iconKey: 'financeiro',
+    defaultTo: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.OVERVIEW}`,
+    children,
   };
 }
+
+/** @deprecated use buildFinanceiroAccordion */
+export const buildCaixaAccordion = buildFinanceiroAccordion;
 
 export function buildRelatoriosAccordion() {
   return {
@@ -208,13 +319,16 @@ export function buildSidebarNavModel({
   pipelineLabel = 'Funil',
   navStudentsLabel = 'Alunos',
   newLeadLabel,
+  isOwner = true,
 }) {
   const accordions = [];
   const automacoes = buildAutomacoesAccordion({ canConfigureAgenteIa });
   accordions.push(automacoes);
 
   if (modules.finance === true) {
-    accordions.push(buildCaixaAccordion());
+    accordions.push(
+      buildFinanceiroAccordion({ isOwner, financeModule: modules.finance === true })
+    );
   }
 
   const loja = buildLojaAccordion({ modules });
@@ -231,13 +345,7 @@ export function buildSidebarNavModel({
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
     ],
     atendimento: [{ to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
-    financeDirect:
-      modules.finance === true
-        ? [
-            { to: '/mensalidades', label: 'Mensalidades', iconKey: 'mensalidades' },
-            { to: '/contratos', label: 'Contratos', iconKey: 'contratos' },
-          ]
-        : [],
+    financeDirect: [],
     accordions,
     footerAccordions: [],
   };
@@ -260,12 +368,16 @@ export function flattenNavItemsForMobile(model) {
     }
   }
 
-  if (model.financeDirect.length) {
-    for (const item of model.financeDirect) push({ ...item, section: 'Financeiro' });
-    const caixa = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.CAIXA);
-    if (caixa) {
-      push({ to: caixa.defaultTo, label: 'Caixa', iconKey: 'caixa', section: 'Financeiro' });
-      for (const c of caixa.children) push({ ...c, iconKey: c.iconKey || 'caixa', section: 'Financeiro' });
+  const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
+  if (financeiro) {
+    push({ to: financeiro.defaultTo, label: 'Financeiro', iconKey: 'financeiro', section: 'Financeiro' });
+    for (const c of financeiro.children) {
+      push({
+        ...c,
+        iconKey: c.iconKey || 'financeiro',
+        section: 'Financeiro',
+        label: c.group ? `${c.group} · ${c.label}` : c.label,
+      });
     }
   }
 
@@ -291,10 +403,10 @@ export function buildMobileDrawerSections(opts) {
     pipelineLabel: opts.pipelineLabel,
     navStudentsLabel: opts.navStudentsLabel || 'Alunos',
     newLeadLabel: null,
+    isOwner: opts.isOwner !== false,
   });
   const flat = flattenNavItemsForMobile(model);
   const sections = [];
-  let current = null;
   for (const row of flat) {
     const title = row.section ?? null;
     if (!sections.length || sections[sections.length - 1].title !== title) {

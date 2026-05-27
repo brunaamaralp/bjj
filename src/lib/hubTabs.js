@@ -5,20 +5,9 @@ export function resolveHubTab(raw, allowedIds, fallback) {
   return set.has(id) ? id : fallback;
 }
 
-/** Mapeia rotas legadas de /finance para abas do Caixa. */
-export function financeLegacyTabToCaixa(raw) {
-  const t = String(raw || '').trim().toLowerCase();
-  if (t === 'lancamentos') return 'razao';
-  if (t === 'relatorios') return 'dre';
-  if (t === 'plano') return 'plano';
-  return 'plano';
-}
-
-/** Mapeia estado interno antigo do Caixa para slugs novos. */
-export function caixaLegacyTabToSlug(raw) {
-  const t = String(raw || '').trim().toLowerCase();
-  if (t === 'transactions') return 'movimentacoes';
-  if (t === 'closing') return 'fechamento';
-  if (t === 'contabilidade') return 'plano';
-  return t;
-}
+export {
+  financeiroLegacyTabToSlug,
+  caixaLegacyTabToSlug,
+  financeLegacyTabToFinanceiro,
+  financeLegacyTabToCaixa,
+} from './financeiroHubTabs.js';

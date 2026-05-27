@@ -47,10 +47,10 @@ let TEMPLATES_COL =
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function ensureStringAttr(databases, colId, key, size, required = false) {
+async function ensureStringAttr(databases, colId, key, size, required = false, array = false) {
   try {
-    await databases.createStringAttribute(DB_ID, colId, key, size, required);
-    console.log(`  + string ${key} (${size})`);
+    await databases.createStringAttribute(DB_ID, colId, key, size, required, undefined, array);
+    console.log(`  + string ${key} (${size}${array ? ', array' : ''})`);
     await sleep(1200);
   } catch (e) {
     if (String(e?.message || e).includes('already exists') || e.code === 409) {
@@ -122,7 +122,7 @@ async function main() {
   await ensureStringAttr(databases, TEMPLATES_COL, 'academy_id', 64, true);
   await ensureStringAttr(databases, TEMPLATES_COL, 'name', 128, true);
   await ensureStringAttr(databases, TEMPLATES_COL, 'trigger', 32, true);
-  await ensureStringAttr(databases, TEMPLATES_COL, 'items_json', 8192, false);
+  await ensureStringAttr(databases, TEMPLATES_COL, 'items_json', 4096, false, true);
   await ensureStringAttr(databases, TEMPLATES_COL, 'created_at', 64, false);
   await ensureStringAttr(databases, TEMPLATES_COL, 'updated_at', 64, false);
   await ensureBooleanAttr(databases, TEMPLATES_COL, 'enabled', false, true);

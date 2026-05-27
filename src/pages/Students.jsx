@@ -50,7 +50,7 @@ function formatDate(dateStr) {
     return d.toLocaleDateString('pt-BR');
 }
 
-const Students = () => {
+const Students = ({ embedded = false }) => {
     const navigate = useNavigate();
     const labels = useLeadStore((s) => s.labels);
     const terms = useTerms();
@@ -453,16 +453,34 @@ const Students = () => {
     );
 
     return (
-        <div className="container students-page">
+        <div className={embedded ? 'students-page students-page--embedded' : 'container students-page'}>
             <header className="animate-in">
-                <h1 className="navi-page-title">{studentLabel}</h1>
-                <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-                    <span className="navi-ui-count">{filteredStudents.length}</span> {studentPlural.toLowerCase()} cadastrados
-                    {filtrosAtivos && students.length !== filteredStudents.length
-                        ? ` (de ${students.length})`
-                        : ''}
-                    {studentsHasMore ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)` : ''}
-                </p>
+                {!embedded ? (
+                    <>
+                        <h1 className="navi-page-title">{studentLabel}</h1>
+                        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
+                            <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
+                            {studentPlural.toLowerCase()} cadastrados
+                            {filtrosAtivos && students.length !== filteredStudents.length
+                                ? ` (de ${students.length})`
+                                : ''}
+                            {studentsHasMore
+                                ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
+                                : ''}
+                        </p>
+                    </>
+                ) : (
+                    <p className="navi-eyebrow students-page-embedded-count" style={{ marginTop: 0, marginBottom: 14 }}>
+                        <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
+                        {studentPlural.toLowerCase()} cadastrados
+                        {filtrosAtivos && students.length !== filteredStudents.length
+                            ? ` (de ${students.length})`
+                            : ''}
+                        {studentsHasMore
+                            ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
+                            : ''}
+                    </p>
+                )}
                 <div className="page-header-card students-page-header">
                     <div className="page-header-row students-header-row-search">
                         <div className="page-header-search students-header-search">

@@ -7,7 +7,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
-import { FINANCE_PAGE_CSS } from '../finance/financePageStyles.js';
+import '../finance/finance.css';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -173,7 +173,6 @@ export default function ReportsOperadorPanel({ academyId, from, to, hasSales }) 
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: FINANCE_PAGE_CSS }} />
       <div className="mt-4">
         <div className="reports-moves-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
           <div className="form-group" style={{ margin: 0, minWidth: 200 }}>

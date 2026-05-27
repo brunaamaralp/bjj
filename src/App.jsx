@@ -3,31 +3,11 @@ import { Routes, Route, Link, NavLink, useNavigate, useLocation, Navigate } from
 import {
   LayoutGrid,
   PlusCircle,
-  ShoppingBag,
-  Boxes,
-  Package,
-  BarChart3,
   MessageCircle,
-  LogOut,
   ChevronLeft,
   ChevronRight,
-  Kanban,
   GraduationCap,
-  Bot,
-  FileText,
-  Zap,
-  FileSignature,
-  Wallet,
-  Users,
-  CheckSquare,
-  Menu,
-  Store,
-  Landmark,
-  ArrowLeftRight,
-  Lock,
-  Calculator,
-  Receipt,
-  X
+  Grid2x2,
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -51,6 +31,9 @@ import { OfflineBanner } from './components/shared/OfflineBanner.jsx';
 import {
   PlanosRedirect,
   FinanceRedirect,
+  CaixaRedirect,
+  MensalidadesRedirect,
+  ContratosRedirect,
   ContratosModelosRedirect,
   LojaTabRedirect,
   TemplatesRedirect,
@@ -63,7 +46,6 @@ const Pipeline = lazyWithRetry(() => import('./pages/Pipeline'));
 const LeadProfile = lazyWithRetry(() => import('./pages/LeadProfile'));
 const StudentProfile = lazyWithRetry(() => import('./pages/StudentProfile'));
 const NewLead = lazyWithRetry(() => import('./pages/NewLead'));
-const Students = lazyWithRetry(() => import('./pages/Students'));
 const Tasks = lazyWithRetry(() => import('./pages/Tasks'));
 
 const Inbox = lazyWithRetry(() => import('./pages/Inbox'));
@@ -80,7 +62,7 @@ const Sales = lazyWithRetry(() => import('./pages/Sales'));
 const Loja = lazyWithRetry(() => import('./pages/Loja'));
 const Equipe = lazyWithRetry(() => import('./pages/Equipe'));
 const Integracoes = lazyWithRetry(() => import('./pages/Integracoes'));
-const Contratos = lazyWithRetry(() => import('./pages/Contratos'));
+const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviWordmark from './components/NaviWordmark.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -89,13 +71,9 @@ import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
-import {
-  getNewLeadLabel,
-  buildMobileDrawerSections,
-  isSidebarNavItemActive,
-  isStudentProfilePath,
-  matchNavTarget,
-} from './lib/naviMenu.js';
+import { getNewLeadLabel, isStudentProfilePath } from './lib/naviMenu.js';
+import { buildMobileMoreItems, isBottomNavMaisActive } from './lib/mobileMoreNav.js';
+import NaviMobileMoreSheet from './components/layout/NaviMobileMoreSheet.jsx';
 import { NAV_PUSH_EVENT } from './lib/navPush.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
@@ -143,13 +121,18 @@ const App = () => {
       ? window.matchMedia('(max-width: 1023px)').matches
       : false
   );
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const isActive = (path) => {
-    if (path === '/students') {
-      return location.pathname === '/students' || isStudentProfilePath(location.pathname);
+    if (path === '/students' || path === '/alunos') {
+      return (
+        location.pathname === '/students' ||
+        location.pathname === '/alunos' ||
+        isStudentProfilePath(location.pathname)
+      );
     }
     return location.pathname === path;
   };
+  const isMaisNavActive = isBottomNavMaisActive(location.pathname);
   const inboxUnread = useLeadStore((s) => s.inboxUnreadConversations);
   const academyIdStore = useLeadStore((s) => s.academyId);
   const academyName = useMemo(() => {
@@ -201,7 +184,7 @@ const App = () => {
     const onChange = () => {
       const next = mq.matches;
       setIsMobileViewport(next);
-      if (!next) setMobileMenuOpen(false);
+      if (!next) setMobileMoreOpen(false);
     };
     onChange();
     mq.addEventListener('change', onChange);
@@ -209,7 +192,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
+    setMobileMoreOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -222,13 +205,13 @@ const App = () => {
   }, [navigate]);
 
   useEffect(() => {
-    if (!mobileMenuOpen) return undefined;
+    if (!mobileMoreOpen) return undefined;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [mobileMenuOpen]);
+  }, [mobileMoreOpen]);
 
   const bootstrapAbortRef = React.useRef(null);
 
@@ -239,39 +222,17 @@ const App = () => {
     cancelFetchStudents();
   }, []);
 
-  const mobileMenuSections = useMemo(
+  const mobileMoreItems = useMemo(
     () =>
-      buildMobileDrawerSections({
+      buildMobileMoreItems({
         modules: academyReady ? modules : { sales: false, inventory: false, finance: false },
-        navRole,
-        canConfigureAgenteIa,
+        isOwner: navRole === 'owner',
         pipelineLabel: labels.pipeline || 'Funil',
       }),
-    [academyReady, modules, navRole, canConfigureAgenteIa, labels.pipeline]
+    [academyReady, modules, navRole, labels.pipeline]
   );
 
-  const mobileDrawerIconMap = useMemo(
-    () => ({
-      pipeline: Kanban,
-      tarefas: CheckSquare,
-      automacoes: Zap,
-      agente: Bot,
-      mensalidades: Users,
-      contratos: FileSignature,
-      caixa: Landmark,
-      loja: ShoppingBag,
-      movimentacoes: ArrowLeftRight,
-      fechamento: Lock,
-      contabilidade: Calculator,
-      vendas: Receipt,
-      produtos: Package,
-      estoque: Boxes,
-      reports: BarChart3,
-    }),
-    []
-  );
-
-  const closeMobileDrawer = () => setMobileMenuOpen(false);
+  const closeMobileMore = () => setMobileMoreOpen(false);
 
   const sideLinkClass = ({ isActive: navIsActive }) =>
     `navi-side-link${navIsActive ? ' active navi-side-link--active' : ''}`;
@@ -1007,13 +968,13 @@ const App = () => {
               <button
                 type="button"
                 className="navi-topbar-menu-btn"
-                onClick={() => setMobileMenuOpen(true)}
-                aria-expanded={mobileMenuOpen}
-                aria-controls="navi-mobile-drawer-panel"
-                aria-label="Abrir menu"
-                title="Menu"
+                onClick={() => setMobileMoreOpen(true)}
+                aria-expanded={mobileMoreOpen}
+                aria-controls="navi-mobile-more-panel"
+                aria-label="Abrir mais opções"
+                title="Mais"
               >
-                <Menu size={22} strokeWidth={2} aria-hidden />
+                <Grid2x2 size={22} strokeWidth={2} aria-hidden />
               </button>
             ) : null}
             <div className="navi-topbar-spacer" aria-hidden="true" />
@@ -1083,22 +1044,14 @@ const App = () => {
                   <Route path="/student/:id" element={<StudentProfile />} />
                   <Route path="/new-lead" element={<NewLead />} />
                   <Route path="/reports" element={<Reports />} />
-                  {modules.finance === true && <Route path="/caixa" element={<Caixa />} />}
+                  {modules.finance === true && <Route path="/financeiro" element={<Caixa />} />}
+                  {modules.finance === true && <Route path="/caixa" element={<CaixaRedirect />} />}
                   {modules.finance === true && <Route path="/finance" element={<FinanceRedirect />} />}
-                  {modules.finance === true && <Route path="/mensalidades" element={<Mensalidades />} />}
                   {modules.finance === true && (
-                    <Route
-                      path="/contratos"
-                      element={
-                        <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={6} />}>
-                          <Contratos />
-                        </Suspense>
-                      }
-                    />
+                    <Route path="/mensalidades" element={<MensalidadesRedirect />} />
                   )}
-                  {modules.finance === true && (
-                    <Route path="/contratos/modelos" element={<ContratosModelosRedirect />} />
-                  )}
+                  <Route path="/contratos" element={<ContratosRedirect />} />
+                  <Route path="/contratos/modelos" element={<ContratosModelosRedirect />} />
                   {(modules.inventory === true || modules.sales === true) && (
                     <Route path="/loja" element={<Loja />} />
                   )}
@@ -1107,7 +1060,22 @@ const App = () => {
                     <Route path="/produtos" element={<LojaTabRedirect tab="produtos" />} />
                   )}
                   {modules.sales === true && <Route path="/vendas" element={<LojaTabRedirect tab="vendas" />} />}
-                  <Route path="/students" element={<Students />} />
+                  <Route
+                    path="/alunos"
+                    element={
+                      <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={6} />}>
+                        <Alunos />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/students"
+                    element={
+                      <Suspense fallback={<PageSkeleton variant="table" rows={6} columns={6} />}>
+                        <Alunos />
+                      </Suspense>
+                    }
+                  />
                   <Route path="/tarefas" element={<Tasks />} />
                   <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
                   <Route path="/planos" element={<PlanosRedirect />} />
@@ -1127,64 +1095,7 @@ const App = () => {
       </div>
 
       {isMobileViewport ? (
-        <div
-          className={`navi-mobile-drawer${mobileMenuOpen ? ' navi-mobile-drawer--open' : ''}`}
-          aria-hidden={!mobileMenuOpen}
-        >
-          <div
-            className="navi-mobile-drawer__backdrop"
-            onClick={closeMobileDrawer}
-            role="presentation"
-            aria-hidden="true"
-          />
-          <aside
-            id="navi-mobile-drawer-panel"
-            className="navi-mobile-drawer__panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Menu do aplicativo"
-            inert={!mobileMenuOpen}
-          >
-            <div className="navi-mobile-drawer__panel-inner">
-              <div className="navi-mobile-drawer__head">
-                <span className="navi-mobile-drawer__head-title">Menu</span>
-                <button
-                  type="button"
-                  className="navi-mobile-drawer__close"
-                  onClick={closeMobileDrawer}
-                  aria-label="Fechar"
-                >
-                  <X size={22} strokeWidth={2} aria-hidden />
-                </button>
-              </div>
-              <nav className="navi-mobile-drawer__nav" aria-label="Rotas adicionais">
-                {mobileMenuSections.map((sec, secIdx) => (
-                  <div key={sec.title || `sec-${secIdx}`} className="navi-mobile-drawer__section">
-                    {sec.title ? (
-                      <div className="navi-mobile-drawer__section-title">{sec.title}</div>
-                    ) : null}
-                    {sec.items.map((item) => {
-                      const Icon = mobileDrawerIconMap[item.iconKey] || LayoutGrid;
-                      const dest = item.toFull || item.to;
-                      const active = isSidebarNavItemActive(dest, location);
-                      return (
-                        <Link
-                          key={`${dest}-${item.label}`}
-                          to={dest}
-                          className={`navi-mobile-drawer__link${active ? ' navi-mobile-drawer__link--active' : ''}`}
-                          onClick={closeMobileDrawer}
-                        >
-                          <Icon size={20} strokeWidth={1.75} aria-hidden />
-                          <span>{item.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ))}
-              </nav>
-            </div>
-          </aside>
-        </div>
+        <NaviMobileMoreSheet open={mobileMoreOpen} onClose={closeMobileMore} items={mobileMoreItems} />
       ) : null}
 
       <nav className="navi-bottom-nav" aria-label="Navegação">
@@ -1208,32 +1119,16 @@ const App = () => {
           <GraduationCap size={22} strokeWidth={1.75} />
           <span>{navStudentsLabel}</span>
         </Link>
-        {!academyReady ? (
-          <span className="navi-nav-item navi-nav-item--skeleton" aria-hidden>
-            <CheckSquare size={22} strokeWidth={1.75} />
-            <span>Tarefas</span>
-          </span>
-        ) : modules.finance === true ? (
-          <Link to="/mensalidades" className={`navi-nav-item${isActive('/mensalidades') ? ' active' : ''}`}>
-            <Users size={22} strokeWidth={1.75} />
-            <span>Mensalidades</span>
-          </Link>
-        ) : (
-          <Link to="/tarefas" className={`navi-nav-item${isActive('/tarefas') ? ' active' : ''}`}>
-            <CheckSquare size={22} strokeWidth={1.75} />
-            <span>Tarefas</span>
-          </Link>
-        )}
         <button
           type="button"
-          className={`navi-nav-item navi-nav-item--menu${mobileMenuOpen ? ' active' : ''}`}
-          onClick={() => setMobileMenuOpen(true)}
-          aria-expanded={mobileMenuOpen}
-          aria-controls="navi-mobile-drawer-panel"
-          aria-label="Abrir menu"
+          className={`navi-nav-item navi-nav-item--mais${mobileMoreOpen || isMaisNavActive ? ' active' : ''}`}
+          onClick={() => setMobileMoreOpen(true)}
+          aria-expanded={mobileMoreOpen}
+          aria-controls="navi-mobile-more-panel"
+          aria-label="Mais opções"
         >
-          <Menu size={22} strokeWidth={1.75} />
-          <span>Menu</span>
+          <Grid2x2 size={22} strokeWidth={1.75} aria-hidden />
+          <span>Mais</span>
         </button>
       </nav>
 

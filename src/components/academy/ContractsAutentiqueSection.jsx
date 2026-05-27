@@ -32,7 +32,7 @@ export default function ContractsAutentiqueSection() {
       </div>
       <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
         Quando um contrato é assinado ou atualizado no Autentique, o Nave recebe a notificação automaticamente
-        pelo webhook e atualiza o status na aba Contratos.
+        pelo webhook e atualiza o status em Alunos → Contratos.
       </p>
       <p className="text-small" style={{ margin: '0 0 8px', lineHeight: 1.45 }}>
         No painel Autentique, em <strong>Webhooks</strong>, informe esta URL:
@@ -55,7 +55,7 @@ export default function ContractsAutentiqueSection() {
         indicado por eles.
       </p>
       <p className="text-small text-muted" style={{ margin: 0, lineHeight: 1.45 }}>
-        Enquanto o webhook não estiver ativo, use o botão &quot;Atualizar&quot; na página Contratos para sincronizar
+        Enquanto o webhook não estiver ativo, use o botão &quot;Atualizar&quot; em Alunos → Contratos para sincronizar
         manualmente.
       </p>
       <a

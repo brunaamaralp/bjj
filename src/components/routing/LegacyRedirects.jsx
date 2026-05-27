@@ -1,19 +1,24 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { financeLegacyTabToCaixa } from '../../lib/hubTabs';
 import { resolveEmpresaLegacyTabRedirect } from '../../lib/empresaLegacyRedirects.js';
+
+export { CaixaRedirect, FinanceRedirect, MensalidadesRedirect } from './FinanceiroRedirects.jsx';
 
 export function PlanosRedirect() {
   return <Navigate to="/conta?tab=assinatura" replace />;
 }
 
-export function FinanceRedirect() {
+/** Legado: /contratos e abas antigas → hub Alunos ou modelos em Empresa. */
+export function ContratosRedirect() {
   const [searchParams] = useSearchParams();
-  const tab = financeLegacyTabToCaixa(searchParams.get('tab'));
-  return <Navigate to={`/caixa?tab=${tab}`} replace />;
+  const raw = String(searchParams.get('tab') || '').trim().toLowerCase();
+  if (raw === 'modelos') {
+    return <Navigate to="/empresa?tab=contratos" replace />;
+  }
+  return <Navigate to="/alunos?tab=contratos" replace />;
 }
 
 export function ContratosModelosRedirect() {
-  return <Navigate to="/contratos?tab=modelos" replace />;
+  return <Navigate to="/empresa?tab=contratos" replace />;
 }
 
 export function LojaTabRedirect({ tab }) {
