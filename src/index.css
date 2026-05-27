@@ -1099,7 +1099,7 @@ button:active {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 12px 20px;
+  padding: 10px 12px 20px;
 }
 
 .navi-mobile-drawer__section {
@@ -1126,8 +1126,8 @@ button:active {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px;
+  gap: 11px;
+  padding: 7px 16px;
   border: none;
   border-radius: 0;
   text-decoration: none;
@@ -1158,7 +1158,7 @@ button:active {
 .navi-mobile-drawer__actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-light);
@@ -1170,7 +1170,7 @@ button:active {
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 16px;
+  padding: 9px 16px;
   border-radius: 8px;
   font-family: var(--ff-ui);
   font-size: 13px;
@@ -2098,11 +2098,11 @@ button.funil-color-swatch {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px;
-  margin: 0;
+  gap: 11px;
+  padding: 7px 13px;
+  margin: 0 10px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   text-decoration: none;
   font-family: var(--ff-ui);
@@ -2158,7 +2158,7 @@ button.funil-color-swatch {
 }
 
 .navi-sidebar-link--child {
-  padding: 6px 16px 6px 32px;
+  padding: 7px 13px 7px 30px;
   gap: 0;
 }
 
@@ -2186,9 +2186,9 @@ button.funil-color-swatch {
   display: flex;
   align-items: center;
   min-width: 0;
-  margin: 0;
-  padding: 8px 40px 8px 16px;
-  border-radius: 0;
+  margin: 0 10px;
+  padding: 9px 38px 9px 13px;
+  border-radius: 8px;
   background: transparent;
   transition: background 100ms ease;
 }
@@ -2240,6 +2240,10 @@ button.funil-color-swatch {
   cursor: pointer;
 }
 
+.navi-sidebar-accordion__trigger-icon {
+  margin-right: 11px;
+}
+
 .navi-sidebar-accordion__label {
   font-family: var(--ff-ui);
   font-size: 11px;
@@ -2253,7 +2257,7 @@ button.funil-color-swatch {
 
 .navi-sidebar-accordion__chevron {
   position: absolute;
-  right: 16px;
+  right: 11px;
   top: 50%;
   transform: translateY(-50%);
   display: inline-flex;
@@ -2328,19 +2332,19 @@ button.funil-color-swatch {
 .navi-sidebar-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 4px 0 10px;
+  gap: 8px;
+  padding: 6px 0 12px;
 }
 
 /* Novo lead (ação primária) */
 .navi-sidebar-link--action {
-  margin: 0;
+  margin: 0 10px;
   border: none !important;
   color: var(--white) !important;
   background: var(--navi-sidebar-primary) !important;
   font-weight: 600;
   font-size: 12px;
-  padding: 6px 16px;
+  padding: 8px 13px;
   border-radius: 8px !important;
   box-shadow: none !important;
 }
@@ -2363,16 +2367,16 @@ button.funil-color-swatch {
 
 /* Nova venda (ação secundária) */
 .navi-sidebar-link--action-secondary {
-  margin: 0;
+  margin: 0 10px;
   border: 1px solid var(--navi-sidebar-primary) !important;
   color: var(--navi-sidebar-primary) !important;
   background: transparent !important;
   font-weight: 500;
   font-size: 12px;
-  padding: 5px 16px;
+  padding: 7px 13px;
   border-radius: 8px !important;
   box-shadow: none !important;
-  width: 100%;
+  width: calc(100% - 20px);
   text-align: left;
   font-family: var(--ff-ui);
   cursor: pointer;
@@ -2443,11 +2447,11 @@ button.funil-color-swatch {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px;
-  margin: 0;
+  gap: 11px;
+  padding: 7px 13px;
+  margin: 0 10px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   text-decoration: none;
   font-family: var(--ff-ui);
@@ -2499,7 +2503,7 @@ button.funil-color-swatch {
 }
 .navi-side-link--child,
 .navi-sidebar-link--child {
-  padding: 6px 16px 6px 32px;
+  padding: 7px 13px 7px 30px;
   gap: 0;
 }
 .navi-side-link-icon--child-spacer {
@@ -2525,9 +2529,9 @@ button.funil-color-swatch {
   display: flex;
   align-items: center;
   min-width: 0;
-  margin: 0;
-  padding: 8px 40px 8px 16px;
-  border-radius: 0;
+  margin: 0 10px;
+  padding: 9px 38px 9px 13px;
+  border-radius: 8px;
   background: transparent;
   transition: background 100ms ease;
 }
@@ -2638,8 +2642,7 @@ button.funil-color-swatch {
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.navi-side-link--action,
-.navi-sidebar-link--action {
+.navi-side-link--action {
   margin-top: 8px;
   margin-bottom: 4px;
   border: 1px solid var(--v500) !important;
@@ -2672,6 +2675,8 @@ button.funil-color-swatch {
 .navi-sidebar--collapsed .navi-side-link {
   justify-content: center;
   padding: 8px;
+  margin-left: auto;
+  margin-right: auto;
   gap: 0;
 }
 
@@ -2735,6 +2740,10 @@ button.funil-color-swatch {
   border-radius: 50% !important;
   border: 1px solid var(--v500) !important;
   background: transparent !important;
+}
+
+.navi-sidebar--collapsed .navi-sidebar-link--action-secondary .navi-sidebar-link__icon {
+  margin-right: 0;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link--action.active,

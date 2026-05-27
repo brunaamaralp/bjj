@@ -201,6 +201,9 @@ function SideNavAccordion({
           onClick={onLabelNavigate}
           title={accordion.label}
         >
+          <span className="navi-sidebar-link__icon navi-sidebar-accordion__trigger-icon">
+            <Icon size={18} strokeWidth={1.75} />
+          </span>
           <span className="navi-sidebar-accordion__label">{accordion.label}</span>
         </button>
         <button
