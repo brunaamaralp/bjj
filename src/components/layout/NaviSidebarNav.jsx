@@ -186,15 +186,17 @@ function SideNavAccordion({
   };
 
   const headClass = [
-    'navi-sidebar-accordion__head',
-    partial ? 'navi-sidebar-accordion__head--partial' : '',
+    'navi-sidebar-link',
+    'navi-sidebar-link--accordion',
+    partial ? 'navi-sidebar-link--partial' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
     <div className={`navi-sidebar-accordion${expanded ? ' navi-sidebar-accordion--open' : ''}`}>
-      <div className={headClass}>
+      <div className="navi-sidebar-accordion__head">
+        <div className={headClass}>
         <button
           type="button"
           className="navi-sidebar-accordion__trigger"
@@ -219,6 +221,7 @@ function SideNavAccordion({
         >
           <ChevronDown size={14} strokeWidth={2} aria-hidden />
         </button>
+        </div>
       </div>
       <div
         id={panelId}

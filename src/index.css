@@ -2093,6 +2093,31 @@ button.funil-color-swatch {
   opacity: 0.7;
 }
 
+/* Reset de button global (DS) dentro da sidebar */
+.navi-sidebar-nav button {
+  min-height: unset;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  transform: none;
+  box-shadow: none;
+  width: auto;
+}
+
+.navi-sidebar-nav button:active {
+  transform: none;
+}
+
 /* Links raiz e filhos */
 .navi-sidebar-link {
   position: relative;
@@ -2183,63 +2208,33 @@ button.funil-color-swatch {
 
 .navi-sidebar-accordion__head {
   position: relative;
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-  margin: 0 10px;
+  margin: 0;
   padding: 0;
-  border-radius: 8px;
-  background: transparent;
-  transition: background 100ms ease;
 }
 
-.navi-sidebar-accordion__head:hover {
+/* Mesma caixa visual que .navi-sidebar-link + espaço para chevron */
+.navi-sidebar-link--accordion {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 34px;
+  cursor: default;
+}
+
+.navi-sidebar-link--accordion:hover {
   background: var(--navi-sidebar-hover-bg);
-}
-
-.navi-sidebar-accordion__head:hover .navi-sidebar-link__label {
   color: var(--navi-sidebar-primary);
-}
-
-.navi-sidebar-accordion--open .navi-sidebar-accordion__head .navi-sidebar-link__label {
-  opacity: 1;
-}
-
-.navi-sidebar-accordion:not(.navi-sidebar-accordion--open) .navi-sidebar-accordion__head .navi-sidebar-link__label {
-  opacity: 1;
-}
-
-.navi-sidebar-accordion__head--partial .navi-sidebar-link__label {
-  color: var(--navi-sidebar-primary);
-  font-weight: 500;
-}
-
-.navi-sidebar-accordion__head button {
-  min-height: unset;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.navi-sidebar-accordion__head button:active {
-  transform: none;
 }
 
 .navi-sidebar-accordion__trigger {
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
   gap: 11px;
+  padding: 0;
   margin: 0;
-  padding: 7px 32px 7px 13px;
-  min-height: 34px;
-  box-sizing: border-box;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
   text-align: left;
   cursor: pointer;
+  color: inherit;
 }
 
 .navi-sidebar-accordion__chevron {
@@ -2247,19 +2242,14 @@ button.funil-color-swatch {
   right: 13px;
   top: 50%;
   transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin: 0;
+  min-width: 20px;
   padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 100ms ease, color 100ms ease;
+  transition: color 100ms ease;
 }
 
 .navi-sidebar-accordion__chevron svg {
@@ -2325,7 +2315,8 @@ button.funil-color-swatch {
 
 /* Novo Lead + Nova Venda — mesma altura e conteúdo centralizado */
 .navi-sidebar-actions .navi-sidebar-link--action,
-.navi-sidebar-actions .navi-sidebar-link--action-secondary {
+.navi-sidebar-actions .navi-sidebar-link--action-secondary,
+.navi-sidebar-actions button.navi-sidebar-link--action-secondary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2342,6 +2333,7 @@ button.funil-color-swatch {
   line-height: 1;
   text-align: center;
   box-shadow: none !important;
+  cursor: pointer;
 }
 
 .navi-sidebar-actions .navi-sidebar-link--action {
@@ -2538,41 +2530,18 @@ button.funil-color-swatch {
 .navi-side-accordion-head,
 .navi-sidebar-accordion__head.navi-side-accordion-head {
   position: relative;
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-  margin: 0 10px;
+  margin: 0;
   padding: 0;
-  border-radius: 8px;
-  background: transparent;
-  transition: background 100ms ease;
-}
-.navi-side-accordion-head:hover,
-.navi-sidebar-accordion__head:hover {
-  background: var(--navi-sidebar-hover-bg, rgba(91, 63, 191, 0.06));
 }
 .navi-side-accordion-trigger,
 .navi-sidebar-accordion__trigger {
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
   gap: 11px;
+  padding: 0;
   margin: 0;
-  padding: 7px 32px 7px 13px;
-  min-height: 34px;
-  box-sizing: border-box;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
   text-align: left;
   cursor: pointer;
-}
-.navi-side-accordion-head.navi-side-link--partial .navi-side-link-label,
-.navi-sidebar-accordion__head--partial .navi-sidebar-link__label {
-  color: var(--v500);
-  font-weight: 500;
 }
 .navi-side-accordion-chevron,
 .navi-sidebar-accordion__chevron {
@@ -2698,16 +2667,13 @@ button.funil-color-swatch {
   color: var(--v500);
 }
 
-.navi-sidebar--collapsed .navi-sidebar-accordion__head,
-.navi-sidebar--collapsed .navi-side-accordion-head {
-  padding: 0;
+.navi-sidebar--collapsed .navi-sidebar-link--accordion {
+  padding-right: 0;
   justify-content: center;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-accordion__trigger {
-  padding: 8px;
   justify-content: center;
-  min-height: unset;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-accordion__chevron,
