@@ -27,6 +27,9 @@ import {
   AlertTriangle,
   Users,
   Loader2,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -43,6 +46,31 @@ import { addLeadEvent } from '../lib/leadEvents.js';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 
 const VIEW_STORAGE_KEY = 'nave_tasks_view';
+/** Tarefas visíveis por aluno antes de exigir "Ver mais". */
+const STUDENT_TASKS_PREVIEW = 4;
+
+function initialsFromName(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '?';
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
+}
+
+function sortTasksForStudentGroup(tasks, isOverdue) {
+  return [...tasks].sort((a, b) => {
+    const aDone = a.status === 'done';
+    const bDone = b.status === 'done';
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    const aLate = !aDone && isOverdue(a.due_date);
+    const bLate = !bDone && isOverdue(b.due_date);
+    if (aLate !== bLate) return aLate ? -1 : 1;
+    const aDue = String(a.due_date || '').trim().slice(0, 10) || '9999-12-31';
+    const bDue = String(b.due_date || '').trim().slice(0, 10) || '9999-12-31';
+    if (aDue !== bDue) return aDue.localeCompare(bDue);
+    return String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR');
+  });
+}
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -243,6 +271,7 @@ export default function Tasks() {
     }
   });
   const [estaSemanaOn, setEstaSemanaOn] = useState(false);
+  const [expandedStudentIds, setExpandedStudentIds] = useState(() => new Set());
   const [detailTask, setDetailTask] = useState(null);
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date();
@@ -461,9 +490,23 @@ export default function Tasks() {
       }
       map[lid].tasks.push(t);
     }
-    return Object.values(map).sort((a, b) =>
-      String(a.leadName).localeCompare(String(b.leadName), 'pt-BR')
-    );
+    return Object.values(map)
+      .map((group) => {
+        const tasksSorted = sortTasksForStudentGroup(group.tasks, isVencida);
+        let pendingCount = 0;
+        let doneCount = 0;
+        let overdueCount = 0;
+        for (const t of tasksSorted) {
+          if (t.status === 'done') {
+            doneCount += 1;
+          } else {
+            pendingCount += 1;
+            if (isVencida(t.due_date)) overdueCount += 1;
+          }
+        }
+        return { ...group, tasks: tasksSorted, pendingCount, doneCount, overdueCount };
+      })
+      .sort((a, b) => String(a.leadName).localeCompare(String(b.leadName), 'pt-BR'));
   }, [filteredTasks, linkableById]);
 
   const kanbanColumns = useMemo(() => {
@@ -659,6 +702,15 @@ export default function Tasks() {
     }
   };
 
+  const toggleStudentTasksExpanded = useCallback((leadId) => {
+    setExpandedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(leadId)) next.delete(leadId);
+      else next.add(leadId);
+      return next;
+    });
+  }, []);
+
   const renderOneTaskCard = (t, opts = {}) => {
     const compact = Boolean(opts.compact);
     const vencida = isVencida(t.due_date) && t.status !== 'done';
@@ -693,8 +745,8 @@ export default function Tasks() {
           }}
         >
           <span className={`task-title ${t.status === 'done' ? 'line-through' : ''}`}>{t.title}</span>
-          {!compact ? (
-            <div className="task-meta">
+          {!compact || opts.showMeta ? (
+            <div className={`task-meta${compact ? ' task-meta--compact' : ''}`}>
               {t.lead_id && !opts.hideLead ? (
                 <span
                   className="task-badge lead-badge"
@@ -959,49 +1011,112 @@ export default function Tasks() {
             className="mt-2"
           />
         ) : viewMode === 'by_student' ? (
-          <div className="tasks-by-lead-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="tasks-by-student">
             {tasksByLead.length === 0 ? (
               <EmptyState variant="compact" tone="dashed" title="Nenhuma tarefa vinculada a alunos neste filtro." />
             ) : (
-              tasksByLead.map((group) => {
-                const progress = progressLabelForLead(group.leadId, filteredTasks);
-                return (
-                  <section key={group.leadId} className="tasks-lead-group">
-                    <div
-                      className="tasks-lead-group-head"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        marginBottom: 10,
-                        flexWrap: 'wrap',
-                      }}
+              <div className="tasks-by-student-grid" role="list">
+                {tasksByLead.map((group) => {
+                  const progress = progressLabelForLead(group.leadId, filteredTasks);
+                  const profilePath =
+                    profilePathForLinkablePerson(linkableById.get(group.leadId)) ||
+                    `/student/${group.leadId}`;
+                  const canCollapse = group.tasks.length > STUDENT_TASKS_PREVIEW;
+                  const isExpanded = expandedStudentIds.has(group.leadId);
+                  const visibleTasks =
+                    canCollapse && !isExpanded
+                      ? group.tasks.slice(0, STUDENT_TASKS_PREVIEW)
+                      : group.tasks;
+                  const hiddenCount = Math.max(0, group.tasks.length - STUDENT_TASKS_PREVIEW);
+                  return (
+                    <article
+                      key={group.leadId}
+                      className={`tasks-student-card${canCollapse && !isExpanded ? ' tasks-student-card--collapsed' : ''}`}
+                      role="listitem"
                     >
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        style={{ fontWeight: 700, fontSize: 14, padding: 0 }}
-                        onClick={() => navigate(`/student/${group.leadId}`)}
-                      >
-                        {group.leadName}
-                      </button>
-                      {progress ? (
-                        <span
-                          className="badge-secondary"
-                          style={{ fontSize: 11, borderRadius: 999, padding: '2px 10px' }}
-                          title="Progresso do checklist de template"
+                      <header className="tasks-student-card__head">
+                        <button
+                          type="button"
+                          className="tasks-student-card__profile"
+                          onClick={() => navigate(profilePath)}
+                          aria-label={`Abrir perfil de ${group.leadName}`}
                         >
-                          {progress}
-                        </span>
-                      ) : null}
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        {group.tasks.length} tarefa{group.tasks.length === 1 ? '' : 's'}
-                      </span>
-                    </div>
-                    <div className="task-list">{group.tasks.map((t) => renderOneTaskCard(t, { compact: true, hideLead: true }))}</div>
-                  </section>
-                );
-              })
+                          <span className="tasks-student-card__avatar" aria-hidden="true">
+                            {initialsFromName(group.leadName)}
+                          </span>
+                          <span className="tasks-student-card__identity">
+                            <span className="tasks-student-card__name">{group.leadName}</span>
+                            <span className="tasks-student-card__counts">
+                              {group.pendingCount > 0 ? (
+                                <span>
+                                  {group.pendingCount} pendente{group.pendingCount === 1 ? '' : 's'}
+                                </span>
+                              ) : null}
+                              {group.doneCount > 0 ? (
+                                <span>
+                                  {group.pendingCount > 0 ? ' · ' : ''}
+                                  {group.doneCount} concluída{group.doneCount === 1 ? '' : 's'}
+                                </span>
+                              ) : null}
+                              {group.overdueCount > 0 ? (
+                                <span className="tasks-student-card__overdue">
+                                  {group.pendingCount > 0 || group.doneCount > 0 ? ' · ' : ''}
+                                  {group.overdueCount} atrasada{group.overdueCount === 1 ? '' : 's'}
+                                </span>
+                              ) : null}
+                            </span>
+                          </span>
+                          <ChevronRight size={16} className="tasks-student-card__chevron" aria-hidden="true" />
+                        </button>
+                        <div className="tasks-student-card__toolbar">
+                          {progress ? (
+                            <span
+                              className="tasks-student-card__progress"
+                              title="Progresso do checklist de processo automático"
+                            >
+                              {progress}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="tasks-student-card__add"
+                            onClick={() => navigate(`/tarefas?lead_id=${group.leadId}&new=1`)}
+                          >
+                            <PlusCircle size={14} aria-hidden="true" /> Nova
+                          </button>
+                        </div>
+                      </header>
+                      <div className="tasks-student-card__body">
+                        <div className="task-list tasks-student-card__tasks">
+                          {visibleTasks.map((t) =>
+                            renderOneTaskCard(t, { compact: true, hideLead: true, showMeta: true })
+                          )}
+                        </div>
+                        {canCollapse ? (
+                          <button
+                            type="button"
+                            className="tasks-student-card__toggle"
+                            onClick={() => toggleStudentTasksExpanded(group.leadId)}
+                            aria-expanded={isExpanded}
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp size={16} aria-hidden="true" />
+                                Recolher tarefas
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={16} aria-hidden="true" />
+                                Ver mais {hiddenCount} tarefa{hiddenCount === 1 ? '' : 's'}
+                              </>
+                            )}
+                          </button>
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             )}
           </div>
         ) : viewMode === 'list' ? (
@@ -1870,8 +1985,168 @@ export default function Tasks() {
 
         .task-card--compact { padding: 8px 10px; gap: 8px; }
         .task-card--compact .task-checkbox { margin-top: 2px; width: 14px; height: 14px; }
-        .task-card--compact .task-title { font-size: 12px; }
+        .task-card--compact .task-title { font-size: 13px; line-height: 1.35; }
         .task-card--compact .task-actions { opacity: 1; }
+        .task-meta--compact { gap: 6px; }
+        .task-meta--compact .task-badge { font-size: 10px; padding: 2px 5px; }
+
+        .tasks-by-student { width: 100%; }
+        .tasks-by-student-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 14px;
+          align-items: start;
+        }
+        @media (max-width: 640px) {
+          .tasks-by-student-grid { grid-template-columns: 1fr; }
+        }
+        .tasks-student-card {
+          border: 1px solid var(--border-mid);
+          border-radius: var(--radius-sm);
+          background: var(--surface);
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(18, 16, 42, 0.04);
+        }
+        .tasks-student-card__head {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--border);
+          background: linear-gradient(180deg, rgba(91, 63, 191, 0.05) 0%, transparent 100%);
+        }
+        .tasks-student-card__profile {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 0;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+          font-family: inherit;
+          min-height: auto;
+        }
+        .tasks-student-card__profile:hover .tasks-student-card__name { color: var(--v500); }
+        .tasks-student-card__profile:hover .tasks-student-card__chevron { color: var(--v500); transform: translateX(2px); }
+        .tasks-student-card__avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+          color: var(--v700);
+          background: var(--v50);
+          border: 1px solid rgba(91, 63, 191, 0.18);
+        }
+        .tasks-student-card__identity {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .tasks-student-card__name {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--ink);
+          line-height: 1.25;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          transition: color 0.15s;
+        }
+        .tasks-student-card__counts {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          line-height: 1.35;
+        }
+        .tasks-student-card__overdue { color: var(--danger); font-weight: 600; }
+        .tasks-student-card__chevron {
+          flex-shrink: 0;
+          color: var(--text-muted);
+          transition: transform 0.15s, color 0.15s;
+        }
+        .tasks-student-card__toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .tasks-student-card__progress {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--v700);
+          background: var(--v50);
+          border: 1px solid rgba(91, 63, 191, 0.15);
+          border-radius: 999px;
+          padding: 3px 10px;
+          line-height: 1.2;
+        }
+        .tasks-student-card__add {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          margin-left: auto;
+          padding: 5px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border-mid);
+          background: var(--white);
+          color: var(--v600);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          min-height: auto;
+          transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+        .tasks-student-card__add:hover {
+          border-color: var(--v500);
+          background: var(--v50);
+          color: var(--v700);
+        }
+        .tasks-student-card__body { padding: 10px 12px 12px; }
+        .tasks-student-card__tasks { gap: 6px; }
+        .tasks-student-card__tasks .task-card {
+          background: var(--white);
+          border-color: var(--border-light);
+        }
+        .tasks-student-card__tasks .task-card:hover { border-color: var(--border-mid); }
+        .tasks-student-card__toggle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          width: 100%;
+          margin-top: 8px;
+          padding: 8px 12px;
+          border: 1px dashed var(--border-mid);
+          border-radius: 8px;
+          background: transparent;
+          color: var(--v600);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          min-height: auto;
+          transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .tasks-student-card__toggle:hover {
+          background: var(--v50);
+          border-color: var(--v500);
+          color: var(--v700);
+        }
+        .tasks-student-card--collapsed .tasks-student-card__body {
+          padding-bottom: 10px;
+        }
 
         .task-drawer-backdrop {
           position: fixed; inset: 0; z-index: 9500;
