@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, ChevronUp, ChevronDown, ChevronRight, Upload, ArrowLeftRight, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronRight, Upload, ArrowLeftRight, MoreHorizontal, Package } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
@@ -16,6 +16,41 @@ import EmptyState from '../components/shared/EmptyState';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import { friendlyError } from '../lib/errorMessages';
+import { createSessionJwt } from '../lib/appwrite';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+
+function isRealCatalogParent(product, catalogMode) {
+  if (catalogMode !== 'parent_variant') return false;
+  const id = String(product?.id || '').trim();
+  return Boolean(id) && !id.startsWith('legacy-group:');
+}
+
+function isLegacyFormatParent(product, catalogMode) {
+  if (catalogMode === 'legacy') return true;
+  return Boolean(product?._legacy) || String(product?.id || '').startsWith('legacy-group:');
+}
+
+async function productsApiPost(body) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+  const academyId = useLeadStore.getState().academyId;
+  if (!academyId) throw new Error('academy_required');
+
+  const res = await fetch('/api/products', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'Content-Type': 'application/json',
+      'x-academy-id': academyId,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.erro || data.error || `error_${res.status}`);
+  }
+  return data;
+}
 
 const LIFECYCLE_LABELS = {
   ativo: 'Ativo',
@@ -25,11 +60,8 @@ const LIFECYCLE_LABELS = {
 
 function ProductStatus({ lifecycleKey }) {
   const label = LIFECYCLE_LABELS[lifecycleKey] || lifecycleKey;
-  if (lifecycleKey === 'ativo') {
-    return <span className="products-status products-status--ativo">{label}</span>;
-  }
   return (
-    <span className={`products-status products-status--badge products-status--${lifecycleKey}`}>
+    <span className={`products-status-chip products-status-chip--${lifecycleKey}`}>
       {label}
     </span>
   );
@@ -165,6 +197,9 @@ export default function Products() {
   const [movesProduct, setMovesProduct] = useState(null);
   const [actionsMenuId, setActionsMenuId] = useState(null);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [legacyMigrateOpen, setLegacyMigrateOpen] = useState(false);
+  const [legacyMigrateTarget, setLegacyMigrateTarget] = useState(null);
+  const [legacyMigrateBusy, setLegacyMigrateBusy] = useState(false);
 
   const canAccess = modules?.inventory === true || modules?.sales === true;
 
@@ -303,11 +338,63 @@ export default function Products() {
   };
 
   const openManageSizes = (parent) => {
-    if (catalogMode === 'legacy') {
-      openDuplicate(parent);
+    if (isLegacyFormatParent(parent, catalogMode)) {
+      setLegacyMigrateTarget(parent);
+      setLegacyMigrateOpen(true);
+      setActionsMenuId(null);
       return;
     }
     openEdit(parent, { step: 2 });
+  };
+
+  const closeLegacyMigrateDialog = () => {
+    if (legacyMigrateBusy) return;
+    setLegacyMigrateOpen(false);
+    setLegacyMigrateTarget(null);
+  };
+
+  const confirmLegacyMigrate = async () => {
+    const target = legacyMigrateTarget;
+    if (!target) return;
+    setLegacyMigrateBusy(true);
+    try {
+      await productsApiPost({ action: 'migrate' });
+      const refreshed = await loadProducts();
+      const list = refreshed?.length ? refreshed : useProductsStore.getState().products;
+      const needleNome = String(target.nome || '').trim().toLowerCase();
+      const needleCat = String(target.categoria || '').trim();
+      const match =
+        list.find(
+          (p) =>
+            String(p.nome || '').trim().toLowerCase() === needleNome &&
+            String(p.categoria || '').trim() === needleCat &&
+            isRealCatalogParent(p, 'parent_variant')
+        ) ||
+        list.find(
+          (p) =>
+            String(p.nome || '').trim().toLowerCase() === needleNome &&
+            isRealCatalogParent(p, 'parent_variant')
+        );
+      setLegacyMigrateOpen(false);
+      setLegacyMigrateTarget(null);
+      if (match) {
+        openEdit(match, { step: 2 });
+        addToast({ type: 'success', message: 'Produto convertido. Gerencie os tamanhos abaixo.' });
+      } else {
+        addToast({
+          type: 'warning',
+          message: 'Migração concluída. Localize o produto na lista para gerenciar tamanhos.',
+        });
+      }
+      await refreshStockStores();
+    } catch (e) {
+      addToast({
+        type: 'error',
+        message: friendlyError(String(e?.message || e), 'save'),
+      });
+    } finally {
+      setLegacyMigrateBusy(false);
+    }
   };
 
   const openDuplicate = (product) => {
@@ -409,8 +496,11 @@ export default function Products() {
     return { ok: true };
   };
 
-  const handleDeactivate = async (itemId) => {
-    const updated = await deactivateProduct(itemId);
+  const handleDeactivate = async () => {
+    if (!deleteTarget) return;
+    const updated = isRealCatalogParent(deleteTarget, catalogMode)
+      ? await deactivateProduct(null, { product_id: deleteTarget.id })
+      : await deactivateProduct(deleteTarget.variants?.[0]?.id || deleteTarget.id);
     if (!updated) {
       addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao desativar' });
       return;
@@ -426,15 +516,36 @@ export default function Products() {
     e?.stopPropagation?.();
     setDeleteBusy(true);
     setDeleteTarget(product);
-    const check = await checkDeleteProduct(product.id);
-    setDeleteBusy(false);
-    if (!check) {
-      addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao verificar produto' });
+    try {
+      let check;
+      if (isRealCatalogParent(product, catalogMode)) {
+        const data = await productsApiPost({
+          action: 'check_delete_product',
+          product_id: product.id,
+        });
+        check = {
+          has_sales: Boolean(data.has_sales),
+          can_delete: Boolean(data.can_delete),
+          has_stock_moves: Boolean(data.has_stock_moves),
+          current_quantity: Number(data.current_quantity) || 0,
+        };
+      } else {
+        const variantId = product.variants?.[0]?.id || product.id;
+        check = await checkDeleteProduct(variantId);
+      }
+      setDeleteBusy(false);
+      if (!check) {
+        addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao verificar produto' });
+        setDeleteTarget(null);
+        return;
+      }
+      setDeleteHasSales(check.has_sales || check.has_stock_moves);
+      setDeleteDialogOpen(true);
+    } catch (err) {
+      setDeleteBusy(false);
+      addToast({ type: 'error', message: friendlyError(String(err?.message || err), 'load') });
       setDeleteTarget(null);
-      return;
     }
-    setDeleteHasSales(check.has_sales);
-    setDeleteDialogOpen(true);
   };
 
   const closeDeleteDialog = () => {
@@ -447,21 +558,47 @@ export default function Products() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleteBusy(true);
-    const result = await deleteProduct(deleteTarget.id);
-    setDeleteBusy(false);
-    if (!result?.ok) {
-      const err = result?.error || useProductsStore.getState().error || '';
-      if (result?.has_sales || /vendas registradas/i.test(err)) {
-        setDeleteHasSales(true);
-        return;
+    try {
+      if (isRealCatalogParent(deleteTarget, catalogMode)) {
+        await productsApiPost({
+          action: 'delete_product',
+          product_id: deleteTarget.id,
+        });
+        addToast({
+          type: 'success',
+          message: `Produto excluído${deleteTarget.variant_count ? ` (${deleteTarget.variant_count} tamanho(s))` : ''}`,
+        });
+        closeDeleteDialog();
+        closeModal();
+        await loadProducts();
+        await refreshStockStores();
+      } else {
+        const variantId = deleteTarget.variants?.[0]?.id || deleteTarget.id;
+        const result = await deleteProduct(variantId);
+        if (!result?.ok) {
+          const err = result?.error || useProductsStore.getState().error || '';
+          if (result?.has_sales || /vendas registradas/i.test(err)) {
+            setDeleteHasSales(true);
+            return;
+          }
+          addToast({ type: 'error', message: err || 'Erro ao excluir produto' });
+          return;
+        }
+        addToast({ type: 'success', message: 'Produto excluído' });
+        closeDeleteDialog();
+        closeModal();
+        await refreshStockStores();
       }
-      addToast({ type: 'error', message: err || 'Erro ao excluir produto' });
-      return;
+    } catch (err) {
+      const msg = String(err?.message || err);
+      if (/vendas registradas|movimenta/i.test(msg)) {
+        setDeleteHasSales(true);
+      } else {
+        addToast({ type: 'error', message: msg || 'Erro ao excluir produto' });
+      }
+    } finally {
+      setDeleteBusy(false);
     }
-    addToast({ type: 'success', message: 'Produto excluído' });
-    closeDeleteDialog();
-    closeModal();
-    await refreshStockStores();
   };
 
   if (!canAccess) {
@@ -469,15 +606,15 @@ export default function Products() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
-      <div className="animate-in flex justify-between items-start gap-2" style={{ flexWrap: 'wrap' }}>
+    <div className="container products-page">
+      <div className="animate-in flex justify-between items-start gap-2 products-page-header">
         <div>
           <h1 className="navi-page-title">Produtos</h1>
-          <p className="navi-eyebrow" style={{ marginTop: 6 }}>
+          <p className="navi-eyebrow products-page-eyebrow">
             Cadastro único para estoque e vendas
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="products-page-actions">
           <button type="button" className="btn-action-primary" onClick={() => setImportOpen(true)}>
             <Upload size={14} aria-hidden />
             Importar em lote
@@ -497,22 +634,21 @@ export default function Products() {
         />
       ) : null}
 
-      <div className="card mt-4" style={{ padding: 12 }}>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
-          <div className="form-group" style={{ margin: 0, flex: '1 1 200px', minWidth: 160 }}>
+      <div className="card mt-4 products-filters-card">
+        <div className="flex gap-2 products-filters-row">
+          <div className="form-group products-filter-group products-filter-group--search">
             <label className="text-xs">Busca</label>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} aria-hidden />
+            <div className="products-search-wrap">
+              <Search size={14} className="products-search-icon" aria-hidden />
               <input
-                className="form-input"
-                style={{ paddingLeft: 30 }}
+                className="form-input products-search-input"
                 placeholder="Nome, código, categoria…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+          <div className="form-group products-filter-group products-filter-group--cat">
             <label className="text-xs">Categoria</label>
             <select className="form-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -521,8 +657,7 @@ export default function Products() {
               ))}
             </select>
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
-            <label className="text-xs">Status</label>
+          <div className="form-group products-filter-group products-filter-group--status">
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todos</option>
               <option value="ativo">Ativos</option>
@@ -530,8 +665,7 @@ export default function Products() {
               <option value="sem_estoque">Sem estoque</option>
             </select>
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
-            <label className="text-xs">Tipo</label>
+          <div className="form-group products-filter-group products-filter-group--type">
             <select className="form-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="all">Todos</option>
               <option value="for_sale">Para venda</option>
@@ -547,10 +681,12 @@ export default function Products() {
             <EmptyState
               variant="default"
               tone="dashed"
+              className="products-empty"
+              icon={Package}
               title="Nenhum produto cadastrado ainda"
               description="Cadastre os produtos da academia para usá-los nas vendas e no controle de estoque."
               primaryAction={{ label: 'Cadastrar primeiro produto', onClick: openCreate }}
-              secondaryAction={{ label: 'Importar em lote (CSV)', onClick: () => setImportOpen(true) }}
+              secondaryAction={{ label: 'Importar planilha', onClick: () => setImportOpen(true) }}
               role="status"
             />
           ) : (
@@ -646,7 +782,7 @@ export default function Products() {
                               onDuplicate={openDuplicate}
                               onManageSizes={openManageSizes}
                               showManageSizes
-                              onDelete={(item) => void openDeleteDialog(item.variants?.[0] || item)}
+                              onDelete={(item) => void openDeleteDialog(item)}
                               deleteBusy={deleteBusy && deleteTarget?.id === p.id}
                             />
                           </div>
@@ -767,7 +903,19 @@ export default function Products() {
         loading={deleteBusy || loading}
         onClose={closeDeleteDialog}
         onConfirmDelete={() => void confirmDelete()}
-        onConfirmDeactivate={() => deleteTarget && void handleDeactivate(deleteTarget.id)}
+        onConfirmDeactivate={() => void handleDeactivate()}
+      />
+
+      <ConfirmDialog
+        open={legacyMigrateOpen}
+        title="Converter para novo formato"
+        description="Este produto ainda usa o formato antigo. Para gerenciar tamanhos, vamos convertê-lo para o novo formato. Deseja continuar?"
+        confirmLabel="Converter e continuar"
+        cancelLabel="Cancelar"
+        confirmVariant="primary"
+        loading={legacyMigrateBusy}
+        onClose={closeLegacyMigrateDialog}
+        onConfirm={() => void confirmLegacyMigrate()}
       />
 
       <ProductStockMovesDrawer
@@ -792,7 +940,7 @@ export default function Products() {
       />
 
       {importFilterIds?.length ? (
-        <div className="card mt-2" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div className="card mt-2 products-import-filter-bar">
           <span className="text-small">
             Exibindo {importFilterIds.length} produto(s) da importação recente
           </span>

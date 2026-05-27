@@ -208,3 +208,51 @@ export function countByStatus(rows) {
     { ready: 0, incomplete: 0, invalid: 0 }
   );
 }
+
+/** Agrupa linhas de importação pelo nome do produto (mesmo nome = mesmo pai). */
+export function groupImportRowsByProductName(rows) {
+  const groups = new Map();
+  for (const row of rows || []) {
+    const nome = String(row?.nome || row?.name || '').trim();
+    if (!nome) continue;
+    const key = nome.toLowerCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  return Array.from(groups.values());
+}
+
+/** Converte linhas agrupadas (mesmo nome) em body para createProductWithVariants. */
+export function buildParentCreateBodyFromImportRows(rows) {
+  const first = rows[0] || {};
+  const nome = String(first.nome || first.name || '').trim();
+  const variants = rows.map((r) => ({
+    size: String(r.Tamanho ?? r.tamanho ?? '').trim() || 'Único',
+    color: String(r.color ?? '').trim(),
+    sku: String(r.sku ?? '').trim(),
+    initial_quantity: Math.max(0, Math.trunc(Number(r.initial_quantity) || 0)),
+    minimum_level: Math.max(0, Math.trunc(Number(r.minimum_level) || 0)),
+  }));
+
+  return {
+    name: nome,
+    nome,
+    description: String(first.descricao || '').trim(),
+    descricao: String(first.descricao || '').trim(),
+    category: String(first.categoria || 'Sem categoria').trim() || 'Sem categoria',
+    categoria: String(first.categoria || 'Sem categoria').trim() || 'Sem categoria',
+    sale_price: first.sale_price,
+    cost_price: first.cost_price,
+    type: first.is_for_sale === false ? 'supply' : 'sale',
+    is_for_sale: first.is_for_sale !== false,
+    is_active: first.is_active !== false,
+    image_url: String(first.image_url || '').trim(),
+    unit: String(first.unit || 'unidade').trim() || 'unidade',
+    variants,
+  };
+}
+
+/** Uma linha CSV → body de create com uma variante (modo parent_variant, upsert por nome). */
+export function importRowToSingleCreateBody(row) {
+  return buildParentCreateBodyFromImportRows([row]);
+}
