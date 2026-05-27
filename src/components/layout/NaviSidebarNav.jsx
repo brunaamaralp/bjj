@@ -97,7 +97,7 @@ function SideNavLink({
   const inner = (
     <>
       <span className={`navi-sidebar-link__icon${action ? ' navi-sidebar-link__icon--action' : ''}`}>
-        <IconComponent size={iconSize} strokeWidth={action ? 2.25 : 1.75} />
+        <IconComponent size={iconSize} strokeWidth={action && collapsed ? 2.25 : 1.75} />
       </span>
       <span className="navi-sidebar-link__label">{label}</span>
       {badge}
@@ -201,10 +201,10 @@ function SideNavAccordion({
           onClick={onLabelNavigate}
           title={accordion.label}
         >
-          <span className="navi-sidebar-link__icon navi-sidebar-accordion__trigger-icon">
-            <Icon size={18} strokeWidth={1.75} />
+          <span className="navi-sidebar-link__icon">
+            <Icon size={20} strokeWidth={1.75} />
           </span>
-          <span className="navi-sidebar-accordion__label">{accordion.label}</span>
+          <span className="navi-sidebar-link__label">{accordion.label}</span>
         </button>
         <button
           type="button"
@@ -358,7 +358,7 @@ export default function NaviSidebarNav({
                 title={collapsed ? 'Nova Venda' : undefined}
               >
                 <span className="navi-sidebar-link__icon">
-                  <Tag size={18} strokeWidth={1.75} />
+                  <Tag size={20} strokeWidth={1.75} />
                 </span>
                 <span className="navi-sidebar-link__label">Nova Venda</span>
               </button>
