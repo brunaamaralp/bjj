@@ -194,7 +194,7 @@ const AutomacoesSection = ({
             <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 4px', lineHeight: 1.5 }}>
                 Enviadas automaticamente quando um evento ocorre no funil. Os textos são configurados em{' '}
                 <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
-                    Modelos
+                    Modelos de Mensagem
                 </Link>
                 .
             </p>

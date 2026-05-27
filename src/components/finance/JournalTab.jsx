@@ -12,6 +12,7 @@ export default function JournalTab({
   setJournal,
   addEntry,
   deleteEntry,
+  sectionTitle = 'Lançamentos contábeis',
 }) {
   const [date, setDate] = useState('');
   const [memo, setMemo] = useState('');
@@ -112,7 +113,7 @@ export default function JournalTab({
           <Receipt size={20} strokeWidth={1.75} />
         </div>
         <div style={{ minWidth: 0 }}>
-          <h3 className="navi-section-heading mb-1" style={{ marginBottom: 6 }}>Lançamentos contábeis</h3>
+          <h3 className="navi-section-heading mb-1" style={{ marginBottom: 6 }}>{sectionTitle}</h3>
           <p className="finance-journal-lead">
             Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
           </p>

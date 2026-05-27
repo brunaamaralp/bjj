@@ -44,7 +44,7 @@ export default function PlanSelect({
       {showConfigHint && !hasConfigured ? (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
           Nenhum plano cadastrado. Configure em{' '}
-          <Link to="/empresa?tab=financeiro" className="edit-link">
+          <Link to="/financeiro?tab=configuracao" className="edit-link">
             Configurações → Financeiro → Planos
           </Link>
           .

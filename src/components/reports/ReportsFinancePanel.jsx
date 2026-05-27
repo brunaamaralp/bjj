@@ -202,7 +202,7 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
           role="status"
           primaryAction={{
             label: 'Configurar financeiro',
-            onClick: () => navigate('/empresa?tab=financeiro'),
+            onClick: () => navigate('/financeiro?tab=configuracao'),
           }}
         />
       </div>
@@ -222,7 +222,7 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
               periodFrom={from}
               periodTo={to}
               embedded
-              onGoToLancamentos={() => navigate('/financeiro?tab=razao')}
+              onGoToLancamentos={() => navigate('/financeiro?tab=configuracao')}
             />
           </>
         ) : (

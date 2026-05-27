@@ -49,6 +49,17 @@ const FINANCE_SECTIONS = [
   { id: 'finance-contracts', label: 'Contratos' },
 ];
 
+const FINANCE_HUB_JUMP_SECTIONS = [
+  ...FINANCE_SECTIONS,
+  { id: 'finance-plano-contas', label: 'Plano de contas' },
+  { id: 'finance-extrato', label: 'Extrato por conta' },
+  { id: 'finance-dre', label: 'DRE / DFC' },
+];
+
+function isSectionOpen(sectionId, layout, activeSection) {
+  return layout === 'stacked' || activeSection === sectionId;
+}
+
 const defaultFinanceConfig = () => ({
   cardFees: {
     pix: { percent: 0, fixed: 0 },
@@ -226,7 +237,8 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
 }
 
 
-export default function ConfigTab({ academyId }) {
+export default function ConfigTab({ academyId, layout = 'picker', contractsMode = 'embedded' }) {
+  const isStacked = layout === 'stacked';
   const addToast = useUiStore((s) => s.addToast);
   const { data: contractTemplatesData } = useContractTemplates(true);
   const contractTemplates = contractTemplatesData?.templates || [];
@@ -386,111 +398,96 @@ export default function ConfigTab({ academyId }) {
     setFinanceConfig({ ...financeConfig, bankAccounts: arr });
   };
 
+  const jumpSections = isStacked ? FINANCE_HUB_JUMP_SECTIONS : FINANCE_SECTIONS;
+
+  const scrollToSection = (sectionId) => {
+    if (isStacked) {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    setActiveSection(sectionId);
+  };
+
   return (
-    <div className="academy-finance-config academy-finance-config--hub">
+    <div
+      className={`academy-finance-config academy-finance-config--hub${isStacked ? ' academy-finance-config--stacked' : ''}`}
+    >
       <nav className="finance-config-jump" aria-label="Seções do financeiro">
-        {FINANCE_SECTIONS.map((s) => (
+        {jumpSections.map((s) => (
           <button
             key={s.id}
             type="button"
-            className={`finance-config-jump-link${activeSection === s.id ? ' finance-config-jump-link--active' : ''}`}
-            aria-current={activeSection === s.id ? 'true' : undefined}
-            onClick={() => setActiveSection(s.id)}
+            className={`finance-config-jump-link${!isStacked && activeSection === s.id ? ' finance-config-jump-link--active' : ''}`}
+            aria-current={!isStacked && activeSection === s.id ? 'true' : undefined}
+            onClick={() => scrollToSection(s.id)}
           >
             {s.label}
           </button>
         ))}
       </nav>
 
-      {activeSection === 'finance-accounts' ? (
-        <section id="finance-accounts" className="finance-config-section animate-in">
-          <FinanceSectionHeading icon={Banknote}>Contas bancárias</FinanceSectionHeading>
-          <p className="text-small text-muted finance-config-section__hint">
-            Contas usadas em recebimentos e comprovantes. Cadastre banco, agência, conta e PIX.
+      {isSectionOpen('finance-plans', layout, activeSection) ? (
+        <section id="finance-plans" className="finance-config-section animate-in mensal-finance-plans-section">
+          <FinanceSectionHeading icon={Wallet2}>Planos da academia</FinanceSectionHeading>
+          <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
+            Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos.
           </p>
           <div className="finance-config-section__body">
-            <div className="finance-bank-list">
-              {(financeConfig.bankAccounts || []).map((acc, idx) => (
-                <div key={idx} className="finance-bank-row">
-                  <div className="finance-field-col">
-                    <label>Banco</label>
-                    <input
-                      className="form-input finance-compact-input"
-                      value={acc.bankName || ''}
-                      onChange={(e) => updateBankAccount(idx, { bankName: e.target.value })}
-                    />
-                  </div>
-                  <div className="finance-field-col">
-                    <label>Agência</label>
-                    <input
-                      className="form-input finance-compact-input"
-                      value={acc.branch || ''}
-                      onChange={(e) => updateBankAccount(idx, { branch: e.target.value })}
-                    />
-                  </div>
-                  <div className="finance-field-col">
-                    <label>Conta</label>
-                    <input
-                      className="form-input finance-compact-input"
-                      value={acc.account || ''}
-                      onChange={(e) => updateBankAccount(idx, { account: e.target.value })}
-                    />
-                  </div>
-                  <div className="finance-field-col">
-                    <label>Titular</label>
-                    <input
-                      className="form-input finance-compact-input"
-                      value={acc.accountName || ''}
-                      onChange={(e) => updateBankAccount(idx, { accountName: e.target.value })}
-                    />
-                  </div>
-                  <div className="finance-field-col">
-                    <label>Chave PIX</label>
-                    <input
-                      className="form-input finance-compact-input"
-                      value={acc.pixKey || ''}
-                      onChange={(e) => updateBankAccount(idx, { pixKey: e.target.value })}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="finance-bank-row__remove"
-                    title="Remover conta"
-                    aria-label="Remover conta"
-                    onClick={() => {
-                      const arr = [...(financeConfig.bankAccounts || [])];
-                      arr.splice(idx, 1);
-                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                    }}
-                  >
-                    <Trash2 size={16} aria-hidden />
-                  </button>
-                </div>
-              ))}
-            </div>
+            {(financeConfig.plans || []).map((pl, idx) => (
+              <PlanRow
+                key={idx}
+                pl={pl}
+                idx={idx}
+                contractTemplates={contractTemplates}
+                onUpdate={updatePlan}
+                onRemove={(i) => {
+                  const arr = [...(financeConfig.plans || [])];
+                  arr.splice(i, 1);
+                  setFinanceConfig({ ...financeConfig, plans: arr });
+                }}
+              />
+            ))}
             <button
               type="button"
               className="finance-config-add-link edit-link"
               onClick={() => {
-                const arr = [...(financeConfig.bankAccounts || [])];
-                arr.push({ bankName: '', branch: '', account: '', accountName: '', pixKey: '' });
-                setFinanceConfig({ ...financeConfig, bankAccounts: arr });
+                const arr = [...(financeConfig.plans || [])];
+                arr.push({
+                  name: '',
+                  price: 0,
+                  durationDays: 30,
+                  description: '',
+                  applyCardFee: true,
+                });
+                setFinanceConfig({ ...financeConfig, plans: arr });
               }}
             >
               <Plus size={14} aria-hidden />
-              Adicionar conta
+              Adicionar plano
             </button>
             <SectionSaveFooter
-              dirty={dirty.accounts}
-              saving={savingSection === 'accounts'}
-              onSave={() => persistConfig('accounts', 'Contas bancárias salvas.')}
+              dirty={dirty.plans}
+              saving={savingSection === 'plans'}
+              onSave={() => persistConfig('plans', 'Planos salvos.')}
             />
+          </div>
+          <div className="finance-nave-subscription">
+            <h4 className="navi-section-heading finance-nave-subscription__heading">
+              <Sparkles size={16} color="var(--v500)" aria-hidden />
+              Assinatura Nave
+            </h4>
+            <p className="text-small text-muted finance-nave-subscription__text">
+              Plano do sistema (IA, limites e faturamento) — independente das mensalidades dos alunos.
+            </p>
+            <Link to="/conta" className="edit-link finance-nave-subscription__link">
+              Gerenciar em Conta → Assinatura
+            </Link>
           </div>
           <hr className="finance-config-section__divider" aria-hidden />
         </section>
       ) : null}
 
-      {activeSection === 'finance-fees' ? (
+      {isSectionOpen('finance-fees', layout, activeSection) ? (
         <section id="finance-fees" className="finance-config-section animate-in">
           <FinanceSectionHeading icon={CreditCard}>Taxas de cartão</FinanceSectionHeading>
           <p className="text-small text-muted finance-config-section__hint">
@@ -606,7 +603,95 @@ export default function ConfigTab({ academyId }) {
         </section>
       ) : null}
 
-      {activeSection === 'finance-collection' ? (
+      {isSectionOpen('finance-accounts', layout, activeSection) ? (
+        <section id="finance-accounts" className="finance-config-section animate-in">
+          <FinanceSectionHeading icon={Banknote}>Contas bancárias</FinanceSectionHeading>
+          <p className="text-small text-muted finance-config-section__hint">
+            Contas usadas em recebimentos e comprovantes. Cadastre banco, agência, conta e PIX.
+          </p>
+          <div className="finance-config-section__body">
+            <div className="finance-bank-list">
+              {(financeConfig.bankAccounts || []).map((acc, idx) => (
+                <div key={idx} className="finance-bank-row">
+                  <div className="finance-field-col">
+                    <label>Banco</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.bankName || ''}
+                      onChange={(e) => updateBankAccount(idx, { bankName: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Agência</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.branch || ''}
+                      onChange={(e) => updateBankAccount(idx, { branch: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Conta</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.account || ''}
+                      onChange={(e) => updateBankAccount(idx, { account: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Titular</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.accountName || ''}
+                      onChange={(e) => updateBankAccount(idx, { accountName: e.target.value })}
+                    />
+                  </div>
+                  <div className="finance-field-col">
+                    <label>Chave PIX</label>
+                    <input
+                      className="form-input finance-compact-input"
+                      value={acc.pixKey || ''}
+                      onChange={(e) => updateBankAccount(idx, { pixKey: e.target.value })}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="finance-bank-row__remove"
+                    title="Remover conta"
+                    aria-label="Remover conta"
+                    onClick={() => {
+                      const arr = [...(financeConfig.bankAccounts || [])];
+                      arr.splice(idx, 1);
+                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
+                    }}
+                  >
+                    <Trash2 size={16} aria-hidden />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="finance-config-add-link edit-link"
+              onClick={() => {
+                const arr = [...(financeConfig.bankAccounts || [])];
+                arr.push({ bankName: '', branch: '', account: '', accountName: '', pixKey: '' });
+                setFinanceConfig({ ...financeConfig, bankAccounts: arr });
+              }}
+            >
+              <Plus size={14} aria-hidden />
+              Adicionar conta
+            </button>
+            <SectionSaveFooter
+              dirty={dirty.accounts}
+              saving={savingSection === 'accounts'}
+              onSave={() => persistConfig('accounts', 'Contas bancárias salvas.')}
+            />
+          </div>
+          <hr className="finance-config-section__divider" aria-hidden />
+        </section>
+      ) : null}
+
+      {isSectionOpen('finance-collection', layout, activeSection) ? (
         <div id="finance-collection" className="finance-config-section-wrap">
           <CollectionRulesSection
             collectionRules={collectionRules}
@@ -623,68 +708,7 @@ export default function ConfigTab({ academyId }) {
         </div>
       ) : null}
 
-      {activeSection === 'finance-plans' ? (
-        <section id="finance-plans" className="finance-config-section animate-in mensal-finance-plans-section">
-          <FinanceSectionHeading icon={Wallet2}>Planos da academia</FinanceSectionHeading>
-          <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
-            Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos.
-          </p>
-          <div className="finance-config-section__body">
-            {(financeConfig.plans || []).map((pl, idx) => (
-              <PlanRow
-                key={idx}
-                pl={pl}
-                idx={idx}
-                contractTemplates={contractTemplates}
-                onUpdate={updatePlan}
-                onRemove={(i) => {
-                  const arr = [...(financeConfig.plans || [])];
-                  arr.splice(i, 1);
-                  setFinanceConfig({ ...financeConfig, plans: arr });
-                }}
-              />
-            ))}
-            <button
-              type="button"
-              className="finance-config-add-link edit-link"
-              onClick={() => {
-                const arr = [...(financeConfig.plans || [])];
-                arr.push({
-                  name: '',
-                  price: 0,
-                  durationDays: 30,
-                  description: '',
-                  applyCardFee: true,
-                });
-                setFinanceConfig({ ...financeConfig, plans: arr });
-              }}
-            >
-              <Plus size={14} aria-hidden />
-              Adicionar plano
-            </button>
-            <SectionSaveFooter
-              dirty={dirty.plans}
-              saving={savingSection === 'plans'}
-              onSave={() => persistConfig('plans', 'Planos salvos.')}
-            />
-          </div>
-          <div className="finance-nave-subscription">
-            <h4 className="navi-section-heading finance-nave-subscription__heading">
-              <Sparkles size={16} color="var(--v500)" aria-hidden />
-              Assinatura Nave
-            </h4>
-            <p className="text-small text-muted finance-nave-subscription__text">
-              Plano do sistema (IA, limites e faturamento) — independente das mensalidades dos alunos.
-            </p>
-            <Link to="/conta" className="edit-link finance-nave-subscription__link">
-              Gerenciar em Conta → Assinatura
-            </Link>
-          </div>
-          <hr className="finance-config-section__divider" aria-hidden />
-        </section>
-      ) : null}
-
-      {activeSection === 'finance-exceptions' ? (
+      {isSectionOpen('finance-exceptions', layout, activeSection) ? (
         <div id="finance-exceptions" className="finance-config-section-wrap">
           <ExceptionStatusLabelsSection labels={exceptionLabels} onChange={setExceptionLabels} />
           <SectionSaveFooter
@@ -696,15 +720,22 @@ export default function ConfigTab({ academyId }) {
         </div>
       ) : null}
 
-      {activeSection === 'finance-contracts' ? (
+      {isSectionOpen('finance-contracts', layout, activeSection) ? (
         <section id="finance-contracts" className="finance-config-section animate-in finance-config-contracts">
           <FinanceSectionHeading icon={FileSignature}>Modelos de contrato</FinanceSectionHeading>
           <p className="text-small text-muted finance-config-section__hint">
             Modelos usados na matrícula e assinatura digital dos alunos.
           </p>
-          <Suspense fallback={<RouteFallback />}>
-            <ContractTemplatesPage embedded />
-          </Suspense>
+          {contractsMode === 'link' ? (
+            <Link to="/empresa?tab=contratos" className="btn-outline" style={{ display: 'inline-flex' }}>
+              Abrir modelos de contrato em Empresa
+            </Link>
+          ) : (
+            <Suspense fallback={<RouteFallback />}>
+              <ContractTemplatesPage embedded />
+            </Suspense>
+          )}
+          <hr className="finance-config-section__divider" aria-hidden />
         </section>
       ) : null}
     </div>

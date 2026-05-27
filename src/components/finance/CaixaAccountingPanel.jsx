@@ -34,8 +34,9 @@ const mapAccountDoc = (d) => ({
   cash: Boolean(d.cash),
 });
 
-/** Painel owner do Caixa: plano de contas, razão e DRE/DFC (ex-/finance). */
-export default function CaixaAccountingPanel({ activeTab, onGoToRazao }) {
+/** Painel owner do Caixa: plano de contas, extrato e DRE/DFC (ex-/finance). */
+export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 'tabs' }) {
+  const isStacked = mode === 'stacked';
   const terms = useTerms();
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
@@ -186,46 +187,67 @@ export default function CaixaAccountingPanel({ activeTab, onGoToRazao }) {
     );
   }
 
+  const scrollToExtrato = () => {
+    if (isStacked) {
+      document.getElementById('finance-extrato')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    onGoToRazao?.();
+  };
+
+  const showPlano = isStacked || activeTab === 'plano';
+  const showExtrato = isStacked || activeTab === 'razao';
+  const showDre = isStacked || activeTab === 'dre';
+
   return (
     <>
-      {activeTab === 'plano' && (
-        <AccountsTab
-          academyId={academyId}
-          accounts={accounts}
-          setAccounts={setAccounts}
-          addAccount={addAccount}
-          updateAccount={updateAccount}
-          deleteAccount={deleteAccount}
-          headingActions={
-            <>
-              <button
-                type="button"
-                className="btn-action-ghost"
-                disabled={!accounts?.length}
-                onClick={() => exportAccountsCsv(accounts)}
-              >
-                ↓ Exportar plano
-              </button>
-              <button type="button" className="btn-action-ghost" onClick={() => setShowImportModal(true)}>
-                ↑ Importar planilha
-              </button>
-            </>
-          }
-        />
-      )}
-      {activeTab === 'razao' && (
-        <JournalTab
-          academyId={academyId}
-          accounts={accounts}
-          journal={journal}
-          setJournal={setJournal}
-          addEntry={addEntry}
-          deleteEntry={deleteEntry}
-        />
-      )}
-      {activeTab === 'dre' && (
-        <ReportsTab academyId={academyId} onGoToLancamentos={() => onGoToRazao?.()} />
-      )}
+      {showPlano ? (
+        <section id="finance-plano-contas" className="finance-config-section finance-config-section--accounting">
+          <AccountsTab
+            academyId={academyId}
+            accounts={accounts}
+            setAccounts={setAccounts}
+            addAccount={addAccount}
+            updateAccount={updateAccount}
+            deleteAccount={deleteAccount}
+            headingActions={
+              <>
+                <button
+                  type="button"
+                  className="btn-action-ghost"
+                  disabled={!accounts?.length}
+                  onClick={() => exportAccountsCsv(accounts)}
+                >
+                  ↓ Exportar plano
+                </button>
+                <button type="button" className="btn-action-ghost" onClick={() => setShowImportModal(true)}>
+                  ↑ Importar planilha
+                </button>
+              </>
+            }
+          />
+          <hr className="finance-config-section__divider" aria-hidden />
+        </section>
+      ) : null}
+      {showExtrato ? (
+        <section id="finance-extrato" className="finance-config-section finance-config-section--accounting">
+          <JournalTab
+            academyId={academyId}
+            accounts={accounts}
+            journal={journal}
+            setJournal={setJournal}
+            addEntry={addEntry}
+            deleteEntry={deleteEntry}
+            sectionTitle="Extrato por conta"
+          />
+          <hr className="finance-config-section__divider" aria-hidden />
+        </section>
+      ) : null}
+      {showDre ? (
+        <section id="finance-dre" className="finance-config-section finance-config-section--accounting">
+          <ReportsTab academyId={academyId} embedded onGoToLancamentos={scrollToExtrato} />
+        </section>
+      ) : null}
       <ImportFinanceModal
         open={showImportModal}
         onClose={() => setShowImportModal(false)}

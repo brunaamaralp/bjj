@@ -825,9 +825,14 @@ export default function Tasks() {
       <header className="animate-in">
         <div className="tasks-page-head-top flex flex-wrap justify-between items-center gap-3 mb-3">
           <h1 className="navi-page-title flex items-center gap-2 mb-0"><CheckSquare size={24} /> Tarefas</h1>
-          <button type="button" className="btn-primary" onClick={openNew}>
-            <PlusCircle size={16} /> Nova tarefa
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to="/automacoes?tab=processos" className="edit-link text-small">
+              Configurar processos automáticos
+            </Link>
+            <button type="button" className="btn-primary" onClick={openNew}>
+              <PlusCircle size={16} /> Nova tarefa
+            </button>
+          </div>
         </div>
 
         <div className="tasks-view-toggle flex flex-wrap gap-2 mb-3" role="group" aria-label="Visualização">
@@ -924,6 +929,11 @@ export default function Tasks() {
             icon={CheckSquare}
             title="Nenhuma tarefa por aqui ainda"
             primaryAction={{ label: '+ Nova tarefa', onClick: openNew }}
+            secondaryAction={{
+              label: 'Configurar processos automáticos',
+              variant: 'link',
+              onClick: () => navigate('/automacoes?tab=processos'),
+            }}
             role="status"
           />
         ) : filteredTasks.length === 0 && viewMode !== 'calendar' ? (

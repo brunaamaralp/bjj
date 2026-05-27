@@ -71,11 +71,14 @@ import { useUserRole } from './lib/useUserRole';
 import { parseOnboardingChecklist, trialDaysRemaining } from './lib/onboardingChecklist.js';
 import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
-import { getNewLeadLabel, isStudentProfilePath } from './lib/naviMenu.js';
+import { buildMobileDrawerSections, getNewLeadLabel, isStudentProfilePath } from './lib/naviMenu.js';
 import { buildMobileMoreItems, isBottomNavMaisActive } from './lib/mobileMoreNav.js';
 import NaviMobileMoreSheet from './components/layout/NaviMobileMoreSheet.jsx';
+import NaviMobileDrawer from './components/layout/NaviMobileDrawer.jsx';
 import { NAV_PUSH_EVENT } from './lib/navPush.js';
+import { OPEN_NOVA_VENDA_MODAL_EVENT } from './lib/novaVendaModal.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
+import NovaVendaModal from './components/sales/NovaVendaModal.jsx';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
 import RouteFallback from './components/shared/RouteFallback.jsx';
 import PageSkeleton from './components/shared/PageSkeleton.jsx';
@@ -122,6 +125,8 @@ const App = () => {
       : false
   );
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [mobileNavDrawerOpen, setMobileNavDrawerOpen] = useState(false);
+  const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const isActive = (path) => {
     if (path === '/students' || path === '/alunos') {
       return (
@@ -233,9 +238,37 @@ const App = () => {
   );
 
   const closeMobileMore = () => setMobileMoreOpen(false);
+  const closeMobileNavDrawer = () => setMobileNavDrawerOpen(false);
+
+  const mobileDrawerSections = useMemo(
+    () =>
+      buildMobileDrawerSections({
+        modules: academyReady ? modules : { sales: false, inventory: false, finance: false },
+        canConfigureAgenteIa,
+        pipelineLabel: labels.pipeline || 'Funil',
+        navStudentsLabel,
+        newLeadLabel,
+        isOwner: navRole === 'owner',
+      }),
+    [
+      academyReady,
+      modules,
+      canConfigureAgenteIa,
+      labels.pipeline,
+      navStudentsLabel,
+      newLeadLabel,
+      navRole,
+    ]
+  );
+
+  useEffect(() => {
+    const onOpenNovaVenda = () => setNovaVendaOpen(true);
+    window.addEventListener(OPEN_NOVA_VENDA_MODAL_EVENT, onOpenNovaVenda);
+    return () => window.removeEventListener(OPEN_NOVA_VENDA_MODAL_EVENT, onOpenNovaVenda);
+  }, []);
 
   const sideLinkClass = ({ isActive: navIsActive }) =>
-    `navi-side-link${navIsActive ? ' active navi-side-link--active' : ''}`;
+    `navi-sidebar-link${navIsActive ? ' active navi-sidebar-link--active' : ''}`;
 
   const handleAcademyChange = React.useCallback(
     async (id) => {
@@ -968,11 +1001,11 @@ const App = () => {
               <button
                 type="button"
                 className="navi-topbar-menu-btn"
-                onClick={() => setMobileMoreOpen(true)}
-                aria-expanded={mobileMoreOpen}
-                aria-controls="navi-mobile-more-panel"
-                aria-label="Abrir mais opções"
-                title="Mais"
+                onClick={() => setMobileNavDrawerOpen(true)}
+                aria-expanded={mobileNavDrawerOpen}
+                aria-controls="navi-mobile-nav-drawer"
+                aria-label="Abrir menu"
+                title="Menu"
               >
                 <Grid2x2 size={22} strokeWidth={2} aria-hidden />
               </button>
@@ -1095,13 +1128,24 @@ const App = () => {
       </div>
 
       {isMobileViewport ? (
-        <NaviMobileMoreSheet open={mobileMoreOpen} onClose={closeMobileMore} items={mobileMoreItems} />
+        <>
+          <NaviMobileDrawer
+            open={mobileNavDrawerOpen}
+            onClose={closeMobileNavDrawer}
+            sections={mobileDrawerSections}
+            newLeadLabel={newLeadLabel}
+            salesEnabled={modules?.sales === true}
+          />
+          <NaviMobileMoreSheet open={mobileMoreOpen} onClose={closeMobileMore} items={mobileMoreItems} />
+        </>
       ) : null}
+
+      <NovaVendaModal open={novaVendaOpen} onClose={() => setNovaVendaOpen(false)} />
 
       <nav className="navi-bottom-nav" aria-label="Navegação">
         <Link to="/" className={`navi-nav-item${isActive('/') ? ' active' : ''}`}>
           <LayoutGrid size={22} strokeWidth={1.75} />
-          <span>Início</span>
+          <span>Hoje</span>
         </Link>
         <Link to="/inbox" className={`navi-nav-item${isInboxPath ? ' active' : ''}`}>
           <MessageCircle size={22} strokeWidth={1.75} />

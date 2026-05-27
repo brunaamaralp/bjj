@@ -21,8 +21,10 @@ import {
   Receipt,
   Package,
   Boxes,
-  ChevronRight,
+  ChevronDown,
+  Tag,
 } from 'lucide-react';
+import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 import {
   buildSidebarNavModel,
   getAccordionIdForLocation,
@@ -63,16 +65,16 @@ function SidebarSection({ title, children, collapsed, footer = false, showDivide
   return (
     <div
       className={[
-        'navi-side-section',
-        footer ? 'navi-side-section--footer' : '',
-        title ? 'navi-side-section--titled' : '',
-        showDivider ? 'navi-side-section--divider' : '',
+        'navi-sidebar-section',
+        footer ? 'navi-sidebar-section--footer' : '',
+        title ? 'navi-sidebar-section--titled' : '',
+        showDivider ? 'navi-sidebar-section--divider' : '',
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      {showDivider && collapsed ? <hr className="navi-side-section-rule" aria-hidden /> : null}
-      {title && !collapsed ? <span className="navi-side-section-title">{title}</span> : null}
+      {showDivider && collapsed ? <hr className="navi-sidebar-section-rule" aria-hidden /> : null}
+      {title && !collapsed ? <span className="navi-sidebar-section-title">{title}</span> : null}
       {children}
     </div>
   );
@@ -88,25 +90,23 @@ function SideNavLink({
   badge,
   useNavLink = true,
   action = false,
-  footer = false,
 }) {
   const location = useLocation();
-  const iconSize = action && !collapsed ? 20 : 20;
+  const iconSize = 20;
   const IconComponent = action && collapsed ? Plus : Icon;
   const inner = (
     <>
-      <span className={`navi-side-link-icon${action ? ' navi-side-link-icon--action' : ''}`}>
+      <span className={`navi-sidebar-link__icon${action ? ' navi-sidebar-link__icon--action' : ''}`}>
         <IconComponent size={iconSize} strokeWidth={action ? 2.25 : 1.75} />
       </span>
-      <span className="navi-side-link-label">{label}</span>
+      <span className="navi-sidebar-link__label">{label}</span>
       {badge}
     </>
   );
   const title = collapsed ? label : undefined;
   const modifiers = [
-    action ? 'navi-side-link--action' : '',
-    footer ? 'navi-side-link--footer' : '',
-    collapsed && action ? 'navi-side-link--action-collapsed' : '',
+    action ? 'navi-sidebar-link--action' : '',
+    collapsed && action ? 'navi-sidebar-link--action-collapsed' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -118,9 +118,9 @@ function SideNavLink({
       return [className(merged), modifiers].filter(Boolean).join(' ');
     }
     return [
-      className || 'navi-side-link',
+      className || 'navi-sidebar-link',
       modifiers,
-      navActive ? 'active navi-side-link--active' : '',
+      navActive ? 'active navi-sidebar-link--active' : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -153,7 +153,6 @@ function SideNavAccordion({
   onToggle,
   sideLinkClass,
   location,
-  footer = false,
 }) {
   const navigate = useNavigate();
   const panelId = `navi-accordion-panel-${accordion.id}`;
@@ -166,17 +165,17 @@ function SideNavAccordion({
         to={accordion.defaultTo}
         className={(state) => {
           const base =
-            typeof sideLinkClass === 'function' ? sideLinkClass(state) : sideLinkClass || 'navi-side-link';
+            typeof sideLinkClass === 'function' ? sideLinkClass(state) : sideLinkClass || 'navi-sidebar-link';
           return partial || anyChildActive || state.isActive
-            ? `${base} navi-side-link--partial`
+            ? `${base} navi-sidebar-link--partial`
             : base;
         }}
         title={accordion.label}
       >
-        <span className="navi-side-link-icon">
+        <span className="navi-sidebar-link__icon">
           <Icon size={20} strokeWidth={1.75} />
         </span>
-        <span className="navi-side-link-label">{accordion.label}</span>
+        <span className="navi-sidebar-link__label">{accordion.label}</span>
       </NavLink>
     );
   }
@@ -187,30 +186,26 @@ function SideNavAccordion({
   };
 
   const headClass = [
-    'navi-side-accordion-head',
-    footer ? 'navi-side-link--footer' : '',
-    partial ? 'navi-side-link--partial' : '',
+    'navi-sidebar-accordion__head',
+    partial ? 'navi-sidebar-accordion__head--partial' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <div className={`navi-side-accordion${expanded ? ' navi-side-accordion--open' : ''}`}>
+    <div className={`navi-sidebar-accordion${expanded ? ' navi-sidebar-accordion--open' : ''}`}>
       <div className={headClass}>
         <button
           type="button"
-          className="navi-side-accordion-trigger"
+          className="navi-sidebar-accordion__trigger"
           onClick={onLabelNavigate}
           title={accordion.label}
         >
-          <span className="navi-side-link-icon">
-            <Icon size={20} strokeWidth={1.75} />
-          </span>
-          <span className="navi-side-link-label">{accordion.label}</span>
+          <span className="navi-sidebar-accordion__label">{accordion.label}</span>
         </button>
         <button
           type="button"
-          className="navi-side-accordion-chevron"
+          className="navi-sidebar-accordion__chevron"
           aria-expanded={expanded}
           aria-controls={panelId}
           aria-label={expanded ? `Recolher ${accordion.label}` : `Expandir ${accordion.label}`}
@@ -219,15 +214,15 @@ function SideNavAccordion({
             onToggle(accordion.id);
           }}
         >
-          <ChevronRight size={16} strokeWidth={2} aria-hidden />
+          <ChevronDown size={14} strokeWidth={2} aria-hidden />
         </button>
       </div>
       <div
         id={panelId}
-        className="navi-side-accordion-panel"
+        className="navi-sidebar-accordion__panel"
         data-open={expanded ? 'true' : 'false'}
       >
-        <ul className="navi-side-accordion-panel-inner" role="list">
+        <ul className="navi-sidebar-accordion__panel-inner" role="list">
           {accordion.children.map((child, idx) => {
             const childActive = isAccordionChildActive(child, location);
             const prevGroup = idx > 0 ? accordion.children[idx - 1]?.group : null;
@@ -235,8 +230,8 @@ function SideNavAccordion({
             return (
               <React.Fragment key={child.id}>
                 {showGroup ? (
-                  <li className="navi-side-accordion-group" role="presentation">
-                    <span className="navi-side-accordion-group-label">{child.group}</span>
+                  <li className="navi-sidebar-accordion__group" role="presentation">
+                    <span className="navi-sidebar-accordion__group-label">{child.group}</span>
                   </li>
                 ) : null}
                 <li role="listitem">
@@ -244,14 +239,12 @@ function SideNavAccordion({
                     to={child.to}
                     className={({ isActive }) =>
                       [
-                        'navi-side-link navi-side-link--child',
-                        isActive || childActive ? 'active navi-side-link--active' : '',
-                        footer ? 'navi-side-link--footer' : '',
+                        'navi-sidebar-link navi-sidebar-link--child',
+                        isActive || childActive ? 'active navi-sidebar-link--active' : '',
                       ].join(' ')
                     }
                   >
-                    <span className="navi-side-link-icon navi-side-link-icon--child-spacer" aria-hidden />
-                    <span className="navi-side-link-label">{child.label}</span>
+                    <span className="navi-sidebar-link__label">{child.label}</span>
                   </NavLink>
                 </li>
               </React.Fragment>
@@ -274,7 +267,7 @@ function NavModulesSkeleton({ collapsed }) {
   }
   return (
     <div className="navi-side-nav-skeleton" aria-hidden>
-      <span className="navi-side-section-title navi-side-skeleton-title">···</span>
+      <span className="navi-sidebar-section-title navi-side-skeleton-title">···</span>
       <div className="navi-side-skeleton-line" />
       <div className="navi-side-skeleton-line" />
       <div className="navi-side-skeleton-line navi-side-skeleton-line--short" />
@@ -334,19 +327,40 @@ export default function NaviSidebarNav({
   const relatoriosAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
 
   const conversasActive = matchNavTarget('/inbox', location);
+  const salesEnabled = modules?.sales === true;
+  const showSidebarActions = Boolean(navModel.newLead) || salesEnabled;
 
   return (
     <nav id="navi-sidebar-nav" className="navi-sidebar-nav">
       <SidebarSection collapsed={collapsed}>
-        {navModel.newLead ? (
-          <SideNavLink
-            to={navModel.newLead.to}
-            label={navModel.newLead.label}
-            Icon={PlusCircle}
-            collapsed={collapsed}
-            className={sideLinkClass}
-            action
-          />
+        {showSidebarActions ? (
+          <div className="navi-sidebar-actions">
+            {navModel.newLead ? (
+              <SideNavLink
+                to={navModel.newLead.to}
+                label={navModel.newLead.label}
+                Icon={PlusCircle}
+                collapsed={collapsed}
+                className={sideLinkClass}
+                action
+              />
+            ) : null}
+            {salesEnabled ? (
+              <button
+                type="button"
+                className={`navi-sidebar-link navi-sidebar-link--action-secondary${
+                  collapsed ? ' navi-sidebar-link--action-collapsed' : ''
+                }`}
+                onClick={() => dispatchOpenNovaVendaModal()}
+                title={collapsed ? 'Nova Venda' : undefined}
+              >
+                <span className="navi-sidebar-link__icon">
+                  <Tag size={18} strokeWidth={1.75} />
+                </span>
+                <span className="navi-sidebar-link__label">Nova Venda</span>
+              </button>
+            ) : null}
+          </div>
         ) : null}
         {navModel.primary.map((item) => (
           <SideNavLink
@@ -364,13 +378,13 @@ export default function NaviSidebarNav({
       <SidebarSection title="Atendimento" collapsed={collapsed} showDivider>
         <Link
           to="/inbox"
-          className={`navi-side-link${conversasActive ? ' active navi-side-link--active' : ''}`}
+          className={`navi-sidebar-link${conversasActive ? ' active navi-sidebar-link--active' : ''}`}
           title={collapsed ? 'Conversas' : undefined}
         >
-          <span className="navi-side-link-icon">
+          <span className="navi-sidebar-link__icon">
             <MessageCircle size={20} strokeWidth={1.75} />
           </span>
-          <span className="navi-side-link-label">Conversas</span>
+          <span className="navi-sidebar-link__label">Conversas</span>
           {inboxUnread > 0 && (
             <span
               className="navi-inbox-unread-dot"
@@ -415,11 +429,11 @@ export default function NaviSidebarNav({
       ) : null}
 
       {!modulesReady ? (
-        <SidebarSection title="Loja" collapsed={collapsed} showDivider>
+        <SidebarSection title="Vendas" collapsed={collapsed} showDivider>
           <NavModulesSkeleton collapsed={collapsed} />
         </SidebarSection>
       ) : lojaAccordion ? (
-        <SidebarSection title="Loja" collapsed={collapsed} showDivider>
+        <SidebarSection title="Vendas" collapsed={collapsed} showDivider>
           <SideNavAccordion
             accordion={lojaAccordion}
             Icon={ICONS.loja}
@@ -445,7 +459,6 @@ export default function NaviSidebarNav({
               onToggle={toggleAccordion}
               sideLinkClass={sideLinkClass}
               location={location}
-              footer
             />
           ) : null}
         </SidebarSection>

@@ -270,8 +270,8 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
       <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
         Defina as opções que a equipe vê ao encerrar ou pausar uma matrícula. Para tarefas automáticas ao
         desligar ou matricular, use a{' '}
-        <Link to="/empresa?tab=tarefas" className="edit-link">
-          aba Tarefas
+        <Link to="/automacoes?tab=processos" className="edit-link">
+          Automações → Processos
         </Link>
         .
       </p>

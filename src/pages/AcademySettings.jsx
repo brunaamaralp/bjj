@@ -26,8 +26,9 @@ import RouteFallback from '../components/shared/RouteFallback.jsx';
 
 const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
-import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
+import ProcessosMovedNotice from '../components/academy/ProcessosMovedNotice.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
+import { TASK_TEMPLATE_TRIGGERS } from '../lib/taskTemplates.js';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
@@ -44,8 +45,8 @@ const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', Icon: Building2, subtitle: 'Dados e identidade' },
     { id: 'funil', label: 'Funil', Icon: Filter, subtitle: 'Perguntas e etiquetas' },
     { id: 'alunos', label: 'Alunos', Icon: UserRound, subtitle: 'Cadastro e desligamento' },
-    { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Modelos e pós-matrícula' },
-    { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Planos, taxas e régua' },
+    { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Pós-matrícula' },
+    { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Configurações no hub Financeiro' },
     { id: 'contratos', label: 'Contratos', Icon: FileSignature, subtitle: 'Modelos para assinatura' },
     { id: 'vendas', label: 'Vendas', Icon: ShoppingBag, subtitle: 'PDV e comissões' },
 ];
@@ -155,6 +156,39 @@ const AcademySettings = () => {
 
     const rawTab = searchParams.get('tab') || '';
     const activeTab = VALID_TAB_IDS.has(rawTab) ? rawTab : 'estudio';
+
+    useEffect(() => {
+        if (activeTab !== 'tarefas' || !academyId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const jwt = await createSessionJwt();
+                if (!jwt || cancelled) return;
+                const res = await fetch('/api/task-templates?include_disabled=1', {
+                    headers: {
+                        Authorization: `Bearer ${jwt}`,
+                        'x-academy-id': academyId,
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (cancelled) return;
+                const list = data.templates || [];
+                setTasksTemplatesMeta({
+                    configurado: data.configurado !== false,
+                    hasEnrollmentTemplate: list.some(
+                        (t) => t.trigger === TASK_TEMPLATE_TRIGGERS.ENROLLMENT && t.enabled !== false
+                    ),
+                });
+            } catch {
+                if (!cancelled) {
+                    setTasksTemplatesMeta({ configurado: false, hasEnrollmentTemplate: false });
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTab, academyId]);
 
     const activeTabMeta = useMemo(
         () => TABS_ALL.find((t) => t.id === activeTab) || TABS_ALL[0],
@@ -607,11 +641,7 @@ const AcademySettings = () => {
 
             {!contentLoading && !tabDisabledState.disabled && activeTab === 'tarefas' && academyId && (
                 <>
-                    <TaskTemplatesSection
-                        academyId={academyId}
-                        teamId={academy?.teamId}
-                        onTemplatesMetaChange={setTasksTemplatesMeta}
-                    />
+                    <ProcessosMovedNotice />
                     <EnrollmentFollowUpSection
                         academyId={academyId}
                         hasEnrollmentTemplate={tasksTemplatesMeta.hasEnrollmentTemplate}

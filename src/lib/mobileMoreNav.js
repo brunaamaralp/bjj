@@ -6,7 +6,7 @@ function isFinanceiroHubPath(pathname) {
 }
 
 /**
- * Rotas cobertas pelos 3 slots fixos da bottom nav (Início, Conversas, Alunos).
+ * Rotas cobertas pelos 3 slots fixos da bottom nav (Hoje, Conversas, Alunos).
  */
 export function isBottomNavPrimaryRoute(pathname) {
   const p = String(pathname || '');
@@ -17,7 +17,7 @@ export function isBottomNavPrimaryRoute(pathname) {
   return false;
 }
 
-/** Slot "Mais" ativo quando a rota atual não é Início, Conversas nem Alunos. */
+/** Slot "Mais" ativo quando a rota atual não é Hoje, Conversas nem Alunos. */
 export function isBottomNavMaisActive(pathname) {
   return !isBottomNavPrimaryRoute(pathname);
 }
@@ -33,13 +33,13 @@ export function buildMobileMoreItems({ modules, isOwner, pipelineLabel = 'Funil'
 
   if (modules?.finance === true) {
     items.push(
-      { id: 'mensalidades', label: 'Mensalidades', to: '/mensalidades', iconKey: 'mensalidades' },
+      { id: 'mensalidades', label: 'Mensalidades', to: '/financeiro?tab=mensalidades', iconKey: 'mensalidades' },
       { id: 'financeiro', label: 'Financeiro', to: '/financeiro', iconKey: 'financeiro' }
     );
   }
 
   if (modules?.sales === true || modules?.inventory === true) {
-    items.push({ id: 'loja', label: 'Loja', to: '/loja', iconKey: 'loja' });
+    items.push({ id: 'loja', label: 'Vendas', to: '/loja', iconKey: 'loja' });
   }
 
   items.push(
@@ -74,7 +74,7 @@ export function isMobileMoreItemActive(item, location) {
   if (id === 'tarefas') return loc.pathname === '/tarefas';
   if (id === 'mensalidades') {
     if (loc.pathname === '/mensalidades') return true;
-    if (loc.pathname === '/financeiro') {
+    if (loc.pathname === '/financeiro' || loc.pathname === '/caixa') {
       const tab = String(new URLSearchParams(loc.search).get('tab') || '').toLowerCase();
       return tab === 'mensalidades';
     }

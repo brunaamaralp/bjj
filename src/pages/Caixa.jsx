@@ -36,12 +36,10 @@ import ReconciliationTab from '../components/finance/ReconciliationTab.jsx';
 
 import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 
-import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
-
 import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
 import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
-import ConfigTab from '../components/finance/ConfigTab.jsx';
+import FinanceiroConfigTab from '../components/finance/FinanceiroConfigTab.jsx';
 
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 
@@ -71,15 +69,13 @@ const defaultFinanceConfig = () => ({
 
 
 
-const OWNER_EXTRA_LEAF = ['conciliacao', 'plano', 'razao', 'dre'];
-
 const TAB_SUBTITLES = {
 
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Resumo financeiro da academia',
 
   [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Cobrança e controle de mensalidades',
 
-  [FINANCEIRO_SECTIONS.CONFIG]: 'Planos, taxas, contas e regras de cobrança',
+  [FINANCEIRO_SECTIONS.CONFIG]: 'Planos, taxas, contas, régua e contabilidade',
 
   movimentacoes: 'Movimentações e lançamentos do dia a dia',
 
@@ -88,12 +84,6 @@ const TAB_SUBTITLES = {
   fechamento: 'Painel de conferência — não trava lançamentos nem gera documento de fechamento',
 
   conciliacao: 'Conciliação de extratos bancários com lançamentos do Nave',
-
-  plano: 'Plano de contas',
-
-  razao: 'Livro razão',
-
-  dre: 'Demonstrações DRE e DFC',
 
 };
 
@@ -402,7 +392,7 @@ export default function Caixa() {
 
 
         {activeTab === FINANCEIRO_SECTIONS.CONFIG && isOwner && academyId ? (
-          <ConfigTab academyId={academyId} />
+          <FinanceiroConfigTab academyId={academyId} />
         ) : null}
 
 
@@ -495,12 +485,6 @@ export default function Caixa() {
             modules={modules}
 
           />
-
-        ) : null}
-
-        {isOwner && OWNER_EXTRA_LEAF.includes(activeTab) ? (
-
-          <CaixaAccountingPanel activeTab={activeTab} onGoToRazao={() => setTab('razao')} />
 
         ) : null}
 

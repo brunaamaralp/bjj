@@ -648,7 +648,7 @@ export default function StudentFinancialTimeline({
           </button>
           {hasSales ? (
             <button type="button" className="btn-outline btn-sm" style={{ flex: 1 }} onClick={onGoSales}>
-              Ver venda na Loja
+              Ver venda em Vendas
             </button>
           ) : null}
         </div>

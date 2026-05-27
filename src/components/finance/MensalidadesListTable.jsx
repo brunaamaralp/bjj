@@ -441,7 +441,7 @@ export default function MensalidadesListTable({
           icon={Users}
           title={`Nenhum ${terms.student.toLowerCase()} com plano ativo neste mês`}
           description="Configure os planos na empresa e associe um plano a cada aluno para acompanhar as mensalidades."
-          primaryAction={{ label: 'Configurar planos', href: '/empresa?tab=financeiro' }}
+          primaryAction={{ label: 'Configurar planos', href: '/financeiro?tab=configuracao' }}
           role="status"
         />
       );

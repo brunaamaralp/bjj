@@ -4793,7 +4793,7 @@ export default function Inbox() {
             WhatsApp desconectado — as mensagens não estão chegando.{' '}
             <button
               type="button"
-              onClick={() => navigate('/automacoes?tab=agente')}
+              onClick={() => navigate('/agente-ia')}
               style={{
                 background: 'none',
                 border: 'none',

@@ -910,7 +910,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                         {
                             role: 'assistant',
                             content:
-                                'O assistente não gerou resposta. Revise as instruções na aba Assistente IA.'
+                                'O assistente não gerou resposta. Revise as instruções em Agente de Atendimento.'
                         }
                     ]);
                 } else {
@@ -1173,7 +1173,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         return (
             <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
                 <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-                    Você não tem permissão para acessar o Assistente IA nesta academia.
+                    Você não tem permissão para acessar o Agente de Atendimento nesta academia.
                 </div>
             </section>
         );
@@ -1504,7 +1504,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                     <Bot size={22} strokeWidth={1.75} color={card2Active ? 'var(--accent, #5b3fbf)' : 'var(--text-secondary)'} aria-hidden />
                     <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
-                        Assistente IA
+                        Agente de Atendimento
                     </span>
 
                     {canEditPrompt && (

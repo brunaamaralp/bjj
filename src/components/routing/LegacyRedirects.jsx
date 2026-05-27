@@ -1,6 +1,7 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { resolveEmpresaLegacyTabRedirect } from '../../lib/empresaLegacyRedirects.js';
 
+/** Mapa documentado em src/lib/legacyRoutes.js */
 export { CaixaRedirect, FinanceRedirect, MensalidadesRedirect } from './FinanceiroRedirects.jsx';
 
 export function PlanosRedirect() {

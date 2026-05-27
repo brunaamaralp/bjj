@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
@@ -116,13 +117,19 @@ export default function EnrollmentFollowUpSection({
         </h3>
         <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
           Ao concluir a matrícula, o sistema aplica o template com gatilho <strong>Matrícula</strong> (várias
-          tarefas com prazos em dias). Edite os passos na seção acima — por exemplo: boas-vindas, grupo de
-          WhatsApp, check-in em 30 dias.
+          tarefas com prazos em dias). Edite os passos em{' '}
+          <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
+            Automações → Processos
+          </Link>
+          — por exemplo: boas-vindas, grupo de WhatsApp, check-in em 30 dias.
         </p>
         {templatesConfigurado ? (
           <p className="text-small text-muted" style={{ marginBottom: 0, lineHeight: 1.45 }}>
-            Se a academia ainda não tiver o processo de onboarding, use <strong>Restaurar padrões</strong> na
-            seção acima.
+            Se a academia ainda não tiver o processo de onboarding, use <strong>Restaurar padrões</strong> em{' '}
+            <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
+              Automações → Processos
+            </Link>
+            .
           </p>
         ) : null}
 
@@ -139,7 +146,11 @@ export default function EnrollmentFollowUpSection({
           >
             <span>
               Há uma tarefa adicional configurada fora dos templates. Recomendamos usar um template com gatilho{' '}
-              <strong>Matrícula</strong> na seção acima e remover a tarefa adicional abaixo.
+              <strong>Matrícula</strong> em{' '}
+              <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
+                Automações → Processos
+              </Link>{' '}
+              e remover a tarefa adicional abaixo.
             </span>
             <button type="button" className="btn-outline" disabled={saving} onClick={() => void clearExtraTask()}>
               Remover tarefa adicional
@@ -160,7 +171,7 @@ export default function EnrollmentFollowUpSection({
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
             <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
               Cria <strong>uma</strong> tarefa fixa após a matrícula (ex.: check-in em 7 dias), além do processo
-              com template Matrícula. Prefira templates na seção acima quando precisar de vários passos.
+              com template Matrícula. Prefira processos em Automações → Processos quando precisar de vários passos.
             </p>
 
             <label className="flex items-center gap-2" style={{ marginBottom: 12, fontSize: 14 }}>

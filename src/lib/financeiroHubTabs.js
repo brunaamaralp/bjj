@@ -1,6 +1,6 @@
 /**
  * Estrutura de abas do hub /financeiro (navegação apenas).
- * Slugs de conteúdo legados (movimentacoes, plano, …) permanecem em ?tab=.
+ * Slugs de conteúdo legados (movimentacoes, plano, …) permanecem em ?tab= onde aplicável.
  */
 
 export const FINANCEIRO_SECTIONS = {
@@ -11,36 +11,32 @@ export const FINANCEIRO_SECTIONS = {
   CONFIG: 'configuracao',
 };
 
-/** Abas folha sob o grupo Caixa. */
+/** Abas folha sob a seção Operações (legado; hub usa abas planas). */
 export const FINANCEIRO_CAIXA_LEAF_TABS = ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'];
 
-/** Abas folha sob Contabilidade (owner). */
+/** Abas contábeis owner — conteúdo em Configuração (não mais abas soltas). */
 export const FINANCEIRO_CONTABILIDADE_LEAF_TABS = ['plano', 'razao', 'dre'];
 
-/** @deprecated Nenhuma aba do hub usa placeholder — mantido para compat. */
-export const FINANCEIRO_PLACEHOLDER_TABS = new Set();
+const REDIRECT_TO_CONFIG_TABS = new Set([
+  'plano',
+  'razao',
+  'dre',
+  'contabilidade',
+  ...FINANCEIRO_CONTABILIDADE_LEAF_TABS,
+]);
 
 const TAB_TO_SECTION = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: FINANCEIRO_SECTIONS.OVERVIEW,
   [FINANCEIRO_SECTIONS.MENSALIDADES]: FINANCEIRO_SECTIONS.MENSALIDADES,
   [FINANCEIRO_SECTIONS.CONFIG]: FINANCEIRO_SECTIONS.CONFIG,
-  movimentacoes: FINANCEIRO_SECTIONS.CAIXA,
-  previsao: FINANCEIRO_SECTIONS.CAIXA,
-  fechamento: FINANCEIRO_SECTIONS.CAIXA,
-  conciliacao: FINANCEIRO_SECTIONS.CAIXA,
-  plano: FINANCEIRO_SECTIONS.CONTABILIDADE,
-  razao: FINANCEIRO_SECTIONS.CONTABILIDADE,
-  dre: FINANCEIRO_SECTIONS.CONTABILIDADE,
-  /** Legado: ?tab=contabilidade abria plano de contas */
-  contabilidade: FINANCEIRO_SECTIONS.CONTABILIDADE,
-};
-
-const SECTION_DEFAULT_LEAF = {
-  [FINANCEIRO_SECTIONS.OVERVIEW]: FINANCEIRO_SECTIONS.OVERVIEW,
-  [FINANCEIRO_SECTIONS.MENSALIDADES]: FINANCEIRO_SECTIONS.MENSALIDADES,
-  [FINANCEIRO_SECTIONS.CAIXA]: 'movimentacoes',
-  [FINANCEIRO_SECTIONS.CONTABILIDADE]: 'plano',
-  [FINANCEIRO_SECTIONS.CONFIG]: FINANCEIRO_SECTIONS.CONFIG,
+  movimentacoes: 'movimentacoes',
+  previsao: 'previsao',
+  fechamento: 'fechamento',
+  conciliacao: 'conciliacao',
+  plano: FINANCEIRO_SECTIONS.CONFIG,
+  razao: FINANCEIRO_SECTIONS.CONFIG,
+  dre: FINANCEIRO_SECTIONS.CONFIG,
+  contabilidade: FINANCEIRO_SECTIONS.CONFIG,
 };
 
 /** Mapeia ?tab= legado do hub (ex-/caixa) para slug folha. */
@@ -48,32 +44,22 @@ export function financeiroLegacyTabToSlug(raw) {
   const t = String(raw || '').trim().toLowerCase();
   if (t === 'transactions') return 'movimentacoes';
   if (t === 'closing') return 'fechamento';
-  if (t === 'contabilidade') return 'plano';
+  if (REDIRECT_TO_CONFIG_TABS.has(t)) return FINANCEIRO_SECTIONS.CONFIG;
   return t;
 }
 
-/** @deprecated alias */
-export const caixaLegacyTabToSlug = financeiroLegacyTabToSlug;
-
-/** Mapeia /finance legado para aba folha do hub financeiro. */
+/** Mapeia /finance legado para aba do hub financeiro. */
 export function financeLegacyTabToFinanceiro(raw) {
   const t = String(raw || '').trim().toLowerCase();
-  if (t === 'lancamentos') return 'razao';
-  if (t === 'relatorios') return 'dre';
-  if (t === 'plano') return 'plano';
-  return 'plano';
+  if (t === 'lancamentos') return FINANCEIRO_SECTIONS.CONFIG;
+  if (t === 'relatorios') return FINANCEIRO_SECTIONS.CONFIG;
+  if (t === 'plano') return FINANCEIRO_SECTIONS.CONFIG;
+  return FINANCEIRO_SECTIONS.CONFIG;
 }
-
-/** @deprecated alias */
-export const financeLegacyTabToCaixa = financeLegacyTabToFinanceiro;
 
 export function getFinanceiroSectionForTab(tab) {
   const id = String(tab || '').toLowerCase();
-  return TAB_TO_SECTION[id] || FINANCEIRO_SECTIONS.CAIXA;
-}
-
-export function defaultLeafTabForSection(section) {
-  return SECTION_DEFAULT_LEAF[section] || 'movimentacoes';
+  return TAB_TO_SECTION[id] || FINANCEIRO_SECTIONS.OVERVIEW;
 }
 
 export function buildFinanceiroMemberLeafTabs({ financeModule }) {
@@ -85,7 +71,6 @@ export function buildFinanceiroMemberLeafTabs({ financeModule }) {
 export function buildFinanceiroOwnerLeafTabs({ financeModule }) {
   const tabs = buildFinanceiroMemberLeafTabs({ financeModule });
   if (financeModule) tabs.push('conciliacao');
-  tabs.push(...FINANCEIRO_CONTABILIDADE_LEAF_TABS);
   return tabs;
 }
 

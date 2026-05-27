@@ -59,7 +59,7 @@ export default function NotificationBell({ academyId, userId }) {
       return;
     }
     if (n.is_system && n.type === 'whatsapp_disconnected') {
-      navigate('/automacoes?tab=agente');
+      navigate('/agente-ia');
       return;
     }
     navigate(`/inbox?phone=${normalizePhone(n.phone_number || '')}&conversation=${n.conversation_id}`);

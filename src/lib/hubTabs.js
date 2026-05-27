@@ -5,9 +5,4 @@ export function resolveHubTab(raw, allowedIds, fallback) {
   return set.has(id) ? id : fallback;
 }
 
-export {
-  financeiroLegacyTabToSlug,
-  caixaLegacyTabToSlug,
-  financeLegacyTabToFinanceiro,
-  financeLegacyTabToCaixa,
-} from './financeiroHubTabs.js';
+export { financeiroLegacyTabToSlug, financeLegacyTabToFinanceiro } from './financeiroHubTabs.js';

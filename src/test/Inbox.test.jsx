@@ -141,7 +141,7 @@ describe('Inbox — banner WhatsApp', () => {
     expect(await screen.findByText(/WhatsApp desconectado/i)).toBeInTheDocument();
     const link = screen.getByRole('button', { name: /Reconectar/i });
     link.click();
-    expect(inboxMocks.navigate).toHaveBeenCalledWith('/automacoes?tab=agente');
+    expect(inboxMocks.navigate).toHaveBeenCalledWith('/agente-ia');
 
     inboxMocks.setWaStatus('connected');
     rerender(

@@ -202,7 +202,7 @@ const REPORT_TAB_ITEMS_BASE = [
     { id: 'funil', label: 'Funil' },
     { id: 'alunos', label: 'Alunos' },
     { id: 'financeiro', label: 'Financeiro' },
-    { id: 'loja', label: 'Loja' },
+    { id: 'loja', label: 'Vendas' },
     { id: 'estoque', label: 'Estoque' },
     { id: 'movimentacoes', label: 'Movimentações' },
     { id: 'operador', label: 'Por Operador' },

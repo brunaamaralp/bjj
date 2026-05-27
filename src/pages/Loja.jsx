@@ -45,7 +45,7 @@ export default function Loja() {
   return (
     <div>
       <div className="container" style={{ paddingTop: 12, paddingBottom: 0 }}>
-        <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" />
+        <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Vendas" />
       </div>
       {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}
       {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? <Products /> : null}

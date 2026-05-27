@@ -27,7 +27,7 @@ import {
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
 
-export default function SalesNewSaleTab() {
+export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
   const createSale = useSalesStore((s) => s.createSale);
   const creating = useSalesStore((s) => s.creating);
   const lastSale = useSalesStore((s) => s.lastSale);
@@ -474,6 +474,19 @@ export default function SalesNewSaleTab() {
     }
 
     addToast({ type: 'success', message: 'Venda concluída' });
+
+    if (modalMode) {
+      setCart([]);
+      setPayments([createEmptyPaymentRow(0)]);
+      setDescGeralCents(0);
+      setDescGeralPct(0);
+      setMobilePanel('catalog');
+      resetSaleSession();
+      void reloadCatalog();
+      onSaleComplete?.();
+      return;
+    }
+
     const vendaId = st.lastSale?.venda_id || '';
     const totalFinal = round2(totalCart * fatorGeral);
     const dateStr = now.toLocaleDateString('pt-BR');

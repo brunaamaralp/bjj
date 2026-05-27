@@ -14,6 +14,9 @@ export const NAV_ACCORDION_IDS = {
 
 const FINANCEIRO_HUB_PATH = '/financeiro';
 
+/** Rótulo de grupo na sidebar (ex-"Caixa"). */
+export const FINANCEIRO_NAV_GROUP_OPERACOES = 'Operações';
+
 /** @typedef {{ id: string, label: string, to: string, iconKey?: string, requireAgent?: boolean, group?: string | null }} NavChildItem */
 /** @typedef {{ id: string, label: string, iconKey: string, defaultTo: string, children: NavChildItem[] }} NavAccordionItem */
 /** @typedef {{ to: string, label: string, iconKey: string, end?: boolean, action?: boolean }} NavDirectItem */
@@ -134,9 +137,12 @@ export function isAccordionChildActive(child, location) {
     const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
     if (child.id === 'visao-geral') return tab === FINANCEIRO_SECTIONS.OVERVIEW || !tab;
     if (child.id === 'mensalidades') return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
-    if (child.id === 'configuracao') return tab === FINANCEIRO_SECTIONS.CONFIG;
+    if (child.id === 'configuracao') {
+      if (tab === FINANCEIRO_SECTIONS.CONFIG) return true;
+      return CONTABILIDADE_TAB_IDS.has(tab);
+    }
     if (child.group === 'Contabilidade') return CONTABILIDADE_TAB_IDS.has(tab);
-    if (child.group === 'Caixa') {
+    if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) {
       return ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'].includes(tab);
     }
   }
@@ -144,32 +150,27 @@ export function isAccordionChildActive(child, location) {
 }
 
 export function isAccordionParentPartial(accordion, location) {
-  return accordion.children.some((c) => {
-    if (c.requireAgent && location.pathname !== '/agente-ia') {
-      return matchNavTarget(c.to, location);
-    }
-    return isAccordionChildActive(c, location);
-  });
+  return accordion.children.some((c) => isAccordionChildActive(c, location));
 }
 
 export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
   const children = [
-    { id: 'modelos', label: 'Modelos', to: '/automacoes?tab=modelos' },
+    { id: 'processos', label: 'Processos', to: '/automacoes?tab=processos' },
+    { id: 'modelos', label: 'Modelos de Mensagem', to: '/automacoes?tab=modelos' },
     { id: 'configuracoes', label: 'Configurações', to: '/automacoes?tab=configuracoes' },
   ];
   if (canConfigureAgenteIa) {
     children.push({
       id: 'agente',
-      label: 'Agente de IA',
-      to: '/automacoes?tab=agente',
-      requireAgent: true,
+      label: 'Agente de Atendimento',
+      to: '/agente-ia',
     });
   }
   return {
     id: NAV_ACCORDION_IDS.AUTOMACOES,
     label: 'Automações',
     iconKey: 'automacoes',
-    defaultTo: '/automacoes?tab=modelos',
+    defaultTo: '/automacoes?tab=processos',
     children,
   };
 }
@@ -188,7 +189,7 @@ export function buildLojaAccordion({ modules }) {
   if (children.length === 0) return null;
   return {
     id: NAV_ACCORDION_IDS.LOJA,
-    label: 'Loja',
+    label: 'Vendas',
     iconKey: 'loja',
     defaultTo: children[0].to,
     children,
@@ -215,10 +216,10 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
     },
     {
       id: 'movimentacoes',
-      label: 'Movimentações',
+      label: 'Caixa',
       to: `${FINANCEIRO_HUB_PATH}?tab=movimentacoes`,
       iconKey: 'movimentacoes',
-      group: 'Caixa',
+      group: FINANCEIRO_NAV_GROUP_OPERACOES,
     },
   ];
 
@@ -229,14 +230,14 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
         label: 'Previsão',
         to: `${FINANCEIRO_HUB_PATH}?tab=previsao`,
         iconKey: 'movimentacoes',
-        group: 'Caixa',
+        group: FINANCEIRO_NAV_GROUP_OPERACOES,
       },
       {
         id: 'fechamento',
         label: 'Fechamento',
         to: `${FINANCEIRO_HUB_PATH}?tab=fechamento`,
         iconKey: 'fechamento',
-        group: 'Caixa',
+        group: FINANCEIRO_NAV_GROUP_OPERACOES,
       }
     );
   }
@@ -247,40 +248,17 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       label: 'Conciliação',
       to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
       iconKey: 'movimentacoes',
-      group: 'Caixa',
+      group: FINANCEIRO_NAV_GROUP_OPERACOES,
     });
   }
 
   if (isOwner) {
-    children.push(
-      {
-        id: 'plano',
-        label: 'Plano de contas',
-        to: `${FINANCEIRO_HUB_PATH}?tab=plano`,
-        iconKey: 'contabilidade',
-        group: 'Contabilidade',
-      },
-      {
-        id: 'razao',
-        label: 'Razão',
-        to: `${FINANCEIRO_HUB_PATH}?tab=razao`,
-        iconKey: 'contabilidade',
-        group: 'Contabilidade',
-      },
-      {
-        id: 'dre',
-        label: 'DRE / DFC',
-        to: `${FINANCEIRO_HUB_PATH}?tab=dre`,
-        iconKey: 'contabilidade',
-        group: 'Contabilidade',
-      },
-      {
-        id: 'configuracao',
-        label: 'Configuração',
-        to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.CONFIG}`,
-        iconKey: 'financeiro',
-      }
-    );
+    children.push({
+      id: 'configuracao',
+      label: 'Configuração',
+      to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.CONFIG}`,
+      iconKey: 'financeiro',
+    });
   }
 
   return {
@@ -292,21 +270,40 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
   };
 }
 
-/** @deprecated use buildFinanceiroAccordion */
-export const buildCaixaAccordion = buildFinanceiroAccordion;
+/**
+ * Accordion Relatórios — mesmas abas e filtros que Reports.jsx (reportTabItems).
+ * @param {{ modules?: { finance?: boolean, sales?: boolean, inventory?: boolean } }} opts
+ */
+export function buildRelatoriosAccordion({ modules = {} } = {}) {
+  const hasFinance = modules.finance === true;
+  const hasSales = modules.sales === true;
+  const hasInventory = modules.inventory === true;
 
-export function buildRelatoriosAccordion() {
+  const base = [
+    { id: 'visao-geral', label: 'Visão geral', to: '/reports?tab=visao-geral' },
+    { id: 'funil', label: 'Análise do Funil', to: '/reports?tab=funil' },
+    { id: 'alunos', label: 'Alunos', to: '/reports?tab=alunos' },
+    { id: 'financeiro', label: 'Financeiro', to: '/reports?tab=financeiro' },
+    { id: 'loja', label: 'Vendas', to: '/reports?tab=loja' },
+    { id: 'estoque', label: 'Estoque', to: '/reports?tab=estoque' },
+    { id: 'movimentacoes', label: 'Movimentações', to: '/reports?tab=movimentacoes' },
+    { id: 'operador', label: 'Por Operador', to: '/reports?tab=operador' },
+  ];
+
+  const children = base.filter((t) => {
+    if (t.id === 'financeiro') return hasFinance;
+    if (t.id === 'loja') return hasSales;
+    if (t.id === 'estoque' || t.id === 'movimentacoes') return hasInventory;
+    if (t.id === 'operador') return hasSales;
+    return true;
+  });
+
   return {
     id: NAV_ACCORDION_IDS.RELATORIOS,
     label: 'Relatórios',
     iconKey: 'relatorios',
     defaultTo: '/reports?tab=visao-geral',
-    children: [
-      { id: 'visao-geral', label: 'Visão geral', to: '/reports?tab=visao-geral' },
-      { id: 'funil', label: 'Funil', to: '/reports?tab=funil' },
-      { id: 'financeiro', label: 'Financeiro', to: '/reports?tab=financeiro' },
-      { id: 'loja', label: 'Loja', to: '/reports?tab=loja' },
-    ],
+    children,
   };
 }
 
@@ -334,12 +331,12 @@ export function buildSidebarNavModel({
   const loja = buildLojaAccordion({ modules });
   if (loja) accordions.push(loja);
 
-  accordions.push(buildRelatoriosAccordion());
+  accordions.push(buildRelatoriosAccordion({ modules }));
 
   return {
     newLead: newLeadLabel ? { to: '/new-lead', label: newLeadLabel, iconKey: 'newLead', action: true } : null,
     primary: [
-      { to: '/', label: 'Início', iconKey: 'inicio', end: true },
+      { to: '/', label: 'Hoje', iconKey: 'inicio', end: true },
       { to: '/pipeline', label: pipelineLabel, iconKey: 'pipeline' },
       { to: '/students', label: navStudentsLabel, iconKey: 'students' },
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
@@ -360,7 +357,7 @@ export function flattenNavItemsForMobile(model) {
   for (const item of model.primary) push({ ...item, section: null });
   for (const item of model.atendimento) push({ ...item, section: 'Atendimento' });
 
-  push({ to: model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES)?.defaultTo || '/automacoes?tab=modelos', label: 'Automações', iconKey: 'automacoes', section: 'Atendimento' });
+  push({ to: model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES)?.defaultTo || '/automacoes?tab=processos', label: 'Automações', iconKey: 'automacoes', section: 'Atendimento' });
   const auto = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
   if (auto) {
     for (const c of auto.children) {
@@ -383,8 +380,8 @@ export function flattenNavItemsForMobile(model) {
 
   const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
   if (loja) {
-    push({ to: loja.defaultTo, label: 'Loja', iconKey: 'loja', section: 'Loja' });
-    for (const c of loja.children) push({ ...c, iconKey: c.iconKey || 'loja', section: 'Loja' });
+    push({ to: loja.defaultTo, label: 'Vendas', iconKey: 'loja', section: 'Vendas' });
+    for (const c of loja.children) push({ ...c, iconKey: c.iconKey || 'loja', section: 'Vendas' });
   }
 
   const rel = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
