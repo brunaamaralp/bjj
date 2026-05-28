@@ -1164,18 +1164,19 @@ button:active {
 }
 
 .navi-mobile-drawer__link--section-action {
-  margin: 2px 0;
-  border: 1px solid rgba(91, 63, 191, 0.28);
+  margin: 0;
+  border: none;
   border-radius: 8px;
-  background: rgba(91, 63, 191, 0.04);
-  color: var(--navi-sidebar-primary);
-  font-weight: 500;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(91, 63, 191, 0.32);
 }
 
 .navi-mobile-drawer__link--section-action:hover {
-  background: rgba(91, 63, 191, 0.08);
-  border-color: var(--navi-sidebar-primary);
   color: var(--navi-sidebar-primary);
+  background: rgba(91, 63, 191, 0.06);
+  box-shadow: inset 0 0 0 1px var(--navi-sidebar-primary);
 }
 
 .navi-mobile-drawer__actions {
@@ -2237,39 +2238,6 @@ button.funil-color-swatch {
   -webkit-appearance: none;
 }
 
-/* Ação na seção Loja (Nova venda) — mesma caixa dos links, contorno de botão */
-.navi-sidebar-link--section-action {
-  padding: 7px 12px;
-  border: 1px solid rgba(91, 63, 191, 0.28);
-  background: rgba(91, 63, 191, 0.04);
-  color: var(--navi-sidebar-primary);
-  font-weight: 500;
-  box-shadow: none;
-}
-
-.navi-sidebar-link--section-action .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
-}
-
-.navi-sidebar-link--section-action:hover {
-  background: var(--navi-sidebar-hover-bg);
-  border-color: var(--navi-sidebar-primary);
-  color: var(--navi-sidebar-primary);
-}
-
-.navi-sidebar-link--section-action:hover .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
-}
-
-.navi-sidebar-link--section-action.active,
-.navi-sidebar-link--section-action.navi-sidebar-link--active {
-  background: rgba(91, 63, 191, 0.06);
-  border-color: rgba(91, 63, 191, 0.35);
-  color: var(--navi-sidebar-primary);
-  font-weight: 500;
-  box-shadow: none;
-}
-
 /* Links raiz e filhos */
 .navi-sidebar-link {
   position: relative;
@@ -2332,6 +2300,49 @@ button.funil-color-swatch {
 .navi-sidebar-link.active .navi-sidebar-link__icon,
 .navi-sidebar-link--active .navi-sidebar-link__icon {
   color: var(--navi-sidebar-primary);
+}
+
+/* Nova venda (e ações na seção): mesma métrica dos links + contorno (não rota) */
+.navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action {
+  padding: 8px 13px;
+  margin: 0 10px;
+  gap: 12px;
+  width: calc(100% - 20px);
+  max-width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(91, 63, 191, 0.32);
+}
+
+.navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action .navi-sidebar-link__icon {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+}
+
+.navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action:hover {
+  color: var(--navi-sidebar-primary);
+  background: var(--navi-sidebar-hover-bg);
+  box-shadow: inset 0 0 0 1px var(--navi-sidebar-primary);
+}
+
+.navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action:hover .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-primary);
+}
+
+.navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action.active,
+.navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action.navi-sidebar-link--active {
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(91, 63, 191, 0.32);
 }
 
 .navi-sidebar-link--child {
@@ -2815,8 +2826,9 @@ button.funil-color-swatch {
   gap: 0;
 }
 
-.navi-sidebar--collapsed .navi-sidebar-link--section-action {
-  padding: 7px;
+.navi-sidebar--collapsed .navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action {
+  padding: 8px;
+  box-shadow: inset 0 0 0 1px rgba(91, 63, 191, 0.32);
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link__label,
