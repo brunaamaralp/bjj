@@ -664,11 +664,20 @@ button:active {
 }
 
 .navi-sidebar-section--footer,
-.navi-side-section--footer,
+.navi-side-section--footer {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .navi-sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   margin-top: auto;
   padding-top: 8px;
   border-top: 1px solid var(--border-mid);
+  background: linear-gradient(to top, var(--surface) 78%, rgba(255, 255, 255, 0));
 }
 
 .navi-main-stack {

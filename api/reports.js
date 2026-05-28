@@ -20,8 +20,15 @@ const LEADS_COL =
 
 const REPORT_TIMEOUT_MS = Number(process.env.REPORTS_HANDLER_TIMEOUT_MS || 28000);
 
-const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
-const databases = new Databases(adminClient);
+function getReportsDatabases() {
+  if (!PROJECT_ID || !API_KEY || !DB_ID || !LEADS_COL) {
+    const error = new Error('reports_env_missing');
+    error.code = 'CONFIG_MISSING';
+    throw error;
+  }
+  const adminClient = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+  return new Databases(adminClient);
+}
 
 function json(res, status, obj) {
   res.status(status).json(obj);
@@ -31,7 +38,7 @@ function logReport(entry) {
   console.log(JSON.stringify({ scope: 'api/reports', ...entry, ts: new Date().toISOString() }));
 }
 
-async function fetchAllLeads(queries, signal) {
+async function fetchAllLeads(databases, queries, signal) {
   let all = [];
   let cursor = null;
   do {
@@ -100,6 +107,8 @@ export default async function handler(req, res) {
   const timer = setTimeout(() => controller.abort(), REPORT_TIMEOUT_MS);
 
   try {
+    const reportsDb = getReportsDatabases();
+
     if (!refresh) {
       const snap = await loadReportSnapshot(academyId, from, to, filters, chartMode);
       if (snap?.payload) {
@@ -129,7 +138,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const allLeads = await fetchAllLeads(baseQueries, controller.signal);
+    const allLeads = await fetchAllLeads(reportsDb, baseQueries, controller.signal);
     const aggregated = aggregateLeadsReport(allLeads, { from, to, prevFrom, prevTo, chartMode });
 
     const payload = {
@@ -151,6 +160,7 @@ export default async function handler(req, res) {
     return json(res, 200, payload);
   } catch (e) {
     const isTimeout = e?.code === 'TIMEOUT' || e?.name === 'AbortError';
+    const isConfigMissing = e?.code === 'CONFIG_MISSING';
     logReport({
       ...reportMeta,
       leadCount: 0,
@@ -161,6 +171,12 @@ export default async function handler(req, res) {
       return json(res, 504, {
         error: 'timeout',
         message: 'Muitos dados — tente um período menor',
+      });
+    }
+    if (isConfigMissing) {
+      return json(res, 500, {
+        error: 'config_missing',
+        message: 'Configuração de relatórios incompleta no servidor',
       });
     }
     console.error(e);
