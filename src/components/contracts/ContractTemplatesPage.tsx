@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   useContractTemplates,
   useCreateContractTemplate,
@@ -18,7 +18,13 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ContractTemplateEditor from './ContractTemplateEditor.js';
+import ContractTemplateMetaForm from './ContractTemplateMetaForm.js';
 import PageHeader from '../layout/PageHeader.jsx';
+import {
+  buildEditorSnapshot,
+  isEditorDirty,
+  type ContractTemplateEditorSnapshot,
+} from './contractTemplateEditorState.js';
 import './contracts.css';
 import { friendlyError } from '../../lib/errorMessages.js';
 
@@ -26,12 +32,24 @@ type EditorMode = 'create' | 'edit' | null;
 
 type ContractTemplatesPageProps = { embedded?: boolean };
 
+type TemplateRow = {
+  $id: string;
+  name: string;
+  description?: string;
+  planNames?: string[];
+  isDefault?: boolean;
+  active?: boolean;
+  bodyHtml?: string;
+};
+
 export default function ContractTemplatesPage({ embedded = false }: ContractTemplatesPageProps) {
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
   const academyDoc = academyList.find((a) => a.id === academyId) || null;
   const navRole = useUserRole(academyDoc);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data, isLoading, isError, error, refetch } = useContractTemplates(false);
   const createMutation = useCreateContractTemplate();
@@ -42,13 +60,30 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [planNames, setPlanNames] = useState('');
+  const [selectedPlanNames, setSelectedPlanNames] = useState<string[]>([]);
   const [isDefault, setIsDefault] = useState(false);
   const [bodyHtml, setBodyHtml] = useState(DEFAULT_CONTRACT_TEMPLATE_HTML);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; body?: string }>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; label: string } | null>(null);
+  const [discardConfirm, setDiscardConfirm] = useState(false);
+
+  const baselineRef = useRef<ContractTemplateEditorSnapshot | null>(null);
+  const urlSyncRef = useRef(false);
 
   const templates = data?.templates || [];
   const configured = data?.configured !== false;
+
+  const financePlanNames = useMemo(() => {
+    const names = (financeConfig?.plans || [])
+      .map((p: { name?: string }) => String(p?.name || '').trim())
+      .filter(Boolean);
+    return [...new Set(names)];
+  }, [financeConfig?.plans]);
+
+  const extraPlanNames = useMemo(() => {
+    const financeSet = new Set(financePlanNames.map((n) => n.toLowerCase()));
+    return selectedPlanNames.filter((n) => !financeSet.has(n.toLowerCase()));
+  }, [selectedPlanNames, financePlanNames]);
 
   const previewVars = useMemo(
     () =>
@@ -72,45 +107,182 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     [academyDoc?.name]
   );
 
-  const resetEditor = () => {
-    setEditorMode(null);
-    setEditingId(null);
-    setName('');
-    setDescription('');
-    setPlanNames('');
-    setIsDefault(false);
-    setBodyHtml(DEFAULT_CONTRACT_TEMPLATE_HTML);
-  };
+  const currentSnapshot = useMemo(
+    () =>
+      buildEditorSnapshot({
+        name,
+        description,
+        planNames: selectedPlanNames,
+        isDefault,
+        bodyHtml,
+      }),
+    [name, description, selectedPlanNames, isDefault, bodyHtml]
+  );
 
-  const openCreate = () => {
-    resetEditor();
-    setEditorMode('create');
-  };
+  const dirty = isEditorDirty(currentSnapshot, baselineRef.current);
 
-  const openEdit = (t: (typeof templates)[number]) => {
-    setEditorMode('edit');
-    setEditingId(t.$id);
-    setName(t.name);
-    setDescription(t.description || '');
-    setPlanNames((t.planNames || []).join(', '));
-    setIsDefault(t.isDefault);
-    setBodyHtml(t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML);
-  };
+  const syncEditorUrl = useCallback(
+    (mode: EditorMode, id: string | null) => {
+      urlSyncRef.current = true;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (embedded) next.set('tab', 'contratos');
+          if (mode === 'create') {
+            next.set('new', '1');
+            next.delete('edit');
+          } else if (mode === 'edit' && id) {
+            next.set('edit', id);
+            next.delete('new');
+          } else {
+            next.delete('edit');
+            next.delete('new');
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [embedded, setSearchParams]
+  );
+
+  const applyEditorState = useCallback((state: {
+    mode: EditorMode;
+    id: string | null;
+    name: string;
+    description: string;
+    planNames: string[];
+    isDefault: boolean;
+    bodyHtml: string;
+  }) => {
+    setEditorMode(state.mode);
+    setEditingId(state.id);
+    setName(state.name);
+    setDescription(state.description);
+    setSelectedPlanNames(state.planNames);
+    setIsDefault(state.isDefault);
+    setBodyHtml(state.bodyHtml);
+    setFieldErrors({});
+    baselineRef.current = buildEditorSnapshot({
+      name: state.name,
+      description: state.description,
+      planNames: state.planNames,
+      isDefault: state.isDefault,
+      bodyHtml: state.bodyHtml,
+    });
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    applyEditorState({
+      mode: null,
+      id: null,
+      name: '',
+      description: '',
+      planNames: [],
+      isDefault: false,
+      bodyHtml: DEFAULT_CONTRACT_TEMPLATE_HTML,
+    });
+    syncEditorUrl(null, null);
+  }, [applyEditorState, syncEditorUrl]);
+
+  const openCreate = useCallback(() => {
+    applyEditorState({
+      mode: 'create',
+      id: null,
+      name: '',
+      description: '',
+      planNames: [],
+      isDefault: false,
+      bodyHtml: DEFAULT_CONTRACT_TEMPLATE_HTML,
+    });
+    syncEditorUrl('create', null);
+  }, [applyEditorState, syncEditorUrl]);
+
+  const openEdit = useCallback(
+    (t: TemplateRow) => {
+      applyEditorState({
+        mode: 'edit',
+        id: t.$id,
+        name: t.name,
+        description: t.description || '',
+        planNames: [...(t.planNames || [])],
+        isDefault: Boolean(t.isDefault),
+        bodyHtml: t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML,
+      });
+      syncEditorUrl('edit', t.$id);
+    },
+    [applyEditorState, syncEditorUrl]
+  );
+
+  const requestCloseEditor = useCallback(() => {
+    if (dirty) {
+      setDiscardConfirm(true);
+      return;
+    }
+    closeEditor();
+  }, [dirty, closeEditor]);
+
+  const handleTogglePlan = useCallback((planName: string, checked: boolean) => {
+    setSelectedPlanNames((prev) => {
+      const key = planName.trim();
+      if (!key) return prev;
+      if (checked) {
+        if (prev.some((p) => p.toLowerCase() === key.toLowerCase())) return prev;
+        return [...prev, key];
+      }
+      return prev.filter((p) => p.toLowerCase() !== key.toLowerCase());
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!configured || isLoading || navRole !== 'owner') return;
+
+    const editParam = searchParams.get('edit');
+    const isNew = searchParams.get('new') === '1';
+
+    if (urlSyncRef.current) {
+      urlSyncRef.current = false;
+      return;
+    }
+
+    if (isNew) {
+      if (editorMode !== 'create') openCreate();
+      return;
+    }
+
+    if (editParam) {
+      if (editorMode === 'edit' && editingId === editParam) return;
+      const t = templates.find((row) => row.$id === editParam);
+      if (t) openEdit(t);
+      return;
+    }
+
+    if (editorMode) closeEditor();
+  }, [
+    configured,
+    isLoading,
+    navRole,
+    searchParams,
+    templates,
+    editorMode,
+    editingId,
+    openCreate,
+    openEdit,
+    closeEditor,
+  ]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      addToast({ type: 'error', message: 'Informe o nome do modelo.' });
+    const errors: { name?: string; body?: string } = {};
+    if (!name.trim()) errors.name = 'Informe o nome do modelo.';
+    if (!bodyHtml.trim()) errors.body = 'Escreva o conteúdo do contrato.';
+    if (errors.name || errors.body) {
+      setFieldErrors(errors);
       return;
     }
-    if (!bodyHtml.trim()) {
-      addToast({ type: 'error', message: 'Escreva o conteúdo do contrato.' });
-      return;
-    }
-    const plans = planNames
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean);
+    setFieldErrors({});
+
+    const plans = selectedPlanNames.map((p) => p.trim()).filter(Boolean);
 
     try {
       if (editorMode === 'edit' && editingId) {
@@ -135,7 +307,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         });
         addToast({ type: 'success', message: 'Modelo criado.' });
       }
-      resetEditor();
+      closeEditor();
       refetch();
     } catch (err) {
       addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao salvar' });
@@ -153,7 +325,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     try {
       await deleteMutation.mutateAsync(id);
       addToast({ type: 'success', message: 'Modelo excluído.' });
-      if (editingId === id) resetEditor();
+      if (editingId === id) closeEditor();
       refetch();
     } catch (err) {
       addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao excluir' });
@@ -172,16 +344,24 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   }
 
   const saving = createMutation.isPending || updateMutation.isPending;
+  const editorTitle =
+    editorMode === 'edit'
+      ? `Editar: ${name.trim() || 'modelo'}`
+      : 'Novo modelo';
 
   return (
     <div className={embedded ? 'contracts-page' : 'container contracts-page'}>
       <PageHeader
         className="contracts-page-header"
         title="Modelos de contrato"
-        subtitle="Edite modelos com variáveis e vincule planos na aba Financeiro."
+        subtitle="Textos para assinatura digital. Associe cada plano a um modelo em Financeiro → Planos."
         prefix={
           !embedded ? (
-            <Link to="/empresa" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8, textTransform: 'none', letterSpacing: 'normal' }}>
+            <Link
+              to="/empresa"
+              className="navi-eyebrow flex items-center gap-1"
+              style={{ marginBottom: 8, textTransform: 'none', letterSpacing: 'normal' }}
+            >
               <ArrowLeft size={14} /> Configurações
             </Link>
           ) : null
@@ -205,49 +385,59 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       ) : null}
 
       {editorMode ? (
-        <section className="card mt-4 animate-in">
-          <h2 className="navi-section-heading" style={{ marginBottom: 12 }}>
-            {editorMode === 'edit' ? 'Editar modelo' : 'Novo modelo'}
-          </h2>
-          <form className="flex-col" style={{ gap: 12 }} onSubmit={handleSave}>
-            <div className="form-group">
-              <label className="task-field-label">Nome</label>
-              <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label className="task-field-label">Descrição (opcional)</label>
-              <input
-                className="form-input"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="task-field-label">Planos vinculados (nomes separados por vírgula)</label>
-              <input
-                className="form-input"
-                value={planNames}
-                onChange={(e) => setPlanNames(e.target.value)}
-                placeholder="Mensal, Anual"
-              />
-            </div>
-            <label className="contracts-sandbox">
-              <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
-              <span>Modelo padrão</span>
-            </label>
+        <section className="card mt-4 animate-in contract-template-editor-focus">
+          <div className="contract-template-editor-focus__header">
+            <button
+              type="button"
+              className="contract-template-editor-back edit-link"
+              onClick={requestCloseEditor}
+              disabled={saving}
+            >
+              <ChevronLeft size={16} aria-hidden />
+              Biblioteca de modelos
+            </button>
+            <h2 className="navi-section-heading contract-template-editor-focus__title">{editorTitle}</h2>
+          </div>
+
+          <form className="contract-template-editor-focus__form" onSubmit={handleSave}>
+            <ContractTemplateMetaForm
+              name={name}
+              description={description}
+              selectedPlanNames={selectedPlanNames}
+              isDefault={isDefault}
+              financePlanNames={financePlanNames}
+              extraPlanNames={extraPlanNames}
+              nameError={fieldErrors.name}
+              disabled={saving}
+              onNameChange={(v) => {
+                setName(v);
+                if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+              }}
+              onDescriptionChange={setDescription}
+              onTogglePlan={handleTogglePlan}
+              onIsDefaultChange={setIsDefault}
+            />
 
             <ContractTemplateEditor
               bodyHtml={bodyHtml}
-              onChange={setBodyHtml}
+              onChange={(html) => {
+                setBodyHtml(html);
+                if (fieldErrors.body) setFieldErrors((prev) => ({ ...prev, body: undefined }));
+              }}
               previewVars={previewVars}
               disabled={saving}
+              bodyError={fieldErrors.body}
             />
 
-            <div className="flex gap-2" style={{ marginTop: 8 }}>
-              <button type="button" className="btn-outline" onClick={resetEditor} disabled={saving}>
-                Cancelar
+            <div className="contract-template-editor-focus__actions">
+              <button type="button" className="btn-outline" onClick={requestCloseEditor} disabled={saving}>
+                Descartar
               </button>
-              <button type="submit" className="btn-primary" disabled={saving}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={saving || (editorMode === 'edit' && !dirty)}
+              >
                 {saving ? 'Salvando…' : 'Salvar modelo'}
               </button>
             </div>
@@ -255,86 +445,96 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         </section>
       ) : null}
 
-      <section className="mt-4 animate-in">
-        <h2 className="navi-section-heading mb-2">Biblioteca</h2>
-        {isLoading ? <PageSkeleton variant="table" rows={4} columns={4} /> : null}
-        {isError ? (
-          <ErrorBanner
-            message={friendlyError(error, 'load')}
-            onRetry={() => refetch()}
-          />
-        ) : null}
-        {!isLoading && !isError && templates.length === 0 ? (
-          <p className="text-muted text-small">
-            Nenhum modelo ainda. Clique em <strong>Novo modelo</strong> para criar o primeiro.
-          </p>
-        ) : null}
-        {!isLoading && templates.length > 0 ? (
-          <div className="card">
-            <table className="contracts-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Planos</th>
-                  <th>Status</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {templates.map((t) => (
-                  <tr key={t.$id}>
-                    <td>
-                      {t.name}
-                      {t.isDefault ? (
-                        <span className="contracts-status-badge" style={{ marginLeft: 8 }}>
-                          Padrão
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="text-small text-muted">
-                      {t.planNames?.length ? t.planNames.join(', ') : '—'}
-                    </td>
-                    <td>{t.active ? 'Ativo' : 'Inativo'}</td>
-                    <td className="contracts-table-actions">
-                      <button type="button" className="btn-ghost text-small" onClick={() => openEdit(t)}>
-                        <Pencil size={14} /> Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost text-small"
-                        onClick={async () => {
-                          try {
-                            await updateMutation.mutateAsync({
-                              id: t.$id,
-                              patch: { active: !t.active },
-                            });
-                            refetch();
-                          } catch (err) {
-                            addToast({
-                              type: 'error',
-                              message: err instanceof Error ? err.message : 'Erro',
-                            });
-                          }
-                        }}
-                      >
-                        {t.active ? 'Desativar' : 'Ativar'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        title="Excluir"
-                        onClick={() => handleDelete(t.$id, t.name)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
+      {!editorMode ? (
+        <section className="mt-4 animate-in">
+          <h2 className="navi-section-heading mb-2">Biblioteca</h2>
+          {isLoading ? <PageSkeleton variant="table" rows={4} columns={4} /> : null}
+          {isError ? (
+            <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => refetch()} />
+          ) : null}
+          {!isLoading && !isError && templates.length === 0 ? (
+            <div className="card contract-template-empty">
+              <p className="text-muted text-small" style={{ margin: 0 }}>
+                Nenhum modelo ainda. Crie o primeiro para enviar contratos pela Autentique.
+              </p>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ marginTop: 12 }}
+                onClick={openCreate}
+                disabled={!configured}
+              >
+                <Plus size={16} /> Criar primeiro modelo
+              </button>
+            </div>
+          ) : null}
+          {!isLoading && templates.length > 0 ? (
+            <div className="card">
+              <table className="contracts-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Planos (fallback)</th>
+                    <th>Status</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </section>
+                </thead>
+                <tbody>
+                  {templates.map((t) => (
+                    <tr key={t.$id}>
+                      <td>
+                        {t.name}
+                        {t.isDefault ? (
+                          <span className="contracts-status-badge" style={{ marginLeft: 8 }}>
+                            Padrão
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="text-small text-muted">
+                        {t.planNames?.length ? t.planNames.join(', ') : '—'}
+                      </td>
+                      <td>{t.active ? 'Ativo' : 'Inativo'}</td>
+                      <td className="contracts-table-actions">
+                        <button type="button" className="btn-ghost text-small" onClick={() => openEdit(t)}>
+                          <Pencil size={14} /> Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost text-small"
+                          onClick={async () => {
+                            try {
+                              await updateMutation.mutateAsync({
+                                id: t.$id,
+                                patch: { active: !t.active },
+                              });
+                              refetch();
+                            } catch (err) {
+                              addToast({
+                                type: 'error',
+                                message: err instanceof Error ? err.message : 'Erro',
+                              });
+                            }
+                          }}
+                        >
+                          {t.active ? 'Desativar' : 'Ativar'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          title="Excluir"
+                          onClick={() => handleDelete(t.$id, t.name)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(deleteConfirm)}
@@ -343,6 +543,19 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         confirmLabel="Excluir"
         onConfirm={() => void runDeleteConfirmed()}
         onClose={() => setDeleteConfirm(null)}
+      />
+
+      <ConfirmDialog
+        open={discardConfirm}
+        title="Descartar alterações?"
+        description="O modelo não foi salvo. As alterações serão perdidas."
+        confirmLabel="Descartar"
+        confirmVariant="danger"
+        onConfirm={() => {
+          setDiscardConfirm(false);
+          closeEditor();
+        }}
+        onClose={() => setDiscardConfirm(false)}
       />
     </div>
   );

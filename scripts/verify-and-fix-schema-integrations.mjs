@@ -70,6 +70,7 @@ const CONTRACTS_COL = process.env.APPWRITE_CONTRACTS_COLLECTION_ID || '';
 const CONTRACT_SIGNERS_COL = process.env.APPWRITE_CONTRACT_SIGNERS_COLLECTION_ID || '';
 const CONTRACT_EVENTS_COL = process.env.APPWRITE_CONTRACT_EVENTS_COLLECTION_ID || '';
 const CONTRACT_TEMPLATES_COL = process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || '';
+const WEBHOOK_LOGS_COL = process.env.APPWRITE_WEBHOOK_LOGS_COLLECTION_ID || '';
 const ATTENDANCE_COL =
   process.env.APPWRITE_ATTENDANCE_COLLECTION_ID ||
   process.env.VITE_APPWRITE_ATTENDANCE_COL_ID ||
@@ -95,6 +96,7 @@ const summary = {
   CONTRACT_SIGNERS: emptyStats(),
   CONTRACT_EVENTS: emptyStats(),
   CONTRACT_TEMPLATES: emptyStats(),
+  WEBHOOK_LOGS: emptyStats(),
   CLASSES: emptyStats(),
   ACCESS_LOG: emptyStats(),
 };
@@ -474,6 +476,19 @@ const CONTRACT_EVENTS_ATTRS = [
 ];
 
 /** contractTemplateService.ts */
+/** contractService.saveWebhookLog */
+const WEBHOOK_LOGS_ATTRS = [
+  { key: 'raw_payload', type: 'string', size: 65535 },
+  { key: 'signature_valid', type: 'boolean' },
+  { key: 'processed', type: 'boolean' },
+  { key: 'event_type', type: 'string', size: 64 },
+  { key: 'error', type: 'string', size: 2048 },
+  { key: 'payload', type: 'string', size: 65535 },
+  { key: 'signature_header', type: 'string', size: 512 },
+  { key: 'is_valid', type: 'boolean' },
+  { key: 'autentique_event_id', type: 'string', size: 64 },
+];
+
 const CONTRACT_TEMPLATES_ATTRS = [
   { key: 'academy_id', type: 'string', size: 64 },
   { key: 'name', type: 'string', size: 128 },
@@ -634,6 +649,14 @@ async function main() {
     ],
   });
 
+  await processCollection(databases, {
+    id: WEBHOOK_LOGS_COL,
+    statsKey: 'WEBHOOK_LOGS',
+    title: 'WEBHOOK_LOGS',
+    attrs: WEBHOOK_LOGS_ATTRS,
+    indexes: [{ key: 'idx_webhook_logs_event_type', attributes: ['event_type'] }],
+  });
+
   if (CLASSES_COL) {
     logSkippedBlock(
       'CLASSES',
@@ -673,6 +696,7 @@ async function main() {
   printLineSummary('CONTRACT_SIGNERS', summary.CONTRACT_SIGNERS);
   printLineSummary('CONTRACT_EVENTS', summary.CONTRACT_EVENTS);
   printLineSummary('CONTRACT_TEMPLATES', summary.CONTRACT_TEMPLATES);
+  printLineSummary('WEBHOOK_LOGS', summary.WEBHOOK_LOGS);
   printLineSummary('CLASSES', summary.CLASSES);
   printLineSummary('ACCESS_LOG (ATTENDANCE)', summary.ACCESS_LOG);
   console.log('════════════════════════════════════════\n');
