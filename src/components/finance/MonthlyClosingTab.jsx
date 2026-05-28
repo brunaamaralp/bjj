@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Plus, Receipt } from 'lucide-react';
-import { fetchMonthlyClosing, createFinanceTx } from '../../lib/financeTxApi.js';
+import { Link } from 'react-router-dom';
+import { CheckCircle, ChevronLeft, ChevronRight, Clock, Download, Plus, Receipt } from 'lucide-react';
+import { fetchMonthlyClosing, createFinanceTx, recordCashClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
@@ -8,7 +9,12 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
+import useDebounce from '../../hooks/useDebounce.js';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
 import {
   buildClosingRows,
@@ -29,13 +35,14 @@ import {
   getFinanceRegime,
 } from '../../lib/financeCompetence.js';
 import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
+import { useUserRole } from '../../lib/useUserRole.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartao_debito', label: 'Cartão de débito' },
-  { value: 'cartao_credito', label: 'Cartão de crédito' },
-  { value: 'transferencia', label: 'Transferência' },
+  { value: 'cartão_débito', label: 'Cartão de débito' },
+  { value: 'cartão_crédito', label: 'Cartão de crédito' },
+  { value: 'transferência', label: 'Transferência' },
 ];
 
 function formatMonthTitle(ym) {
@@ -56,9 +63,10 @@ function currentYm() {
 
 export default function MonthlyClosingTab({ academyId, academyName, financeConfig, modules }) {
   const leads = useStudentStore((s) => s.students);
-  const userId = useLeadStore((s) => s.userId);
-  const teamId = useLeadStore((s) => s.teamId);
+  const academyList = useLeadStore((s) => s.academyList);
   const addToast = useUiStore((s) => s.addToast);
+  const isMobile = useMatchMobile();
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
 
   const [referenceMonth, setReferenceMonth] = useState(currentYm);
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
@@ -70,8 +78,13 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
   const [situationFilter, setSituationFilter] = useState(() => new Set(CLOSING_SITUATIONS));
   const [methodFilter, setMethodFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 200);
   const [showManual, setShowManual] = useState(false);
   const [savingManual, setSavingManual] = useState(false);
+  const [closingPartialWarning, setClosingPartialWarning] = useState(false);
+  const [cashClosing, setCashClosing] = useState(null);
+  const [savingClosing, setSavingClosing] = useState(false);
   const [manualForm, setManualForm] = useState({
     lead_id: '',
     studentQuery: '',
@@ -99,6 +112,12 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
   }, [leads]);
 
   const [pendingInMonth, setPendingInMonth] = useState(0);
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
+  const navRole = useUserRole(academyDoc);
+  const canRegisterClosing = navRole === 'owner' || navRole === 'admin';
 
   const loadData = useCallback(async () => {
     if (!academyId) return;
@@ -110,17 +129,22 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         setPayments(data.payments || []);
         setTransactions(data.transactions || []);
         setPendingInMonth(Number(data.pendingInMonth) || 0);
+        setCashClosing(data.cashClosing || null);
+        setClosingPartialWarning(false);
       } catch {
         const payDocs = await getMonthlyPayments(academyId, ym);
         setPayments(payDocs);
         setTransactions([]);
         setPendingInMonth(0);
+        setCashClosing(null);
+        setClosingPartialWarning(true);
       }
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', message: friendlyError(e, 'load') });
       setPayments([]);
       setTransactions([]);
+      setCashClosing(null);
     } finally {
       setLoading(false);
     }
@@ -197,8 +221,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
       origins,
       situations: situationFilter,
       paymentMethodKey: methodFilter,
+      search: debouncedSearch,
     });
-  }, [allRows, originFilter, situationFilter, methodFilter, availableOrigins]);
+  }, [allRows, originFilter, situationFilter, methodFilter, debouncedSearch, availableOrigins]);
 
   const sortedRows = useMemo(() => sortClosingRows(filteredRows, sortBy), [filteredRows, sortBy]);
   const totals = useMemo(() => computeClosingTotals(sortedRows), [sortedRows]);
@@ -319,12 +344,61 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     }
   };
 
+  const registerClosing = async () => {
+    if (!academyId || savingClosing || cashClosing) return;
+    setSavingClosing(true);
+    try {
+      const snapshot = {
+        referenceMonth,
+        regime,
+        totals: computeClosingTotals(sortedRows),
+      };
+      await recordCashClosing({ academyId, referenceMonth, snapshot });
+      addToast({ type: 'success', message: 'Fechamento registrado com sucesso.' });
+      setShowRegisterDialog(false);
+      await loadData();
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setSavingClosing(false);
+    }
+  };
+
+  const cashClosingLabel = useMemo(() => {
+    const iso = String(cashClosing?.closed_at || '').trim();
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [cashClosing?.closed_at]);
+
   return (
     <section className="mt-4 animate-in monthly-closing-tab">
       <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h3 className="navi-section-heading" style={{ margin: 0 }}>
-          Conferência do mês
-        </h3>
+        <div>
+          <h3 className="navi-section-heading" style={{ margin: 0 }}>
+            Conferência do mês
+          </h3>
+          <div className="monthly-closing-status-badge">
+            {cashClosing ? (
+              <>
+                <CheckCircle size={14} aria-hidden />
+                <span>Mês fechado em {cashClosingLabel}</span>
+              </>
+            ) : (
+              <>
+                <Clock size={14} aria-hidden />
+                <span>Não fechado</span>
+              </>
+            )}
+          </div>
+        </div>
         <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <div
             style={{
@@ -356,6 +430,16 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
             Exportar CSV
           </button>
+          {canRegisterClosing ? (
+            <button
+              type="button"
+              className="btn-outline btn-sm"
+              onClick={() => setShowRegisterDialog(true)}
+              disabled={Boolean(cashClosing) || savingClosing}
+            >
+              Registrar fechamento do mês
+            </button>
+          ) : null}
           <button type="button" className="btn-secondary btn-sm" onClick={() => setShowManual((v) => !v)}>
             <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
             Lançar recebimento
@@ -375,6 +459,13 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           ? ' · mensalidades pelo mês de referência; demais lançamentos por competência (fallback: data de pagamento)'
           : ' · transações pelo mês de liquidação (settledAt)'}
       </p>
+      {closingPartialWarning ? (
+        <ErrorBanner
+          className="mb-3"
+          message="Alguns dados não puderam ser carregados. A conferência pode estar incompleta — vendas e outros lançamentos podem estar faltando."
+          onRetry={() => void loadData()}
+        />
+      ) : null}
       {totalsDiverge ? (
         <div
           className="card mb-3"
@@ -404,7 +495,8 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           role="alert"
         >
           <strong>{unclassifiedCount}</strong> lançamento(s) com categoria não mapeada no plano fixo. Revise em
-          Movimentações ou ajuste o diário contábil.
+          Movimentações ou ajuste o diário contábil.{' '}
+          <Link to="/financeiro?tab=configuracao">Ver Configuração →</Link>
         </div>
       ) : null}
       {pendingInMonth > 0 ? (
@@ -418,7 +510,22 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           role="alert"
         >
           <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou
-          cancele em Movimentações antes de considerar o mês fechado.
+          cancele em Movimentações antes de considerar o mês fechado.{' '}
+          <Link to="/financeiro?tab=movimentacoes">Ver no Caixa →</Link>
+        </div>
+      ) : null}
+      {totals.pending > 0 ? (
+        <div
+          className="card mb-3"
+          style={{
+            padding: '12px 14px',
+            borderLeft: '4px solid var(--warning, #B45309)',
+            background: '#FEF3C7',
+          }}
+          role="alert"
+        >
+          Existem mensalidades pendentes na conferência.{' '}
+          <Link to="/financeiro?tab=mensalidades&filtro=pending">Ver Mensalidades →</Link>
         </div>
       ) : null}
 
@@ -573,6 +680,15 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
       </div>
 
       <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div className="form-group" style={{ margin: 0, minWidth: 220, flex: 1 }}>
+          <label className="text-xs">Buscar</label>
+          <input
+            className="form-input"
+            placeholder="Buscar por nome"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label className="text-xs">Origem</label>
           <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
@@ -640,7 +756,65 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         </div>
       </div>
 
-      <div className="finance-table-wrap">
+      <div className="finance-table-wrap monthly-closing-wrap" style={{ position: 'relative' }}>
+        {loading && sortedRows.length > 0 ? (
+          <div className="monthly-closing-loading-overlay" aria-live="polite">
+            Atualizando…
+          </div>
+        ) : null}
+        {loading && sortedRows.length === 0 ? (
+          <PageSkeleton variant="table" rows={8} columns={6} />
+        ) : isMobile ? (
+          <div className="monthly-closing-mobile-list">
+            {sortedRows.length === 0 ? (
+              <div style={{ padding: 20 }}>
+                <EmptyState
+                  variant="compact"
+                  icon={Receipt}
+                  title="Nenhum recebimento neste mês"
+                  description="Os lançamentos aparecem aqui quando mensalidades são pagas, vendas concluídas ou recebimentos manuais são registrados."
+                />
+              </div>
+            ) : (
+              sortedRows.map((row) => {
+                const sitColor =
+                  row.situation === 'recebido'
+                    ? { bg: '#EAF3DE', color: '#3B6D11' }
+                    : row.situation === 'parcial'
+                      ? { bg: '#FFEDD5', color: '#C2410C' }
+                      : { bg: '#FCEBEB', color: '#A32D2D' };
+                return (
+                  <article key={row.id} className="monthly-closing-mobile-card">
+                    <div className="monthly-closing-mobile-card__head">
+                      <strong>{row.guardian ? `${row.name} (${row.guardian})` : row.name}</strong>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '3px 8px',
+                          borderRadius: 20,
+                          background: sitColor.bg,
+                          color: sitColor.color,
+                        }}
+                      >
+                        {CLOSING_SITUATION_LABELS[row.situation]}
+                      </span>
+                    </div>
+                    <p className="text-small text-muted" style={{ margin: '2px 0 8px' }}>
+                      {CLOSING_ORIGIN_LABELS[row.origin]}
+                    </p>
+                    <div className="monthly-closing-mobile-card__grid">
+                      <span>Esperado: {fmtMoney(row.expected)}</span>
+                      <span>Recebido: {fmtMoney(row.received)}</span>
+                      <span>Pendente: {row.pending > 0.009 ? fmtMoney(row.pending) : '—'}</span>
+                    </div>
+                    <p className="text-small" style={{ margin: '8px 0 0' }}>{row.paymentMethod}</p>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        ) : (
         <table className="finance-table" style={{ minWidth: 960 }}>
           <thead>
             <tr>
@@ -656,13 +830,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--text-secondary)' }}>
-                  Carregando…
-                </td>
-              </tr>
-            ) : sortedRows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={9} style={{ padding: 20 }}>
                   <EmptyState
@@ -744,7 +912,21 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             )}
           </tbody>
         </table>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={showRegisterDialog}
+        title="Registrar fechamento do mês"
+        description="Isso registra um snapshot dos totais do mês. Não trava lançamentos nem impede edições futuras."
+        confirmLabel="Registrar fechamento"
+        confirmVariant="primary"
+        loading={savingClosing}
+        onConfirm={() => void registerClosing()}
+        onClose={() => {
+          if (!savingClosing) setShowRegisterDialog(false);
+        }}
+      />
     </section>
   );
 }

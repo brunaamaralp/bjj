@@ -136,6 +136,16 @@ export function buildClosingRows({
   const linkedTxIds = new Set();
   const originKeysSeen = new Set();
   const saleIdsInTx = new Set();
+  const paymentByLead = new Map();
+  const paidPartialLeadIds = new Set();
+
+  for (const p of payments) {
+    const lid = String(p.lead_id || '').trim();
+    if (!lid) continue;
+    if (!paymentByLead.has(lid)) paymentByLead.set(lid, p);
+    const st = String(p.status || '').toLowerCase();
+    if (st === 'paid' || st === 'partial') paidPartialLeadIds.add(lid);
+  }
 
   for (const p of payments) {
     const st = String(p.status || '').toLowerCase();
@@ -173,6 +183,37 @@ export function buildClosingRows({
       paymentMethodKey: `${p.method || ''}|${p.account || ''}`,
       date: paidAt,
       situation: deriveSituation(expected, received, st),
+      origin: 'mensalidade',
+      readOnly: true,
+    });
+  }
+
+  for (const [leadId, student] of leadById.entries()) {
+    if (!student || !String(student.plan || '').trim()) continue;
+    const hasAnyPaymentDoc = paymentByLead.has(leadId);
+    const hasPaidOrPartial = paidPartialLeadIds.has(leadId);
+    if (hasAnyPaymentDoc || hasPaidOrPartial) continue;
+
+    const { name, guardian } = studentDisplayNames(student);
+    const expected = roundMoney(expectedAmountForStudent(student, financeConfig, null));
+    if (expected <= 0) continue;
+
+    rows.push({
+      id: `sp:missing:${leadId}:${referenceMonth}`,
+      sourceKind: 'payment',
+      sourceId: `missing:${leadId}:${referenceMonth}`,
+      financialTxId: null,
+      leadId,
+      name,
+      guardian,
+      description: String(student.plan || 'Mensalidade').trim() || 'Mensalidade',
+      expected,
+      received: 0,
+      pending: expected,
+      paymentMethod: '—',
+      paymentMethodKey: '',
+      date: `${referenceMonth}-01T12:00:00.000Z`,
+      situation: 'pendente',
       origin: 'mensalidade',
       readOnly: true,
     });
@@ -251,7 +292,23 @@ export function buildClosingRows({
     });
   }
 
-  return { rows, linkedTxIds, saleIdsInTx };
+  const dedupeByStudent = new Map();
+  for (const row of rows) {
+    if (row.origin !== 'mensalidade') continue;
+    const sid = String(row.leadId || '').trim();
+    if (!sid) continue;
+    if (!dedupeByStudent.has(sid)) dedupeByStudent.set(sid, row);
+    const prev = dedupeByStudent.get(sid);
+    if (prev?.situation === 'pendente' && row.situation !== 'pendente') dedupeByStudent.set(sid, row);
+  }
+  const monthlyUniqueRows = rows.filter((row) => {
+    if (row.origin !== 'mensalidade') return true;
+    const sid = String(row.leadId || '').trim();
+    if (!sid) return true;
+    return dedupeByStudent.get(sid)?.id === row.id;
+  });
+
+  return { rows: monthlyUniqueRows, linkedTxIds, saleIdsInTx };
 }
 
 export function filterClosingRows(rows, filters = {}) {

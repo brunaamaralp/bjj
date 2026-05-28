@@ -35,7 +35,7 @@ const mapAccountDoc = (d) => ({
 });
 
 /** Painel owner do Caixa: plano de contas, extrato e DRE/DFC (ex-/finance). */
-export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 'tabs' }) {
+export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 'tabs', isOwner = true }) {
   const isStacked = mode === 'stacked';
   const terms = useTerms();
   const addToast = useUiStore((s) => s.addToast);
@@ -195,9 +195,9 @@ export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 't
     onGoToRazao?.();
   };
 
-  const showPlano = isStacked || activeTab === 'plano';
+  const showPlano = isOwner && (isStacked || activeTab === 'plano');
   const showExtrato = isStacked || activeTab === 'razao';
-  const showDre = isStacked || activeTab === 'dre';
+  const showDre = isOwner && (isStacked || activeTab === 'dre');
 
   return (
     <>

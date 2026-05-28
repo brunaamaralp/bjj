@@ -20,7 +20,7 @@ import {
 
   financeiroLegacyTabToSlug,
 
-  buildFinanceiroAllowedLeafTabs,
+  buildFinanceiroManagerLeafTabs,
 
   FINANCEIRO_SECTIONS,
 
@@ -135,14 +135,16 @@ export default function Caixa() {
   const navRole = useUserRole(academyDoc);
 
   const isOwner = navRole === 'owner';
+  const isAdmin = navRole === 'admin';
+  const canAccessConfig = isOwner || isAdmin;
 
   const financeModule = modules?.finance === true;
 
 
 
   const allowedLeafTabs = useMemo(
-    () => new Set(buildFinanceiroAllowedLeafTabs({ isOwner, financeModule })),
-    [isOwner, financeModule]
+    () => new Set(buildFinanceiroManagerLeafTabs({ isOwner, isAdmin, financeModule })),
+    [isOwner, isAdmin, financeModule]
   );
 
   const rawTab = financeiroLegacyTabToSlug(searchParams.get('tab'));
@@ -382,7 +384,12 @@ export default function Caixa() {
 
 
         {activeTab === FINANCEIRO_SECTIONS.OVERVIEW && academyId ? (
-          <VisaoGeralTab academyId={academyId} financeModule={financeModule} modules={modules} />
+          <VisaoGeralTab
+            academyId={academyId}
+            financeModule={financeModule}
+            modules={modules}
+            isOwner={isOwner}
+          />
         ) : null}
 
         {activeTab === FINANCEIRO_SECTIONS.MENSALIDADES && academyId ? (
@@ -391,8 +398,8 @@ export default function Caixa() {
 
 
 
-        {activeTab === FINANCEIRO_SECTIONS.CONFIG && isOwner && academyId ? (
-          <FinanceiroConfigTab academyId={academyId} />
+        {activeTab === FINANCEIRO_SECTIONS.CONFIG && canAccessConfig && academyId ? (
+          <FinanceiroConfigTab academyId={academyId} isOwner={isOwner} />
         ) : null}
 
 
@@ -439,6 +446,8 @@ export default function Caixa() {
             financeConfig={financeConfig}
 
             isOwner={isOwner}
+
+            isAdmin={isAdmin}
 
             onTransactionsChange={setTransactionsForNl}
 

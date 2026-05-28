@@ -20,6 +20,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 const EMPTY_FORM = {
   code: '',
@@ -167,14 +168,8 @@ function AccountsAccountDrawer({
   onSave,
   onDelete,
 }) {
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...initialForm }));
   const [accountingOpen, setAccountingOpen] = useState(true);
-
-  useEffect(() => {
-    if (!open) return;
-    setForm({ ...EMPTY_FORM, ...initialForm });
-    setAccountingOpen(true);
-  }, [open, initialForm]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -387,6 +382,7 @@ export default function AccountsTab({
   const [menu, setMenu] = useState(null);
   const [drawer, setDrawer] = useState(null);
   const [drawerSaving, setDrawerSaving] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(null);
 
   const accountUsageByCode = useMemo(() => {
     if (!journal?.length) return {};
@@ -552,6 +548,18 @@ export default function AccountsTab({
       addToast({ type: 'success', message: 'Conta excluída.' });
     },
     [academyId, deleteAccount, addToast, drawer?.account?.id]
+  );
+
+  const requestDeleteAccount = useCallback(
+    (acc) => {
+      if (!acc || isProtectedAccountCode(acc.code)) {
+        void handleDeleteAccount(acc);
+        return;
+      }
+      setMenu(null);
+      setConfirmDeleteAccount(acc);
+    },
+    [handleDeleteAccount]
   );
 
   const handleSaveDrawer = useCallback(
@@ -764,10 +772,11 @@ export default function AccountsTab({
         onClose={() => setMenu(null)}
         onEdit={openEditDrawer}
         onAddSubconta={handleAddSubconta}
-        onDelete={(acc) => void handleDeleteAccount(acc)}
+        onDelete={(acc) => requestDeleteAccount(acc)}
       />
 
       <AccountsAccountDrawer
+        key={`acc-drawer-${Boolean(drawer)}-${drawer?.mode || 'create'}-${drawer?.account?.id || drawer?.initialCode || 'new'}`}
         open={Boolean(drawer)}
         mode={drawer?.mode || 'create'}
         account={drawer?.account}
@@ -776,7 +785,20 @@ export default function AccountsTab({
         saving={drawerSaving}
         onClose={() => setDrawer(null)}
         onSave={handleSaveDrawer}
-        onDelete={(acc) => void handleDeleteAccount(acc)}
+        onDelete={(acc) => requestDeleteAccount(acc)}
+      />
+      <ConfirmDialog
+        open={Boolean(confirmDeleteAccount)}
+        title="Excluir conta"
+        description="Esta conta será removida do plano de contas. A operação não pode ser desfeita. Confirmar?"
+        confirmLabel="Excluir"
+        confirmVariant="danger"
+        onClose={() => setConfirmDeleteAccount(null)}
+        onConfirm={async () => {
+          if (!confirmDeleteAccount) return;
+          await handleDeleteAccount(confirmDeleteAccount);
+          setConfirmDeleteAccount(null);
+        }}
       />
     </section>
   );

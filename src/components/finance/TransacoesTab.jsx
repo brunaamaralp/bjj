@@ -10,7 +10,6 @@ import {
   formatSignedMoney,
   NATURE_STYLES,
 } from '../../lib/financeTxDisplay.js';
-import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
@@ -45,6 +44,9 @@ import {
 } from '../../lib/financeCategories.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import useMatchMobile from '../../hooks/useMatchMobile.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 
 function formatTxDateStr(iso) {
@@ -104,6 +106,7 @@ export default function TransacoesTab({
   financeConfig,
   onTransactionsChange,
   isOwner = false,
+  isAdmin = false,
   periodFrom = '',
   periodTo = '',
   onPeriodFiltersChange,
@@ -111,6 +114,8 @@ export default function TransacoesTab({
 }) {
   const leads = useStudentStore((s) => s.students);
   const addToast = useUiStore((s) => s.addToast);
+  const isMobile = useMatchMobile();
+  const canManageAdvanced = isOwner || isAdmin;
   const [fromDate, setFromDate] = useState(periodFrom);
   const [toDate, setToDate] = useState(periodTo);
   const [txLoading, setTxLoading] = useState(false);
@@ -132,9 +137,6 @@ export default function TransacoesTab({
   }));
   const [savingTx, setSavingTx] = useState(false);
   const [receiveNow, setReceiveNow] = useState(false);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [totalTx, setTotalTx] = useState(0);
   const [cancelLoadingId, setCancelLoadingId] = useState('');
   const [recurrenceCancelLoadingId, setRecurrenceCancelLoadingId] = useState('');
   const [menuOpenId, setMenuOpenId] = useState('');
@@ -145,6 +147,14 @@ export default function TransacoesTab({
   const [studentQuery, setStudentQuery] = useState('');
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
+  const [loadError, setLoadError] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [directionFilter, setDirectionFilter] = useState('all');
+  const [txSearch, setTxSearch] = useState('');
+  const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
+  const [pendingCancelId, setPendingCancelId] = useState('');
+  const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
+  const [pendingCancelRecId, setPendingCancelRecId] = useState('');
 
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
@@ -171,6 +181,44 @@ export default function TransacoesTab({
     () => getCategoryOptionsByNature(txForm.direction === 'out' ? 'out' : 'in'),
     [txForm.direction]
   );
+
+  const leadNameById = useMemo(() => {
+    const map = new Map();
+    for (const l of leads || []) {
+      const id = String(l.id || '').trim();
+      if (id) map.set(id, String(l.name || '').trim());
+    }
+    return map;
+  }, [leads]);
+
+  const filteredTransactions = useMemo(() => {
+    let rows = transactions;
+    if (statusFilter !== 'all') {
+      rows = rows.filter((tx) => String(tx.status || '').toLowerCase() === statusFilter);
+    }
+    if (directionFilter !== 'all') {
+      rows = rows.filter((tx) => txDirection(tx) === directionFilter);
+    }
+    const q = txSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((tx) => {
+        const name = (leadNameById.get(tx.lead_id) || '').toLowerCase();
+        const cat = String(tx.category || '').toLowerCase();
+        const note = String(tx.note || '').toLowerCase();
+        return name.includes(q) || cat.includes(q) || note.includes(q);
+      });
+    }
+    return rows;
+  }, [transactions, statusFilter, directionFilter, txSearch, leadNameById]);
+
+  const hasActiveTxFilters =
+    statusFilter !== 'all' || directionFilter !== 'all' || txSearch.trim().length > 0;
+
+  const clearTxFilters = useCallback(() => {
+    setStatusFilter('all');
+    setDirectionFilter('all');
+    setTxSearch('');
+  }, []);
 
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
@@ -208,11 +256,12 @@ export default function TransacoesTab({
         const body = await listFinanceTx({ academyId, from: fromDate, to: toDate, cursor, regime });
         const items = body.transactions || [];
         setTransactions((prev) => (append ? [...prev, ...items] : items));
-        setNextCursor(body.nextCursor || null);
-        setHasMore(Boolean(body.hasMore));
-        setTotalTx(Number(body.total) || items.length);
+        setLoadError(false);
       } catch {
-        if (!append) setTransactions([]);
+        if (!append) {
+          setTransactions([]);
+          setLoadError(true);
+        }
       } finally {
         setTxLoading(false);
       }
@@ -283,14 +332,20 @@ export default function TransacoesTab({
     setMenuOpenId('');
   };
 
-  const cancelRecurrence = async (id) => {
+  const requestCancelRecurrence = (id) => {
     const tid = String(id || '').trim();
-    if (!tid || !academyId) return;
-    if (!window.confirm('Cancelar a recorrência deste lançamento? Os lançamentos já gerados permanecem no histórico.')) {
-      return;
-    }
-    setRecurrenceCancelLoadingId(tid);
+    if (!tid) return;
+    setPendingCancelRecId(tid);
+    setShowCancelRecDialog(true);
     setMenuOpenId('');
+  };
+
+  const cancelRecurrence = async (id) => {
+    const tid = String(id || pendingCancelRecId || '').trim();
+    if (!tid || !academyId) return;
+    setRecurrenceCancelLoadingId(tid);
+    setShowCancelRecDialog(false);
+    setPendingCancelRecId('');
     try {
       const row = await patchFinanceTx({ academyId, id: tid, payload: { action: 'cancel_recurrence' } });
       setTransactions((prev) => prev.map((t) => (String(t.id) === tid ? row : t)));
@@ -386,13 +441,19 @@ export default function TransacoesTab({
     }
   };
 
-  const cancelTx = async (id) => {
-    if (!window.confirm('Cancelar este lançamento? Ele deixará de aparecer como pendente e não poderá ser liquidado.')) {
-      return;
-    }
+  const requestCancelTx = (id) => {
     const tid = String(id || '').trim();
+    if (!tid) return;
+    setPendingCancelId(tid);
+    setShowCancelTxDialog(true);
+  };
+
+  const cancelTx = async (id) => {
+    const tid = String(id || pendingCancelId || '').trim();
     if (!tid || !academyId) return;
     setCancelLoadingId(tid);
+    setShowCancelTxDialog(false);
+    setPendingCancelId('');
     try {
       const jwt = await createSessionJwt();
       const response = await fetch('/api/agent?route=cancel-finance-tx', {
@@ -437,8 +498,8 @@ export default function TransacoesTab({
       addToast({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
       return;
     }
-    if (txForm.direction === 'out' && !isOwner) {
-      addToast({ type: 'error', message: 'Apenas o titular pode registrar saída.' });
+    if (txForm.direction === 'out' && !canManageAdvanced) {
+      addToast({ type: 'error', message: 'Apenas gestores podem registrar saída.' });
       return;
     }
     const cat = resolveFinanceCategory(txForm.category);
@@ -536,6 +597,48 @@ export default function TransacoesTab({
                 <input className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </div>
             </div>
+            <div className="finance-tx-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', flex: 1 }}>
+              <div className="form-group" style={{ width: 130, margin: 0 }}>
+                <label>Status</label>
+                <select
+                  className="form-input"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">Todos</option>
+                  <option value="pending">Pendente</option>
+                  <option value="settled">Liquidado</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ width: 120, margin: 0 }}>
+                <label>Natureza</label>
+                <select
+                  className="form-input"
+                  value={directionFilter}
+                  onChange={(e) => setDirectionFilter(e.target.value)}
+                >
+                  <option value="all">Todos</option>
+                  <option value="in">Entrada</option>
+                  <option value="out">Saída</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ minWidth: 200, flex: 1, margin: 0 }}>
+                <label className="sr-only">Busca</label>
+                <input
+                  type="search"
+                  className="form-input"
+                  placeholder="Buscar por aluno, categoria ou nota"
+                  value={txSearch}
+                  onChange={(e) => setTxSearch(e.target.value)}
+                />
+              </div>
+              {hasActiveTxFilters ? (
+                <button type="button" className="btn-outline btn-sm" onClick={clearTxFilters}>
+                  Limpar filtros
+                </button>
+              ) : null}
+            </div>
             <button
               type="button"
               className="btn-primary"
@@ -552,18 +655,112 @@ export default function TransacoesTab({
               + Nova transação
             </button>
           </div>
-          {!txLoading && transactions.length > 0 ? (
-            <p className="text-small text-muted" style={{ marginBottom: 12 }} role="status">
-              Mostrando {transactions.length}
-              {totalTx > transactions.length ? ` de ${totalTx}` : ''} lançamentos
-              {hasMore ? ' (há mais registros)' : ''}
-            </p>
+          {loadError ? (
+            <ErrorBanner
+              message="Não foi possível carregar os lançamentos. Verifique a conexão e tente novamente."
+              onRetry={() => void loadTransactions()}
+              className="mb-3"
+            />
           ) : null}
           <div className="finance-table-wrap">
             {txLoading ? (
               <PageSkeleton variant="table" rows={6} columns={10} />
+            ) : loadError ? null : isMobile ? (
+            <div className="navi-mobile-list finance-mobile-list" aria-label="Lançamentos">
+              {filteredTransactions.length === 0 ? (
+                <div style={{ padding: 16 }}>
+                  <EmptyState
+                    variant="compact"
+                    tone="solid"
+                    icon={Receipt}
+                    title={
+                      transactions.length === 0
+                        ? 'Nenhuma transação encontrada'
+                        : 'Nenhum resultado para os filtros aplicados'
+                    }
+                    description={
+                      transactions.length === 0
+                        ? "Use '+ Nova transação' para registrar um lançamento."
+                        : 'Ajuste os filtros ou limpe a busca.'
+                    }
+                    secondaryAction={
+                      hasActiveTxFilters
+                        ? { label: 'Limpar filtros', onClick: clearTxFilters, variant: 'link' }
+                        : undefined
+                    }
+                    role="status"
+                  />
+                </div>
+              ) : (
+              filteredTransactions.map((tx) => {
+                const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
+                const displayName = rawName || '—';
+                const badge = getTxCategoryBadge(tx);
+                const st = String(tx.status || '').toLowerCase();
+                const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
+                const rec = isRecurrenceTx(tx);
+                return (
+                  <article key={tx.id} className="navi-mobile-card finance-mobile-card">
+                    <div className="finance-mobile-card__head">
+                      <span className="finance-mobile-card__date" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {formatTxDateStr(txTemporalIso(tx))}
+                        {rec ? <Repeat size={14} title={recurrenceTooltip(tx)} aria-hidden /> : null}
+                      </span>
+                      <span
+                        className="finance-mobile-card__amount"
+                        style={{ color: NATURE_STYLES[txDirection(tx)].color }}
+                      >
+                        {formatSignedMoney(displayGross(tx), txDirection(tx))}
+                      </span>
+                    </div>
+                    <div className="finance-mobile-card__name">{displayName}</div>
+                    <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
+                    {badge ? <span className={badge.className}>{badge.label}</span> : null}
+                    {canManageAdvanced && tx.is_recurrence_template ? (
+                      <div className="finance-mobile-card__actions">
+                        <button type="button" className="btn-outline btn-sm" onClick={() => openEditRecurrenceModal(tx)}>
+                          Editar recorrência
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm"
+                          disabled={rowBusy}
+                          onClick={() => requestCancelRecurrence(tx.id)}
+                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                        >
+                          Cancelar recorrência
+                        </button>
+                      </div>
+                    ) : null}
+                    {st === 'pending' ? (
+                      <div className="finance-mobile-card__actions">
+                        {(canManageAdvanced || txDirection(tx) !== 'out') ? (
+                          <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
+                            Editar
+                          </button>
+                        ) : null}
+                        <button type="button" className="btn-outline btn-sm" onClick={() => void settle(tx.id)} disabled={rowBusy}>
+                          Liquidar
+                        </button>
+                        {canManageAdvanced ? (
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            onClick={() => requestCancelTx(tx.id)}
+                            disabled={rowBusy}
+                            style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                          >
+                            {rowBusy ? '…' : 'Cancelar'}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })
+              )}
+            </div>
             ) : (
-            <>
             <div className="navi-desktop-table-wrap finance-desktop-table-wrap">
             <table className="finance-table">
               <thead>
@@ -583,20 +780,33 @@ export default function TransacoesTab({
                 </tr>
               </thead>
               <tbody>
-                {transactions.length === 0 ? (
+                {filteredTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={12} style={{ padding: 16, verticalAlign: 'middle' }}>
                       <EmptyState
                         variant="table-cell"
                         tone="solid"
                         icon={Receipt}
-                        title="Nenhuma transação encontrada"
-                        description="Use '+ Nova transação' para registrar um lançamento."
+                        title={
+                          transactions.length === 0
+                            ? 'Nenhuma transação encontrada'
+                            : 'Nenhum resultado para os filtros aplicados'
+                        }
+                        description={
+                          transactions.length === 0
+                            ? "Use '+ Nova transação' para registrar um lançamento."
+                            : 'Ajuste os filtros ou limpe a busca.'
+                        }
+                        secondaryAction={
+                          hasActiveTxFilters
+                            ? { label: 'Limpar filtros', onClick: clearTxFilters, variant: 'link' }
+                            : undefined
+                        }
                         role="status"
                       />
                     </td>
                   </tr>
-                ) : transactions.map((tx) => {
+                ) : filteredTransactions.map((tx) => {
                   const dateStr = formatTxDateStr(txTemporalIso(tx));
                   const noCompetence =
                     regime === FINANCE_REGIME.COMPETENCE && competenceMonthMissing(tx);
@@ -624,7 +834,7 @@ export default function TransacoesTab({
                   const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
                   const rec = isRecurrenceTx(tx);
                   const recTip = recurrenceTooltip(tx);
-                  const showRecMenu = isOwner && tx.is_recurrence_template === true;
+                  const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
                   return (
                     <tr key={tx.id}>
                       <td>
@@ -706,7 +916,7 @@ export default function TransacoesTab({
                                       color: 'var(--danger)',
                                     }}
                                     disabled={rowBusy}
-                                    onClick={() => void cancelRecurrence(tx.id)}
+                                    onClick={() => requestCancelRecurrence(tx.id)}
                                   >
                                     {recurrenceCancelLoadingId === tx.id ? 'Cancelando…' : 'Cancelar recorrência'}
                                   </button>
@@ -716,7 +926,7 @@ export default function TransacoesTab({
                           ) : null}
                           {st === 'pending' ? (
                             <>
-                              {(isOwner || txDirection(tx) !== 'out') ? (
+                              {(canManageAdvanced || txDirection(tx) !== 'out') ? (
                                 <button
                                   type="button"
                                   className="btn-outline"
@@ -734,11 +944,11 @@ export default function TransacoesTab({
                               >
                                 Liquidar
                               </button>
-                              {isOwner ? (
+                              {canManageAdvanced ? (
                                 <button
                                   type="button"
                                   className="btn-outline"
-                                  onClick={() => void cancelTx(tx.id)}
+                                  onClick={() => requestCancelTx(tx.id)}
                                   disabled={rowBusy}
                                   style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
                                 >
@@ -757,89 +967,9 @@ export default function TransacoesTab({
               </tbody>
             </table>
             </div>
-            <div className="navi-mobile-list finance-mobile-list" aria-label="Lançamentos">
-              {transactions.map((tx) => {
-                const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
-                const displayName = rawName || '—';
-                const badge = getTxCategoryBadge(tx);
-                const st = String(tx.status || '').toLowerCase();
-                const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
-                const rec = isRecurrenceTx(tx);
-                return (
-                  <article key={tx.id} className="navi-mobile-card finance-mobile-card">
-                    <div className="finance-mobile-card__head">
-                      <span className="finance-mobile-card__date" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {formatTxDateStr(txTemporalIso(tx))}
-                        {rec ? <Repeat size={14} title={recurrenceTooltip(tx)} aria-hidden /> : null}
-                      </span>
-                      <span
-                        className="finance-mobile-card__amount"
-                        style={{ color: NATURE_STYLES[txDirection(tx)].color }}
-                      >
-                        {formatSignedMoney(displayGross(tx), txDirection(tx))}
-                      </span>
-                    </div>
-                    <div className="finance-mobile-card__name">{displayName}</div>
-                    <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
-                    {badge ? <span className={badge.className}>{badge.label}</span> : null}
-                    {isOwner && tx.is_recurrence_template ? (
-                      <div className="finance-mobile-card__actions">
-                        <button type="button" className="btn-outline btn-sm" onClick={() => openEditRecurrenceModal(tx)}>
-                          Editar recorrência
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-outline btn-sm"
-                          disabled={rowBusy}
-                          onClick={() => void cancelRecurrence(tx.id)}
-                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                        >
-                          Cancelar recorrência
-                        </button>
-                      </div>
-                    ) : null}
-                    {st === 'pending' ? (
-                      <div className="finance-mobile-card__actions">
-                        {(isOwner || txDirection(tx) !== 'out') ? (
-                          <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
-                            Editar
-                          </button>
-                        ) : null}
-                        <button type="button" className="btn-outline btn-sm" onClick={() => void settle(tx.id)} disabled={rowBusy}>
-                          Liquidar
-                        </button>
-                        {isOwner ? (
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm"
-                            onClick={() => void cancelTx(tx.id)}
-                            disabled={rowBusy}
-                            style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                          >
-                            {rowBusy ? '…' : 'Cancelar'}
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-            </>
             )}
           </div>
-          {hasMore && nextCursor ? (
-            <div style={{ marginTop: 12, textAlign: 'center' }}>
-              <button
-                type="button"
-                className="btn-outline"
-                disabled={txLoading}
-                onClick={() => void loadTransactions(nextCursor, true)}
-              >
-                {txLoading ? 'Carregando…' : 'Carregar mais'}
-              </button>
-            </div>
-          ) : null}
+          {/* TODO: paginação real pendente no backend (hasMore/nextCursor) */}
         </div>
       </section>
 
@@ -892,7 +1022,7 @@ export default function TransacoesTab({
                   disabled={Boolean(editingTxId)}
                 >
                   <option value="in">Entrada</option>
-                  {isOwner ? <option value="out">Saída</option> : null}
+                  {canManageAdvanced ? <option value="out">Saída</option> : null}
                 </select>
               </div>
               <div className="form-group">
@@ -1266,6 +1396,38 @@ export default function TransacoesTab({
         document.body
       )
         : null}
+
+      <ConfirmDialog
+        open={showCancelTxDialog}
+        title="Cancelar lançamento"
+        description="Este lançamento será cancelado e não poderá ser revertido. Confirmar?"
+        confirmLabel="Confirmar"
+        confirmVariant="danger"
+        loading={Boolean(cancelLoadingId)}
+        onConfirm={() => void cancelTx(pendingCancelId)}
+        onClose={() => {
+          if (!cancelLoadingId) {
+            setShowCancelTxDialog(false);
+            setPendingCancelId('');
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={showCancelRecDialog}
+        title="Cancelar recorrência"
+        description="Os próximos lançamentos desta recorrência não serão gerados. Confirmar?"
+        confirmLabel="Confirmar"
+        confirmVariant="danger"
+        loading={Boolean(recurrenceCancelLoadingId)}
+        onConfirm={() => void cancelRecurrence(pendingCancelRecId)}
+        onClose={() => {
+          if (!recurrenceCancelLoadingId) {
+            setShowCancelRecDialog(false);
+            setPendingCancelRecId('');
+          }
+        }}
+      />
     </>
   );
 }

@@ -1,7 +1,52 @@
 /* Hub Financeiro — estilos unificados */
 
 .financeiro-overview { margin-top: 8px; }
-.financeiro-overview__period { margin: 0 0 16px; }
+.financeiro-overview__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.financeiro-overview__head-main { flex: 1; min-width: 200px; }
+.financeiro-overview__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.financeiro-overview__period { margin: 0; }
+.financeiro-overview__regime { margin: 4px 0 0; font-size: 12px; }
+.financeiro-overview-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.financeiro-overview-refresh__label { display: none; }
+@media (min-width: 768px) {
+  .financeiro-overview-refresh__label { display: inline; }
+}
+.financeiro-overview-card__error {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  gap: 8px;
+}
+.financeiro-overview-card__error .navi-error-banner__icon { width: 16px; height: 16px; }
+.financeiro-overview__footer {
+  margin: 16px 0 0;
+  text-align: right;
+}
+.financeiro-overview-export-link {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.financeiro-overview-export-link:hover {
+  color: var(--v500, #5B3FBF);
+  text-decoration: underline;
+}
 .financeiro-overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -229,10 +274,6 @@
   margin-bottom: 8px;
   border-radius: var(--radius-sm);
   border: 0.5px dashed var(--border-light);
-}
-@media (max-width: 767px) {
-  .finance-desktop-table-wrap { display: none !important; }
-  .finance-mobile-list { display: flex; }
 }
 .finance-table-wrap { width: 100%; max-height: calc(100vh - 320px); overflow: auto; -webkit-overflow-scrolling: touch; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
 .finance-table-wrap--modal { max-height: 60vh; overflow: auto; -webkit-overflow-scrolling: touch; }
@@ -618,6 +659,16 @@
   margin: 0 0 12px;
 }
 
+.academy-finance-config .finance-config-section__saved {
+  margin: 0 0 6px;
+}
+
+.academy-finance-config .finance-config-context-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
 .academy-finance-config .finance-compact-input,
 .academy-finance-config .finance-compact-input.form-input {
   height: 36px;
@@ -966,4 +1017,445 @@
 
 .finance-nave-subscription__link {
   font-size: 0.85rem;
+}
+
+.monthly-closing-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.monthly-closing-wrap {
+  min-height: 120px;
+}
+
+.monthly-closing-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.monthly-closing-mobile-list {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.monthly-closing-mobile-card {
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--surface);
+}
+
+.monthly-closing-mobile-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.monthly-closing-mobile-card__grid {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* MensalidadesPanel — estilos extraídos do bloco inline */
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
+
+.mensalidades-page .mensal-modal-field-label,
+.mensalidades-modal-scope .mensal-modal-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary, var(--text-secondary));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mensalidades-page .mensal-modal-field-label-opt,
+.mensalidades-modal-scope .mensal-modal-field-label-opt {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.mensalidades-page .mensal-table-wrap {
+  background: var(--surface, #fff);
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mensalidades-page .mensal-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.mensalidades-page .mensal-table thead {
+  background: var(--surface-hover, #f4f4f8);
+}
+
+.mensalidades-page .mensal-table th {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 16px;
+  text-align: left;
+}
+
+.mensalidades-page .mensal-table td {
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--text-primary, var(--text, #1a1a1a));
+  border-top: 0.5px solid var(--border-light, #e8e8ef);
+  vertical-align: middle;
+}
+
+.mensalidades-page .mensal-table tbody tr:hover td {
+  background: var(--surface-hover, #f4f4f8);
+}
+
+.mensalidades-page .mensal-chip {
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  background: var(--surface, #fff);
+  color: var(--text-secondary);
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.mensalidades-page .mensal-chip--active {
+  background: #5b3fbf;
+  color: #fff;
+  border-color: #5b3fbf;
+}
+
+.mensalidades-page .mensal-search:focus {
+  border-color: #5b3fbf !important;
+  outline: none;
+}
+
+.mensalidades-page .mensal-btn-pay {
+  background: #5b3fbf;
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mensalidades-page .mensal-btn-pay:hover {
+  background: #4a31a0;
+}
+
+.mensalidades-page .mensal-btn-estornar {
+  background: var(--surface, #fff);
+  color: var(--text-secondary);
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mensalidades-page .mensal-btn-estornar:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #a32d2d;
+  border-color: #f7c1c1;
+}
+
+.mensalidades-page .mensal-btn-estornar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mensalidades-page .mensal-modal-in,
+.mensalidades-modal-scope .mensal-modal-in {
+  border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+  border-radius: var(--border-radius-md, var(--radius-sm));
+  padding: 10px 12px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+  color: var(--text-primary, inherit);
+  font-family: inherit;
+  line-height: 1.35;
+}
+
+.mensalidades-page .mensal-modal-in--amount,
+.mensalidades-modal-scope .mensal-modal-in--amount {
+  padding-left: 36px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--color-text-primary, var(--text-primary, inherit));
+  background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+  border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+  border-radius: var(--border-radius-md, var(--radius-sm));
+  height: 48px;
+  width: 100%;
+}
+
+.mensalidades-page .mensal-modal-in[type='number'],
+.mensalidades-modal-scope .mensal-modal-in[type='number'] {
+  height: 48px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.mensalidades-page .mensal-modal-account,
+.mensalidades-modal-scope .mensal-modal-account {
+  background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+  border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+  border-radius: var(--border-radius-md, var(--radius-sm));
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary, var(--text-primary, inherit));
+  height: 48px;
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+}
+
+.mensalidades-page .mensal-modal-account::placeholder,
+.mensalidades-modal-scope .mensal-modal-account::placeholder {
+  color: var(--color-text-tertiary, var(--text-secondary));
+}
+
+.mensalidades-page .mensal-modal-textarea,
+.mensalidades-modal-scope .mensal-modal-textarea {
+  background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
+  border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
+  border-radius: var(--border-radius-md, var(--radius-sm));
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary, var(--text-primary, inherit));
+  min-height: 88px;
+  width: 100%;
+  resize: vertical;
+  max-height: 160px;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.mensalidades-page .mensal-modal-textarea::placeholder,
+.mensalidades-modal-scope .mensal-modal-textarea::placeholder {
+  color: var(--color-text-tertiary, var(--text-secondary));
+}
+
+.mensalidades-page .mensal-modal-in:focus,
+.mensalidades-page .mensal-modal-account:focus,
+.mensalidades-page .mensal-modal-textarea:focus,
+.mensalidades-modal-scope .mensal-modal-in:focus,
+.mensalidades-modal-scope .mensal-modal-account:focus,
+.mensalidades-modal-scope .mensal-modal-textarea:focus {
+  border-color: #5b3fbf;
+  background: var(--color-background-primary, var(--surface, #fff));
+  outline: none;
+}
+
+.mensalidades-modal-scope .mensal-modal-checkbox-row {
+  margin-top: 2px;
+  padding: 12px 14px;
+  border-radius: var(--border-radius-md, var(--radius-sm));
+  background: var(--surface-hover, #f4f4f8);
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  font-size: 13px;
+  color: var(--text-primary, var(--text));
+  line-height: 1.4;
+}
+
+.mensalidades-modal-scope .mensal-modal-checkbox-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: #5b3fbf;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.mensalidades-page input[type='date'].mensal-modal-in,
+.mensalidades-modal-scope input[type='date'].mensal-modal-in {
+  min-height: 48px;
+}
+
+.mensalidades-modal-scope .mensal-pay-top-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.mensal-summary-card--static {
+  cursor: default;
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  background: var(--surface, #fff);
+}
+
+.mensal-summary-grid--month-kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mensal-month-kpis {
+  margin-bottom: 16px;
+}
+
+.mensal-collection-dashboard {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
+.mensal-collection-dashboard__title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.mensal-collection-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.mensal-collection-dashboard__value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mensal-collection-dashboard__value--alert {
+  color: #a32d2d;
+}
+
+.mensal-collection-dashboard__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mensal-estorno-caixa-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--status-warning-bg, #fff8e6);
+  border: 0.5px solid rgba(180, 120, 0, 0.35);
+  font-size: 13px;
+}
+
+.mensal-estorno-caixa-banner__message {
+  flex: 1;
+  min-width: 200px;
+}
+
+.mensal-estorno-caixa-banner__link {
+  font-weight: 600;
+  color: var(--v500, #5b3fbf);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mensal-estorno-caixa-banner__link:hover {
+  text-decoration: underline;
+}
+
+.mensal-negotiate-overlay {
+  z-index: 2600;
+}
+
+.mensal-negotiate-modal {
+  width: 100%;
+  max-width: 440px;
+  padding: 20px 22px;
+  margin: 16px;
+}
+
+.mensal-negotiate-modal__title {
+  margin: 0 0 14px;
+  font-size: 1rem;
+}
+
+.mensal-negotiate-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 420px) {
+  .mensalidades-modal-scope .mensal-pay-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mensalidades-modal-scope .mensalidades-modal-footer {
+    flex-direction: column;
+  }
+
+  .mensalidades-modal-scope .mensalidades-modal-footer button {
+    flex: 1 1 auto !important;
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .mensalidades-page .mensal-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .mensal-summary-grid--month-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .mensalidades-page .mensal-table-wrap {
+    border-radius: 0;
+  }
+
+  .mensalidades-page .mensal-table th,
+  .mensalidades-page .mensal-table td {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mensalidades-page .mensal-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mensal-summary-grid--month-kpis {
+    grid-template-columns: 1fr !important;
+  }
 }

@@ -4,6 +4,7 @@ import { Query } from 'appwrite';
 import { PlusCircle, Trash2, Receipt } from 'lucide-react';
 import { fmt } from './financeFmt.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 export default function JournalTab({
   academyId,
@@ -16,6 +17,11 @@ export default function JournalTab({
 }) {
   const [date, setDate] = useState('');
   const [memo, setMemo] = useState('');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [direction, setDirection] = useState('all');
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState(null);
   const [lines, setLines] = useState([{ accountId: '', debit: '', credit: '', cash: false, counterCode: '' }]);
   const sortedAccounts = useMemo(() => {
     const copy = Array.isArray(accounts) ? [...accounts] : [];
@@ -42,6 +48,7 @@ export default function JournalTab({
           id: d.$id,
           date: d.date,
           memo: d.memo || '',
+          createdAt: d.$createdAt || null,
           lines: (() => { try { return JSON.parse(d.lines || '[]'); } catch { return []; } })(),
         }));
         setJournal(list);
@@ -105,6 +112,38 @@ export default function JournalTab({
 
     return s;
   };
+
+  const filteredJournal = useMemo(() => {
+    const q = String(search || '').trim().toLowerCase();
+    const hasDateFilter = Boolean(fromDate || toDate);
+    const dir = String(direction || 'all');
+    return (journal || []).filter((entry) => {
+      const memoText = String(entry.memo || '').toLowerCase();
+      const detail = (entry.lines || [])
+        .map((ln) => {
+          const acc = accountById.get(ln.accountId);
+          return `${acc?.name || ''} ${acc?.code || ''}`.toLowerCase();
+        })
+        .join(' ');
+      if (q && !memoText.includes(q) && !detail.includes(q)) return false;
+
+      if (dir !== 'all') {
+        const hasDebit = (entry.lines || []).some((ln) => Number(ln.debit || 0) > 0);
+        const hasCredit = (entry.lines || []).some((ln) => Number(ln.credit || 0) > 0);
+        if (dir === 'debit' && !hasDebit) return false;
+        if (dir === 'credit' && !hasCredit) return false;
+      }
+
+      if (hasDateFilter) {
+        const raw = String(entry.createdAt || entry.date || '').slice(0, 10);
+        if (fromDate && raw < fromDate) return false;
+        if (toDate && raw > toDate) return false;
+      }
+      return true;
+    });
+  }, [journal, search, accountById, direction, fromDate, toDate]);
+
+  const hasActiveFilters = Boolean(search || fromDate || toDate || direction !== 'all');
 
   return (
     <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
@@ -250,6 +289,36 @@ export default function JournalTab({
 
       <div className="finance-journal-history">
         <p className="finance-journal-history-title">Histórico</p>
+        <div className="finance-tx-filters" style={{ marginBottom: 10 }}>
+          <input
+            className="form-input"
+            type="search"
+            placeholder="Buscar por conta ou descrição"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <input className="form-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <input className="form-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          <select className="form-input" value={direction} onChange={(e) => setDirection(e.target.value)}>
+            <option value="all">Todos</option>
+            <option value="debit">Débito</option>
+            <option value="credit">Crédito</option>
+          </select>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                setSearch('');
+                setFromDate('');
+                setToDate('');
+                setDirection('all');
+              }}
+            >
+              Limpar filtros
+            </button>
+          ) : null}
+        </div>
         <div className="finance-table-wrap">
           <table className="finance-table">
             <thead>
@@ -262,7 +331,7 @@ export default function JournalTab({
               </tr>
             </thead>
             <tbody>
-              {journal.length === 0 ? (
+              {filteredJournal.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ padding: 16, verticalAlign: 'middle' }}>
                     <EmptyState
@@ -276,7 +345,7 @@ export default function JournalTab({
                   </td>
                 </tr>
               ) : (
-                journal.map((e) => {
+                filteredJournal.map((e) => {
                   const sd = e.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
                   const sc = e.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
                   const detail = (e.lines || [])
@@ -311,8 +380,7 @@ export default function JournalTab({
                           className="btn-ghost finance-accounts-delete"
                           title="Excluir lançamento"
                           onClick={() => {
-                            if (academyId && JOURNAL_COL) databases.deleteDocument(DB_ID, JOURNAL_COL, e.id).catch(() => {});
-                            deleteEntry(e.id);
+                            setPendingDeleteEntry(e);
                           }}
                         >
                           <Trash2 size={16} />
@@ -326,6 +394,22 @@ export default function JournalTab({
           </table>
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteEntry)}
+        title="Excluir lançamento"
+        description="Este lançamento será removido do extrato. A operação não pode ser desfeita. Confirmar?"
+        confirmLabel="Excluir"
+        confirmVariant="danger"
+        onClose={() => setPendingDeleteEntry(null)}
+        onConfirm={async () => {
+          if (!pendingDeleteEntry) return;
+          if (academyId && JOURNAL_COL) {
+            await databases.deleteDocument(DB_ID, JOURNAL_COL, pendingDeleteEntry.id).catch(() => {});
+          }
+          deleteEntry(pendingDeleteEntry.id);
+          setPendingDeleteEntry(null);
+        }}
+      />
     </section>
   );
 }

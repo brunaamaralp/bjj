@@ -61,7 +61,10 @@ export default function MensalidadesListTable({
   handleEstornar,
   configuredTurmas = [],
   canReverse = true,
+  navRole = 'member',
 }) {
+  const reverseBlocked = !canReverse;
+  const reverseBlockedTitle = 'Apenas gestores podem estornar pagamentos.';
   const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState({});
   const [confirmPayment, setConfirmPayment] = useState(null);
@@ -76,7 +79,7 @@ export default function MensalidadesListTable({
   });
 
   const requestEstornar = (payment) => {
-    if (!payment?.$id || reversingPaymentId) return;
+    if (!payment?.$id || reversingPaymentId || reverseBlocked) return;
     setConfirmPayment(payment);
   };
 
@@ -273,19 +276,18 @@ export default function MensalidadesListTable({
               <span className="mensal-action-check" aria-label="Pago">
                 <Check size={16} strokeWidth={2.5} />
               </span>
-              {canReverse ? (
-                <button
-                  type="button"
-                  className="mensal-btn-estornar mensal-btn-estornar--hover"
-                  onClick={() => requestEstornar(payment)}
-                  disabled={reversingPaymentId === payment.$id}
-                >
-                  {reversingPaymentId === payment.$id ? (
-                    <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
-                  ) : null}
-                  Estornar
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="mensal-btn-estornar mensal-btn-estornar--hover"
+                onClick={() => requestEstornar(payment)}
+                disabled={reversingPaymentId === payment.$id || reverseBlocked}
+                title={reverseBlocked ? reverseBlockedTitle : undefined}
+              >
+                {reversingPaymentId === payment.$id ? (
+                  <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
+                ) : null}
+                Estornar
+              </button>
             </div>
           ) : isActiveAttention ? (
             <div className="mensal-action-attention">
@@ -404,13 +406,13 @@ export default function MensalidadesListTable({
         </div>
         {!studentFrozen ? (
           <div className="mensal-mobile-card__actions">
-            {isPaid && payment && canReverse ? (
+            {isPaid && payment ? (
               <button
                 type="button"
                 className="mensal-btn-estornar mensal-mobile-estornar"
-                title={paidTooltip}
+                title={reverseBlocked ? reverseBlockedTitle : paidTooltip}
                 onClick={() => requestEstornar(payment)}
-                disabled={reversingPaymentId === payment.$id}
+                disabled={reversingPaymentId === payment.$id || reverseBlocked}
               >
                 {reversingPaymentId === payment.$id ? (
                   <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
@@ -434,14 +436,21 @@ export default function MensalidadesListTable({
 
   if (displayedStudents.length === 0) {
     if (!hasStudentsWithPlan) {
+      const isOwner = navRole === 'owner';
       return (
         <EmptyState
           variant="default"
           tone="dashed"
           icon={Users}
           title={`Nenhum ${terms.student.toLowerCase()} com plano ativo neste mês`}
-          description="Configure os planos na empresa e associe um plano a cada aluno para acompanhar as mensalidades."
-          primaryAction={{ label: 'Configurar planos', href: '/financeiro?tab=configuracao' }}
+          description={
+            isOwner
+              ? 'Configure os planos na empresa e associe um plano a cada aluno para acompanhar as mensalidades.'
+              : 'Nenhum plano cadastrado. Peça ao responsável pela academia para configurar os planos.'
+          }
+          primaryAction={
+            isOwner ? { label: 'Configurar planos', href: '/financeiro?tab=configuracao' } : undefined
+          }
           role="status"
         />
       );

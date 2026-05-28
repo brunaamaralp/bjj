@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -39,6 +39,7 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import { formatPaymentDateLabel, isPaymentDateInFuture } from '../../lib/validations.js';
+import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -180,6 +181,16 @@ export default function MensalidadesPanel({ embedded = false }) {
   useEffect(() => {
     const q = searchParams.get('search');
     if (q) setSearch(q);
+    const filtroParam = searchParams.get('filtro');
+    if (filtroParam) {
+      const map = {
+        pending: 'pending',
+        overdue: 'overdue',
+        paid: 'paid',
+        soon: 'soon',
+      };
+      if (map[filtroParam]) setFilter(map[filtroParam]);
+    }
   }, [searchParams]);
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -191,6 +202,7 @@ export default function MensalidadesPanel({ embedded = false }) {
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [nlOpen, setNlOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list');
+  const [estornoCaixaWarning, setEstornoCaixaWarning] = useState('');
 
   useEffect(() => {
     if (!showModal || typeof document === 'undefined') return undefined;
@@ -539,15 +551,17 @@ export default function MensalidadesPanel({ embedded = false }) {
     [students, paymentMap, currentMonth, financeConfig]
   );
 
-  const expectedTotal = useMemo(() => {
-    let sum = 0;
-    for (const s of students) {
-      const p = paymentMap[s.id];
-      const amt = expectedAmountForStudent(s, financeConfig, p);
-      if (Number.isFinite(amt) && amt > 0) sum += amt;
-    }
-    return sum;
-  }, [students, financeConfig, paymentMap]);
+  const monthKpis = useMemo(
+    () => computeMensalidadesMonthKpis(students, payments, financeConfig, currentMonth),
+    [students, payments, financeConfig, currentMonth]
+  );
+
+  const monthOpenTotal = useMemo(
+    () => Math.max(0, Math.round((monthKpis.expectedTotal - monthKpis.receivedTotal) * 100) / 100),
+    [monthKpis.expectedTotal, monthKpis.receivedTotal]
+  );
+
+  const canReversePayment = navRole === 'owner' || navRole === 'admin';
 
   const openPaymentModal = (student, preset = {}) => {
     const refMonth = String(preset.reference_month || currentMonth).trim() || currentMonth;
@@ -732,12 +746,9 @@ export default function MensalidadesPanel({ embedded = false }) {
           await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, txId, { status: 'cancelled' });
         } catch (err) {
           console.error('Falha no sync financeiro após estorno:', err);
-          addToast({
-            type: 'warning',
-            message:
-              'Pagamento estornado, mas houve um problema ao atualizar o caixa. Verifique os lançamentos financeiros.',
-            duration: 10000,
-          });
+          setEstornoCaixaWarning(
+            'Mensalidade estornada, mas o lançamento no caixa pode não ter sido atualizado. Verifique em Caixa → Movimentações.'
+          );
         }
       }
       addToast({ type: 'success', message: 'Pagamento estornado.' });
@@ -785,194 +796,6 @@ export default function MensalidadesPanel({ embedded = false }) {
             }
       }
     >
-      <style>
-        {`
-          @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
-          .mensalidades-page .mensal-modal-field-label,
-          .mensalidades-modal-scope .mensal-modal-field-label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--color-text-secondary, var(--text-secondary));
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-          }
-          .mensalidades-page .mensal-modal-field-label-opt,
-          .mensalidades-modal-scope .mensal-modal-field-label-opt {
-            font-weight: 400;
-            text-transform: none;
-            letter-spacing: normal;
-          }
-          .mensalidades-page .mensal-table-wrap {
-            background: var(--surface, #fff);
-            border: 0.5px solid var(--border-light, #e8e8ef);
-            border-radius: 10px;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-          .mensalidades-page .mensal-table { width: 100%; border-collapse: collapse; min-width: 720px; }
-          .mensalidades-page .mensal-table thead { background: var(--surface-hover, #f4f4f8); }
-          .mensalidades-page .mensal-table th {
-            font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em;
-            padding: 10px 16px; text-align: left;
-          }
-          .mensalidades-page .mensal-table td {
-            padding: 12px 16px; font-size: 12px; color: var(--text-primary, var(--text, #1a1a1a));
-            border-top: 0.5px solid var(--border-light, #e8e8ef); vertical-align: middle;
-          }
-          .mensalidades-page .mensal-table tbody tr:hover td { background: var(--surface-hover, #f4f4f8); }
-          .mensalidades-page .mensal-chip {
-            font-size: 11px;
-            padding: 5px 12px;
-            border-radius: 20px;
-            border: 0.5px solid var(--border-light, #e8e8ef);
-            background: var(--surface, #fff);
-            color: var(--text-secondary);
-            cursor: pointer;
-            min-height: 44px;
-            display: inline-flex;
-            align-items: center;
-            box-sizing: border-box;
-          }
-          .mensalidades-page .mensal-chip--active { background: #5B3FBF; color: #fff; border-color: #5B3FBF; }
-          .mensalidades-page .mensal-search:focus { border-color: #5B3FBF !important; outline: none; }
-          .mensalidades-page .mensal-btn-pay { background: #5B3FBF; color: #fff; border: none; font-size: 11px; font-weight: 500; padding: 6px 14px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
-          .mensalidades-page .mensal-btn-pay:hover { background: #4a31a0; }
-          .mensalidades-page .mensal-btn-estornar { background: var(--surface, #fff); color: var(--text-secondary); border: 0.5px solid var(--border-light, #e8e8ef); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-          .mensalidades-page .mensal-btn-estornar:hover { background: #fef2f2; color: #A32D2D; border-color: #F7C1C1; }
-          .mensalidades-page .mensal-modal-in,
-          .mensalidades-modal-scope .mensal-modal-in {
-            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
-            border-radius: var(--border-radius-md, var(--radius-sm));
-            padding: 10px 12px;
-            font-size: 14px;
-            width: 100%;
-            box-sizing: border-box;
-            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
-            color: var(--text-primary, inherit);
-            font-family: inherit;
-            line-height: 1.35;
-          }
-          .mensalidades-page .mensal-modal-in--amount,
-          .mensalidades-modal-scope .mensal-modal-in--amount {
-            padding-left: 36px;
-            font-size: 20px;
-            font-weight: 500;
-            color: var(--color-text-primary, var(--text-primary, inherit));
-            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
-            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
-            border-radius: var(--border-radius-md, var(--radius-sm));
-            height: 48px;
-            width: 100%;
-          }
-          .mensalidades-page .mensal-modal-in[type="number"],
-          .mensalidades-modal-scope .mensal-modal-in[type="number"] {
-            height: 48px;
-            font-size: 15px;
-            font-weight: 500;
-          }
-          .mensalidades-page .mensal-modal-account,
-          .mensalidades-modal-scope .mensal-modal-account {
-            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
-            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
-            border-radius: var(--border-radius-md, var(--radius-sm));
-            padding: 10px 12px;
-            font-size: 14px;
-            color: var(--color-text-primary, var(--text-primary, inherit));
-            height: 48px;
-            width: 100%;
-            outline: none;
-            font-family: inherit;
-          }
-          .mensalidades-page .mensal-modal-account::placeholder,
-          .mensalidades-modal-scope .mensal-modal-account::placeholder {
-            color: var(--color-text-tertiary, var(--text-secondary));
-          }
-          .mensalidades-page .mensal-modal-textarea,
-          .mensalidades-modal-scope .mensal-modal-textarea {
-            background: var(--color-background-secondary, var(--surface-hover, #f4f4f8));
-            border: 0.5px solid var(--color-border-secondary, var(--border-light, #e8e8ef));
-            border-radius: var(--border-radius-md, var(--radius-sm));
-            padding: 10px 12px;
-            font-size: 14px;
-            color: var(--color-text-primary, var(--text-primary, inherit));
-            min-height: 88px;
-            width: 100%;
-            resize: vertical;
-            max-height: 160px;
-            outline: none;
-            font-family: inherit;
-            line-height: 1.45;
-          }
-          .mensalidades-page .mensal-modal-textarea::placeholder,
-          .mensalidades-modal-scope .mensal-modal-textarea::placeholder {
-            color: var(--color-text-tertiary, var(--text-secondary));
-          }
-          .mensalidades-page .mensal-modal-in:focus,
-          .mensalidades-page .mensal-modal-account:focus,
-          .mensalidades-page .mensal-modal-textarea:focus,
-          .mensalidades-modal-scope .mensal-modal-in:focus,
-          .mensalidades-modal-scope .mensal-modal-account:focus,
-          .mensalidades-modal-scope .mensal-modal-textarea:focus {
-            border-color: #5B3FBF;
-            background: var(--color-background-primary, var(--surface, #fff));
-            outline: none;
-          }
-          .mensalidades-modal-scope .mensal-modal-checkbox-row {
-            margin-top: 2px;
-            padding: 12px 14px;
-            border-radius: var(--border-radius-md, var(--radius-sm));
-            background: var(--surface-hover, #f4f4f8);
-            border: 0.5px solid var(--border-light, #e8e8ef);
-            font-size: 13px;
-            color: var(--text-primary, var(--text));
-            line-height: 1.4;
-          }
-          .mensalidades-modal-scope .mensal-modal-checkbox-row input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            flex-shrink: 0;
-            accent-color: #5B3FBF;
-            cursor: pointer;
-            margin-top: 2px;
-          }
-          .mensalidades-page input[type="date"].mensal-modal-in,
-          .mensalidades-modal-scope input[type="date"].mensal-modal-in {
-            min-height: 48px;
-          }
-          .mensalidades-modal-scope .mensal-pay-top-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            align-items: start;
-          }
-          @media (max-width: 420px) {
-            .mensalidades-modal-scope .mensal-pay-top-grid {
-              grid-template-columns: 1fr;
-            }
-            .mensalidades-modal-scope .mensalidades-modal-footer {
-              flex-direction: column;
-            }
-            .mensalidades-modal-scope .mensalidades-modal-footer button {
-              flex: 1 1 auto !important;
-              width: 100%;
-            }
-          }
-          @media (max-width: 900px) {
-            .mensalidades-page .mensal-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          }
-          @media (max-width: 720px) {
-            .mensalidades-page .mensal-table-wrap { border-radius: 0; }
-            .mensalidades-page .mensal-table th,
-            .mensalidades-page .mensal-table td { padding: 10px 10px; }
-          }
-          @media (max-width: 480px) {
-            .mensalidades-page .mensal-summary-grid { grid-template-columns: 1fr !important; }
-          }
-        `}
-      </style>
-
       <header className="mensal-header">
         <div className="mensal-header__top">
           <div>
@@ -1070,40 +893,53 @@ export default function MensalidadesPanel({ embedded = false }) {
 
       </header>
 
+      {viewMode === 'list' && !loading ? (
+        <section className="mensal-summary-block mensal-month-kpis" aria-label="Resumo do mês">
+          <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money">
+                {fmtMoney(monthKpis.expectedTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Esperado</div>
+            </div>
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money">
+                {fmtMoney(monthKpis.receivedTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Recebido</div>
+            </div>
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--pending">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money">
+                {fmtMoney(monthOpenTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Em aberto</div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {viewMode === 'list' && collectionDashboard.total > 0 ? (
-        <section
-          style={{
-            marginBottom: 20,
-            padding: '14px 16px',
-            borderRadius: 10,
-            border: '0.5px solid var(--border-light, #e8e8ef)',
-            background: 'var(--surface, #fff)',
-          }}
-        >
-          <h2 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+        <section className="mensal-collection-dashboard card">
+          <h2 className="mensal-collection-dashboard__title">
             Régua de cobrança · {formatMonthTitleCapitalized(currentMonth)}
           </h2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-              gap: 10,
-            }}
-          >
+          <div className="mensal-collection-dashboard__grid">
             <div>
-              <div style={{ fontSize: 22, fontWeight: 600, color: '#A32D2D' }}>{collectionDashboard.total}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Inadimplentes (D+1+)</div>
+              <div className="mensal-collection-dashboard__value mensal-collection-dashboard__value--alert">
+                {collectionDashboard.total}
+              </div>
+              <div className="mensal-collection-dashboard__label">Inadimplentes (D+1+)</div>
             </div>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 600 }}>{fmtMoney(collectionDashboard.totalOpen)}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Valor em aberto</div>
+              <div className="mensal-collection-dashboard__value">{fmtMoney(collectionDashboard.totalOpen)}</div>
+              <div className="mensal-collection-dashboard__label">Valor em aberto</div>
             </div>
             {collectionRules.map((rule) => (
               <div key={rule.day}>
-                <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>
+                <div className="mensal-collection-dashboard__value">
                   {collectionDashboard.byStage[String(rule.day)] || 0}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                <div className="mensal-collection-dashboard__label">
                   D+{rule.day} · {rule.label}
                 </div>
               </div>
@@ -1197,7 +1033,7 @@ export default function MensalidadesPanel({ embedded = false }) {
             onClick={() => toggleReceptionFilter('overdue')}
           >
             <div className="mensal-summary-card__value">{receptionSummary.overdue}</div>
-            <div className="mensal-summary-card__label">Inadimplentes</div>
+            <div className="mensal-summary-card__label">Em atraso</div>
           </button>
           <button
             type="button"
@@ -1225,6 +1061,22 @@ export default function MensalidadesPanel({ embedded = false }) {
         </div>
       ) : null}
 
+      {estornoCaixaWarning ? (
+        <div className="mensal-estorno-caixa-banner" role="alert">
+          <span className="mensal-estorno-caixa-banner__message">{estornoCaixaWarning}</span>
+          <Link to="/financeiro?tab=movimentacoes" className="mensal-estorno-caixa-banner__link">
+            Caixa → Movimentações
+          </Link>
+          <button
+            type="button"
+            className="btn-outline btn-sm mensal-estorno-caixa-banner__close"
+            onClick={() => setEstornoCaixaWarning('')}
+          >
+            Fechar
+          </button>
+        </div>
+      ) : null}
+
       <MensalidadesListTable
         loading={loading}
         displayedStudents={displayedStudents}
@@ -1245,7 +1097,8 @@ export default function MensalidadesPanel({ embedded = false }) {
         openPaymentModal={openPaymentModal}
         handleEstornar={handleEstornar}
         configuredTurmas={configuredTurmas}
-        canReverse={navRole === 'owner'}
+        canReverse={canReversePayment}
+        navRole={navRole}
       />      </>
       ) : null}
 

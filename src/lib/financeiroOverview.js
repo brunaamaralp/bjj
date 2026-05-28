@@ -1,7 +1,7 @@
 /**
  * Helpers para a aba Visão Geral do hub Financeiro (somente agregação no cliente).
  */
-import { addDaysYmd, todayYmdLocal } from './financeForecastCore.js';
+import { forecast30DaysRange, todayYmdLocal } from './financeForecastCore.js';
 import {
   expectedAmountForStudent,
   receivedAmountForPayment,
@@ -40,8 +40,7 @@ export function monthPeriodBounds(ym) {
 }
 
 export function forecastNext30Range() {
-  const from = todayYmdLocal();
-  return { from, to: addDaysYmd(from, 30) };
+  return forecast30DaysRange();
 }
 
 /**
@@ -131,9 +130,24 @@ export function countClosingDivergences({
   }
 }
 
-export function pctChange(current, previous) {
+/**
+ * Variação do saldo vs mês anterior para exibição na Visão Geral.
+ * @returns {{ type: 'pct', pct: number } | { type: 'text', text: string }}
+ */
+export function formatBalanceDelta(current, previous) {
   const c = Number(current) || 0;
   const p = Number(previous) || 0;
-  if (p === 0) return c === 0 ? 0 : null;
-  return Math.round(((c - p) / p) * 1000) / 10;
+  if (p === 0) {
+    if (c === 0) return { type: 'text', text: 'Sem movimento no período' };
+    return { type: 'text', text: 'Primeiro mês com movimento' };
+  }
+  const pct = Math.round(((c - p) / p) * 1000) / 10;
+  return { type: 'pct', pct };
+}
+
+/** @deprecated Prefer formatBalanceDelta */
+export function pctChange(current, previous) {
+  const r = formatBalanceDelta(current, previous);
+  if (r.type === 'text') return null;
+  return r.pct;
 }

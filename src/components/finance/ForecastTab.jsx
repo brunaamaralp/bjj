@@ -10,26 +10,29 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Calendar, Clock, Repeat, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Calendar, Clock, RefreshCw, Repeat, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { fetchFinanceForecast } from '../../lib/financeTxApi.js';
 import {
   FORECAST_PERIOD_PRESETS,
   buildForecastChartRows,
   todayYmdLocal,
 } from '../../lib/financeForecastCore.js';
-import { friendlyError } from '../../lib/errorMessages';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
 
 const PRESETS = [
+  { id: '30d', label: '30 dias' },
   { id: '4w', label: 'Próximas 4 semanas' },
-  { id: '1m', label: 'Próximo mês' },
+  { id: '1m', label: 'Próximo mês', hint: '(mês civil seguinte)' },
   { id: '3m', label: 'Próximos 3 meses' },
 ];
 
 const STATUS_LABELS = {
+  projetado: 'Projetado',
+  recorrente: 'Recorrente',
   esperado: 'Esperado',
   confirmado: 'Confirmado',
-  recorrente: 'Recorrente',
+  awaiting: 'Aguardando',
 };
 
 function fmtMoney(v) {
@@ -53,14 +56,15 @@ function TypeIcon({ type }) {
 }
 
 export default function ForecastTab({ academyId }) {
-  const [preset, setPreset] = useState('4w');
+  const [preset, setPreset] = useState('30d');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const range = useMemo(() => {
-    const fn = FORECAST_PERIOD_PRESETS[preset] || FORECAST_PERIOD_PRESETS['4w'];
+    const fn = FORECAST_PERIOD_PRESETS[preset] || FORECAST_PERIOD_PRESETS['30d'];
     return fn(todayYmdLocal());
   }, [preset]);
 
@@ -68,6 +72,7 @@ export default function ForecastTab({ academyId }) {
     async (refresh = false) => {
       if (!academyId) return;
       setLoading(true);
+      setIsRefreshing(refresh);
       setError('');
       try {
         const body = await fetchFinanceForecast({
@@ -79,10 +84,10 @@ export default function ForecastTab({ academyId }) {
         setData(body);
       } catch (e) {
         console.error(e);
-        setError(friendlyError(e, 'load'));
-        setData(null);
+        setError('Não foi possível carregar a previsão. Verifique a conexão e tente novamente.');
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
     },
     [academyId, range.from, range.to]
@@ -112,6 +117,20 @@ export default function ForecastTab({ academyId }) {
   const summary = data?.summary || {};
   const projected = Number(data?.closing_balance ?? 0);
   const projectedPositive = projected >= 0;
+  const cachedAtLabel = useMemo(() => {
+    const raw = String(data?.cached_at || '').trim();
+    if (!raw) return '';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }, [data?.cached_at]);
+  const contentBusy = loading && Boolean(data);
+
+  const statusLabel = (status) => {
+    const raw = String(status || '').trim();
+    if (!raw) return '—';
+    return STATUS_LABELS[raw] || `${raw.charAt(0).toUpperCase()}${raw.slice(1)}`;
+  };
 
   if (!academyId) return null;
 
@@ -135,12 +154,25 @@ export default function ForecastTab({ academyId }) {
             type="button"
             className={`btn-outline btn-sm${preset === p.id ? ' finance-regime-active' : ''}`}
             onClick={() => setPreset(p.id)}
+            title={p.hint || undefined}
           >
             {p.label}
           </button>
         ))}
+        <span className="text-xs text-muted" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {isRefreshing ? 'Atualizando…' : cachedAtLabel ? `Atualizado às ${cachedAtLabel}` : '—'}
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            onClick={() => void load(true)}
+            disabled={loading}
+            aria-label="Atualizar previsão"
+          >
+            <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} />
+          </button>
+        </span>
         {range.from && range.to ? (
-          <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
+          <span className="text-xs text-muted">
             {fmtDateBr(range.from)} — {fmtDateBr(range.to)}
           </span>
         ) : null}
@@ -148,13 +180,25 @@ export default function ForecastTab({ academyId }) {
 
       {loading && !data ? <PageSkeleton variant="cards" rows={2} /> : null}
       {error ? (
-        <p className="text-small" style={{ color: 'var(--danger)' }}>
-          {error}
-        </p>
+        <ErrorBanner
+          message="Não foi possível carregar a previsão. Verifique a conexão e tente novamente."
+          onRetry={() => void load(true)}
+          className="mb-3"
+        />
       ) : null}
 
       {data ? (
-        <>
+        <div style={{ position: 'relative' }}>
+          {contentBusy ? (
+            <div
+              className="text-small text-muted"
+              style={{ position: 'absolute', right: 8, top: -6, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <RefreshCw size={14} className="navi-async-btn__spin" />
+              Atualizando…
+            </div>
+          ) : null}
+          <div style={contentBusy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
           <div className="finance-forecast-summary">
             <div className="card finance-forecast-summary__card">
               <Wallet size={18} style={{ color: 'var(--v500)' }} aria-hidden />
@@ -296,8 +340,11 @@ export default function ForecastTab({ academyId }) {
                           <TypeIcon type={item.type} />
                         </span>
                         <div className="finance-forecast-week__body">
-                          {item.type === 'mensalidade' && item.lead_id ? (
-                            <Link to={`/student/${item.lead_id}`} className="finance-forecast-week__link">
+                          {item.type === 'mensalidade' ? (
+                            <Link
+                              to={`/financeiro?tab=mensalidades&search=${encodeURIComponent(item.student_name || item.label || '')}`}
+                              className="finance-forecast-week__link"
+                            >
                               {item.label}
                             </Link>
                           ) : (
@@ -306,7 +353,15 @@ export default function ForecastTab({ academyId }) {
                           <span className="text-xs text-muted">
                             {fmtDateBr(item.due_date)}
                             {' · '}
-                            {STATUS_LABELS[item.status] || item.status}
+                            {statusLabel(item.status)}
+                            {item.type === 'pendente' ? (
+                              <>
+                                {' · '}
+                                <Link to="/financeiro?tab=movimentacoes" className="finance-forecast-week__link">
+                                  Ver no Caixa
+                                </Link>
+                              </>
+                            ) : null}
                           </span>
                         </div>
                         <span
@@ -323,7 +378,8 @@ export default function ForecastTab({ academyId }) {
               </div>
             ))}
           </div>
-        </>
+          </div>
+        </div>
       ) : null}
     </section>
   );

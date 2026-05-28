@@ -82,3 +82,12 @@ export function buildFinanceiroAllowedLeafTabs({ isOwner, financeModule }) {
     : buildFinanceiroMemberLeafTabs({ financeModule });
   return [...base, ...operational];
 }
+
+export function buildFinanceiroManagerLeafTabs({ isOwner, isAdmin, financeModule }) {
+  const base = [FINANCEIRO_SECTIONS.OVERVIEW, FINANCEIRO_SECTIONS.MENSALIDADES];
+  if (isOwner || isAdmin) base.push(FINANCEIRO_SECTIONS.CONFIG);
+  const operational = isOwner
+    ? buildFinanceiroOwnerLeafTabs({ financeModule })
+    : buildFinanceiroMemberLeafTabs({ financeModule });
+  return [...base, ...operational];
+}

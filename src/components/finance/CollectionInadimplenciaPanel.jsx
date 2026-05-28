@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MessageCircle, Handshake, Clock } from 'lucide-react';
 import { useTaskStore } from '../../store/useTaskStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
@@ -25,6 +26,9 @@ export default function CollectionInadimplenciaPanel({
   const createTask = useTaskStore((s) => s.createTask);
   const addToast = useUiStore((s) => s.addToast);
   const [busyId, setBusyId] = useState(null);
+  const [negotiateRow, setNegotiateRow] = useState(null);
+  const [negotiateNote, setNegotiateNote] = useState('');
+  const [savingNegotiate, setSavingNegotiate] = useState(false);
 
   const rows = useMemo(() => {
     return (students || [])
@@ -48,16 +52,23 @@ export default function CollectionInadimplenciaPanel({
 
   if (!rows.length) return null;
 
-  const handleNegotiate = async (row) => {
-    const { student, rule } = row;
-    const note = window.prompt('Nota da negociação (opcional):', '');
-    if (note === null) return;
+  const closeNegotiateModal = () => {
+    if (savingNegotiate) return;
+    setNegotiateRow(null);
+    setNegotiateNote('');
+  };
+
+  const submitNegotiate = async () => {
+    if (!negotiateRow || savingNegotiate) return;
+    const { student, rule } = negotiateRow;
+    const note = String(negotiateNote || '').trim();
+    setSavingNegotiate(true);
     setBusyId(student.id);
     try {
       const leadName = String(student.name || '').trim() || 'Aluno';
-      const title = buildCollectionTaskTitle(rule || { label: 'Negociação', day: row.meta.daysOverdue }, leadName);
+      const title = buildCollectionTaskTitle(rule || { label: 'Negociação', day: negotiateRow.meta.daysOverdue }, leadName);
       const description = `${buildCollectionTaskDescription(
-        rule || { day: row.meta.daysOverdue, label: 'Negociação', defaultMessage: '' },
+        rule || { day: negotiateRow.meta.daysOverdue, label: 'Negociação', defaultMessage: '' },
         leadName
       )}\n---\nNegociação manual${note ? `: ${note}` : ''}`;
       await createTask({
@@ -69,9 +80,11 @@ export default function CollectionInadimplenciaPanel({
         lead_name: leadName,
       });
       addToast({ type: 'success', message: 'Tarefa de negociação criada.' });
+      closeNegotiateModal();
     } catch (e) {
       addToast({ type: 'error', message: e?.message || 'Falha ao criar tarefa' });
     } finally {
+      setSavingNegotiate(false);
       setBusyId(null);
     }
   };
@@ -133,7 +146,10 @@ export default function CollectionInadimplenciaPanel({
                   type="button"
                   className="btn-outline mensal-inadimplencia-btn"
                   disabled={busy}
-                  onClick={() => void handleNegotiate(row)}
+                  onClick={() => {
+                    setNegotiateRow(row);
+                    setNegotiateNote('');
+                  }}
                 >
                   <Handshake size={14} />
                   Negociar
@@ -152,6 +168,58 @@ export default function CollectionInadimplenciaPanel({
           );
         })}
       </ul>
+
+      {negotiateRow && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="navi-modal-overlay mensal-negotiate-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mensal-negotiate-title"
+              onClick={closeNegotiateModal}
+            >
+              <div
+                className="card mensal-negotiate-modal"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 id="mensal-negotiate-title" className="navi-section-heading mensal-negotiate-modal__title">
+                  Negociar · {negotiateRow.student.name}
+                </h2>
+                <label className="mensal-modal-field-label" htmlFor="mensal-negotiate-note">
+                  Nota da negociação (opcional)
+                </label>
+                <textarea
+                  id="mensal-negotiate-note"
+                  className="mensal-modal-textarea"
+                  rows={4}
+                  value={negotiateNote}
+                  onChange={(e) => setNegotiateNote(e.target.value)}
+                  placeholder="Ex.: combinado parcelamento em 2x até dia 15"
+                  disabled={savingNegotiate}
+                />
+                <div className="mensal-negotiate-modal__actions">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={closeNegotiateModal}
+                    disabled={savingNegotiate}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => void submitNegotiate()}
+                    disabled={savingNegotiate}
+                  >
+                    {savingNegotiate ? 'Salvando…' : 'Salvar e criar tarefa'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </section>
   );
 }

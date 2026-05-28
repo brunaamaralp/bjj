@@ -115,8 +115,22 @@ export function sumForecastFlows(weeks) {
   return { inflow: roundMoney(inflow), outflow: roundMoney(outflow) };
 }
 
-/** Projeta ocorrências mensais de recorrência entre from e to. */
+function buildRecurrenceItem(template, ymd, gross) {
+  return {
+    type: 'recorrencia',
+    label: String(template.label || template.planName || template.category || 'Recorrente').trim(),
+    amount: gross,
+    due_date: ymd,
+    status: 'recorrente',
+    _flow: template._flow || 'out',
+    lead_id: template.lead_id || undefined,
+    student_name: template.student_name || undefined,
+  };
+}
+
+/** Projeta ocorrências de recorrência entre from e to. */
 export function projectRecurrenceOccurrences(template, fromYmd, toYmd) {
+  const recurrenceType = String(template.recurrence_type || 'monthly').trim().toLowerCase();
   const day = Math.min(31, Math.max(1, Math.trunc(Number(template.recurrence_day) || 1)));
   const gross = Math.abs(Number(template.gross) || 0);
   if (gross < 0.01) return [];
@@ -126,6 +140,24 @@ export function projectRecurrenceOccurrences(template, fromYmd, toYmd) {
   if (!from || !to) return [];
 
   const out = [];
+  if (recurrenceType === 'weekly' || recurrenceType === 'biweekly') {
+    const sourceDate = parseYmd(template.base_date || template.due_date || template.created_at || fromYmd) || from;
+    const weekday = sourceDate.getDay();
+    const stepDays = recurrenceType === 'biweekly' ? 14 : 7;
+    const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0, 0);
+    const delta = (weekday - cursor.getDay() + 7) % 7;
+    cursor.setDate(cursor.getDate() + delta);
+    while (cursor <= to) {
+      const ymd = formatYmd(cursor);
+      if (cursor >= from && ymd >= fromYmd) {
+        out.push(buildRecurrenceItem(template, ymd, gross));
+      }
+      cursor.setDate(cursor.getDate() + stepDays);
+      if (out.length > 240) break;
+    }
+    return out;
+  }
+
   let y = from.getFullYear();
   let m = from.getMonth();
   const endY = to.getFullYear();
@@ -137,16 +169,7 @@ export function projectRecurrenceOccurrences(template, fromYmd, toYmd) {
     const occ = new Date(y, m, dom, 12, 0, 0, 0);
     const ymd = formatYmd(occ);
     if (occ >= from && occ <= to && ymd >= fromYmd) {
-      out.push({
-        type: 'recorrencia',
-        label: String(template.label || template.planName || template.category || 'Recorrente').trim(),
-        amount: gross,
-        due_date: ymd,
-        status: 'recorrente',
-        _flow: template._flow || 'out',
-        lead_id: template.lead_id || undefined,
-        student_name: template.student_name || undefined,
-      });
+      out.push(buildRecurrenceItem(template, ymd, gross));
     }
     m += 1;
     if (m > 11) {
@@ -175,7 +198,12 @@ export function buildForecastChartRows(weeks, openingBalance) {
   });
 }
 
+export function forecast30DaysRange(from = todayYmdLocal()) {
+  return { from, to: addDaysYmd(from, 30) };
+}
+
 export const FORECAST_PERIOD_PRESETS = {
+  '30d': (from = todayYmdLocal()) => forecast30DaysRange(from),
   '4w': (from = todayYmdLocal()) => ({ from, to: addDaysYmd(from, 27) }),
   '1m': () => {
     const d = new Date();

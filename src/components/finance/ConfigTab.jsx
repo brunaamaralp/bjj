@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import CollectionRulesSection from './CollectionRulesSection.jsx';
 import RouteFallback from '../shared/RouteFallback.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 import './finance.css';
 
@@ -123,10 +124,11 @@ function SectionSaveFooter({ dirty, saving, onSave }) {
   );
 }
 
-function FinanceSectionHeading({ icon: Icon, children }) {
+function FinanceSectionHeading({ icon, children }) {
+  const iconEl = React.createElement(icon, { size: 18, color: 'var(--v500)', 'aria-hidden': true });
   return (
     <h3 className="navi-section-heading finance-config-section__heading">
-      <Icon size={18} color="var(--v500)" aria-hidden />
+      {iconEl}
       {children}
     </h3>
   );
@@ -237,7 +239,7 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
 }
 
 
-export default function ConfigTab({ academyId, layout = 'picker', contractsMode = 'embedded' }) {
+export default function ConfigTab({ academyId, layout = 'picker', contractsMode = 'embedded', isOwner = true }) {
   const isStacked = layout === 'stacked';
   const addToast = useUiStore((s) => s.addToast);
   const { data: contractTemplatesData } = useContractTemplates(true);
@@ -249,6 +251,10 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
   const [exceptionLabels, setExceptionLabels] = useState(() => readExceptionStatusLabels(null));
   const [installmentsExpanded, setInstallmentsExpanded] = useState(false);
   const [activeSection, setActiveSection] = useState(FINANCE_SECTIONS[0].id);
+  const [pendingRemovePlan, setPendingRemovePlan] = useState(null);
+  const [pendingRemoveBank, setPendingRemoveBank] = useState(null);
+  const [lastSaved, setLastSaved] = useState({});
+  const [lastSavedSection, setLastSavedSection] = useState('');
 
   const [savedDigests, setSavedDigests] = useState({
     accounts: digestBankAccounts([]),
@@ -375,6 +381,9 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),
         exceptions: digestExceptionLabels(labels),
       });
+      const now = Date.now();
+      setLastSaved((prev) => ({ ...prev, [sectionKey]: now }));
+      setLastSavedSection(sectionKey);
       addToast({ type: 'success', message: successMessage });
     } catch (e) {
       console.error(e);
@@ -398,7 +407,11 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
     setFinanceConfig({ ...financeConfig, bankAccounts: arr });
   };
 
-  const jumpSections = isStacked ? FINANCE_HUB_JUMP_SECTIONS : FINANCE_SECTIONS;
+  const jumpSectionsBase = isStacked ? FINANCE_HUB_JUMP_SECTIONS : FINANCE_SECTIONS;
+  const jumpSections = jumpSectionsBase.filter((s) => {
+    if (isOwner) return true;
+    return !['finance-plans', 'finance-collection', 'finance-contracts', 'finance-plano-contas', 'finance-dre'].includes(s.id);
+  });
 
   const scrollToSection = (sectionId) => {
     if (isStacked) {
@@ -406,6 +419,14 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
       return;
     }
     setActiveSection(sectionId);
+  };
+
+  const formatSavedAt = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const sameDay = new Date().toDateString() === d.toDateString();
+    if (sameDay) return `Salvo as ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    return `Salvo em ${d.toLocaleDateString('pt-BR')} as ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   return (
@@ -426,9 +447,10 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
         ))}
       </nav>
 
-      {isSectionOpen('finance-plans', layout, activeSection) ? (
+      {isOwner && isSectionOpen('finance-plans', layout, activeSection) ? (
         <section id="finance-plans" className="finance-config-section animate-in mensal-finance-plans-section">
           <FinanceSectionHeading icon={Wallet2}>Planos de mensalidade</FinanceSectionHeading>
+          {lastSaved.plans ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.plans)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
             Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos.
           </p>
@@ -440,11 +462,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
                 idx={idx}
                 contractTemplates={contractTemplates}
                 onUpdate={updatePlan}
-                onRemove={(i) => {
-                  const arr = [...(financeConfig.plans || [])];
-                  arr.splice(i, 1);
-                  setFinanceConfig({ ...financeConfig, plans: arr });
-                }}
+                onRemove={(i) => setPendingRemovePlan(i)}
               />
             ))}
             <button
@@ -470,6 +488,11 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
               saving={savingSection === 'plans'}
               onSave={() => persistConfig('plans', 'Planos de mensalidade salvos.')}
             />
+            {lastSavedSection === 'plans' ? (
+              <Link to="/financeiro?tab=mensalidades" className="finance-config-context-link">
+                Ver em Mensalidades →
+              </Link>
+            ) : null}
           </div>
           <div className="finance-nave-subscription">
             <h4 className="navi-section-heading finance-nave-subscription__heading">
@@ -490,6 +513,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
       {isSectionOpen('finance-fees', layout, activeSection) ? (
         <section id="finance-fees" className="finance-config-section animate-in">
           <FinanceSectionHeading icon={CreditCard}>Taxas de cartão</FinanceSectionHeading>
+          {lastSaved.fees ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.fees)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint">
             Percentuais descontados em pagamentos com cartão e PIX na mensalidade.
           </p>
@@ -598,6 +622,11 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
               saving={savingSection === 'fees'}
               onSave={() => persistConfig('fees', 'Taxas de cartão salvas.')}
             />
+            {lastSavedSection === 'fees' ? (
+              <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
+                Ver no Caixa →
+              </Link>
+            ) : null}
           </div>
           <hr className="finance-config-section__divider" aria-hidden />
         </section>
@@ -606,6 +635,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
       {isSectionOpen('finance-accounts', layout, activeSection) ? (
         <section id="finance-accounts" className="finance-config-section animate-in">
           <FinanceSectionHeading icon={Banknote}>Contas bancárias</FinanceSectionHeading>
+          {lastSaved.accounts ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.accounts)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint">
             Contas usadas em recebimentos e comprovantes. Cadastre banco, agência, conta e PIX.
           </p>
@@ -658,11 +688,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
                     className="finance-bank-row__remove"
                     title="Remover conta"
                     aria-label="Remover conta"
-                    onClick={() => {
-                      const arr = [...(financeConfig.bankAccounts || [])];
-                      arr.splice(idx, 1);
-                      setFinanceConfig({ ...financeConfig, bankAccounts: arr });
-                    }}
+                    onClick={() => setPendingRemoveBank(idx)}
                   >
                     <Trash2 size={16} aria-hidden />
                   </button>
@@ -686,13 +712,19 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
               saving={savingSection === 'accounts'}
               onSave={() => persistConfig('accounts', 'Contas bancárias salvas.')}
             />
+            {lastSavedSection === 'accounts' ? (
+              <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
+                Ver no Caixa →
+              </Link>
+            ) : null}
           </div>
           <hr className="finance-config-section__divider" aria-hidden />
         </section>
       ) : null}
 
-      {isSectionOpen('finance-collection', layout, activeSection) ? (
+      {isOwner && isSectionOpen('finance-collection', layout, activeSection) ? (
         <div id="finance-collection" className="finance-config-section-wrap">
+          {lastSaved.collection ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.collection)}</p> : null}
           <CollectionRulesSection
             collectionRules={collectionRules}
             overdueLabel={overdueLabel}
@@ -704,23 +736,34 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
             saving={savingSection === 'collection'}
             onSave={() => persistConfig('collection', 'Régua de cobrança salva.')}
           />
+          {lastSavedSection === 'collection' ? (
+            <Link to="/financeiro?tab=mensalidades&filtro=overdue" className="finance-config-context-link">
+              Ver inadimplentes →
+            </Link>
+          ) : null}
           <hr className="finance-config-section__divider" aria-hidden />
         </div>
       ) : null}
 
       {isSectionOpen('finance-exceptions', layout, activeSection) ? (
         <div id="finance-exceptions" className="finance-config-section-wrap">
+          {lastSaved.exceptions ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.exceptions)}</p> : null}
           <ExceptionStatusLabelsSection labels={exceptionLabels} onChange={setExceptionLabels} />
           <SectionSaveFooter
             dirty={dirty.exceptions}
             saving={savingSection === 'exceptions'}
             onSave={() => persistConfig('exceptions', 'Rótulos de exceção salvos.')}
           />
+          {lastSavedSection === 'exceptions' ? (
+            <Link to="/financeiro?tab=mensalidades" className="finance-config-context-link">
+              Ver Pendências →
+            </Link>
+          ) : null}
           <hr className="finance-config-section__divider" aria-hidden />
         </div>
       ) : null}
 
-      {isSectionOpen('finance-contracts', layout, activeSection) ? (
+      {isOwner && isSectionOpen('finance-contracts', layout, activeSection) ? (
         <section id="finance-contracts" className="finance-config-section animate-in finance-config-contracts">
           <FinanceSectionHeading icon={FileSignature}>Modelos de contrato</FinanceSectionHeading>
           <p className="text-small text-muted finance-config-section__hint">
@@ -738,6 +781,36 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
           <hr className="finance-config-section__divider" aria-hidden />
         </section>
       ) : null}
+      <ConfirmDialog
+        open={typeof pendingRemovePlan === 'number'}
+        title="Remover plano"
+        description="Este plano será removido. Alunos vinculados a ele não serão afetados, mas novos cadastros não poderão selecioná-lo. Confirmar?"
+        confirmLabel="Remover"
+        confirmVariant="danger"
+        onClose={() => setPendingRemovePlan(null)}
+        onConfirm={() => {
+          if (typeof pendingRemovePlan !== 'number') return;
+          const arr = [...(financeConfig.plans || [])];
+          arr.splice(pendingRemovePlan, 1);
+          setFinanceConfig({ ...financeConfig, plans: arr });
+          setPendingRemovePlan(null);
+        }}
+      />
+      <ConfirmDialog
+        open={typeof pendingRemoveBank === 'number'}
+        title="Remover conta bancária"
+        description="Esta conta será removida da lista. Lançamentos existentes vinculados a ela não serão alterados. Confirmar?"
+        confirmLabel="Remover"
+        confirmVariant="danger"
+        onClose={() => setPendingRemoveBank(null)}
+        onConfirm={() => {
+          if (typeof pendingRemoveBank !== 'number') return;
+          const arr = [...(financeConfig.bankAccounts || [])];
+          arr.splice(pendingRemoveBank, 1);
+          setFinanceConfig({ ...financeConfig, bankAccounts: arr });
+          setPendingRemoveBank(null);
+        }}
+      />
     </div>
   );
 }
