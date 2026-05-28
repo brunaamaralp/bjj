@@ -147,13 +147,13 @@ const Inventory = () => {
   }
 
   return (
-    <div className="container inventory-page" style={{ paddingTop: 16, paddingBottom: 12 }}>
-      <div className="animate-in">
+    <div className="container inventory-page">
+      <div className="inventory-page__head animate-in">
         <h1 className="navi-page-title">Estoque</h1>
-        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 12 }}>
+        <p className="navi-eyebrow inventory-page__eyebrow">
           Saldo por item e movimentações
         </p>
-        <div className="page-header-card" style={{ marginBottom: 16 }}>
+        <div className="page-header-card inventory-page__import-card">
           <div className="page-header-row">
             <div style={{ flex: 1 }} />
             <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
@@ -164,7 +164,7 @@ const Inventory = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 mt-3" role="tablist">
+      <div className="flex gap-2 inventory-page__tabs" role="tablist">
         <button
           type="button"
           className={tab === 'saldo' ? 'btn-secondary' : 'btn-outline'}
@@ -181,6 +181,7 @@ const Inventory = () => {
         </button>
       </div>
 
+      <div className="inventory-page__body">
       {tab === 'saldo' ? (
         <InventoryBalanceView
           catalogParents={catalogParents}
@@ -206,6 +207,7 @@ const Inventory = () => {
           onSuccess={onMoveSuccess}
         />
       )}
+      </div>
 
       <InventoryConfigureModal
         open={Boolean(configItem)}

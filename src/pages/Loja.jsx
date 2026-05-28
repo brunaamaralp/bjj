@@ -43,8 +43,8 @@ export default function Loja() {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div>
-      <div className="container" style={{ paddingTop: 12, paddingBottom: 0 }}>
+    <div className="loja-hub">
+      <div className="container loja-hub__tabs" style={{ paddingTop: 12, paddingBottom: 0 }}>
         <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Vendas" />
       </div>
       {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}

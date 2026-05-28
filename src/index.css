@@ -3949,22 +3949,52 @@ button.funil-color-swatch {
   }
 }
 
-/* —— Página Produtos —— */
-.products-page {
+/* —— Hub Loja: Produtos e Estoque preenchem a altura útil —— */
+.main-content > .loja-hub {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.loja-hub__tabs {
+  flex-shrink: 0;
+}
+
+.loja-hub > .container.products-page,
+.loja-hub > .container.inventory-page {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding-top: 16px;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
-/* Produtos (Loja): tabela ocupa mais a altura da página — menos scroll interno curto */
-.products-page .products-desktop-table-wrap {
-  max-height: calc(100dvh - 11rem);
-  min-height: min(52vh, calc(100dvh - 11rem));
+/* —— Página Produtos —— */
+.products-page > .products-page-header,
+.products-page > .mt-2,
+.products-page > .mt-4:not(.products-filters-card) {
+  flex-shrink: 0;
 }
 
-@media (min-width: 768px) and (min-height: 700px) {
+.products-page .products-filters-card {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.products-page .products-filters-row {
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
   .products-page .products-desktop-table-wrap {
-    max-height: calc(100dvh - 10rem);
-    min-height: min(56vh, calc(100dvh - 10rem));
+    flex: 1 1 0%;
+    min-height: 0;
+    max-height: none;
   }
 }
 
@@ -5409,16 +5439,55 @@ button.funil-color-swatch {
   position: relative;
 }
 
-/* Estoque (Loja): tabela ocupa mais a altura da página — menos scroll interno curto */
-.inventory-page .inventory-desktop-table-wrap {
-  max-height: calc(100dvh - 11rem);
-  min-height: min(52vh, calc(100dvh - 11rem));
+.inventory-page__head,
+.inventory-page__tabs {
+  flex-shrink: 0;
 }
 
-@media (min-width: 768px) and (min-height: 700px) {
+.inventory-page__eyebrow {
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+.inventory-page__import-card {
+  margin-bottom: 16px;
+}
+
+.inventory-page__body {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventory-balance-section {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.inventory-balance-toolbar {
+  flex-shrink: 0;
+}
+
+.inventory-page .inventory-filters-card {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventory-page .inventory-filters-row {
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
   .inventory-page .inventory-desktop-table-wrap {
-    max-height: calc(100dvh - 10rem);
-    min-height: min(56vh, calc(100dvh - 10rem));
+    flex: 1 1 0%;
+    min-height: 0;
+    max-height: none;
   }
 }
 

@@ -305,7 +305,7 @@ export default function InventoryBalanceView({
   }, [highlightItemId, loading, filtered.length]);
 
   return (
-    <section className="mt-4 animate-in">
+    <section className="inventory-balance-section animate-in">
       <div className="flex justify-between items-center gap-2 mb-2 inventory-balance-toolbar">
         <h2 className="navi-section-heading" style={{ margin: 0 }}>Saldo atual</h2>
         <div className="flex gap-2 items-center inventory-balance-toolbar__controls">
