@@ -1127,6 +1127,8 @@ button:active {
   display: flex;
   align-items: center;
   gap: 11px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 7px 16px;
   border: none;
   border-radius: 0;
@@ -1134,9 +1136,15 @@ button:active {
   font-family: var(--ff-ui);
   font-size: 13px;
   font-weight: 400;
+  line-height: 1.35;
   color: var(--text-secondary);
   background: transparent;
+  cursor: pointer;
+  text-align: left;
+  justify-content: flex-start;
   transition: background 100ms ease, color 100ms ease;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .navi-mobile-drawer__link:hover {
@@ -2116,6 +2124,16 @@ button.funil-color-swatch {
 
 .navi-sidebar-nav button:active {
   transform: none;
+}
+
+.navi-sidebar-nav button.navi-sidebar-link {
+  width: calc(100% - 20px);
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  justify-content: flex-start;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 /* Links raiz e filhos */
@@ -3881,8 +3899,21 @@ button.funil-color-swatch {
 
 /* —— Página Produtos —— */
 .products-page {
-  padding-top: 20px;
-  padding-bottom: 20px;
+  padding-top: 16px;
+  padding-bottom: 12px;
+}
+
+/* Produtos (Loja): tabela ocupa mais a altura da página — menos scroll interno curto */
+.products-page .products-desktop-table-wrap {
+  max-height: calc(100dvh - 11rem);
+  min-height: min(52vh, calc(100dvh - 11rem));
+}
+
+@media (min-width: 768px) and (min-height: 700px) {
+  .products-page .products-desktop-table-wrap {
+    max-height: calc(100dvh - 10rem);
+    min-height: min(56vh, calc(100dvh - 10rem));
+  }
 }
 
 .products-page-header {
@@ -3905,6 +3936,7 @@ button.funil-color-swatch {
 
 .products-filters-row {
   flex-wrap: wrap;
+  align-items: flex-end;
   margin-bottom: 12px;
 }
 
@@ -5325,6 +5357,19 @@ button.funil-color-swatch {
   position: relative;
 }
 
+/* Estoque (Loja): tabela ocupa mais a altura da página — menos scroll interno curto */
+.inventory-page .inventory-desktop-table-wrap {
+  max-height: calc(100dvh - 11rem);
+  min-height: min(52vh, calc(100dvh - 11rem));
+}
+
+@media (min-width: 768px) and (min-height: 700px) {
+  .inventory-page .inventory-desktop-table-wrap {
+    max-height: calc(100dvh - 10rem);
+    min-height: min(56vh, calc(100dvh - 10rem));
+  }
+}
+
 .inventory-desktop-table-wrap .inventory-table thead th,
 .inventory-desktop-table-wrap .products-table thead th {
   position: sticky;
@@ -5519,6 +5564,27 @@ button.funil-color-swatch {
 .inventory-table__qty,
 .inventory-table__min {
   font-variant-numeric: tabular-nums;
+}
+
+.inventory-table__min--editable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.inventory-table__min--editable:hover {
+  color: var(--text-primary, inherit);
+}
+
+.inventory-mobile-min-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
 }
 
 .inventory-table__col-cat,

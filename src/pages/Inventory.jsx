@@ -36,6 +36,15 @@ const Inventory = () => {
   const [entryItem, setEntryItem] = useState(null);
   const [checkTarget, setCheckTarget] = useState(null);
   const [adjustItem, setAdjustItem] = useState(null);
+
+  const openAdjustItem = useCallback((item) => {
+    requestAnimationFrame(() => setAdjustItem(item));
+  }, []);
+
+  const openConfigItem = useCallback((item) => {
+    requestAnimationFrame(() => setConfigItem(item));
+  }, []);
+
   const addToast = useUiStore((s) => s.addToast);
   const [tab, setTab] = useState('saldo');
   const [movePreset, setMovePreset] = useState({ itemId: '', tipo: 'entrada' });
@@ -138,7 +147,7 @@ const Inventory = () => {
   }
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
+    <div className="container inventory-page" style={{ paddingTop: 16, paddingBottom: 12 }}>
       <div className="animate-in">
         <h1 className="navi-page-title">Estoque</h1>
         <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 12 }}>
@@ -181,8 +190,8 @@ const Inventory = () => {
           onRefresh={refresh}
           onRegisterEntry={handleRegisterEntry}
           onRequestCheck={(item) => setCheckTarget(item)}
-          onConfigureItem={(item) => setConfigItem(item)}
-          onAdjustItem={(item) => setAdjustItem(item)}
+          onConfigureItem={openConfigItem}
+          onAdjustItem={openAdjustItem}
         />
       ) : (
         <InventoryMovesForm

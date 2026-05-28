@@ -658,6 +658,7 @@ export default function Products() {
             </select>
           </div>
           <div className="form-group products-filter-group products-filter-group--status">
+            <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todos</option>
               <option value="ativo">Ativos</option>
@@ -666,6 +667,7 @@ export default function Products() {
             </select>
           </div>
           <div className="form-group products-filter-group products-filter-group--type">
+            <label className="text-xs">Tipo</label>
             <select className="form-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="all">Todos</option>
               <option value="for_sale">Para venda</option>

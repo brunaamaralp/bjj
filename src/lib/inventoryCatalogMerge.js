@@ -47,6 +47,10 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
     invById.set(String(it.id), it);
   }
 
+  const catalogParentIds = new Set(
+    (parentProducts || []).map((p) => String(p.id || '').trim()).filter(Boolean)
+  );
+
   const matchedIds = new Set();
   let parents = (parentProducts || []).map((parent) => {
     const variants = (parent.variants || []).map((v) => {
@@ -68,7 +72,13 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
     };
   });
 
-  const orphans = (inventoryItems || []).filter((it) => !matchedIds.has(String(it.id)));
+  const orphans = (inventoryItems || []).filter((it) => {
+    const id = String(it.id);
+    if (matchedIds.has(id)) return false;
+    const pid = String(it.product_id || '').trim();
+    if (pid && catalogParentIds.size > 0 && !catalogParentIds.has(pid)) return false;
+    return true;
+  });
   if (orphans.length) {
     const legacy = legacyStockItemsAsParents(orphans);
     for (const row of legacy) {

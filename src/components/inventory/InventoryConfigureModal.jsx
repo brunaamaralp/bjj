@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export default function InventoryConfigureModal({ open, item, loading, onClose, onSave }) {
   const [form, setForm] = useState({ minimum_level: 0, unit: 'unidade', notes: '' });
+  const suppressOverlayCloseUntil = useRef(0);
+
+  useEffect(() => {
+    if (!open) return;
+    suppressOverlayCloseUntil.current = Date.now() + 400;
+  }, [open, item?.id]);
 
   useEffect(() => {
     if (!item) return;
@@ -20,6 +26,15 @@ export default function InventoryConfigureModal({ open, item, loading, onClose, 
     onClose();
   }, [loading, onClose]);
 
+  const handleOverlayPointerUp = useCallback(
+    (e) => {
+      if (e.target !== e.currentTarget) return;
+      if (Date.now() < suppressOverlayCloseUntil.current) return;
+      requestClose();
+    },
+    [requestClose]
+  );
+
   useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
 
   if (!open || !item || typeof document === 'undefined') return null;
@@ -34,7 +49,7 @@ export default function InventoryConfigureModal({ open, item, loading, onClose, 
   };
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
+    <div className="navi-modal-overlay" role="presentation" onMouseUp={handleOverlayPointerUp}>
       <div
         className="card navi-modal-dialog"
         role="dialog"

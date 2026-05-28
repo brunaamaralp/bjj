@@ -92,6 +92,7 @@ function SideNavLink({
   badge,
   useNavLink = true,
   action = false,
+  onClick,
 }) {
   const location = useLocation();
   const iconSize = 20;
@@ -131,6 +132,14 @@ function SideNavLink({
       .join(' ');
   };
 
+  if (onClick) {
+    return (
+      <button type="button" className={resolveNavClass({ isActive: false })} title={title} onClick={onClick}>
+        {inner}
+      </button>
+    );
+  }
+
   if (useNavLink) {
     return (
       <NavLink to={to} end={end} className={resolveNavClass} title={title}>
@@ -161,20 +170,28 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
         const prevGroup = idx > 0 ? items[idx - 1]?.group : null;
         const showGroup = child.group && child.group !== prevGroup;
 
+        const linkClassName = ({ isActive }) => {
+          const active = isActive || childActive;
+          return [
+            typeof sideLinkClass === 'function'
+              ? sideLinkClass({ isActive: active })
+              : sideLinkClass || 'navi-sidebar-link',
+            active ? 'active navi-sidebar-link--active' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+        };
+
         if (child.action === NOVA_VENDA_MENU_ACTION) {
           return (
-            <button
+            <SideNavLink
               key={child.id}
-              type="button"
-              className="navi-sidebar-link navi-sidebar-link--child"
-              title={collapsed ? child.label : undefined}
+              label={child.label}
+              Icon={Icon}
+              collapsed={collapsed}
+              className={linkClassName}
               onClick={() => dispatchOpenNovaVendaModal()}
-            >
-              <span className="navi-sidebar-link__icon">
-                <Icon size={20} strokeWidth={1.75} />
-              </span>
-              <span className="navi-sidebar-link__label">{child.label}</span>
-            </button>
+            />
           );
         }
 
@@ -190,17 +207,7 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
               label={child.label}
               Icon={Icon}
               collapsed={collapsed}
-              className={({ isActive }) => {
-                const active = isActive || childActive;
-                return [
-                  typeof sideLinkClass === 'function'
-                    ? sideLinkClass({ isActive: active })
-                    : sideLinkClass || 'navi-sidebar-link',
-                  active ? 'active navi-sidebar-link--active' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ');
-              }}
+              className={linkClassName}
             />
           </React.Fragment>
         );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Minus, Plus, ArrowRight } from 'lucide-react';
 import {
@@ -25,6 +25,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
 
   useEffect(() => {
     if (!open) return;
+    suppressOverlayCloseUntil.current = Date.now() + 400;
     const q = Number(item?.current_quantity);
     const cur = Number.isFinite(q) ? q : 0;
     setSubtype('avaria');
@@ -40,6 +41,15 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
     if (loading) return;
     onClose();
   }, [loading, onClose]);
+
+  const handleOverlayPointerUp = useCallback(
+    (e) => {
+      if (e.target !== e.currentTarget) return;
+      if (Date.now() < suppressOverlayCloseUntil.current) return;
+      requestClose();
+    },
+    [requestClose]
+  );
 
   useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
 
@@ -114,7 +124,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
   })();
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
+    <div className="navi-modal-overlay" role="presentation" onMouseUp={handleOverlayPointerUp}>
       <div
         className="card navi-modal-dialog inventory-adjust-dialog"
         role="dialog"

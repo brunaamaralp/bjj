@@ -34,4 +34,20 @@ describe('inventoryCatalogMerge', () => {
     expect(parents[0].variants[1].current_quantity).toBe(0);
     expect(parentSizeSummary(parents[0])).toBe('P, M');
   });
+
+  it('não reexibe variantes órfãs de produto excluído', () => {
+    const parents = mergeCatalogWithInventoryItems(
+      [{ id: 'p1', nome: 'Kimono', variants: [{ id: 'v1', size: 'M' }] }],
+      [
+        { id: 'v1', current_quantity: 2, product_id: 'p1' },
+        { id: 'v-old', current_quantity: 5, product_id: 'deleted-parent' },
+        { id: 'legacy-1', nome: 'Faixa antiga', current_quantity: 1 },
+      ]
+    );
+    expect(parents).toHaveLength(2);
+    const kimono = parents.find((p) => p.id === 'p1');
+    expect(kimono?.variants.map((v) => v.id)).toEqual(['v1']);
+    expect(parents.some((p) => (p.variants || []).some((v) => v.id === 'v-old'))).toBe(false);
+    expect(parents.some((p) => p.variants?.[0]?.id === 'legacy-1')).toBe(true);
+  });
 });

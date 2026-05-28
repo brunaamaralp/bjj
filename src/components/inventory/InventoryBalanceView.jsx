@@ -71,7 +71,7 @@ function StockStatusBadge({ status, item, onRegisterEntry }) {
   );
 }
 
-function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust }) {
+function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust, onConfigure }) {
   const rootRef = useRef(null);
 
   useEffect(() => {
@@ -108,17 +108,32 @@ function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust }) {
       </button>
       {isOpen ? (
         <div className="inventory-actions-menu__panel" role="menu" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            role="menuitem"
-            className="inventory-actions-menu__item"
-            onClick={() => {
-              onClose();
-              onAdjust(variant);
-            }}
-          >
-            Ajustar saldo
-          </button>
+          {onAdjust ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="inventory-actions-menu__item"
+              onClick={() => {
+                onClose();
+                onAdjust(variant);
+              }}
+            >
+              Ajustar saldo
+            </button>
+          ) : null}
+          {onConfigure ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="inventory-actions-menu__item"
+              onClick={() => {
+                onClose();
+                onConfigure(variant);
+              }}
+            >
+              Ajustar mínimo e unidade
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -543,7 +558,18 @@ export default function InventoryBalanceView({
                             {parent.total_quantity}
                           </td>
                           {showMinColumn ? (
-                            <td className="inventory-table__col-min inventory-table__min text-small text-muted">
+                            <td
+                              className={`inventory-table__col-min inventory-table__min text-small text-muted${solo && onConfigureItem ? ' inventory-table__min--editable' : ''}`}
+                              onClick={
+                                solo && onConfigureItem
+                                  ? (e) => {
+                                      e.stopPropagation();
+                                      onConfigureItem(soloVariant);
+                                    }
+                                  : undefined
+                              }
+                              title={solo && onConfigureItem ? 'Clique para ajustar o mínimo' : undefined}
+                            >
                               {solo && soloVariant?.minimum_level > 0 ? soloVariant.minimum_level : '—'}
                             </td>
                           ) : null}
@@ -576,7 +602,7 @@ export default function InventoryBalanceView({
                                   >
                                     <ClipboardCheck size={16} aria-hidden />
                                   </button>
-                                  {onAdjustItem ? (
+                                  {onAdjustItem || onConfigureItem ? (
                                     <VariantActionsMenu
                                       variant={soloVariant}
                                       isOpen={variantMenuId === soloVariant.id}
@@ -587,6 +613,7 @@ export default function InventoryBalanceView({
                                       }
                                       onClose={() => setVariantMenuId(null)}
                                       onAdjust={onAdjustItem}
+                                      onConfigure={onConfigureItem}
                                     />
                                   ) : null}
                                   {onConfigureItem ? (
@@ -673,7 +700,18 @@ export default function InventoryBalanceView({
                                     {v.current_quantity}
                                   </td>
                                   {showMinColumn ? (
-                                    <td className="inventory-table__col-min inventory-table__min text-small text-muted">
+                                    <td
+                                      className={`inventory-table__col-min inventory-table__min text-small text-muted${onConfigureItem ? ' inventory-table__min--editable' : ''}`}
+                                      onClick={
+                                        onConfigureItem
+                                          ? (e) => {
+                                              e.stopPropagation();
+                                              onConfigureItem(v);
+                                            }
+                                          : undefined
+                                      }
+                                      title={onConfigureItem ? 'Clique para ajustar o mínimo' : undefined}
+                                    >
                                       {v.minimum_level > 0 ? v.minimum_level : '—'}
                                     </td>
                                   ) : null}
@@ -704,7 +742,7 @@ export default function InventoryBalanceView({
                                       >
                                         <ClipboardCheck size={16} aria-hidden />
                                       </button>
-                                      {onAdjustItem ? (
+                                      {onAdjustItem || onConfigureItem ? (
                                         <VariantActionsMenu
                                           variant={v}
                                           isOpen={variantMenuId === v.id}
@@ -713,7 +751,19 @@ export default function InventoryBalanceView({
                                           }
                                           onClose={() => setVariantMenuId(null)}
                                           onAdjust={onAdjustItem}
+                                          onConfigure={onConfigureItem}
                                         />
+                                      ) : null}
+                                      {onConfigureItem ? (
+                                        <button
+                                          type="button"
+                                          className="inventory-icon-btn"
+                                          onClick={() => onConfigureItem(v)}
+                                          title="Ajustar mínimo e unidade"
+                                          aria-label="Ajustar mínimo e unidade"
+                                        >
+                                          <Settings2 size={16} aria-hidden />
+                                        </button>
                                       ) : null}
                                     </div>
                                   </td>
@@ -815,6 +865,17 @@ export default function InventoryBalanceView({
                         >
                           <ClipboardCheck size={16} aria-hidden />
                         </button>
+                        {onConfigureItem ? (
+                          <button
+                            type="button"
+                            className="inventory-icon-btn"
+                            onClick={() => onConfigureItem(soloVariant)}
+                            title="Ajustar mínimo e unidade"
+                            aria-label="Ajustar mínimo e unidade"
+                          >
+                            <Settings2 size={16} aria-hidden />
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                     {expanded && hasVariants ? (
@@ -826,7 +887,17 @@ export default function InventoryBalanceView({
                             </div>
                             <div className="inventory-mobile-variant__meta text-small">
                               <span>Saldo: {v.current_quantity}</span>
-                              {v.minimum_level > 0 ? <span>Mín.: {v.minimum_level}</span> : null}
+                              {onConfigureItem ? (
+                                <button
+                                  type="button"
+                                  className="inventory-mobile-min-btn"
+                                  onClick={() => onConfigureItem(v)}
+                                >
+                                  Mín.: <strong>{v.minimum_level > 0 ? v.minimum_level : '—'}</strong>
+                                </button>
+                              ) : v.minimum_level > 0 ? (
+                                <span>Mín.: {v.minimum_level}</span>
+                              ) : null}
                               <StockStatusBadge
                                 status={v.status}
                                 item={v}
@@ -852,6 +923,17 @@ export default function InventoryBalanceView({
                               >
                                 <ClipboardCheck size={16} aria-hidden />
                               </button>
+                              {onConfigureItem ? (
+                                <button
+                                  type="button"
+                                  className="inventory-icon-btn"
+                                  onClick={() => onConfigureItem(v)}
+                                  title="Ajustar mínimo e unidade"
+                                  aria-label="Ajustar mínimo e unidade"
+                                >
+                                  <Settings2 size={16} aria-hidden />
+                                </button>
+                              ) : null}
                             </div>
                           </li>
                         ))}
