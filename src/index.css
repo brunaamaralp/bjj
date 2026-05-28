@@ -689,6 +689,19 @@ button:active {
   border-color: var(--v200);
 }
 
+.btn-outline.navi-btn--toolbar,
+.btn-ghost.navi-btn--toolbar,
+.btn-primary.navi-btn--toolbar {
+  min-height: var(--control-height-toolbar);
+  height: var(--control-height-toolbar);
+  padding: 0 var(--control-pad-x);
+}
+
+.btn-outline.navi-btn--toolbar:hover,
+.btn-primary.navi-btn--toolbar:hover {
+  transform: none;
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--mid);
@@ -6175,6 +6188,11 @@ button.funil-color-swatch {
 
 .inventory-balance-toolbar {
   flex-wrap: wrap;
+}
+
+.inventory-filter-field--search .navi-search {
+  max-width: none;
+  width: 100%;
 }
 
 .inventory-balance-toolbar__controls {
