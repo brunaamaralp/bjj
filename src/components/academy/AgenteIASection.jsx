@@ -96,6 +96,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
     }, [academyDoc?.teamId, academyDoc?.ownerId, userId]);
 
     const zap = useZapsterWhatsAppConnection(academyId, {
+        watchAcademyStatus: true,
         onRegisterWebhooksResult: ({ ok }) => {
             if (ok) {
                 addToast({ type: 'success', message: 'Agente reativado com sucesso.' });
@@ -107,7 +108,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
     const shouldLoadWaQr =
         zap.waQrShown &&
-        zap.waInfo?.status !== 'connected' &&
+        !zap.waConnected &&
         !!zap.waInfo?.instance_id &&
         !zap.waTokenMissing &&
         !zap.waQrError;
@@ -155,12 +156,11 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
 
     useEffect(() => {
         if (!academyId) return;
-        const connected = String(zap.waInfo?.status || '').trim() === 'connected';
-        if (!connected) return;
+        if (!zap.waConnected) return;
         const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
         if (done) return;
         void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
-    }, [zap.waInfo?.status, academyId]);
+    }, [zap.waConnected, academyId]);
 
     const [promptIntro, setPromptIntro] = useState('');
     const [promptBody, setPromptBody] = useState('');
@@ -1028,7 +1028,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
         );
     };
 
-    const waStatusVisual = useMemo(() => waAgentStatusVisual(zap.waInfo?.status), [zap.waInfo?.status]);
+    const waStatusVisual = useMemo(() => waAgentStatusVisual(zap.waStatus), [zap.waStatus]);
     const WaStatusIcon = waStatusVisual.Icon;
 
     const card1Connected = zap.waConnected;
@@ -1342,7 +1342,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         </span>
                                     </div>
                                     <span className="text-small" style={{ fontWeight: 700, color: 'var(--text)' }}>
-                                        {formatWaAgentStatus(zap.waInfo?.status)}
+                                        {formatWaAgentStatus(zap.waStatus)}
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'center' }}>{renderWaRefreshButton()}</div>
@@ -1363,7 +1363,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.55 }}>
                                             {isOwner ? (
                                                 <>
-                                                    {String(zap.waInfo?.status || '').trim().toLowerCase() === 'offline' ? (
+                                                    {String(zap.waStatus || '').trim().toLowerCase() === 'offline' ? (
                                                         <>
                                                             A conexão está <strong>pausada</strong>. Toque em <strong>Exibir código QR</strong> — o sistema
                                                             religa a instância e prepara o pareamento (pode levar até ~15 s). Se não aparecer, use{' '}
@@ -1431,7 +1431,7 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                         maxWidth: 360,
                                                     }}
                                                 >
-                                                    {zap.waInfo?.status === 'connected'
+                                                    {zap.waConnected
                                                         ? 'WhatsApp já conectado. Não há QR disponível no momento.'
                                                         : zap.waQrError
                                                             ? 'Não foi possível carregar o QR (a instância pode estar pausada). Use "Gerar novo QR" ou "Reiniciar conexão" em Precisa de ajuda?'
@@ -1472,7 +1472,8 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                                                 <li>Escaneie o código na tela</li>
                                             </ol>
                                             <p className="text-small" style={{ margin: '12px 0 0', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                                Quando terminar no celular, use <strong>Atualizar status</strong> acima para aparecer como conectado.
+                                                Depois de escanear no celular, o status atualiza sozinho em alguns segundos. Se não mudar, use{' '}
+                                                <strong>Atualizar status</strong>.
                                             </p>
                                         </div>
                                     </>

@@ -31,6 +31,8 @@ const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
 const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
+/** Filtro inicial da lista — fila completa (Todos), não "Precisa de mim". */
+const DEFAULT_INBOX_LIST_FILTER = 'all';
 const MAX_INBOX_LIST_ITEMS = 150;
 
 /** Mantém no máximo MAX_INBOX_LIST_ITEMS; preserva conversa selecionada se sair da janela. */
@@ -279,10 +281,10 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
 
-  const [listFilter, setListFilter] = useState('needs_me');
+  const [listFilter, setListFilter] = useState(DEFAULT_INBOX_LIST_FILTER);
   const [minhaFilaOn, setMinhaFilaOn] = useState(() => readMinhaFilaFromStorage());
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
-  const listFilterRef = useRef('needs_me');
+  const listFilterRef = useRef(DEFAULT_INBOX_LIST_FILTER);
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const listExtraFiltersRef = useRef(null);
@@ -3923,7 +3925,7 @@ export default function Inbox() {
                 tone="dashed"
                 icon={MessageSquare}
                 title="Nenhuma mensagem carregada"
-                description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar o histórico das últimas 24h.'
+                description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar o histórico recente (até ~21 dias, conforme seu plano Zapster).'
                 role="status"
               />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>

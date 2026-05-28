@@ -552,6 +552,26 @@ function isInboundMessage(v) {
   return raw.includes('inbound') || raw.includes('incoming') || raw.includes('received');
 }
 
+/** Janela de backfill na Zapster (GET /v1/wa/messages). Limites via env. */
+function resolveReconcileWindow(body) {
+  const maxHours = Math.min(
+    720,
+    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_MAX_HOURS || '720'), 10) || 720)
+  );
+  const defaultHours = Math.min(
+    maxHours,
+    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_DEFAULT_HOURS || '504'), 10) || 504)
+  );
+  let hours = defaultHours;
+  const b = body && typeof body === 'object' ? body : {};
+  const daysRaw = Number(b.days);
+  const hoursRaw = Number(b.hours);
+  if (Number.isFinite(daysRaw) && daysRaw > 0) hours = daysRaw * 24;
+  else if (Number.isFinite(hoursRaw) && hoursRaw > 0) hours = hoursRaw;
+  hours = Math.min(maxHours, Math.max(1, Math.round(hours)));
+  return { hours, fromIso: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString() };
+}
+
 async function listZapsterMessages({ from, to, after, limit, instanceId }) {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
   const qs = new URLSearchParams();
@@ -767,13 +787,22 @@ export default async function handler(req, res) {
     let instanceId = String((await getZapsterInstanceIdForAcademy(academyDoc, academyId)) ?? '').trim();
     if (!instanceId) return res.status(400).json({ sucesso: false, erro: 'Instância Zapster não configurada' });
 
+    let reconcileBody = {};
+    try {
+      if (req.body && typeof req.body === 'object') reconcileBody = req.body;
+      else if (typeof req.body === 'string' && req.body.trim()) reconcileBody = JSON.parse(req.body);
+    } catch {
+      reconcileBody = {};
+    }
+
     const now = Date.now();
     const toIso = new Date(now).toISOString();
-    const fromIso = new Date(now - 23 * 60 * 60 * 1000).toISOString();
+    const { hours: reconcileHours, fromIso } = resolveReconcileWindow(reconcileBody);
     waDebug({
       step: 'reconcile_start',
       fromIso,
       toIso,
+      reconcileHours,
       instanceIdPrefix: instanceId.slice(0, 8),
     });
     try {
@@ -797,7 +826,7 @@ export default async function handler(req, res) {
         const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
         if (!hasMore || !nextCursor) break;
         after = nextCursor;
-        if (pages >= 10) break;
+        if (pages >= 30) break;
       }
 
       // Se veio vazio, o instance_id salvo pode estar desatualizado.
@@ -830,7 +859,7 @@ export default async function handler(req, res) {
             const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
             if (!hasMore || !nextCursor) break;
             after = nextCursor;
-            if (pages >= 10) break;
+            if (pages >= 30) break;
           }
         }
       }
@@ -990,6 +1019,7 @@ export default async function handler(req, res) {
         sucesso: true,
         from: fromIso,
         to: toIso,
+        reconcile_hours: reconcileHours,
         pages,
         zapster_items: items.length,
         phones: grouped.size,
@@ -1003,7 +1033,8 @@ export default async function handler(req, res) {
         return res.status(402).json({
           sucesso: false,
           code: 'messages_retention_exceeded',
-          erro: 'Seu plano Zapster permite sincronizar apenas as últimas 24h de mensagens. As mensagens mais recentes ainda foram importadas.'
+          erro:
+            'Seu plano Zapster limita o histórico consultável. Reduza o período (variável ZAPSTER_RECONCILE_DEFAULT_HOURS) ou use um plano com retenção maior.'
         });
       }
       console.error('[api/whatsapp] reconcile falhou', {

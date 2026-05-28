@@ -207,6 +207,35 @@ describe('zapsterWebhook', () => {
     );
   });
 
+  it('aceita token na query (?token=) em produção — formato da Zapster', async () => {
+    const prevNode = process.env.NODE_ENV;
+    const prevVercel = process.env.VERCEL;
+    process.env.NODE_ENV = 'production';
+    process.env.VERCEL = '1';
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      createMockReq({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        query: { token: 'wh-secret', academyId: 'acad-1' },
+        body: {
+          event: 'instance.connected',
+          instance_id: 'inst-1',
+          data: { status: 'connected' }
+        }
+      }),
+      res
+    );
+
+    process.env.NODE_ENV = prevNode;
+    process.env.VERCEL = prevVercel;
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.error).not.toBe('use_x_webhook_token_header');
+  });
+
   it('instance.connected notifica reconexão', async () => {
     const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
     const { res, state } = createMockRes();

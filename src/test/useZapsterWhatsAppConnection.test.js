@@ -167,7 +167,9 @@ describe('useZapsterWhatsAppConnection', () => {
     });
 
     expect(waMocks.powerOnCalls).toBe(1);
-    expect(waMocks.instancesGetCalls).toBe(callsAfterPowerOn);
+    // Pode haver +1 consulta imediata do polling enquanto o QR está visível após power-on.
+    expect(waMocks.instancesGetCalls).toBeGreaterThanOrEqual(callsAfterPowerOn);
+    expect(waMocks.instancesGetCalls).toBeLessThanOrEqual(callsAfterPowerOn + 1);
   });
 
   it('restartInstance: timers cancelados no unmount não disparam fetchWaInfo extra', async () => {
@@ -190,6 +192,7 @@ describe('useZapsterWhatsAppConnection', () => {
     });
 
     expect(waMocks.restartCalls).toBe(1);
-    expect(waMocks.instancesGetCalls).toBe(callsAfterMount);
+    // restart exibe QR → polling dispara uma consulta imediata; timers adiados são cancelados no unmount.
+    expect(waMocks.instancesGetCalls).toBe(callsAfterMount + 1);
   });
 });

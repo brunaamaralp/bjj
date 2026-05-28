@@ -594,15 +594,17 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           return null;
         }
 
-        const st = String(waInfoRef.current?.status || '').trim().toLowerCase();
-        if (resp.status === 406 && st === 'connected') {
-          return null;
-        }
-
-        if (resp.status === 406 && attempt < maxAttempts - 1) {
-          await waSleep(2500);
+        if (resp.status === 406) {
           await fetchWaInfo({ silent: true, quiet: true });
-          continue;
+          const stAfter406 = String(waInfoRef.current?.status || '').trim().toLowerCase();
+          if (stAfter406 === 'connected') {
+            return null;
+          }
+          if (attempt < maxAttempts - 1) {
+            await waSleep(2500);
+            continue;
+          }
+          return null;
         }
 
         const msg = String(errJson?.detalhe || errJson?.erro || errJson?.codigo || '').trim();
@@ -870,7 +872,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           'x-academy-id': String(academyIdRef.current || ''),
           'content-type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({ days: 21 })
       });
       const raw = await resp.text();
       const data = safeParseJson(raw) || {};
@@ -952,7 +954,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       const payload = ev && typeof ev === 'object' ? ev.payload : null;
       if (!payload || typeof payload !== 'object') return;
       const st = String(payload.zapster_status || '').trim();
-      if (st) setAcademyWaStatus(st);
+      if (!st) return;
+      setAcademyWaStatus(st);
+      void fetchWaInfo({ silent: true, quiet: true });
     };
 
     void realtime
@@ -976,7 +980,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         void 0;
       }
     };
-  }, [academyId, options?.watchAcademyStatus, options?.statusPollWhileMounted]);
+  }, [academyId, options?.watchAcademyStatus, options?.statusPollWhileMounted, fetchWaInfo]);
 
   useEffect(() => {
     if (!options?.statusPollWhileMounted) return;
@@ -1040,28 +1044,34 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const onQrImageError = useCallback(() => {
     setWaQrError(true);
     setWaQrLoadFailedOnce(true);
-  }, []);
+    void fetchWaInfo({ silent: true, quiet: true });
+  }, [fetchWaInfo]);
 
   const onQrImageLoad = useCallback(() => {
     setWaQrError(false);
-  }, []);
+    void fetchWaInfo({ silent: true, quiet: true });
+  }, [fetchWaInfo]);
 
+  /** Enquanto o QR está na tela, consulta a API até refletir conexão (ou estados intermediários). */
   useEffect(() => {
     if (!waQrShown) return;
-    const isScanning = ['qrcode', 'scanning', 'open'].includes(String(waInfo?.status || '').toLowerCase());
-    if (!isScanning) return;
+    const st = String(waStatus || '').trim().toLowerCase();
+    if (st === 'connected') return;
 
     let stopped = false;
-    const pollId = setInterval(async () => {
+    const poll = async () => {
       if (stopped) return;
       await fetchWaInfo({ silent: true, quiet: true });
-    }, 15000);
+    };
+
+    void poll();
+    const pollId = setInterval(poll, 3000);
 
     return () => {
       stopped = true;
       clearInterval(pollId);
     };
-  }, [waInfo?.status, waQrShown, fetchWaInfo]);
+  }, [waQrShown, waStatus, fetchWaInfo]);
 
   return {
     waInfo,

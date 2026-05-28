@@ -674,6 +674,7 @@ function EquipeSection({ academy, academyId }) {
         onClose={() => !editSaving && setEditMember(null)}
         maxWidth={440}
       >
+        {editMember ? (
                 <form onSubmit={handleSaveEdit} className="flex-col gap-3">
                   <div className="form-group">
                     <label>Nome</label>
@@ -749,6 +750,7 @@ function EquipeSection({ academy, academyId }) {
                     </button>
                   </div>
                 </form>
+        ) : null}
       </ModalShell>
 
       <ModalShell
