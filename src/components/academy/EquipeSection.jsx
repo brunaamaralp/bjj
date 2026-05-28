@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Trash2, Plus, Pencil, KeyRound, Users, Copy } from 'lucide-react';
+import { Trash2, Plus, Pencil, KeyRound, Users, Copy, UserPlus, UserMinus } from 'lucide-react';
 import { teams } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import {
   membershipPrimaryLabel,
   membershipSecondaryEmail,
   membershipRoleDisplayLabel,
-  membershipRolePillStyle,
   membershipStatusLabel,
-  membershipStatusPillStyle,
   membershipJoinedDate,
 } from '../../lib/teamMembershipLabel.js';
 import {
@@ -39,13 +38,46 @@ import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import FormSelect from '../shared/FormSelect.jsx';
+import SectionHeader from '../layout/SectionHeader.jsx';
 
 const ROLE_OPTIONS = [
   { value: 'receptionist', label: 'Recepcionista' },
   { value: 'admin', label: 'Administrador' },
 ];
 
-function EquipeSection({ academy, academyId }) {
+function memberInitial(m) {
+  const label = membershipPrimaryLabel(m);
+  const ch = String(label || '?').trim().charAt(0);
+  return ch ? ch.toUpperCase() : '?';
+}
+
+function equipeRolePillClass(roleLabel) {
+  if (roleLabel === 'Titular') return 'equipe-pill equipe-pill--owner';
+  if (roleLabel === 'Administrador') return 'equipe-pill equipe-pill--admin';
+  return 'equipe-pill equipe-pill--member';
+}
+
+function equipeStatusPillClass(status) {
+  if (status === 'Convite pendente') return 'equipe-pill equipe-pill--pending';
+  return 'equipe-pill equipe-pill--active';
+}
+
+function auditEventIcon(type) {
+  const t = String(type || '').trim();
+  if (t === 'team_member_added') return UserPlus;
+  if (t === 'team_member_removed') return UserMinus;
+  if (t === 'team_member_password_reset') return KeyRound;
+  return Pencil;
+}
+
+function auditIconModifier(type) {
+  const t = String(type || '').trim();
+  if (t === 'team_member_added') return 'added';
+  if (t === 'team_member_removed') return 'removed';
+  return 'updated';
+}
+
+function EquipeSection({ academy, academyId, onMetaChange }) {
   const addToast = useUiStore((s) => s.addToast);
   const userId = useLeadStore((s) => s.userId);
   const hasTeam = Boolean(academy?.teamId);
@@ -176,6 +208,11 @@ function EquipeSection({ academy, academyId }) {
           password: data.tempPassword,
           name: data.displayName,
         });
+      } else if (data.readded) {
+        addToast({
+          type: 'success',
+          message: `${data.displayName || newMember.name} readicionado à equipe. O acesso usa a conta existente.`,
+        });
       } else {
         addToast({ type: 'success', message: `${data.roleLabel || 'Membro'} adicionado.` });
       }
@@ -185,7 +222,9 @@ function EquipeSection({ academy, academyId }) {
       let msg = friendlyError(error, 'save');
       if (status === 401) msg = 'Sessão expirada, faça login novamente.';
       if (status === 403) msg = 'Você não tem permissão para adicionar membros.';
-      if (status === 409) msg = 'Já existe uma conta com este e-mail.';
+      if (status === 409) {
+        msg = error?.data?.erro || 'Este e-mail já faz parte da equipe ou não pode ser adicionado agora.';
+      }
       setMemberError(msg);
     } finally {
       setSavingMember(false);
@@ -312,20 +351,43 @@ function EquipeSection({ academy, academyId }) {
     }
   };
 
+  const memberRowHasActions = useCallback(
+    (m) => {
+      const targetRole = membershipTeamRole(m, academy?.ownerId);
+      return (
+        canEditTeamMember(actorRole, targetRole, userId, m.userId) ||
+        canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ||
+        canResetTeamPassword(actorRole, targetRole, userId, m.userId)
+      );
+    },
+    [actorRole, academy?.ownerId, userId]
+  );
+
+  const { ownerMember, staffMembers } = useMemo(() => {
+    let owner = null;
+    const staff = [];
+    for (const m of members) {
+      if (membershipTeamRole(m, academy?.ownerId) === 'owner') owner = m;
+      else staff.push(m);
+    }
+    return { ownerMember: owner, staffMembers: staff };
+  }, [members, academy?.ownerId]);
+
+  const showActionsColumn = useMemo(() => {
+    if (!canManage) return false;
+    return staffMembers.some((m) => memberRowHasActions(m));
+  }, [canManage, staffMembers, memberRowHasActions]);
+
   const renderRowActions = (m) => {
+    if (!memberRowHasActions(m)) return null;
     const targetRole = membershipTeamRole(m, academy?.ownerId);
-    const show =
-      canEditTeamMember(actorRole, targetRole, userId, m.userId) ||
-      canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ||
-      canResetTeamPassword(actorRole, targetRole, userId, m.userId);
-    if (!show) return null;
 
     return (
       <div className="equipe-table__actions-inner">
         {canEditTeamMember(actorRole, targetRole, userId, m.userId) ? (
           <button
             type="button"
-            className="equipe-icon-btn"
+            className="btn-action-ghost"
             title="Editar"
             aria-label="Editar"
             onClick={() => openEditMember(m)}
@@ -336,7 +398,7 @@ function EquipeSection({ academy, academyId }) {
         {canResetTeamPassword(actorRole, targetRole, userId, m.userId) ? (
           <button
             type="button"
-            className="equipe-icon-btn"
+            className="btn-action-ghost"
             title="Redefinir senha"
             aria-label="Redefinir senha"
             onClick={() => setResetTarget(m)}
@@ -347,7 +409,7 @@ function EquipeSection({ academy, academyId }) {
         {canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ? (
           <button
             type="button"
-            className="equipe-icon-btn equipe-icon-btn--danger"
+            className="btn-action-ghost btn-action-ghost--danger"
             title="Remover"
             aria-label="Remover"
             onClick={() => setRemoveTarget(m)}
@@ -359,21 +421,145 @@ function EquipeSection({ academy, academyId }) {
     );
   };
 
-  return (
-    <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="navi-section-heading mb-2">Equipe</h3>
+  const memberCountLabel =
+    staffMembers.length === 0
+      ? 'Nenhum colaborador além do titular'
+      : staffMembers.length === 1
+        ? '1 colaborador na equipe'
+        : `${staffMembers.length} colaboradores na equipe`;
 
+  useEffect(() => {
+    if (!onMetaChange) return;
+    if (!hasTeam) {
+      onMetaChange(null);
+      return;
+    }
+    onMetaChange(memberCountLabel);
+  }, [hasTeam, memberCountLabel, onMetaChange]);
+
+  const renderOwnerCard = () => {
+    if (!ownerMember) return null;
+    const roleLabel = membershipRoleDisplayLabel(ownerMember, academy?.ownerId);
+    const email =
+      membershipSecondaryEmail(ownerMember) || String(ownerMember.userEmail || ownerMember.email || '—');
+    const isYou = String(ownerMember.userId || '') === String(userId || '');
+
+    const name = membershipPrimaryLabel(ownerMember);
+
+    return (
+      <div className="equipe-owner-card" role="group" aria-label="Titular da academia">
+        <div className="equipe-owner-card__main">
+          <span className="equipe-avatar equipe-avatar--owner" aria-hidden>
+            {memberInitial(ownerMember)}
+          </span>
+          <div className="equipe-owner-card__text">
+            <div className="equipe-owner-card__name">
+              {name}
+              {isYou ? <span className="equipe-owner-card__you">Você</span> : null}
+            </div>
+            <div className="text-small text-muted equipe-owner-card__email">{email}</div>
+          </div>
+        </div>
+        <span className={equipeRolePillClass(roleLabel)}>{roleLabel}</span>
+      </div>
+    );
+  };
+
+  const roleOptionsForAdd = isOwner
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((r) => r.value === 'receptionist');
+
+  return (
+    <section className="equipe-section animate-in">
       {!canManage ? (
-        <p className="text-small text-muted mb-3" role="note">
-          Somente titular e administradores gerenciam membros da equipe.
-        </p>
+        <StatusBanner
+          variant="info"
+          message="Somente titular e administradores gerenciam membros da equipe."
+          className="equipe-section__banner"
+        />
       ) : null}
 
-      <h3 className="navi-section-heading mb-2" style={{ fontSize: '1rem', marginTop: 12 }}>
-        Membros da equipe
-      </h3>
+      {canManage && hasTeam ? (
+        <div className="page-header-card equipe-invite-panel">
+          <div className="equipe-invite-panel__head">
+            <p className="navi-eyebrow">Convidar colaborador</p>
+            <p className="text-small text-muted equipe-invite-panel__lead">
+              Envie um convite por e-mail ou readicione quem já teve acesso à academia.
+            </p>
+          </div>
+          <form onSubmit={handleCreateMember} className="equipe-invite-form">
+            <div className="equipe-invite-form__grid">
+              <div className="equipe-field">
+                <label htmlFor="equipe-add-name">Nome</label>
+                <input
+                  id="equipe-add-name"
+                  className="form-input"
+                  type="text"
+                  placeholder="Ex: Maria Silva"
+                  value={newMember.name}
+                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                  disabled={savingMember}
+                  autoComplete="name"
+                />
+              </div>
+              <div className="equipe-field">
+                <label htmlFor="equipe-add-email">E-mail</label>
+                <input
+                  id="equipe-add-email"
+                  className="form-input"
+                  type="email"
+                  placeholder="recepcao@academia.com"
+                  value={newMember.email}
+                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                  disabled={savingMember}
+                  autoComplete="email"
+                />
+              </div>
+              <div className="equipe-field">
+                <label htmlFor="equipe-add-role">Papel</label>
+                <select
+                  id="equipe-add-role"
+                  className="form-input"
+                  value={newMember.role}
+                  onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
+                  disabled={savingMember || actorRole === 'admin'}
+                >
+                  {roleOptionsForAdd.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                {actorRole === 'admin' ? (
+                  <p className="text-xs text-muted" style={{ marginTop: 6 }}>
+                    Administradores só podem adicionar recepcionistas.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <div className="equipe-invite-form__footer">
+              {memberError ? <FieldError className="equipe-invite-form__error">{memberError}</FieldError> : null}
+              <button
+                type="submit"
+                className="btn-action-primary"
+                disabled={savingMember || !newMember.name.trim() || !newMember.email.trim()}
+              >
+                <Plus size={16} aria-hidden /> {savingMember ? 'Enviando…' : 'Enviar convite'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
-      <div className="card equipe-members-card">
+      <div className="equipe-panel">
+        <div className="equipe-panel__head">
+          <SectionHeader
+            as="h2"
+            title="Colaboradores"
+            subtitle={hasTeam ? memberCountLabel : 'Configure a academia para listar a equipe.'}
+          />
+        </div>
+        <div className="equipe-panel__body">
         {!hasTeam ? (
           <EmptyState
             variant="compact"
@@ -405,7 +591,7 @@ function EquipeSection({ academy, academyId }) {
                       <th>E-mail</th>
                       <th>Data de entrada</th>
                       <th>Status</th>
-                      {canManage ? <th className="equipe-table__actions-head">Ações</th> : null}
+                      {showActionsColumn ? <th className="equipe-table__actions-head">Ações</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -426,7 +612,7 @@ function EquipeSection({ academy, academyId }) {
                         <td>
                           <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--pill" />
                         </td>
-                        {canManage ? (
+                        {showActionsColumn ? (
                           <td>
                             <span className="equipe-table__skeleton-bar equipe-table__skeleton-bar--action" />
                           </td>
@@ -438,21 +624,22 @@ function EquipeSection({ academy, academyId }) {
               </div>
               )
             ) : isMobile ? (
-              <div className="equipe-mobile-list">
-                {members.map((m) => {
+              <>
+                {renderOwnerCard()}
+                <div className="equipe-mobile-list">
+                {staffMembers.map((m) => {
                   const roleLabel = membershipRoleDisplayLabel(m, academy?.ownerId);
                   const status = membershipStatusLabel(m);
                   const email = membershipSecondaryEmail(m) || String(m.userEmail || m.email || '—');
                   const targetRole = membershipTeamRole(m, academy?.ownerId);
-                  const showActions =
-                    canManage &&
-                    (canEditTeamMember(actorRole, targetRole, userId, m.userId) ||
-                      canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ||
-                      canResetTeamPassword(actorRole, targetRole, userId, m.userId));
+                  const showActions = canManage && memberRowHasActions(m);
                   return (
-                    <article key={m.$id} className="navi-mobile-card equipe-mobile-card">
+                    <article key={m.$id} className="equipe-mobile-card">
                       <div className="equipe-mobile-card__head">
-                        <div className="equipe-mobile-card__text">
+                        <span className="equipe-avatar" aria-hidden>
+                          {memberInitial(m)}
+                        </span>
+                        <div className="equipe-mobile-card__body">
                           <div className="equipe-mobile-card__name">{membershipPrimaryLabel(m)}</div>
                           <div className="equipe-mobile-card__email text-small text-muted">{email}</div>
                           <div className="equipe-mobile-card__meta text-small text-muted">
@@ -460,12 +647,8 @@ function EquipeSection({ academy, academyId }) {
                           </div>
                         </div>
                         <div className="equipe-mobile-card__badges">
-                          <span className="type-pill" style={membershipRolePillStyle(roleLabel)}>
-                            {roleLabel}
-                          </span>
-                          <span className="type-pill" style={membershipStatusPillStyle(status)}>
-                            {status}
-                          </span>
+                          <span className={equipeRolePillClass(roleLabel)}>{roleLabel}</span>
+                          <span className={equipeStatusPillClass(status)}>{status}</span>
                         </div>
                       </div>
                       {showActions ? (
@@ -473,7 +656,7 @@ function EquipeSection({ academy, academyId }) {
                           {canEditTeamMember(actorRole, targetRole, userId, m.userId) ? (
                             <button
                               type="button"
-                              className="btn-outline equipe-mobile-action"
+                              className="btn-outline"
                               onClick={() => openEditMember(m)}
                             >
                               <Pencil size={16} aria-hidden /> Editar
@@ -482,7 +665,7 @@ function EquipeSection({ academy, academyId }) {
                           {canResetTeamPassword(actorRole, targetRole, userId, m.userId) ? (
                             <button
                               type="button"
-                              className="btn-outline equipe-mobile-action"
+                              className="btn-outline"
                               onClick={() => setResetTarget(m)}
                             >
                               <KeyRound size={16} aria-hidden /> Senha
@@ -491,7 +674,7 @@ function EquipeSection({ academy, academyId }) {
                           {canRemoveTeamMember(actorRole, targetRole, userId, m.userId) ? (
                             <button
                               type="button"
-                              className="btn-outline equipe-mobile-action equipe-mobile-action--danger"
+                              className="btn-outline equipe-action--danger"
                               onClick={() => setRemoveTarget(m)}
                             >
                               <Trash2 size={16} aria-hidden /> Remover
@@ -502,11 +685,20 @@ function EquipeSection({ academy, academyId }) {
                     </article>
                   );
                 })}
-                {members.length === 0 && !membersLoadError ? (
-                  <EmptyState variant="compact" tone="dashed" title="Nenhum membro listado." role="status" />
+                {staffMembers.length === 0 && !membersLoadError ? (
+                  <EmptyState
+                    variant="compact"
+                    tone="dashed"
+                    title="Nenhum colaborador convidado."
+                    description="Use o formulário acima para convidar recepcionistas ou administradores."
+                    role="status"
+                  />
                 ) : null}
               </div>
+              </>
             ) : (
+              <>
+                {renderOwnerCard()}
               <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">
                 <table className="navi-table equipe-table">
                   <thead>
@@ -516,33 +708,36 @@ function EquipeSection({ academy, academyId }) {
                       <th>E-mail</th>
                       <th>Data de entrada</th>
                       <th>Status</th>
-                      {canManage ? <th className="equipe-table__actions-head">Ações</th> : null}
+                      {showActionsColumn ? <th className="equipe-table__actions-head">Ações</th> : null}
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((m) => {
+                    {staffMembers.map((m) => {
                       const roleLabel = membershipRoleDisplayLabel(m, academy?.ownerId);
                       const status = membershipStatusLabel(m);
                       return (
                         <tr key={m.$id}>
                           <td>
-                            <span className="equipe-table__name">{membershipPrimaryLabel(m)}</span>
+                            <div className="equipe-table__name-cell">
+                              <span className="equipe-avatar" aria-hidden>
+                                {memberInitial(m)}
+                              </span>
+                              <span className="equipe-table__name">{membershipPrimaryLabel(m)}</span>
+                            </div>
                           </td>
                           <td>
-                            <span className="type-pill" style={membershipRolePillStyle(roleLabel)}>
-                              {roleLabel}
-                            </span>
+                            <span className={equipeRolePillClass(roleLabel)}>{roleLabel}</span>
                           </td>
                           <td className="text-small text-muted">
                             {membershipSecondaryEmail(m) || String(m.userEmail || m.email || '—')}
                           </td>
-                          <td className="text-small text-muted">{membershipJoinedDate(m)}</td>
-                          <td>
-                            <span className="type-pill" style={membershipStatusPillStyle(status)}>
-                              {status}
-                            </span>
+                          <td className="text-small text-muted navi-mono-date">
+                            {membershipJoinedDate(m)}
                           </td>
-                          {canManage ? (
+                          <td>
+                            <span className={equipeStatusPillClass(status)}>{status}</span>
+                          </td>
+                          {showActionsColumn ? (
                             <td className="equipe-table__actions">{renderRowActions(m)}</td>
                           ) : null}
                         </tr>
@@ -550,114 +745,75 @@ function EquipeSection({ academy, academyId }) {
                     })}
                   </tbody>
                 </table>
-                {members.length === 0 && !membersLoadError ? (
-                  <EmptyState variant="compact" tone="dashed" title="Nenhum membro listado." role="status" />
+                {staffMembers.length === 0 && !membersLoadError ? (
+                  <EmptyState
+                    variant="compact"
+                    tone="dashed"
+                    title="Nenhum colaborador convidado."
+                    description="Use o formulário acima para convidar recepcionistas ou administradores."
+                    role="status"
+                  />
                 ) : null}
               </div>
+              </>
             )}
           </>
         )}
+        </div>
       </div>
 
-      {canManage && hasTeam ? (
-        <>
-          <div className="funil-section-divider" role="separator" aria-hidden="true" />
-          <h3 className="navi-section-heading mb-2" style={{ fontSize: '1rem' }}>
-            Adicionar membro
-          </h3>
-          <div className="card">
-            <form onSubmit={handleCreateMember} className="flex-col gap-3">
-              <div className="form-group">
-                <label>Nome</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="Ex: Maria Silva"
-                  value={newMember.name}
-                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                  disabled={savingMember}
-                />
-              </div>
-              <div className="form-group">
-                <label>E-mail</label>
-                <input
-                  className="form-input"
-                  type="email"
-                  placeholder="recepcao@academia.com"
-                  value={newMember.email}
-                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                  disabled={savingMember}
-                />
-              </div>
-              <div className="form-group">
-                <label>Papel</label>
-                <select
-                  className="form-input"
-                  value={newMember.role}
-                  onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                  disabled={savingMember || actorRole === 'admin'}
-                >
-                  {(isOwner ? ROLE_OPTIONS : ROLE_OPTIONS.filter((r) => r.value === 'receptionist')).map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                {actorRole === 'admin' ? (
-                  <p className="text-xs text-muted" style={{ marginTop: 6 }}>
-                    Administradores só podem adicionar recepcionistas.
-                  </p>
-                ) : null}
-              </div>
-              {memberError ? <FieldError>{memberError}</FieldError> : null}
-              <button
-                type="submit"
-                className="btn-primary"
-                style={{ alignSelf: 'flex-start' }}
-                disabled={savingMember || !newMember.name.trim() || !newMember.email.trim()}
-              >
-                <Plus size={16} /> {savingMember ? 'Enviando…' : 'Adicionar membro'}
-              </button>
-            </form>
-          </div>
-        </>
-      ) : null}
-
       {isOwner && hasTeam ? (
-        <>
-          <div className="funil-section-divider" role="separator" aria-hidden="true" />
-          <h3 className="navi-section-heading mb-2" style={{ fontSize: '1rem' }}>
-            Histórico de alterações
-          </h3>
-          <div className="card equipe-audit-card">
+        <details className="page-header-card equipe-audit-details" open={auditEvents.length > 0}>
+          <summary>
+            <span>
+              Histórico de alterações
+              <span className="equipe-audit-details__subtitle">Convites, papéis e remoções da equipe</span>
+            </span>
+          </summary>
+          <div className="equipe-audit-details__body">
             {auditLoading && auditEvents.length === 0 ? (
               <p className="text-small text-muted">Carregando histórico…</p>
             ) : auditEvents.length === 0 ? (
               <p className="text-small text-muted">Nenhuma alteração registrada ainda.</p>
             ) : (
-              <ul className="equipe-audit-list">
-                {auditEvents.map((ev) => (
-                  <li key={ev.id} className="equipe-audit-list__item">
-                    <div className="equipe-audit-list__desc">{ev.description}</div>
-                    <div className="text-xs text-muted">
-                      {ev.timestamp
-                        ? new Date(ev.timestamp).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : '—'}
-                    </div>
-                  </li>
-                ))}
+              <ul className="equipe-audit-timeline">
+                {auditEvents.map((ev) => {
+                  const Icon = auditEventIcon(ev.event_type);
+                  const mod = auditIconModifier(ev.event_type);
+                  return (
+                    <li key={ev.id} className="equipe-audit-timeline__item">
+                      <span
+                        className={`equipe-audit-timeline__icon equipe-audit-timeline__icon--${mod}`}
+                        aria-hidden
+                      >
+                        <Icon size={16} />
+                      </span>
+                      <div className="equipe-audit-timeline__content">
+                        <div className="equipe-audit-timeline__desc">{ev.description}</div>
+                        <time
+                          className="equipe-audit-timeline__time"
+                          dateTime={ev.timestamp || undefined}
+                        >
+                          {ev.timestamp
+                            ? new Date(ev.timestamp).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '—'}
+                        </time>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {auditOffset < auditTotal ? (
               <button
                 type="button"
-                className="btn-outline btn-sm mt-2"
+                className="btn-outline btn-sm equipe-audit-details__more"
                 disabled={auditLoading}
                 onClick={() => void loadAudit(auditOffset, true)}
               >
@@ -665,7 +821,7 @@ function EquipeSection({ academy, academyId }) {
               </button>
             ) : null}
           </div>
-        </>
+        </details>
       ) : null}
 
       <ModalShell
