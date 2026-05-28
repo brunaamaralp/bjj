@@ -5631,6 +5631,129 @@ button.funil-color-swatch {
   background: var(--surface-2);
 }
 
+.inventory-adjust-dialog {
+  max-width: 420px;
+  padding: 20px;
+}
+
+.inventory-adjust-dialog__header {
+  margin-bottom: 12px;
+}
+
+.inventory-adjust-dialog__product {
+  margin: 0 0 8px;
+}
+
+.inventory-adjust-dialog__balance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.inventory-adjust-dialog__balance strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory-adjust-dialog__arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.inventory-adjust-form__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.inventory-adjust-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inventory-adjust-mode__btn {
+  padding: 8px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.inventory-adjust-mode__btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.inventory-adjust-mode__btn.is-active {
+  background: color-mix(in srgb, var(--v500, #5b3fbf) 10%, var(--surface));
+  border-color: var(--v500, #5b3fbf);
+  color: var(--v500, #5b3fbf);
+  font-weight: 600;
+}
+
+.inventory-adjust-direction {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inventory-adjust-direction__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.inventory-adjust-direction__btn:hover {
+  border-color: var(--border-mid);
+}
+
+.inventory-adjust-direction__btn.is-active {
+  font-weight: 600;
+}
+
+.inventory-adjust-direction__btn.is-active:first-child {
+  background: color-mix(in srgb, var(--danger, #c0392b) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 40%, var(--border-light));
+  color: var(--danger, #9b2c24);
+}
+
+.inventory-adjust-direction__btn.is-active:last-child {
+  background: color-mix(in srgb, var(--success, #1a7f4e) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--success, #1a7f4e) 40%, var(--border-light));
+  color: var(--success, #1a7f4e);
+}
+
+.inventory-adjust-form__actions {
+  margin-top: 12px;
+}
+
+.inventory-adjust-submit--remove:not(:disabled) {
+  background: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+}
+
 .inventory-icon-btn {
   display: inline-flex;
   align-items: center;

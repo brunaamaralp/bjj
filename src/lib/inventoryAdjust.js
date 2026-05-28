@@ -60,6 +60,41 @@ export function formatAdjustToast(before, after) {
   return `Saldo ajustado de ${before} para ${after} unidades`;
 }
 
+/** Subtipos em que a retirada do estoque é o caso mais comum. */
+export function subtypeSuggestsRemoval(subtype) {
+  return subtype === 'avaria' || subtype === 'furto' || subtype === 'doacao';
+}
+
+/**
+ * Calcula quantity_change para a API a partir da UI (sempre quantidade positiva + direção).
+ * @param {{ direction?: 'remove'|'add', quantity?: number, targetQuantity?: number, currentQuantity?: number }} opts
+ */
+export function quantityChangeFromAdjustment(opts) {
+  const current = Number(opts?.currentQuantity);
+  const cur = Number.isFinite(current) ? current : 0;
+
+  const targetRaw = opts?.targetQuantity;
+  if (targetRaw !== undefined && targetRaw !== null && String(targetRaw).trim() !== '') {
+    const target = Math.trunc(Number(String(targetRaw).replace(',', '.')));
+    if (!Number.isFinite(target) || target < 0) return null;
+    return target - cur;
+  }
+
+  const qty = Math.abs(Math.trunc(Number(opts?.quantity)));
+  if (!Number.isFinite(qty) || qty <= 0) return null;
+  return opts?.direction === 'remove' ? -qty : qty;
+}
+
+/** Prévia do saldo após o ajuste (null se inválido). */
+export function previewBalanceAfterAdjustment(opts) {
+  const change = quantityChangeFromAdjustment(opts);
+  if (change == null || change === 0) return null;
+  const cur = Number(opts?.currentQuantity);
+  const before = Number.isFinite(cur) ? cur : 0;
+  const after = before + change;
+  return { before, after, change };
+}
+
 const CONFIRM_WORDS = /^(sim|s|confirma|confirmo|confirmar|ok|pode|isso|certo|yes|y)$/i;
 
 export function isInventoryAdjustConfirmText(text) {
