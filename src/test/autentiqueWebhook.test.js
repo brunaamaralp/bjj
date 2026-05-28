@@ -6,9 +6,42 @@ import {
   mapSignerStatusFromEvent,
   extractAutentiqueDocumentId,
   extractSignerPublicId,
+  extractSignerSignedAt,
 } from '../../lib/contracts/autentiqueWebhookHandler.ts';
 import { mapAutentiqueToLeadEventType } from '../../lib/contracts/contractLeadEvents.js';
 import { mapContractDisplayStatus } from '../../lib/contracts/displayStatus.ts';
+
+/** Payload simplificado de document.updated (doc Autentique). */
+const DOCUMENT_UPDATED_OFFICIAL = {
+  event: {
+    type: 'document.updated',
+    data: {
+      object: {
+        id: '89c7d2ab31f9f5a13b3d20ecf53319af387e54d240ae7be993',
+        object: 'document',
+        name: 'Contrato teste',
+      },
+      previous_attributes: { name: 'teste' },
+    },
+  },
+};
+
+/** Payload simplificado de signature.accepted (doc Autentique). */
+const SIGNATURE_ACCEPTED_OFFICIAL = {
+  event: {
+    type: 'signature.accepted',
+    data: {
+      public_id: 'f8911dcd-dfcd-11ef-9465-42010a2b610e',
+      object: 'signature',
+      document: 'f48a8b465d02dd87559e08f06c41e3b6d548c4d7ad835eb0f',
+      signed: '2025-01-31T12:22:30.000000Z',
+      user: {
+        name: 'João Silva',
+        email: 'joao@example.com',
+      },
+    },
+  },
+};
 
 describe('verifyAutentiqueSignature', () => {
   it('valida HMAC SHA256 do corpo bruto', () => {
@@ -24,9 +57,24 @@ describe('event mapping', () => {
   it('mapeia status de documento e assinatura', () => {
     expect(mapContractStatusFromEvent('document.finished')).toBe('finished');
     expect(mapSignerStatusFromEvent('signature.accepted')).toBe('signed');
+    expect(mapSignerStatusFromEvent('signature.delivery_failed')).toBe('delivery_failed');
   });
 
-  it('extrai autentique_id do payload', () => {
+  it('extrai autentique_id do payload oficial (documento aninhado)', () => {
+    expect(extractAutentiqueDocumentId(DOCUMENT_UPDATED_OFFICIAL)).toBe(
+      '89c7d2ab31f9f5a13b3d20ecf53319af387e54d240ae7be993'
+    );
+  });
+
+  it('extrai autentique_id do payload oficial (assinatura)', () => {
+    expect(extractAutentiqueDocumentId(SIGNATURE_ACCEPTED_OFFICIAL)).toBe(
+      'f48a8b465d02dd87559e08f06c41e3b6d548c4d7ad835eb0f'
+    );
+    expect(extractSignerPublicId(SIGNATURE_ACCEPTED_OFFICIAL)).toBe('f8911dcd-dfcd-11ef-9465-42010a2b610e');
+    expect(extractSignerSignedAt(SIGNATURE_ACCEPTED_OFFICIAL)).toBe('2025-01-31T12:22:30.000000Z');
+  });
+
+  it('extrai autentique_id do payload legado achatado', () => {
     const docPayload = {
       event: { type: 'document.updated', data: { object: 'document', id: 'doc-abc' } },
     };

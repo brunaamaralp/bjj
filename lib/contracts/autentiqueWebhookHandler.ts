@@ -84,31 +84,89 @@ export function mapSignerStatusFromEvent(eventType: string): string | null {
   }
 }
 
+function asDataRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+/**
+ * Extrai o ID do documento Autentique do payload do webhook.
+ * Formatos suportados (doc oficial):
+ * - document.*: event.data.object = { id, object: "document", ... }
+ * - signature.*: event.data.document = "<id>"
+ * - legado/achatado: event.data.object = "document", event.data.id
+ */
 export function extractAutentiqueDocumentId(body: { event?: { data?: Record<string, unknown> } }): string | null {
-  const event = body?.event;
-  if (!event?.data) return null;
-  const data = event.data;
-  if (data.object === 'document' && data.id) return String(data.id);
-  if (data.document) return String(data.document);
+  const data = body?.event?.data;
+  if (!data) return null;
+
+  const documentRef = data.document;
+  if (documentRef != null && typeof documentRef !== 'object') {
+    const id = String(documentRef).trim();
+    if (id) return id;
+  }
+
+  const nestedObject = asDataRecord(data.object);
+  if (nestedObject) {
+    const nestedKind = String(nestedObject.object || '').toLowerCase();
+    const nestedId = nestedObject.id != null ? String(nestedObject.id).trim() : '';
+    if (nestedId && (!nestedKind || nestedKind === 'document')) return nestedId;
+  }
+
+  if (data.object === 'document' && data.id) {
+    const id = String(data.id).trim();
+    if (id) return id;
+  }
+
   return null;
 }
 
 export function extractSignerPublicId(body: { event?: { data?: Record<string, unknown> } }): string | null {
   const data = body?.event?.data;
-  if (!data || data.object !== 'signature') return null;
-  return data.public_id ? String(data.public_id) : null;
+  if (!data) return null;
+
+  if (data.public_id) return String(data.public_id).trim() || null;
+
+  const nestedObject = asDataRecord(data.object);
+  if (nestedObject && String(nestedObject.object || '').toLowerCase() === 'signature') {
+    const publicId = nestedObject.public_id != null ? String(nestedObject.public_id).trim() : '';
+    if (publicId) return publicId;
+  }
+
+  if (data.object !== 'signature') return null;
+  return data.public_id ? String(data.public_id).trim() || null : null;
 }
 
 export function extractSignerSignedAt(body: { event?: { data?: Record<string, unknown> } }): string | null {
   const data = body?.event?.data;
-  if (!data?.signed) return null;
-  return String(data.signed);
+  if (!data) return null;
+
+  if (data.signed) return String(data.signed);
+
+  const nestedObject = asDataRecord(data.object);
+  if (nestedObject?.signed) return String(nestedObject.signed);
+
+  return null;
 }
 
 function extractSignerActor(body: { event?: { data?: Record<string, unknown> } }): string {
   const data = body?.event?.data;
   if (!data) return '';
-  return String(data.name || data.email || data.public_id || '').trim();
+
+  const user = asDataRecord(data.user);
+  const nestedObject = asDataRecord(data.object);
+
+  return String(
+    data.name ||
+      user?.name ||
+      nestedObject?.name ||
+      data.email ||
+      user?.email ||
+      nestedObject?.email ||
+      data.public_id ||
+      nestedObject?.public_id ||
+      ''
+  ).trim();
 }
 
 async function maybeMarkSignedAfterOffboarding(
