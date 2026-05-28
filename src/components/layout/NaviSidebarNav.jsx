@@ -183,13 +183,15 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
         };
 
         if (child.action === NOVA_VENDA_MENU_ACTION) {
+          const actionClassName = (state) =>
+            [linkClassName(state), 'navi-sidebar-link--section-action'].filter(Boolean).join(' ');
           return (
             <SideNavLink
               key={child.id}
               label={child.label}
               Icon={Icon}
               collapsed={collapsed}
-              className={linkClassName}
+              className={actionClassName}
               onClick={() => dispatchOpenNovaVendaModal()}
             />
           );

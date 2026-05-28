@@ -1163,6 +1163,21 @@ button:active {
   padding: 6px 16px 6px 32px;
 }
 
+.navi-mobile-drawer__link--section-action {
+  margin: 2px 0;
+  border: 1px solid rgba(91, 63, 191, 0.28);
+  border-radius: 8px;
+  background: rgba(91, 63, 191, 0.04);
+  color: var(--navi-sidebar-primary);
+  font-weight: 500;
+}
+
+.navi-mobile-drawer__link--section-action:hover {
+  background: rgba(91, 63, 191, 0.08);
+  border-color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-primary);
+}
+
 .navi-mobile-drawer__actions {
   display: flex;
   flex-direction: column;
@@ -2136,6 +2151,39 @@ button.funil-color-swatch {
   -webkit-appearance: none;
 }
 
+/* Ação na seção Loja (Nova venda) — mesma caixa dos links, contorno de botão */
+.navi-sidebar-link--section-action {
+  padding: 7px 12px;
+  border: 1px solid rgba(91, 63, 191, 0.28);
+  background: rgba(91, 63, 191, 0.04);
+  color: var(--navi-sidebar-primary);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.navi-sidebar-link--section-action .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-primary);
+}
+
+.navi-sidebar-link--section-action:hover {
+  background: var(--navi-sidebar-hover-bg);
+  border-color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-primary);
+}
+
+.navi-sidebar-link--section-action:hover .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-primary);
+}
+
+.navi-sidebar-link--section-action.active,
+.navi-sidebar-link--section-action.navi-sidebar-link--active {
+  background: rgba(91, 63, 191, 0.06);
+  border-color: rgba(91, 63, 191, 0.35);
+  color: var(--navi-sidebar-primary);
+  font-weight: 500;
+  box-shadow: none;
+}
+
 /* Links raiz e filhos */
 .navi-sidebar-link {
   position: relative;
@@ -2679,6 +2727,10 @@ button.funil-color-swatch {
   margin-left: auto;
   margin-right: auto;
   gap: 0;
+}
+
+.navi-sidebar--collapsed .navi-sidebar-link--section-action {
+  padding: 7px;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link__label,

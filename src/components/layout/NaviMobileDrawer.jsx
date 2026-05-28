@@ -96,7 +96,7 @@ export default function NaviMobileDrawer({
                       <button
                         key={`${item.id}-${item.label}`}
                         type="button"
-                        className="navi-mobile-drawer__link"
+                        className="navi-mobile-drawer__link navi-mobile-drawer__link--section-action"
                         onClick={handleNovaVenda}
                       >
                         <Icon size={20} strokeWidth={1.75} aria-hidden />
