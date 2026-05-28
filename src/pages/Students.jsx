@@ -4,7 +4,8 @@ import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, STUDENTS_PAGE_SIZE } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
+import { MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
+import SearchField from '../components/shared/SearchField.jsx';
 
 const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
 import { databases, DB_ID, STUDENTS_COL } from '../lib/appwrite';
@@ -489,16 +490,15 @@ const Students = ({ embedded = false }) => {
                     </p>
                 )}
                 <div className="page-header-card students-page-header">
-                    <div className="page-header-row students-header-row-search">
-                        <div className="page-header-search students-header-search">
-                            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                            <input
-                                type="text"
-                                placeholder="Buscar nome ou telefone..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
+                    <div className="page-header-row navi-toolbar students-header-row-search">
+                        <SearchField
+                            className="students-header-search"
+                            type="text"
+                            placeholder="Buscar nome ou telefone..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            aria-label="Buscar aluno por nome ou telefone"
+                        />
                         <div className="students-header-actions">
                         <button
                             type="button"

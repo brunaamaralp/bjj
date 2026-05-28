@@ -10,7 +10,7 @@ Componentes: `src/components/layout/PageHeader.jsx`, `SectionHeader.jsx`.
 | Subtítulo | `p` | `navi-subtitle` | Frase fixa sobre o propósito da tela |
 | Meta | `p` | `navi-eyebrow` + `navi-page-header__meta` | Contagens, período, academia (dinâmico) |
 | Seção | `h2`/`h3` | `navi-section-heading` | Blocos dentro da página |
-| Toolbar | `div` | `page-header-card` | Busca, IA, filtros (`toolbar` no `PageHeader`) |
+| Toolbar | `div` | `page-header-card` + `.navi-toolbar` / `.page-header-row` | Busca (`SearchField`), IA, filtros — ver [controls-toolbar.md](./controls-toolbar.md) |
 
 ## Escrita
 
@@ -43,7 +43,7 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 - [ ] Subtítulo em `navi-subtitle` via `PageHeader`
 - [ ] Dados dinâmicos em `meta`, não no subtítulo
 - [ ] Seções com `SectionHeader` e hierarquia `h2` → `h3`
-- [ ] Toolbar em `toolbar` do `PageHeader` ou `page-header-card`
+- [ ] Toolbar em `toolbar` do `PageHeader` ou `page-header-card` (controles 36px — [controls-toolbar.md](./controls-toolbar.md))
 - [ ] Sem margens inline duplicadas no cabeçalho
 
 ## Migração

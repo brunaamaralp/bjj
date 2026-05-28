@@ -646,7 +646,7 @@ const Reports = () => {
 
             {isPeriodTab ? (
             <div className="page-header-card">
-                <div className="page-header-row reports-filters-row">
+                <div className="page-header-row navi-toolbar reports-filters-row">
                     <div className="filter-bar reports-period-block">
                         {presets.map((p) => (
                             <button
@@ -660,9 +660,9 @@ const Reports = () => {
                         ))}
                         {preset === 'custom' && (
                             <>
-                                <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
+                                <input type="date" className="form-input navi-date-filter navi-control--toolbar" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" />
                                 <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
-                                <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" style={{ padding: '5px 8px', fontSize: 12, minHeight: 32 }} />
+                                <input type="date" className="form-input navi-date-filter navi-control--toolbar" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
                             </>
                         )}
                     </div>

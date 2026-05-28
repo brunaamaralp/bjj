@@ -878,11 +878,11 @@ export default function MensalidadesPanel({ embedded = false }) {
           </div>
         ) : null}
 
-        <div className="mensal-toolbar">
+        <div className="mensal-toolbar navi-toolbar">
           <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
           <input
             type="search"
-            className="form-input mensal-search"
+            className="form-input mensal-search navi-control--toolbar"
             placeholder={`Buscar ${terms.student.toLowerCase()}...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}

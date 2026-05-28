@@ -8,8 +8,8 @@ import {
   ChevronDown,
   MoreHorizontal,
   Settings2,
-  Search,
 } from 'lucide-react';
+import SearchField from '../shared/SearchField.jsx';
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
 import {
   filterInventoryParents,
@@ -276,40 +276,26 @@ export default function InventoryBalanceView({
             />
             <span className="navi-inline-toggle__label">Mostrar preços</span>
           </label>
-          <button type="button" className="btn-outline btn-sm" onClick={() => void onRefresh()} disabled={loading}>
+          <button type="button" className="btn-outline navi-btn--toolbar" onClick={() => void onRefresh()} disabled={loading}>
             {loading ? 'Atualizando…' : 'Atualizar'}
           </button>
         </div>
       </div>
 
       <div className="card inventory-filters-card">
-        <div className="filter-bar inventory-filters-row">
-          <div className="form-group filter-field inventory-filter-field" style={{ flex: '1 1 200px', minWidth: 160 }}>
+        <div className="filter-bar navi-toolbar inventory-filters-row">
+          <div className="form-group filter-field inventory-filter-field inventory-filter-field--search" style={{ flex: '1 1 200px', minWidth: 160 }}>
             <label className="text-xs">Busca</label>
-            <div style={{ position: 'relative' }}>
-              <Search
-                size={14}
-                style={{
-                  position: 'absolute',
-                  left: 10,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  opacity: 0.5,
-                }}
-                aria-hidden
-              />
-              <input
-                className="form-input"
-                style={{ paddingLeft: 30 }}
-                placeholder="Nome, tamanho, categoria…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+            <SearchField
+              placeholder="Nome, tamanho, categoria…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Buscar no estoque"
+            />
           </div>
           <div className="form-group filter-field inventory-filter-field">
             <label className="text-xs">Status</label>
-            <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <select className="form-input navi-control--toolbar" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todos</option>
               <option value="ok">OK</option>
               <option value="reorder">A repor</option>
@@ -318,7 +304,7 @@ export default function InventoryBalanceView({
           </div>
           <div className="form-group filter-field inventory-filter-field">
             <label className="text-xs">Categoria</label>
-            <select className="form-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <select className="form-input navi-control--toolbar" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">Todas</option>
               {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>

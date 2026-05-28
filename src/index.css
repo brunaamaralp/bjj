@@ -354,6 +354,11 @@ button:active {
   max-width: 320px;
 }
 
+.navi-search--fluid {
+  flex: 1;
+  max-width: none;
+}
+
 .navi-search__icon {
   position: absolute;
   left: 10px;
@@ -434,10 +439,10 @@ button:active {
 }
 
 .filter-bar {
-  --filter-gap: 8px;
+  --filter-gap: var(--control-gap);
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   gap: var(--filter-gap);
 }
 

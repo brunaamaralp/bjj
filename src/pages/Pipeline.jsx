@@ -5,7 +5,8 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap, BadgeCheck } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck } from 'lucide-react';
+import SearchField from '../components/shared/SearchField.jsx';
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
 import ImportSheet from '../components/ImportSheet';
@@ -2008,32 +2009,13 @@ const Pipeline = () => {
                             title={labels.pipeline || 'Funil'}
                             subtitle="Mova leads entre etapas e registre follow-ups."
                         />
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: 8,
-                                padding: '12px 0',
-                                alignItems: 'center',
-                            }}
-                        >
-                            <input
-                                type="search"
+                        <div className="navi-toolbar" style={{ padding: '12px 0' }}>
+                            <SearchField
+                                className="navi-search--fluid"
                                 value={kanbanSearch}
                                 onChange={(e) => handleSearch(e.target.value)}
                                 placeholder="Buscar nome ou telefone..."
                                 aria-label="Buscar no funil"
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 12px',
-                                    fontSize: 16,
-                                    border: '0.5px solid var(--border-light)',
-                                    borderRadius: 8,
-                                    minHeight: 44,
-                                    boxSizing: 'border-box',
-                                    fontFamily: 'inherit',
-                                    background: 'var(--surface)',
-                                    color: 'var(--text)',
-                                }}
                             />
                             <button
                                 type="button"

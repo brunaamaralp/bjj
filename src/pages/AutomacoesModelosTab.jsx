@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, RotateCcw, Send, Search, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Save, RotateCcw, Send, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import SearchField from '../components/shared/SearchField.jsx';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { account, teams } from '../lib/appwrite';
@@ -374,27 +375,20 @@ export default function AutomacoesModelosTab() {
         {loading ? 'Carregando…' : !canEdit ? 'Somente leitura.' : changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
       </p>
       <div className="page-header-card">
-        <div className="page-header-row">
-          <div className="page-header-search">
-            <Search
-              size={16}
-              style={{
-                position: 'absolute',
-                left: 10,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-secondary)',
-              }}
-            />
-            <input placeholder="Buscar template..." value={filter} onChange={(e) => setFilter(e.target.value)} />
-          </div>
+        <div className="page-header-row navi-toolbar">
+          <SearchField
+            placeholder="Buscar template..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Buscar template"
+          />
           <div style={{ flex: 1 }} />
-          <button type="button" className="btn btn-secondary" onClick={handleResetDefaults} disabled={saving || !canEdit}>
+          <button type="button" className="btn-action-ghost" onClick={handleResetDefaults} disabled={saving || !canEdit}>
             <RotateCcw size={16} /> Restaurar padrão
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn-action-primary"
             onClick={handleSave}
             disabled={!canEdit || !changed || saving || overLimit}
           >
