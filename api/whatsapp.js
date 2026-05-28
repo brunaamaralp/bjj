@@ -552,15 +552,15 @@ function isInboundMessage(v) {
   return raw.includes('inbound') || raw.includes('incoming') || raw.includes('received');
 }
 
-/** Janela de backfill na Zapster (GET /v1/wa/messages). Limites via env. */
+/** Janela de backfill na Zapster (GET /v1/wa/messages). Padrão 23h (planos base = 24h). */
 function resolveReconcileWindow(body) {
   const maxHours = Math.min(
     720,
-    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_MAX_HOURS || '720'), 10) || 720)
+    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_MAX_HOURS || '24'), 10) || 24)
   );
   const defaultHours = Math.min(
     maxHours,
-    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_DEFAULT_HOURS || '504'), 10) || 504)
+    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_DEFAULT_HOURS || '23'), 10) || 23)
   );
   let hours = defaultHours;
   const b = body && typeof body === 'object' ? body : {};
@@ -570,6 +570,18 @@ function resolveReconcileWindow(body) {
   else if (Number.isFinite(hoursRaw) && hoursRaw > 0) hours = hoursRaw;
   hours = Math.min(maxHours, Math.max(1, Math.round(hours)));
   return { hours, fromIso: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString() };
+}
+
+function throwIfZapsterErrors(data, raw, resp) {
+  if (data && typeof data === 'object' && Array.isArray(data.errors) && data.errors.length > 0) {
+    const first = data.errors[0];
+    const code = typeof first?.code === 'string' ? first.code : '';
+    const msg = typeof first?.message === 'string' ? first.message : 'Erro Zapster';
+    const err = new Error(msg);
+    err.zapsterCode = code;
+    throw err;
+  }
+  if (!resp.ok) throw new Error(raw || `HTTP ${resp.status}`);
 }
 
 async function listZapsterMessages({ from, to, after, limit, instanceId }) {
@@ -584,16 +596,13 @@ async function listZapsterMessages({ from, to, after, limit, instanceId }) {
 
   const resp = await fetch(url, { headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
   const raw = await resp.text();
-  if (!resp.ok) throw new Error(raw || `HTTP ${resp.status}`);
-  const data = JSON.parse(raw);
-  if (data && typeof data === 'object' && Array.isArray(data.errors) && data.errors.length > 0) {
-    const first = data.errors[0];
-    const code = typeof first?.code === 'string' ? first.code : '';
-    const msg = typeof first?.message === 'string' ? first.message : 'Erro Zapster';
-    const err = new Error(msg);
-    err.zapsterCode = code;
-    throw err;
+  let data = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = null;
   }
+  throwIfZapsterErrors(data, raw, resp);
   return data;
 }
 
@@ -1034,7 +1043,7 @@ export default async function handler(req, res) {
           sucesso: false,
           code: 'messages_retention_exceeded',
           erro:
-            'Seu plano Zapster limita o histórico consultável. Reduza o período (variável ZAPSTER_RECONCILE_DEFAULT_HOURS) ou use um plano com retenção maior.'
+            'Seu plano Zapster permite consultar apenas as últimas 24h de mensagens. Faça upgrade na Zapster para backfill mais longo ou confie no webhook para mensagens novas.'
         });
       }
       console.error('[api/whatsapp] reconcile falhou', {

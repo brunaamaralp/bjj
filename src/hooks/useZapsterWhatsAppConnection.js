@@ -872,7 +872,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           'x-academy-id': String(academyIdRef.current || ''),
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ days: 21 })
+        body: JSON.stringify({})
       });
       const raw = await resp.text();
       const data = safeParseJson(raw) || {};
@@ -887,7 +887,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (data?.code === 'messages_retention_exceeded' || resp.status === 402) {
           useUiStore.getState().addToast({
             type: 'warning',
-            message: 'Plano Zapster limita o histórico a 24h. As mensagens recentes foram importadas normalmente.'
+            message:
+              'Seu plano Zapster só permite importar mensagens das últimas 24h. Mensagens mais antigas não podem ser recuperadas por aqui — novas mensagens entram pelo webhook em tempo real.'
           });
           if (typeof afterSuccess === 'function') {
             try {

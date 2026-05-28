@@ -3925,7 +3925,7 @@ export default function Inbox() {
                 tone="dashed"
                 icon={MessageSquare}
                 title="Nenhuma mensagem carregada"
-                description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar o histórico recente (até ~21 dias, conforme seu plano Zapster).'
+                description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar as últimas 24h (limite do plano Zapster).'
                 role="status"
               />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
