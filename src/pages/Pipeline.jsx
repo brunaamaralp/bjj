@@ -2788,8 +2788,16 @@ const Pipeline = () => {
           background: var(--surface-hover); color: var(--text-secondary);
         }
         .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .whatsapp-btn { border-color: var(--success); color: var(--success); background: var(--success-light); }
-        .whatsapp-btn:hover { filter: brightness(0.98); }
+        .whatsapp-btn {
+          border-color: #30f26f;
+          color: #0f6d33;
+          background: color-mix(in srgb, #30f26f 22%, var(--surface));
+        }
+        .whatsapp-btn:hover {
+          border-color: #22df60;
+          color: #0c5a2a;
+          background: color-mix(in srgb, #30f26f 30%, var(--surface));
+        }
         .quick-block { display: flex; flex-direction: column; gap: 4px; }
         .quick-label { font-size: 0.72rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.03em; text-transform: uppercase; }
         .quick-times { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -2806,10 +2814,41 @@ const Pipeline = () => {
         }
         .more-btn:hover { border-color: var(--accent); color: var(--accent); }
          .action-bar--reorganized { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-        .wa-split-btn { display: flex; align-items: stretch; border: 1px solid var(--success); border-radius: var(--radius-sm); overflow: visible; position: relative; background: var(--success); }
-        .wa-main-btn { background: var(--success); color: white; border: none; padding: 6px 10px; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
-        .wa-main-btn:hover { background: #2e7d32; }
-        .wa-drop-toggle { background: #2e7d32; color: white; border: none; border-left: 1px solid rgba(255,255,255,0.2); padding: 0 6px; cursor: pointer; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; display: flex; align-items: center; }
+        .wa-split-btn {
+          display: flex;
+          align-items: stretch;
+          border: 1px solid #20db5a;
+          border-radius: var(--radius-sm);
+          overflow: visible;
+          position: relative;
+          background: linear-gradient(135deg, #30f26f 0%, #1cd45a 100%);
+          box-shadow: 0 0 0 1px color-mix(in srgb, #30f26f 35%, transparent), 0 4px 12px rgba(22, 178, 75, 0.28);
+        }
+        .wa-main-btn {
+          background: transparent;
+          color: #ffffff;
+          border: none;
+          padding: 6px 10px;
+          font-size: 0.78rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+        }
+        .wa-main-btn:hover { background: color-mix(in srgb, #000 10%, transparent); }
+        .wa-drop-toggle {
+          background: color-mix(in srgb, #000 12%, transparent);
+          color: white;
+          border: none;
+          border-left: 1px solid rgba(255,255,255,0.3);
+          padding: 0 6px;
+          cursor: pointer;
+          border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+          display: flex;
+          align-items: center;
+        }
         .wa-templates-dropdown { position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 180px; z-index: 100; overflow: hidden; }
         .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
         .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
