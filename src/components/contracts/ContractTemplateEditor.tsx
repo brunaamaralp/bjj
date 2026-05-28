@@ -1,10 +1,9 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
-  CONTRACT_TEMPLATE_VARIABLES,
-  CONTRACT_VARIABLE_GROUPS,
   mergeContractTemplateHtml,
 } from '../../lib/contractTemplateVariables.js';
 import ContractRichTextEditor, { type ContractRichTextEditorHandle } from './ContractRichTextEditor.jsx';
+import ContractVariableMenu from './ContractVariableMenu.jsx';
 import FieldError from '../shared/FieldError.jsx';
 
 interface ContractTemplateEditorProps {
@@ -23,26 +22,16 @@ export default function ContractTemplateEditor({
   bodyError,
 }: ContractTemplateEditorProps) {
   const richRef = useRef<ContractRichTextEditorHandle>(null);
-  const [varQuery, setVarQuery] = useState('');
 
   const previewHtml = useMemo(() => {
     if (!previewVars) return null;
     return mergeContractTemplateHtml(bodyHtml, previewVars);
   }, [bodyHtml, previewVars]);
 
-  const normalizedQuery = varQuery.trim().toLowerCase();
-
-  const filteredGroups = useMemo(() => {
-    return CONTRACT_VARIABLE_GROUPS.map((group) => {
-      const items = CONTRACT_TEMPLATE_VARIABLES.filter((v) => {
-        if (v.group !== group.id) return false;
-        if (!normalizedQuery) return true;
-        const hay = `${v.label} ${v.key}`.toLowerCase();
-        return hay.includes(normalizedQuery);
-      });
-      return { ...group, items };
-    }).filter((g) => g.items.length > 0);
-  }, [normalizedQuery]);
+  const handleInsertVariable = (key: string) => {
+    richRef.current?.insertVariable(key);
+    richRef.current?.focus();
+  };
 
   return (
     <div className="contract-template-editor">
@@ -57,57 +46,11 @@ export default function ContractTemplateEditor({
           bodyHtml={bodyHtml}
           onChange={onChange}
           disabled={disabled}
+          toolbarExtra={
+            <ContractVariableMenu onInsert={handleInsertVariable} disabled={disabled} />
+          }
         />
         {bodyError ? <FieldError>{bodyError}</FieldError> : null}
-
-        <details className="contract-template-vars-details">
-          <summary className="contract-template-vars-details__summary">
-            Inserir dados do aluno
-          </summary>
-          <div className="contract-template-vars-details__body">
-            <label className="task-field-label" htmlFor="contract-template-var-search">
-              Buscar campo
-            </label>
-            <input
-              id="contract-template-var-search"
-              type="search"
-              className="form-input contract-template-var-search"
-              value={varQuery}
-              onChange={(e) => setVarQuery(e.target.value)}
-              placeholder="Ex.: CPF, plano, responsável…"
-              disabled={disabled}
-            />
-            {filteredGroups.length === 0 ? (
-              <p className="text-small text-muted">Nenhum campo encontrado.</p>
-            ) : (
-              <div className="contract-template-editor-vars">
-                {filteredGroups.map((group) => (
-                  <div className="contract-template-editor-var-group" key={group.id}>
-                    <span className="contract-template-editor-var-group-label">{group.label}</span>
-                    <div className="contract-template-editor-var-group-btns">
-                      {group.items.map((v) => (
-                        <button
-                          key={v.key}
-                          type="button"
-                          className="btn-outline text-small"
-                          disabled={disabled}
-                          onClick={() => richRef.current?.insertVariable(v.key)}
-                          title={`Inserir {{${v.key}}}`}
-                        >
-                          {v.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="text-small text-muted contract-template-editor-hint">
-              Clique em um campo para inserir no cursor. Os valores vêm do cadastro do aluno ao
-              enviar o contrato.
-            </p>
-          </div>
-        </details>
       </div>
 
       {previewHtml != null ? (

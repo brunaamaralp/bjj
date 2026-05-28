@@ -493,50 +493,60 @@
   margin: 0;
 }
 
-.contract-template-vars-details {
-  margin-top: 12px;
-  border: 0.5px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  background: var(--surface-hover);
-}
-
-.contract-template-vars-details__summary {
-  padding: 12px 14px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.contract-template-vars-details__summary::-webkit-details-marker {
-  display: none;
-}
-
-.contract-template-vars-details__summary::before {
-  content: '▸';
-  display: inline-block;
-  margin-right: 8px;
-  transition: transform 0.15s ease;
-}
-
-.contract-template-vars-details[open] .contract-template-vars-details__summary::before {
-  transform: rotate(90deg);
-}
-
-.contract-template-vars-details__body {
-  padding: 0 14px 14px;
-  border-top: 0.5px solid var(--border-light);
-}
-
-.contract-template-var-search {
-  margin-bottom: 12px;
-}
-
-.contract-template-editor-vars {
+.contract-variable-menu__panel {
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(420px, calc(100vh - 120px));
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.contract-variable-menu__search-wrap {
+  padding: 8px;
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.contract-variable-menu__search {
+  width: 100%;
+  font-size: 13px;
+}
+
+.contract-variable-menu__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.contract-variable-menu__group + .contract-variable-menu__group {
+  margin-top: 4px;
+}
+
+.contract-variable-menu__item-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.contract-variable-menu__item-key {
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.contract-variable-menu__panel .navi-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contract-variable-menu__hint {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 0.5px solid var(--border-light);
+  line-height: 1.4;
 }
 
 .contract-template-preview__title {
@@ -555,26 +565,6 @@
   margin-top: 4px;
 }
 
-.contract-template-editor-var-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.contract-template-editor-var-group-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.contract-template-editor-var-group-btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .contract-rich-editor {
   border: 0.5px solid var(--border-light);
   border-radius: var(--radius-sm);
@@ -590,6 +580,21 @@
   padding: 8px 10px;
   border-bottom: 0.5px solid var(--border-light);
   background: var(--surface-hover);
+}
+
+.contract-rich-editor-toolbar-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.contract-rich-editor-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 0.5px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
 .contract-rich-editor-btn {
@@ -618,6 +623,18 @@
 .contract-rich-editor-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.contract-rich-editor-btn--active {
+  background: var(--surface-hover);
+  border-color: var(--border-light);
+  color: var(--text);
+}
+
+.contract-rich-editor-btn-label {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .contract-rich-editor-sep {
@@ -662,6 +679,27 @@
 .contract-rich-editor-surface ol {
   margin: 0 0 10px;
   padding-left: 1.4rem;
+}
+
+.contract-rich-editor-source {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  max-height: 420px;
+  padding: 14px 16px;
+  border: 0;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+}
+
+.contract-rich-editor-source:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .contract-template-preview-body {
