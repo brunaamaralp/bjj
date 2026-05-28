@@ -23,6 +23,7 @@ export function normalizePhoneForWaMe(v) {
  *   templatesMap: Record<string, string>;
  *   zapsterInstanceId?: string;
  *   onToast?: (t: { type: string; message: string }) => void;
+ *   suppressToasts?: boolean;
  *   permissionContext?: { teamId?: string; userId?: string };
  *   createdBy?: string;
  * }} p
@@ -36,25 +37,29 @@ export async function sendWhatsappTemplateOutbound({
   templatesMap,
   zapsterInstanceId,
   onToast,
+  suppressToasts = false,
   permissionContext = {},
   createdBy = 'user',
 }) {
+  const toast = (t) => {
+    if (!suppressToasts) onToast?.(t);
+  };
   const raw = templatesMap[templateKey];
   if (!raw || !String(raw).trim()) {
-    onToast?.({ type: 'error', message: 'Template vazio ou inexistente.' });
-    return { ok: false };
+    toast({ type: 'error', message: 'Template vazio ou inexistente.' });
+    return { ok: false, reason: 'empty_template' };
   }
   const placeholderCheck = validateTemplatePlaceholders(String(raw));
   if (!placeholderCheck.ok) {
-    onToast?.({
+    toast({
       type: 'warning',
       message: `Variáveis desconhecidas serão omitidas: ${placeholderCheck.unknown.join(', ')}`,
     });
   }
   const phoneRaw = String(lead?.phone || '').trim();
   if (!phoneRaw) {
-    onToast?.({ type: 'error', message: 'Telefone ausente no lead.' });
-    return { ok: false };
+    toast({ type: 'error', message: 'Telefone ausente no lead.' });
+    return { ok: false, reason: 'no_phone' };
   }
   const message = applyWhatsappTemplatePlaceholders(String(raw), { lead, academyName });
   const inst = String(zapsterInstanceId || '').trim();
@@ -107,32 +112,30 @@ export async function sendWhatsappTemplateOutbound({
         let msg = 'Falha ao enviar';
         if (j && typeof j === 'object' && typeof j.erro === 'string' && j.erro.trim()) msg = String(j.erro).trim();
         else if (txt) msg = txt.slice(0, 200);
-        onToast?.({ type: 'error', message: msg });
-        return { ok: false };
+        toast({ type: 'error', message: msg });
+        return { ok: false, reason: 'send_failed', error: msg };
       }
       await recordSent();
       if (j?.channel === 'wa_me' && typeof j.wa_me_url === 'string' && j.wa_me_url.trim()) {
         window.open(j.wa_me_url.trim(), '_blank', 'noopener,noreferrer');
-        onToast?.({ type: 'success', message: 'Abra o WhatsApp para concluir o envio.' });
-        return { ok: true };
+        toast({ type: 'success', message: 'Abra o WhatsApp para concluir o envio.' });
+        return { ok: true, channel: 'wa_me' };
       }
-      onToast?.({ type: 'success', message: 'Mensagem enviada!' });
-      return { ok: true };
+      toast({ type: 'success', message: 'Mensagem enviada!' });
+      return { ok: true, channel: 'api' };
     } catch (e) {
-      onToast?.({
-        type: 'error',
-        message: friendlyError(e, 'send') || 'WhatsApp desconectado. Verifique a página Agente IA.',
-      });
-      return { ok: false };
+      const msg = friendlyError(e, 'send') || 'WhatsApp desconectado. Verifique a página Agente IA.';
+      toast({ type: 'error', message: msg });
+      return { ok: false, reason: 'send_failed', error: msg };
     }
   }
 
   const digits = normalizePhoneForWaMe(phoneRaw);
   if (!digits) {
-    onToast?.({ type: 'error', message: 'Telefone inválido.' });
-    return { ok: false };
+    toast({ type: 'error', message: 'Telefone inválido.' });
+    return { ok: false, reason: 'no_phone' };
   }
   await recordSent();
   window.open(`https://wa.me/${digits}?text=${encodeURIComponent(message)}`, '_blank');
-  return { ok: true };
+  return { ok: true, channel: 'wa_me' };
 }

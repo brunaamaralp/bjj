@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import {
     AUTOMATION_DELAY_OPTIONS,
     AUTOMATION_GROUPS,
     serializeAutomationsConfig,
 } from '../../lib/useAutomations.js';
+import {
+    previewAutomationMessage,
+    delayHintForAutomation,
+    computeAutomationReadiness,
+} from '../../lib/automationUx.js';
+import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
 
 function AutomationRow({
     automationKey,
@@ -12,6 +19,8 @@ function AutomationRow({
     cfg,
     noTemplatesAvailable,
     templateOptions,
+    templatesMap,
+    academyName,
     onToggle,
     onTemplateChange,
     onDelayChange,
@@ -23,6 +32,21 @@ function AutomationRow({
         Boolean(cfg.templateKey) &&
         templateOptions.some((o) => o.id === cfg.templateKey);
     const switchDisabled = noTemplatesAvailable || !hasValidTemplate;
+    const [previewOpen, setPreviewOpen] = useState(false);
+
+    const delayHint = delayHintForAutomation(
+        automationKey,
+        cfg.delayMinutes,
+        '2026-06-15',
+        '19:00'
+    );
+    const previewText = previewOpen
+        ? previewAutomationMessage({
+              templateKey: cfg.templateKey,
+              templatesMap,
+              academyName,
+          })
+        : '';
 
     return (
         <div
@@ -38,6 +62,11 @@ function AutomationRow({
                     <p className="text-xs text-light" style={{ marginTop: 4, lineHeight: 1.45 }}>
                         {meta.description}
                     </p>
+                    {delayHint ? (
+                        <p className="text-xs" style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
+                            {delayHint}
+                        </p>
+                    ) : null}
                 </div>
                 <button
                     type="button"
@@ -48,7 +77,7 @@ function AutomationRow({
                     title={
                         switchDisabled
                             ? noTemplatesAvailable
-                                ? 'Crie um modelo em Automações antes de ativar'
+                                ? 'Revise os modelos em Modelos de Mensagem'
                                 : 'Selecione um template antes de ativar'
                             : undefined
                     }
@@ -61,17 +90,32 @@ function AutomationRow({
                     <span className="ai-switch-thumb" />
                 </button>
             </div>
-            <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap' }}>
+            {switchDisabled ? (
+                <p className="text-xs" style={{ marginTop: 8, color: 'var(--warning)' }}>
+                    {noTemplatesAvailable ? (
+                        <>
+                            Nenhum texto de modelo disponível.{' '}
+                            <Link to="/automacoes?tab=modelos" className="edit-link">
+                                Abrir Modelos de Mensagem
+                            </Link>
+                        </>
+                    ) : (
+                        'Escolha um modelo abaixo para poder ativar.'
+                    )}
+                </p>
+            ) : null}
+            <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
                 <select
                     className="form-input"
                     value={noTemplatesAvailable ? '' : cfg.templateKey || ''}
                     disabled={noTemplatesAvailable}
                     onChange={(e) => onTemplateChange(e.target.value)}
                     style={{ flex: '1 1 220px' }}
+                    aria-label={`Modelo para ${meta.label}`}
                 >
                     {noTemplatesAvailable ? (
                         <option value="" disabled>
-                            Nenhum modelo disponível — crie em Automações
+                            Sem modelos — abra Modelos de Mensagem
                         </option>
                     ) : (
                         templateOptions.map((opt) => (
@@ -88,6 +132,7 @@ function AutomationRow({
                         disabled={noTemplatesAvailable}
                         onChange={(e) => onDelayChange(Number(e.target.value))}
                         style={{ flex: '0 1 200px' }}
+                        aria-label={`Quando enviar: ${meta.label}`}
                     >
                         {delayOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -95,8 +140,33 @@ function AutomationRow({
                             </option>
                         ))}
                     </select>
+                ) : (
+                    <span className="text-xs text-light" style={{ flex: '0 1 120px' }}>
+                        Envio imediato
+                    </span>
+                )}
+                {!noTemplatesAvailable && hasValidTemplate ? (
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ flex: '0 0 auto', padding: '8px 12px' }}
+                        onClick={() => setPreviewOpen((v) => !v)}
+                    >
+                        {previewOpen ? <EyeOff size={14} /> : <Eye size={14} />}
+                        <span style={{ marginLeft: 6 }}>{previewOpen ? 'Ocultar' : 'Ver mensagem'}</span>
+                    </button>
                 ) : null}
             </div>
+            {previewOpen && previewText ? (
+                <pre className="automacoes-preview" role="region" aria-label="Prévia da mensagem">
+                    {previewText}
+                </pre>
+            ) : null}
+            {previewOpen && !previewText ? (
+                <p className="text-xs text-light" style={{ marginTop: 8 }}>
+                    Modelo vazio — edite em Modelos de Mensagem.
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -106,8 +176,11 @@ const AutomacoesSection = ({
     automationsConfig,
     setAutomationsConfig,
     templateOptions,
+    templatesMap,
+    academyName,
     noTemplatesAvailable,
     automationsConfigRaw,
+    readiness,
     academyDataVersion = 0,
     savingAutomations,
     onSave,
@@ -148,6 +221,8 @@ const AutomacoesSection = ({
                         cfg={cfg}
                         noTemplatesAvailable={noTemplatesAvailable}
                         templateOptions={templateOptions}
+                        templatesMap={templatesMap}
+                        academyName={academyName}
                         isLast={isLast}
                         onToggle={() =>
                             setAutomationsConfig((prev) => ({
@@ -183,7 +258,7 @@ const AutomacoesSection = ({
                 style={{ gap: 10, flexWrap: 'wrap' }}
             >
                 <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                    Mensagens automáticas
+                    Mensagens automáticas do funil
                 </h3>
                 {hasUnsavedChanges && (
                     <span className="funil-unsaved-pill" role="status">
@@ -191,13 +266,15 @@ const AutomacoesSection = ({
                     </span>
                 )}
             </div>
-            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 4px', lineHeight: 1.5 }}>
-                Enviadas automaticamente quando um evento ocorre no funil. Os textos são configurados em{' '}
+            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Passo 1: personalize os textos em{' '}
                 <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
                     Modelos de Mensagem
                 </Link>
-                .
+                . Passo 2: ative os gatilhos abaixo. As mensagens disparam ao mover cards no funil ou ao
+                agendar aulas.
             </p>
+            <AutomacoesReadinessBanner readiness={readiness} />
             {renderGroup('Captação', AUTOMATION_GROUPS.captacao)}
             {renderGroup('Pós-matrícula', AUTOMATION_GROUPS.posMatricula)}
             <div className="flex justify-end mt-4">

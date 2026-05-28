@@ -1,5 +1,6 @@
 import { LEAD_STATUS } from './leadStatus.js';
 import { normalizeSexo } from './leadSexo.js';
+import { parsePendingAutomations } from '../../lib/automationCore.js';
 
 function parseCustomAnswersJson(raw) {
   if (!raw || typeof raw !== 'string') return {};
@@ -8,24 +9,6 @@ function parseCustomAnswersJson(raw) {
     return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
   } catch {
     return {};
-  }
-}
-
-function parsePendingAutomations(raw) {
-  if (!raw) return [];
-  try {
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((x) => x && typeof x === 'object')
-      .map((x) => ({
-        key: String(x.key || '').trim(),
-        sendAt: String(x.sendAt || '').trim(),
-        sent: x.sent === true,
-      }))
-      .filter((x) => x.key && x.sendAt);
-  } catch {
-    return [];
   }
 }
 

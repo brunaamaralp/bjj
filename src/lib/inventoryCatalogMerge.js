@@ -28,7 +28,7 @@ function enrichVariant(v, inv) {
     color,
     current_quantity: qty,
     minimum_level: min,
-    status: inv?.status ?? v.status ?? getVariantStockStatus(qty, min),
+    status: getVariantStockStatus(qty, min),
     unit: inv?.unit ?? v.unit,
     average_cost: inv?.average_cost ?? v.average_cost,
     last_purchase_cost: inv?.last_purchase_cost ?? v.last_purchase_cost,

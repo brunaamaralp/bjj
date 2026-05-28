@@ -1739,6 +1739,92 @@ select.task-select option {
   white-space: nowrap;
 }
 
+.automacoes-readiness {
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+}
+
+.automacoes-readiness--ok {
+  border-color: rgba(46, 125, 50, 0.35);
+  background: rgba(46, 125, 50, 0.06);
+}
+
+.automacoes-readiness--pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.automacoes-readiness-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.automacoes-readiness-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.automacoes-readiness-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.automacoes-readiness-icon--ok {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.automacoes-readiness-icon--pending {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.automacoes-preview {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.lead-automation-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  color: #128c7e;
+  white-space: nowrap;
+}
+
+.lead-automation-badge--overdue {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #b45309;
+}
+
 .funil-question-row {
   display: flex;
   flex-direction: column;
@@ -5722,26 +5808,25 @@ button.funil-color-swatch {
 .inventory-status {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1.25;
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .inventory-status--ok {
-  font-size: 13px;
-  font-weight: 400;
   color: var(--color-neutral-400);
   background: none;
   padding: 0;
 }
 
 .inventory-status--badge {
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 500;
   border: none;
-  font: inherit;
+  cursor: default;
 }
 
 .inventory-status--critical {

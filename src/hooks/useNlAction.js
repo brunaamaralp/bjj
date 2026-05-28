@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 import { useSalesStore } from '../store/useSalesStore';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
@@ -21,6 +22,16 @@ import { useTerms } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { emitLeadAttendanceChanged, emitLeadsRefresh } from '../lib/leadTimelineEvents.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
+import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
+import { parseAutomationsConfig } from '../lib/useAutomations.js';
+import {
+  afterExperimentalScheduled,
+  afterPresenceConfirmed,
+  afterMissed,
+  afterMovedToPipelineStage,
+} from '../lib/automationDispatch.js';
+import { notifyAutomationFeedback } from '../lib/automationUx.js';
 
 /** Etapas que exigem fluxo próprio (matrícula, perda, não compareceu, agenda experimental). */
 const MOVE_PIPELINE_FORBIDDEN_TARGETS = new Set([
@@ -87,8 +98,27 @@ export function useNlAction() {
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const updateLead = useLeadStore((s) => s.updateLead);
   const addLead = useLeadStore((s) => s.addLead);
+  const addToast = useUiStore((s) => s.addToast);
   const createSale = useSalesStore((s) => s.createSale);
   const { products: stockProducts } = useSalesCatalog(academyId);
+  const {
+    templates: waTemplates,
+    academyName: waAcademyName,
+    zapsterInstanceId: waZapId,
+    automationsRaw,
+  } = useWhatsappTemplates(academyId);
+  const automationConfig = useMemo(
+    () => parseAutomationsConfig(automationsRaw),
+    [automationsRaw]
+  );
+  const waOutbound = useMemo(
+    () => ({
+      name: waAcademyName || '',
+      zapster_instance_id: waZapId || '',
+      templates: waTemplates || DEFAULT_WHATSAPP_TEMPLATES,
+    }),
+    [waAcademyName, waZapId, waTemplates]
+  );
 
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -372,12 +402,24 @@ export function useNlAction() {
         if (!leadId) throw new Error('Lead não identificado');
         const now = new Date().toISOString();
         const lead = (leads || []).find((l) => String(l.id || '').trim() === leadId);
-        await updateLead(leadId, {
+        const attendedPatch = {
           status: LEAD_STATUS.COMPLETED,
           pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
           attendedAt: now,
-          statusChangedAt: now
-        });
+          statusChangedAt: now,
+        };
+        await updateLead(leadId, attendedPatch);
+        const attendedAuto = await afterPresenceConfirmed({
+          lead: lead ? { ...lead, ...attendedPatch } : { id: leadId, ...attendedPatch },
+          academyId,
+          waOutbound,
+          academyRaw: automationsRaw,
+          automationConfig,
+          permissionContext,
+          updateLead,
+          getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
+        }).catch(() => null);
+        if (attendedAuto) notifyAutomationFeedback(addToast, attendedAuto);
         const out = await addLeadEvent({
           academyId,
           leadId,
@@ -398,13 +440,23 @@ export function useNlAction() {
         const now = new Date().toISOString();
         const reason = String(d.reason || '').trim();
         const lead = (leads || []).find((l) => String(l.id || '').trim() === leadId);
-        await updateLead(leadId, {
+        const missedPatch = {
           status: LEAD_STATUS.MISSED,
           pipelineStage: LEAD_STATUS.MISSED,
           missedAt: now,
           missed_reason: reason,
-          statusChangedAt: now
-        });
+          statusChangedAt: now,
+        };
+        await updateLead(leadId, missedPatch);
+        const missedAuto = await afterMissed({
+          lead: lead ? { ...lead, ...missedPatch } : { id: leadId, ...missedPatch },
+          academyId,
+          waOutbound,
+          academyRaw: automationsRaw,
+          automationConfig,
+          permissionContext,
+        }).catch(() => null);
+        if (missedAuto) notifyAutomationFeedback(addToast, missedAuto);
         const out = await addLeadEvent({
           academyId,
           leadId,
@@ -519,13 +571,28 @@ export function useNlAction() {
         } catch {
           void 0;
         }
-        const out = await updateLead(leadId, {
+        const schedulePatch = {
           status: LEAD_STATUS.SCHEDULED,
           scheduledDate: ymd,
           scheduledTime: timeNorm,
           pipelineStage: 'Aula experimental',
-          statusChangedAt: nowIso
-        });
+          statusChangedAt: nowIso,
+        };
+        const out = await updateLead(leadId, schedulePatch);
+        const leadRow = (leads || []).find((l) => String(l.id || '').trim() === leadId);
+        const scheduleAuto = await afterExperimentalScheduled({
+          lead: leadRow ? { ...leadRow, ...schedulePatch } : { id: leadId, ...schedulePatch },
+          ymd,
+          time: timeNorm,
+          academyId,
+          waOutbound,
+          academyRaw: automationsRaw,
+          automationConfig,
+          permissionContext,
+          updateLead,
+          getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
+        }).catch(() => null);
+        if (scheduleAuto) notifyAutomationFeedback(addToast, scheduleAuto);
         notifyLeadsRefresh();
         return out;
       }
@@ -554,6 +621,18 @@ export function useNlAction() {
         });
         const payload = getStageUpdatePayload(toStage);
         const out = await updateLead(leadId, { ...payload, statusChangedAt: nowIso });
+        const moveAuto = await afterMovedToPipelineStage({
+          lead: lead ? { ...lead, ...payload, pipelineStage: toStage } : { id: leadId, ...payload },
+          toStage,
+          academyId,
+          waOutbound,
+          academyRaw: automationsRaw,
+          automationConfig,
+          permissionContext,
+          updateLead,
+          getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
+        }).catch(() => null);
+        if (moveAuto) notifyAutomationFeedback(addToast, moveAuto);
         notifyLeadsRefresh();
         return out;
       }
@@ -690,7 +769,21 @@ export function useNlAction() {
 
       throw new Error('Ação não suportada');
     },
-    [academyId, userId, sessionUserName, permissionContext, updateLead, leads, addLead, createSale, terms.nlPipelineMoveForbiddenHint]
+    [
+      academyId,
+      userId,
+      sessionUserName,
+      permissionContext,
+      updateLead,
+      leads,
+      addLead,
+      createSale,
+      terms.nlPipelineMoveForbiddenHint,
+      waOutbound,
+      automationsRaw,
+      automationConfig,
+      addToast,
+    ]
   );
 
   return { interpret, execute, academyName };

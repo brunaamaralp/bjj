@@ -6,11 +6,8 @@ import { timingSafeEqual } from 'crypto';
 import { DB_ID, ACADEMIES_COL, resetAcademyMonthlyThreadUsage } from '../../src/services/planService.js';
 import { isBillingStoreConfigured, getBillingDatabases } from '../../lib/billing/billingAppwriteStore.js';
 import { notifyAcademyOwner } from '../../lib/server/notifyAcademy.js';
-import { sendZapsterText } from '../../lib/server/zapsterSend.js';
-import {
-  DEFAULT_WHATSAPP_TEMPLATES,
-  applyWhatsappTemplatePlaceholders,
-} from '../../lib/whatsappTemplateDefaults.js';
+import { parseAutomationsConfig, parsePendingAutomations } from '../../lib/automationCore.js';
+import { sendAutomationTemplateCron } from '../../lib/server/sendAutomationCron.js';
 import { runCollectionOverdue } from '../../lib/server/runCollectionOverdueCron.js';
 import { runStockInventoryCron } from '../../lib/server/runStockInventoryCron.js';
 import { runPlanFreezeCron } from '../../lib/server/runPlanFreezeCron.js';
@@ -35,15 +32,6 @@ const PEOPLE_COL = STUDENTS_COL || LEADS_COL;
 const TASKS_COL = process.env.APPWRITE_TASKS_COLLECTION_ID || process.env.VITE_APPWRITE_TASKS_COLLECTION_ID || '';
 const NOTE_NOTIFICATIONS_COL = process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || '';
 
-const AUTOMATION_DEFAULTS = {
-  schedule_confirm: { active: false, templateKey: 'confirm', delayMinutes: 0 },
-  presence_confirmed: { active: false, templateKey: 'post_class', delayMinutes: 0 },
-  missed: { active: false, templateKey: 'missed', delayMinutes: 0 },
-  waiting_decision: { active: false, templateKey: 'recovery', delayMinutes: 1440 },
-  converted: { active: false, templateKey: 'confirm', delayMinutes: 0 },
-  schedule_reminder: { active: false, templateKey: 'reminder', delayMinutes: 120 },
-};
-
 function safeCompare(a, b) {
   try {
     const bufA = Buffer.from(String(a));
@@ -65,42 +53,6 @@ function daysUntil(dateIso) {
   // Normalizar para início do dia UTC
   const diffMs = target.setUTCHours(0, 0, 0, 0) - new Date().setUTCHours(0, 0, 0, 0);
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
-}
-
-function parseAutomationsConfig(raw) {
-  try {
-    const saved = typeof raw === 'string' ? JSON.parse(raw) : raw ?? {};
-    return Object.fromEntries(
-      Object.entries(AUTOMATION_DEFAULTS).map(([key, defaults]) => [
-        key,
-        { ...defaults, ...(saved[key] ?? {}) },
-      ])
-    );
-  } catch {
-    return AUTOMATION_DEFAULTS;
-  }
-}
-
-function parsePendingAutomations(raw) {
-  if (!raw) return [];
-  try {
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((x) => x && typeof x === 'object')
-      .map((x) => ({
-        key: String(x.key || '').trim(),
-        sendAt: String(x.sendAt || '').trim(),
-        sent: x.sent === true,
-      }))
-      .filter((x) => x.key && x.sendAt);
-  } catch {
-    return [];
-  }
-}
-
-function normalizePhone(v) {
-  return String(v || '').replace(/\D/g, '');
 }
 
 async function runResetUsage(databases, dom) {
@@ -236,15 +188,6 @@ async function runAutomations(databases) {
 
     let changed = false;
     const cfgMap = parseAutomationsConfig(academy.automations_config);
-    let templatesOverride = {};
-    try {
-      const raw = academy.whatsappTemplates;
-      const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (p && typeof p === 'object' && !Array.isArray(p)) templatesOverride = p;
-    } catch {
-      templatesOverride = {};
-    }
-    const templates = { ...DEFAULT_WHATSAPP_TEMPLATES, ...templatesOverride };
 
     const nextPending = [...pending];
     for (let i = 0; i < nextPending.length; i += 1) {
@@ -261,22 +204,12 @@ async function runAutomations(databases) {
         continue;
       }
 
-      const templateRaw = String(templates[cfg.templateKey] || '').trim();
-      const phone = normalizePhone(doc.phone);
-      const instanceId = String(academy?.zapster_instance_id || academy?.zapsterInstanceId || '').trim();
-      if (!templateRaw || !phone || !instanceId) {
-        errors += 1;
-        continue;
-      }
-      const message = applyWhatsappTemplatePlaceholders(templateRaw, {
-        lead: {
-          name: doc.name,
-          scheduledDate: doc.scheduledDate,
-          scheduledTime: doc.scheduledTime,
-        },
-        academyName: String(academy?.name || '').trim(),
+      const out = await sendAutomationTemplateCron({
+        leadDoc: doc,
+        academy,
+        automationKey: item.key,
+        templateKey: cfg.templateKey,
       });
-      const out = await sendZapsterText({ recipient: phone, text: message, instanceId });
       if (!out?.ok) {
         errors += 1;
         continue;

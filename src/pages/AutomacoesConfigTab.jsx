@@ -5,6 +5,8 @@ import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useTerms } from '../lib/terminology.js';
+import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
+import { computeAutomationReadiness } from '../lib/automationUx.js';
 import AutomacoesSection from '../components/academy/AutomacoesSection.jsx';
 
 export default function AutomacoesConfigTab() {
@@ -21,7 +23,19 @@ export default function AutomacoesConfigTab() {
   );
 
   const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
   const addToast = useUiStore((s) => s.addToast);
+
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
+  const academyName = String(academyDoc?.name || '').trim();
+
+  const { waConnected, waInfo } = useZapsterWhatsAppConnection(academyId, {
+    statusPollWhileMounted: true,
+    watchAcademyStatus: true,
+  });
 
   const [academy, setAcademy] = useState({
     automationsConfigRaw: '',
@@ -81,10 +95,18 @@ export default function AutomacoesConfigTab() {
     [templatesMap]
   );
 
-  const noTemplatesAvailable = useMemo(() => {
-    if (templateOptions.length === 0) return true;
-    return !String(academy.whatsappTemplates || '').trim();
-  }, [academy.whatsappTemplates, templateOptions.length]);
+  const noTemplatesAvailable = templateOptions.length === 0;
+
+  const readiness = useMemo(
+    () =>
+      computeAutomationReadiness({
+        automationsConfig,
+        templatesMap,
+        waConnected,
+        hasZapsterInstance: Boolean(waInfo?.instance_id),
+      }),
+    [automationsConfig, templatesMap, waConnected, waInfo?.instance_id]
+  );
 
   const saveAutomations = async () => {
     if (!academyId) return;
@@ -120,8 +142,11 @@ export default function AutomacoesConfigTab() {
       automationsConfig={automationsConfig}
       setAutomationsConfig={setAutomationsConfig}
       templateOptions={templateOptions}
+      templatesMap={templatesMap}
+      academyName={academyName}
       noTemplatesAvailable={noTemplatesAvailable}
       automationsConfigRaw={academy.automationsConfigRaw}
+      readiness={readiness}
       academyDataVersion={academyDataVersion}
       savingAutomations={savingAutomations}
       onSave={saveAutomations}

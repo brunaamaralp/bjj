@@ -57,7 +57,7 @@ function StockStatusBadge({ status, item, onRegisterEntry }) {
           onRegisterEntry(item);
         }}
       >
-        <Icon size={12} aria-hidden />
+        <Icon size={11} aria-hidden />
         {label}
       </button>
     );
@@ -65,7 +65,7 @@ function StockStatusBadge({ status, item, onRegisterEntry }) {
 
   return (
     <span className={`inventory-status inventory-status--badge inventory-status--${status}`}>
-      <Icon size={12} aria-hidden />
+      <Icon size={11} aria-hidden />
       {label}
     </span>
   );

@@ -1,13 +1,10 @@
 import { useMemo } from 'react';
+import {
+  AUTOMATION_DEFAULTS,
+  parseAutomationsConfig as parseAutomationsConfigCore,
+} from '../../lib/automationCore.js';
 
-export const AUTOMATION_DEFAULTS = {
-  schedule_confirm: { active: false, templateKey: 'confirm', delayMinutes: 0 },
-  presence_confirmed: { active: false, templateKey: 'post_class', delayMinutes: 0 },
-  missed: { active: false, templateKey: 'missed', delayMinutes: 0 },
-  waiting_decision: { active: false, templateKey: 'recovery', delayMinutes: 1440 },
-  converted: { active: false, templateKey: 'confirm', delayMinutes: 0 },
-  schedule_reminder: { active: false, templateKey: 'reminder', delayMinutes: 120 },
-};
+export { AUTOMATION_DEFAULTS };
 
 export const AUTOMATION_LABELS = {
   schedule_confirm: {
@@ -67,19 +64,7 @@ export function serializeAutomationsConfig(cfg) {
 }
 
 export function parseAutomationsConfig(raw) {
-  try {
-    const saved = typeof raw === 'string' ? JSON.parse(raw) : raw ?? {};
-    return Object.fromEntries(
-      Object.entries(AUTOMATION_DEFAULTS).map(([key, defaults]) => [
-        key,
-        { ...defaults, ...(saved[key] ?? {}) },
-      ])
-    );
-  } catch {
-    return Object.fromEntries(
-      Object.entries(AUTOMATION_DEFAULTS).map(([key, defaults]) => [key, { ...defaults }])
-    );
-  }
+  return parseAutomationsConfigCore(raw);
 }
 
 export function useAutomations(raw) {

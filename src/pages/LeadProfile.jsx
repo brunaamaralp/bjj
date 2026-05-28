@@ -32,6 +32,17 @@ import { sexoDisplayLabel } from '../lib/leadSexo.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
+import { parseAutomationsConfig } from '../lib/useAutomations.js';
+import {
+    afterExperimentalScheduled,
+    afterPresenceConfirmed,
+    afterMissed,
+} from '../lib/automationDispatch.js';
+import {
+    notifyAutomationFeedback,
+    formatWhatsappTemplateSentTimeline,
+    getLeadAutomationBadges,
+} from '../lib/automationUx.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import {
   useTerms,
@@ -97,6 +108,7 @@ const TIMELINE_EVENT_LABELS = {
     followup_done: 'Follow-up concluído',
     inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
+    whatsapp_template_sent: 'WhatsApp automático',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {
@@ -340,6 +352,14 @@ const LeadProfile = () => {
         if (t === 'converted') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.CONVERTED, at, text: d.text };
         if (t === 'lost') return { type: 'stage_change', from: d.from, to: LEAD_STATUS.LOST, at, text: d.text };
         if (t === 'lead_criado') return { type: 'lead_created', at, text: d.text || `${contactLabel} cadastrado no CRM` };
+        if (t === 'whatsapp_template_sent') {
+            return {
+                type: 'whatsapp_template_sent',
+                at,
+                text: formatWhatsappTemplateSentTimeline(d, payload),
+                meta: payload,
+            };
+        }
         return { type: t, ...base };
     }, [contactLabel]);
 
@@ -408,6 +428,14 @@ const LeadProfile = () => {
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
     const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
+    const automationConfig = useMemo(
+        () => parseAutomationsConfig(academyAutomationsRaw),
+        [academyAutomationsRaw]
+    );
+    const leadAutomationBadges = useMemo(
+        () => getLeadAutomationBadges(lead, automationConfig),
+        [lead, automationConfig]
+    );
     const [waCtx, setWaCtx] = useState({
         name: '',
         zapster: '',
@@ -764,8 +792,33 @@ const LeadProfile = () => {
             if (newStatus === LEAD_STATUS.MISSED) patch.missedAt = nowIso;
             if (newStatus === LEAD_STATUS.CONVERTED) patch.convertedAt = nowIso;
             await updateLead(id, patch);
+            const waOutbound = {
+                name: waCtx.name,
+                zapster_instance_id: waCtx.zapster,
+                templates: waCtx.templates,
+            };
+            const autoCtx = {
+                academyId,
+                waOutbound,
+                academyRaw: academyAutomationsRaw,
+                automationConfig,
+                permissionContext: permCtx,
+                updateLead,
+                getLead: () => useLeadStore.getState().leads.find((l) => l.id === id) || { ...lead, ...patch },
+            };
             if (newStatus === LEAD_STATUS.COMPLETED) {
+                const autoResult = await afterPresenceConfirmed({
+                    lead: { ...lead, ...patch },
+                    ...autoCtx,
+                }).catch(() => null);
+                if (autoResult) notifyAutomationFeedback(addToast, autoResult);
                 addToast({ type: 'success', message: 'Comparecimento registrado.' });
+            } else if (newStatus === LEAD_STATUS.MISSED) {
+                const autoResult = await afterMissed({
+                    lead: { ...lead, ...patch },
+                    ...autoCtx,
+                }).catch(() => null);
+                if (autoResult) notifyAutomationFeedback(addToast, autoResult);
             } else if (newStatus === LEAD_STATUS.CONVERTED) {
                 addToast({ type: 'success', message: terms.leadMarkedConvertedToast });
             }
@@ -797,6 +850,23 @@ const LeadProfile = () => {
             } catch {
                 await updateLead(id, patch);
             }
+            const autoResult = await afterExperimentalScheduled({
+                lead: { ...lead, ...patch },
+                ymd: date,
+                time,
+                academyId,
+                waOutbound: {
+                    name: waCtx.name,
+                    zapster_instance_id: waCtx.zapster,
+                    templates: waCtx.templates,
+                },
+                academyRaw: academyAutomationsRaw,
+                automationConfig,
+                permissionContext: permCtx,
+                updateLead,
+                getLead: () => useLeadStore.getState().leads.find((l) => l.id === id) || { ...lead, ...patch },
+            }).catch(() => null);
+            if (autoResult) notifyAutomationFeedback(addToast, autoResult);
             await refreshTimeline();
             addToast({ type: 'success', message: 'Aula agendada com sucesso.' });
         } catch (e) {
@@ -1357,6 +1427,19 @@ const LeadProfile = () => {
                                     <Calendar size={14} />
                                     <span>{new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} às {lead.scheduledTime || '--:--'}</span>
                                 </div>
+                                {leadAutomationBadges.length > 0 ? (
+                                    <div className="flex gap-2 mt-2 flex-wrap">
+                                        {leadAutomationBadges.map((b) => (
+                                            <span
+                                                key={b.key}
+                                                className={`lead-automation-badge${b.overdue ? ' lead-automation-badge--overdue' : ''}`}
+                                                title={b.title}
+                                            >
+                                                {b.label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : null}
                                 <div className="flex gap-2 mt-3">
                                     <button
                                         type="button"
@@ -1643,7 +1726,7 @@ const LeadProfile = () => {
                                 
                                 let dotColor = '#8E8E8E';
                                 if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
-                                else if (type === 'message') dotColor = '#25D366';
+                                else if (type === 'message' || type === 'whatsapp_template_sent') dotColor = '#25D366';
                                 else if (type === 'schedule') dotColor = '#0088CC';
                                 else if (type === 'followup_done') dotColor = '#2E7D32';
                                 else if (type === 'task_created') dotColor = '#5B3FBF';
@@ -1667,6 +1750,8 @@ const LeadProfile = () => {
                                             <span className="inbox-tag">· Inbox</span>
                                         </span>
                                     );
+                                } else if (type === 'whatsapp_template_sent') {
+                                    label = n.text || 'Mensagem automática enviada';
                                 }
 
                                 const isPinned = Boolean(n.is_pinned);

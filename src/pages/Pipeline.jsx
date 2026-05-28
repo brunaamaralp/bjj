@@ -32,7 +32,13 @@ import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useTerms, TERMS, contactLabelSingular } from '../lib/terminology.js';
 import { useUserRole } from '../lib/useUserRole.js';
-import { triggerImmediateAutomation } from '../lib/triggerImmediateAutomation.js';
+import {
+    afterExperimentalScheduled,
+    afterPresenceConfirmed,
+    afterMissed,
+    afterMovedToPipelineStage,
+} from '../lib/automationDispatch.js';
+import { getLeadAutomationBadges, notifyAutomationFeedback } from '../lib/automationUx.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import Hint from '../components/shared/Hint.jsx';
@@ -69,8 +75,12 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
+    const automationBadges = useMemo(
+        () => getLeadAutomationBadges(lead, automationConfig),
+        [lead, automationConfig]
+    );
     const slaClass =
         slaAlert?.urgency === 'critical'
             ? 'lead-card--sla-critical'
@@ -132,6 +142,19 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, 
                     <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
                 </div>
             )}
+            {automationBadges.length > 0 ? (
+                <div className="lead-meta mt-1 flex items-center gap-2 flex-wrap" data-no-dnd="true">
+                    {automationBadges.map((b) => (
+                        <span
+                            key={b.key}
+                            className={`lead-automation-badge${b.overdue ? ' lead-automation-badge--overdue' : ''}`}
+                            title={b.title}
+                        >
+                            {b.label}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
             {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
                 <div className="lead-meta mt-1">
                     <span
@@ -1251,28 +1274,25 @@ const Pipeline = () => {
         [academyAutomationsRaw]
     );
 
-    const upsertPendingEntry = useCallback((lead, key, sendAtIso) => {
-        const existing = Array.isArray(lead?.pendingAutomations) ? lead.pendingAutomations : [];
-        const kept = existing.filter((item) => !(item?.key === key && item?.sent === false));
-        return [...kept, { key, sendAt: sendAtIso, sent: false }];
-    }, []);
+    const automationCtxBase = useCallback(
+        () => ({
+            academyId,
+            waOutbound,
+            academyRaw: academyAutomationsRaw,
+            automationConfig,
+            permissionContext: permCtx,
+            updateLead,
+            getLead: (leadId) => getLeadById(leadId),
+        }),
+        [academyId, waOutbound, academyAutomationsRaw, automationConfig, permCtx, updateLead, getLeadById]
+    );
 
-    const buildReminderSendAtIso = useCallback((ymd, hhmm, delayMinutes) => {
-        if (!ymd) return '';
-        const [y, m, d] = String(ymd).split('-').map(Number);
-        const [h, mi] = String(hhmm || '').split(':').map(Number);
-        const date = new Date(
-            y || 1970,
-            (m || 1) - 1,
-            d || 1,
-            Number.isFinite(h) ? h : 0,
-            Number.isFinite(mi) ? mi : 0,
-            0,
-            0
-        );
-        date.setMinutes(date.getMinutes() - (Number(delayMinutes) || 0));
-        return date.toISOString();
-    }, []);
+    const reportAutomations = useCallback(
+        (result) => {
+            notifyAutomationFeedback(addToast, result);
+        },
+        [addToast]
+    );
 
     const handleWhatsApp = useCallback((e, lead) => {
         e.stopPropagation();
@@ -1302,21 +1322,14 @@ const Pipeline = () => {
         } catch {
             await updateLead(lead.id, patch);
         }
-        void triggerImmediateAutomation('schedule_confirm', {
+        const autoResult = await afterExperimentalScheduled({
             lead: { ...lead, ...patch },
-            academyId,
-            waOutbound,
-            academyRaw: academyAutomationsRaw,
-        }).catch(console.error);
-        const reminderCfg = automationConfig?.schedule_reminder;
-        if (reminderCfg?.active && Number(reminderCfg.delayMinutes || 0) > 0) {
-            const sendAt = buildReminderSendAtIso(ymd, time, reminderCfg.delayMinutes);
-            if (sendAt) {
-                const refreshed = getLeadById(lead.id) || lead;
-                const nextPending = upsertPendingEntry(refreshed, 'schedule_reminder', sendAt);
-                await updateLead(lead.id, { pendingAutomations: nextPending, hasPendingAutomations: true });
-            }
-        }
+            ymd,
+            time,
+            ...automationCtxBase(),
+            getLead: () => getLeadById(lead.id) || { ...lead, ...patch },
+        }).catch(() => null);
+        if (autoResult) reportAutomations(autoResult);
         addToast({ type: 'success', message: `Reagendado para ${ymd} ${time}` });
     };
 
@@ -1342,12 +1355,12 @@ const Pipeline = () => {
                 attendedAt: new Date().toISOString(),
                 statusChangedAt: new Date().toISOString()
             });
-            void triggerImmediateAutomation('presence_confirmed', {
+            const autoResult = await afterPresenceConfirmed({
                 lead: { ...lead, status: LEAD_STATUS.COMPLETED, pipelineStage: PIPELINE_WAITING_DECISION_STAGE },
-                academyId,
-                waOutbound,
-                academyRaw: academyAutomationsRaw,
-            }).catch(console.error);
+                ...automationCtxBase(),
+                getLead: () => getLeadById(lead.id) || lead,
+            }).catch(() => null);
+            if (autoResult) reportAutomations(autoResult);
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
@@ -1362,7 +1375,7 @@ const Pipeline = () => {
         } catch (err) {
             addToast({ type: 'error', message: friendlyError(err, 'action') });
         }
-    }, [updateLead, academyId, waOutbound, academyAutomationsRaw, userId, permCtx, terms.attendance, addToast]);
+    }, [updateLead, academyId, automationCtxBase, reportAutomations, userId, permCtx, terms.attendance, addToast]);
 
     const handleMissedWithReason = async (lead, reason) => {
         try {
@@ -1374,12 +1387,11 @@ const Pipeline = () => {
                 missed_reason: reason,
                 statusChangedAt: now
             });
-            void triggerImmediateAutomation('missed', {
+            const autoResult = await afterMissed({
                 lead: { ...lead, status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED },
-                academyId,
-                waOutbound,
-                academyRaw: academyAutomationsRaw,
-            }).catch(console.error);
+                ...automationCtxBase(),
+            }).catch(() => null);
+            if (autoResult) reportAutomations(autoResult);
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
@@ -1653,15 +1665,13 @@ const Pipeline = () => {
                 return next;
             });
             await updateLead(leadId, payload);
-            if (status === PIPELINE_WAITING_DECISION_STAGE) {
-                const cfg = automationConfig?.waiting_decision;
-                if (cfg?.active && Number(cfg.delayMinutes || 0) > 0) {
-                    const refreshed = getLeadById(leadId) || lead;
-                    const sendAt = new Date(Date.now() + Number(cfg.delayMinutes) * 60000).toISOString();
-                    const nextPending = upsertPendingEntry(refreshed, 'waiting_decision', sendAt);
-                    await updateLead(leadId, { pendingAutomations: nextPending, hasPendingAutomations: true });
-                }
-            }
+            const autoResult = await afterMovedToPipelineStage({
+                lead: getLeadById(leadId) || lead,
+                toStage: status,
+                ...automationCtxBase(),
+                getLead: () => getLeadById(leadId) || lead,
+            }).catch(() => null);
+            if (autoResult) reportAutomations(autoResult);
             addToast({ type: 'success', message: 'Movido no pipeline' });
         } catch (err) {
             revertLeads(previousLeads);
@@ -1751,15 +1761,13 @@ const Pipeline = () => {
                     return next;
                 });
             await updateLead(leadId, payload);
-            if (toStage === PIPELINE_WAITING_DECISION_STAGE) {
-                const cfg = automationConfig?.waiting_decision;
-                if (cfg?.active && Number(cfg.delayMinutes || 0) > 0) {
-                    const refreshed = getLeadById(leadId) || lead;
-                    const sendAt = new Date(Date.now() + Number(cfg.delayMinutes) * 60000).toISOString();
-                    const nextPending = upsertPendingEntry(refreshed, 'waiting_decision', sendAt);
-                    await updateLead(leadId, { pendingAutomations: nextPending, hasPendingAutomations: true });
-                }
-            }
+            const autoResult = await afterMovedToPipelineStage({
+                lead: getLeadById(leadId) || lead,
+                toStage,
+                ...automationCtxBase(),
+                getLead: () => getLeadById(leadId) || lead,
+            }).catch(() => null);
+            if (autoResult) reportAutomations(autoResult);
             addToast({ type: 'success', message: 'Movido no pipeline' });
         } catch (err) {
             revertLeads(previousLeads);
@@ -1786,8 +1794,8 @@ const Pipeline = () => {
         updateLead,
         revertLeads,
         endLeadMove,
-        automationConfig,
-        upsertPendingEntry,
+        automationCtxBase,
+        reportAutomations,
         addToast,
     ]);
 
@@ -1867,6 +1875,7 @@ const Pipeline = () => {
             pipelineMenuTrialLc,
             pipelineMenuAttendanceLc,
             pipelineMenuEnrollment,
+            automationConfig,
         }),
         [
             navigate,
@@ -1874,6 +1883,7 @@ const Pipeline = () => {
             openMenuId,
             scheduleModalLeadId,
             moverOpenId,
+            automationConfig,
             waDropdownOpenId,
             templateSendKeys,
             sendTemplateFromPipeline,

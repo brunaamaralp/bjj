@@ -10,6 +10,11 @@ import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { turmaValueFromForm } from '../lib/academyTurmas.js';
+import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
+import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
+import { parseAutomationsConfig } from '../lib/useAutomations.js';
+import { afterExperimentalScheduled } from '../lib/automationDispatch.js';
+import { notifyAutomationFeedback } from '../lib/automationUx.js';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -40,8 +45,19 @@ const nextQuarterTime = () => {
 const NewLead = () => {
     const navigate = useNavigate();
     const addLead = useLeadStore((state) => state.addLead);
+    const updateLead = useLeadStore((state) => state.updateLead);
     const leads = useLeadStore((state) => state.leads);
     const academyId = useLeadStore((state) => state.academyId);
+    const {
+        templates: waTemplates,
+        academyName: waName,
+        zapsterInstanceId: waZapId,
+        automationsRaw,
+    } = useWhatsappTemplates(academyId);
+    const automationConfig = useMemo(
+        () => parseAutomationsConfig(automationsRaw),
+        [automationsRaw]
+    );
     const addToast = useUiStore((state) => state.addToast);
     const terms = useTerms();
     const [submitting, setSubmitting] = useState(false);
@@ -141,6 +157,29 @@ const NewLead = () => {
                 scheduledTime: data.scheduledTime || '',
                 notes: history,
             });
+            if (created?.id && hasSchedule) {
+                const autoResult = await afterExperimentalScheduled({
+                    lead: {
+                        ...created,
+                        scheduledDate: data.scheduledDate || '',
+                        scheduledTime: data.scheduledTime || '',
+                    },
+                    ymd: data.scheduledDate,
+                    time: data.scheduledTime,
+                    academyId,
+                    waOutbound: {
+                        name: waName || '',
+                        zapster_instance_id: waZapId || '',
+                        templates: waTemplates || DEFAULT_WHATSAPP_TEMPLATES,
+                    },
+                    academyRaw: automationsRaw,
+                    automationConfig,
+                    updateLead,
+                    getLead: () =>
+                        useLeadStore.getState().leads.find((l) => l.id === created.id) || created,
+                }).catch(() => null);
+                if (autoResult) notifyAutomationFeedback(addToast, autoResult);
+            }
             if (created?.id) {
                 navigate(`/lead/${encodeURIComponent(created.id)}`);
             } else {

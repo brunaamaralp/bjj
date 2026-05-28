@@ -35,6 +35,21 @@ describe('inventoryCatalogMerge', () => {
     expect(parentSizeSummary(parents[0])).toBe('P, M');
   });
 
+  it('recalcula status ao mesclar (ignora status desatualizado da API)', () => {
+    const parents = mergeCatalogWithInventoryItems(
+      [
+        {
+          id: 'p1',
+          nome: 'Kimono',
+          variants: [{ id: 'v1', size: 'M', current_quantity: 5, minimum_level: 10, status: 'ok' }],
+        },
+      ],
+      [{ id: 'v1', current_quantity: 5, minimum_level: 10, status: 'ok' }]
+    );
+    expect(parents[0].variants[0].status).toBe('reorder');
+    expect(parents[0].status).toBe('reorder');
+  });
+
   it('não reexibe variantes órfãs de produto excluído', () => {
     const parents = mergeCatalogWithInventoryItems(
       [{ id: 'p1', nome: 'Kimono', variants: [{ id: 'v1', size: 'M' }] }],
