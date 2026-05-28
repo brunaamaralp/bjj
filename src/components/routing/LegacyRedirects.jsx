@@ -22,7 +22,17 @@ export function ContratosModelosRedirect() {
   return <Navigate to="/empresa?tab=contratos" replace />;
 }
 
+const SALES_LEAF_TABS = new Set(['new', 'history', 'historico']);
+
 export function LojaTabRedirect({ tab }) {
+  const [searchParams] = useSearchParams();
+  if (tab === 'vendas') {
+    const leaf = String(searchParams.get('tab') || '').trim().toLowerCase();
+    if (SALES_LEAF_TABS.has(leaf)) {
+      const subtab = leaf === 'historico' ? 'history' : leaf;
+      return <Navigate to={`/loja?tab=vendas&subtab=${subtab}`} replace />;
+    }
+  }
   return <Navigate to={`/loja?tab=${tab}`} replace />;
 }
 

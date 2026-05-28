@@ -2691,7 +2691,7 @@ export default function StudentProfile() {
                             const q = encodeURIComponent(String(student.name || '').trim());
                             navigate(q ? `/financeiro?tab=mensalidades&search=${q}` : '/financeiro?tab=mensalidades');
                         }}
-                        onGoSales={() => navigate('/vendas?tab=history')}
+                        onGoSales={() => navigate('/loja?tab=vendas&subtab=history')}
                         onCancelCoverage={handleCancelCoverage}
                         cancellingCoverage={cancellingCoverage}
                         hasSales={sales.length > 0}

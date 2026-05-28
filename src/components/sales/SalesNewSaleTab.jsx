@@ -567,7 +567,8 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
           >
             {catalogError ? (
               <p className="text-small" style={{ color: 'var(--danger)', marginBottom: 8 }}>
-                Não foi possível carregar o catálogo: {catalogError}
+                Não foi possível carregar o catálogo:{' '}
+                {friendlySaleError(catalogError) || catalogError}
               </p>
             ) : null}
             <SalesCatalogPicker

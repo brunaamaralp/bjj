@@ -151,6 +151,21 @@ describe('legacy route redirects', () => {
     });
   });
 
+  it('/vendas?tab=history → /loja?tab=vendas&subtab=history', async () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/vendas?tab=history']}>
+        <Routes>
+          <Route path="/vendas" element={<LojaTabRedirect tab="vendas" />} />
+          <Route path="/loja" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      const el = container.querySelector('[data-testid="location"]');
+      expect(el?.getAttribute('data-search')).toBe('?tab=vendas&subtab=history');
+    });
+  });
+
   it('/produtos → /loja?tab=produtos', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/produtos']}>

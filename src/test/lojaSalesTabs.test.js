@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest';
+import {
+  isLegacySalesLeafTab,
+  lojaVendasTabParams,
+  resolveSalesSubtab,
+  salesSubtabNeedsNormalize,
+} from '../lib/lojaSalesTabs';
+
+describe('lojaSalesTabs', () => {
+  it('resolveSalesSubtab defaults to new on hub tab only', () => {
+    expect(resolveSalesSubtab(new URLSearchParams('tab=vendas'))).toBe('new');
+  });
+
+  it('resolveSalesSubtab reads subtab', () => {
+    expect(resolveSalesSubtab(new URLSearchParams('tab=vendas&subtab=history'))).toBe('history');
+  });
+
+  it('resolveSalesSubtab accepts legacy tab=new|history', () => {
+    expect(resolveSalesSubtab(new URLSearchParams('tab=new'))).toBe('new');
+    expect(resolveSalesSubtab(new URLSearchParams('tab=historico'))).toBe('history');
+  });
+
+  it('lojaVendasTabParams keeps hub tab vendas', () => {
+    const next = lojaVendasTabParams('history', new URLSearchParams('tab=new'));
+    expect(next.get('tab')).toBe('vendas');
+    expect(next.get('subtab')).toBe('history');
+  });
+
+  it('salesSubtabNeedsNormalize when legacy leaf tab hijacks hub', () => {
+    expect(salesSubtabNeedsNormalize(new URLSearchParams('tab=new'))).toBe(true);
+    expect(isLegacySalesLeafTab(new URLSearchParams('tab=new'))).toBe(true);
+    expect(salesSubtabNeedsNormalize(new URLSearchParams('tab=vendas&subtab=new'))).toBe(false);
+  });
+});

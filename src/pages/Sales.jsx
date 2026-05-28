@@ -4,7 +4,11 @@ import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { useLeadStore } from '../store/useLeadStore';
-import { resolveHubTab } from '../lib/hubTabs';
+import {
+  lojaVendasTabParams,
+  resolveSalesSubtab,
+  salesSubtabNeedsNormalize,
+} from '../lib/lojaSalesTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
@@ -24,43 +28,40 @@ const Sales = () => {
     ],
     []
   );
-  const allowed = useMemo(() => new Set(['new', 'history']), []);
-  const tab = resolveHubTab(
-    searchParams.get('tab') === 'historico' ? 'history' : searchParams.get('tab'),
-    allowed,
-    'new'
-  );
+  const subtab = resolveSalesSubtab(searchParams);
   useEffect(() => {
-    const raw = String(searchParams.get('tab') || '').trim().toLowerCase();
-    const normalized = raw === 'historico' ? 'history' : raw;
-    if (!allowed.has(normalized) || normalized !== tab) {
-      setSearchParams({ tab }, { replace: true });
-    }
-  }, [allowed, searchParams, setSearchParams, tab]);
+    if (!salesSubtabNeedsNormalize(searchParams)) return;
+    setSearchParams(lojaVendasTabParams(resolveSalesSubtab(searchParams), searchParams), {
+      replace: true,
+    });
+  }, [searchParams, setSearchParams]);
+  const setSubtab = (id) => {
+    setSearchParams(lojaVendasTabParams(id, searchParams), { replace: false });
+  };
 
   return (
     <div className="container sales-page navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <PageHeader
         title="Vendas"
         subtitle="Registre vendas e consulte comprovantes."
-        meta={tab === 'history' ? 'Histórico e cancelamentos' : null}
+        meta={subtab === 'history' ? 'Histórico e cancelamentos' : null}
         toolbar={<NlCommandBarTrigger onClick={() => setNlOpen(true)} />}
       />
 
       <HubTabBar
         tabs={tabs}
-        activeId={tab}
-        onChange={(id) => setSearchParams({ tab: id }, { replace: false })}
+        activeId={subtab}
+        onChange={setSubtab}
         ariaLabel="Vendas"
         variant="secondary"
         fullWidth
         className="mt-4"
       />
 
-      {tab === 'new' ? (
+      {subtab === 'new' ? (
         <SalesNewSaleTab />
       ) : (
-        <SalesHistoryTab onSwitchTab={(id) => setSearchParams({ tab: id }, { replace: false })} />
+        <SalesHistoryTab onSwitchTab={setSubtab} />
       )}
       <NlCommandBar
         open={nlOpen}
