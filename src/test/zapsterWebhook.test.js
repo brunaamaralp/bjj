@@ -236,6 +236,50 @@ describe('zapsterWebhook', () => {
     expect(state.body?.error).not.toBe('use_x_webhook_token_header');
   });
 
+  it('resolve academy via ?academyId= e header X-Instance-ID (reconexão)', async () => {
+    whMocks.listDocuments.mockResolvedValue({ documents: [] });
+    whMocks.getDocument.mockResolvedValue({
+      $id: 'acad-1',
+      zapster_instance_id: 'inst-old',
+      status: 'active',
+      ia_ativa: true
+    });
+    whMocks.updateMerge.mockResolvedValueOnce({ ok: true, duplicate: false, docId: 'conv-1' });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      createMockReq({
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-token': 'wh-secret',
+          'x-instance-id': 'itb78rqc7fa5g4fcb6grb'
+        },
+        query: { token: 'wh-secret', academyId: 'acad-1' },
+        body: {
+          event: 'message.received',
+          message: {
+            id: 'msg-header-inst',
+            type: 'text',
+            sender: { id: '5511999887766', name: 'Lead' },
+            content: { text: 'Oi' }
+          }
+        }
+      }),
+      res
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.reason).not.toBe('instance_not_mapped');
+    expect(whMocks.updateDocument).toHaveBeenCalledWith(
+      'db-1',
+      'acad-col',
+      'acad-1',
+      expect.objectContaining({ zapster_instance_id: 'itb78rqc7fa5g4fcb6grb' })
+    );
+  });
+
   it('instance.connected notifica reconexão', async () => {
     const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
     const { res, state } = createMockRes();

@@ -272,6 +272,57 @@ async function recoverZapsterInstanceIdFromList(academyId) {
   return match?.id ? String(match.id).trim() : '';
 }
 
+async function zapsterGetInstanceRaw(instanceId) {
+  const id = String(instanceId || '').trim();
+  if (!id) return { ok: false, status: 0, data: null };
+  const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
+  const url = `${urlBase}/v1/wa/instances/${encodeURIComponent(id)}`;
+  const resp = await fetch(url, { headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+  const raw = await resp.text();
+  let data = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = null;
+  }
+  return { ok: resp.ok, status: resp.status, data, raw };
+}
+
+/** Garante instance_id salvo = instância viva na Zapster (metadata.academy_id). */
+async function resolveZapsterInstanceIdForReconcile(academyId, academyDoc) {
+  const aid = String(academyId || '').trim();
+  if (!aid) return '';
+  let current = String((await getZapsterInstanceIdForAcademy(academyDoc, aid)) ?? '').trim();
+  const fromList = await recoverZapsterInstanceIdFromList(aid);
+
+  if (fromList && fromList !== current) {
+    await persistAcademyZapsterInstanceId(aid, fromList);
+    waDebug({
+      step: 'reconcile_instance_rebound',
+      previousPrefix: current ? current.slice(0, 8) : null,
+      newPrefix: fromList.slice(0, 8)
+    });
+    return fromList;
+  }
+
+  if (current) {
+    const probe = await zapsterGetInstanceRaw(current);
+    if (probe.ok) return current;
+    waDebug({
+      step: 'reconcile_instance_stale',
+      instanceIdPrefix: current.slice(0, 8),
+      httpStatus: probe.status
+    });
+  }
+
+  if (fromList) {
+    await persistAcademyZapsterInstanceId(aid, fromList);
+    return fromList;
+  }
+
+  return current || '';
+}
+
 async function persistAcademyZapsterInstanceId(academyId, instanceId) {
   const id = String(instanceId || '').trim();
   if (!id || !academyId) return false;
@@ -861,7 +912,7 @@ export default async function handler(req, res) {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ sucesso: false, erro: 'Método não permitido' });
     }
-    let instanceId = String((await getZapsterInstanceIdForAcademy(academyDoc, academyId)) ?? '').trim();
+    let instanceId = String((await resolveZapsterInstanceIdForReconcile(academyId, academyDoc)) ?? '').trim();
     if (!instanceId) return res.status(400).json({ sucesso: false, erro: 'Instância Zapster não configurada' });
 
     let reconcileBody = {};
