@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import EquipeSection from '../components/academy/EquipeSection';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 export default function Equipe() {
   const academyId = useLeadStore((s) => s.academyId);
@@ -51,13 +52,11 @@ export default function Equipe() {
   }, [academy, academyList, academyId]);
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-      <div className="animate-in">
-        <h1 className="navi-page-title">Equipe</h1>
-        <p className="navi-subtitle" style={{ marginTop: 6, marginBottom: 16 }}>
-          Membros, permissões e auditoria de acesso.
-        </p>
-      </div>
+    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+      <PageHeader
+        title="Equipe"
+        subtitle="Gerencie membros, permissões e auditoria de acesso."
+      />
 
       {loadState === 'loading' ? (
         <p className="text-small text-muted" role="status" aria-live="polite">

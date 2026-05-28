@@ -9,6 +9,7 @@ import {
   readEnrollmentFollowUpTask,
 } from '../../lib/enrollmentSettings';
 import { parseAcademySettings } from '../../lib/stockSettings';
+import StatusBanner from '../shared/StatusBanner.jsx';
 
 /**
  * Orientação sobre pós-matrícula e tarefa adicional opcional (uma tarefa em academy.settings).
@@ -134,28 +135,19 @@ export default function EnrollmentFollowUpSection({
         ) : null}
 
         {hasExtraTask ? (
-          <div
-            className="section-error"
-            role="alert"
-            style={{
-              marginTop: 14,
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 8,
-            }}
-          >
-            <span>
+          <StatusBanner variant="warning" className="enrollment-followup-extra-task-banner">
+            <p style={{ margin: 0 }}>
               Há uma tarefa adicional configurada fora dos templates. Recomendamos usar um template com gatilho{' '}
               <strong>Matrícula</strong> em{' '}
               <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
                 Automações → Processos
               </Link>{' '}
               e remover a tarefa adicional abaixo.
-            </span>
+            </p>
             <button type="button" className="btn-outline" disabled={saving} onClick={() => void clearExtraTask()}>
               Remover tarefa adicional
             </button>
-          </div>
+          </StatusBanner>
         ) : null}
 
         <button

@@ -18,6 +18,7 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import { friendlyError } from '../lib/errorMessages';
 import { createSessionJwt } from '../lib/appwrite';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 function isRealCatalogParent(product, catalogMode) {
   if (catalogMode !== 'parent_variant') return false;
@@ -606,25 +607,24 @@ export default function Products() {
   }
 
   return (
-    <div className="container products-page">
-      <div className="animate-in flex justify-between items-start gap-2 products-page-header">
-        <div>
-          <h1 className="navi-page-title">Produtos</h1>
-          <p className="navi-eyebrow products-page-eyebrow">
-            Cadastro único para estoque e vendas
-          </p>
-        </div>
-        <div className="products-page-actions">
-          <button type="button" className="btn-action-primary" onClick={() => setImportOpen(true)}>
-            <Upload size={14} aria-hidden />
-            Importar em lote
-          </button>
-          <button type="button" className="btn-action-ghost" onClick={openCreate}>
-            <Plus size={14} aria-hidden />
-            Novo produto
-          </button>
-        </div>
-      </div>
+    <div className="container products-page navi-hub-page">
+      <PageHeader
+        className="products-page-header"
+        title="Produtos"
+        subtitle="Cadastre itens, variantes e preços para estoque e vendas."
+        actions={
+          <>
+            <button type="button" className="btn-action-primary" onClick={() => setImportOpen(true)}>
+              <Upload size={14} aria-hidden />
+              Importar em lote
+            </button>
+            <button type="button" className="btn-action-ghost" onClick={openCreate}>
+              <Plus size={14} aria-hidden />
+              Novo produto
+            </button>
+          </>
+        }
+      />
 
       {error ? (
         <ErrorBanner

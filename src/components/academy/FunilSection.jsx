@@ -7,6 +7,7 @@ import { contactLabelSingular } from '../../lib/terminology.js';
 import { normalizeQuestionType } from '../../lib/customLeadQuestions.js';
 import LabelPill from '../shared/LabelPill';
 import EmptyState from '../shared/EmptyState.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { LABEL_PRESET_COLORS } from '../../lib/labelPresetColors.js';
 
 const QUESTION_LABEL_MAX = 30;
@@ -572,12 +573,10 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
             <div className="card">
                 <div className="flex-col gap-3">
                     {labelsError && !labelsLoading && (
-                        <div className="section-error" role="alert">
-                            <span>Não foi possível carregar as etiquetas.</span>
-                            <button type="button" className="btn-secondary" onClick={() => void fetchLabels()}>
-                                Tentar novamente
-                            </button>
-                        </div>
+                        <ErrorBanner
+                            message="Não foi possível carregar as etiquetas."
+                            onRetry={() => void fetchLabels()}
+                        />
                     )}
                     {labelsLoading && (
                         <p className="navi-subtitle" style={{ margin: 0 }}>Carregando...</p>

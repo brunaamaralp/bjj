@@ -6,6 +6,7 @@ import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 const Sales = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,18 +39,13 @@ const Sales = () => {
   }, [allowed, searchParams, setSearchParams, tab]);
 
   return (
-    <div className="container sales-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
-      <div className="animate-in">
-        <h1 className="navi-page-title">Vendas</h1>
-        {tab === 'history' ? (
-          <p className="navi-subtitle" style={{ marginTop: 6 }}>
-            Histórico e cancelamentos
-          </p>
-        ) : null}
-        <div className="page-header-card" style={{ marginTop: 12 }}>
-          <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-        </div>
-      </div>
+    <div className="container sales-page navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
+      <PageHeader
+        title="Vendas"
+        subtitle="Registre vendas e consulte comprovantes."
+        meta={tab === 'history' ? 'Histórico e cancelamentos' : null}
+        toolbar={<NlCommandBarTrigger onClick={() => setNlOpen(true)} />}
+      />
 
       <HubTabBar
         tabs={tabs}

@@ -10,6 +10,7 @@ import {
 } from '../../lib/inventoryAdjust';
 import { variantInventoryLabel } from '../../lib/stockInventory';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
+import FieldError from '../shared/FieldError.jsx';
 
 export default function InventoryAdjustModal({ open, item, loading, onClose, onSubmit }) {
   const [subtype, setSubtype] = useState('avaria');
@@ -290,7 +291,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
             </div>
           )}
 
-          {error ? <p className="field-error">{error}</p> : null}
+          {error ? <FieldError>{error}</FieldError> : null}
 
           <div className="form-group">
             <label htmlFor="adjust-note">Observação (opcional)</label>

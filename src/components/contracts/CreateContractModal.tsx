@@ -17,6 +17,7 @@ import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { isInactiveStudent } from '../../lib/studentStatus.js';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
+import FieldError from '../shared/FieldError.jsx';
 
 type Step = 'template' | 'signers' | 'send';
 
@@ -291,7 +292,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                 </>
               )}
               {errors.templateId ? (
-                <p className="contracts-field-error">{errors.templateId.message}</p>
+                <FieldError>{errors.templateId.message}</FieldError>
               ) : null}
             </div>
           ) : null}
@@ -348,7 +349,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                         <label className="task-field-label">Nome</label>
                         <input className="form-input" {...register(`signers.${index}.name`)} />
                         {errors.signers?.[index]?.name ? (
-                          <p className="contracts-field-error">{errors.signers[index]?.name?.message}</p>
+                          <FieldError>{errors.signers[index]?.name?.message}</FieldError>
                         ) : null}
                       </div>
                       <div>
@@ -364,7 +365,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                           }
                         />
                         {errors.signers?.[index]?.email ? (
-                          <p className="contracts-field-error">{errors.signers[index]?.email?.message}</p>
+                          <FieldError>{errors.signers[index]?.email?.message}</FieldError>
                         ) : null}
                       </div>
                       <div>
@@ -412,7 +413,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                   {...register('name')}
                   placeholder="Ex.: Contrato de matrícula — João Silva"
                 />
-                {errors.name ? <p className="contracts-field-error">{errors.name.message}</p> : null}
+                {errors.name ? <FieldError>{errors.name.message}</FieldError> : null}
               </details>
 
               <div className="contracts-preview-block">

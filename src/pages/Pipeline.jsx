@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
+import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap, BadgeCheck } from 'lucide-react';
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
@@ -42,6 +43,7 @@ import { getLeadAutomationBadges, notifyAutomationFeedback } from '../lib/automa
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import Hint from '../components/shared/Hint.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
@@ -828,7 +830,7 @@ const Pipeline = () => {
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const fetchLeads = useLeadStore((s) => s.fetchLeads);
     const leadsError = useLeadStore((s) => s.leadsError);
-    const addToast = useUiStore((s) => s.addToast);
+    const toast = useToast();
     const labels = useLeadStore((s) => s.labels);
     const vertical = useLeadStore((s) => s.vertical);
     const terms = useTerms();
@@ -1074,15 +1076,15 @@ const Pipeline = () => {
             onConfirm: async () => {
                 try {
                     await deleteLead(leadId);
-                    addToast({ type: 'success', message: `${contactLabel} excluído` });
+                    toast.success(`${contactLabel} excluído`);
                 } catch (err) {
-                    addToast({ type: 'error', message: friendlyError(err, 'delete') });
+                    toast.error(err, 'delete');
                 } finally {
                     setConfirmModal(null);
                 }
             }
         });
-    }, [contactLabel, deleteLead, addToast]);
+    }, [contactLabel, deleteLead, toast]);
 
     const stepKanbanScrollFromClientX = (clientX) => {
         const el = kanbanWrapperRef.current;
@@ -1242,9 +1244,9 @@ const Pipeline = () => {
             .catch(() => {
                 setAcademyAutomationsRaw('');
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(null));
-                addToast({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
+                toast.show({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
             });
-    }, [academyId, addToast, vertical, terms]);
+    }, [academyId, toast, vertical, terms]);
 
     const templateSendKeys = useMemo(
         () =>
@@ -1265,10 +1267,10 @@ const Pipeline = () => {
             templatesMap: waOutbound.templates,
             zapsterInstanceId: waOutbound.zapster_instance_id,
             onToast: (t) => {
-                addToast({ type: 'success', message: t.message });
+                toast.show({ type: 'success', message: t.message });
             }
         });
-    }, [academyId, waOutbound, addToast]);
+    }, [academyId, waOutbound, toast]);
 
     const automationConfig = useMemo(
         () => parseAutomationsConfig(academyAutomationsRaw),
@@ -1290,20 +1292,20 @@ const Pipeline = () => {
 
     const reportAutomations = useCallback(
         (result) => {
-            notifyAutomationFeedback(addToast, result);
+            notifyAutomationFeedback(toast.addToast, result);
         },
-        [addToast]
+        [toast]
     );
 
     const handleWhatsApp = useCallback((e, lead) => {
         e.stopPropagation();
         const digits = normalizeKanbanPhone(lead?.phone);
         if (!digits) {
-            addToast({ type: 'error', message: `${contactLabel} sem telefone cadastrado` });
+            toast.show({ type: 'error', message: `${contactLabel} sem telefone cadastrado` });
             return;
         }
         navigate(`/inbox?phone=${encodeURIComponent(digits)}`);
-    }, [navigate, contactLabel, addToast]);
+    }, [navigate, contactLabel, toast]);
 
     const handleReschedule = async (lead, ymd, time, note) => {
         const patch = buildSchedulePatch(lead, { date: ymd, time });
@@ -1331,7 +1333,7 @@ const Pipeline = () => {
             getLead: () => getLeadById(lead.id) || { ...lead, ...patch },
         }).catch(() => null);
         if (autoResult) reportAutomations(autoResult);
-        addToast({ type: 'success', message: `Reagendado para ${ymd} ${time}` });
+        toast.success(`Reagendado para ${ymd} ${time}`);
     };
 
     const onConfirmSchedulePipeline = async ({ date, time, note }) => {
@@ -1371,12 +1373,12 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            addToast({ type: 'success', message: `${terms.attendance} confirmada` });
+            toast.success(`${terms.attendance} confirmada`);
             setOpenMenuId(null);
         } catch (err) {
-            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            toast.error(err, 'action');
         }
-    }, [updateLead, academyId, automationCtxBase, reportAutomations, userId, permCtx, terms.attendance, addToast]);
+    }, [updateLead, academyId, automationCtxBase, reportAutomations, userId, permCtx, terms.attendance, toast]);
 
     const handleMissedWithReason = async (lead, reason) => {
         try {
@@ -1403,11 +1405,11 @@ const Pipeline = () => {
                 createdBy: userId || 'user',
                 permissionContext: permCtx
             });
-            addToast({ type: 'success', message: `${contactLabel} movido para Não compareceu` });
+            toast.success(`${contactLabel} movido para Não compareceu`);
             setMissedModalLead(null);
             setOpenMenuId(null);
         } catch (err) {
-            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            toast.error(err, 'action');
         }
     };
 
@@ -1429,12 +1431,12 @@ const Pipeline = () => {
                     extraToast = msg;
                 },
             });
-            addToast({
+            toast.show({
                 type: 'success',
                 message: terms.pipelineEnrollmentSuccessToast + (extraToast ? ` ${extraToast}` : ''),
             });
         } catch (err) {
-            addToast({ type: 'error', message: friendlyError(err, 'action') });
+            toast.error(err, 'action');
             throw err;
         }
     };
@@ -1455,7 +1457,7 @@ const Pipeline = () => {
             setEditStages(false);
         } catch (e) {
             console.error('saveStages error', e);
-            addToast({
+            toast.show({
                 type: 'error',
                 message: 'Erro ao salvar configuração do funil.',
             });
@@ -1640,7 +1642,7 @@ const Pipeline = () => {
                     lostReason,
                     lostAt: new Date().toISOString()
                 });
-                addToast({ type: 'success', message: 'Marcado como perdido' });
+                toast.success('Marcado como perdido');
             });
             return;
         }
@@ -1673,10 +1675,10 @@ const Pipeline = () => {
                 getLead: () => getLeadById(leadId) || lead,
             }).catch(() => null);
             if (autoResult) reportAutomations(autoResult);
-            addToast({ type: 'success', message: 'Movido no pipeline' });
+            toast.success('Movido no pipeline');
         } catch (err) {
             revertLeads(previousLeads);
-            addToast({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
+            toast.show({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
         } finally {
             endLeadMove(leadId);
             setSavingLeadIds((prev) => {
@@ -1734,7 +1736,7 @@ const Pipeline = () => {
                     lostAt: new Date().toISOString()
                 });
                 setMoverOpenId(null);
-                addToast({ type: 'success', message: 'Marcado como perdido' });
+                toast.success('Marcado como perdido');
             });
             return;
         }
@@ -1769,10 +1771,10 @@ const Pipeline = () => {
                 getLead: () => getLeadById(leadId) || lead,
             }).catch(() => null);
             if (autoResult) reportAutomations(autoResult);
-            addToast({ type: 'success', message: 'Movido no pipeline' });
+            toast.success('Movido no pipeline');
         } catch (err) {
             revertLeads(previousLeads);
-            addToast({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
+            toast.show({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
             setMoverOpenId(null);
             return;
         } finally {
@@ -1797,7 +1799,7 @@ const Pipeline = () => {
         endLeadMove,
         automationCtxBase,
         reportAutomations,
-        addToast,
+        toast,
     ]);
 
     const handleSplitWaMain = useCallback((e, lead) => {
@@ -1836,7 +1838,7 @@ const Pipeline = () => {
         });
         await updateLead(noteLead.id, { lastNoteAt: new Date().toISOString() });
         setNoteOpen(false);
-        addToast({ type: 'success', message: 'Observação salva' });
+        toast.success('Observação salva');
     };
 
     const scheduleModalLeadId = scheduleModalLead?.id ?? null;
@@ -1911,8 +1913,12 @@ const Pipeline = () => {
             <div className="pipeline-header">
                 {!isMobile ? (
                     <div className="container">
-                        <h1 className="navi-page-title">{labels.pipeline || 'Funil'}</h1>
-                        <div className="page-header-card">
+                        <PageHeader
+                            className="navi-page-header--flush"
+                            title={labels.pipeline || 'Funil'}
+                            subtitle="Mova leads entre etapas e registre follow-ups."
+                            toolbar={
+                            <>
                             <div className="page-header-row">
                                 <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                                 <div className="page-header-sep" />
@@ -1989,11 +1995,17 @@ const Pipeline = () => {
                                     </select>
                                 </div>
                             </div>
-                        </div>
+                            </>
+                            }
+                        />
                     </div>
                 ) : (
                     <div className="container">
-                        <h1 className="navi-page-title" style={{ marginBottom: 8 }}>{labels.pipeline || 'Funil'}</h1>
+                        <PageHeader
+                            className="navi-page-header--flush"
+                            title={labels.pipeline || 'Funil'}
+                            subtitle="Mova leads entre etapas e registre follow-ups."
+                        />
                         <div
                             style={{
                                 display: 'flex',
@@ -2319,7 +2331,7 @@ const Pipeline = () => {
                         try {
                             await lostModal.onConfirm(reason);
                         } catch (err) {
-                            addToast({ type: 'error', message: err?.message || 'Erro ao salvar' });
+                            toast.show({ type: 'error', message: err?.message || 'Erro ao salvar' });
                         } finally {
                             setLostModal(null);
                         }
@@ -2449,7 +2461,7 @@ const Pipeline = () => {
                                 lostReason: reason,
                                 lostAt: new Date().toISOString()
                             });
-                            addToast({ type: 'success', message: 'Marcado como perdido' });
+                            toast.success('Marcado como perdido');
                         } catch (e) {
                             console.error(e);
                         }

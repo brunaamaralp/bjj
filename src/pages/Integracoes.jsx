@@ -5,6 +5,7 @@ import { resolveHubTab } from '../lib/hubTabs.js';
 import { useLeadStore } from '../store/useLeadStore';
 import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import ContractsAutentiqueSection from '../components/academy/ContractsAutentiqueSection.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 const TABS = [
   { id: 'catraca', label: 'Catraca' },
@@ -28,13 +29,11 @@ export default function Integracoes() {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-      <div className="animate-in">
-        <h1 className="navi-page-title">Integrações</h1>
-        <p className="navi-subtitle" style={{ marginTop: 6, marginBottom: 16 }}>
-          Catraca Control iD e assinatura digital Autentique.
-        </p>
-      </div>
+    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+      <PageHeader
+        title="Integrações"
+        subtitle="Conecte catraca Control iD e assinatura digital Autentique."
+      />
 
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Integrações" fullWidth />
 

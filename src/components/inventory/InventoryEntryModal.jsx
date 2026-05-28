@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
+import FieldError from '../shared/FieldError.jsx';
 
 export default function InventoryEntryModal({
   open,
@@ -92,7 +93,7 @@ export default function InventoryEntryModal({
               }}
               autoFocus
             />
-            {error ? <p className="field-error">{error}</p> : null}
+            {error ? <FieldError>{error}</FieldError> : null}
           </div>
           {modulesFinance ? (
             <div className="card mt-2" style={{ padding: 12, border: '1px dashed var(--border-light)' }}>

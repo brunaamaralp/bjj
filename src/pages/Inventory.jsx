@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useProductsStore } from '../store/useProductsStore';
@@ -151,21 +152,18 @@ const Inventory = () => {
   }
 
   return (
-    <div className="container inventory-page">
-      <div className="inventory-page__head animate-in flex justify-between items-start gap-2 inventory-page-header">
-        <div>
-          <h1 className="navi-page-title">Estoque</h1>
-          <p className="navi-eyebrow inventory-page__eyebrow">
-            Saldo por item e movimentações
-          </p>
-        </div>
-        <div className="inventory-page-actions">
+    <div className="container inventory-page navi-hub-page">
+      <PageHeader
+        className="inventory-page__head inventory-page-header"
+        title="Estoque"
+        subtitle="Ajuste saldos e movimentações por item."
+        actions={
           <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
             <Upload size={14} aria-hidden />
             Importar em lote
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       <HubTabBar
         tabs={[

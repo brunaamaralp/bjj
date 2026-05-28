@@ -6,6 +6,7 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
+import { useToast } from '../hooks/useToast';
 import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck } from 'lucide-react';
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
@@ -167,7 +168,7 @@ const LeadProfile = () => {
     }, [loading, studentsLoading, lead, id, navigate]);
     const updateLead = useLeadStore((s) => s.updateLead);
     const deleteLead = useLeadStore((s) => s.deleteLead);
-    const addToast = useUiStore((s) => s.addToast);
+    const toast = useToast();
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
@@ -242,7 +243,7 @@ const LeadProfile = () => {
             await useTaskStore.getState().updateTask(t.id, { status: newStatus });
         } catch(e) {
             setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x));
-            addToast({ type: 'error', message: 'Erro ao atualizar tarefa' });
+            toast.show({ type: 'error', message: 'Erro ao atualizar tarefa' });
         }
     };
 
@@ -415,7 +416,7 @@ const LeadProfile = () => {
     }, [id, refreshTimeline]);
 
     const { allLabels } = useAcademyLabels(academyId, {
-        onLoadError: () => addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
+        onLoadError: () => toast.show({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
     });
 
     const [note, setNote] = useState('');
@@ -678,16 +679,16 @@ const LeadProfile = () => {
 
     const executeSaveLead = async (payload) => {
         if (!String(payload.name || '').trim()) {
-            addToast({ type: 'error', message: 'Nome é obrigatório' });
+            toast.show({ type: 'error', message: 'Nome é obrigatório' });
             return;
         }
         if (!String(payload.phone || '').trim()) {
-            addToast({ type: 'error', message: 'Telefone é obrigatório' });
+            toast.show({ type: 'error', message: 'Telefone é obrigatório' });
             return;
         }
         const digits = String(payload.phone || '').replace(/\D/g, '');
         if (digits.length < 10) {
-            addToast({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
+            toast.show({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
             return;
         }
         setSaving(true);
@@ -701,10 +702,10 @@ const LeadProfile = () => {
                 sexo: payload.sexo || '',
             });
             setEditing(false);
-            addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
+            toast.success('Dados salvos com sucesso.');
             await refreshTimeline();
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setSaving(false);
         }
@@ -713,16 +714,16 @@ const LeadProfile = () => {
     const handleSave = async () => {
         if (saving) return;
         if (!form.name?.trim()) {
-            addToast({ type: 'error', message: 'Nome é obrigatório' });
+            toast.show({ type: 'error', message: 'Nome é obrigatório' });
             return;
         }
         if (!form.phone?.trim()) {
-            addToast({ type: 'error', message: 'Telefone é obrigatório' });
+            toast.show({ type: 'error', message: 'Telefone é obrigatório' });
             return;
         }
         const digits = String(form.phone).replace(/\D/g, '');
         if (digits.length < 10) {
-            addToast({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
+            toast.show({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
             return;
         }
         const payload = { ...form, phone: digits };
@@ -811,20 +812,20 @@ const LeadProfile = () => {
                     lead: { ...lead, ...patch },
                     ...autoCtx,
                 }).catch(() => null);
-                if (autoResult) notifyAutomationFeedback(addToast, autoResult);
-                addToast({ type: 'success', message: 'Comparecimento registrado.' });
+                if (autoResult) notifyAutomationFeedback(toast.addToast, autoResult);
+                toast.success('Comparecimento registrado.');
             } else if (newStatus === LEAD_STATUS.MISSED) {
                 const autoResult = await afterMissed({
                     lead: { ...lead, ...patch },
                     ...autoCtx,
                 }).catch(() => null);
-                if (autoResult) notifyAutomationFeedback(addToast, autoResult);
+                if (autoResult) notifyAutomationFeedback(toast.addToast, autoResult);
             } else if (newStatus === LEAD_STATUS.CONVERTED) {
-                addToast({ type: 'success', message: terms.leadMarkedConvertedToast });
+                toast.show({ type: 'success', message: terms.leadMarkedConvertedToast });
             }
             return true;
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
             throw e;
         } finally {
             setUpdatingStatus(false);
@@ -866,11 +867,11 @@ const LeadProfile = () => {
                 updateLead,
                 getLead: () => useLeadStore.getState().leads.find((l) => l.id === id) || { ...lead, ...patch },
             }).catch(() => null);
-            if (autoResult) notifyAutomationFeedback(addToast, autoResult);
+            if (autoResult) notifyAutomationFeedback(toast.addToast, autoResult);
             await refreshTimeline();
-            addToast({ type: 'success', message: 'Aula agendada com sucesso.' });
+            toast.success('Aula agendada com sucesso.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
             throw e;
         }
     };
@@ -907,7 +908,7 @@ const LeadProfile = () => {
                 extraToast = msg;
             },
         });
-        addToast({
+        toast.show({
             type: 'success',
             message: terms.leadMarkedConvertedToast + (extraToast ? ` ${extraToast}` : ''),
         });
@@ -919,7 +920,7 @@ const LeadProfile = () => {
         try {
             await runEnrollment({}, plan);
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'action') });
+            toast.error(e, 'action');
         } finally {
             setMatriculaSubmitting(false);
         }
@@ -932,7 +933,7 @@ const LeadProfile = () => {
             setMatriculaModalOpen(false);
             navigate(`/student/${id}?edit=enrollment`);
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'action') });
+            toast.error(e, 'action');
         } finally {
             setMatriculaSubmitting(false);
         }
@@ -971,10 +972,10 @@ const LeadProfile = () => {
         setDeletingLead(true);
         try {
             await deleteLead(id);
-            addToast({ type: 'success', message: `${contactLabel} excluído com sucesso.` });
+            toast.success(`${contactLabel} excluído com sucesso.`);
             navigate(-1);
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'delete') });
+            toast.error(e, 'delete');
         } finally {
             setDeletingLead(false);
         }
@@ -1002,7 +1003,7 @@ const LeadProfile = () => {
                 templateKey: key,
                 templatesMap: waCtx.templates,
                 zapsterInstanceId: waCtx.zapster,
-                onToast: (t) => addToast(t)
+                onToast: (t) => toast.show(t)
             });
             if (!r?.ok) return;
             try {
@@ -1040,9 +1041,9 @@ const LeadProfile = () => {
             });
             await updateLead(id, { lastNoteAt: new Date().toISOString() });
             setNote('');
-            addToast({ type: 'success', message: 'Nota adicionada.' });
+            toast.success('Nota adicionada.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setAddingNote(false);
         }
@@ -1054,7 +1055,7 @@ const LeadProfile = () => {
         if (!isCurrentlyPinned) {
             const pinnedCount = timelineEvents.filter(e => e.is_pinned).length;
             if (pinnedCount >= 3) {
-                addToast({ type: 'warning', message: 'Limite de 3 notas fixadas atingido.' });
+                toast.warning('Limite de 3 notas fixadas atingido.');
                 return;
             }
         }
@@ -1070,16 +1071,16 @@ const LeadProfile = () => {
             emitLeadTimelineChanged(id, { eventType: 'event_updated' });
         } catch {
             setTimelineEvents(oldEvents); // Rollback
-            addToast({ type: 'error', message: 'Erro ao pinar nota.' });
+            toast.show({ type: 'error', message: 'Erro ao pinar nota.' });
         }
     };
 
     const handleLabelsChange = async (newIds) => {
         try {
             await updateLead(id, { label_ids: newIds });
-            addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
+            toast.success('Etiquetas atualizadas.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         }
     };
 
@@ -1839,9 +1840,9 @@ const LeadProfile = () => {
                     onConfirm={async (reason) => {
                         try {
                             await confirmMarkLost(reason);
-                            addToast({ type: 'success', message: 'Marcado como não fechou.' });
+                            toast.success('Marcado como não fechou.');
                         } catch (e) {
-                            addToast({ type: 'error', message: friendlyError(e, 'save') });
+                            toast.error(e, 'save');
                         } finally {
                             setLostModalOpen(false);
                         }

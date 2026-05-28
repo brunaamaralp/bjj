@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
+import FieldError from '../components/shared/FieldError.jsx';
 import { useUserRole } from '../lib/useUserRole';
 import { hasAnyActivity } from '../lib/reportActivity.js';
 import { account } from '../lib/appwrite';
@@ -28,6 +29,7 @@ import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
 import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
 import ReportsEstoquePanel from '../components/reports/ReportsEstoquePanel.jsx';
 import ReportsMovimentacoesPanel from '../components/reports/ReportsMovimentacoesPanel.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 import ReportsOperadorPanel from '../components/reports/ReportsOperadorPanel.jsx';
 import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
 import { downloadCsv, leadToCsvRow } from '../lib/reportsExport.js';
@@ -586,32 +588,40 @@ const Reports = () => {
     return (
         <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
             <div>
-                <h1 className="navi-page-title">Relatórios</h1>
-                <p className="navi-eyebrow reports-header-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-                    <span>Indicadores por período · {prettyRange}</span>
-                    {needsFunnelReport && reportData?.snapshotUpdatedAt ? (
-                        <span className="reports-snapshot-meta text-small text-muted">
-                            Atualizado em{' '}
-                            {new Date(reportData.snapshotUpdatedAt).toLocaleString('pt-BR', {
-                                day: '2-digit',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })}
-                            {reportData.fromSnapshot ? ' (cache)' : ''}
-                            <button
-                                type="button"
-                                className="btn-outline reports-refresh-mini"
-                                onClick={() => void fetchReport(true)}
-                                disabled={loading}
-                                style={{ marginLeft: 8 }}
-                            >
-                                <RefreshCw size={14} className={loading ? 'reports-spin' : ''} aria-hidden />
-                                Atualizar agora
-                            </button>
-                        </span>
-                    ) : null}
-                </p>
+                <PageHeader
+                    className="navi-page-header--flush"
+                    title="Relatórios"
+                    subtitle="Analise indicadores por período."
+                    metaClassName="reports-header-eyebrow"
+                    meta={
+                        <>
+                            <span>Período · {prettyRange}</span>
+                            {needsFunnelReport && reportData?.snapshotUpdatedAt ? (
+                                <span className="reports-snapshot-meta text-small text-muted">
+                                    {' '}
+                                    · Atualizado em{' '}
+                                    {new Date(reportData.snapshotUpdatedAt).toLocaleString('pt-BR', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                    {reportData.fromSnapshot ? ' (cache)' : ''}
+                                    <button
+                                        type="button"
+                                        className="btn-outline reports-refresh-mini"
+                                        onClick={() => void fetchReport(true)}
+                                        disabled={loading}
+                                        style={{ marginLeft: 8 }}
+                                    >
+                                        <RefreshCw size={14} className={loading ? 'reports-spin' : ''} aria-hidden />
+                                        Atualizar agora
+                                    </button>
+                                </span>
+                            ) : null}
+                        </>
+                    }
+                />
                 <HubTabBar
                     tabs={reportTabItems}
                     activeId={activeTab}
@@ -696,7 +706,7 @@ const Reports = () => {
                             <option value="Juniores">Juniores</option>
                         </select>
                     </div>
-                    {dateError ? <span className="reports-field-error">{dateError}</span> : null}
+                    {dateError ? <FieldError>{dateError}</FieldError> : null}
                     <div style={{ flex: 1 }} />
                     <div className="reports-export-wrap" ref={exportWrapRef}>
                         <button

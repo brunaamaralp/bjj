@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import ContractsPageContent from '../components/contracts/ContractsPageContent';
+import PageHeader from '../components/layout/PageHeader.jsx';
 import Students from './Students';
 import { useLeadStore } from '../store/useLeadStore';
 import { useTerms } from '../lib/terminology';
@@ -43,19 +44,22 @@ export default function Alunos() {
 
   const hubSubtitle =
     activeTab === TAB_CONTRATOS
-      ? 'Contratos digitais para assinatura via Autentique'
+      ? 'Contratos digitais para assinatura via Autentique.'
+      : `Consulte cadastro, planos e status dos ${studentPlural.toLowerCase()}.`;
+
+  const hubMeta =
+    activeTab === TAB_CONTRATOS
+      ? 'Assinatura via Autentique'
       : `Lista de ${studentPlural.toLowerCase()} matriculados`;
 
   return (
     <div className="container navi-hub-page students-hub-page" style={{ paddingTop: 20, paddingBottom: 40 }}>
-      <header className="navi-hub-page__head">
-        <h1 className="navi-page-title" style={{ margin: 0 }}>
-          {studentPlural}
-        </h1>
-        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 0 }}>
-          {hubSubtitle}
-        </p>
-      </header>
+      <PageHeader
+        className="navi-hub-page__head"
+        title={studentPlural}
+        subtitle={hubSubtitle}
+        meta={hubMeta}
+      />
       <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel={studentPlural} fullWidth />
       <div className="navi-hub-page__body">
         {activeTab === TAB_LISTA ? <Students embedded /> : null}

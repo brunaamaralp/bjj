@@ -13,6 +13,7 @@ import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 import {
   CheckSquare,
   PlusCircle,
@@ -32,6 +33,7 @@ import {
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { friendlyError } from '../lib/errorMessages';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import CollectionResultModal from '../components/CollectionResultModal.jsx';
@@ -271,6 +273,7 @@ export default function Tasks() {
   const [estaSemanaOn, setEstaSemanaOn] = useState(false);
   const [expandedStudentIds, setExpandedStudentIds] = useState(() => new Set());
   const [detailTask, setDetailTask] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date();
     return { y: n.getFullYear(), m: n.getMonth() };
@@ -689,8 +692,14 @@ export default function Tasks() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta tarefa?')) return;
+  const handleDelete = (id) => {
+    setDeleteConfirmId(id);
+  };
+
+  const runDeleteConfirmed = async () => {
+    const id = deleteConfirmId;
+    if (!id) return;
+    setDeleteConfirmId(null);
     try {
       await deleteTask(id);
       if (detailTask?.id === id) setDetailTask(null);
@@ -871,19 +880,23 @@ export default function Tasks() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
+    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
       <header className="animate-in">
-        <div className="tasks-page-head-top flex flex-wrap justify-between items-center gap-3 mb-3">
-          <h1 className="navi-page-title flex items-center gap-2 mb-0"><CheckSquare size={24} /> Tarefas</h1>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link to="/automacoes?tab=processos" className="edit-link text-small">
-              Configurar processos automáticos
-            </Link>
-            <button type="button" className="btn-primary" onClick={openNew}>
-              <PlusCircle size={16} /> Nova tarefa
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          className="navi-page-header--flush"
+          title="Tarefas"
+          subtitle="Organize pendências por lista, kanban ou calendário."
+          actions={
+            <>
+              <Link to="/automacoes?tab=processos" className="edit-link text-small">
+                Configurar processos automáticos
+              </Link>
+              <button type="button" className="btn-primary" onClick={openNew}>
+                <PlusCircle size={16} /> Nova tarefa
+              </button>
+            </>
+          }
+        />
 
         <HubTabBar
           tabs={[
@@ -2175,6 +2188,15 @@ export default function Tasks() {
         }
         .task-drawer-edit { width: 100%; justify-content: center; }
       `}} />
+
+      <ConfirmDialog
+        open={Boolean(deleteConfirmId)}
+        title="Excluir tarefa?"
+        description="Tem certeza que deseja excluir esta tarefa?"
+        confirmLabel="Excluir"
+        onConfirm={() => void runDeleteConfirmed()}
+        onClose={() => setDeleteConfirmId(null)}
+      />
     </div>
   );
 }

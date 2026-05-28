@@ -603,10 +603,12 @@
 }
 
 .contracts-field-error,
-.contracts-form-error {
-  color: #b91c1c;
-  font-size: 13px;
-  margin: 0;
+.contracts-form-error,
+.contracts-modal .navi-field-error {
+  color: var(--danger);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 6px 0 0;
 }
 
 .contracts-form-error {

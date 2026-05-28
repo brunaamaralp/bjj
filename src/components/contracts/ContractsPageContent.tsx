@@ -14,6 +14,7 @@ import CreateContractModal from './CreateContractModal.js';
 import ContractDetailsDrawer from './ContractDetailsDrawer.js';
 import ContractLeadFilter from './ContractLeadFilter.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import PageHeader from '../layout/PageHeader.jsx';
 import './contracts.css';
 import { friendlyError } from '../../lib/errorMessages.js';
 
@@ -110,18 +111,12 @@ export default function ContractsPageContent({ embedded = false }: ContractsPage
       {embedded ? (
         <div className="contracts-page-actions animate-in">{actionButtons}</div>
       ) : (
-        <div className="contracts-page-header animate-in">
-          <div>
-            <h1 className="navi-page-title flex items-center gap-2">
-              <FileSignature size={26} strokeWidth={1.75} aria-hidden />
-              Contratos digitais
-            </h1>
-            <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-              Envie contratos para assinatura via Autentique e acompanhe o status
-            </p>
-          </div>
-          {actionButtons}
-        </div>
+        <PageHeader
+          className="contracts-page-header"
+          title="Contratos"
+          subtitle="Emita contratos digitais e acompanhe assinaturas via Autentique."
+          actions={actionButtons}
+        />
       )}
 
       <div className="contracts-toolbar card contracts-toolbar--split">

@@ -9,6 +9,8 @@ import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx';
 import { maskPhone } from '../lib/masks.js';
 import { turmaValueFromForm } from '../lib/academyTurmas.js';
+import FieldError from '../components/shared/FieldError.jsx';
+import StatusBanner from '../components/shared/StatusBanner.jsx';
 
 const TYPE_ICONS = {
   Criança: <Baby size={20} />,
@@ -174,7 +176,7 @@ export default function PublicStudentEnrollment() {
                     placeholder="Seu nome"
                     autoComplete="name"
                   />
-                  {errors.name ? <span className="error">Obrigatório</span> : null}
+                  {errors.name ? <FieldError>Obrigatório</FieldError> : null}
                 </div>
 
                 <div className="form-group">
@@ -191,7 +193,7 @@ export default function PublicStudentEnrollment() {
                       setValue('phone', masked);
                     }}
                   />
-                  {errors.phone ? <span className="error">Obrigatório</span> : null}
+                  {errors.phone ? <FieldError>Obrigatório</FieldError> : null}
                 </div>
 
                 <div className="form-group">
@@ -216,7 +218,7 @@ export default function PublicStudentEnrollment() {
                         </option>
                       ))}
                     </select>
-                    {errors.plan ? <span className="error">Selecione um plano</span> : null}
+                    {errors.plan ? <FieldError>Selecione um plano</FieldError> : null}
                   </div>
                 </div>
               ) : null}
@@ -243,7 +245,7 @@ export default function PublicStudentEnrollment() {
                       className="form-input"
                       placeholder="Nome do pai, mãe ou responsável"
                     />
-                    {errors.parentName ? <span className="error">Obrigatório</span> : null}
+                    {errors.parentName ? <FieldError>Obrigatório</FieldError> : null}
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Idade do aluno</label>
@@ -314,10 +316,7 @@ export default function PublicStudentEnrollment() {
               </div>
 
               {submitError ? (
-                <div className="duplicate-alert duplicate-alert--error" role="alert">
-                  <AlertTriangle size={16} />
-                  <span>{submitError}</span>
-                </div>
+                <StatusBanner variant="error" message={submitError} />
               ) : null}
 
               <button type="submit" className="btn-primary public-enrollment-submit" disabled={submitting}>

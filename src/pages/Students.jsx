@@ -16,6 +16,8 @@ import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTy
 import { useTerms } from '../lib/terminology.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import FieldError from '../components/shared/FieldError.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentListCard from '../components/student/StudentListCard.jsx';
@@ -23,6 +25,7 @@ import { performEnrollment } from '../lib/performEnrollment.js';
 import { maskCpfForExport } from '../lib/maskCpf.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -456,21 +459,25 @@ const Students = ({ embedded = false }) => {
         <div className={embedded ? 'students-page students-page--embedded' : 'container students-page'}>
             <header className="animate-in">
                 {!embedded ? (
-                    <>
-                        <h1 className="navi-page-title">{studentLabel}</h1>
-                        <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
-                            <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
-                            {studentPlural.toLowerCase()} cadastrados
-                            {filtrosAtivos && students.length !== filteredStudents.length
-                                ? ` (de ${students.length})`
-                                : ''}
-                            {studentsHasMore
-                                ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
-                                : ''}
-                        </p>
-                    </>
+                    <PageHeader
+                        className="navi-page-header--flush"
+                        title={studentLabel}
+                        subtitle={`Consulte cadastro, planos e status dos ${studentPlural.toLowerCase()}.`}
+                        meta={
+                            <>
+                                <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
+                                {studentPlural.toLowerCase()} cadastrados
+                                {filtrosAtivos && students.length !== filteredStudents.length
+                                    ? ` (de ${students.length})`
+                                    : ''}
+                                {studentsHasMore
+                                    ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
+                                    : ''}
+                            </>
+                        }
+                    />
                 ) : (
-                    <p className="navi-eyebrow students-page-embedded-count" style={{ marginTop: 0, marginBottom: 14 }}>
+                    <p className="navi-eyebrow students-page-embedded-count navi-page-header__meta" style={{ marginTop: 0, marginBottom: 14 }}>
                         <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
                         {studentPlural.toLowerCase()} cadastrados
                         {filtrosAtivos && students.length !== filteredStudents.length
@@ -684,12 +691,11 @@ const Students = ({ embedded = false }) => {
             </header>
 
             {studentsError ? (
-                <div className="dashboard-error-banner mt-3" role="alert">
-                    <span>Não foi possível carregar os {studentPlural.toLowerCase()}.</span>
-                    <button type="button" className="btn-secondary" onClick={() => void fetchStudents({ reset: true, ...serverFetchOpts })}>
-                        Tentar novamente
-                    </button>
-                </div>
+                <ErrorBanner
+                    className="mt-3"
+                    message={`Não foi possível carregar os ${studentPlural.toLowerCase()}.`}
+                    onRetry={() => void fetchStudents({ reset: true, ...serverFetchOpts })}
+                />
             ) : null}
 
             <div className="students-page-body">
@@ -897,7 +903,7 @@ const Students = ({ embedded = false }) => {
                                     placeholder="(11) 99999-0000"
                                     required
                                 />
-                                {phoneError ? <p className="field-error">{phoneError}</p> : null}
+                                {phoneError ? <FieldError>{phoneError}</FieldError> : null}
                             </label>
                             <label>
                                 Perfil

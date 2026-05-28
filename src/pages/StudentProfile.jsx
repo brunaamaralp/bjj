@@ -31,6 +31,7 @@ import StudentPaymentModal, {
     PAYMENT_MODAL_PRODUCT,
 } from '../components/student/StudentPaymentModal.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import FieldError from '../components/shared/FieldError.jsx';
 import { useCanManageStudentPayments } from '../lib/canManageStudentPayments.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { fetchReportsByStudent } from '../lib/reportsByStudentApi.js';
@@ -42,6 +43,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
+import { useToast } from '../hooks/useToast';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
@@ -294,21 +296,21 @@ export default function StudentProfile() {
     const updateStudent = useStudentStore((s) => s.updateStudent);
     const controlIdCfg = useAcademyControlId(academyId);
     const uiLabels = useLeadStore((s) => s.labels);
-    const addToast = useUiStore((s) => s.addToast);
+    const toast = useToast();
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(uiLabels), [uiLabels]);
 
     const { allLabels } = useAcademyLabels(academyId, {
-        onLoadError: () => addToast({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
+        onLoadError: () => toast.show({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
     });
 
     const handleLabelsChange = async (newIds) => {
         if (!id) return;
         try {
             await updateStudent(id, { label_ids: newIds });
-            addToast({ type: 'success', message: 'Etiquetas atualizadas.' });
+            toast.success('Etiquetas atualizadas.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         }
     };
 
@@ -714,20 +716,20 @@ export default function StudentProfile() {
                     financeConfig,
                 });
                 setFreezeModalOpen(false);
-                addToast({
+                toast.show({
                     type: 'success',
                     message: `Matrícula trancada até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado quando possível.`,
                 });
                 void loadPayments();
                 void refreshStudentPaymentStatus(leadId, academyId);
             } catch (e) {
-                addToast({ type: 'error', message: friendlyError(e, 'save') });
+                toast.error(e, 'save');
                 throw e;
             } finally {
                 setFreezeBusy(false);
             }
         },
-        [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, financeConfig, addToast, loadPayments, refreshStudentPaymentStatus]
+        [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, financeConfig, toast, loadPayments, refreshStudentPaymentStatus]
     );
 
     const handleEndFreezeEarly = useCallback(async () => {
@@ -746,15 +748,15 @@ export default function StudentProfile() {
                 early: true,
                 payments,
             });
-            addToast({ type: 'success', message: 'Trancamento encerrado. Acesso reativado na catraca quando possível.' });
+            toast.success('Trancamento encerrado. Acesso reativado na catraca quando possível.');
             void loadPayments();
             void refreshStudentPaymentStatus(leadId, academyId);
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setEndFreezeBusy(false);
         }
-    }, [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, payments, addToast, loadPayments, refreshStudentPaymentStatus]);
+    }, [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, payments, toast, loadPayments, refreshStudentPaymentStatus]);
 
     const academyNameDisplay = useMemo(() => {
         const cur = (academyList || []).find((a) => a.id === academyId);
@@ -974,7 +976,7 @@ export default function StudentProfile() {
         if (!student || savingData) return;
         const name = String(dataForm.name || '').trim();
         if (!name) {
-            addToast({ type: 'error', message: 'Informe o nome do aluno.' });
+            toast.show({ type: 'error', message: 'Informe o nome do aluno.' });
             return;
         }
 
@@ -1006,7 +1008,7 @@ export default function StudentProfile() {
                 dueNum != null && Number.isFinite(dueNum) && dueNum >= 1 && dueNum <= 31 ? Math.trunc(dueNum) : null;
             const accountCheck = validatePreferredPaymentAccount(dataForm.preferredPaymentAccount, financeConfig);
             if (!accountCheck.ok) {
-                addToast({ type: 'error', message: accountCheck.message });
+                toast.show({ type: 'error', message: accountCheck.message });
                 setSavingData(false);
                 return;
             }
@@ -1030,13 +1032,13 @@ export default function StudentProfile() {
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
             });
             setEditingData(false);
-            addToast({ type: 'success', message: 'Dados salvos com sucesso.' });
+            toast.success('Dados salvos com sucesso.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, updateStudent, addToast, financeConfig]);
+    }, [student, savingData, leadId, academyId, dataForm, updateStudent, toast, financeConfig]);
 
     const sendTemplateKey = async (key) => {
         if (sendingWhatsapp || !student) return;
@@ -1050,7 +1052,7 @@ export default function StudentProfile() {
                 templateKey: key,
                 templatesMap: waCtx.templates,
                 zapsterInstanceId: waCtx.zapster,
-                onToast: (t) => addToast(t),
+                onToast: (t) => toast.show(t),
             });
             if (!r?.ok) return;
             try {
@@ -1088,9 +1090,9 @@ export default function StudentProfile() {
             });
             await updateStudent(leadId, { lastNoteAt: new Date().toISOString() });
             setNote('');
-            addToast({ type: 'success', message: 'Nota adicionada.' });
+            toast.success('Nota adicionada.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setAddingNote(false);
         }
@@ -1101,11 +1103,11 @@ export default function StudentProfile() {
         setDeleteBusy(true);
         try {
             await deleteStudent(leadId);
-            addToast({ type: 'success', message: `${terms.student} excluído com sucesso.` });
+            toast.success(`${terms.student} excluído com sucesso.`);
             setConfirmDeleteOpen(false);
             navigate('/students');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'delete') });
+            toast.error(e, 'delete');
         } finally {
             setDeleteBusy(false);
         }
@@ -1141,11 +1143,11 @@ export default function StudentProfile() {
             if (tasksCreated > 0) {
                 msg += ` ${tasksCreated} tarefa${tasksCreated === 1 ? '' : 's'} de desligamento foram criadas.`;
             }
-            addToast({ type: 'success', message: msg });
+            toast.show({ type: 'success', message: msg });
             void refreshTimeline();
             void loadPayments();
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setDeactivateBusy(false);
         }
@@ -1164,10 +1166,10 @@ export default function StudentProfile() {
                 mergeStudent,
                 refreshPaymentStatus: refreshStudentPaymentStatus,
             });
-            addToast({ type: 'success', message: `${terms.student} reativado com sucesso.` });
+            toast.success(`${terms.student} reativado com sucesso.`);
             void refreshTimeline();
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setReactivateBusy(false);
         }
@@ -1186,7 +1188,7 @@ export default function StudentProfile() {
                 },
                 permCtx
             );
-            addToast({ type: 'success', message: `${terms.attendance} registrada!` });
+            toast.success(`${terms.attendance} registrada!`);
             setCheckins((prev) => [doc, ...prev]);
             setFreqStats((prev) => {
                 if (!prev) {
@@ -1208,7 +1210,7 @@ export default function StudentProfile() {
             });
             emitLeadAttendanceChanged(leadId);
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'save') || `Não foi possível registrar a ${terms.attendance.toLowerCase()}.` });
+            toast.show({ type: 'error', message: friendlyError(e, 'save') || `Não foi possível registrar a ${terms.attendance.toLowerCase()}.` });
         } finally {
             setCheckingIn(false);
         }
@@ -1247,24 +1249,24 @@ export default function StudentProfile() {
         const isEdit = Boolean(editingPaymentId);
 
         if (paymentType === PAYMENT_CATEGORY.FEE && !desc) {
-            addToast({ type: 'error', message: 'Informe a descrição da taxa (ex.: taxa de competição).' });
+            toast.show({ type: 'error', message: 'Informe a descrição da taxa (ex.: taxa de competição).' });
             return;
         }
 
         if (isEdit && (paymentType === PAYMENT_CATEGORY.BUNDLE || paymentType === PAYMENT_MODAL_PRODUCT)) {
-            addToast({ type: 'error', message: 'Este tipo de lançamento não pode ser editado aqui.' });
+            toast.show({ type: 'error', message: 'Este tipo de lançamento não pode ser editado aqui.' });
             return;
         }
 
         const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
         if (!Number.isFinite(amountNum) || amountNum <= 0) {
-            addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
+            toast.show({ type: 'error', message: 'Informe um valor maior que zero.' });
             return;
         }
 
         const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
         if (!accountCheck.ok) {
-            addToast({ type: 'error', message: accountCheck.message });
+            toast.show({ type: 'error', message: accountCheck.message });
             return;
         }
 
@@ -1326,7 +1328,7 @@ export default function StudentProfile() {
                 else setPaymentStatus({ status: 'pending', payment: doc });
             }
             closePaymentModal();
-            addToast({
+            toast.show({
                 type: 'success',
                 message: isEdit ? 'Pagamento atualizado.' : 'Pagamento registrado.',
             });
@@ -1341,7 +1343,7 @@ export default function StudentProfile() {
                 );
                 return;
             }
-            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            toast.error(e, 'save');
         } finally {
             setSavingPayment(false);
         }
@@ -1353,7 +1355,7 @@ export default function StudentProfile() {
         editingPaymentId,
         userId,
         sessionUserName,
-        addToast,
+        toast,
         financeConfig,
         loadPayments,
         closePaymentModal,
@@ -1366,13 +1368,13 @@ export default function StudentProfile() {
             await deletePayment(deletePaymentTarget.$id, academyId);
             await loadPayments();
             setDeletePaymentTarget(null);
-            addToast({ type: 'success', message: 'Lançamento excluído.' });
+            toast.success('Lançamento excluído.');
         } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'delete') });
+            toast.error(e, 'delete');
         } finally {
             setDeletePaymentBusy(false);
         }
-    }, [deletePaymentTarget, academyId, deletePaymentBusy, loadPayments, addToast]);
+    }, [deletePaymentTarget, academyId, deletePaymentBusy, loadPayments, toast]);
 
     const handleCancelCoverage = useCallback(
         async ({ anchor_id, from_reference_month, refundAmount }) => {
@@ -1391,14 +1393,14 @@ export default function StudentProfile() {
                     note: `Cancelamento cobertura a partir de ${from_reference_month}`,
                 });
                 await loadPayments();
-                addToast({ type: 'success', message: 'Cobertura cancelada.' });
+                toast.success('Cobertura cancelada.');
             } catch (e) {
-                addToast({ type: 'error', message: friendlyError(e, 'save') });
+                toast.error(e, 'save');
             } finally {
                 setCancellingCoverage(false);
             }
         },
-        [student, academyId, cancellingCoverage, payments, userId, sessionUserName, loadPayments, addToast]
+        [student, academyId, cancellingCoverage, payments, userId, sessionUserName, loadPayments, toast]
     );
 
     const inputStyle = {
@@ -1623,14 +1625,10 @@ export default function StudentProfile() {
                 />
             )}
             {field.key === 'cpf' && cpfErrors.cpf ? (
-                <p className="field-error" style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--danger)' }}>
-                    {cpfErrors.cpf}
-                </p>
+                <FieldError>{cpfErrors.cpf}</FieldError>
             ) : null}
             {field.key === 'cpfResponsavel' && cpfErrors.cpfResponsavel ? (
-                <p className="field-error" style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--danger)' }}>
-                    {cpfErrors.cpfResponsavel}
-                </p>
+                <FieldError>{cpfErrors.cpfResponsavel}</FieldError>
             ) : null}
             {field.key === 'enrollmentDate' ? (
                 <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>

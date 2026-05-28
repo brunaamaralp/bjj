@@ -29,6 +29,7 @@ import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
@@ -562,41 +563,42 @@ const Dashboard = () => {
     return (
         <div className="container reception-dashboard" style={{ paddingTop: 12, paddingBottom: 28 }}>
             <div className="reception-agenda-inner reception-agenda-inner--wide">
-            <header className="reception-page-header reception-page-header--split animate-in">
-                <div className="reception-page-header__intro">
-                    <h1 className="navi-page-title">Agenda da Recepção</h1>
-                    <p className="reception-subtitle">{receptionSubtitle}</p>
-                </div>
-                <div className="reception-page-header__actions">
-                    {!isDashboardMobile ? (
-                        <div className="reception-header-ai reception-command-bar">
-                            <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                        </div>
-                    ) : null}
-                    {controlIdCfg.enabled && (
-                        <button
-                            type="button"
-                            className="btn-secondary"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                            onClick={() => setGateReleaseOpen(true)}
-                        >
-                            <DoorOpen size={18} aria-hidden />
-                            Liberar catraca
+            <PageHeader
+                className="reception-page-header reception-dashboard-page-header"
+                title="Agenda da Recepção"
+                subtitle={receptionSubtitle}
+                actions={
+                    <>
+                        {!isDashboardMobile ? (
+                            <div className="reception-header-ai reception-command-bar">
+                                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                            </div>
+                        ) : null}
+                        {controlIdCfg.enabled && (
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                onClick={() => setGateReleaseOpen(true)}
+                            >
+                                <DoorOpen size={18} aria-hidden />
+                                Liberar catraca
+                            </button>
+                        )}
+                        <button type="button" className="btn-primary reception-header-new-lead" onClick={() => navigate('/new-lead')}>
+                            <Plus size={20} strokeWidth={2.25} />{' '}
+                            {`Novo ${(() => {
+                                const l = useLeadStore.getState().labels?.leads || 'Leads';
+                                const basePlural = String(l).trim();
+                                const singular = basePlural.toLowerCase().endsWith('s') && basePlural.length > 1
+                                    ? basePlural.slice(0, -1)
+                                    : basePlural.toLowerCase();
+                                return singular.slice(0, 1).toUpperCase() + singular.slice(1);
+                            })()}`}
                         </button>
-                    )}
-                    <button type="button" className="btn-primary reception-header-new-lead" onClick={() => navigate('/new-lead')}>
-                        <Plus size={20} strokeWidth={2.25} />{' '}
-                        {`Novo ${(() => {
-                            const l = useLeadStore.getState().labels?.leads || 'Leads';
-                            const basePlural = String(l).trim();
-                            const singular = basePlural.toLowerCase().endsWith('s') && basePlural.length > 1
-                                ? basePlural.slice(0, -1)
-                                : basePlural.toLowerCase();
-                            return singular.slice(0, 1).toUpperCase() + singular.slice(1);
-                        })()}`}
-                    </button>
-                </div>
-            </header>
+                    </>
+                }
+            />
 
             {leadsError && (
                 <ErrorBanner
@@ -1112,25 +1114,15 @@ const Dashboard = () => {
           --reception-section-pad: clamp(16px, 2.5vw, 22px);
           --border-radius-lg: 16px;
         }
-        .reception-page-header {
+        .reception-dashboard-page-header {
           padding-bottom: 20px;
           margin-bottom: 8px;
           border-bottom: 1px solid var(--border);
         }
-        .reception-page-header--split {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 10px 16px;
-          margin-bottom: 4px;
-        }
-        .reception-subtitle {
-          margin: 4px 0 0;
+        .reception-dashboard-page-header .navi-page-header__subtitle {
           font-size: 14px;
-          line-height: 1.45;
-          color: var(--text-secondary);
           font-weight: 500;
+          color: var(--text-secondary);
         }
         .reception-kpi-grid {
           margin-top: 14px !important;
@@ -1148,11 +1140,11 @@ const Dashboard = () => {
         .reception-command-bar button span:last-of-type {
           color: var(--text-secondary);
         }
-        .reception-page-header__intro {
+        .reception-dashboard-page-header .navi-page-header__intro {
           flex: 1 1 220px;
           min-width: 0;
         }
-        .reception-page-header__actions {
+        .reception-dashboard-page-header .navi-page-header__actions {
           display: flex;
           flex-wrap: wrap;
           align-items: center;

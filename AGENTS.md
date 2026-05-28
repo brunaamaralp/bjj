@@ -23,3 +23,7 @@ These defaults are optimized for AI coding agents (and humans) working on apps t
   needed. Always curl https://ai-gateway.vercel.sh/v1/models first; never trust model IDs from memory
 - For durable agent loops or untrusted code: use Workflow (pause/resume/state) + Sandbox; use Vercel MCP for secure infra access
 <!-- VERCEL BEST PRACTICES END -->
+
+## Feedback visual (toasts, banners, erros)
+
+Ao adicionar alertas ou mensagens de erro, siga [docs/ux-feedback.md](docs/ux-feedback.md): use `useToast` para ações transitórias, `StatusBanner`/`ErrorBanner` para erros persistentes de página, `FieldError` em formulários e `ConfirmDialog` em vez de `window.confirm`.

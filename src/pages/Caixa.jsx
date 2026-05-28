@@ -42,6 +42,7 @@ import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
 import FinanceiroConfigTab from '../components/finance/FinanceiroConfigTab.jsx';
 
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 import '../components/finance/finance.css';
 
@@ -339,35 +340,21 @@ export default function Caixa() {
 
       <div className="finance-page-inner navi-hub-page__body">
 
-        <header className="navi-hub-page__head animate-in">
-
-          <h1 className="navi-page-title">Financeiro</h1>
-
-          <p className="navi-eyebrow finance-hub-eyebrow">
-
-            {subtitle}
-
-            {academyName ? ` · ${academyName}` : ''}
-
-          </p>
-
-          {activeTab === 'movimentacoes' && (
-
-            <div className="page-header-card">
-
+        <PageHeader
+          className="navi-hub-page__head"
+          title="Financeiro"
+          subtitle="Controle entradas, saídas e fechamentos."
+          meta={`${subtitle}${academyName ? ` · ${academyName}` : ''}`}
+          metaClassName="finance-hub-eyebrow"
+          toolbar={
+            activeTab === 'movimentacoes' ? (
               <div className="page-header-row">
-
                 <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-
                 <div className="finance-hub-header-spacer" />
-
               </div>
-
-            </div>
-
-          )}
-
-        </header>
+            ) : null
+          }
+        />
 
 
 

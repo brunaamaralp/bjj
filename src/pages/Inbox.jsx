@@ -12,6 +12,7 @@ import {
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../store/useUiStore';
+import { useToast } from '../hooks/useToast';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
@@ -21,9 +22,11 @@ import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnect
 import { AlertTriangle, Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, User, X, Zap } from 'lucide-react';
 import ConversationList from '../components/inbox/ConversationList';
 import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import ThreadState from '../components/inbox/ThreadState';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
@@ -185,7 +188,7 @@ function inboxContentIsAudioPlaceholder(content) {
 export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
-  const addToast = useUiStore((s) => s.addToast);
+  const toast = useToast();
   const { fetchLeads, leads, loading: leadsLoading, academyId, academyList: academyListRaw } = useLeadStore(
     useShallow((state) => ({
       fetchLeads: state.fetchLeads,
@@ -255,6 +258,7 @@ export default function Inbox() {
   const [improvingDraft, setImprovingDraft] = useState(false);
   const [draftBeforeImprove, setDraftBeforeImprove] = useState(null);
   const [cancelingMsgId, setCancelingMsgId] = useState('');
+  const [cancelConfirmMsgId, setCancelConfirmMsgId] = useState('');
   const [error, setError] = useState('');
   const [threadError, setThreadError] = useState('');
   const [nextCursor, setNextCursor] = useState(null);
@@ -433,11 +437,8 @@ export default function Inbox() {
     const key = `${phone}:${untilMs}`;
     if (handoffExpiryToastRef.current === key) return;
     handoffExpiryToastRef.current = key;
-    addToast({
-      type: 'warning',
-      message: 'Tempo do atendimento manual acabou. A IA pode retomar neste atendimento.'
-    });
-  }, [addToast, nowMs, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
+    toast.warning('Tempo do atendimento manual acabou. A IA pode retomar neste atendimento.');
+  }, [toast, nowMs, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
 
   useEffect(() => {
     setSlashOpen(false);
@@ -690,10 +691,10 @@ export default function Inbox() {
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(String(text || ''));
-      addToast({ type: 'success', message: 'Copiado' });
+      toast.success('Copiado');
       return true;
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'action') });
+      toast.error(e, 'action');
       return false;
     }
   }
@@ -921,9 +922,9 @@ export default function Inbox() {
         if (!res.ok) throw new Error('post');
         applyLocal();
         if (t === 'pinned') {
-          addToast({ type: 'success', message: 'Mensagem fixada' });
+          toast.success('Mensagem fixada');
         } else {
-          addToast({ type: 'success', message: 'Marcada como importante' });
+          toast.success('Marcada como importante');
         }
       } else {
         const qs = new URLSearchParams({
@@ -938,13 +939,13 @@ export default function Inbox() {
         if (!res.ok) throw new Error('delete');
         applyLocal();
         if (t === 'pinned') {
-          addToast({ type: 'success', message: 'Mensagem desfixada' });
+          toast.success('Mensagem desfixada');
         } else {
-          addToast({ type: 'success', message: 'Importante removido' });
+          toast.success('Importante removido');
         }
       }
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'action') });
+      toast.error(e, 'action');
     }
   }
 
@@ -1002,7 +1003,7 @@ export default function Inbox() {
   async function reconcileLast24h() {
     if (!academyIdRef.current) {
       const message = 'Não foi possível sincronizar: academia não identificada.';
-      addToast({ type: 'error', message });
+      toast.show({ type: 'error', message });
       setError(message);
       if (isInboxDebugEnabled()) {
         console.warn('[Inbox Realtime] atualizar chat abortado: academyId vazio');
@@ -1077,11 +1078,11 @@ export default function Inbox() {
         void 0;
       }
       setDesktopNotify(false);
-      addToast({ type: 'info', message: 'Notificações do sistema desativadas.' });
+      toast.info('Notificações do sistema desativadas.');
       return;
     }
     if (typeof Notification === 'undefined') {
-      addToast({ type: 'warning', message: 'Este navegador não suporta notificações.' });
+      toast.warning('Este navegador não suporta notificações.');
       return;
     }
     let perm = Notification.permission;
@@ -1089,7 +1090,7 @@ export default function Inbox() {
       perm = await Notification.requestPermission();
     }
     if (perm !== 'granted') {
-      addToast({ type: 'warning', message: 'Permissão necessária para notificações do sistema.' });
+      toast.warning('Permissão necessária para notificações do sistema.');
       return;
     }
     try {
@@ -1098,7 +1099,7 @@ export default function Inbox() {
       void 0;
     }
     setDesktopNotify(true);
-    addToast({ type: 'success', message: 'Você receberá notificações quando chegar mensagem.' });
+    toast.success('Você receberá notificações quando chegar mensagem.');
   }
 
   function setHighlightedPhone(phone) {
@@ -1166,11 +1167,11 @@ export default function Inbox() {
         return n;
       });
       if (notifySuccess) {
-        addToast({ type: 'success', message: 'Marcado como lida' });
+        toast.success('Marcado como lida');
       }
     } catch (e) {
       try {
-        addToast({ type: 'error', message: friendlyError(e, 'action') });
+        toast.error(e, 'action');
       } catch {
         void 0;
       }
@@ -1212,10 +1213,10 @@ export default function Inbox() {
       setSelectedPhone((prevPhone) => (String(prevPhone || '').trim() === p ? '' : prevPhone));
       setConversationSheet(null);
       closeMenu();
-      addToast({ type: 'success', message: 'Marcado como não lida' });
+      toast.success('Marcado como não lida');
     } catch (e) {
       try {
-        addToast({ type: 'error', message: friendlyError(e, 'action') });
+        toast.error(e, 'action');
       } catch {
         void 0;
       }
@@ -1259,12 +1260,12 @@ export default function Inbox() {
       }
       const fn = loadListRef.current;
       if (typeof fn === 'function') void fn({ reset: true, silent: true });
-      if (!silent) addToast({ type: 'success', message: 'Conversa desarquivada' });
+      if (!silent) toast.success('Conversa desarquivada');
       closeMenu();
       return true;
     } catch (e) {
       try {
-        addToast({ type: 'error', message: friendlyError(e, 'action') });
+        toast.error(e, 'action');
       } catch {
         void 0;
       }
@@ -1309,7 +1310,7 @@ export default function Inbox() {
       }
       const fn = loadListRef.current;
       if (typeof fn === 'function') void fn({ reset: true, silent: true });
-      addToast({
+      toast.show({
         type: 'info',
         message: 'Conversa arquivada',
         duration: 5000,
@@ -1323,7 +1324,7 @@ export default function Inbox() {
       closeMenu();
     } catch (e) {
       try {
-        addToast({ type: 'error', message: friendlyError(e, 'action') });
+        toast.error(e, 'action');
       } catch {
         void 0;
       }
@@ -1433,7 +1434,7 @@ export default function Inbox() {
           });
           playNotificationSound();
           setHighlightedPhone(phone);
-          addToast({
+          toast.show({
             type: 'info',
             message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`
           });
@@ -1794,7 +1795,7 @@ export default function Inbox() {
       });
       await loadList({ reset: true, silent: true });
       if (!silent) {
-        addToast({
+        toast.show({
           type: 'success',
           message: ativo ? 'Você assumiu esta conversa' : 'IA reativada',
         });
@@ -1830,13 +1831,13 @@ export default function Inbox() {
     try {
       const sendAtIso = scheduleOn ? toIsoFromLocalDatetime(scheduleAtLocal) : '';
       if (scheduleOn && !sendAtIso) {
-        addToast({ type: 'error', message: 'Escolha data e hora para agendar' });
+        toast.show({ type: 'error', message: 'Escolha data e hora para agendar' });
         return;
       }
       if (scheduleOn && sendAtIso) {
         const sendMs = new Date(sendAtIso).getTime();
         if (!Number.isFinite(sendMs) || sendMs <= Date.now()) {
-          addToast({ type: 'error', message: 'Selecione um horário posterior ao atual para agendar.' });
+          toast.show({ type: 'error', message: 'Selecione um horário posterior ao atual para agendar.' });
           return;
         }
       }
@@ -1888,7 +1889,7 @@ export default function Inbox() {
       setDraftBeforeImprove(null);
       setScheduleOn(false);
       setScheduleAtLocal('');
-      addToast({
+      toast.show({
         type: 'success',
         message:
           String(data?.channel || '').trim() === 'wa_me'
@@ -1941,7 +1942,7 @@ export default function Inbox() {
       if (!improved) throw new Error('Resposta inválida do servidor');
       setDraftBeforeImprove(current);
       setDraft(improved);
-      addToast({ type: 'success', message: 'Texto atualizado — revise antes de enviar' });
+      toast.success('Texto atualizado — revise antes de enviar');
       try {
         setTimeout(() => textareaRef.current?.focus?.(), 0);
       } catch {
@@ -1954,13 +1955,17 @@ export default function Inbox() {
     }
   }
 
-  async function cancelScheduledMessage(messageId) {
-    const phone = String(selectedPhoneRef.current || '').trim();
+  function cancelScheduledMessage(messageId) {
     const mid = String(messageId || '').trim();
+    if (!mid || cancelingMsgId) return;
+    setCancelConfirmMsgId(mid);
+  }
+
+  async function runCancelScheduledMessage() {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    const mid = String(cancelConfirmMsgId || '').trim();
     if (!phone || !mid) return;
-    if (cancelingMsgId) return;
-    const ok = window.confirm('Cancelar esta mensagem agendada?');
-    if (!ok) return;
+    setCancelConfirmMsgId('');
     setCancelingMsgId(mid);
     try {
       const jwt = await getJwt();
@@ -1985,10 +1990,10 @@ export default function Inbox() {
         msgs[i] = { ...(msgs[i] && typeof msgs[i] === 'object' ? msgs[i] : {}), status: 'canceled', canceled_at: canceledAt };
         return { ...prev, messages: msgs };
       });
-      addToast({ type: 'success', message: 'Agendamento cancelado' });
+      toast.success('Agendamento cancelado');
       await loadList({ reset: true, silent: true });
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'action') });
+      toast.error(e, 'action');
     } finally {
       setCancelingMsgId('');
     }
@@ -2023,7 +2028,7 @@ export default function Inbox() {
         };
       });
       await loadList({ reset: true, silent: true });
-      addToast({ type: 'success', message: `${contactLabel} associado` });
+      toast.success(`${contactLabel} associado`);
       setLeadPanel(null);
       setLeadSearch('');
     } catch (e) {
@@ -2079,7 +2084,7 @@ export default function Inbox() {
         })
       );
       setEditingContactName(false);
-      addToast({ type: 'success', message: savedName ? 'Nome do contato salvo' : 'Nome do contato removido' });
+      toast.show({ type: 'success', message: savedName ? 'Nome do contato salvo' : 'Nome do contato removido' });
     } catch (e) {
       setError(friendlyError(e, 'save'));
     } finally {
@@ -2136,7 +2141,7 @@ export default function Inbox() {
       const leadId = String(data?.id || '').trim();
       if (!leadId) throw new Error('ID do lead ausente');
       await linkLeadToConversation({ leadId });
-      addToast({
+      toast.show({
         type: 'success',
         message: data?.ja_existe ? `${contactLabel} já existente` : `${contactLabel} criado`,
       });
@@ -2642,13 +2647,13 @@ export default function Inbox() {
       });
       await loadList({ reset: true, silent: true });
       if (s === 'resolved') {
-        addToast({ type: 'success', message: 'Conversa resolvida' });
+        toast.success('Conversa resolvida');
       } else if (s === 'open') {
-        addToast({ type: 'success', message: 'Conversa reaberta' });
+        toast.success('Conversa reaberta');
       } else if (s === 'waiting_customer') {
-        addToast({ type: 'success', message: 'Marcado como aguardando cliente' });
+        toast.success('Marcado como aguardando cliente');
       } else if (s === 'transferred') {
-        addToast({
+        toast.show({
           type: 'success',
           message: nextTransferTo ? `Conversa transferida para ${nextTransferTo}` : 'Conversa transferida',
         });
@@ -2665,7 +2670,7 @@ export default function Inbox() {
   const confirmTransferConversation = useCallback(async () => {
     const dest = String(transferToDraft || '').trim();
     if (!dest) {
-      addToast({ type: 'error', message: 'Escolha quem vai receber a conversa.' });
+      toast.show({ type: 'error', message: 'Escolha quem vai receber a conversa.' });
       return;
     }
     const ok = await updateTicket({ status: 'transferred', transferTo: dest });
@@ -2673,7 +2678,7 @@ export default function Inbox() {
       setTransferToDraft('');
       setLeadPanel(null);
     }
-  }, [transferToDraft, addToast]);
+  }, [transferToDraft, toast]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -4577,7 +4582,7 @@ export default function Inbox() {
         </div>
       </div>
 
-      <ConversationNotesPanel academyId={academyId} conversationId={conversationIdForFlags} addToast={addToast} />
+      <ConversationNotesPanel academyId={academyId} conversationId={conversationIdForFlags} addToast={toast.addToast} />
 
       {(() => {
         const phone = String(selectedPhone || '').trim();
@@ -5179,30 +5184,29 @@ export default function Inbox() {
         .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: var(--inbox-font-list-title); }
       ` }} />
 
-      <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
-        <div>
-          <h2 className="navi-page-title" style={{ margin: 0 }}>Conversas</h2>
-          <div className="navi-eyebrow" style={{ marginTop: 6, whiteSpace: 'nowrap', textTransform: 'none' }}>
-            Mensagens e atendimento via WhatsApp
-            {loading ? (
-              ' · Carregando…'
-            ) : (
-              <>
-                {' · '}
-                <span className="navi-ui-count">{items.length}</span> conversas
-                {lastUpdatedAt ? (
-                  <>
-                    {' '}
-                    · atualizado às{' '}
-                    <span className="navi-ui-date">
-                      {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
+      <PageHeader
+        className="inbox-page-header"
+        title="Conversas"
+        subtitle="Responda e acompanhe threads do WhatsApp."
+        meta={
+          loading ? (
+            'Carregando…'
+          ) : (
+            <>
+              <span className="navi-ui-count">{items.length}</span> conversas
+              {lastUpdatedAt ? (
+                <>
+                  {' '}
+                  · atualizado às{' '}
+                  <span className="navi-ui-date">
+                    {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </>
+              ) : null}
+            </>
+          )
+        }
+        actions={
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <div
               style={{
@@ -5289,7 +5293,8 @@ export default function Inbox() {
               </button>
             </div>
           </div>
-      </div>
+        }
+      />
 
       <div className="inbox-body-grow" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
@@ -5914,6 +5919,15 @@ export default function Inbox() {
                 )
       }
       </div>
+
+      <ConfirmDialog
+        open={Boolean(cancelConfirmMsgId)}
+        title="Cancelar agendamento?"
+        description="Cancelar esta mensagem agendada?"
+        confirmLabel="Cancelar agendamento"
+        onConfirm={() => void runCancelScheduledMessage()}
+        onClose={() => setCancelConfirmMsgId('')}
+      />
     </div>
   );
 }

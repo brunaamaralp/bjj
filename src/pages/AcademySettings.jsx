@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 import RouteFallback from '../components/shared/RouteFallback.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
@@ -454,29 +455,33 @@ const AcademySettings = () => {
 
     return (
         <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
-            <div className="animate-in">
-                <Link
-                    to="/"
-                    className="edit-link"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, textDecoration: 'none' }}
-                >
-                    <ChevronLeft size={18} strokeWidth={2} aria-hidden />
-                    Voltar ao painel
-                </Link>
-                <h2 className="navi-page-title">{terms.myWorkspace}</h2>
-                {academy.name ? (
-                    <p className="academy-settings-page-name">{academy.name}</p>
-                ) : contentLoading ? (
-                    <div
-                        className="empresa-skeleton-block academy-settings-page-name-skeleton"
-                        style={{ height: 18, maxWidth: 220, marginTop: 6 }}
-                        aria-hidden
-                    />
-                ) : null}
-                <p className="academy-settings-page-subtitle">
-                    {activeTabMeta.label} · {activeTabMeta.subtitle}
-                </p>
-            </div>
+            <PageHeader
+                title={terms.myWorkspace}
+                subtitle="Ajuste dados, funil e módulos da academia."
+                meta={
+                    academy.name ? (
+                        <span className="academy-settings-page-name">{academy.name}</span>
+                    ) : contentLoading ? (
+                        <span
+                            className="empresa-skeleton-block academy-settings-page-name-skeleton"
+                            style={{ display: 'block', height: 18, maxWidth: 220 }}
+                            aria-hidden
+                        />
+                    ) : (
+                        `${activeTabMeta.label} · ${activeTabMeta.subtitle}`
+                    )
+                }
+                prefix={
+                    <Link
+                        to="/"
+                        className="edit-link"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, textDecoration: 'none' }}
+                    >
+                        <ChevronLeft size={18} strokeWidth={2} aria-hidden />
+                        Voltar ao painel
+                    </Link>
+                }
+            />
 
             {academyLoadState === 'error' && (
                 <div className="error-banner" role="alert">

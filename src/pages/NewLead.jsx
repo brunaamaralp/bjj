@@ -15,6 +15,9 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.j
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { afterExperimentalScheduled } from '../lib/automationDispatch.js';
 import { notifyAutomationFeedback } from '../lib/automationUx.js';
+import PageHeader from '../components/layout/PageHeader.jsx';
+import FieldError from '../components/shared/FieldError.jsx';
+import StatusBanner from '../components/shared/StatusBanner.jsx';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -203,15 +206,16 @@ const NewLead = () => {
     };
     const leadLabelSingular = singular(useLeadStore.getState().labels?.leads || 'Leads');
     return (
-        <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <button className="btn-action-ghost icon-btn" onClick={() => navigate(-1)}>
-                    <ArrowLeft size={20} />
-                </button>
-                <h1 className="navi-page-title" style={{ margin: 0 }}>
-                    {`Novo ${leadLabelSingular}`}
-                </h1>
-            </div>
+        <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+            <PageHeader
+                title={`Novo ${leadLabelSingular}`}
+                subtitle="Cadastre um contato para o funil."
+                prefix={
+                    <button type="button" className="btn-action-ghost icon-btn" onClick={() => navigate(-1)} aria-label="Voltar">
+                        <ArrowLeft size={20} />
+                    </button>
+                }
+            />
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex-col gap-4">
                 {/* Nome */}
@@ -223,7 +227,7 @@ const NewLead = () => {
                         className="form-input"
                         autoFocus
                     />
-                    {errors.name && <span className="error">Campo obrigatório</span>}
+                    {errors.name ? <FieldError>Campo obrigatório</FieldError> : null}
                 </div>
 
                 {/* Telefone + Duplicate Warning */}
@@ -242,24 +246,21 @@ const NewLead = () => {
                         inputMode="numeric"
                         aria-busy={phoneChecking || undefined}
                     />
-                    {errors.phone && <span className="error">Campo obrigatório</span>}
+                    {errors.phone ? <FieldError>Campo obrigatório</FieldError> : null}
 
-                    {duplicate && !phoneChecking && (
-                        <div className="duplicate-alert duplicate-alert--error animate-in" role="alert">
-                            <AlertTriangle size={16} />
-                            <div>
-                                <strong>Telefone já cadastrado</strong>
-                                <p>Este telefone já está cadastrado — {duplicate.name}</p>
-                                <button
-                                    type="button"
-                                    className="dup-link"
-                                    onClick={() => navigate(`/lead/${encodeURIComponent(duplicate.id)}`)}
-                                >
-                                    Ver lead existente
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    {duplicate && !phoneChecking ? (
+                        <StatusBanner variant="warning" className="new-lead-duplicate-banner animate-in">
+                            <strong>Telefone já cadastrado</strong>
+                            <p style={{ margin: '4px 0 0' }}>Este telefone já está cadastrado — {duplicate.name}</p>
+                            <button
+                                type="button"
+                                className="dup-link"
+                                onClick={() => navigate(`/lead/${encodeURIComponent(duplicate.id)}`)}
+                            >
+                                Ver lead existente
+                            </button>
+                        </StatusBanner>
+                    ) : null}
                 </div>
 
                 {/* Tipo */}

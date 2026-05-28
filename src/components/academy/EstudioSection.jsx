@@ -3,6 +3,7 @@ import { Building2, Phone, Mail, MapPin, Tags, AlertTriangle } from 'lucide-reac
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { useTerms } from '../../lib/terminology.js';
+import FieldError from '../shared/FieldError.jsx';
 import { maskPhone, maskCPFOrCNPJ } from '../../lib/masks.js';
 
 const FISCAL_MASKED = '•••.•••.•••-••';
@@ -190,7 +191,7 @@ const EstudioSection = ({
                                 type="tel"
                                 inputMode="numeric"
                             />
-                            {fieldErrors.phone ? <p className="field-error">{fieldErrors.phone}</p> : null}
+                            {fieldErrors.phone ? <FieldError>{fieldErrors.phone}</FieldError> : null}
                         </div>
                         <div className="form-group">
                             <label>E-mail</label>
@@ -201,7 +202,7 @@ const EstudioSection = ({
                                 onChange={(e) => setAcademy({ ...academy, email: e.target.value })}
                                 placeholder="contato@academia.com"
                             />
-                            {fieldErrors.email ? <p className="field-error">{fieldErrors.email}</p> : null}
+                            {fieldErrors.email ? <FieldError>{fieldErrors.email}</FieldError> : null}
                         </div>
                         <div className="form-group">
                             <label>Endereço</label>
@@ -305,7 +306,7 @@ const EstudioSection = ({
                                 quando há falta registrada no funil de vendas.
                             </p>
                             {fieldErrors.quickTimes ? (
-                                <p className="field-error">{fieldErrors.quickTimes}</p>
+                                <FieldError>{fieldErrors.quickTimes}</FieldError>
                             ) : null}
                         </div>
                     </div>

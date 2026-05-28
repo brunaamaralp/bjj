@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
+import { useToast } from '../../hooks/useToast';
 import { account, databases, DB_ID, FINANCIAL_TX_COL, ACADEMIES_COL } from '../../lib/appwrite';
 import { getMonthlyPayments, createPayment, updatePayment } from '../../lib/studentPayments';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
@@ -12,12 +13,14 @@ import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError } from '../../lib/errorMessages';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
 import MensalidadesStatusFilter from './MensalidadesStatusFilter.jsx';
 import { expectedAmountForStudent, expectedAmountWithCardFee } from '../../lib/paymentStatus.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
 import './finance.css';
 import { useUserRole } from '../../lib/useUserRole.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../NlCommandBar';
@@ -164,7 +167,7 @@ export default function MensalidadesPanel({ embedded = false }) {
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const financeConfigAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
   const modules = useLeadStore((s) => s.modules);
-  const addToast = useUiStore((s) => s.addToast);
+  const toast = useToast();
   const terms = useTerms();
   const { allLabels: academyLabels } = useAcademyLabels(academyId);
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
@@ -611,23 +614,23 @@ export default function MensalidadesPanel({ embedded = false }) {
     );
     if (Number.isFinite(withFee) && withFee > amountNum) amountNum = withFee;
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
-      addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
+      toast.show({ type: 'error', message: 'Informe um valor maior que zero.' });
       return;
     }
     const paidAtMs = new Date(String(payForm.paid_at || '').trim()).getTime();
     if (!Number.isFinite(paidAtMs)) {
-      addToast({ type: 'error', message: 'Informe uma data de pagamento válida.' });
+      toast.show({ type: 'error', message: 'Informe uma data de pagamento válida.' });
       return;
     }
     const dueDayNum = Number(String(payForm.due_day || '').replace(/[^\d]/g, ''));
     const dueDayValid = Number.isFinite(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
     if (String(payForm.due_day || '').trim() && !dueDayValid) {
-      addToast({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
+      toast.show({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
       return;
     }
     const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
     if (!accountCheck.ok) {
-      addToast({ type: 'error', message: accountCheck.message });
+      toast.show({ type: 'error', message: accountCheck.message });
       return;
     }
 
@@ -708,12 +711,12 @@ export default function MensalidadesPanel({ embedded = false }) {
         studentPrefsWarning =
           ' Pagamento salvo; preferências do aluno (forma de pagamento/vencimento) não foram gravadas no cadastro.';
       }
-      addToast({
+      toast.show({
         type: studentPrefsWarning ? 'warning' : 'success',
         message: `Pagamento registrado.${studentPrefsWarning}`,
       });
       if (doc?.warning) {
-        addToast({
+        toast.show({
           type: 'warning',
           message: String(doc.warning || '').trim() || 'Pagamento registrado, mas houve um problema ao atualizar o caixa.',
           duration: 10000,
@@ -724,7 +727,7 @@ export default function MensalidadesPanel({ embedded = false }) {
       setSelectedStudent(student);
       setPayForm(payFormSnapshot);
       setShowModal(true);
-      addToast({
+      toast.show({
         type: 'error',
         message: 'Não foi possível registrar o pagamento. Tente novamente.',
       });
@@ -751,10 +754,10 @@ export default function MensalidadesPanel({ embedded = false }) {
           );
         }
       }
-      addToast({ type: 'success', message: 'Pagamento estornado.' });
+      toast.success('Pagamento estornado.');
     } catch (e) {
       setPayments(previousPayments);
-      addToast({
+      toast.show({
         type: 'error',
         message: 'Não foi possível estornar o pagamento.',
       });
@@ -786,36 +789,55 @@ export default function MensalidadesPanel({ embedded = false }) {
     >
       <header className="mensal-header">
         <div className="mensal-header__top">
-          <div>
-            {!embedded ? (
-              <>
-                <h1 className="navi-page-title">Mensalidades</h1>
-                <p className="navi-eyebrow mensal-header__eyebrow">
-                  Controle de pagamentos{academyName ? ` · ${academyName}` : ''}
-                </p>
-              </>
-            ) : (
+          {!embedded ? (
+            <PageHeader
+              className="navi-page-header--flush mensal-header__page-title"
+              title="Mensalidades"
+              subtitle="Controle cobranças e pagamentos dos alunos."
+              meta={`Referência do mês${academyName ? ` · ${academyName}` : ''}`}
+              metaClassName="mensal-header__eyebrow"
+              animate={false}
+              actions={
+                <div className="mensal-month-picker" aria-label="Selecionar mês">
+                  <button type="button" className="mensal-month-picker__btn" onClick={prevMonth} aria-label="Mês anterior">
+                    <ChevronLeft size={18} strokeWidth={2} />
+                  </button>
+                  <span className="mensal-month-picker__label">{formatMonthTitleCapitalized(currentMonth)}</span>
+                  <button
+                    type="button"
+                    className="mensal-month-picker__btn"
+                    onClick={nextMonth}
+                    disabled={isCurrentMonth}
+                    aria-label="Próximo mês"
+                  >
+                    <ChevronRight size={18} strokeWidth={2} />
+                  </button>
+                </div>
+              }
+            />
+          ) : (
+            <>
               <p className="navi-eyebrow mensal-header__eyebrow mensal-header__eyebrow--embedded">
                 Mês de referência
                 {academyName ? ` · ${academyName}` : ''}
               </p>
-            )}
-          </div>
-          <div className="mensal-month-picker" aria-label="Selecionar mês">
-            <button type="button" className="mensal-month-picker__btn" onClick={prevMonth} aria-label="Mês anterior">
-              <ChevronLeft size={18} strokeWidth={2} />
-            </button>
-            <span className="mensal-month-picker__label">{formatMonthTitleCapitalized(currentMonth)}</span>
-            <button
-              type="button"
-              className="mensal-month-picker__btn"
-              onClick={nextMonth}
-              disabled={isCurrentMonth}
-              aria-label="Próximo mês"
-            >
-              <ChevronRight size={18} strokeWidth={2} />
-            </button>
-          </div>
+              <div className="mensal-month-picker" aria-label="Selecionar mês">
+                <button type="button" className="mensal-month-picker__btn" onClick={prevMonth} aria-label="Mês anterior">
+                  <ChevronLeft size={18} strokeWidth={2} />
+                </button>
+                <span className="mensal-month-picker__label">{formatMonthTitleCapitalized(currentMonth)}</span>
+                <button
+                  type="button"
+                  className="mensal-month-picker__btn"
+                  onClick={nextMonth}
+                  disabled={isCurrentMonth}
+                  aria-label="Próximo mês"
+                >
+                  <ChevronRight size={18} strokeWidth={2} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {modules?.finance === true ? (
@@ -964,7 +986,7 @@ export default function MensalidadesPanel({ embedded = false }) {
           search={search}
           filter={filter}
           terms={terms}
-          addToast={addToast}
+          addToast={toast.addToast}
           friendlyError={friendlyError}
           loading={loading}
         />
@@ -986,7 +1008,7 @@ export default function MensalidadesPanel({ embedded = false }) {
           sessionUserName={sessionUserName}
           search={search}
           terms={terms}
-          addToast={addToast}
+          addToast={toast.addToast}
           friendlyError={friendlyError}
           loading={loading}
         />
@@ -1041,12 +1063,10 @@ export default function MensalidadesPanel({ embedded = false }) {
       ) : null}
 
       {loadingError ? (
-        <div className="mensal-error-banner">
-          <span>Erro ao carregar pagamentos do mês.</span>
-          <button type="button" onClick={() => void recarregarMes()}>
-            Tentar novamente
-          </button>
-        </div>
+        <ErrorBanner
+          message="Erro ao carregar pagamentos do mês."
+          onRetry={() => void recarregarMes()}
+        />
       ) : null}
 
       {estornoCaixaWarning ? (

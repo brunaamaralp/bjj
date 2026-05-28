@@ -6,6 +6,8 @@ import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
+import FieldError from '../shared/FieldError.jsx';
 import {
   membershipPrimaryLabel,
   membershipSecondaryEmail,
@@ -383,12 +385,10 @@ function EquipeSection({ academy, academyId }) {
         ) : (
           <>
             {membersLoadError && !loadingMembers ? (
-              <div className="section-error" role="alert">
-                <span>Não foi possível carregar a equipe.</span>
-                <button type="button" className="btn-secondary" onClick={() => void loadMembers()}>
-                  Tentar novamente
-                </button>
-              </div>
+              <ErrorBanner
+                message="Não foi possível carregar a equipe."
+                onRetry={() => void loadMembers()}
+              />
             ) : null}
             {loadingMembers ? (
               isMobile ? (
@@ -607,7 +607,7 @@ function EquipeSection({ academy, academyId }) {
                   </p>
                 ) : null}
               </div>
-              {memberError ? <p className="field-error">{memberError}</p> : null}
+              {memberError ? <FieldError>{memberError}</FieldError> : null}
               <button
                 type="submit"
                 className="btn-primary"
@@ -749,7 +749,7 @@ function EquipeSection({ academy, academyId }) {
                       </select>
                     </div>
                   ) : null}
-                  {editError ? <p className="field-error">{editError}</p> : null}
+                  {editError ? <FieldError>{editError}</FieldError> : null}
                   {editEmailWarning ? (
                     <p className="text-small" style={{ color: 'var(--warning, #9a7b12)' }}>
                       {editEmailWarning}

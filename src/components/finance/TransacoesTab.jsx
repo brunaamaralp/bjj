@@ -24,6 +24,7 @@ import {
   normalizeRecurrenceDay,
 } from '../../lib/financeRecurrence.js';
 import { useUiStore } from '../../store/useUiStore';
+import { useToast } from '../../hooks/useToast';
 import { friendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
@@ -113,7 +114,7 @@ export default function TransacoesTab({
   onTxMutated,
 }) {
   const leads = useStudentStore((s) => s.students);
-  const addToast = useUiStore((s) => s.addToast);
+  const toast = useToast();
   const isMobile = useMatchMobile();
   const canManageAdvanced = isOwner || isAdmin;
   const [fromDate, setFromDate] = useState(periodFrom);
@@ -349,11 +350,11 @@ export default function TransacoesTab({
     try {
       const row = await patchFinanceTx({ academyId, id: tid, payload: { action: 'cancel_recurrence' } });
       setTransactions((prev) => prev.map((t) => (String(t.id) === tid ? row : t)));
-      addToast({ type: 'success', message: 'Recorrência cancelada.' });
+      toast.success('Recorrência cancelada.');
       if (typeof onTxMutated === 'function') onTxMutated();
       window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'action') });
+      toast.error(e, 'action');
     } finally {
       setRecurrenceCancelLoadingId('');
     }
@@ -428,7 +429,7 @@ export default function TransacoesTab({
       const nowIso = settledAtServer || new Date().toISOString();
       const tx = transactions.find((t) => t.id === id);
       setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'settled', settledAt: nowIso } : t)));
-      addToast({ type: 'success', message: 'Transação liquidada com sucesso' });
+      toast.success('Transação liquidada com sucesso');
       if (tx && academyId) {
         applySettleAccountingSideEffects(tx, academyId);
       }
@@ -437,7 +438,7 @@ export default function TransacoesTab({
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || '').trim();
-      addToast({ type: 'error', message: msg || friendlyError(e, 'action') });
+      toast.show({ type: 'error', message: msg || friendlyError(e, 'action') });
     }
   };
 
@@ -478,12 +479,12 @@ export default function TransacoesTab({
       setTransactions((prev) =>
         prev.map((t) => (String(t.id) === tid ? { ...t, status: 'cancelled', settledAt: '' } : t))
       );
-      addToast({ type: 'success', message: 'Lançamento cancelado.' });
+      toast.success('Lançamento cancelado.');
       if (typeof onTxMutated === 'function') onTxMutated();
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || '').trim();
-      addToast({ type: 'error', message: msg || friendlyError(e, 'action') });
+      toast.show({ type: 'error', message: msg || friendlyError(e, 'action') });
     } finally {
       setCancelLoadingId('');
     }
@@ -495,16 +496,16 @@ export default function TransacoesTab({
         ? txForm.gross
         : parseCurrencyBRL(txForm.gross);
     if (!academyId || !Number.isFinite(grossNum) || grossNum <= 0) {
-      addToast({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
+      toast.show({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
       return;
     }
     if (txForm.direction === 'out' && !canManageAdvanced) {
-      addToast({ type: 'error', message: 'Apenas gestores podem registrar saída.' });
+      toast.show({ type: 'error', message: 'Apenas gestores podem registrar saída.' });
       return;
     }
     const cat = resolveFinanceCategory(txForm.category);
     if (!cat) {
-      addToast({ type: 'error', message: 'Selecione uma categoria válida.' });
+      toast.show({ type: 'error', message: 'Selecione uma categoria válida.' });
       return;
     }
     const feePct =
@@ -531,7 +532,7 @@ export default function TransacoesTab({
 
       if (editingTxId && editingRecurrenceOnly) {
         if (!txForm.repeat_enabled) {
-          addToast({ type: 'error', message: 'Ative "Repetir automaticamente" para manter a recorrência.' });
+          toast.show({ type: 'error', message: 'Ative "Repetir automaticamente" para manter a recorrência.' });
           setSavingTx(false);
           return;
         }
@@ -546,11 +547,11 @@ export default function TransacoesTab({
           },
         });
         setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
-        addToast({ type: 'success', message: 'Recorrência atualizada.' });
+        toast.success('Recorrência atualizada.');
       } else if (editingTxId) {
         const row = await patchFinanceTx({ academyId, id: editingTxId, payload });
         setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
-        addToast({ type: 'success', message: 'Transação atualizada.' });
+        toast.success('Transação atualizada.');
       } else {
         if (txForm.repeat_enabled) {
           payload.is_recurrence_template = true;
@@ -561,7 +562,7 @@ export default function TransacoesTab({
         const row = await createFinanceTx({ academyId, payload });
         if (receiveNow && row) applyAccountingSideEffectsAuto(row, academyId);
         setTransactions((prev) => [row, ...prev]);
-        addToast({
+        toast.show({
           type: 'success',
           message: receiveNow ? 'Lançamento registrado e liquidado.' : 'Transação registrada.',
         });
@@ -572,7 +573,7 @@ export default function TransacoesTab({
       void loadTransactions();
     } catch (e) {
       console.error(e);
-      addToast({ type: 'error', message: String(e?.message || friendlyError(e, 'save')) });
+      toast.show({ type: 'error', message: String(e?.message || friendlyError(e, 'save')) });
     } finally {
       setSavingTx(false);
     }

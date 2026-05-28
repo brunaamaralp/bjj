@@ -5,6 +5,7 @@ import { resolveHubTab } from '../lib/hubTabs.js';
 import AutomacoesProcessosTab from './AutomacoesProcessosTab.jsx';
 import AutomacoesModelosTab from './AutomacoesModelosTab.jsx';
 import AutomacoesConfigTab from './AutomacoesConfigTab.jsx';
+import PageHeader from '../components/layout/PageHeader.jsx';
 
 const TABS = [
   { id: 'processos', label: 'Processos' },
@@ -33,11 +34,11 @@ export default function Automacoes() {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 30 }}>
-      <h1 className="navi-page-title">Automações</h1>
-      <p className="navi-subtitle" style={{ marginBottom: 16 }}>
-        Processos de tarefas, modelos de mensagem e gatilhos automáticos do funil.
-      </p>
+    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+      <PageHeader
+        title="Automações"
+        subtitle="Configure processos, modelos de mensagem e gatilhos do funil."
+      />
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Automações" fullWidth />
       <div className="mt-3 animate-in">
         {activeTab === 'processos' ? <AutomacoesProcessosTab /> : null}

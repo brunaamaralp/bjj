@@ -17,20 +17,7 @@ export function OfflineBanner() {
   if (!offline) return null;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        background: '#f59e0b',
-        color: '#fff',
-        padding: '8px 16px',
-        textAlign: 'center',
-        zIndex: 11000,
-        fontSize: 14,
-      }}
-    >
+    <div className="navi-offline-banner" role="alert">
       Sem conexão com a internet. Algumas funções podem não funcionar.
     </div>
   );

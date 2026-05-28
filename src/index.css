@@ -95,6 +95,16 @@
   --warning-text: var(--warn-text);
   --danger-bg: var(--danger-light);
   --info-bg: color-mix(in srgb, var(--info) 14%, var(--surface));
+
+  /* Status banners / feedback */
+  --status-error-bg: var(--danger-light);
+  --status-error-border: color-mix(in srgb, var(--danger) 25%, transparent);
+  --status-warning-bg: var(--warning-light);
+  --status-warning-border: color-mix(in srgb, var(--warning) 30%, transparent);
+  --status-info-bg: var(--info-bg);
+  --status-info-border: color-mix(in srgb, var(--info) 22%, transparent);
+  --status-success-bg: var(--success-light);
+  --status-success-border: color-mix(in srgb, var(--success-dot) 28%, transparent);
   --neutral: var(--text-secondary);
   --neutral-bg: color-mix(in srgb, var(--text-secondary) 14%, var(--surface));
 
@@ -3182,7 +3192,7 @@ button.funil-color-swatch {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   min-width: min(280px, calc(100vw - 32px));
   max-width: 400px;
   padding: 12px 16px;
@@ -3197,6 +3207,34 @@ button.funil-color-swatch {
   font-size: 14px;
   line-height: 1.4;
   color: var(--ink);
+}
+
+.navi-toast-icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.navi-toast-action {
+  flex-shrink: 0;
+  margin-right: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.navi-toast-action--secondary {
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.navi-toast-action--danger {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .navi-toast.removing {
@@ -3246,18 +3284,38 @@ button.funil-color-swatch {
 
 .navi-toast.success {
   border-left-color: var(--success-dot);
+  background: color-mix(in srgb, var(--success-bg) 55%, var(--white));
+}
+
+.navi-toast.success .navi-toast-icon {
+  color: var(--success-dot);
 }
 
 .navi-toast.error {
   border-left-color: var(--c500);
+  background: color-mix(in srgb, var(--status-error-bg) 50%, var(--white));
+}
+
+.navi-toast.error .navi-toast-icon {
+  color: var(--danger);
 }
 
 .navi-toast.warning {
   border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--status-warning-bg) 55%, var(--white));
+}
+
+.navi-toast.warning .navi-toast-icon {
+  color: var(--warning);
 }
 
 .navi-toast.info {
   border-left-color: var(--v400);
+  background: color-mix(in srgb, var(--status-info-bg) 70%, var(--white));
+}
+
+.navi-toast.info .navi-toast-icon {
+  color: var(--v400);
 }
 
 @keyframes navi-toast-in {
@@ -3327,6 +3385,78 @@ button.funil-color-swatch {
   color: var(--mid);
   line-height: 1.45;
   margin: 6px 0 0;
+}
+
+/* PageHeader / SectionHeader — layout compartilhado */
+.navi-page-header {
+  margin-bottom: 16px;
+}
+
+.navi-page-header--flush {
+  margin-bottom: 0;
+}
+
+.navi-page-header__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.navi-page-header__intro {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.navi-page-header__subtitle {
+  margin-bottom: 0;
+}
+
+.navi-page-header__meta {
+  margin-top: 8px;
+  margin-bottom: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--ff-ui);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.navi-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.navi-page-header__toolbar {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.navi-section-header {
+  margin-bottom: 12px;
+}
+
+.navi-section-header__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.navi-section-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.navi-section-header__subtitle {
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 
 .navi-mono-date,
@@ -9605,7 +9735,8 @@ input[type='datetime-local'].form-input:focus {
   }
 }
 
-/* ErrorBanner */
+/* StatusBanner (+ alias .navi-error-banner) */
+.navi-status-banner,
 .navi-error-banner {
   display: flex;
   flex-wrap: wrap;
@@ -9614,24 +9745,87 @@ input[type='datetime-local'].form-input:focus {
   padding: 12px 14px;
   margin: 12px 0 16px;
   border-radius: 10px;
-  background: var(--status-danger-bg, var(--danger-light));
-  border: 1px solid rgba(163, 45, 45, 0.25);
-  color: var(--text);
   font-size: 0.9rem;
+  color: var(--text);
 }
 
+.navi-status-banner--error,
+.navi-error-banner {
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
+}
+
+.navi-status-banner--error .navi-status-banner__icon,
 .navi-error-banner__icon {
   flex-shrink: 0;
   color: var(--danger);
 }
 
+.navi-status-banner--warning {
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+}
+
+.navi-status-banner--warning .navi-status-banner__icon {
+  color: var(--warning);
+}
+
+.navi-status-banner--info {
+  background: var(--status-info-bg);
+  border: 1px solid var(--status-info-border);
+}
+
+.navi-status-banner--info .navi-status-banner__icon {
+  color: var(--info);
+}
+
+.navi-status-banner--success {
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success-border);
+}
+
+.navi-status-banner--success .navi-status-banner__icon {
+  color: var(--success-dot);
+}
+
+.navi-status-banner__icon {
+  flex-shrink: 0;
+}
+
+.navi-status-banner__message,
 .navi-error-banner__message {
   flex: 1;
   min-width: 0;
 }
 
+.navi-status-banner__retry,
+.navi-status-banner__action,
 .navi-error-banner__retry {
   margin-left: auto;
+}
+
+/* FieldError */
+.navi-field-error {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--danger);
+  line-height: 1.35;
+}
+
+/* Offline banner (top bar) */
+.navi-offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 11000;
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 14px;
+  background: var(--warning);
+  color: var(--white);
+  border-bottom: 1px solid var(--status-warning-border);
 }
 
 /* AsyncButton */

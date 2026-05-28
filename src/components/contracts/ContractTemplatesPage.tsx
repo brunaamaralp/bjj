@@ -17,6 +17,7 @@ import {
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ContractTemplateEditor from './ContractTemplateEditor.js';
+import PageHeader from '../layout/PageHeader.jsx';
 import './contracts.css';
 import { friendlyError } from '../../lib/errorMessages.js';
 
@@ -166,27 +167,25 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
 
   return (
     <div className={embedded ? 'contracts-page' : 'container contracts-page'}>
-      <div className="contracts-page-header animate-in">
-        <div>
-          {!embedded ? (
-            <Link to="/empresa" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8 }}>
+      <PageHeader
+        className="contracts-page-header"
+        title="Modelos de contrato"
+        subtitle="Edite modelos com variáveis e vincule planos na aba Financeiro."
+        prefix={
+          !embedded ? (
+            <Link to="/empresa" className="navi-eyebrow flex items-center gap-1" style={{ marginBottom: 8, textTransform: 'none', letterSpacing: 'normal' }}>
               <ArrowLeft size={14} /> Configurações
             </Link>
-          ) : null}
-          <h1 className="navi-page-title flex items-center gap-2">
-            <FileText size={26} strokeWidth={1.75} aria-hidden />
-            Modelos de contrato
-          </h1>
-          <p className="navi-eyebrow" style={{ marginTop: 6 }}>
-            Editor de contratos com variáveis. Vincule planos na aba Financeiro desta página.
-          </p>
-        </div>
-        {!editorMode ? (
-          <button type="button" className="btn-primary" onClick={openCreate} disabled={!configured}>
-            <Plus size={16} /> Novo modelo
-          </button>
-        ) : null}
-      </div>
+          ) : null
+        }
+        actions={
+          !editorMode ? (
+            <button type="button" className="btn-primary" onClick={openCreate} disabled={!configured}>
+              <Plus size={16} /> Novo modelo
+            </button>
+          ) : null
+        }
+      />
 
       {!configured ? (
         <div className="card mt-4" style={{ padding: 16 }}>

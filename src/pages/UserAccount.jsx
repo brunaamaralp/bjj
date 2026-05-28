@@ -10,6 +10,7 @@ import HubTabBar from '../components/shared/HubTabBar';
 import PlansTabContent from '../components/account/PlansTabContent.jsx';
 import AvancadoSection from '../components/academy/AvancadoSection';
 import { useUiStore } from '../store/useUiStore';
+import FieldError from '../components/shared/FieldError.jsx';
 import { useTerms } from '../lib/terminology.js';
 
 const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'seguranca', 'dados']);
@@ -147,8 +148,11 @@ const UserAccount = ({ user }) => {
           {userInitial(email)}
         </div>
         <div style={{ minWidth: 0 }}>
-          <h2 className="navi-page-title" style={{ margin: 0 }}>Minha conta</h2>
-          <p style={{ margin: '3px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)', wordBreak: 'break-all', lineHeight: 1.4 }}>
+          <h1 className="navi-page-title" style={{ margin: 0 }}>Minha conta</h1>
+          <p className="navi-subtitle" style={{ margin: '4px 0 0', wordBreak: 'break-all' }}>
+            Gerencie perfil, assinatura e segurança.
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)', wordBreak: 'break-all', lineHeight: 1.4 }}>
             {email || displayName}
           </p>
         </div>
@@ -280,7 +284,7 @@ const UserAccount = ({ user }) => {
                       disabled={pwdSaving}
                     />
                   </div>
-                  {pwdInlineError ? <p className="field-error">{pwdInlineError}</p> : null}
+                  {pwdInlineError ? <FieldError>{pwdInlineError}</FieldError> : null}
                   <div className="flex gap-2 justify-end">
                     <button type="button" className="btn-outline" onClick={closePasswordModal} disabled={pwdSaving}>
                       Cancelar
