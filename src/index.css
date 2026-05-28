@@ -5542,13 +5542,23 @@ button.funil-color-swatch {
   flex-shrink: 0;
 }
 
-.inventory-page__eyebrow {
-  margin-top: 6px;
-  margin-bottom: 12px;
+.inventory-page-header {
+  flex-wrap: wrap;
 }
 
-.inventory-page__import-card {
-  margin-bottom: 16px;
+.inventory-page__eyebrow {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.inventory-page-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inventory-page__tabs {
+  margin-top: 12px;
 }
 
 .inventory-page__body {

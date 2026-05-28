@@ -148,19 +148,18 @@ const Inventory = () => {
 
   return (
     <div className="container inventory-page">
-      <div className="inventory-page__head animate-in">
-        <h1 className="navi-page-title">Estoque</h1>
-        <p className="navi-eyebrow inventory-page__eyebrow">
-          Saldo por item e movimentações
-        </p>
-        <div className="page-header-card inventory-page__import-card">
-          <div className="page-header-row">
-            <div style={{ flex: 1 }} />
-            <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
-              <Upload size={14} aria-hidden />
-              Importar produtos em lote
-            </Link>
-          </div>
+      <div className="inventory-page__head animate-in flex justify-between items-start gap-2 inventory-page-header">
+        <div>
+          <h1 className="navi-page-title">Estoque</h1>
+          <p className="navi-eyebrow inventory-page__eyebrow">
+            Saldo por item e movimentações
+          </p>
+        </div>
+        <div className="inventory-page-actions">
+          <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
+            <Upload size={14} aria-hidden />
+            Importar em lote
+          </Link>
         </div>
       </div>
 
