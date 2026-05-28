@@ -89,7 +89,7 @@
     },
     {
       "path": "/api/cron/automations",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cron/tasks-due",
