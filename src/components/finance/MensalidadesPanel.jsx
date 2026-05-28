@@ -782,19 +782,7 @@ export default function MensalidadesPanel({ embedded = false }) {
 
   return (
     <div
-      className={`mensalidades-page animate-in${embedded ? ' mensalidades-panel--embedded' : ''}`}
-      style={
-        embedded
-          ? { width: '100%', boxSizing: 'border-box' }
-          : {
-              padding: 24,
-              maxWidth: 1040,
-              margin: '0 auto',
-              boxSizing: 'border-box',
-              background: 'var(--surface, #fff)',
-              width: '100%',
-            }
-      }
+      className={`mensalidades-page animate-in${embedded ? ' mensalidades-panel--embedded mensalidades-page--embedded' : ' mensalidades-page--standalone'}`}
     >
       <header className="mensal-header">
         <div className="mensal-header__top">
@@ -807,7 +795,7 @@ export default function MensalidadesPanel({ embedded = false }) {
                 </p>
               </>
             ) : (
-              <p className="navi-eyebrow mensal-header__eyebrow" style={{ margin: 0 }}>
+              <p className="navi-eyebrow mensal-header__eyebrow mensal-header__eyebrow--embedded">
                 Mês de referência
                 {academyName ? ` · ${academyName}` : ''}
               </p>
@@ -1105,65 +1093,28 @@ export default function MensalidadesPanel({ embedded = false }) {
       {showModal && selectedStudent && typeof document !== 'undefined'
         ? createPortal(
             <div
-              className="navi-modal-overlay"
+              className="navi-modal-overlay mensalidades-modal-overlay"
               role="dialog"
               aria-modal="true"
               aria-labelledby="mensalidades-modal-title"
               onClick={() => {
                 if (!savingPayment) setShowModal(false);
               }}
-              style={{
-                zIndex: 2500,
-              }}
             >
               <div
                 className="mensalidades-modal-scope"
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  background: 'var(--surface, #fff)',
-                  borderRadius: 14,
-                  padding: 0,
-                  width: '100%',
-                  maxWidth: 440,
-                  maxHeight: 'calc(100vh - 32px)',
-                  overflowY: 'auto',
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-                  boxSizing: 'border-box',
-                }}
               >
-                <header
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    gap: 16,
-                    padding: '24px 24px 20px',
-                    borderBottom: '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
+                <header className="mensalidades-modal-header">
+                  <div className="mensalidades-modal-header__main">
                     <div
                       id="mensalidades-modal-title"
-                      style={{
-                        fontSize: 17,
-                        fontWeight: 500,
-                        color: 'var(--text-primary, var(--text))',
-                        lineHeight: 1.3,
-                      }}
+                      className="mensalidades-modal-header__title"
                     >
                       {selectedStudent.name}
                     </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        marginTop: 6,
-                        fontSize: 13,
-                        color: 'var(--color-text-secondary, var(--text-secondary))',
-                      }}
-                    >
-                      <span className="ti ti-calendar" style={{ fontSize: 13, lineHeight: 1 }} aria-hidden />
+                    <div className="mensalidades-modal-header__month">
+                      <span className="ti ti-calendar mensalidades-modal-header__month-icon" aria-hidden />
                       {formatMonthTitleCapitalized(currentMonth)}
                     </div>
                   </div>
@@ -1174,46 +1125,20 @@ export default function MensalidadesPanel({ embedded = false }) {
                     onClick={() => {
                       if (!savingPayment) setShowModal(false);
                     }}
-                    style={{
-                      flexShrink: 0,
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      border: 'none',
-                      padding: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
-                      color: 'var(--color-text-secondary, var(--text-secondary))',
-                      cursor: savingPayment ? 'not-allowed' : 'pointer',
-                      opacity: savingPayment ? 0.5 : 1,
-                    }}
+                    className={`mensalidades-modal-close${savingPayment ? ' mensalidades-modal-close--disabled' : ''}`}
                   >
-                    <span className="ti ti-x" style={{ fontSize: 16, lineHeight: 1 }} aria-hidden />
+                    <span className="ti ti-x mensalidades-modal-close__icon" aria-hidden />
                   </button>
                 </header>
 
-                <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="mensalidades-modal-body">
                   <div className="mensal-pay-top-grid">
-                    <div style={{ minWidth: 0 }}>
+                    <div className="mensal-modal-col">
                       <label className="mensal-modal-field-label" htmlFor="mensal-pay-amount">
                         Valor (R$)
                       </label>
-                      <div style={{ position: 'relative' }}>
-                        <span
-                          style={{
-                            position: 'absolute',
-                            left: 12,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: 'var(--color-text-secondary, var(--text-secondary))',
-                            fontSize: 14,
-                            pointerEvents: 'none',
-                            lineHeight: 1,
-                          }}
-                          aria-hidden
-                        >
+                      <div className="mensal-modal-amount-wrap">
+                        <span className="mensal-modal-amount-prefix" aria-hidden>
                           R$
                         </span>
                         <input
@@ -1227,7 +1152,7 @@ export default function MensalidadesPanel({ embedded = false }) {
                         />
                       </div>
                     </div>
-                    <div style={{ minWidth: 0 }}>
+                    <div className="mensal-modal-col">
                       <DateInput
                         label="Data do pagamento"
                         type="date"
@@ -1261,16 +1186,10 @@ export default function MensalidadesPanel({ embedded = false }) {
                     />
                   </div>
                   <div>
-                    <div className="mensal-modal-field-label" style={{ marginBottom: 6 }}>
+                    <div className="mensal-modal-field-label mensal-modal-field-label--spaced">
                       Forma de pagamento
                     </div>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: 6,
-                      }}
-                    >
+                    <div className="mensal-modal-method-grid">
                       {(() => {
                         const list = orderedPayMethodsForModal();
                         return list.map((o, idx) => {
@@ -1282,23 +1201,10 @@ export default function MensalidadesPanel({ embedded = false }) {
                               type="button"
                               aria-pressed={active}
                               onClick={() => setPayForm((f) => ({ ...f, method: o.value }))}
-                              style={{
-                                gridColumn: idx === list.length - 1 ? '1 / -1' : undefined,
-                                background: active ? '#EEEDFE' : 'var(--color-background-secondary, var(--surface-hover, #f4f4f8))',
-                                border: active ? '0.5px solid #5B3FBF' : '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
-                                borderRadius: 'var(--border-radius-md, var(--radius-sm))',
-                                padding: '8px 4px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: 4,
-                                cursor: 'pointer',
-                                color: active ? '#3C3489' : 'var(--text-primary, var(--text))',
-                                font: 'inherit',
-                              }}
+                              className={`mensal-modal-method-btn${active ? ' mensal-modal-method-btn--active' : ''}${idx === list.length - 1 ? ' mensal-modal-method-btn--full' : ''}`}
                             >
-                              <span className={`ti ${iconClass}`} style={{ fontSize: 18, lineHeight: 1 }} aria-hidden />
-                              <span style={{ fontSize: 12, fontWeight: 500, textAlign: 'center', lineHeight: 1.2 }}>{o.label}</span>
+                              <span className={`ti ${iconClass} mensal-modal-method-btn__icon`} aria-hidden />
+                              <span className="mensal-modal-method-btn__label">{o.label}</span>
                             </button>
                           );
                         });
@@ -1322,7 +1228,7 @@ export default function MensalidadesPanel({ embedded = false }) {
                       marginBottom: 6,
                     }}
                   />
-                  <label className="mensal-modal-checkbox-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: 0 }}>
+                  <label className="mensal-modal-checkbox-row">
                     <input
                       type="checkbox"
                       checked={Boolean(payForm.saveAsPreferred)}
@@ -1349,26 +1255,12 @@ export default function MensalidadesPanel({ embedded = false }) {
 
                 <footer
                   className="mensalidades-modal-footer"
-                  style={{
-                    borderTop: '0.5px solid var(--color-border-tertiary, var(--border-light, #e8e8ef))',
-                    padding: '16px 24px 24px',
-                    display: 'flex',
-                    gap: 10,
-                    alignItems: 'stretch',
-                  }}
                 >
                   <button
                     type="button"
-                    className="btn-outline"
+                    className={`btn-outline mensalidades-modal-footer__cancel${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
                     onClick={() => setShowModal(false)}
                     disabled={savingPayment}
-                    style={{
-                      flex: 1,
-                      minHeight: 44,
-                      fontWeight: 600,
-                      opacity: savingPayment ? 0.55 : 1,
-                      cursor: savingPayment ? 'not-allowed' : 'pointer',
-                    }}
                   >
                     Cancelar
                   </button>
@@ -1377,18 +1269,9 @@ export default function MensalidadesPanel({ embedded = false }) {
                     className="btn-primary"
                     disabled={savingPayment}
                     onClick={() => void handleSavePayment()}
-                    style={{
-                      flex: 2,
-                      minHeight: 44,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      fontWeight: 600,
-                      cursor: savingPayment ? 'not-allowed' : 'pointer',
-                    }}
+                    className={`btn-primary mensalidades-modal-footer__confirm${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
                   >
-                    <span className="ti ti-check" style={{ fontSize: 18, lineHeight: 1 }} aria-hidden />
+                    <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
                     {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}
                   </button>
                 </footer>

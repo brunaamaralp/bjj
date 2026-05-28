@@ -500,31 +500,30 @@ export default function MonthlyPaymentGrid({
           marginBottom: 16,
         }}
       >
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 20, fontWeight: 600 }}>{fmtMoney(totals.expectedTotal)}</div>
+        <div className="card mensal-summary-metric-card">
+          <div className="mensal-summary-metric-card__value finance-data">{fmtMoney(totals.expectedTotal)}</div>
           <div className="text-xs text-muted">Total esperado no mês</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 20, fontWeight: 600, color: '#3B6D11' }}>{fmtMoney(totals.receivedTotal)}</div>
+        <div className="card mensal-summary-metric-card">
+          <div className="mensal-summary-metric-card__value finance-amount-positive">{fmtMoney(totals.receivedTotal)}</div>
           <div className="text-xs text-muted">Total recebido</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
+        <div className="card mensal-summary-metric-card">
           <div
             className={`monthly-grid-pending-total monthly-grid-pending-total--${totals.pendingTone}`}
-            style={{ fontSize: 20, fontWeight: 600 }}
           >
             {fmtMoney(totals.pendingTotal)}
           </div>
           <div className="text-xs text-muted">Total pendente</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 20, fontWeight: 600 }}>
+        <div className="card mensal-summary-metric-card">
+          <div className="mensal-summary-metric-card__value finance-data">
             {totals.paidCount} / {totals.active}
           </div>
           <div className="text-xs text-muted">{terms.student}s pagos</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 20, fontWeight: 600, color: '#C2410C' }}>{totals.problemCount}</div>
+        <div className="card mensal-summary-metric-card">
+          <div className="mensal-summary-metric-card__value finance-value-pending">{totals.problemCount}</div>
           <div className="text-xs text-muted">Com pendência ou divergência</div>
         </div>
       </div>
@@ -571,7 +570,7 @@ export default function MonthlyPaymentGrid({
             <col style={{ width: '14%' }} />
             <col style={{ width: 48 }} />
           </colgroup>
-          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover, #f4f4f8)' }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover)' }}>
             <tr>
               <th style={{ width: 28 }} />
               <th>{terms.student}</th>
@@ -659,7 +658,7 @@ export default function MonthlyPaymentGrid({
       <style>{`
         .monthly-payment-grid .grid-row-saving { opacity: 0.65; }
         .monthly-payment-grid .grid-status-badge:hover { filter: brightness(0.95); }
-        .payment-status-popover { box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 0.5px solid var(--border-light); }
+        .payment-status-popover { box-shadow: var(--shadow-lg); border: 0.5px solid var(--border-light); }
       `}</style>
     </div>
   );

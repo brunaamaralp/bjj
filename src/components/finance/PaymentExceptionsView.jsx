@@ -382,12 +382,12 @@ export default function PaymentExceptionsView({
           marginBottom: 16,
         }}
       >
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>{totals.count}</div>
+        <div className="card mensal-summary-metric-card">
+          <div className="mensal-summary-metric-card__value mensal-summary-metric-card__value--lg finance-data">{totals.count}</div>
           <div className="text-xs text-muted">Total de casos</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 22, fontWeight: 600, color: '#A32D2D' }}>{fmtMoney(totals.openValue)}</div>
+        <div className="card mensal-summary-metric-card">
+          <div className="mensal-summary-metric-card__value mensal-summary-metric-card__value--lg finance-amount-negative">{fmtMoney(totals.openValue)}</div>
           <div className="text-xs text-muted">Valor em aberto</div>
         </div>
         <div className="card" style={{ padding: '12px 14px', gridColumn: 'span 2' }}>
@@ -472,7 +472,7 @@ export default function PaymentExceptionsView({
       ) : (
       <div className="mensal-table-wrap" style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
         <table className="mensal-table" style={{ minWidth: 980 }}>
-          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover, #f4f4f8)' }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover)' }}>
             <tr>
               <th>Nome</th>
               <th>Plano</th>
@@ -522,19 +522,19 @@ export default function PaymentExceptionsView({
                 const flash = resolvedFlash.has(row.student.id);
                 const diffColor =
                   row.primaryStatus === 'awaiting'
-                    ? '#B45309'
+                    ? 'var(--finance-color-pending)'
                     : row.primaryStatus === 'partial'
-                      ? '#C2410C'
+                      ? 'var(--finance-color-pending)'
                       : row.difference < -0.009
-                        ? '#6D28D9'
+                        ? 'var(--finance-color-neutral)'
                         : row.difference > 0.009
-                          ? '#A32D2D'
+                          ? 'var(--finance-color-negative)'
                           : 'var(--text-secondary)';
                 return (
                   <tr
                     key={row.student.id}
                     style={{
-                      background: flash ? '#EAF3DE' : undefined,
+                      background: flash ? 'var(--success-bg)' : undefined,
                       transition: 'background 0.3s ease',
                       opacity: savingId === row.student.id ? 0.6 : 1,
                     }}

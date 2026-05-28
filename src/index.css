@@ -93,6 +93,22 @@
 
   --warning-bg: var(--warn-bg);
   --warning-text: var(--warn-text);
+  --danger-bg: var(--danger-light);
+  --info-bg: color-mix(in srgb, var(--info) 14%, var(--surface));
+  --neutral: var(--text-secondary);
+  --neutral-bg: color-mix(in srgb, var(--text-secondary) 14%, var(--surface));
+
+  /* Financeiro — aliases semânticos */
+  --finance-color-positive: var(--success, #3B6D11);
+  --finance-color-negative: var(--danger, #A32D2D);
+  --finance-color-pending: var(--warning, #B45309);
+  --finance-color-neutral: var(--neutral, var(--text-secondary));
+  --finance-card-bg: var(--surface);
+  --finance-card-bg-alert: var(--warning-bg, var(--warn-bg));
+  --finance-card-bg-primary: var(--v50);
+  --finance-card-border: var(--border-light);
+  --finance-card-border-alert: color-mix(in srgb, var(--finance-color-pending) 35%, transparent);
+  --finance-font-data: var(--ff-mono);
 
   font-family: var(--ff-ui);
   line-height: 1.5;

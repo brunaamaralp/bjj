@@ -32,8 +32,20 @@ function StatusBadge({ variant, children }) {
     cancelled: CircleDashed,
   };
   const Icon = icons[variant];
+  const financeBadgeClassByVariant = {
+    paid: 'finance-badge-pago',
+    covered: 'finance-badge-pago',
+    awaiting: 'finance-badge-aguardando',
+    partial: 'finance-badge-parcial',
+    pending: 'finance-badge-atrasado',
+    soon: 'finance-badge-pendente',
+    none: 'finance-badge-recorrente',
+    frozen: 'finance-badge-cancelado',
+    cancelled: 'finance-badge-cancelado',
+  };
+  const financeBadgeClass = financeBadgeClassByVariant[variant] || 'finance-badge-recorrente';
   return (
-    <span className={`mensal-status-badge mensal-status-badge--${variant}`}>
+    <span className={`mensal-status-badge mensal-status-badge--${variant} ${financeBadgeClass}`}>
       {Icon ? <Icon size={12} strokeWidth={2.25} aria-hidden /> : null}
       <span>{children}</span>
     </span>
@@ -144,7 +156,7 @@ export default function MensalidadesListTable({
     const venc = calendar.dueDate;
     let vencCell = '—';
     let vencIsEmpty = true;
-    let vencStyle = {};
+    let vencClassName = '';
     if (statusKey === 'paid' && payment?.paid_at) {
       const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
       vencCell = paidAt ? `Pago em ${formatDdMm(paidAt)}` : 'Pago';
@@ -154,11 +166,11 @@ export default function MensalidadesListTable({
       const diff = Math.ceil((today0 - startOfLocalDay(venc)) / 86400000);
       if (diff > 0) {
         vencCell = `${formatDdMm(venc)} · ${diff} dias em atraso`;
-        vencStyle = { color: '#A32D2D', fontWeight: 500 };
+        vencClassName = 'finance-value-negative mensal-cell-venc-highlight';
       } else if (diff <= 0 && diff >= -7) {
         const until = Math.abs(diff);
         vencCell = `${formatDdMm(venc)} · vence em ${until} dias`;
-        vencStyle = { color: '#B45309', fontWeight: 500 };
+        vencClassName = 'finance-value-pending mensal-cell-venc-highlight';
       } else {
         vencCell = formatDdMm(venc);
       }
@@ -247,7 +259,7 @@ export default function MensalidadesListTable({
             <span className="mensal-cell-name__plan">{student.plan || '—'}</span>
           </div>
         </td>
-        <td className={vencIsEmpty ? 'mensal-cell-empty' : ''} style={vencStyle}>
+        <td className={`${vencIsEmpty ? 'mensal-cell-empty' : ''} ${vencClassName}`.trim()}>
           {vencCell}
         </td>
         <td className={`mensal-cell-valor${hasValor ? ' mensal-cell-valor--filled' : ' mensal-cell-empty'}`}>
@@ -268,7 +280,7 @@ export default function MensalidadesListTable({
         </td>
         <td className="mensal-cell-action">
           {studentFrozen ? (
-            <span className="mensal-cell-faint" style={{ fontSize: 12 }}>
+            <span className="mensal-cell-faint mensal-cell-faint--small">
               —
             </span>
           ) : isPaid ? (

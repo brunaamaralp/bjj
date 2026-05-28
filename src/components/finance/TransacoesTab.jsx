@@ -580,25 +580,25 @@ export default function TransacoesTab({
 
   return (
     <>
-      <section className="mt-4 animate-in" style={{ animationDelay: '0.2s' }}>
+      <section className="mt-4 animate-in finance-tx-section">
         <h3 className="navi-section-heading mb-2">Lançamentos</h3>
         <div className="card">
           {academyId ? (
             <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-3" />
           ) : null}
           <div className="finance-tx-toolbar">
-            <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div className="form-group" style={{ width: 138 }}>
+            <div className="flex gap-2 finance-tx-date-filters">
+              <div className="form-group finance-tx-date-group">
                 <label>De</label>
                 <input className="form-input navi-date-filter" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
               </div>
-              <div className="form-group" style={{ width: 138 }}>
+              <div className="form-group finance-tx-date-group">
                 <label>Até</label>
                 <input className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </div>
             </div>
-            <div className="finance-tx-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', flex: 1 }}>
-              <div className="form-group" style={{ width: 130, margin: 0 }}>
+            <div className="finance-tx-filters">
+              <div className="form-group finance-tx-filter-group finance-tx-filter-group--status">
                 <label>Status</label>
                 <select
                   className="form-input"
@@ -611,7 +611,7 @@ export default function TransacoesTab({
                   <option value="cancelled">Cancelado</option>
                 </select>
               </div>
-              <div className="form-group" style={{ width: 120, margin: 0 }}>
+              <div className="form-group finance-tx-filter-group finance-tx-filter-group--nature">
                 <label>Natureza</label>
                 <select
                   className="form-input"
@@ -623,7 +623,7 @@ export default function TransacoesTab({
                   <option value="out">Saída</option>
                 </select>
               </div>
-              <div className="form-group" style={{ minWidth: 200, flex: 1, margin: 0 }}>
+              <div className="form-group finance-tx-filter-group finance-tx-filter-group--search">
                 <label className="sr-only">Busca</label>
                 <input
                   type="search"
@@ -668,7 +668,7 @@ export default function TransacoesTab({
             ) : loadError ? null : isMobile ? (
             <div className="navi-mobile-list finance-mobile-list" aria-label="Lançamentos">
               {filteredTransactions.length === 0 ? (
-                <div style={{ padding: 16 }}>
+                <div className="finance-tx-empty-wrap">
                   <EmptyState
                     variant="compact"
                     tone="solid"
@@ -702,14 +702,11 @@ export default function TransacoesTab({
                 return (
                   <article key={tx.id} className="navi-mobile-card finance-mobile-card">
                     <div className="finance-mobile-card__head">
-                      <span className="finance-mobile-card__date" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span className="finance-mobile-card__date finance-mobile-card__date--with-icon">
                         {formatTxDateStr(txTemporalIso(tx))}
                         {rec ? <Repeat size={14} title={recurrenceTooltip(tx)} aria-hidden /> : null}
                       </span>
-                      <span
-                        className="finance-mobile-card__amount"
-                        style={{ color: NATURE_STYLES[txDirection(tx)].color }}
-                      >
+                      <span className={`finance-mobile-card__amount ${txDirection(tx) === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>
                         {formatSignedMoney(displayGross(tx), txDirection(tx))}
                       </span>
                     </div>
@@ -723,10 +720,9 @@ export default function TransacoesTab({
                         </button>
                         <button
                           type="button"
-                          className="btn-outline btn-sm"
+                          className="btn-outline btn-sm finance-btn-danger-outline"
                           disabled={rowBusy}
                           onClick={() => requestCancelRecurrence(tx.id)}
-                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
                         >
                           Cancelar recorrência
                         </button>
@@ -745,10 +741,9 @@ export default function TransacoesTab({
                         {canManageAdvanced ? (
                           <button
                             type="button"
-                            className="btn-outline btn-sm"
+                            className="btn-outline btn-sm finance-btn-danger-outline"
                             onClick={() => requestCancelTx(tx.id)}
                             disabled={rowBusy}
-                            style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
                           >
                             {rowBusy ? '…' : 'Cancelar'}
                           </button>
@@ -776,13 +771,13 @@ export default function TransacoesTab({
                   <th className="finance-num">Taxa</th>
                   <th className="finance-num">Líquido</th>
                   <th>Status</th>
-                  <th className="finance-num" style={{ minWidth: 148 }}>Ação</th>
+                  <th className="finance-num finance-tx-th-action">Ação</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={12} style={{ padding: 16, verticalAlign: 'middle' }}>
+                    <td colSpan={12} className="finance-tx-empty-cell">
                       <EmptyState
                         variant="table-cell"
                         tone="solid"
@@ -823,13 +818,13 @@ export default function TransacoesTab({
                   const st = String(tx.status || '').toLowerCase();
                   const statusBadge =
                     st === 'pending' ? (
-                      <span className="badge badge-warning">Pendente</span>
+                      <span className="finance-badge-pendente">Pendente</span>
                     ) : st === 'settled' ? (
-                      <span className="badge badge-success">Liquidado</span>
+                      <span className="finance-badge-pago">Liquidado</span>
                     ) : st === 'cancelled' ? (
-                      <span className="badge badge-secondary">Cancelado</span>
+                      <span className="finance-badge-cancelado">Cancelado</span>
                     ) : (
-                      <span className="badge badge-secondary">{tx.status || '—'}</span>
+                      <span className="finance-badge-recorrente">{tx.status || '—'}</span>
                     );
                   const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
                   const rec = isRecurrenceTx(tx);
@@ -838,43 +833,39 @@ export default function TransacoesTab({
                   return (
                     <tr key={tx.id}>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span className="finance-tx-date-cell">
                           {dateStr}
                           {rec ? (
                             <Repeat
                               size={14}
                               aria-hidden
                               title={recTip || 'Lançamento recorrente — gerado automaticamente'}
-                              style={{ color: 'var(--text-secondary)', flexShrink: 0 }}
+                              className="finance-tx-date-cell__icon"
                             />
                           ) : null}
                         </span>
                         {noCompetence ? (
-                          <span
-                            className="text-xs"
-                            style={{ display: 'block', color: '#B45309', marginTop: 2 }}
-                            title="Sem competência definida — usando data de pagamento"
-                          >
+                          <span className="finance-tx-competence-missing" title="Sem competência definida — usando data de pagamento">
                             sem competência
                           </span>
                         ) : null}
                       </td>
                       <td>
-                        <span style={{ color: nature.color, fontWeight: 600 }}>{nature.label}</span>
+                        <span className={dir === 'out' ? 'finance-value-negative finance-tx-nature-label' : 'finance-value-positive finance-tx-nature-label'}>{nature.label}</span>
                       </td>
                       <td>{catBadge ? <span className={catBadge.className}>{catBadge.label}</span> : '—'}</td>
                       <td>{tx.saleId || '-'}</td>
                       <td title={rawName || undefined}>{alumStr}</td>
                       <td>{typeLabel}</td>
                       <td>{methodLabel}</td>
-                      <td className="finance-num">{grossFmt}</td>
-                      <td className="finance-num">{feeFmt}</td>
-                      <td className="finance-num">{netFmt}</td>
+                      <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{grossFmt}</td>
+                      <td className="finance-num finance-data">{feeFmt}</td>
+                      <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{netFmt}</td>
                       <td>{statusBadge}</td>
                       <td className="finance-num">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
+                        <div className="finance-tx-actions-cell">
                           {showRecMenu ? (
-                            <div style={{ position: 'relative' }}>
+                            <div className="finance-tx-menu-wrap">
                               <button
                                 type="button"
                                 className="btn-outline"
@@ -885,36 +876,17 @@ export default function TransacoesTab({
                                 <MoreHorizontal size={16} aria-hidden />
                               </button>
                               {menuOpenId === tx.id ? (
-                                <div
-                                  className="card"
-                                  style={{
-                                    position: 'absolute',
-                                    right: 0,
-                                    top: '100%',
-                                    marginTop: 4,
-                                    zIndex: 4,
-                                    minWidth: 200,
-                                    padding: 4,
-                                    boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
-                                  }}
-                                >
+                                <div className="card finance-tx-menu-panel">
                                   <button
                                     type="button"
-                                    className="btn-ghost"
-                                    style={{ width: '100%', textAlign: 'left', padding: '8px 10px' }}
+                                    className="btn-ghost finance-tx-menu-btn"
                                     onClick={() => openEditRecurrenceModal(tx)}
                                   >
                                     Editar recorrência
                                   </button>
                                   <button
                                     type="button"
-                                    className="btn-ghost"
-                                    style={{
-                                      width: '100%',
-                                      textAlign: 'left',
-                                      padding: '8px 10px',
-                                      color: 'var(--danger)',
-                                    }}
+                                    className="btn-ghost finance-tx-menu-btn finance-tx-menu-btn--danger"
                                     disabled={rowBusy}
                                     onClick={() => requestCancelRecurrence(tx.id)}
                                   >
@@ -947,17 +919,16 @@ export default function TransacoesTab({
                               {canManageAdvanced ? (
                                 <button
                                   type="button"
-                                  className="btn-outline"
+                                  className="btn-outline finance-btn-danger-outline"
                                   onClick={() => requestCancelTx(tx.id)}
                                   disabled={rowBusy}
-                                  style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
                                 >
                                   {rowBusy ? 'Cancelando…' : 'Cancelar'}
                                 </button>
                               ) : null}
                             </>
                           ) : !showRecMenu ? (
-                            <span className="text-small" style={{ opacity: 0.75, color: 'var(--text-secondary)' }}>—</span>
+                            <span className="text-small finance-tx-no-actions">—</span>
                           ) : null}
                         </div>
                       </td>
@@ -977,14 +948,13 @@ export default function TransacoesTab({
         ? createPortal(
         <div className="navi-modal-overlay" role="presentation" onClick={requestCloseTxModal}>
           <div
-            className="card navi-modal-dialog"
+            className="card navi-modal-dialog finance-tx-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="finance-tx-modal-title"
-            style={{ maxWidth: 520, padding: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="finance-tx-modal-title" className="navi-section-heading" style={{ marginBottom: 14 }}>
+            <h3 id="finance-tx-modal-title" className="navi-section-heading finance-tx-modal__title">
               {editingRecurrenceOnly
                 ? 'Editar recorrência'
                 : editingTxId
@@ -992,7 +962,7 @@ export default function TransacoesTab({
                   : 'Nova transação'}
             </h3>
             {editingTxId && !editingRecurrenceOnly ? (
-              <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>
+              <p className="text-small finance-tx-modal__hint">
                 Só é possível editar enquanto o lançamento estiver pendente. Valores liquidados no razão não são alterados automaticamente.
               </p>
             ) : null}
@@ -1053,7 +1023,7 @@ export default function TransacoesTab({
                 </select>
               </div>
               {!editingTxId ? (
-                <label className="flex items-center gap-2 text-small" style={{ cursor: 'pointer' }}>
+                <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
                   <input
                     type="checkbox"
                     checked={receiveNow}
@@ -1154,7 +1124,7 @@ export default function TransacoesTab({
                   </select>
                 </div>
               )}
-              <div className="form-group" style={{ position: 'relative' }}>
+              <div className="form-group finance-tx-student-group">
                 <label>Aluno (opcional)</label>
                 <input
                   className="form-input"
@@ -1168,39 +1138,21 @@ export default function TransacoesTab({
                   onFocus={() => setStudentPickerOpen(true)}
                   onBlur={() => { window.setTimeout(() => setStudentPickerOpen(false), 180); }}
                 />
-                <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 6 }}>
+                <p className="text-small finance-tx-student-group__hint">
                   Alunos matriculados ou marcados como aluno na base.
                 </p>
                 {studentPickerOpen && String(studentQuery || '').trim().length >= 2 ? (
                   studentMatches.length > 0 ? (
                     <div
                       className="card"
-                      style={{
-                        position: 'absolute',
-                        zIndex: 2,
-                        left: 0,
-                        right: 0,
-                        top: '100%',
-                        marginTop: 4,
-                        maxHeight: 220,
-                        overflowY: 'auto',
-                        padding: 0,
-                        boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
-                      }}
+                      className="card finance-tx-student-dropdown"
                     >
                       {studentMatches.map((l) => (
                         <button
                           key={l.id}
                           type="button"
                           className="btn-ghost"
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            textAlign: 'left',
-                            borderRadius: 0,
-                            borderBottom: '0.5px solid var(--border-light)',
-                            padding: '10px 12px',
-                          }}
+                          className="btn-ghost finance-tx-student-dropdown__item"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
                             setTxForm((f) => ({ ...f, lead_id: l.id }));
@@ -1208,25 +1160,14 @@ export default function TransacoesTab({
                             setStudentPickerOpen(false);
                           }}
                         >
-                          <div style={{ fontWeight: 600 }}>{l.name || '—'}</div>
-                          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || '—'}</div>
+                          <div className="finance-tx-student-dropdown__name">{l.name || '—'}</div>
+                          <div className="text-small finance-tx-student-dropdown__phone">{l.phone || '—'}</div>
                         </button>
                       ))}
                     </div>
                   ) : (
                     <div
-                      className="card text-small"
-                      style={{
-                        position: 'absolute',
-                        zIndex: 2,
-                        left: 0,
-                        right: 0,
-                        top: '100%',
-                        marginTop: 4,
-                        padding: '12px 14px',
-                        color: 'var(--text-secondary)',
-                        boxShadow: '0 8px 24px rgba(18,16,42,0.12)',
-                      }}
+                      className="card text-small finance-tx-student-dropdown finance-tx-student-dropdown--empty"
                     >
                       Nenhum aluno encontrado para essa busca.
                     </div>
@@ -1255,29 +1196,21 @@ export default function TransacoesTab({
               </>
               ) : null}
               {!editingTxId || editingRecurrenceOnly ? (
-                <div className="form-group" style={{ borderTop: editingRecurrenceOnly ? 'none' : '1px solid var(--border-light)', paddingTop: editingRecurrenceOnly ? 0 : 12 }}>
+                <div className={`form-group finance-tx-recurrence-group${editingRecurrenceOnly ? ' finance-tx-recurrence-group--editing-only' : ''}`}>
                   <button
                     type="button"
-                    className="btn-ghost"
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 0',
-                      fontWeight: 600,
-                    }}
+                    className="btn-ghost finance-tx-recurrence-toggle"
                     onClick={() => setRecurrenceOpen((o) => !o)}
                   >
                     <span>Repetir lançamento</span>
                     <ChevronDown
                       size={18}
-                      style={{ transform: recurrenceOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+                      className={`finance-tx-recurrence-toggle__icon${recurrenceOpen ? ' finance-tx-recurrence-toggle__icon--open' : ''}`}
                     />
                   </button>
                   {recurrenceOpen ? (
-                    <div className="flex-col gap-3" style={{ marginTop: 8 }}>
-                      <label className="flex items-center gap-2 text-small" style={{ cursor: 'pointer' }}>
+                    <div className="flex-col gap-3 finance-tx-recurrence-body">
+                      <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
                         <input
                           type="checkbox"
                           checked={Boolean(txForm.repeat_enabled)}
@@ -1367,7 +1300,7 @@ export default function TransacoesTab({
                 </div>
               ) : null}
             </div>
-            <div className="flex gap-2 mt-3" style={{ justifyContent: 'flex-end' }}>
+            <div className="flex gap-2 mt-3 finance-tx-modal__actions">
               <button
                 type="button"
                 className="btn-outline"
