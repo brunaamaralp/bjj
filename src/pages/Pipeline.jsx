@@ -177,9 +177,10 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                         type="button"
                         className="wa-main-btn"
                         onClick={(e) => handleSplitWaMain(e, lead)}
-                        title="Conversar"
+                        title="Conversar no WhatsApp"
+                        aria-label="Conversar no WhatsApp"
                     >
-                        <MessageCircle size={16} /> WhatsApp
+                        <MessageCircle size={16} aria-hidden />
                     </button>
                     <button
                         type="button"
@@ -2509,7 +2510,7 @@ const Pipeline = () => {
           display: flex;
         }
         .kanban-wrapper {
-          display: flex; gap: 10px; overflow-x: scroll; overflow-y: hidden; padding: 10px 12px 8px; flex: 1 1 0;
+          display: flex; gap: 10px; overflow-x: scroll; overflow-y: hidden; padding: 10px 12px 8px 20px; flex: 1 1 0;
           min-height: 0;
           align-items: stretch;
           scroll-snap-type: x mandatory;
@@ -2828,12 +2829,10 @@ const Pipeline = () => {
           background: transparent;
           color: #ffffff;
           border: none;
-          padding: 6px 10px;
-          font-size: 0.78rem;
-          font-weight: 700;
+          padding: 0 8px;
           display: flex;
           align-items: center;
-          gap: 6px;
+          justify-content: center;
           cursor: pointer;
           border-radius: var(--radius-sm) 0 0 var(--radius-sm);
         }
@@ -2853,7 +2852,7 @@ const Pipeline = () => {
         .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
         .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
         @media (max-width: 1023px) {
-          .wa-main-btn { min-height: 44px; }
+          .wa-main-btn { min-width: 44px; min-height: 44px; padding: 0; }
           .wa-drop-toggle { min-height: 44px; }
           .action-btn--menu { min-width: 44px; min-height: 44px; }
         }

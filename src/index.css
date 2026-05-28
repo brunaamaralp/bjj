@@ -2511,12 +2511,12 @@ button.funil-color-swatch {
   color: var(--navi-sidebar-primary);
 }
 
-.navi-sidebar-accordion__trigger {
+.navi-sidebar-nav button.navi-sidebar-accordion__trigger {
   display: flex;
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: 14px;
+  gap: 12px;
   padding: 0;
   margin: 0;
   text-align: left;
@@ -2836,13 +2836,13 @@ button.funil-color-swatch {
   margin: 0;
   padding: 0;
 }
-.navi-side-accordion-trigger,
-.navi-sidebar-accordion__trigger {
+.navi-sidebar-nav button.navi-sidebar-accordion__trigger,
+.navi-side-accordion-trigger {
   display: flex;
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: 14px;
+  gap: 12px;
   padding: 0;
   margin: 0;
   text-align: left;

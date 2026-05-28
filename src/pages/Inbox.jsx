@@ -3011,14 +3011,13 @@ export default function Inbox() {
         )}
       </div>
       <div
+        className="filter-bar filter-bar--compact"
         style={{
           padding: 10,
           borderBottom: '1px solid var(--border)',
-          display: 'flex',
           flexDirection: 'row',
           flexWrap: 'nowrap',
           alignItems: 'center',
-          gap: 8,
           overflowX: 'auto',
           overflowY: 'hidden',
           minWidth: 0,
@@ -3027,7 +3026,7 @@ export default function Inbox() {
       >
         <button
           type="button"
-          className={!minhaFilaOn && listFilter === 'needs_me' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={`filter-chip ${!minhaFilaOn && listFilter === 'needs_me' ? 'is-active' : ''}`}
           style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, fontWeight: 700, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
@@ -3039,7 +3038,7 @@ export default function Inbox() {
         </button>
         <button
           type="button"
-          className={!minhaFilaOn && listFilter === 'unread' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={`filter-chip ${!minhaFilaOn && listFilter === 'unread' ? 'is-active' : ''}`}
           style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
@@ -3066,7 +3065,7 @@ export default function Inbox() {
         </button>
         <button
           type="button"
-          className={!minhaFilaOn && listFilter === 'need_human' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={`filter-chip ${!minhaFilaOn && listFilter === 'need_human' ? 'is-active' : ''}`}
           style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
@@ -3077,7 +3076,7 @@ export default function Inbox() {
         </button>
         <button
           type="button"
-          className={!minhaFilaOn && listFilter === 'waiting_customer' ? 'btn btn-primary' : 'btn btn-outline'}
+          className={`filter-chip ${!minhaFilaOn && listFilter === 'waiting_customer' ? 'is-active' : ''}`}
           style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, boxSizing: 'border-box' }}
           onClick={() => {
             setMinhaFilaOn(false);
@@ -3090,7 +3089,7 @@ export default function Inbox() {
         <div ref={listExtraFiltersRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
             type="button"
-            className={extraFiltersMenuOpen || inboxExtraFilterActive ? 'btn btn-secondary' : 'btn btn-outline'}
+            className={`filter-chip ${extraFiltersMenuOpen || inboxExtraFilterActive ? 'is-active' : ''}`}
             style={{ padding: '6px 10px', minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, boxSizing: 'border-box' }}
             onClick={() => setExtraFiltersMenuOpen((v) => !v)}
             aria-haspopup="menu"
@@ -3122,7 +3121,7 @@ export default function Inbox() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                 <button
                   type="button"
-                  className={!minhaFilaOn && listFilter === 'all' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={`filter-chip ${!minhaFilaOn && listFilter === 'all' ? 'is-active' : ''}`}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
                     setMinhaFilaOn(false);
@@ -3134,7 +3133,7 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={!minhaFilaOn && listFilter === 'resolved' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={`filter-chip ${!minhaFilaOn && listFilter === 'resolved' ? 'is-active' : ''}`}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
                     setMinhaFilaOn(false);
@@ -3146,7 +3145,7 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={!minhaFilaOn && listFilter === 'archived' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={`filter-chip ${!minhaFilaOn && listFilter === 'archived' ? 'is-active' : ''}`}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
                     setMinhaFilaOn(false);
@@ -3158,7 +3157,7 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={!minhaFilaOn && listFilter === 'hot' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={`filter-chip ${!minhaFilaOn && listFilter === 'hot' ? 'is-active' : ''}`}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
                     setMinhaFilaOn(false);
@@ -3170,7 +3169,7 @@ export default function Inbox() {
                 </button>
                 <button
                   type="button"
-                  className={!minhaFilaOn && listFilter === 'transferred' ? 'btn btn-primary' : 'btn btn-outline'}
+                  className={`filter-chip ${!minhaFilaOn && listFilter === 'transferred' ? 'is-active' : ''}`}
                   style={{ padding: '6px 10px', minHeight: 34 }}
                   onClick={() => {
                     setMinhaFilaOn(false);
