@@ -553,23 +553,91 @@ function isInboundMessage(v) {
 }
 
 /** Janela de backfill na Zapster (GET /v1/wa/messages). Padrão 23h (planos base = 24h). */
+function zapsterReconcileAllowExtended() {
+  return ['1', 'true', 'yes'].includes(
+    String(process.env.ZAPSTER_RECONCILE_ALLOW_EXTENDED || '').trim().toLowerCase()
+  );
+}
+
 function resolveReconcileWindow(body) {
-  const maxHours = Math.min(
-    720,
-    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_MAX_HOURS || '24'), 10) || 24)
-  );
-  const defaultHours = Math.min(
-    maxHours,
-    Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_DEFAULT_HOURS || '23'), 10) || 23)
-  );
+  const allowExtended = zapsterReconcileAllowExtended();
+  const planCapHours = allowExtended
+    ? Math.min(
+        720,
+        Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_MAX_HOURS || '720'), 10) || 720)
+      )
+    : 23;
+  const defaultHours = allowExtended
+    ? Math.min(
+        planCapHours,
+        Math.max(1, Number.parseInt(String(process.env.ZAPSTER_RECONCILE_DEFAULT_HOURS || '23'), 10) || 23)
+      )
+    : 23;
   let hours = defaultHours;
   const b = body && typeof body === 'object' ? body : {};
   const daysRaw = Number(b.days);
   const hoursRaw = Number(b.hours);
   if (Number.isFinite(daysRaw) && daysRaw > 0) hours = daysRaw * 24;
   else if (Number.isFinite(hoursRaw) && hoursRaw > 0) hours = hoursRaw;
-  hours = Math.min(maxHours, Math.max(1, Math.round(hours)));
+  hours = Math.min(planCapHours, Math.max(1, Math.round(hours)));
   return { hours, fromIso: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString() };
+}
+
+function isZapsterRetentionExceededError(err) {
+  const code = String(err?.zapsterCode || '').trim();
+  if (code === 'messages_retention_exceeded') return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return msg.includes('messages_retention_exceeded') || msg.includes('message history up to 24h');
+}
+
+async function fetchZapsterMessagePages({ fromIso, toIso, instanceId, maxPages = 30, limit = 100 }) {
+  const items = [];
+  let after = '';
+  let pages = 0;
+  for (;;) {
+    pages += 1;
+    const page = await listZapsterMessages({ from: fromIso, to: toIso, after, limit, instanceId });
+    const dataArr = Array.isArray(page?.data) ? page.data : [];
+    items.push(...dataArr);
+    waDebug({
+      step: 'reconcile_page',
+      page: pages,
+      batchSize: dataArr.length,
+      itemsTotal: items.length,
+      hasMore: Boolean(page?.meta?.has_more),
+    });
+    const hasMore = Boolean(page?.meta?.has_more);
+    const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
+    if (!hasMore || !nextCursor) break;
+    after = nextCursor;
+    if (pages >= maxPages) break;
+  }
+  return { items, pages };
+}
+
+/** Se o plano limita 24h, tenta janelas menores antes de falhar. */
+async function fetchZapsterMessagesWithRetentionRetry({ toIso, instanceId, reconcileBody }) {
+  const { hours: requestedHours } = resolveReconcileWindow(reconcileBody);
+  const hourAttempts = [...new Set([requestedHours, 22, 18, 12, 6, 1].filter((h) => h >= 1 && h <= requestedHours))];
+  let lastErr = null;
+
+  for (const hours of hourAttempts) {
+    const fromIso = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    try {
+      const { items, pages } = await fetchZapsterMessagePages({ fromIso, toIso, instanceId });
+      return { items, pages, fromIso, reconcileHours: hours, retried: hours !== requestedHours };
+    } catch (e) {
+      lastErr = e;
+      if (!isZapsterRetentionExceededError(e)) throw e;
+      waDebug({
+        step: 'reconcile_retention_retry',
+        attemptedHours: hours,
+        erro: e?.message || String(e),
+      });
+    }
+  }
+
+  throw lastErr || new Error('messages_retention_exceeded');
 }
 
 function throwIfZapsterErrors(data, raw, resp) {
@@ -806,37 +874,18 @@ export default async function handler(req, res) {
 
     const now = Date.now();
     const toIso = new Date(now).toISOString();
-    const { hours: reconcileHours, fromIso } = resolveReconcileWindow(reconcileBody);
     waDebug({
       step: 'reconcile_start',
-      fromIso,
       toIso,
-      reconcileHours,
+      requested: resolveReconcileWindow(reconcileBody),
       instanceIdPrefix: instanceId.slice(0, 8),
     });
     try {
-      const items = [];
-      let after = '';
-      let pages = 0;
-      const limit = 100;
-      for (;;) {
-        pages += 1;
-        const page = await listZapsterMessages({ from: fromIso, to: toIso, after, limit, instanceId });
-        const dataArr = Array.isArray(page?.data) ? page.data : [];
-        items.push(...dataArr);
-        waDebug({
-          step: 'reconcile_page',
-          page: pages,
-          batchSize: dataArr.length,
-          itemsTotal: items.length,
-          hasMore: Boolean(page?.meta?.has_more),
-        });
-        const hasMore = Boolean(page?.meta?.has_more);
-        const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
-        if (!hasMore || !nextCursor) break;
-        after = nextCursor;
-        if (pages >= 30) break;
-      }
+      let { items, pages, fromIso, reconcileHours } = await fetchZapsterMessagesWithRetentionRetry({
+        toIso,
+        instanceId,
+        reconcileBody,
+      });
 
       // Se veio vazio, o instance_id salvo pode estar desatualizado.
       // Tenta recuperar pela metadata da instância e refazer a busca uma vez.
@@ -850,26 +899,11 @@ export default async function handler(req, res) {
             newInstanceIdPrefix: recovered.slice(0, 8)
           });
           instanceId = recovered;
-          after = '';
-          pages = 0;
-          for (;;) {
-            pages += 1;
-            const page = await listZapsterMessages({ from: fromIso, to: toIso, after, limit, instanceId });
-            const dataArr = Array.isArray(page?.data) ? page.data : [];
-            items.push(...dataArr);
-            waDebug({
-              step: 'reconcile_page_after_recover',
-              page: pages,
-              batchSize: dataArr.length,
-              itemsTotal: items.length,
-              hasMore: Boolean(page?.meta?.has_more)
-            });
-            const hasMore = Boolean(page?.meta?.has_more);
-            const nextCursor = typeof page?.meta?.next_cursor === 'string' ? page.meta.next_cursor : '';
-            if (!hasMore || !nextCursor) break;
-            after = nextCursor;
-            if (pages >= 30) break;
-          }
+          ({ items, pages, fromIso, reconcileHours } = await fetchZapsterMessagesWithRetentionRetry({
+            toIso,
+            instanceId,
+            reconcileBody,
+          }));
         }
       }
 
@@ -1038,12 +1072,12 @@ export default async function handler(req, res) {
         errors
       });
     } catch (e) {
-      if (e?.zapsterCode === 'messages_retention_exceeded') {
+      if (isZapsterRetentionExceededError(e)) {
         return res.status(402).json({
           sucesso: false,
           code: 'messages_retention_exceeded',
           erro:
-            'Seu plano Zapster permite consultar apenas as últimas 24h de mensagens. Faça upgrade na Zapster para backfill mais longo ou confie no webhook para mensagens novas.'
+            'Seu plano Zapster só permite importar mensagens das últimas 24h. Mensagens mais antigas não podem ser recuperadas por aqui — novas mensagens entram pelo webhook em tempo real.'
         });
       }
       console.error('[api/whatsapp] reconcile falhou', {
