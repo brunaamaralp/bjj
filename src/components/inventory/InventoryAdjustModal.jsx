@@ -56,7 +56,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
     e.preventDefault();
     const qty = Number(String(quantidade).replace(',', '.'));
     if (!Number.isFinite(qty) || qty === 0) {
-      setError('Informe uma quantidade válida maior que zero');
+      setError('Informe uma quantidade válida (diferente de zero)');
       return;
     }
     setError('');

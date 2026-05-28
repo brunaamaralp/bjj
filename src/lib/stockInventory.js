@@ -1,5 +1,7 @@
 /** Estoque genérico — saldo, status e marcadores de tarefas (sem produto específico). */
 
+import { ADJUSTMENT_TYPE, adjustmentReferenciaId, adjustmentReferenciaSign } from './inventoryAdjust.js';
+
 export const STOCK_RESTOCK_MARKER = '[stock_restock]';
 export const STOCK_WEEKLY_CHECK_MARKER = '[stock_weekly_check]';
 
@@ -131,6 +133,46 @@ export const STOCK_MOVE_TYPE_LABELS = {
   ajuste: 'Ajuste',
   avulso: 'Avulso',
 };
+
+/**
+ * Quantidade com sinal para exibição / relatórios (ajuste grava valor absoluto no Appwrite).
+ */
+export function resolveSignedStockMoveQuantity(doc) {
+  const tipo = String(doc?.tipo || '').toLowerCase();
+  const raw = Number(doc?.quantidade);
+  const q = Number.isFinite(raw) ? raw : 0;
+  if (tipo === 'ajuste') {
+    const sign = adjustmentReferenciaSign(doc?.referencia_id);
+    const abs = Math.abs(q);
+    if (sign < 0) return -abs;
+    if (sign > 0) return abs;
+    if (q < 0) return q;
+    return q;
+  }
+  return quantityDeltaForMoveType(tipo, q);
+}
+
+/**
+ * Normaliza quantidade/referencia_id antes de gravar movimento (coleção exige quantidade 0..1e6).
+ */
+export function normalizeStockMoveQuantidadeForWrite(tipo, quantidade, referencia_id) {
+  const tipoL = String(tipo || '').toLowerCase();
+  const q = Number(quantidade);
+  if (!Number.isFinite(q) || q === 0) {
+    return { quantidade: 0, referencia_id: referencia_id ?? null };
+  }
+  if (tipoL === 'ajuste') {
+    const absQty = Math.abs(Math.trunc(q));
+    const ref = String(referencia_id || '').startsWith(ADJUSTMENT_TYPE)
+      ? String(referencia_id)
+      : adjustmentReferenciaId(q);
+    return { quantidade: absQty, referencia_id: ref };
+  }
+  return {
+    quantidade: Math.abs(Math.trunc(q)),
+    referencia_id: referencia_id ?? null,
+  };
+}
 
 /** Delta em current_quantity por tipo de movimentação. */
 export function quantityDeltaForMoveType(tipo, quantidade) {

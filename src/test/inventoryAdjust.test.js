@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  getVariantStockStatus,
+  adjustmentReferenciaId,
+  adjustmentReferenciaSign,
   isAdjustmentSubtype,
   isInventoryAdjustConfirmText,
   buildAdjustmentMotivo,
@@ -18,6 +19,13 @@ describe('inventoryAdjust', () => {
     expect(isInventoryAdjustConfirmText('sim')).toBe(true);
     expect(isInventoryAdjustConfirmText('confirma')).toBe(true);
     expect(isInventoryAdjustConfirmText('não')).toBe(false);
+  });
+
+  it('adjustmentReferenciaId encodes sign', () => {
+    expect(adjustmentReferenciaId(-2)).toBe('adjustment:out');
+    expect(adjustmentReferenciaId(3)).toBe('adjustment:in');
+    expect(adjustmentReferenciaSign('adjustment:out')).toBe(-1);
+    expect(adjustmentReferenciaSign('adjustment:in')).toBe(1);
   });
 
   it('buildAdjustmentMotivo', () => {

@@ -6,6 +6,8 @@ import {
   computeStockStatus,
   buildInventoryParentRows,
   quantityDeltaForMoveType,
+  normalizeStockMoveQuantidadeForWrite,
+  resolveSignedStockMoveQuantity,
   parseStockItemIdFromTaskDescription,
   buildRestockTaskDescription,
   buildConsolidatedRestockTaskTitle,
@@ -74,6 +76,24 @@ describe('stockInventory', () => {
     expect(quantityDeltaForMoveType('entrada', 3)).toBe(3);
     expect(quantityDeltaForMoveType('saida_venda', 2)).toBe(-2);
     expect(quantityDeltaForMoveType('ajuste', -1)).toBe(-1);
+  });
+
+  it('normalizeStockMoveQuantidadeForWrite stores abs qty for ajuste', () => {
+    expect(normalizeStockMoveQuantidadeForWrite('ajuste', -1, null)).toEqual({
+      quantidade: 1,
+      referencia_id: 'adjustment:out',
+    });
+    expect(normalizeStockMoveQuantidadeForWrite('ajuste', 2, null)).toEqual({
+      quantidade: 2,
+      referencia_id: 'adjustment:in',
+    });
+    expect(
+      resolveSignedStockMoveQuantity({
+        tipo: 'ajuste',
+        quantidade: 1,
+        referencia_id: 'adjustment:out',
+      })
+    ).toBe(-1);
   });
 
   it('restock task description parses item id', () => {

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react';
 import {
   emptyVariantRow,
-  applyDefaultSizePresets,
   duplicateVariantRowsFromProduct,
   normalizeVariantsInput,
   variantRowsFromProduct,
@@ -478,13 +477,10 @@ export default function ProductFormModal({
     return 'Novo produto';
   }, [useVariantWizard, useEditWizard, step, parentForm.nome, isEdit, isDuplicate]);
 
-  const renderVariantAddActions = ({ onAddRow, onApplyPresets, addLabel }) => (
-    <div className="product-form-variants-actions flex gap-2" style={{ flexWrap: 'wrap' }}>
+  const renderVariantAddActions = ({ onAddRow, addLabel }) => (
+    <div className="product-form-variants-actions">
       <button type="button" className="btn-outline" onClick={onAddRow}>
         <Plus size={14} aria-hidden /> {addLabel}
-      </button>
-      <button type="button" className="btn-outline" onClick={onApplyPresets}>
-        Tamanhos padrão (P–XGG)
       </button>
     </div>
   );
@@ -1127,21 +1123,14 @@ export default function ProductFormModal({
                   title="Adicionar tamanhos"
                   hint={
                     useEditWizard
-                      ? 'Inclua novos tamanhos ou use o preset P–XGG para adicionar vários de uma vez.'
-                      : 'Defina cada tamanho do produto ou use o preset P–XGG para adicionar P, M, G, GG e XGG.'
+                      ? 'Inclua novos tamanhos um a um na grade abaixo.'
+                      : 'Defina cada tamanho do produto na grade abaixo.'
                   }
                   className={useEditWizard ? 'product-form-variants-section--add' : ''}
                 >
                   {renderVariantAddActions({
-                    addLabel: useEditWizard ? 'Uma linha' : 'Uma linha',
+                    addLabel: 'Adicionar tamanho',
                     onAddRow: useEditWizard ? addEditVariantRow : addCreateVariantRow,
-                    onApplyPresets: () => {
-                      if (useEditWizard) {
-                        setEditVariants((rows) => applyDefaultSizePresets(rows));
-                      } else {
-                        setVariants((rows) => applyDefaultSizePresets(rows, { forCreate: true }));
-                      }
-                    },
                   })}
 
                   {useVariantWizard ? (

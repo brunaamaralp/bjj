@@ -2,6 +2,21 @@
 
 export const ADJUSTMENT_TYPE = 'adjustment';
 
+/** referencia_id em movimentos de ajuste (Appwrite exige quantidade >= 0). */
+export function adjustmentReferenciaId(quantityChange) {
+  const n = Number(quantityChange);
+  const sign = Number.isFinite(n) && n < 0 ? 'out' : 'in';
+  return `${ADJUSTMENT_TYPE}:${sign}`;
+}
+
+/** Sinal do ajuste a partir de referencia_id (`adjustment:in` / `adjustment:out`). */
+export function adjustmentReferenciaSign(referencia_id) {
+  const ref = String(referencia_id || '');
+  if (ref.endsWith(':out')) return -1;
+  if (ref.endsWith(':in')) return 1;
+  return 0;
+}
+
 export const ADJUSTMENT_SUBTYPES = ['avaria', 'furto', 'doacao', 'erro_conta'];
 
 export const ADJUSTMENT_SUBTYPE_LABELS = {

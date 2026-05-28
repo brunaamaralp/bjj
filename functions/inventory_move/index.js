@@ -1,5 +1,10 @@
 import sdk from "node-appwrite";
-import { resolveCurrentQuantity, quantityDeltaForMoveType, itemDisplayName } from "../stockBalance.mjs";
+import {
+  resolveCurrentQuantity,
+  quantityDeltaForMoveType,
+  itemDisplayName,
+  normalizeStockMoveQuantidadeForWrite,
+} from "../stockBalance.mjs";
 
 const RESTOCK_MARKER = "[stock_restock]";
 
@@ -99,11 +104,16 @@ export default async function (req, res) {
 
     const updated = await databases.updateDocument(DB_ID, STOCK_ITEMS_COL, item_estoque_id, updates);
 
+    const { quantidade: qtyStored, referencia_id: refStored } = normalizeStockMoveQuantidadeForWrite(
+      tipo,
+      quantidade,
+      referencia_id
+    );
     const movePayload = {
       item_estoque_id,
       tipo,
-      quantidade,
-      referencia_id: referencia_id || null,
+      quantidade: qtyStored,
+      referencia_id: refStored,
       motivo: motivo || "",
       usuario_id: usuario_id || req.headers["x-user-id"] || "",
     };
