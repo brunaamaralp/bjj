@@ -32,6 +32,8 @@ scripts/*
 !scripts/verify-and-fix-schema.mjs
 !scripts/verify-and-fix-schema-crm.mjs
 !scripts/verify-and-fix-schema-integrations.mjs
+!scripts/provision-webhook-logs-schema.mjs
+!scripts/verify-contracts-autentique.mjs
 
 # Editor directories and files
 .vscode/*
