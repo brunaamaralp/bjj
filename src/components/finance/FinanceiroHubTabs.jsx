@@ -17,13 +17,13 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
     ];
     if (access?.financeModule) {
       tabs.push({ id: 'previsao', label: 'Previsão' });
-      tabs.push({ id: 'fechamento', label: 'Conferência do mês' });
+      tabs.push({ id: 'fechamento', label: 'Fechamento mensal' });
     }
     if (access?.isOwner && access?.financeModule) {
       tabs.push({ id: 'conciliacao', label: 'Conciliação' });
     }
     if (access?.isOwner) {
-      tabs.push({ id: FINANCEIRO_SECTIONS.CONFIG, label: 'Configuração' });
+      tabs.push({ id: FINANCEIRO_SECTIONS.CONFIG, label: 'Configurações financeiras' });
     }
     return tabs;
   }, [access?.financeModule, access?.isOwner]);
@@ -35,6 +35,7 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
         activeId={activeLeafTab}
         onChange={onLeafChange}
         ariaLabel="Financeiro"
+        fullWidth
         className="financeiro-hub-tabs__primary"
       />
     </div>

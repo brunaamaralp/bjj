@@ -213,7 +213,7 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       id: 'visao-geral',
       label: 'Visão Geral',
       to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.OVERVIEW}`,
-      iconKey: 'financeiro',
+      iconKey: 'visaoGeralFinanceiro',
     },
     {
       id: 'mensalidades',
@@ -236,12 +236,12 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
         id: 'previsao',
         label: 'Previsão',
         to: `${FINANCEIRO_HUB_PATH}?tab=previsao`,
-        iconKey: 'movimentacoes',
+        iconKey: 'previsao',
         group: FINANCEIRO_NAV_GROUP_OPERACOES,
       },
       {
         id: 'fechamento',
-        label: 'Conferência do mês',
+        label: 'Fechamento mensal',
         to: `${FINANCEIRO_HUB_PATH}?tab=fechamento`,
         iconKey: 'fechamento',
         group: FINANCEIRO_NAV_GROUP_OPERACOES,
@@ -254,7 +254,7 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       id: 'conciliacao',
       label: 'Conciliação',
       to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
-      iconKey: 'movimentacoes',
+      iconKey: 'conciliacao',
       group: FINANCEIRO_NAV_GROUP_OPERACOES,
     });
   }
@@ -262,9 +262,9 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
   if (isOwner) {
     children.push({
       id: 'configuracao',
-      label: 'Configuração',
+      label: 'Configurações financeiras',
       to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.CONFIG}`,
-      iconKey: 'financeiro',
+      iconKey: 'configuracaoFinanceira',
     });
   }
 

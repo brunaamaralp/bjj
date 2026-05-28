@@ -824,7 +824,7 @@ export default function TransacoesTab({
                     ) : st === 'cancelled' ? (
                       <span className="finance-badge-cancelado">Cancelado</span>
                     ) : (
-                      <span className="finance-badge-recorrente">{tx.status || '—'}</span>
+                      <span className="finance-badge-neutro">{tx.status || '—'}</span>
                     );
                   const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
                   const rec = isRecurrenceTx(tx);

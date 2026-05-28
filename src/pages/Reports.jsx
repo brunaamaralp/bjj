@@ -617,6 +617,7 @@ const Reports = () => {
                     activeId={activeTab}
                     onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
                     ariaLabel="Relatórios"
+                    fullWidth
                 />
             </div>
 

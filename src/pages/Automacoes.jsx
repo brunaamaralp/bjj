@@ -38,7 +38,7 @@ export default function Automacoes() {
       <p className="navi-subtitle" style={{ marginBottom: 16 }}>
         Processos de tarefas, modelos de mensagem e gatilhos automáticos do funil.
       </p>
-      <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Automações" />
+      <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Automações" fullWidth />
       <div className="mt-3 animate-in">
         {activeTab === 'processos' ? <AutomacoesProcessosTab /> : null}
         {activeTab === 'modelos' ? <AutomacoesModelosTab /> : null}

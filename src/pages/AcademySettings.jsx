@@ -12,14 +12,6 @@ import {
 } from '../lib/getAcademyDocument.js';
 import {
     ChevronLeft,
-    ChevronRight,
-    Building2,
-    Filter,
-    Wallet2,
-    UserRound,
-    CheckSquare,
-    ShoppingBag,
-    FileSignature,
 } from 'lucide-react';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 import RouteFallback from '../components/shared/RouteFallback.jsx';
@@ -40,15 +32,16 @@ import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms } from '../lib/terminology.js';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 
 const TABS_ALL = [
-    { id: 'estudio', label: 'Estúdio', Icon: Building2, subtitle: 'Dados e identidade' },
-    { id: 'funil', label: 'Funil', Icon: Filter, subtitle: 'Perguntas e etiquetas' },
-    { id: 'alunos', label: 'Alunos', Icon: UserRound, subtitle: 'Cadastro e desligamento' },
-    { id: 'tarefas', label: 'Tarefas', Icon: CheckSquare, subtitle: 'Pós-matrícula' },
-    { id: 'financeiro', label: 'Financeiro', Icon: Wallet2, subtitle: 'Configurações no hub Financeiro' },
-    { id: 'contratos', label: 'Contratos', Icon: FileSignature, subtitle: 'Modelos para assinatura' },
-    { id: 'vendas', label: 'Vendas', Icon: ShoppingBag, subtitle: 'PDV e comissões' },
+    { id: 'estudio', label: 'Estúdio', subtitle: 'Dados e identidade' },
+    { id: 'funil', label: 'Funil', subtitle: 'Perguntas e etiquetas' },
+    { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e desligamento' },
+    { id: 'tarefas', label: 'Tarefas', subtitle: 'Pós-matrícula' },
+    { id: 'financeiro', label: 'Financeiro', subtitle: 'Configurações no hub Financeiro' },
+    { id: 'contratos', label: 'Contratos', subtitle: 'Modelos para assinatura' },
+    { id: 'vendas', label: 'Vendas', subtitle: 'PDV e comissões' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -150,10 +143,6 @@ const AcademySettings = () => {
 
     const role = useUserRole(academyForRole);
 
-    const subnavScrollRef = useRef(null);
-    const tabButtonRefs = useRef({});
-    const [subnavOverflow, setSubnavOverflow] = useState({ left: false, right: false });
-
     const rawTab = searchParams.get('tab') || '';
     const activeTab = VALID_TAB_IDS.has(rawTab) ? rawTab : 'estudio';
 
@@ -211,34 +200,6 @@ const AcademySettings = () => {
             billingAccess.accessLevel !== 'none' &&
             billingAccess.companyTaxOk === false
     );
-
-    const updateSubnavOverflow = () => {
-        const el = subnavScrollRef.current;
-        if (!el) return;
-        const { scrollLeft, scrollWidth, clientWidth } = el;
-        setSubnavOverflow({
-            left: scrollLeft > 4,
-            right: scrollLeft + clientWidth < scrollWidth - 4,
-        });
-    };
-
-    useEffect(() => {
-        const el = subnavScrollRef.current;
-        if (!el) return undefined;
-        updateSubnavOverflow();
-        el.addEventListener('scroll', updateSubnavOverflow, { passive: true });
-        const ro = new ResizeObserver(updateSubnavOverflow);
-        ro.observe(el);
-        return () => {
-            el.removeEventListener('scroll', updateSubnavOverflow);
-            ro.disconnect();
-        };
-    }, [role, academy.modules, academyLoadState]);
-
-    useEffect(() => {
-        const btn = tabButtonRefs.current[activeTab];
-        btn?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }, [activeTab]);
 
     // Redirect invalid/disabled tabs and handle ?focus=tax (only after academy fetch)
     useEffect(() => {
@@ -486,12 +447,6 @@ const AcademySettings = () => {
         setSearchParams({ tab: id });
     };
 
-    const scrollSubnav = (direction) => {
-        const el = subnavScrollRef.current;
-        if (!el) return;
-        el.scrollBy({ left: direction * 160, behavior: 'smooth' });
-    };
-
     const legacyEmpresaRedirect = resolveEmpresaLegacyTabRedirect(rawTab);
     if (legacyEmpresaRedirect) {
         return <Navigate to={legacyEmpresaRedirect} replace />;
@@ -536,57 +491,27 @@ const AcademySettings = () => {
                 </div>
             )}
 
-            <nav
-                className={`empresa-subnav${subnavOverflow.left ? ' empresa-subnav--overflow-left' : ''}${subnavOverflow.right ? ' empresa-subnav--overflow-right' : ''}`}
-                aria-label={`Seções da ${terms.workspaceNoun}`}
-            >
-                {subnavOverflow.left && (
-                    <button
-                        type="button"
-                        className="empresa-subnav-scroll-btn empresa-subnav-scroll-btn--left"
-                        onClick={() => scrollSubnav(-1)}
-                        aria-label="Ver abas anteriores"
-                    >
-                        <ChevronLeft size={18} aria-hidden />
-                    </button>
-                )}
-                <div className="empresa-subnav-scroll" ref={subnavScrollRef}>
-                    {TABS_ALL.map((tab) => {
-                        const { disabled, title } = getTabDisabledState(tab.id, {
-                            role,
-                            modules: academy.modules,
-                        });
-                        return (
-                            <button
-                                key={tab.id}
-                                ref={(node) => {
-                                    if (node) tabButtonRefs.current[tab.id] = node;
-                                    else delete tabButtonRefs.current[tab.id];
-                                }}
-                                type="button"
-                                className={`empresa-subnav-tab ${activeTab === tab.id ? 'empresa-subnav-tab--active' : ''}${disabled ? ' empresa-subnav-tab--disabled' : ''}`}
-                                disabled={disabled}
-                                title={title}
-                                aria-disabled={disabled || undefined}
-                                onClick={() => setActiveTab(tab.id)}
-                            >
-                                <tab.Icon size={15} className="empresa-tab-icon" aria-hidden />
-                                {tab.label}
-                            </button>
-                        );
-                    })}
-                </div>
-                {subnavOverflow.right && (
-                    <button
-                        type="button"
-                        className="empresa-subnav-scroll-btn empresa-subnav-scroll-btn--right"
-                        onClick={() => scrollSubnav(1)}
-                        aria-label="Ver próximas abas"
-                    >
-                        <ChevronRight size={18} aria-hidden />
-                    </button>
-                )}
-            </nav>
+            <HubTabBar
+                tabs={TABS_ALL.map((tab) => {
+                    const { disabled, title } = getTabDisabledState(tab.id, {
+                        role,
+                        modules: academy.modules,
+                    });
+                    return {
+                        id: tab.id,
+                        label: tab.label,
+                        disabled,
+                        disabledTitle: title,
+                    };
+                })}
+                activeId={activeTab}
+                onChange={setActiveTab}
+                ariaLabel={`Seções da ${terms.workspaceNoun}`}
+                variant="secondary"
+                size="sm"
+                fullWidth
+                className="empresa-subnav"
+            />
 
             {contentLoading ? <EmpresaTabSkeleton tabId={activeTab} /> : null}
 
@@ -661,73 +586,10 @@ const AcademySettings = () => {
           position: sticky;
           top: 0;
           z-index: 8;
-          margin: 8px -6px 20px;
-          padding: 0 6px;
-          background: var(--bg);
-          border-bottom: 2px solid var(--border-light);
-          display: flex;
-          align-items: stretch;
+          margin: 8px 0 20px;
         }
-        .empresa-subnav-scroll {
-          display: flex;
-          flex: 1;
-          min-width: 0;
-          flex-wrap: nowrap;
-          gap: 0;
-          overflow-x: auto;
-          overflow-y: hidden;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          scroll-snap-type: x proximity;
-        }
-        .empresa-subnav-scroll::-webkit-scrollbar { display: none; }
-        .empresa-subnav--overflow-left::before,
-        .empresa-subnav--overflow-right::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          bottom: 2px;
-          width: 28px;
-          pointer-events: none;
-          z-index: 2;
-        }
-        .empresa-subnav--overflow-left::before {
-          left: 0;
-          background: linear-gradient(90deg, var(--bg) 0%, transparent 100%);
-        }
-        .empresa-subnav--overflow-right::after {
-          right: 0;
-          background: linear-gradient(270deg, var(--bg) 0%, transparent 100%);
-        }
-        .empresa-subnav-scroll-btn {
-          flex: 0 0 auto;
-          align-self: center;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          min-height: 36px;
-          padding: 0;
-          margin: 0 2px 2px;
-          border: none;
-          border-radius: 8px;
-          background: var(--surface);
-          color: var(--text-secondary);
-          box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-          cursor: pointer;
-          z-index: 3;
-        }
-        .empresa-subnav-scroll-btn:hover {
-          color: var(--text);
-          background: var(--surface-hover);
-        }
-        .empresa-subnav-tab--disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-        .empresa-subnav-tab--disabled:hover {
-          color: var(--text-muted);
-          background: none;
+        .empresa-subnav.navi-hub-tabs {
+          width: 100%;
         }
         .finance-config-jump {
           display: flex;
@@ -782,43 +644,9 @@ const AcademySettings = () => {
           gap: 10px;
           margin-top: 12px;
         }
-        .empresa-subnav-tab {
-          flex: 0 0 auto;
-          scroll-snap-align: center;
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          padding: 11px 18px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          letter-spacing: 0.01em;
-          border: none;
-          border-bottom: 2px solid transparent;
-          margin-bottom: -2px;
-          background: none;
-          color: var(--text-secondary);
-          cursor: pointer;
-          transition: color 0.15s ease, border-color 0.15s ease;
-          font-family: var(--ff-ui, inherit);
-          white-space: nowrap;
-        }
-        .empresa-tab-icon {
-          opacity: 0.55;
-          transition: opacity 0.15s ease;
-          flex-shrink: 0;
-        }
-        .empresa-subnav-tab:hover {
-          color: var(--text);
-        }
-        .empresa-subnav-tab:hover .empresa-tab-icon {
-          opacity: 0.85;
-        }
-        .empresa-subnav-tab--active {
-          color: var(--accent);
-          border-bottom-color: var(--accent);
-        }
-        .empresa-subnav-tab--active .empresa-tab-icon {
-          opacity: 1;
+        .empresa-subnav .navi-hub-tab--disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
         }
         .account-hero { border-top: 4px solid var(--accent); }
         .account-avatar {

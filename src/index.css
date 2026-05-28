@@ -109,6 +109,11 @@
   --finance-card-border: var(--border-light);
   --finance-card-border-alert: color-mix(in srgb, var(--finance-color-pending) 35%, transparent);
   --finance-font-data: var(--ff-mono);
+  --finance-recon-auto-bg: color-mix(in srgb, var(--finance-color-positive) 14%, var(--surface));
+  --finance-recon-auto-border: color-mix(in srgb, var(--finance-color-positive) 22%, transparent);
+  --finance-recon-suggested-bg: color-mix(in srgb, var(--finance-color-pending) 14%, var(--surface));
+  --finance-recon-suggested-border: color-mix(in srgb, var(--finance-color-pending) 22%, transparent);
+  --finance-recon-confidence: var(--finance-color-pending);
 
   font-family: var(--ff-ui);
   line-height: 1.5;
@@ -2394,9 +2399,11 @@ button.funil-color-swatch {
 /* Mesma caixa visual que .navi-sidebar-link + espaço para chevron */
 .navi-sidebar-link--accordion {
   position: relative;
+  display: flex;
+  align-items: center;
   width: 100%;
   box-sizing: border-box;
-  padding-right: 34px;
+  padding-right: 13px;
   cursor: default;
 }
 
@@ -2410,7 +2417,7 @@ button.funil-color-swatch {
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: 12px;
+  gap: 14px;
   padding: 0;
   margin: 0;
   text-align: left;
@@ -2435,10 +2442,10 @@ button.funil-color-swatch {
 }
 
 .navi-sidebar-accordion__chevron {
-  position: absolute;
-  right: 13px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
@@ -2732,9 +2739,11 @@ button.funil-color-swatch {
 }
 .navi-side-accordion-trigger,
 .navi-sidebar-accordion__trigger {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
-  gap: 11px;
+  gap: 14px;
   padding: 0;
   margin: 0;
   text-align: left;
@@ -2742,16 +2751,17 @@ button.funil-color-swatch {
 }
 .navi-side-accordion-chevron,
 .navi-sidebar-accordion__chevron {
-  position: absolute;
-  right: 13px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  right: auto;
+  top: auto;
+  transform: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   margin: 0;
+  margin-left: 8px;
   padding: 0;
   border: none;
   background: transparent;
@@ -3331,31 +3341,65 @@ button.funil-color-swatch {
 
 /* Hub tabs — abas internas de página (Contratos, Relatórios, Caixa, Loja, Conta) */
 .navi-hub-tabs {
+  --tabs-bg: var(--v50);
+  --tabs-border: var(--border-violet);
+  --tabs-radius: 12px;
+  --tabs-gap: 4px;
+  --tabs-pad: 4px;
+  --tabs-item-radius: 8px;
+  --tabs-item-pad-y: 8px;
+  --tabs-item-pad-x: 16px;
+  --tabs-item-min-h: 36px;
+  --tabs-item-font-size: 13px;
+  --tabs-item-font-weight: 600;
+  --tabs-item-color: var(--mid);
+  --tabs-item-hover-bg: rgba(255, 255, 255, 0.55);
+  --tabs-item-hover-color: var(--ink2);
+  --tabs-item-active-bg: var(--white);
+  --tabs-item-active-color: var(--v700);
+  --tabs-item-active-shadow: 0 1px 4px rgba(91, 63, 191, 0.14);
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--tabs-gap);
   max-width: 100%;
-  padding: 4px;
+  padding: var(--tabs-pad);
   margin: 0 0 20px;
-  background: var(--v50);
-  border: 0.5px solid var(--border-violet);
-  border-radius: 12px;
+  background: var(--tabs-bg);
+  border: 0.5px solid var(--tabs-border);
+  border-radius: var(--tabs-radius);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.navi-hub-tabs--secondary {
+  --tabs-bg: var(--surface);
+  --tabs-border: var(--border-light);
+}
+
+.navi-hub-tabs--sm {
+  --tabs-item-pad-y: 6px;
+  --tabs-item-pad-x: 12px;
+  --tabs-item-min-h: 32px;
+  --tabs-item-font-size: 12px;
+}
+
+.navi-hub-tabs--full {
+  display: flex;
+  width: 100%;
 }
 
 .navi-hub-tab {
   flex: 0 1 auto;
   border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
-  min-height: 36px;
+  border-radius: var(--tabs-item-radius);
+  padding: var(--tabs-item-pad-y) var(--tabs-item-pad-x);
+  min-height: var(--tabs-item-min-h);
   font-family: var(--ff-ui);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--tabs-item-font-size);
+  font-weight: var(--tabs-item-font-weight);
   letter-spacing: -0.01em;
   line-height: 1.2;
-  color: var(--mid);
+  color: var(--tabs-item-color);
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
@@ -3366,8 +3410,8 @@ button.funil-color-swatch {
 }
 
 .navi-hub-tab:hover {
-  color: var(--ink2);
-  background: rgba(255, 255, 255, 0.55);
+  color: var(--tabs-item-hover-color);
+  background: var(--tabs-item-hover-bg);
 }
 
 .navi-hub-tab:focus-visible {
@@ -3376,14 +3420,14 @@ button.funil-color-swatch {
 }
 
 .navi-hub-tab--active {
-  background: var(--white);
-  color: var(--v700);
-  box-shadow: 0 1px 4px rgba(91, 63, 191, 0.14);
+  background: var(--tabs-item-active-bg);
+  color: var(--tabs-item-active-color);
+  box-shadow: var(--tabs-item-active-shadow);
 }
 
 .navi-hub-tab--active:hover {
-  color: var(--v700);
-  background: var(--white);
+  color: var(--tabs-item-active-color);
+  background: var(--tabs-item-active-bg);
 }
 
 .navi-hub-tab--disabled,
@@ -3396,52 +3440,6 @@ button.funil-color-swatch {
 .navi-hub-tab:disabled:hover {
   color: var(--text-secondary);
   background: transparent;
-}
-
-/* Alias legado (Caixa injeta financePageStyles — manter compatível) */
-.finance-tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  padding: 4px;
-  margin: 0 0 20px;
-  background: var(--v50);
-  border: 0.5px solid var(--border-violet);
-  border-radius: 12px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.finance-tab {
-  flex: 0 1 auto;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
-  min-height: 36px;
-  font-family: var(--ff-ui);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--mid);
-  background: transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.finance-tab:hover {
-  color: var(--ink2);
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.finance-tab--active {
-  background: var(--white);
-  color: var(--v700);
-  box-shadow: 0 1px 4px rgba(91, 63, 191, 0.14);
 }
 
 .navi-hub-page__head {
@@ -3465,8 +3463,7 @@ button.funil-color-swatch {
 }
 
 @media (max-width: 640px) {
-  .navi-hub-tabs,
-  .finance-tabs {
+  .navi-hub-tabs {
     display: flex;
     flex-wrap: nowrap;
     width: 100%;
@@ -3475,13 +3472,11 @@ button.funil-color-swatch {
     scrollbar-width: none;
   }
 
-  .navi-hub-tabs::-webkit-scrollbar,
-  .finance-tabs::-webkit-scrollbar {
+  .navi-hub-tabs::-webkit-scrollbar {
     display: none;
   }
 
-  .navi-hub-tab,
-  .finance-tab {
+  .navi-hub-tab {
     flex: 0 0 auto;
   }
 }
@@ -4073,6 +4068,8 @@ button.funil-color-swatch {
 
 .loja-hub__tabs {
   flex-shrink: 0;
+  padding-top: 12px;
+  padding-bottom: 0;
 }
 
 .loja-hub > .container.products-page,
@@ -7501,37 +7498,6 @@ input[type='datetime-local'].form-input:focus {
   margin-bottom: 8px;
   padding-left: 0;
   padding-right: 0;
-}
-
-/* —— Vendas (Nova venda) —— */
-.sales-page-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border-mid);
-  margin-bottom: 4px;
-}
-
-.sales-page-tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 10px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-family: inherit;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.sales-page-tab:hover {
-  color: var(--ink);
-}
-
-.sales-page-tab--active {
-  color: var(--v500);
-  border-bottom-color: var(--v500);
 }
 
 .sales-new-sale {

@@ -104,32 +104,36 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
       onClick={handleClose}
     >
       <div
-        className="card"
+        className="card import-statement-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-statement-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 720, width: '100%', maxHeight: '90vh', overflow: 'auto', padding: 20 }}
       >
-        <h3 id="import-statement-title" className="navi-section-heading" style={{ marginBottom: 12 }}>
+        <h3 id="import-statement-title" className="navi-section-heading import-statement-title">
           Importar extrato bancário
         </h3>
-        <p className="text-small text-muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
+        <p className="text-small text-muted import-statement-lead">
           Envie um arquivo OFX ou CSV. Revise as transações detectadas antes de confirmar a importação.
         </p>
 
-        <label className="btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+        <label className="btn-outline import-statement-upload">
           <Upload size={16} />
           Selecionar arquivo
-          <input type="file" accept=".csv,.ofx,.qfx,text/csv" style={{ display: 'none' }} onChange={onFile} />
+          <input
+            type="file"
+            accept=".csv,.ofx,.qfx,text/csv"
+            className="import-statement-upload-input"
+            onChange={onFile}
+          />
         </label>
         {fileName ? (
-          <p className="text-small text-muted" style={{ marginTop: 8 }}>
+          <p className="text-small text-muted import-statement-file">
             Arquivo: {fileName}
           </p>
         ) : null}
         {parseError ? (
-          <p className="text-small" style={{ color: 'var(--danger)', marginTop: 8 }}>
+          <p className="text-small import-statement-error">
             {parseError}
           </p>
         ) : null}
@@ -137,11 +141,10 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
         {items.length > 0 ? (
           <>
             <div
-              className="card"
-              style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface-hover)' }}
+              className="card import-statement-summary"
               role="status"
             >
-              <p className="text-small" style={{ margin: 0, lineHeight: 1.5 }}>
+              <p className="text-small import-statement-summary-text">
                 <strong>{summary.creditCount}</strong> créditos ({fmtMoney(summary.credit)}) ·{' '}
                 <strong>{summary.debitCount}</strong> débitos ({fmtMoney(summary.debit)})
                 {summary.period_start && summary.period_end ? (
@@ -153,7 +156,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
               </p>
             </div>
 
-            <div className="finance-table-wrap finance-table-wrap--modal" style={{ marginTop: 12 }}>
+            <div className="finance-table-wrap finance-table-wrap--modal import-statement-table">
               <table className="finance-table">
                 <thead>
                   <tr>
@@ -179,12 +182,12 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
         ) : null}
 
         {importError ? (
-          <p className="text-small" style={{ color: 'var(--danger)', marginTop: 12 }}>
+          <p className="text-small import-statement-import-error">
             {importError}
           </p>
         ) : null}
 
-        <div className="flex gap-2 mt-3" style={{ justifyContent: 'flex-end' }}>
+        <div className="flex gap-2 mt-3 import-statement-actions">
           <button type="button" className="btn-outline" disabled={importing} onClick={handleClose}>
             Cancelar
           </button>

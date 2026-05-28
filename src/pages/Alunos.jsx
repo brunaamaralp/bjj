@@ -56,7 +56,7 @@ export default function Alunos() {
           {hubSubtitle}
         </p>
       </header>
-      <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel={studentPlural} />
+      <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel={studentPlural} fullWidth />
       <div className="navi-hub-page__body">
         {activeTab === TAB_LISTA ? <Students embedded /> : null}
         {activeTab === TAB_CONTRATOS && financeOn ? <ContractsPageContent embedded /> : null}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useProductsStore } from '../store/useProductsStore';
@@ -16,7 +17,7 @@ import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
 import { mergeCatalogWithInventoryItems } from '../lib/inventoryCatalogMerge.js';
 const Inventory = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
   const modules = useLeadStore((s) => s.modules);
   const academyId = useLeadStore((s) => s.academyId);
@@ -46,8 +47,11 @@ const Inventory = () => {
   }, []);
 
   const addToast = useUiStore((s) => s.addToast);
-  const [tab, setTab] = useState('saldo');
-  const [movePreset, setMovePreset] = useState({ itemId: '', tipo: 'entrada' });
+  const tab = useMemo(() => {
+    const raw = String(searchParams.get('subtab') || '').trim().toLowerCase();
+    return raw === 'movimentos' ? 'movimentos' : 'saldo';
+  }, [searchParams]);
+  const movePreset = { itemId: '', tipo: 'entrada' };
 
   const refresh = useCallback(async () => {
     await Promise.all([loadItems(), loadProducts()]);
@@ -163,22 +167,22 @@ const Inventory = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 inventory-page__tabs" role="tablist">
-        <button
-          type="button"
-          className={tab === 'saldo' ? 'btn-secondary' : 'btn-outline'}
-          onClick={() => setTab('saldo')}
-        >
-          Inventário
-        </button>
-        <button
-          type="button"
-          className={tab === 'movimentos' ? 'btn-secondary' : 'btn-outline'}
-          onClick={() => setTab('movimentos')}
-        >
-          Movimentações
-        </button>
-      </div>
+      <HubTabBar
+        tabs={[
+          { id: 'saldo', label: 'Inventário' },
+          { id: 'movimentos', label: 'Movimentações' },
+        ]}
+        activeId={tab}
+        onChange={(id) => {
+          const next = new URLSearchParams(searchParams);
+          next.set('subtab', id);
+          setSearchParams(next, { replace: false });
+        }}
+        ariaLabel="Estoque"
+        variant="secondary"
+        fullWidth
+        className="inventory-page__tabs"
+      />
 
       <div className="inventory-page__body">
       {tab === 'saldo' ? (

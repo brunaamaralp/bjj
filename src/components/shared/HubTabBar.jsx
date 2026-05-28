@@ -2,14 +2,34 @@ import React from 'react';
 
 /**
  * Abas de hub interno (?tab=) — estilos globais em index.css (.navi-hub-tabs).
- * @param {{ id: string, label: string }[]} tabs
+ * @param {{ id: string, label: string, disabled?: boolean, disabledTitle?: string }[]} tabs
+ * @param {'primary'|'secondary'} [variant]
+ * @param {'sm'|'md'} [size]
+ * @param {boolean} [fullWidth]
  * @param {string} [className]
  */
-export default function HubTabBar({ tabs, activeId, onChange, ariaLabel, className = '' }) {
+export default function HubTabBar({
+  tabs,
+  activeId,
+  onChange,
+  ariaLabel,
+  className = '',
+  variant = 'primary',
+  size = 'md',
+  fullWidth = false,
+}) {
   if (!tabs?.length) return null;
   return (
     <div
-      className={['navi-hub-tabs', className].filter(Boolean).join(' ')}
+      className={[
+        'navi-hub-tabs',
+        variant === 'secondary' ? 'navi-hub-tabs--secondary' : '',
+        size === 'sm' ? 'navi-hub-tabs--sm' : '',
+        fullWidth ? 'navi-hub-tabs--full' : '',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       role="tablist"
       aria-label={ariaLabel || 'Seções'}
     >

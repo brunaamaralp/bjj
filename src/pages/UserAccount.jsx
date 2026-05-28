@@ -154,7 +154,7 @@ const UserAccount = ({ user }) => {
         </div>
       </div>
 
-      <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Conta" />
+      <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Conta" fullWidth />
 
       <div style={{ marginTop: 20 }}>
         {activeTab === 'perfil' && (

@@ -44,8 +44,8 @@ export default function Loja() {
 
   return (
     <div className="loja-hub">
-      <div className="container loja-hub__tabs" style={{ paddingTop: 12, paddingBottom: 0 }}>
-        <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Vendas" />
+      <div className="container loja-hub__tabs navi-hub-page__head">
+        <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" fullWidth />
       </div>
       {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}
       {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? <Products /> : null}

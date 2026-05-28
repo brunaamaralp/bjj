@@ -35,6 +35,12 @@ const STATUS_LABELS = {
   reconciled: 'Conciliado',
 };
 
+const STATUS_BADGE_CLASS = {
+  pending: 'finance-badge-pendente',
+  partial: 'finance-badge-parcial',
+  reconciled: 'finance-badge-pago',
+};
+
 function MatchRow({ item, tx, tone, onConfirm, onIgnore, busy }) {
   return (
     <div className={`bank-recon-pair bank-recon-pair--${tone}`}>
@@ -192,21 +198,21 @@ export default function ReconciliationTab({ academyId }) {
   if (!selectedId) {
     return (
       <section className="mt-4 bank-recon">
-        <div className="flex justify-between items-center gap-2 mb-3" style={{ flexWrap: 'wrap' }}>
-          <p className="text-small text-muted" style={{ margin: 0, maxWidth: 480, lineHeight: 1.5 }}>
+        <div className="flex justify-between items-center gap-2 mb-3 bank-recon-list-head">
+          <p className="text-small text-muted bank-recon-list-head__hint">
             Importe extratos OFX/CSV e concilie com os lançamentos do Nave. Disponível apenas para o titular.
           </p>
           <button type="button" className="btn-primary" onClick={() => setShowImport(true)}>
-            <Upload size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            <Upload size={16} className="bank-recon-btn-icon" />
             Importar extrato
           </button>
         </div>
 
         {loading ? <PageSkeleton variant="table" rows={4} columns={5} /> : null}
-        {error ? <p className="text-small" style={{ color: 'var(--danger)' }}>{error}</p> : null}
+        {error ? <p className="text-small bank-recon-error">{error}</p> : null}
 
         {!loading && statements.length === 0 ? (
-          <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+          <div className="card bank-recon-empty-card">
             <p className="text-muted">Nenhum extrato importado ainda.</p>
           </div>
         ) : null}
@@ -236,7 +242,9 @@ export default function ReconciliationTab({ academyId }) {
                     <td className="finance-num">{fmtMoney(s.total_credit)}</td>
                     <td className="finance-num">{fmtMoney(s.total_debit)}</td>
                     <td>
-                      <span className="badge badge-secondary">{STATUS_LABELS[s.status] || s.status}</span>
+                      <span className={STATUS_BADGE_CLASS[s.status] || 'finance-badge-neutro'}>
+                        {STATUS_LABELS[s.status] || s.status}
+                      </span>
                     </td>
                     <td>
                       <button type="button" className="btn-outline btn-sm" onClick={() => setSelectedId(s.id)}>
@@ -266,7 +274,7 @@ export default function ReconciliationTab({ academyId }) {
   return (
     <section className="mt-4 bank-recon">
       <button type="button" className="btn-outline btn-sm mb-3" onClick={() => setSelectedId('')}>
-        <ArrowLeft size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+        <ArrowLeft size={14} className="bank-recon-btn-icon bank-recon-btn-icon--back" />
         Voltar aos extratos
       </button>
 
@@ -275,37 +283,37 @@ export default function ReconciliationTab({ academyId }) {
       {st && !detailLoading ? (
         <>
           <div className="card bank-recon-summary mb-3" role="status">
-            <h4 className="funil-section-subheading" style={{ margin: '0 0 8px' }}>
+            <h4 className="funil-section-subheading bank-recon-summary-title">
               {st.filename} · {STATUS_LABELS[st.status] || st.status}
             </h4>
-            <p className="text-small text-muted" style={{ margin: '0 0 10px' }}>
+            <p className="text-small text-muted bank-recon-summary-period">
               {fmtDate(st.period_start)} — {fmtDate(st.period_end)}
             </p>
             <div className="bank-recon-summary__grid">
               <div>
                 <span className="text-xs text-muted">Conciliados</span>
-                <strong style={{ display: 'block', color: '#3B6D11' }}>
+                <strong className="bank-recon-summary-value bank-recon-summary-value--ok">
                   {summary.reconciled_count} ({fmtMoney(summary.reconciled_amount)})
                 </strong>
               </div>
               <div>
                 <span className="text-xs text-muted">Pendentes</span>
-                <strong style={{ display: 'block', color: '#B45309' }}>
+                <strong className="bank-recon-summary-value bank-recon-summary-value--warn">
                   {summary.pending_count} ({fmtMoney(summary.pending_amount)})
                 </strong>
               </div>
               <div>
                 <span className="text-xs text-muted">Diferença</span>
-                <strong style={{ display: 'block' }}>{fmtMoney(summary.difference)}</strong>
+                <strong className="bank-recon-summary-value">{fmtMoney(summary.difference)}</strong>
               </div>
               <div>
                 <span className="text-xs text-muted">Nave sem extrato</span>
-                <strong style={{ display: 'block' }}>{summary.navi_orphan_count}</strong>
+                <strong className="bank-recon-summary-value">{summary.navi_orphan_count}</strong>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap' }}>
+          <div className="flex gap-2 mb-3 bank-recon-actions-head">
             {grouped.auto.length > 0 ? (
               <button
                 type="button"
@@ -414,7 +422,7 @@ export default function ReconciliationTab({ academyId }) {
                 ))
               )}
 
-              <div className="card mt-3" style={{ padding: 12 }}>
+              <div className="card mt-3 bank-recon-manual-card">
                 <p className="text-xs text-muted mb-2">Conferir manualmente (sem linha no extrato)</p>
                 <select
                   className="form-input mb-2"
@@ -456,8 +464,8 @@ export default function ReconciliationTab({ academyId }) {
           </div>
 
           {st.status !== 'reconciled' ? (
-            <div className="card mt-4" style={{ padding: 14 }}>
-              <h4 className="funil-section-subheading" style={{ marginBottom: 8 }}>
+            <div className="card mt-4 bank-recon-complete-card">
+              <h4 className="funil-section-subheading bank-recon-complete-title">
                 Finalizar conciliação
               </h4>
               <textarea
@@ -487,7 +495,7 @@ export default function ReconciliationTab({ academyId }) {
         </>
       ) : null}
 
-      {error ? <p className="text-small mt-2" style={{ color: 'var(--danger)' }}>{error}</p> : null}
+      {error ? <p className="text-small mt-2 bank-recon-error">{error}</p> : null}
     </section>
   );
 }

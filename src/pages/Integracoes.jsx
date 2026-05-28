@@ -36,7 +36,7 @@ export default function Integracoes() {
         </p>
       </div>
 
-      <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Integrações" />
+      <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Integrações" fullWidth />
 
       <div className="mt-3 animate-in">
         {!academyId ? (
