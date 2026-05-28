@@ -1,5 +1,6 @@
 import React from 'react';
 import { TURMA_OUTRO_VALUE } from '../../lib/academyTurmas.js';
+import FormSelect from './FormSelect.jsx';
 
 export default function TurmaSelect({
   turmas,
@@ -18,22 +19,22 @@ export default function TurmaSelect({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <select
+      <FormSelect
         id={id}
+        value={selectValue || ''}
+        onChange={onSelectChange}
+        emptyLabel={emptyLabel}
         className={className}
         style={style}
         disabled={disabled}
-        value={selectValue || ''}
-        onChange={(e) => onSelectChange(e.target.value)}
       >
-        <option value="">{emptyLabel}</option>
         {list.map((t) => (
           <option key={t} value={t}>
             {t}
           </option>
         ))}
         <option value={TURMA_OUTRO_VALUE}>Outro</option>
-      </select>
+      </FormSelect>
       {selectValue === TURMA_OUTRO_VALUE ? (
         <input
           id={otherId}

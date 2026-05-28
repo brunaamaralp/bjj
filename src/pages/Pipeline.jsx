@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
+import FilterBar from '../components/shared/FilterBar.jsx';
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
 import ImportSheet from '../components/ImportSheet';
@@ -1922,19 +1923,16 @@ const Pipeline = () => {
                             subtitle="Mova leads entre etapas e registre follow-ups."
                             toolbar={
                             <>
-                            <div className="page-header-row">
+                            <div className="page-header-row navi-toolbar">
                                 <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                                 <div className="page-header-sep" />
-                                <div className="page-header-search" title="Filtra por nome ou telefone">
-                                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} aria-hidden />
-                                    <input
-                                        type="search"
-                                        value={kanbanSearch}
-                                        onChange={(e) => handleSearch(e.target.value)}
-                                        placeholder="Buscar nome ou telefone..."
-                                        aria-label="Buscar no funil"
-                                    />
-                                </div>
+                                <SearchField
+                                    title="Filtra por nome ou telefone"
+                                    value={kanbanSearch}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    placeholder="Buscar nome ou telefone..."
+                                    aria-label="Buscar no funil"
+                                />
                                 {searchingServer ? (
                                     <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>Buscando...</span>
                                 ) : null}
@@ -1964,7 +1962,7 @@ const Pipeline = () => {
                                     <PlusCircle size={14} /> Novo lead
                                 </button>
                             </div>
-                            <div className="page-header-row filter-bar">
+                            <FilterBar className="page-header-row">
                                 <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
                                 <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
                                 <button type="button" className={`filter-chip${quickFilter === 'month' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
@@ -1997,7 +1995,7 @@ const Pipeline = () => {
                                         ))}
                                     </select>
                                 </div>
-                            </div>
+                            </FilterBar>
                             </>
                             }
                         />

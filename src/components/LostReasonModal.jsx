@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModalShell from './shared/ModalShell.jsx';
 
 const LOST_REASONS = [
   'Preço',
@@ -24,44 +25,7 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
   }, [onCancel]);
 
   return (
-    <div
-      role="presentation"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lost-reason-title"
-        style={{
-          background: 'var(--surface)',
-          borderRadius: 16,
-          padding: 24,
-          width: '100%',
-          maxWidth: 400,
-          boxShadow: 'var(--shadow)',
-          border: '1px solid var(--border)',
-          margin: 16,
-          boxSizing: 'border-box',
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <h3
-          id="lost-reason-title"
-          style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
-        >
-          Mover para Perdidos
-        </h3>
+    <ModalShell open={true} title="Mover para Perdidos" onClose={onCancel} maxWidth={400}>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
           Qual o motivo da perda de <strong>{leadName}</strong>?
         </p>
@@ -133,7 +97,6 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
             Confirmar perda
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

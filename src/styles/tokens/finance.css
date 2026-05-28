@@ -1,0 +1,21 @@
+:root {
+  /* Financeiro — aliases semânticos */
+  --finance-color-positive: var(--success, #3b6d11);
+  --finance-color-negative: var(--danger, #a32d2d);
+  --finance-color-pending: var(--warning, #b45309);
+  --finance-color-neutral: var(--neutral, var(--text-secondary));
+
+  --finance-card-bg: var(--surface);
+  --finance-card-bg-alert: var(--warning-bg, var(--warn-bg));
+  --finance-card-bg-primary: var(--v50);
+  --finance-card-border: var(--border-light);
+  --finance-card-border-alert: color-mix(in srgb, var(--finance-color-pending) 35%, transparent);
+
+  --finance-font-data: var(--ff-mono);
+
+  --finance-recon-auto-bg: color-mix(in srgb, var(--finance-color-positive) 14%, var(--surface));
+  --finance-recon-auto-border: color-mix(in srgb, var(--finance-color-positive) 22%, transparent);
+  --finance-recon-suggested-bg: color-mix(in srgb, var(--finance-color-pending) 14%, var(--surface));
+  --finance-recon-suggested-border: color-mix(in srgb, var(--finance-color-pending) 22%, transparent);
+  --finance-recon-confidence: var(--finance-color-pending);
+}

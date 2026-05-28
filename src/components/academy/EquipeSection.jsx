@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { Trash2, Plus, Pencil, KeyRound, Users, X, Copy } from 'lucide-react';
+import { Trash2, Plus, Pencil, KeyRound, Users, Copy } from 'lucide-react';
 import { teams } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -38,6 +37,8 @@ import {
 import { friendlyError } from '../../lib/errorMessages.js';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
+import FormSelect from '../shared/FormSelect.jsx';
 
 const ROLE_OPTIONS = [
   { value: 'receptionist', label: 'Recepcionista' },
@@ -48,6 +49,7 @@ function EquipeSection({ academy, academyId }) {
   const addToast = useUiStore((s) => s.addToast);
   const userId = useLeadStore((s) => s.userId);
   const hasTeam = Boolean(academy?.teamId);
+  const isMobile = useMatchMobile();
 
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -666,30 +668,12 @@ function EquipeSection({ academy, academyId }) {
         </>
       ) : null}
 
-      {editMember && typeof document !== 'undefined'
-        ? createPortal(
-            <div className="navi-modal-overlay" role="presentation" onClick={() => !editSaving && setEditMember(null)}>
-              <div
-                className="card navi-modal-dialog"
-                role="dialog"
-                aria-modal="true"
-                style={{ maxWidth: 440, padding: 20 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex justify-between items-center gap-2" style={{ marginBottom: 12 }}>
-                  <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                    Editar membro
-                  </h3>
-                  <button
-                    type="button"
-                    className="btn-outline btn-sm"
-                    onClick={() => setEditMember(null)}
-                    disabled={editSaving}
-                    aria-label="Fechar"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
+      <ModalShell
+        open={Boolean(editMember)}
+        title="Editar membro"
+        onClose={() => !editSaving && setEditMember(null)}
+        maxWidth={440}
+      >
                 <form onSubmit={handleSaveEdit} className="flex-col gap-3">
                   <div className="form-group">
                     <label>Nome</label>
@@ -732,21 +716,17 @@ function EquipeSection({ academy, academyId }) {
                   ) ? (
                     <div className="form-group">
                       <label>Papel</label>
-                      <select
-                        className="form-input"
+                      <FormSelect
                         value={editForm.role}
-                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                        onChange={(role) => setEditForm((f) => ({ ...f, role }))}
                         disabled={editSaving}
-                      >
-                        {(isOwner
-                          ? ROLE_OPTIONS
-                          : ROLE_OPTIONS.filter((r) => r.value === 'receptionist')
-                        ).map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                        emptyLabel="Selecione o papel…"
+                        options={
+                          isOwner
+                            ? ROLE_OPTIONS
+                            : ROLE_OPTIONS.filter((r) => r.value === 'receptionist')
+                        }
+                      />
                     </div>
                   ) : null}
                   {editError ? <FieldError>{editError}</FieldError> : null}
@@ -755,7 +735,7 @@ function EquipeSection({ academy, academyId }) {
                       {editEmailWarning}
                     </p>
                   ) : null}
-                  <div className="flex gap-2 justify-end">
+                  <div className="navi-modal-shell__footer" style={{ marginTop: 0 }}>
                     <button
                       type="button"
                       className="btn-outline"
@@ -769,56 +749,47 @@ function EquipeSection({ academy, academyId }) {
                     </button>
                   </div>
                 </form>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      </ModalShell>
 
-      {tempPasswordModal && typeof document !== 'undefined'
-        ? createPortal(
-            <div className="navi-modal-overlay" role="presentation" onClick={() => setTempPasswordModal(null)}>
-              <div
-                className="card navi-modal-dialog"
-                role="dialog"
-                aria-modal="true"
-                style={{ maxWidth: 420, padding: 20 }}
-                onClick={(e) => e.stopPropagation()}
+      <ModalShell
+        open={Boolean(tempPasswordModal)}
+        title="Senha provisória"
+        onClose={() => setTempPasswordModal(null)}
+        maxWidth={420}
+        footer={
+          <button type="button" className="btn-secondary" onClick={() => setTempPasswordModal(null)}>
+            Fechar
+          </button>
+        }
+      >
+        {tempPasswordModal ? (
+          <>
+            <p className="text-small text-muted" style={{ margin: 0, lineHeight: 1.45 }}>
+              Esta senha não será exibida novamente. Envie ao membro por um canal seguro.
+            </p>
+            <div className="equipe-temp-password-box">
+              <code>{tempPasswordModal.password}</code>
+              <button
+                type="button"
+                className="btn-outline navi-btn--toolbar"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(tempPasswordModal.password);
+                    addToast({ type: 'success', message: 'Senha copiada.' });
+                  } catch {
+                    addToast({ type: 'error', message: 'Não foi possível copiar.' });
+                  }
+                }}
               >
-                <h3 className="navi-section-heading" style={{ margin: '0 0 8px' }}>
-                  Senha provisória
-                </h3>
-                <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
-                  Esta senha não será exibida novamente. Envie ao membro por um canal seguro.
-                </p>
-                <div className="equipe-temp-password-box">
-                  <code>{tempPasswordModal.password}</code>
-                  <button
-                    type="button"
-                    className="btn-outline btn-sm"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(tempPasswordModal.password);
-                        addToast({ type: 'success', message: 'Senha copiada.' });
-                      } catch {
-                        addToast({ type: 'error', message: 'Não foi possível copiar.' });
-                      }
-                    }}
-                  >
-                    <Copy size={14} /> Copiar senha
-                  </button>
-                </div>
-                <p className="text-xs text-muted" style={{ marginTop: 10 }}>
-                  {tempPasswordModal.name} — {tempPasswordModal.email}
-                </p>
-                <button type="button" className="btn-secondary mt-3" onClick={() => setTempPasswordModal(null)}>
-                  Fechar
-                </button>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+                <Copy size={14} /> Copiar senha
+              </button>
+            </div>
+            <p className="text-xs text-muted" style={{ margin: 0 }}>
+              {tempPasswordModal.name} — {tempPasswordModal.email}
+            </p>
+          </>
+        ) : null}
+      </ModalShell>
 
       <ConfirmDialog
         open={Boolean(removeTarget)}

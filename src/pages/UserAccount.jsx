@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { Shield, User, X } from 'lucide-react';
+import { Shield, User } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { onboardingDismissStorageKey } from '../lib/onboardingChecklist.js';
 import { authService } from '../lib/auth';
@@ -12,15 +11,11 @@ import AvancadoSection from '../components/academy/AvancadoSection';
 import { useUiStore } from '../store/useUiStore';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useTerms } from '../lib/terminology.js';
+import PageHeader from '../components/layout/PageHeader.jsx';
+import ModalShell from '../components/shared/ModalShell.jsx';
 
 const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'seguranca', 'dados']);
 const MIN_PWD = 8;
-
-function userInitial(email) {
-  const s = String(email || '').trim();
-  if (!s) return '?';
-  return s[0].toUpperCase();
-}
 
 const UserAccount = ({ user }) => {
   const terms = useTerms();
@@ -126,37 +121,13 @@ const UserAccount = ({ user }) => {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 40 }}>
-      <div className="animate-in" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 16,
-            background: 'var(--accent)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.25rem',
-            fontWeight: 800,
-            flexShrink: 0,
-            fontFamily: 'var(--ff-ui)',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          {userInitial(email)}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <h1 className="navi-page-title" style={{ margin: 0 }}>Minha conta</h1>
-          <p className="navi-subtitle" style={{ margin: '4px 0 0', wordBreak: 'break-all' }}>
-            Gerencie perfil, assinatura e segurança.
-          </p>
-          <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)', wordBreak: 'break-all', lineHeight: 1.4 }}>
-            {email || displayName}
-          </p>
-        </div>
-      </div>
+    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 40 }}>
+      <PageHeader
+        className="navi-page-header--flush"
+        title="Minha conta"
+        subtitle="Gerencie perfil, assinatura e segurança."
+        meta={email || displayName}
+      />
 
       <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Conta" fullWidth />
 
@@ -229,80 +200,64 @@ const UserAccount = ({ user }) => {
           </section>
         )}
 
-      {pwdModalOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div className="navi-modal-overlay" role="presentation" onClick={closePasswordModal}>
-              <div
-                className="card navi-modal-dialog"
-                role="dialog"
-                aria-modal="true"
-                style={{ maxWidth: 420, padding: 20 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex justify-between items-center gap-2" style={{ marginBottom: 12 }}>
-                  <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                    Alterar senha
-                  </h3>
-                  <button type="button" className="btn-outline btn-sm" onClick={closePasswordModal} aria-label="Fechar">
-                    <X size={16} />
-                  </button>
-                </div>
-                <form className="flex-col gap-3" onSubmit={submitPassword}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label htmlFor="acc-old-pwd">Senha atual</label>
-                    <input
-                      id="acc-old-pwd"
-                      className="form-input"
-                      type="password"
-                      autoComplete="current-password"
-                      value={oldPassword}
-                      onChange={(e) => setOldPassword(e.target.value)}
-                      disabled={pwdSaving}
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label htmlFor="acc-new-pwd">Nova senha</label>
-                    <input
-                      id="acc-new-pwd"
-                      className="form-input"
-                      type="password"
-                      autoComplete="new-password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      disabled={pwdSaving}
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label htmlFor="acc-confirm-pwd">Confirmar nova senha</label>
-                    <input
-                      id="acc-confirm-pwd"
-                      className="form-input"
-                      type="password"
-                      autoComplete="new-password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      disabled={pwdSaving}
-                    />
-                  </div>
-                  {pwdInlineError ? <FieldError>{pwdInlineError}</FieldError> : null}
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" className="btn-outline" onClick={closePasswordModal} disabled={pwdSaving}>
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn-secondary"
-                      disabled={pwdSaving || !oldPassword || !newPassword || !confirmPassword}
-                    >
-                      {pwdSaving ? 'Salvando…' : 'Salvar'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      <ModalShell
+        open={pwdModalOpen}
+        title="Alterar senha"
+        onClose={closePasswordModal}
+        maxWidth={420}
+      >
+        <form className="flex-col gap-3" onSubmit={submitPassword}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label htmlFor="acc-old-pwd">Senha atual</label>
+            <input
+              id="acc-old-pwd"
+              className="form-input"
+              type="password"
+              autoComplete="current-password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              disabled={pwdSaving}
+            />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label htmlFor="acc-new-pwd">Nova senha</label>
+            <input
+              id="acc-new-pwd"
+              className="form-input"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              disabled={pwdSaving}
+            />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label htmlFor="acc-confirm-pwd">Confirmar nova senha</label>
+            <input
+              id="acc-confirm-pwd"
+              className="form-input"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={pwdSaving}
+            />
+          </div>
+          {pwdInlineError ? <FieldError>{pwdInlineError}</FieldError> : null}
+          <div className="navi-modal-shell__footer" style={{ marginTop: 0 }}>
+            <button type="button" className="btn-outline" onClick={closePasswordModal} disabled={pwdSaving}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn-secondary"
+              disabled={pwdSaving || !oldPassword || !newPassword || !confirmPassword}
+            >
+              {pwdSaving ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
       </div>
     </div>
   );

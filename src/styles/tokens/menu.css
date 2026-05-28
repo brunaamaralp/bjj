@@ -1,0 +1,25 @@
+:root {
+  /* Menus dropdown — domínio menu (ver docs/dropdown-menus.md) */
+  --overlay-menu: rgba(18, 16, 42, 0.15);
+  --menu-radius: var(--radius-panel);
+  --menu-shadow: var(--shadow-lg);
+  --menu-border: 1px solid var(--border);
+  --menu-gap: 8px;
+  --menu-padding: 6px;
+  --menu-min-width: 200px;
+  --menu-max-width: min(320px, calc(100vw - 24px));
+  --menu-z: var(--z-dropdown);
+  --menu-z-elevated: var(--z-overlay);
+  --menu-item-radius: 8px;
+  --menu-item-padding-y: 9px;
+  --menu-item-padding-x: 12px;
+  --menu-item-font-size: 13px;
+  --menu-item-font-weight: 500;
+  --menu-item-hover-bg: var(--v50);
+  --menu-item-active-bg: var(--v50);
+  --menu-item-active-color: var(--v700);
+  --menu-item-danger-color: var(--danger);
+  --menu-item-danger-hover-bg: var(--danger-light);
+  --menu-header-font-size: 10px;
+  --menu-divider-color: var(--border-light);
+}

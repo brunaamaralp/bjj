@@ -1,0 +1,16 @@
+:root {
+  /* Badges tipo “Transferido” / info azul no Inbox */
+  --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
+  --inbox-info-badge-fg: #1d4ed8;
+
+  /* Atendimento (Inbox) — escala tipográfica */
+  --inbox-font-meta: 0.6875rem;
+  --inbox-font-caption: 0.75rem;
+  --inbox-font-secondary: 0.8125rem;
+  --inbox-font-list-title-sm: 0.8125rem;
+  --inbox-font-list-title: 0.875rem;
+  --inbox-font-body: 0.9375rem;
+  --inbox-font-thread-title: 1rem;
+  --inbox-font-group-label: 0.75rem;
+  --inbox-line-body: 1.47;
+}

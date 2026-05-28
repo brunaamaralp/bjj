@@ -1,0 +1,29 @@
+:root {
+  /* Espaçamento global */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Camadas globais */
+  --z-base: 1;
+  --z-dropdown: 1200;
+  --z-sticky: 1300;
+  --z-overlay: 9000;
+  --z-modal: 9999;
+  --z-toast: 11000;
+  --z-sheet: 12000;
+  --z-elevated: 13000;
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 150ms;
+  --motion-slow: 240ms;
+  --ease-standard: ease;
+}

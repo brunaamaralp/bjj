@@ -4,6 +4,7 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
+import FilterBar from '../components/shared/FilterBar.jsx';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 import { useUserRole } from '../lib/useUserRole';
 import { hasAnyActivity } from '../lib/reportActivity.js';
@@ -647,7 +648,7 @@ const Reports = () => {
             {isPeriodTab ? (
             <div className="page-header-card">
                 <div className="page-header-row navi-toolbar reports-filters-row">
-                    <div className="filter-bar reports-period-block">
+                    <FilterBar className="reports-period-block">
                         {presets.map((p) => (
                             <button
                                 key={p.key}
@@ -665,7 +666,7 @@ const Reports = () => {
                                 <input type="date" className="form-input navi-date-filter navi-control--toolbar" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
                             </>
                         )}
-                    </div>
+                    </FilterBar>
                     {needsFunnelReport ? (
                     <>
                     <div className="reports-filters-divider" aria-hidden />

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
+import PageHeader from '../components/layout/PageHeader.jsx';
 import Sales from './Sales';
 import Products from './Products';
 import Inventory from './Inventory';
@@ -34,7 +35,12 @@ export default function Loja() {
 
   if (tabs.length === 0) {
     return (
-      <div className="container" style={{ paddingTop: 20 }}>
+      <div className="container navi-hub-page" style={{ paddingTop: 20 }}>
+        <PageHeader
+          className="navi-page-header--flush"
+          title="Loja"
+          subtitle="Gerencie vendas, produtos e estoque."
+        />
         <p className="navi-subtitle">Módulo de loja não está ativo nesta academia.</p>
       </div>
     );
@@ -45,6 +51,11 @@ export default function Loja() {
   return (
     <div className="loja-hub">
       <div className="container loja-hub__tabs navi-hub-page__head">
+        <PageHeader
+          className="navi-page-header--flush"
+          title="Loja"
+          subtitle="Gerencie vendas, produtos e estoque."
+        />
         <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" fullWidth />
       </div>
       {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}

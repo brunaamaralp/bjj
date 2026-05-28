@@ -1,5 +1,6 @@
 import React from 'react';
 import { SEXO_OPTIONS } from '../../lib/leadSexo.js';
+import FormSelect from './FormSelect.jsx';
 
 export default function SexoSelect({
   id,
@@ -11,20 +12,15 @@ export default function SexoSelect({
   emptyLabel = 'Selecione…',
 }) {
   return (
-    <select
+    <FormSelect
       id={id}
+      value={value || ''}
+      onChange={onChange}
+      options={SEXO_OPTIONS}
+      emptyLabel={emptyLabel}
       className={className}
       style={style}
       disabled={disabled}
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">{emptyLabel}</option>
-      {SEXO_OPTIONS.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    />
   );
 }

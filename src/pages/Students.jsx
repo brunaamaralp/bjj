@@ -675,7 +675,8 @@ const Students = ({ embedded = false }) => {
                         <select
                             value={ordenacao}
                             onChange={(e) => setOrdenacao(e.target.value)}
-                            style={{ padding: '6px 10px', fontSize: 12, border: '0.5px solid var(--border-light)', borderRadius: 8, color: 'var(--text-secondary)' }}
+                            className="form-input navi-control--toolbar"
+                            style={{ color: 'var(--text-secondary)' }}
                         >
                             <option value="az">Nome A-Z</option>
                             <option value="za">Nome Z-A</option>

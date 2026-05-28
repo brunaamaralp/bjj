@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDismissibleMenu } from '../../../hooks/useDismissibleMenu';
+import './menu.css';
 
 function cn(...parts) {
   return parts.filter(Boolean).join(' ');

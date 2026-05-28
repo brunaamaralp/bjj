@@ -1,4 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
+@import './styles/tokens/core.css';
+@import './styles/tokens/menu.css';
+@import './styles/tokens/inbox.css';
+@import './styles/tokens/finance.css';
 
 :root {
   /* Nave — violeta */
@@ -72,32 +76,6 @@
   --radius-panel: 12px;
   --radius-sm: 10px;
   --radius-full: 50px;
-  /* Overlay leve para menus/dropdowns (não confundir com modal escuro tipo Pipeline .note-overlay). */
-  --overlay-menu: rgba(18, 16, 42, 0.15);
-
-  /* Menus dropdown — escala única (ver docs/dropdown-menus.md) */
-  --menu-radius: var(--radius-panel);
-  --menu-shadow: var(--shadow-lg);
-  --menu-border: 1px solid var(--border);
-  --menu-gap: 8px;
-  --menu-padding: 6px;
-  --menu-min-width: 200px;
-  --menu-max-width: min(320px, calc(100vw - 24px));
-  --menu-z: 1200;
-  --menu-z-elevated: 9000;
-  --menu-item-radius: 8px;
-  --menu-item-padding-y: 9px;
-  --menu-item-padding-x: 12px;
-  --menu-item-font-size: 13px;
-  --menu-item-font-weight: 500;
-  --menu-item-hover-bg: var(--v50);
-  --menu-item-active-bg: var(--v50);
-  --menu-item-active-color: var(--v700);
-  --menu-item-danger-color: var(--danger);
-  --menu-item-danger-hover-bg: var(--danger-light);
-  --menu-header-font-size: 10px;
-  --menu-divider-color: var(--border-light);
-
   /* Controles — barras, inputs e botões (ver docs/controls-toolbar.md) */
   --control-radius: var(--radius-sm);
   --control-radius-sm: 8px;
@@ -115,19 +93,6 @@
   --control-bg: var(--surface);
   --control-bg-muted: var(--surface-hover);
 
-  /* Badges tipo “Transferido” / info azul no Inbox (--info global continua violeta para texto UI). */
-  --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
-  --inbox-info-badge-fg: #1d4ed8;
-  /* Atendimento (Inbox) — uma escala tipográfica (rem ≈ 16px root) */
-  --inbox-font-meta: 0.6875rem; /* 11px — chips densos, alinhado a .navi-ui-date */
-  --inbox-font-caption: 0.75rem; /* 12px — .text-xs, rótulos de mensagem */
-  --inbox-font-secondary: 0.8125rem; /* 13px — .form-input / .navi-subtitle */
-  --inbox-font-list-title-sm: 0.8125rem; /* 13px — título na lista (compact) */
-  --inbox-font-list-title: 0.875rem; /* 14px — título na lista */
-  --inbox-font-body: 0.9375rem; /* 15px — corpo das mensagens */
-  --inbox-font-thread-title: 1rem; /* título do thread no header */
-  --inbox-font-group-label: 0.75rem; /* cabeçalhos sticky da lista */
-  --inbox-line-body: 1.47; /* line-height do corpo da mensagem */
   /* Filtro opcional no ícone nativo do calendário (WebKit) */
   --date-icon-filter: none;
   --transition: all 0.15s ease;
@@ -148,23 +113,6 @@
   --status-success-border: color-mix(in srgb, var(--success-dot) 28%, transparent);
   --neutral: var(--text-secondary);
   --neutral-bg: color-mix(in srgb, var(--text-secondary) 14%, var(--surface));
-
-  /* Financeiro — aliases semânticos */
-  --finance-color-positive: var(--success, #3B6D11);
-  --finance-color-negative: var(--danger, #A32D2D);
-  --finance-color-pending: var(--warning, #B45309);
-  --finance-color-neutral: var(--neutral, var(--text-secondary));
-  --finance-card-bg: var(--surface);
-  --finance-card-bg-alert: var(--warning-bg, var(--warn-bg));
-  --finance-card-bg-primary: var(--v50);
-  --finance-card-border: var(--border-light);
-  --finance-card-border-alert: color-mix(in srgb, var(--finance-color-pending) 35%, transparent);
-  --finance-font-data: var(--ff-mono);
-  --finance-recon-auto-bg: color-mix(in srgb, var(--finance-color-positive) 14%, var(--surface));
-  --finance-recon-auto-border: color-mix(in srgb, var(--finance-color-positive) 22%, transparent);
-  --finance-recon-suggested-bg: color-mix(in srgb, var(--finance-color-pending) 14%, var(--surface));
-  --finance-recon-suggested-border: color-mix(in srgb, var(--finance-color-pending) 22%, transparent);
-  --finance-recon-confidence: var(--finance-color-pending);
 
   font-family: var(--ff-ui);
   line-height: 1.5;
@@ -347,6 +295,7 @@ button:active {
 }
 
 .navi-search,
+/* DEPRECATED (2026-06-30): usar .navi-search em novos componentes */
 .page-header-search {
   position: relative;
   flex: 1;
@@ -370,6 +319,7 @@ button:active {
 }
 
 .navi-search input,
+/* DEPRECATED (2026-06-30): usar .navi-search input em novas telas */
 .page-header-search input {
   width: 100%;
   box-sizing: border-box;
@@ -388,6 +338,7 @@ button:active {
 }
 
 .navi-search input:focus,
+/* DEPRECATED (2026-06-30): usar .navi-search input:focus em novas telas */
 .page-header-search input:focus {
   border: var(--control-border-focus);
   background: var(--control-bg);
@@ -1003,172 +954,6 @@ button:active {
 .navi-menu--elevated .navi-menu__panel,
 .navi-menu__panel.navi-menu--elevated {
   z-index: var(--menu-z-elevated);
-}
-
-.navi-menu__panel {
-  position: absolute;
-  top: calc(100% + var(--menu-gap));
-  min-width: var(--menu-min-width);
-  max-width: var(--menu-max-width);
-  padding: var(--menu-padding);
-  background: var(--surface);
-  border: var(--menu-border);
-  border-radius: var(--menu-radius);
-  box-shadow: var(--menu-shadow);
-  z-index: var(--menu-z);
-  overflow: hidden;
-}
-
-.navi-menu__panel--fixed {
-  position: fixed;
-}
-
-.navi-menu__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--menu-z) - 1);
-  background: transparent;
-}
-
-.navi-menu__backdrop--dim {
-  background: var(--overlay-menu);
-  z-index: 80;
-}
-
-.navi-menu__panel--overlay {
-  position: fixed;
-  z-index: 81;
-  max-height: min(72vh, 520px);
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.navi-menu__header {
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--menu-divider-color);
-  margin-bottom: 4px;
-}
-
-.navi-menu__label {
-  padding: 10px 14px 6px;
-  font-size: var(--menu-header-font-size);
-  font-weight: 800;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--menu-divider-color);
-}
-
-.navi-menu__divider {
-  border: none;
-  border-top: 1px solid var(--menu-divider-color);
-  margin: 4px 0;
-}
-
-.navi-menu__item,
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: var(--menu-item-padding-y) var(--menu-item-padding-x);
-  border: none;
-  border-radius: var(--menu-item-radius);
-  background: transparent;
-  color: var(--ink);
-  font-size: var(--menu-item-font-size);
-  font-weight: var(--menu-item-font-weight);
-  font-family: var(--ff-ui);
-  text-align: left;
-  cursor: pointer;
-  min-height: auto;
-  box-sizing: border-box;
-}
-
-.navi-menu__item-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-
-.navi-menu__item:hover:not(:disabled):not(.navi-menu__item--static),
-.dropdown-item:hover:not(:disabled):not(.navi-menu__item--static) {
-  background: var(--menu-item-hover-bg);
-}
-
-.navi-menu__item:focus-visible,
-.dropdown-item:focus-visible {
-  outline: 2px solid var(--v500);
-  outline-offset: 1px;
-}
-
-.navi-menu__item--active,
-.dropdown-item.active {
-  background: var(--menu-item-active-bg);
-  color: var(--menu-item-active-color);
-  font-weight: 600;
-}
-
-.navi-menu__item--danger,
-.dropdown-item.navi-menu__item--danger {
-  color: var(--menu-item-danger-color);
-}
-
-.navi-menu__item--danger:hover:not(:disabled),
-.dropdown-item.navi-menu__item--danger:hover:not(:disabled) {
-  background: var(--menu-item-danger-hover-bg);
-}
-
-.navi-menu__item--primary {
-  color: var(--accent);
-}
-
-.navi-menu__item--primary .navi-menu__item-icon,
-.navi-menu__item--primary:hover .navi-menu__item-icon {
-  color: var(--accent);
-}
-
-.navi-menu__item--success {
-  color: var(--success-dot);
-}
-
-.navi-menu__item--warning {
-  color: var(--warning);
-}
-
-.navi-menu__item--muted {
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.navi-menu__item--disabled,
-.navi-menu__item--static.navi-menu__item--disabled,
-.dropdown-item.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.navi-menu__item:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.navi-menu__panel--flush {
-  padding: 0;
-}
-
-.navi-menu__panel--flush .navi-menu__item,
-.navi-menu__panel--flush .dropdown-item {
-  border-radius: 0;
-}
-
-.dropdown-panel {
-  border-radius: var(--menu-radius);
-}
-
-.dropdown-panel.navi-menu__panel {
-  padding: 0;
 }
 
 .label-selector__trigger {
@@ -2245,7 +2030,7 @@ select.task-select option {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2255,6 +2040,38 @@ select.task-select option {
   backdrop-filter: blur(4px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.navi-modal-shell {
+  width: min(100%, 560px);
+  margin: var(--space-4);
+  padding: var(--space-5);
+  box-sizing: border-box;
+}
+
+.navi-modal-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.navi-modal-shell__title {
+  margin: 0;
+}
+
+.navi-modal-shell__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.navi-modal-shell__footer {
+  margin-top: var(--space-4);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* Pipeline — notas, confirmações e “não compareceu” */
@@ -3613,11 +3430,6 @@ button.funil-color-swatch {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
 }
 
-/* Painéis flutuantes (ex.: Pipeline .dropdown-panel; Inbox define .inbox-menu-panel no próprio bloco) */
-.dropdown-panel {
-  border-radius: var(--radius-panel);
-}
-
 .navi-nav-fab {
   margin-top: -20px;
 }
@@ -4275,7 +4087,7 @@ button.funil-color-swatch {
   position: fixed;
   inset: 0;
   background: rgba(18, 16, 42, 0.5);
-  z-index: 9999;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
