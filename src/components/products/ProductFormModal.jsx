@@ -597,10 +597,13 @@ export default function ProductFormModal({
   const toggleVariantCardExpanded = (variantId) => {
     if (!variantId) return;
     setExpandedVariantIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(variantId)) next.delete(variantId);
-      else next.add(variantId);
-      return next;
+      if (prev.has(variantId)) {
+        const next = new Set(prev);
+        next.delete(variantId);
+        return next;
+      }
+      // Um card aberto por vez — evita lista alta e problemas de scroll aninhado.
+      return new Set([variantId]);
     });
   };
 
@@ -804,8 +807,6 @@ export default function ProductFormModal({
     const label = variantLabelForRow(row);
     const statusLabel = variantLifecycleLabel(row.lifecycle);
     const canDelete = Number(row.current_quantity) === 0;
-    const sizeLabel = String(row.size || '').trim() || 'Único';
-    const colorLabel = String(row.color || '').trim() || '—';
     const expanded = row.id ? expandedVariantIds.has(row.id) : true;
 
     return (
@@ -818,6 +819,11 @@ export default function ProductFormModal({
           className="product-variant-card__identity product-variant-card__identity-toggle"
           onClick={() => toggleVariantCardExpanded(row.id)}
           aria-expanded={expanded}
+          title={
+            expanded
+              ? 'Recolher'
+              : `${VARIANT_SIZE_COLOR_READONLY_TITLE} ${VARIANT_SKU_READONLY_HINT}`
+          }
         >
           <div className="product-variant-card__identity-main">
             <span className="product-variant-card__identity-label">{label}</span>
@@ -844,36 +850,17 @@ export default function ProductFormModal({
         </button>
         {expanded ? (
         <>
-        <div className="product-variant-card__readonly-grid">
-          <div
-            className="product-variant-card__readonly-field"
-            title={VARIANT_SIZE_COLOR_READONLY_TITLE}
-          >
-            <span className="product-variant-card__readonly-label">Tamanho</span>
-            <span className="product-variant-card__readonly-value">{sizeLabel}</span>
-          </div>
-          <div
-            className="product-variant-card__readonly-field"
-            title={VARIANT_SIZE_COLOR_READONLY_TITLE}
-          >
-            <span className="product-variant-card__readonly-label">Cor</span>
-            <span className="product-variant-card__readonly-value">{colorLabel}</span>
-          </div>
-          <div
-            className="product-variant-card__readonly-field product-variant-card__readonly-field--sku"
-            title={VARIANT_SKU_READONLY_HINT}
-          >
-            <span className="product-variant-card__readonly-label">SKU</span>
-            <span className="product-variant-card__readonly-value">{row.sku || '—'}</span>
-            <p className="product-variant-card__readonly-hint">{VARIANT_SKU_READONLY_HINT}</p>
-          </div>
-        </div>
-        <div className="product-variant-card__fields">
-          <Field label="Preço específico" hint="Vazio = preço do produto pai">
+        <p className="product-variant-card__expand-hint text-small text-muted">
+          Tamanho, cor e SKU não podem ser alterados. Saldo em Estoque.
+        </p>
+        <div className="product-variant-card__fields product-variant-card__fields--compact">
+          <label className="product-variant-card__field">
+            <span className="product-variant-card__field-label">Preço esp.</span>
             <input
               className="form-input"
               inputMode="numeric"
-              placeholder="R$ 0,00"
+              placeholder="= pai"
+              title="Vazio = preço do produto pai"
               value={row.priceOverrideMask}
               onChange={(e) =>
                 patchVariantRow(idx, {
@@ -881,12 +868,14 @@ export default function ProductFormModal({
                 })
               }
             />
-          </Field>
-          <Field label="Custo específico" hint="Vazio = custo do produto pai">
+          </label>
+          <label className="product-variant-card__field">
+            <span className="product-variant-card__field-label">Custo esp.</span>
             <input
               className="form-input"
               inputMode="numeric"
-              placeholder="R$ 0,00"
+              placeholder="= pai"
+              title="Vazio = custo do produto pai"
               value={row.costOverrideMask}
               onChange={(e) =>
                 patchVariantRow(idx, {
@@ -894,8 +883,9 @@ export default function ProductFormModal({
                 })
               }
             />
-          </Field>
-          <Field label="Mín. ideal">
+          </label>
+          <label className="product-variant-card__field">
+            <span className="product-variant-card__field-label">Mín. ideal</span>
             <input
               type="number"
               min={0}
@@ -903,15 +893,17 @@ export default function ProductFormModal({
               value={row.minimum_level}
               onChange={(e) => patchVariantRow(idx, { minimum_level: e.target.value })}
             />
-          </Field>
-          <Field label="Fornecedor" hint="Opcional — sobrescreve o do pai nesta variante">
+          </label>
+          <label className="product-variant-card__field product-variant-card__field--wide">
+            <span className="product-variant-card__field-label">Fornecedor</span>
             <input
               className="form-input"
               maxLength={120}
+              placeholder="Opcional"
               value={row.supplier}
               onChange={(e) => patchVariantRow(idx, { supplier: e.target.value })}
             />
-          </Field>
+          </label>
         </div>
         <div className="product-variant-card__foot">
           <ToggleRow
@@ -1117,7 +1109,7 @@ export default function ProductFormModal({
                 {useEditWizard ? (
                   <VariantsSection
                     title="Cadastrados"
-                    hint="Tamanho, cor e SKU não podem ser alterados. O saldo só muda em Estoque. Toque no card para ver preços e opções."
+                    hint="Lista compacta — toque em um tamanho para editar preços. Role a tela para ver todos."
                   >
                     {existingEditVariants.length > 0 ? (
                       <div className="product-variant-cards">

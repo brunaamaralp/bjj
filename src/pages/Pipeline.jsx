@@ -4,7 +4,9 @@ import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, Search, GraduationCap, BadgeCheck } from 'lucide-react';
+import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
+import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
 import ImportSheet from '../components/ImportSheet';
 import ExportButton from '../components/ExportButton';
 import { LostReasonModal } from '../components/LostReasonModal';
@@ -67,7 +69,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     const slaClass =
         slaAlert?.urgency === 'critical'
@@ -199,6 +201,20 @@ const LeadCard = React.memo(({ lead, slaAlert, isDragging, isOverlay, isMoving, 
                     {openMenuId === lead.id && (
                         <div className="action-menu-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="menu-group">
+                                {canShowPipelineCloseSale(lead) ? (
+                                    <button
+                                        type="button"
+                                        className="menu-item primary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(null);
+                                            setWaDropdownOpenId(null);
+                                            onCloseSale?.(lead);
+                                        }}
+                                    >
+                                        <BadgeCheck size={16} /> Fechar venda
+                                    </button>
+                                ) : null}
                                 <button
                                     className="menu-item"
                                     onClick={(e) => {
@@ -901,6 +917,7 @@ const Pipeline = () => {
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
     const [postMatriculaContractOpen, setPostMatriculaContractOpen] = useState(false);
     const [postMatriculaContractLeadId, setPostMatriculaContractLeadId] = useState(null);
+    const [closeSaleLead, setCloseSaleLead] = useState(null);
     const modules = useLeadStore((s) => s.modules);
     const { questions: enrollmentQuestions } = useCustomLeadQuestions(academyId);
     const [noteError, setNoteError] = useState('');
@@ -1840,6 +1857,7 @@ const Pipeline = () => {
             handleDeleteLead,
             canDeleteLead,
             onOpenScheduleModal: setScheduleModalLead,
+            onCloseSale: setCloseSaleLead,
             handleConfirmPresence,
             setMissedModalLead,
             setMatriculaModalOpen,
@@ -2246,6 +2264,7 @@ const Pipeline = () => {
                             handleDeleteLead={handleDeleteLead}
                             canDeleteLead={canDeleteLead}
                             onOpenScheduleModal={setScheduleModalLead}
+                            onCloseSale={setCloseSaleLead}
                             handleConfirmPresence={handleConfirmPresence}
                             setMissedModalLead={setMissedModalLead}
                             setMatriculaModalOpen={setMatriculaModalOpen}
@@ -2261,6 +2280,15 @@ const Pipeline = () => {
             </DndContext>
             </div>
             )}
+
+            <LeadCloseSaleModal
+                open={Boolean(closeSaleLead)}
+                lead={closeSaleLead}
+                academyId={academyId}
+                userId={userId}
+                permissionContext={permCtx}
+                onClose={() => setCloseSaleLead(null)}
+            />
 
             <ScheduleModal
                 open={scheduleModalLead !== null}

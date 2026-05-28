@@ -9,6 +9,8 @@ import {
   isDirectNavPath,
   isAccordionChildActive,
   NAV_ACCORDION_IDS,
+  NOVA_VENDA_MENU_ACTION,
+  buildLojaAccordion,
 } from '../lib/naviMenu.js';
 
 describe('naviMenu', () => {
@@ -79,6 +81,16 @@ describe('naviMenu', () => {
         { pathname: '/financeiro', search: '?tab=previsao' }
       )
     ).toBe(false);
+  });
+
+  it('buildLojaAccordion lists Nova venda first when sales enabled', () => {
+    const loja = buildLojaAccordion({ modules: { sales: true, inventory: true } });
+    expect(loja.children[0]).toMatchObject({
+      id: 'nova-venda',
+      label: 'Nova venda',
+      action: NOVA_VENDA_MENU_ACTION,
+    });
+    expect(loja.children[1].id).toBe('vendas');
   });
 
   it('buildSidebarNavModel respects modules and owner', () => {

@@ -6,7 +6,9 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
-import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck } from 'lucide-react';
+import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
+import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
 import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
@@ -91,6 +93,7 @@ const TIMELINE_EVENT_LABELS = {
     missed: 'Não compareceu',
     converted: 'Matriculado',
     lost: 'Perda',
+    venda: 'Venda registrada',
     followup_done: 'Follow-up concluído',
     inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
@@ -401,6 +404,7 @@ const LeadProfile = () => {
     const [deletingLead, setDeletingLead] = useState(false);
     const [lostModalOpen, setLostModalOpen] = useState(false);
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
+    const [closeSaleOpen, setCloseSaleOpen] = useState(false);
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
     const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
@@ -1410,6 +1414,21 @@ const LeadProfile = () => {
                                 </button>
                             )}
                             
+                            {canShowLeadCloseSale(lead) ? (
+                                <button
+                                    type="button"
+                                    className="btn-next-step"
+                                    style={{
+                                        background: 'var(--accent)',
+                                        color: '#fff',
+                                        border: 'none',
+                                    }}
+                                    onClick={() => setCloseSaleOpen(true)}
+                                    disabled={updatingStatus}
+                                >
+                                    <BadgeCheck size={14} /> Fechar venda
+                                </button>
+                            ) : null}
                             {lead.status !== LEAD_STATUS.CONVERTED && (
                                 <button
                                     type="button"
@@ -1703,6 +1722,18 @@ const LeadProfile = () => {
                     </div>
                 </div>
             )}
+
+            <LeadCloseSaleModal
+                open={closeSaleOpen}
+                lead={lead}
+                academyId={academyId}
+                userId={userId}
+                permissionContext={permCtx}
+                onClose={() => {
+                    setCloseSaleOpen(false);
+                    void refreshTimeline();
+                }}
+            />
 
             <MatriculaModal
                 isOpen={matriculaModalOpen}
