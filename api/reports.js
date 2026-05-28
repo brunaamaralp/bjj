@@ -1,6 +1,7 @@
-import { Client, Databases, Query } from 'node-appwrite';
+import { Client, Databases } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { aggregateLeadsReport } from '../lib/server/reportsAggregate.js';
+import { fetchAllReportPeople, LEADS_COL } from '../lib/server/reportsPeople.js';
 import { loadReportSnapshot, saveReportSnapshot } from '../lib/server/reportSnapshots.js';
 import reportsLightHandler from '../lib/server/reportsLightHandler.js';
 import reportsByOperatorHandler from '../lib/server/reportsByOperatorHandler.js';
@@ -15,8 +16,6 @@ const PROJECT_ID =
   '';
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
-const LEADS_COL =
-  process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.APPWRITE_LEADS_COLLECTION_ID || '';
 
 const REPORT_TIMEOUT_MS = Number(process.env.REPORTS_HANDLER_TIMEOUT_MS || 28000);
 
@@ -36,19 +35,6 @@ function json(res, status, obj) {
 
 function logReport(entry) {
   console.log(JSON.stringify({ scope: 'api/reports', ...entry, ts: new Date().toISOString() }));
-}
-
-async function fetchAllLeads(databases, queries, signal) {
-  let all = [];
-  let cursor = null;
-  do {
-    if (signal?.aborted) throw Object.assign(new Error('timeout'), { code: 'TIMEOUT' });
-    const q = cursor ? [...queries, Query.cursorAfter(cursor)] : queries;
-    const res = await databases.listDocuments(DB_ID, LEADS_COL, [...q, Query.limit(100)]);
-    all = [...all, ...res.documents];
-    cursor = res.documents.length === 100 ? res.documents[res.documents.length - 1].$id : null;
-  } while (cursor);
-  return all;
 }
 
 export default async function handler(req, res) {
@@ -126,20 +112,14 @@ export default async function handler(req, res) {
       }
     }
 
-    const baseQueries = [Query.equal('academyId', academyId)];
-    if (filters?.origin && filters.origin !== 'all') {
-      baseQueries.push(Query.equal('origin', filters.origin));
-    }
-    if (filters?.type && filters.type !== 'all') {
-      if (filters.type === 'Criança') {
-        baseQueries.push(Query.or([Query.equal('type', 'Criança'), Query.equal('type', 'Kids')]));
-      } else {
-        baseQueries.push(Query.equal('type', filters.type));
-      }
-    }
-
-    const allLeads = await fetchAllLeads(reportsDb, baseQueries, controller.signal);
-    const aggregated = aggregateLeadsReport(allLeads, { from, to, prevFrom, prevTo, chartMode });
+    const allPeople = await fetchAllReportPeople(
+      reportsDb,
+      DB_ID,
+      academyId,
+      filters,
+      controller.signal
+    );
+    const aggregated = aggregateLeadsReport(allPeople, { from, to, prevFrom, prevTo, chartMode });
 
     const payload = {
       period: { from, to },
