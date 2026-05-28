@@ -17,6 +17,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import MatriculaModal from '../components/MatriculaModal';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
@@ -1401,14 +1402,14 @@ const LeadProfile = () => {
                             </button>
 
                             {templateMenuOpen && (
-                                <div className="comm-dropdown-menu">
+                                <div className="navi-menu__panel comm-dropdown-menu">
                                     {Object.entries(waCtx.templates)
                                         .filter(([, text]) => typeof text === 'string' && String(text).trim())
                                         .map(([key]) => (
                                             <button
                                                 key={key}
                                                 type="button"
-                                                className="comm-dropdown-item"
+                                                className="navi-menu__item comm-dropdown-item"
                                                 onClick={() => void sendTemplateKey(key)}
                                             >
                                                 {WHATSAPP_TEMPLATE_LABELS[key] || key}
@@ -1786,28 +1787,16 @@ const LeadProfile = () => {
                 </div>
             </div>
 
-            {confirmModal && (
-                <div className="dashboard-confirm-overlay" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))}>
-                    <div className="dashboard-confirm-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="dashboard-confirm-icon-wrap">
-                            <AlertTriangle size={24} color="var(--danger)" />
-                        </div>
-                        <h3 className="confirm-title">{confirmModal.title}</h3>
-                        <p className="confirm-desc">{confirmModal.description}</p>
-                        <div className="dashboard-confirm-actions">
-                            <button type="button" className="btn-outline" onClick={() => (confirmBusy ? undefined : setConfirmModal(null))} disabled={confirmBusy}>Cancelar</button>
-                            <button
-                                type="button"
-                                className={confirmModal.danger ? 'btn-danger' : 'btn-secondary'}
-                                onClick={() => void runConfirmModalAction()}
-                                disabled={confirmBusy}
-                            >
-                                {confirmBusy ? '...' : confirmModal.confirmLabel}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmDialog
+                open={Boolean(confirmModal)}
+                title={confirmModal?.title || ''}
+                description={confirmModal?.description}
+                confirmLabel={confirmModal?.confirmLabel || 'Confirmar'}
+                confirmVariant={confirmModal?.danger ? 'danger' : 'primary'}
+                loading={confirmBusy}
+                onConfirm={() => void runConfirmModalAction()}
+                onClose={() => (confirmBusy ? undefined : setConfirmModal(null))}
+            />
 
             <LeadCloseSaleModal
                 open={closeSaleOpen}
@@ -2187,31 +2176,12 @@ const LeadProfile = () => {
                 }
 
                 .comm-dropdown-menu {
-                    position: absolute;
-                    top: 100%;
                     left: 0;
                     right: 0;
-                    background: var(--surface);
-                    border: 1px solid var(--border);
-                    border-radius: 10px;
-                    box-shadow: var(--shadow-lg);
-                    margin-top: 8px;
-                    z-index: 100;
                     max-height: 200px;
                     overflow-y: auto;
+                    z-index: 100;
                 }
-
-                .comm-dropdown-item {
-                    width: 100%;
-                    padding: 10px 16px;
-                    text-align: left;
-                    border: none;
-                    background: none;
-                    font-size: 13px;
-                    color: var(--text);
-                    cursor: pointer;
-                }
-                .comm-dropdown-item:hover { background: var(--surface-hover); }
 
                 /* Agendamento Card */
                 .schedule-card {

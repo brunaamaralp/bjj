@@ -8,6 +8,7 @@ import {
   mergePublicEnrollmentIntoSettings,
   buildPublicEnrollmentUrl,
 } from '../../lib/publicEnrollmentSettings';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 async function postEnrollmentConfig(academyId, body) {
   const jwt = await createSessionJwt();
@@ -36,6 +37,7 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
   const [enabled, setEnabled] = useState(cfg.enabled);
   const [shareToken, setShareToken] = useState('');
   const [busy, setBusy] = useState(false);
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
   useEffect(() => {
     setEnabled(cfg.enabled);
@@ -79,8 +81,7 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
   };
 
   const handleRegenerate = () => {
-    if (!window.confirm('Gerar um novo link invalida o anterior. Continuar?')) return;
-    void syncFromServer(true, true);
+    setRegenerateConfirmOpen(true);
   };
 
   const handleCopy = async () => {
@@ -171,6 +172,17 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
       ) : (
         <p className="text-small text-muted">Somente administradores podem configurar o link.</p>
       )}
+      <ConfirmDialog
+        open={regenerateConfirmOpen}
+        title="Gerar novo link?"
+        description="Gerar um novo link invalida o anterior. Continuar?"
+        confirmLabel="Gerar novo link"
+        onConfirm={() => {
+          setRegenerateConfirmOpen(false);
+          void syncFromServer(true, true);
+        }}
+        onClose={() => setRegenerateConfirmOpen(false)}
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { friendlyError } from '../lib/errorMessages';
 import { createSessionJwt } from '../lib/appwrite';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 
 function isRealCatalogParent(product, catalogMode) {
   if (catalogMode !== 'parent_variant') return false;
@@ -79,8 +80,6 @@ function ProductActionsMenu({
   showManageSizes,
   deleteBusy,
 }) {
-  const rootRef = useRef(null);
-
   const runMenuAction = (e, action) => {
     e.preventDefault();
     e.stopPropagation();
@@ -88,32 +87,13 @@ function ProductActionsMenu({
     onClose();
   };
 
-  const menuItemHandlers = (action) => ({
-    onMouseDown: (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    },
-    onClick: (e) => runMenuAction(e, action),
-  });
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const onDocClick = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) onClose();
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [isOpen, onClose]);
+  const stopMenuEvent = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
-    <div className="products-actions-menu" ref={rootRef}>
+    <DropdownMenu open={isOpen} onOpenChange={(next) => !next && onClose()}>
       <button
         type="button"
         className="products-icon-btn"
@@ -129,37 +109,32 @@ function ProductActionsMenu({
         <MoreHorizontal size={16} aria-hidden />
       </button>
       {isOpen ? (
-        <div className="products-actions-menu__panel" role="menu" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            role="menuitem"
-            className="products-actions-menu__item"
-            {...menuItemHandlers(() => onDuplicate(product))}
+        <DropdownMenuPanel onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem
+            onMouseDown={stopMenuEvent}
+            onClick={(e) => runMenuAction(e, () => onDuplicate(product))}
           >
             Duplicar produto
-          </button>
+          </DropdownMenuItem>
           {showManageSizes ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="products-actions-menu__item"
-              {...menuItemHandlers(() => onManageSizes(product))}
+            <DropdownMenuItem
+              onMouseDown={stopMenuEvent}
+              onClick={(e) => runMenuAction(e, () => onManageSizes(product))}
             >
               {product?._legacy ? 'Adicionar tamanho' : 'Gerenciar tamanhos'}
-            </button>
+            </DropdownMenuItem>
           ) : null}
-          <button
-            type="button"
-            role="menuitem"
-            className="products-actions-menu__item products-actions-menu__item--danger"
+          <DropdownMenuItem
+            danger
             disabled={deleteBusy}
-            {...menuItemHandlers(() => onDelete(product))}
+            onMouseDown={stopMenuEvent}
+            onClick={(e) => runMenuAction(e, () => onDelete(product))}
           >
             Excluir produto
-          </button>
-        </div>
+          </DropdownMenuItem>
+        </DropdownMenuPanel>
       ) : null}
-    </div>
+    </DropdownMenu>
   );
 }
 

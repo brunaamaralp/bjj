@@ -21,6 +21,11 @@ import {
   X,
 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import {
+  DropdownMenuBackdrop,
+  DropdownMenuPanel,
+  DropdownMenuItem,
+} from '../shared/menu';
 
 const EMPTY_FORM = {
   code: '',
@@ -124,34 +129,31 @@ function AccountsActionMenu({ menu, onClose, onEdit, onAddSubconta, onDelete }) 
 
   return createPortal(
     <>
-      <div className="accounts-popover-backdrop" role="presentation" onClick={onClose} />
-      <div
-        className="accounts-popover dropdown-panel"
+      <DropdownMenuBackdrop className="accounts-popover-backdrop" onClick={onClose} />
+      <DropdownMenuPanel
+        className="accounts-popover"
+        fixed
         style={{ top: menu.top, left: menu.left }}
-        role="menu"
+        aria-label="Ações da conta"
       >
-        <button type="button" className="dropdown-item" role="menuitem" onClick={() => onEdit(menu.account)}>
-          <Pencil size={16} aria-hidden />
+        <DropdownMenuItem icon={<Pencil size={16} aria-hidden />} onClick={() => onEdit(menu.account)}>
           Editar conta
-        </button>
+        </DropdownMenuItem>
         {!protectedRow ? (
-          <button type="button" className="dropdown-item" role="menuitem" onClick={() => onAddSubconta(menu.account)}>
-            <Plus size={16} aria-hidden />
+          <DropdownMenuItem icon={<Plus size={16} aria-hidden />} onClick={() => onAddSubconta(menu.account)}>
             Adicionar subconta
-          </button>
+          </DropdownMenuItem>
         ) : null}
-        <button
-          type="button"
-          className="dropdown-item accounts-popover-btn--danger"
-          role="menuitem"
+        <DropdownMenuItem
+          danger
           disabled={protectedRow}
           title={protectedRow ? PROTECTED_CODE_DELETE_MESSAGE : undefined}
+          icon={<Trash2 size={16} aria-hidden />}
           onClick={() => onDelete(menu.account)}
         >
-          <Trash2 size={16} aria-hidden />
           Excluir
-        </button>
-      </div>
+        </DropdownMenuItem>
+      </DropdownMenuPanel>
     </>,
     document.body
   );

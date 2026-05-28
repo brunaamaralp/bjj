@@ -1,5 +1,5 @@
 import { authService } from './auth.js';
-import { useUiStore } from '../store/useUiStore.js';
+import { useUiStore, TOAST_DURATION } from '../store/useUiStore.js';
 
 let sessionExpiredHandling = false;
 
@@ -17,7 +17,7 @@ export async function authedFetch(url, options) {
         useUiStore.getState().addToast({
           type: 'error',
           message: 'Sua sessão expirou. Faça login novamente.',
-          duration: 8000,
+          duration: TOAST_DURATION.error,
         });
       } finally {
         sessionExpiredHandling = false;

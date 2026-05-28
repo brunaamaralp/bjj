@@ -4,6 +4,7 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
+import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 import { useUserRole } from '../lib/useUserRole';
 import { hasAnyActivity } from '../lib/reportActivity.js';
 import { account } from '../lib/appwrite';
@@ -235,7 +236,6 @@ const Reports = () => {
     const [profileFilter, setProfileFilter] = useState('all');
     const [exportOpen, setExportOpen] = useState(false);
     const [drillKey, setDrillKey] = useState(null);
-    const exportWrapRef = useRef(null);
     const reportAbortRef = useRef(null);
     const filterDebounceSkip = useRef(true);
     const [heatmapTableView, setHeatmapTableView] = useState(false);
@@ -300,17 +300,6 @@ const Reports = () => {
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
-
-    useEffect(() => {
-        if (!exportOpen) return;
-        const onMouseDown = (e) => {
-            if (exportWrapRef.current && !exportWrapRef.current.contains(e.target)) {
-                setExportOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', onMouseDown);
-        return () => document.removeEventListener('mousedown', onMouseDown);
-    }, [exportOpen]);
 
     const range = useMemo(() => {
         const now = new Date();
@@ -708,12 +697,18 @@ const Reports = () => {
                     </div>
                     {dateError ? <FieldError>{dateError}</FieldError> : null}
                     <div style={{ flex: 1 }} />
-                    <div className="reports-export-wrap" ref={exportWrapRef}>
+                    <DropdownMenu
+                        open={exportOpen}
+                        onOpenChange={setExportOpen}
+                        align="end"
+                        className="reports-export-wrap"
+                    >
                         <button
                             type="button"
                             className="btn-secondary reports-export-btn"
                             onClick={() => !showInitialLoad && reportHasActivity && !error && setExportOpen((o) => !o)}
                             aria-expanded={exportOpen}
+                            aria-haspopup="menu"
                             disabled={!reportData || loading || !reportHasActivity || Boolean(error)}
                             title={
                                 error
@@ -734,25 +729,25 @@ const Reports = () => {
                             )}
                         </button>
                         {exportOpen ? (
-                            <div className="reports-export-menu" role="menu">
-                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('newLeads', 'novos-leads')}>
+                            <DropdownMenuPanel className="reports-export-menu">
+                                <DropdownMenuItem onClick={() => exportList('newLeads', 'novos-leads')}>
                                     Novos no período
-                                </button>
-                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('scheduled', 'agendados')}>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportList('scheduled', 'agendados')}>
                                     Agendados
-                                </button>
-                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('completed', 'compareceram')}>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportList('completed', 'compareceram')}>
                                     Compareceram
-                                </button>
-                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('missed', 'nao-compareceram')}>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportList('missed', 'nao-compareceram')}>
                                     Não compareceram
-                                </button>
-                                <button type="button" className="reports-export-item" role="menuitem" onClick={() => exportList('converted', terms.reportsExportConvertedFileSlug)}>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportList('converted', terms.reportsExportConvertedFileSlug)}>
                                     {terms.reportsMetricConvertedShort}
-                                </button>
-                            </div>
+                                </DropdownMenuItem>
+                            </DropdownMenuPanel>
                         ) : null}
-                    </div>
+                    </DropdownMenu>
                     </>
                     ) : null}
                 </div>
@@ -1429,16 +1424,9 @@ const Reports = () => {
         }
         .reports-export-btn:disabled { opacity: 0.55; cursor: not-allowed; }
         .reports-chevron-open { transform: rotate(180deg); transition: transform 0.15s ease; }
-        .reports-export-menu {
-          position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 220px;
-          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
-          box-shadow: var(--shadow); padding: 6px;
-        }
-        .reports-export-item {
-          display: block; width: 100%; text-align: left; padding: 10px 12px; border: none; background: none;
-          font-size: 0.85rem; font-weight: 600; color: var(--text); cursor: pointer; border-radius: 6px; font-family: inherit;
-        }
-        .reports-export-item:hover { background: var(--accent-light); color: var(--accent); }
+        .reports-export-menu { z-index: 20; min-width: 220px; }
+        .reports-export-menu .navi-menu__item { font-size: 0.85rem; font-weight: 600; }
+        .reports-export-menu .navi-menu__item:hover { background: var(--accent-light); color: var(--accent); }
         .reports-funnel-card {
           border: 1px solid var(--border);
           border-radius: 16px;

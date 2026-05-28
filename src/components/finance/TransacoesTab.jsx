@@ -1144,16 +1144,12 @@ export default function TransacoesTab({
                 </p>
                 {studentPickerOpen && String(studentQuery || '').trim().length >= 2 ? (
                   studentMatches.length > 0 ? (
-                    <div
-                      className="card"
-                      className="card finance-tx-student-dropdown"
-                    >
+                    <div className="card finance-tx-student-dropdown navi-menu__panel">
                       {studentMatches.map((l) => (
                         <button
                           key={l.id}
                           type="button"
-                          className="btn-ghost"
-                          className="btn-ghost finance-tx-student-dropdown__item"
+                          className="btn-ghost finance-tx-student-dropdown__item navi-menu__item"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
                             setTxForm((f) => ({ ...f, lead_id: l.id }));

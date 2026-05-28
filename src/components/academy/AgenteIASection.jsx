@@ -12,6 +12,7 @@ import { mapAgentTestErrorMessage, mapAgentSettingsErrorMessage } from '../../li
 import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import './agent-ia.css';
 
 async function getJwt() {
@@ -1766,43 +1767,15 @@ const AgenteIASection = ({ academyId, role, academyDoc }) => {
                 </div>
             )}
 
-            {waConfirm && (
-                <div
-                    className="confirm-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="wa-confirm-title"
-                    onClick={() => (zap.waLoading ? undefined : setWaConfirm(null))}
-                >
-                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="confirm-icon-wrap">
-                            <AlertTriangle size={28} color="var(--danger)" aria-hidden />
-                        </div>
-                        <h3 id="wa-confirm-title" className="navi-section-heading">{waConfirm.title}</h3>
-                        <p className="navi-subtitle" style={{ marginTop: 10 }}>{waConfirm.description}</p>
-                        <div className="flex gap-2 mt-4">
-                            <button
-                                type="button"
-                                className="btn-outline"
-                                style={{ flex: 1 }}
-                                onClick={() => setWaConfirm(null)}
-                                disabled={zap.waLoading}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-danger"
-                                style={{ flex: 1 }}
-                                onClick={handleWaConfirmAction}
-                                disabled={zap.waLoading}
-                            >
-                                {waConfirm.confirmLabel}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmDialog
+                open={Boolean(waConfirm)}
+                title={waConfirm?.title || ''}
+                description={waConfirm?.description}
+                confirmLabel={waConfirm?.confirmLabel || 'Confirmar'}
+                loading={zap.waLoading}
+                onConfirm={handleWaConfirmAction}
+                onClose={() => (zap.waLoading ? undefined : setWaConfirm(null))}
+            />
 
             {showPromptPreview && (
                 <div

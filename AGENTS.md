@@ -27,3 +27,7 @@ These defaults are optimized for AI coding agents (and humans) working on apps t
 ## Feedback visual (toasts, banners, erros)
 
 Ao adicionar alertas ou mensagens de erro, siga [docs/ux-feedback.md](docs/ux-feedback.md): use `useToast` para ações transitórias, `StatusBanner`/`ErrorBanner` para erros persistentes de página, `FieldError` em formulários e `ConfirmDialog` em vez de `window.confirm`.
+
+## Menus dropdown
+
+Novos menus flutuantes devem usar o primitivo em `src/components/shared/menu` e as classes `navi-menu__*` (tokens em `:root`). Ver [docs/dropdown-menus.md](docs/dropdown-menus.md).

@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { createSessionJwt } from '../../lib/appwrite';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 const VIOLET = '#5B3FBF';
 const CORAL = '#F04040';
@@ -83,6 +84,7 @@ export default function ImportFinanceModal({
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [previewTab, setPreviewTab] = useState('accounts');
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [mode, setMode] = useState('merge');
 
   const previewTabs = useMemo(() => {
@@ -114,14 +116,19 @@ export default function ImportFinanceModal({
     if (fileRef.current) fileRef.current.value = '';
   }, []);
 
+  const finishClose = useCallback(() => {
+    resetState();
+    setCloseConfirmOpen(false);
+    onClose?.();
+  }, [resetState, onClose]);
+
   const requestClose = useCallback(() => {
     if (step === 'loading' || step === 'saving') {
-      const ok = window.confirm('A importação ainda está em andamento. Deseja cancelar?');
-      if (!ok) return;
+      setCloseConfirmOpen(true);
+      return;
     }
-    resetState();
-    onClose?.();
-  }, [step, resetState, onClose]);
+    finishClose();
+  }, [step, finishClose]);
 
   const processFile = useCallback(
     async (file) => {
@@ -627,6 +634,15 @@ export default function ImportFinanceModal({
           )}
         </footer>
       </div>
+
+      <ConfirmDialog
+        open={closeConfirmOpen}
+        title="Cancelar importação?"
+        description="A importação ainda está em andamento. Deseja cancelar?"
+        confirmLabel="Cancelar importação"
+        onConfirm={finishClose}
+        onClose={() => setCloseConfirmOpen(false)}
+      />
 
       <style dangerouslySetInnerHTML={{ __html: FINANCE_IMPORT_STYLES }} />
     </div>

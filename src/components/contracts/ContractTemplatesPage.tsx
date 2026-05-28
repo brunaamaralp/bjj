@@ -16,6 +16,7 @@ import {
 } from '../../lib/contractTemplateVariables.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ContractTemplateEditor from './ContractTemplateEditor.js';
 import PageHeader from '../layout/PageHeader.jsx';
 import './contracts.css';
@@ -44,6 +45,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const [planNames, setPlanNames] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [bodyHtml, setBodyHtml] = useState(DEFAULT_CONTRACT_TEMPLATE_HTML);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; label: string } | null>(null);
 
   const templates = data?.templates || [];
   const configured = data?.configured !== false;
@@ -140,8 +142,14 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     }
   };
 
-  const handleDelete = async (id: string, label: string) => {
-    if (!window.confirm(`Excluir o modelo "${label}"?`)) return;
+  const handleDelete = (id: string, label: string) => {
+    setDeleteConfirm({ id, label });
+  };
+
+  const runDeleteConfirmed = async () => {
+    if (!deleteConfirm) return;
+    const { id } = deleteConfirm;
+    setDeleteConfirm(null);
     try {
       await deleteMutation.mutateAsync(id);
       addToast({ type: 'success', message: 'Modelo excluído.' });
@@ -327,6 +335,15 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
           </div>
         ) : null}
       </section>
+
+      <ConfirmDialog
+        open={Boolean(deleteConfirm)}
+        title="Excluir modelo?"
+        description={deleteConfirm ? `Excluir o modelo "${deleteConfirm.label}"?` : ''}
+        confirmLabel="Excluir"
+        onConfirm={() => void runDeleteConfirmed()}
+        onClose={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

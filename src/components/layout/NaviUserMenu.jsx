@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, LogOut, Plug, User, Users } from 'lucide-react';
 import { matchNavTarget } from '../../lib/naviMenu.js';
+import { useDismissibleMenu } from '../../hooks/useDismissibleMenu';
+import { DropdownMenuDivider } from '../shared/menu';
 
 function initialsFromUser(user) {
   const name = String(user?.name || '').trim();
@@ -26,7 +28,7 @@ export default function NaviUserMenu({
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
+  const rootRef = useDismissibleMenu(open, setOpen);
 
   const displayName = useMemo(() => {
     const name = String(user?.name || '').trim();
@@ -44,22 +46,6 @@ export default function NaviUserMenu({
     setOpen(false);
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    function onPointerDown(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    }
-    function onKey(e) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
   const go = (path) => {
     setOpen(false);
     navigate(path);
@@ -67,7 +53,7 @@ export default function NaviUserMenu({
 
   const menuItemClass = (path) => {
     const active = matchNavTarget(path, location);
-    return `navi-user-menu-item${active ? ' navi-user-menu-item--active' : ''}`;
+    return `navi-menu__item navi-user-menu-item${active ? ' navi-menu__item--active navi-user-menu-item--active' : ''}`;
   };
 
   return (
@@ -93,7 +79,11 @@ export default function NaviUserMenu({
       </button>
 
       {open ? (
-        <div className="navi-user-menu-dropdown" role="menu" aria-label="Menu da conta">
+        <div
+          className="navi-menu__panel navi-user-menu-dropdown"
+          role="menu"
+          aria-label="Menu da conta"
+        >
           <div className="navi-user-menu-header" role="none">
             <span className="navi-user-menu-header-name">{displayName}</span>
             {email ? <span className="navi-user-menu-header-email">{email}</span> : null}
@@ -121,7 +111,7 @@ export default function NaviUserMenu({
             </div>
           ) : null}
 
-          <hr className="navi-user-menu-divider" aria-hidden />
+          <DropdownMenuDivider />
 
           <button type="button" role="menuitem" className={menuItemClass('/empresa')} onClick={() => go('/empresa')}>
             <Building2 size={16} strokeWidth={1.75} aria-hidden />
@@ -140,12 +130,12 @@ export default function NaviUserMenu({
             Conta
           </button>
 
-          <hr className="navi-user-menu-divider" aria-hidden />
+          <DropdownMenuDivider />
 
           <button
             type="button"
             role="menuitem"
-            className="navi-user-menu-item navi-user-menu-item--danger"
+            className="navi-menu__item navi-user-menu-item navi-menu__item--danger"
             onClick={() => {
               setOpen(false);
               onLogout?.();

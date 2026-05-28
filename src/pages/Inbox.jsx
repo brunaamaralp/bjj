@@ -3107,20 +3107,7 @@ export default function Inbox() {
           {extraFiltersMenuOpen ? (
             <div
               role="menu"
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                marginTop: 6,
-                zIndex: 45,
-                minWidth: 280,
-                maxWidth: 'min(360px, 92vw)',
-                padding: 10,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                boxShadow: 'var(--shadow-lg)'
-              }}
+              className="navi-menu__panel inbox-extra-filters-menu"
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -4942,13 +4929,20 @@ export default function Inbox() {
         .inbox-msg.selected { background: var(--v50); outline: 2px solid rgba(91, 63, 191, 0.35); }
         .inbox-msg-actions { opacity: 0; pointer-events: none; transition: var(--transition); }
         .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
+        .inbox-extra-filters-menu {
+          left: 0;
+          right: auto;
+          z-index: 45;
+          min-width: 280px;
+          max-width: min(360px, 92vw);
+          padding: 10px;
+        }
         .inbox-menu-overlay { position: fixed; inset: 0; background: var(--overlay-menu); z-index: 80; }
-        .inbox-menu-panel { position: fixed; width: 260px; max-height: min(72vh, 520px); overflow-x: hidden; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); z-index: 81; }
-        .inbox-menu-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text); font-size: var(--inbox-font-secondary); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; }
-        .inbox-menu-item:hover { background: var(--surface-hover); }
-        .inbox-menu-item.danger { color: var(--danger); }
-        .inbox-menu-item.danger:hover { background: var(--danger-light); }
-        .inbox-menu-item.muted { color: var(--text-secondary); font-weight: 600; }
+        .inbox-menu-panel { width: 260px; padding: var(--menu-padding) 0; }
+        .inbox-menu-item { border-radius: 0; font-size: var(--inbox-font-secondary); font-weight: 700; justify-content: space-between; min-height: 42px; }
+        .inbox-menu-item.navi-menu__item--danger { color: var(--danger); }
+        .inbox-menu-item.navi-menu__item--danger:hover { background: var(--danger-light); }
+        .inbox-menu-item.navi-menu__item--muted { color: var(--text-secondary); font-weight: 600; }
         .inbox-empty-thread-placeholder {
           min-height: 62vh;
           min-height: 62dvh;
@@ -5301,7 +5295,7 @@ export default function Inbox() {
       {menu && (
         <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
           <div
-            className="inbox-menu-panel"
+            className="inbox-menu-panel navi-menu__panel navi-menu__panel--overlay"
             style={{ left: Number(menu.x || 0), top: Number(menu.y || 0) }}
             role="menu"
             onClick={(e) => e.stopPropagation()}
@@ -5317,7 +5311,7 @@ export default function Inbox() {
               return (
                 <>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       const base = contentRaw.replace(/\s+/g, ' ').trim();
@@ -5343,7 +5337,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       copyToClipboard(contentRaw);
@@ -5356,7 +5350,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       const block = buildQuotedForwardBlock(contentRaw);
@@ -5381,7 +5375,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       void toggleMsgFlag(phone, key, 'pinned');
@@ -5394,7 +5388,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       void toggleMsgFlag(phone, key, 'important');
@@ -5407,7 +5401,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item muted"
+                    className="inbox-menu-item navi-menu__item navi-menu__item--muted"
                     type="button"
                     onClick={() => {
                       setSelectedMsgKey(key);
@@ -5425,7 +5419,7 @@ export default function Inbox() {
                     title={!canCancel || !mid ? 'Só é possível excluir mensagens agendadas' : undefined}
                   >
                     <button
-                      className={`inbox-menu-item ${canCancel ? 'danger' : 'muted'}`}
+                      className={`inbox-menu-item navi-menu__item ${canCancel ? 'navi-menu__item--danger' : 'navi-menu__item--muted'}`}
                       type="button"
                       disabled={!canCancel || !mid}
                       onClick={() => {
@@ -5457,7 +5451,7 @@ export default function Inbox() {
               return (
                 <>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       if (isMobile || isNarrowDesktop) setDetailsOpen(true);
@@ -5471,7 +5465,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       updateTicket({ status: 'waiting_customer' });
@@ -5485,7 +5479,7 @@ export default function Inbox() {
                     </span>
                   </button>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       setLeadPanel('transfer');
@@ -5502,7 +5496,7 @@ export default function Inbox() {
                   </button>
                   {listFilter !== 'archived' && !isConvArchived && (
                     <button
-                      className="inbox-menu-item"
+                      className="inbox-menu-item navi-menu__item"
                       type="button"
                       onClick={() => {
                         void archiveConversation(phone);
@@ -5517,7 +5511,7 @@ export default function Inbox() {
                   )}
                   {(listFilter === 'archived' || isConvArchived) && (
                     <button
-                      className="inbox-menu-item"
+                      className="inbox-menu-item navi-menu__item"
                       type="button"
                       onClick={() => {
                         void unarchiveConversation(phone);
@@ -5531,7 +5525,7 @@ export default function Inbox() {
                     </button>
                   )}
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       loadThread(phone);
@@ -5546,7 +5540,7 @@ export default function Inbox() {
                   </button>
                   {threadUnread === 0 && (
                     <button
-                      className="inbox-menu-item"
+                      className="inbox-menu-item navi-menu__item"
                       type="button"
                       onClick={() => {
                         void markUnread(phone);
@@ -5561,7 +5555,7 @@ export default function Inbox() {
                   )}
                   {canConfigureAgenteIa && (
                     <button
-                      className="inbox-menu-item"
+                      className="inbox-menu-item navi-menu__item"
                       type="button"
                       onClick={() => {
                         openPromptSettings();
@@ -5577,7 +5571,7 @@ export default function Inbox() {
                   {!hasLead && (
                     <>
                       <button
-                        className="inbox-menu-item"
+                        className="inbox-menu-item navi-menu__item"
                         type="button"
                         onClick={() => {
                           setLeadPanel('convert');
@@ -5593,7 +5587,7 @@ export default function Inbox() {
                         </span>
                       </button>
                       <button
-                        className="inbox-menu-item"
+                        className="inbox-menu-item navi-menu__item"
                         type="button"
                         onClick={() => {
                           setLeadPanel('associate');
@@ -5613,7 +5607,7 @@ export default function Inbox() {
                   {hasLead && (
                     <>
                   <button
-                    className="inbox-menu-item"
+                    className="inbox-menu-item navi-menu__item"
                     type="button"
                     onClick={() => {
                       navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`);
@@ -5626,7 +5620,7 @@ export default function Inbox() {
                         </span>
                       </button>
                       <button
-                        className="inbox-menu-item"
+                        className="inbox-menu-item navi-menu__item"
                         type="button"
                         onClick={() => {
                           navigate('/pipeline');

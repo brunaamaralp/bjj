@@ -21,6 +21,7 @@ import ProductThumb from '../products/ProductThumb';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/menu';
 
 function isDefaultUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
@@ -72,26 +73,8 @@ function StockStatusBadge({ status, item, onRegisterEntry }) {
 }
 
 function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust, onConfigure }) {
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const onDocClick = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) onClose();
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [isOpen, onClose]);
-
   return (
-    <div className="inventory-actions-menu" ref={rootRef}>
+    <DropdownMenu open={isOpen} onOpenChange={(next) => !next && onClose()}>
       <button
         type="button"
         className="inventory-icon-btn"
@@ -107,62 +90,38 @@ function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust, onCo
         <MoreHorizontal size={16} aria-hidden />
       </button>
       {isOpen ? (
-        <div className="inventory-actions-menu__panel" role="menu" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuPanel onClick={(e) => e.stopPropagation()}>
           {onAdjust ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="inventory-actions-menu__item"
+            <DropdownMenuItem
               onClick={() => {
                 onClose();
                 onAdjust(variant);
               }}
             >
               Ajustar saldo
-            </button>
+            </DropdownMenuItem>
           ) : null}
           {onConfigure ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="inventory-actions-menu__item"
+            <DropdownMenuItem
               onClick={() => {
                 onClose();
                 onConfigure(variant);
               }}
             >
               Ajustar mínimo e unidade
-            </button>
+            </DropdownMenuItem>
           ) : null}
-        </div>
+        </DropdownMenuPanel>
       ) : null}
-    </div>
+    </DropdownMenu>
   );
 }
 
 function ParentActionsMenu({ parent, isOpen, onToggle, onClose, onConfigure, onAdjust }) {
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const onDocClick = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) onClose();
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [isOpen, onClose]);
-
   const firstVariant = parent.variants?.[0];
 
   return (
-    <div className="inventory-actions-menu" ref={rootRef}>
+    <DropdownMenu open={isOpen} onOpenChange={(next) => !next && onClose()}>
       <button
         type="button"
         className="inventory-icon-btn"
@@ -178,36 +137,30 @@ function ParentActionsMenu({ parent, isOpen, onToggle, onClose, onConfigure, onA
         <MoreHorizontal size={16} aria-hidden />
       </button>
       {isOpen && firstVariant ? (
-        <div className="inventory-actions-menu__panel" role="menu" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuPanel onClick={(e) => e.stopPropagation()}>
           {onAdjust ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="inventory-actions-menu__item"
+            <DropdownMenuItem
               onClick={() => {
                 onClose();
                 onAdjust(firstVariant);
               }}
             >
               Ajustar saldo
-            </button>
+            </DropdownMenuItem>
           ) : null}
           {onConfigure ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="inventory-actions-menu__item"
+            <DropdownMenuItem
               onClick={() => {
                 onClose();
                 onConfigure(firstVariant);
               }}
             >
               Ajustar mínimo e unidade
-            </button>
+            </DropdownMenuItem>
           ) : null}
-        </div>
+        </DropdownMenuPanel>
       ) : null}
-    </div>
+    </DropdownMenu>
   );
 }
 

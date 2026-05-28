@@ -18,6 +18,7 @@ import { useWhatsappTemplatesStore } from '../store/useWhatsappTemplatesStore.js
 import { useTerms } from '../lib/terminology.js';
 import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import '../lib/whatsappTemplates.css';
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
@@ -57,6 +58,7 @@ export default function AutomacoesModelosTab() {
 
   const [membership, setMembership] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState(null);
   const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   const [original, setOriginal] = useState(DEFAULT_TEMPLATES);
   const [sampleLeadId, setSampleLeadId] = useState('');
@@ -219,31 +221,24 @@ export default function AutomacoesModelosTab() {
     }
   };
 
-  const confirmRestore = (id) => {
-    const usage = usageByKey?.[id];
-    if (!isTemplateInUse(usage)) return true;
-    const names = [
-      ...(usage.automations || []).map((a) => a.label),
-      ...(usage.birthdayCron ? ['Cron de aniversário (Zapster)'] : []),
-    ];
-    const label = names.length === 1 ? '1 automação' : `${names.length} automações`;
-    return window.confirm(
-      `Este template está ativo em ${label} (${names.join(', ')}). Restaurar mesmo assim?`
-    );
+  const runRestoreOne = async (id) => {
+    setSaving(true);
+    try {
+      const data = await saveViaApi({ action: 'restore', key: id });
+      const merged = { ...templates, ...(data.templates || {}), [id]: DEFAULT_TEMPLATES[id] };
+      setTemplates(merged);
+      setOriginal((prev) => ({ ...prev, [id]: DEFAULT_TEMPLATES[id] }));
+      invalidate();
+      await refetch();
+      addToast({ type: 'success', message: 'Template restaurado' });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Falha ao restaurar' });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleResetDefaults = async () => {
-    if (!canEdit) return;
-    const activeKeys = templateIds.filter((id) => isTemplateInUse(usageByKey?.[id]));
-    if (activeKeys.length > 0) {
-      const ok = window.confirm(
-        `Templates em uso (${activeKeys.map((k) => labelFor[k] || k).join(', ')}). Restaurar todos para o padrão mesmo assim?`
-      );
-      if (!ok) return;
-    } else {
-      const ok = window.confirm('Restaurar todos os templates para o padrão? O texto atual será arquivado.');
-      if (!ok) return;
-    }
+  const runResetAllDefaults = async () => {
     setSaving(true);
     try {
       const data = await saveViaApi({ action: 'restore_all' });
@@ -260,23 +255,41 @@ export default function AutomacoesModelosTab() {
     }
   };
 
-  const handleResetOne = async (id) => {
+  const handleResetDefaults = () => {
     if (!canEdit) return;
-    if (!confirmRestore(id)) return;
-    setSaving(true);
-    try {
-      const data = await saveViaApi({ action: 'restore', key: id });
-      const merged = { ...templates, ...(data.templates || {}), [id]: DEFAULT_TEMPLATES[id] };
-      setTemplates(merged);
-      setOriginal((prev) => ({ ...prev, [id]: DEFAULT_TEMPLATES[id] }));
-      invalidate();
-      await refetch();
-      addToast({ type: 'success', message: 'Template restaurado' });
-    } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao restaurar' });
-    } finally {
-      setSaving(false);
+    const activeKeys = templateIds.filter((id) => isTemplateInUse(usageByKey?.[id]));
+    if (activeKeys.length > 0) {
+      setPendingConfirm({
+        title: 'Restaurar todos os templates?',
+        description: `Templates em uso (${activeKeys.map((k) => labelFor[k] || k).join(', ')}). Restaurar todos para o padrão mesmo assim?`,
+        onConfirm: () => void runResetAllDefaults(),
+      });
+      return;
     }
+    setPendingConfirm({
+      title: 'Restaurar templates?',
+      description: 'Restaurar todos os templates para o padrão? O texto atual será arquivado.',
+      onConfirm: () => void runResetAllDefaults(),
+    });
+  };
+
+  const handleResetOne = (id) => {
+    if (!canEdit) return;
+    const usage = usageByKey?.[id];
+    if (!isTemplateInUse(usage)) {
+      void runRestoreOne(id);
+      return;
+    }
+    const names = [
+      ...(usage.automations || []).map((a) => a.label),
+      ...(usage.birthdayCron ? ['Cron de aniversário (Zapster)'] : []),
+    ];
+    const label = names.length === 1 ? '1 automação' : `${names.length} automações`;
+    setPendingConfirm({
+      title: 'Restaurar template?',
+      description: `Este template está ativo em ${label} (${names.join(', ')}). Restaurar mesmo assim?`,
+      onConfirm: () => void runRestoreOne(id),
+    });
   };
 
   const changed = useMemo(() => JSON.stringify(templates) !== JSON.stringify(original), [templates, original]);
@@ -590,6 +603,20 @@ export default function AutomacoesModelosTab() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingConfirm)}
+        title={pendingConfirm?.title || ''}
+        description={pendingConfirm?.description}
+        confirmLabel="Confirmar"
+        loading={saving}
+        onConfirm={() => {
+          const fn = pendingConfirm?.onConfirm;
+          setPendingConfirm(null);
+          fn?.();
+        }}
+        onClose={() => setPendingConfirm(null)}
+      />
     </div>
   );
 }

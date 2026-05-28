@@ -193,16 +193,16 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                         <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
                     </button>
                     {waDropdownOpenId === lead.id && (
-                        <div className="wa-templates-dropdown" onClick={(e) => e.stopPropagation()}>
-                            <div className="dropdown-panel-header">Templates</div>
+                        <div className="navi-menu__panel wa-templates-dropdown" onClick={(e) => e.stopPropagation()}>
+                            <div className="navi-menu__label">Templates</div>
                             {templateSendKeys.length === 0 && (
-                                <div className="dropdown-item disabled">Sem templates</div>
+                                <div className="navi-menu__item navi-menu__item--static navi-menu__item--disabled">Sem templates</div>
                             )}
                             {templateSendKeys.map((key) => (
                                 <button
                                     key={`${lead.id}-tpl-${key}`}
                                     type="button"
-                                    className="dropdown-item"
+                                    className="navi-menu__item"
                                     onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
                                 >
                                     {WHATSAPP_TEMPLATE_LABELS[key] || key}
@@ -220,17 +220,17 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                             setWaDropdownOpenId(null);
                         }}
                         title="Mais ações"
-                        className="action-btn action-btn--menu"
+                        className="action-btn navi-menu-trigger--icon"
                     >
                         ⋯
                     </button>
                     {openMenuId === lead.id && (
-                        <div className="action-menu-panel" onClick={(e) => e.stopPropagation()}>
+                        <div className="navi-menu__panel navi-menu--elevated action-menu-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="menu-group">
                                 {canShowPipelineCloseSale(lead) ? (
                                     <button
                                         type="button"
-                                        className="menu-item primary"
+                                        className="navi-menu__item navi-menu__item--primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setOpenMenuId(null);
@@ -242,7 +242,8 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                     </button>
                                 ) : null}
                                 <button
-                                    className="menu-item"
+                                    type="button"
+                                    className="navi-menu__item"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setOpenMenuId(null);
@@ -253,40 +254,40 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                     <Calendar size={16} /> Agendar {pipelineMenuTrialLc}
                                 </button>
                                 {lead.pipelineStage === 'Aula experimental' && (
-                                    <button className="menu-item success" onClick={(e) => handleConfirmPresence(e, lead)}>
+                                    <button type="button" className="navi-menu__item navi-menu__item--success" onClick={(e) => handleConfirmPresence(e, lead)}>
                                         <PlusCircle size={16} /> Confirmar {pipelineMenuAttendanceLc}
                                     </button>
                                 )}
                                 {lead.pipelineStage === 'Aula experimental' && (
-                                    <button className="menu-item warning" onClick={(e) => { e.stopPropagation(); setMissedModalLead(lead); setOpenMenuId(null); }}>
+                                    <button type="button" className="navi-menu__item navi-menu__item--warning" onClick={(e) => { e.stopPropagation(); setMissedModalLead(lead); setOpenMenuId(null); }}>
                                         <Calendar size={16} /> Não compareceu
                                     </button>
                                 )}
                                 {['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
-                                    <button className="menu-item primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
+                                    <button type="button" className="navi-menu__item navi-menu__item--primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
                                         <GraduationCap size={16} /> {pipelineMenuEnrollment}
                                     </button>
                                 )}
-                                <button className="menu-item" onClick={(e) => openMover(e, lead.id)}>
+                                <button type="button" className="navi-menu__item" onClick={(e) => openMover(e, lead.id)}>
                                     <ChevronRight size={16} /> Mover para etapa
                                 </button>
                             </div>
-                            <div className="menu-divider" />
+                            <hr className="navi-menu__divider" aria-hidden />
                             <div className="menu-group">
-                                <button className="menu-item" onClick={(e) => openNote(e, lead)}>
+                                <button type="button" className="navi-menu__item" onClick={(e) => openNote(e, lead)}>
                                     <StickyNote size={16} /> Adicionar nota
                                 </button>
-                                <button className="menu-item" onClick={(e) => handleCopyPhone(e, lead)}>
+                                <button type="button" className="navi-menu__item" onClick={(e) => handleCopyPhone(e, lead)}>
                                     <Phone size={16} /> {copiedId === lead.id ? '✓ Copiado!' : 'Copiar telefone'}
                                 </button>
                             </div>
-                            <div className="menu-divider" />
+                            <hr className="navi-menu__divider" aria-hidden />
                             <div className="menu-group">
-                                <button className="menu-item danger-text" onClick={(e) => handleMarkAsLost(e, lead)}>
+                                <button type="button" className="navi-menu__item navi-menu__item--danger" onClick={(e) => handleMarkAsLost(e, lead)}>
                                     <MessageCircle size={16} /> Marcar como perdido
                                 </button>
                                 {canDeleteLead ? (
-                                    <button className="menu-item danger-text" onClick={(e) => handleDeleteLead(e, lead.id)}>
+                                    <button type="button" className="navi-menu__item navi-menu__item--danger" onClick={(e) => handleDeleteLead(e, lead.id)}>
                                         <StickyNote size={16} className="text-danger" /> Excluir lead
                                     </button>
                                 ) : null}
@@ -296,13 +297,14 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                 </div>
             </div>
             {moverOpenId === lead.id && (
-                <div className="dropdown-panel" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
+                <div className="navi-menu__panel dropdown-panel navi-menu--elevated" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
                     {stages.map(s => {
                         const active = (mapLeadToStageId(lead) === s.id);
                         return (
                             <button
                                 key={`${lead.id}-${s.id}`}
-                                className={`dropdown-item${active ? ' active' : ''}`}
+                                type="button"
+                                className={`navi-menu__item${active ? ' navi-menu__item--active' : ''}`}
                                 onClick={(e) => moveToStatus(e, lead.id, s.id)}
                             >
                                 {s.label}
@@ -2860,26 +2862,17 @@ const Pipeline = () => {
           display: flex;
           align-items: center;
         }
-        .wa-templates-dropdown { position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 180px; z-index: 100; overflow: hidden; }
-        .dropdown-panel-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); }
-        .action-btn--menu { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-sm); background: var(--surface-hover); border: 1px solid var(--border); cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+        .wa-templates-dropdown { left: 0; right: auto; min-width: 180px; z-index: 100; }
+        .action-menu-panel { min-width: 220px; padding: var(--menu-padding) 0; }
+        .action-menu-panel .navi-menu__item { color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; border-radius: 0; }
+        .action-menu-panel .navi-menu__item svg { color: var(--text-muted); }
+        .action-menu-panel .navi-menu__item:hover { color: var(--accent); }
+        .action-menu-panel .navi-menu__item:hover svg { color: var(--accent); }
+        .menu-group { display: flex; flex-direction: column; }
         @media (max-width: 1023px) {
           .wa-main-btn { min-width: 44px; min-height: 44px; padding: 0; }
           .wa-drop-toggle { min-height: 44px; }
-          .action-btn--menu { min-width: 44px; min-height: 44px; }
         }
-        .action-menu-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); min-width: 220px; z-index: 9000; overflow: hidden; padding: 6px 0; }
-        .menu-group { display: flex; flex-direction: column; }
-        .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; text-align: left; cursor: pointer; transition: background 0.15s; }
-        .menu-item:hover { background: var(--surface-hover); color: var(--accent); }
-        .menu-item svg { color: var(--text-muted); }
-        .menu-item:hover svg { color: var(--accent); }
-        .menu-item.primary { color: var(--accent); }
-        .menu-item.success { color: var(--success); }
-        .menu-item.warning { color: var(--warning); }
-        .menu-item.danger-text { color: var(--danger); }
-        .menu-item.danger-text:hover { background: var(--danger-light); }
-        .menu-divider { height: 1px; background: var(--border-light); margin: 6px 0; }
         .reason-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .reason-chip { padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; text-align: center; }
         .reason-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }

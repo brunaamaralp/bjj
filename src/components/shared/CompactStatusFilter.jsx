@@ -69,14 +69,17 @@ export default function CompactStatusFilter({
         </button>
       ) : null}
       {open ? (
-        <div className="filter-dropdown__menu mensal-status-filter__menu" role="listbox">
+        <div
+          className="filter-dropdown__menu mensal-status-filter__menu navi-menu__panel"
+          role="listbox"
+        >
           {options.map((opt) => (
             <button
               key={opt.id}
               type="button"
               role="option"
               aria-selected={value === opt.id}
-              className={`filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active is-active' : ''}`}
+              className={`navi-menu__item filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' navi-menu__item--active mensal-status-filter__option--active is-active' : ''}`}
               onClick={() => pick(opt.id)}
               title={opt.title || undefined}
             >
@@ -91,7 +94,7 @@ export default function CompactStatusFilter({
             <React.Fragment key={section.label || 'extra'}>
               <div className="mensal-status-filter__divider" role="separator" />
               {section.label ? (
-                <div className="mensal-status-filter__section-label">{section.label}</div>
+                <div className="navi-menu__label mensal-status-filter__section-label">{section.label}</div>
               ) : null}
               {(section.options || []).map((opt) => (
                 <button
@@ -99,7 +102,7 @@ export default function CompactStatusFilter({
                   type="button"
                   role="option"
                   aria-selected={value === opt.id}
-                  className={`filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active is-active' : ''}`}
+                  className={`navi-menu__item filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' navi-menu__item--active mensal-status-filter__option--active is-active' : ''}`}
                   onClick={() => pick(opt.id)}
                   title={opt.title || undefined}
                 >
