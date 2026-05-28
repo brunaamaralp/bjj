@@ -648,15 +648,16 @@ const Reports = () => {
             {isPeriodTab ? (
             <div className="page-header-card">
                 <div className="page-header-row reports-filters-row">
-                    <div className="reports-period-block">
+                    <div className="filter-bar reports-period-block">
                         {presets.map((p) => (
-                            <span
+                            <button
                                 key={p.key}
-                                className={`date-chip${preset === p.key ? ' active' : ''}`}
+                                type="button"
+                                className={`filter-chip${preset === p.key ? ' is-active' : ''}`}
                                 onClick={() => setPreset(p.key)}
                             >
                                 {p.label}
-                            </span>
+                            </button>
                         ))}
                         {preset === 'custom' && (
                             <>
@@ -898,13 +899,13 @@ const Reports = () => {
                                 Métrica
                             </span>
                             <div className="filter-strip">
-                                <button type="button" className={`filter-pill ${chartMetric === 'new' ? 'active' : ''}`} onClick={() => setChartMetric('new')}>
+                                <button type="button" className={`filter-chip ${chartMetric === 'new' ? 'is-active' : ''}`} onClick={() => setChartMetric('new')}>
                                     Novos leads
                                 </button>
-                                <button type="button" className={`filter-pill ${chartMetric === 'scheduled' ? 'active' : ''}`} onClick={() => setChartMetric('scheduled')}>
+                                <button type="button" className={`filter-chip ${chartMetric === 'scheduled' ? 'is-active' : ''}`} onClick={() => setChartMetric('scheduled')}>
                                     Agendados
                                 </button>
-                                <button type="button" className={`filter-pill ${chartMetric === 'converted' ? 'active' : ''}`} onClick={() => setChartMetric('converted')}>
+                                <button type="button" className={`filter-chip ${chartMetric === 'converted' ? 'is-active' : ''}`} onClick={() => setChartMetric('converted')}>
                                     {terms.reportsMetricConvertedShort}
                                 </button>
                             </div>
@@ -914,10 +915,10 @@ const Reports = () => {
                                 Agrupar
                             </span>
                             <div className="filter-strip">
-                                <button type="button" className={`filter-pill ${chartMode === 'weekly' ? 'active' : ''}`} onClick={() => setChartMode('weekly')}>
+                                <button type="button" className={`filter-chip ${chartMode === 'weekly' ? 'is-active' : ''}`} onClick={() => setChartMode('weekly')}>
                                     Semanal
                                 </button>
-                                <button type="button" className={`filter-pill ${chartMode === 'monthly' ? 'active' : ''}`} onClick={() => setChartMode('monthly')}>
+                                <button type="button" className={`filter-chip ${chartMode === 'monthly' ? 'is-active' : ''}`} onClick={() => setChartMode('monthly')}>
                                     Mensal
                                 </button>
                             </div>

@@ -1,4 +1,10 @@
-import { isStudentProfilePath, isLeadProfilePath, matchNavTarget } from './naviMenu.js';
+import {
+  buildSidebarNavModel,
+  isStudentProfilePath,
+  isLeadProfilePath,
+  matchNavTarget,
+  NAV_ACCORDION_IDS,
+} from './naviMenu.js';
 
 function isFinanceiroHubPath(pathname) {
   const p = String(pathname || '');
@@ -23,33 +29,79 @@ export function isBottomNavMaisActive(pathname) {
 }
 
 /**
- * @param {{ modules: { finance?: boolean, sales?: boolean, inventory?: boolean }, isOwner: boolean, pipelineLabel?: string }} opts
+ * @param {{
+ * modules: { finance?: boolean, sales?: boolean, inventory?: boolean },
+ * isOwner: boolean,
+ * pipelineLabel?: string,
+ * navStudentsLabel?: string
+ * }} opts
  */
-export function buildMobileMoreItems({ modules, isOwner, pipelineLabel = 'Funil' }) {
-  const items = [
-    { id: 'pipeline', label: pipelineLabel, to: '/pipeline', iconKey: 'pipeline' },
-    { id: 'tarefas', label: 'Tarefas', to: '/tarefas', iconKey: 'tarefas' },
-  ];
+export function buildMobileMoreItems({
+  modules,
+  isOwner,
+  pipelineLabel = 'Funil',
+  navStudentsLabel = 'Alunos',
+}) {
+  const model = buildSidebarNavModel({
+    modules: modules || {},
+    canConfigureAgenteIa: true,
+    pipelineLabel,
+    navStudentsLabel,
+    newLeadLabel: null,
+    isOwner,
+  });
 
-  if (modules?.finance === true) {
-    items.push({ id: 'financeiro', label: 'Financeiro', to: '/financeiro', iconKey: 'financeiro' });
+  const items = [];
+  const add = (item) => items.push(item);
+
+  add({ id: 'pipeline', label: model.primary[1]?.label || pipelineLabel, to: '/pipeline', iconKey: 'pipeline' });
+  add({ id: 'tarefas', label: model.primary[3]?.label || 'Tarefas', to: '/tarefas', iconKey: 'tarefas' });
+
+  const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
+  if (financeiro) {
+    add({
+      id: 'financeiro',
+      label: financeiro.label,
+      to: financeiro.defaultTo,
+      iconKey: financeiro.iconKey || 'financeiro',
+    });
   }
 
-  if (modules?.sales === true || modules?.inventory === true) {
-    items.push({ id: 'loja', label: 'Vendas', to: '/loja', iconKey: 'loja' });
+  const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
+  if (loja) {
+    add({
+      id: 'loja',
+      label: loja.label,
+      to: loja.defaultTo || '/loja',
+      iconKey: loja.iconKey || 'loja',
+    });
   }
 
-  items.push(
-    { id: 'reports', label: 'Relatórios', to: '/reports', iconKey: 'reports' },
-    { id: 'automacoes', label: 'Automações', to: '/automacoes', iconKey: 'automacoes' },
-    { id: 'empresa', label: 'Minha academia', to: '/empresa', iconKey: 'empresa' }
-  );
+  const relatorios = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
+  if (relatorios) {
+    add({
+      id: 'reports',
+      label: relatorios.label,
+      to: relatorios.defaultTo,
+      iconKey: relatorios.iconKey || 'relatorios',
+    });
+  }
+
+  const automacoes = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
+  if (automacoes) {
+    add({
+      id: 'automacoes',
+      label: automacoes.label,
+      to: automacoes.defaultTo,
+      iconKey: automacoes.iconKey || 'automacoes',
+    });
+  }
+
+  add({ id: 'empresa', label: 'Minha academia', to: '/empresa', iconKey: 'empresa' });
 
   if (isOwner) {
-    items.push(
-      { id: 'equipe', label: 'Equipe', to: '/equipe', iconKey: 'equipe' },
-      { id: 'integracoes', label: 'Integrações', to: '/integracoes', iconKey: 'integracoes' }
-    );
+    add({ id: 'equipe', label: 'Equipe', to: '/equipe', iconKey: 'equipe' });
+    add({ id: 'integracoes', label: 'Integrações', to: '/integracoes', iconKey: 'integracoes' });
   }
 
   return items;

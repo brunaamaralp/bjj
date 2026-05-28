@@ -597,8 +597,8 @@ export default function TransacoesTab({
                 <input className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </div>
             </div>
-            <div className="finance-tx-filters">
-              <div className="form-group finance-tx-filter-group finance-tx-filter-group--status">
+            <div className="filter-bar finance-tx-filters">
+              <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--status">
                 <label>Status</label>
                 <select
                   className="form-input"
@@ -611,7 +611,7 @@ export default function TransacoesTab({
                   <option value="cancelled">Cancelado</option>
                 </select>
               </div>
-              <div className="form-group finance-tx-filter-group finance-tx-filter-group--nature">
+              <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--nature">
                 <label>Natureza</label>
                 <select
                   className="form-input"
@@ -623,7 +623,7 @@ export default function TransacoesTab({
                   <option value="out">Saída</option>
                 </select>
               </div>
-              <div className="form-group finance-tx-filter-group finance-tx-filter-group--search">
+              <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--search">
                 <label className="sr-only">Busca</label>
                 <input
                   type="search"
@@ -634,7 +634,7 @@ export default function TransacoesTab({
                 />
               </div>
               {hasActiveTxFilters ? (
-                <button type="button" className="btn-outline btn-sm" onClick={clearTxFilters}>
+                <button type="button" className="btn-outline btn-sm filter-clear" onClick={clearTxFilters}>
                   Limpar filtros
                 </button>
               ) : null}

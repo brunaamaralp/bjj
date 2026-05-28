@@ -47,10 +47,10 @@ export default function CompactStatusFilter({
   };
 
   return (
-    <div className={`mensal-status-filter ${className}`.trim()} ref={rootRef}>
+    <div className={`filter-dropdown mensal-status-filter ${className}`.trim()} ref={rootRef}>
       <button
         type="button"
-        className={`btn-outline mensal-status-filter__trigger${isActive ? ' mensal-status-filter__trigger--active' : ''}`}
+        className={`btn-outline filter-field filter-dropdown__trigger mensal-status-filter__trigger${isActive ? ' mensal-status-filter__trigger--active is-active' : ''}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -61,7 +61,7 @@ export default function CompactStatusFilter({
       {isActive ? (
         <button
           type="button"
-          className="mensal-status-filter__clear"
+          className="filter-clear mensal-status-filter__clear"
           onClick={() => onChange('all')}
           aria-label="Limpar filtro"
         >
@@ -69,14 +69,14 @@ export default function CompactStatusFilter({
         </button>
       ) : null}
       {open ? (
-        <div className="mensal-status-filter__menu" role="listbox">
+        <div className="filter-dropdown__menu mensal-status-filter__menu" role="listbox">
           {options.map((opt) => (
             <button
               key={opt.id}
               type="button"
               role="option"
               aria-selected={value === opt.id}
-              className={`mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active' : ''}`}
+              className={`filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active is-active' : ''}`}
               onClick={() => pick(opt.id)}
               title={opt.title || undefined}
             >
@@ -99,7 +99,7 @@ export default function CompactStatusFilter({
                   type="button"
                   role="option"
                   aria-selected={value === opt.id}
-                  className={`mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active' : ''}`}
+                  className={`filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' mensal-status-filter__option--active is-active' : ''}`}
                   onClick={() => pick(opt.id)}
                   title={opt.title || undefined}
                 >

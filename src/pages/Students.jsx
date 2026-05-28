@@ -552,9 +552,9 @@ const Students = ({ embedded = false }) => {
                         ) : null}
                     </div>
                     <div className={`students-mobile-filters-panel${filtersExpanded ? ' is-open' : ''}`}>
-                        <div className="students-mobile-filters-chips">
+                        <div className="filter-bar students-mobile-filters-chips">
                             <span
-                                className={`date-chip${!showInactive ? ' active' : ''}`}
+                                className={`filter-chip${!showInactive ? ' is-active' : ''}`}
                                 onClick={() => setShowInactive(false)}
                                 role="button"
                                 tabIndex={0}
@@ -568,7 +568,7 @@ const Students = ({ embedded = false }) => {
                                 Ativos
                             </span>
                             <span
-                                className={`date-chip${showInactive ? ' active' : ''}`}
+                                className={`filter-chip${showInactive ? ' is-active' : ''}`}
                                 onClick={() => setShowInactive(true)}
                                 role="button"
                                 tabIndex={0}
@@ -614,9 +614,9 @@ const Students = ({ embedded = false }) => {
                             <option value="recentes">Mais recente</option>
                         </select>
                     </div>
-                    <div className="page-header-row students-header-row-filters">
+                    <div className="page-header-row filter-bar students-header-row-filters">
                         <span
-                            className={`date-chip${!showInactive ? ' active' : ''}`}
+                            className={`filter-chip${!showInactive ? ' is-active' : ''}`}
                             onClick={() => setShowInactive(false)}
                             role="button"
                             tabIndex={0}
@@ -630,7 +630,7 @@ const Students = ({ embedded = false }) => {
                             Ativos
                         </span>
                         <span
-                            className={`date-chip${showInactive ? ' active' : ''}`}
+                            className={`filter-chip${showInactive ? ' is-active' : ''}`}
                             onClick={() => setShowInactive(true)}
                             role="button"
                             tabIndex={0}

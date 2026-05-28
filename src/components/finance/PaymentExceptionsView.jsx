@@ -419,8 +419,8 @@ export default function PaymentExceptionsView({
         </div>
       </div>
 
-      <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
+      <div className="filter-bar mb-2" style={{ alignItems: 'flex-end' }}>
+        <div className="form-group filter-field" style={{ margin: 0, minWidth: 200 }}>
           <label className="text-xs">Tipo</label>
           <CompactStatusFilter
             value={statusFilter}
@@ -431,7 +431,7 @@ export default function PaymentExceptionsView({
           />
         </div>
         {turmas.length > 0 ? (
-          <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
+          <div className="form-group filter-field" style={{ margin: 0, minWidth: 130 }}>
             <label className="text-xs">Turma</label>
             <select className="form-input" value={turmaFilter} onChange={(e) => setTurmaFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -442,7 +442,7 @@ export default function PaymentExceptionsView({
           </div>
         ) : null}
         {platforms.length > 0 ? (
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+          <div className="form-group filter-field" style={{ margin: 0, minWidth: 140 }}>
             <label className="text-xs">Plataforma</label>
             <select className="form-input" value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -456,7 +456,7 @@ export default function PaymentExceptionsView({
           <input type="checkbox" checked={onlyWithDiff} onChange={(e) => setOnlyWithDiff(e.target.checked)} />
           Só com diferença &gt; 0
         </label>
-        <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+          <div className="form-group filter-field" style={{ margin: 0, minWidth: 160 }}>
           <label className="text-xs">Ordenar por</label>
           <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="difference">Diferença (maior)</option>

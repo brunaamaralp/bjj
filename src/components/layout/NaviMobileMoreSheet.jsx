@@ -21,6 +21,7 @@ const ICONS = {
   financeiro: Landmark,
   loja: ShoppingBag,
   reports: BarChart3,
+  relatorios: BarChart3,
   automacoes: Zap,
   empresa: Building2,
   equipe: Users,

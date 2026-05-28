@@ -679,8 +679,8 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         </div>
       </div>
 
-      <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div className="form-group" style={{ margin: 0, minWidth: 220, flex: 1 }}>
+      <div className="filter-bar mb-2" style={{ alignItems: 'flex-end' }}>
+        <div className="form-group filter-field" style={{ margin: 0, minWidth: 220, flex: 1 }}>
           <label className="text-xs">Buscar</label>
           <input
             className="form-input"
@@ -689,19 +689,14 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="form-group" style={{ margin: 0 }}>
+        <div className="form-group filter-field" style={{ margin: 0 }}>
           <label className="text-xs">Origem</label>
           <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
             {availableOrigins.map((key) => (
               <button
                 key={key}
                 type="button"
-                className="btn-outline btn-sm"
-                style={
-                  originFilter.has(key)
-                    ? { background: 'var(--v100)', borderColor: 'var(--v500)', color: 'var(--v500)' }
-                    : undefined
-                }
+                className={`filter-chip ${originFilter.has(key) ? 'is-active' : ''}`}
                 onClick={() => toggleOrigin(key)}
               >
                 {CLOSING_ORIGIN_LABELS[key]}
@@ -709,19 +704,14 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             ))}
           </div>
         </div>
-        <div className="form-group" style={{ margin: 0 }}>
+        <div className="form-group filter-field" style={{ margin: 0 }}>
           <label className="text-xs">Situação</label>
           <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
             {CLOSING_SITUATIONS.map((key) => (
               <button
                 key={key}
                 type="button"
-                className="btn-outline btn-sm"
-                style={
-                  situationFilter.has(key)
-                    ? { background: 'var(--surface-hover)' }
-                    : undefined
-                }
+                className={`filter-chip ${situationFilter.has(key) ? 'is-active' : ''}`}
                 onClick={() => toggleSituation(key)}
               >
                 {CLOSING_SITUATION_LABELS[key]}
@@ -730,7 +720,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           </div>
         </div>
         {methodOptions.length > 0 ? (
-          <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+          <div className="form-group filter-field" style={{ margin: 0, minWidth: 160 }}>
             <label className="text-xs">Forma de pagamento</label>
             <select className="form-input" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -745,7 +735,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             </select>
           </div>
         ) : null}
-        <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+        <div className="form-group filter-field" style={{ margin: 0, minWidth: 140 }}>
           <label className="text-xs">Ordenar</label>
           <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="date">Data (recente)</option>

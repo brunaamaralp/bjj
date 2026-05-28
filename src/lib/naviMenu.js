@@ -368,7 +368,11 @@ export function flattenNavItemsForMobile(model) {
   const auto = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
   if (auto) {
     for (const c of auto.children) {
-      push({ to: c.to, label: c.label, iconKey: c.id === 'agente' ? 'agente' : 'automacoes', section: 'Atendimento' });
+      push({
+        ...c,
+        iconKey: c.iconKey || (c.id === 'agente' ? 'agente' : 'automacoes'),
+        section: 'Atendimento',
+      });
     }
   }
 
@@ -379,7 +383,6 @@ export function flattenNavItemsForMobile(model) {
         ...c,
         iconKey: c.iconKey || 'financeiro',
         section: 'Financeiro',
-        label: c.group ? `${c.group} · ${c.label}` : c.label,
       });
     }
   }
@@ -398,8 +401,8 @@ export function flattenNavItemsForMobile(model) {
 
   const rel = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
   if (rel) {
-    push({ to: rel.defaultTo, label: 'Relatórios', iconKey: 'reports', section: null });
-    for (const c of rel.children) push({ ...c, iconKey: 'reports', section: null });
+    push({ to: rel.defaultTo, label: rel.label, iconKey: rel.iconKey || 'relatorios', section: null });
+    for (const c of rel.children) push({ ...c, iconKey: c.iconKey || rel.iconKey || 'relatorios', section: null });
   }
 
   return rows;

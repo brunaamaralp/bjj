@@ -635,8 +635,8 @@ export default function Products() {
       ) : null}
 
       <div className="card mt-4 products-filters-card">
-        <div className="flex gap-2 products-filters-row">
-          <div className="form-group products-filter-group products-filter-group--search">
+        <div className="filter-bar products-filters-row">
+          <div className="form-group filter-field products-filter-group products-filter-group--search">
             <label className="text-xs">Busca</label>
             <div className="products-search-wrap">
               <Search size={14} className="products-search-icon" aria-hidden />
@@ -648,7 +648,7 @@ export default function Products() {
               />
             </div>
           </div>
-          <div className="form-group products-filter-group products-filter-group--cat">
+          <div className="form-group filter-field products-filter-group products-filter-group--cat">
             <label className="text-xs">Categoria</label>
             <select className="form-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -657,7 +657,7 @@ export default function Products() {
               ))}
             </select>
           </div>
-          <div className="form-group products-filter-group products-filter-group--status">
+          <div className="form-group filter-field products-filter-group products-filter-group--status">
             <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todos</option>
@@ -666,7 +666,7 @@ export default function Products() {
               <option value="sem_estoque">Sem estoque</option>
             </select>
           </div>
-          <div className="form-group products-filter-group products-filter-group--type">
+          <div className="form-group filter-field products-filter-group products-filter-group--type">
             <label className="text-xs">Tipo</label>
             <select className="form-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="all">Todos</option>

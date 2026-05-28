@@ -301,8 +301,32 @@ button:active {
   background: var(--surface);
 }
 
-.filter-group {
+.filter-bar {
+  --filter-gap: 8px;
   display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--filter-gap);
+}
+
+.filter-bar--compact {
+  --filter-gap: 6px;
+}
+
+.filter-bar--dense {
+  --filter-gap: 4px;
+}
+
+.filter-field {
+  min-height: 36px;
+  border: 0.5px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.filter-group {
+  display: inline-flex;
   align-items: center;
   border: 0.5px solid var(--border-light);
   border-radius: 8px;
@@ -310,19 +334,85 @@ button:active {
   background: var(--surface);
 }
 
-.filter-group select {
+.filter-group select,
+.filter-field select {
   font-size: 12px;
   padding: 6px 10px;
   border: none;
   border-right: 0.5px solid var(--border-light);
-  background: var(--surface);
+  background: transparent;
   color: var(--text-secondary);
   outline: none;
   cursor: pointer;
 }
 
-.filter-group select:last-child {
+.filter-group select:last-child,
+.filter-field select:last-child {
   border-right: none;
+}
+
+.filter-chip {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  border: 0.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-chip.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.filter-chip--sm {
+  min-height: 32px;
+  padding: 5px 9px;
+}
+
+.filter-count {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, white);
+  color: var(--v700);
+}
+
+.filter-chip.is-active .filter-count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.filter-clear:hover {
+  background: var(--v50);
+  color: var(--v500);
 }
 
 .date-chip {
@@ -8830,6 +8920,13 @@ input[type='datetime-local'].form-input:focus {
   gap: 4px;
 }
 
+.filter-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .mensal-status-filter__trigger {
   display: inline-flex;
   align-items: center;
@@ -8881,6 +8978,19 @@ input[type='datetime-local'].form-input:focus {
   animation: mensalFilterIn 0.15s ease forwards;
 }
 
+.filter-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 6px 0;
+}
+
 @keyframes mensalFilterIn {
   to {
     opacity: 1;
@@ -8889,6 +8999,22 @@ input[type='datetime-local'].form-input:focus {
 }
 
 .mensal-status-filter__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.filter-dropdown__option {
   display: flex;
   align-items: center;
   justify-content: space-between;

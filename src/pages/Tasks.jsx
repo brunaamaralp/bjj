@@ -12,6 +12,7 @@ import {
 import { useUiStore } from '../store/useUiStore';
 import { teams } from '../lib/appwrite';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 import {
   CheckSquare,
   PlusCircle,
@@ -21,9 +22,6 @@ import {
   User,
   X,
   ClipboardList,
-  LayoutList,
-  Kanban,
-  CalendarDays,
   AlertTriangle,
   Users,
   Loader2,
@@ -596,7 +594,7 @@ export default function Tasks() {
         addToast({ type: 'success', message: 'Tarefa criada' });
       }
       setShowModal(false);
-    } catch (err) {
+    } catch {
       addToast({ type: 'error', message: 'Erro ao salvar tarefa' });
     } finally {
       setSaving(false);
@@ -684,7 +682,7 @@ export default function Tasks() {
       }
       setCollectionModalTask(null);
       addToast({ type: 'success', message: 'Tarefa concluída e resultado registrado.' });
-    } catch (e) {
+    } catch {
       addToast({ type: 'error', message: 'Erro ao registrar cobrança' });
     } finally {
       setCollectionSaving(false);
@@ -697,7 +695,7 @@ export default function Tasks() {
       await deleteTask(id);
       if (detailTask?.id === id) setDetailTask(null);
       addToast({ type: 'success', message: 'Tarefa excluída' });
-    } catch (e) {
+    } catch {
       addToast({ type: 'error', message: 'Erro ao excluir' });
     }
   };
@@ -887,43 +885,28 @@ export default function Tasks() {
           </div>
         </div>
 
-        <div className="tasks-view-toggle flex flex-wrap gap-2 mb-3" role="group" aria-label="Visualização">
-          <button
-            type="button"
-            className={`tasks-view-btn ${viewMode === 'list' ? 'tasks-view-btn--active' : ''}`}
-            onClick={() => setViewMode('list')}
-          >
-            <LayoutList size={18} strokeWidth={2} /> Lista
-          </button>
-          <button
-            type="button"
-            className={`tasks-view-btn ${viewMode === 'kanban' ? 'tasks-view-btn--active' : ''}`}
-            onClick={() => setViewMode('kanban')}
-          >
-            <Kanban size={18} strokeWidth={2} /> Kanban
-          </button>
-          <button
-            type="button"
-            className={`tasks-view-btn ${viewMode === 'calendar' ? 'tasks-view-btn--active' : ''}`}
-            onClick={() => setViewMode('calendar')}
-          >
-            <CalendarDays size={18} strokeWidth={2} /> Calendário
-          </button>
-          <button
-            type="button"
-            className={`tasks-view-btn ${viewMode === 'by_student' ? 'tasks-view-btn--active' : ''}`}
-            onClick={() => setViewMode('by_student')}
-          >
-            <Users size={18} strokeWidth={2} /> Por aluno
-          </button>
-        </div>
+        <HubTabBar
+          tabs={[
+            { id: 'list', label: 'Lista' },
+            { id: 'kanban', label: 'Kanban' },
+            { id: 'calendar', label: 'Calendário' },
+            { id: 'by_student', label: 'Por aluno' },
+          ]}
+          activeId={viewMode}
+          onChange={setViewMode}
+          ariaLabel="Visualização de tarefas"
+          variant="secondary"
+          size="sm"
+          fullWidth
+          className="tasks-view-toggle mb-3"
+        />
         
-        <div className="task-filters">
+        <div className="filter-bar task-filters">
           {['all', 'minhas', 'vencidas', 'concluidas'].map(f => (
             <button 
               key={f}
               type="button" 
-              className={`filter-pill ${filters.status === f ? 'active' : ''}`}
+              className={`filter-chip ${filters.status === f ? 'is-active' : ''}`}
               onClick={() => setFilter('status', f)}
             >
               {f === 'all' ? 'Todas' : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -931,7 +914,7 @@ export default function Tasks() {
           ))}
           <button
             type="button"
-            className={`filter-pill ${estaSemanaOn ? 'active' : ''}`}
+            className={`filter-chip ${estaSemanaOn ? 'is-active' : ''}`}
             onClick={() => setEstaSemanaOn((v) => !v)}
           >
             Esta semana
@@ -939,7 +922,7 @@ export default function Tasks() {
           {filters.lead_id && (
             <button 
               type="button" 
-              className="filter-pill active"
+              className="filter-chip is-active"
               onClick={() => {
                 setFilter('lead_id', null);
                 searchParams.delete('lead_id');
@@ -1811,19 +1794,6 @@ export default function Tasks() {
         }
         .task-modal-footer .btn-outline { min-height: 38px; font-size: 13px; padding: 0 16px; }
         .task-modal-footer .btn-primary { min-height: 38px; font-size: 13px; padding: 0 20px; }
-
-        .tasks-view-btn {
-          display: inline-flex; align-items: center; gap: 8px;
-          padding: 8px 14px; border-radius: var(--radius-sm);
-          border: 1px solid var(--border-mid); background: var(--surface);
-          color: var(--text-secondary); font-size: 13px; font-weight: 600;
-          cursor: pointer; font-family: inherit; transition: var(--transition);
-        }
-        .tasks-view-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--v50); }
-        .tasks-view-btn--active {
-          border-color: var(--v500); color: var(--v700); background: var(--v50);
-          box-shadow: 0 1px 4px rgba(91, 63, 191, 0.12);
-        }
 
         .tasks-kanban {
           display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;

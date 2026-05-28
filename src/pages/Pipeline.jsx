@@ -1954,11 +1954,11 @@ const Pipeline = () => {
                                     <PlusCircle size={14} /> Novo lead
                                 </button>
                             </div>
-                            <div className="page-header-row">
-                                <span className={`date-chip${quickFilter === 'today' ? ' active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</span>
-                                <span className={`date-chip${quickFilter === 'week' ? ' active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</span>
-                                <span className={`date-chip${quickFilter === 'month' ? ' active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</span>
-                                <span className={`date-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</span>
+                            <div className="page-header-row filter-bar">
+                                <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
+                                <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
+                                <button type="button" className={`filter-chip${quickFilter === 'month' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
+                                <button type="button" className={`filter-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' is-active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
                                 <input
                                     type="date"
                                     className="navi-date-filter"

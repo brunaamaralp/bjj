@@ -330,8 +330,8 @@ export default function InventoryBalanceView({
       </div>
 
       <div className="card inventory-filters-card">
-        <div className="inventory-filters-row">
-          <div className="form-group inventory-filter-field" style={{ flex: '1 1 200px', minWidth: 160 }}>
+        <div className="filter-bar inventory-filters-row">
+          <div className="form-group filter-field inventory-filter-field" style={{ flex: '1 1 200px', minWidth: 160 }}>
             <label className="text-xs">Busca</label>
             <div style={{ position: 'relative' }}>
               <Search
@@ -354,7 +354,7 @@ export default function InventoryBalanceView({
               />
             </div>
           </div>
-          <div className="form-group inventory-filter-field">
+          <div className="form-group filter-field inventory-filter-field">
             <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todos</option>
@@ -363,7 +363,7 @@ export default function InventoryBalanceView({
               <option value="critical">Crítico</option>
             </select>
           </div>
-          <div className="form-group inventory-filter-field">
+          <div className="form-group filter-field inventory-filter-field">
             <label className="text-xs">Categoria</label>
             <select className="form-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">Todas</option>
