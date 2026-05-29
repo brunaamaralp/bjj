@@ -3,6 +3,26 @@
   --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
   --inbox-info-badge-fg: #1d4ed8;
 
+  /* Chips de status na lista */
+  --inbox-chip-handoff-bg: #fff1eb;
+  --inbox-chip-handoff-fg: #c2410c;
+  --inbox-chip-unlinked-bg: var(--v50, #eeedfe);
+  --inbox-chip-unlinked-fg: var(--v700, #534ab7);
+  --inbox-chip-ia-bg: var(--v50);
+  --inbox-chip-ia-fg: var(--v700);
+  --inbox-chip-hot-bg: rgba(245, 158, 11, 0.18);
+  --inbox-chip-hot-fg: #b45309;
+
+  /* Bubbles de mensagem */
+  --inbox-bubble-human-bg: #fffbeb;
+  --inbox-bubble-human-border: #fcd34d;
+  --inbox-bubble-ai-border: var(--v200, #ddd6fe);
+  --inbox-bubble-user-border: var(--border);
+  --inbox-bubble-human-label: #b45309;
+  --inbox-msg-selected-outline: rgba(91, 63, 191, 0.35);
+  --inbox-row-hover-bg: rgba(15, 23, 42, 0.04);
+  --inbox-row-highlight-bg: rgba(91, 63, 191, 0.08);
+
   /* Atendimento (Inbox) — escala tipográfica */
   --inbox-font-meta: 0.6875rem;
   --inbox-font-caption: 0.75rem;
