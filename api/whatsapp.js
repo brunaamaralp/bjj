@@ -7,6 +7,7 @@ import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from '
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
 import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
+import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/server/zapsterInstanceLookup.js';
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
 
@@ -222,28 +223,6 @@ function isZapsterInstanceNotFound(raw) {
   return code === 'instance_not_found' || low.includes('instance not found');
 }
 
-/** @param {unknown} data */
-function normalizeWaInstancesList(data) {
-  let arr = [];
-  if (Array.isArray(data)) arr = data;
-  else if (data && typeof data === 'object') {
-    const o = /** @type {Record<string, unknown>} */ (data);
-    if (Array.isArray(o.instances)) arr = o.instances;
-    else if (Array.isArray(o.data)) arr = o.data;
-    else if (o.id) arr = [o];
-  }
-  return arr
-    .filter((row) => row && typeof row === 'object')
-    .map((row) => {
-      const r = /** @type {Record<string, unknown>} */ (row);
-      const id = String(r.id || r.instance_id || '').trim();
-      const meta = r.metadata && typeof r.metadata === 'object' ? /** @type {Record<string, unknown>} */ (r.metadata) : {};
-      const academyFromMeta = String(meta.academy_id || meta.academyId || '').trim();
-      return { id, metadataAcademyId: academyFromMeta };
-    })
-    .filter((x) => x.id);
-}
-
 async function zapsterListInstancesRaw() {
   const urlBase = String(ZAPSTER_API_BASE_URL || '').replace(/\/+$/, '');
   const url = `${urlBase}/v1/wa/instances`;
@@ -258,18 +237,13 @@ async function zapsterListInstancesRaw() {
   return { ok: resp.ok, status: resp.status, data, raw };
 }
 
-/**
- * Se a Zapster ainda tiver uma instância com metadata.academy_id = academyId, devolve o id.
- * @param {string} academyId
- */
 async function recoverZapsterInstanceIdFromList(academyId) {
   const aid = String(academyId || '').trim();
   if (!aid) return '';
   const listed = await zapsterListInstancesRaw();
   if (!listed.ok || !listed.data) return '';
   const items = normalizeWaInstancesList(listed.data);
-  const match = items.find((it) => String(it.metadataAcademyId || '').trim() === aid);
-  return match?.id ? String(match.id).trim() : '';
+  return findZapsterInstanceForAcademy(items, aid);
 }
 
 async function zapsterGetInstanceRaw(instanceId) {
