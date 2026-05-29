@@ -3149,6 +3149,7 @@ export default function Inbox() {
       leadByPhone={leadByPhone}
       normalizePhone={normalizePhone}
       pickDisplayName={pickDisplayName}
+      formatPhone={formatPhone}
       nowMs={nowMs}
       handoffReleaseHint={handoffReleaseHint}
       editingContactName={editingContactName}

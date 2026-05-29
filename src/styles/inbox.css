@@ -28,7 +28,7 @@
 }
 
 .inbox-page-header .inbox-toolbar-search input {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-mid);
   border-radius: 8px;
   padding: 7px 10px 7px 32px;
   min-height: 34px;
@@ -225,9 +225,9 @@
   box-sizing: border-box;
   min-height: var(--control-height-toolbar, 36px);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-mid);
   color: var(--ink);
-  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition: all 150ms ease;
 }
 
 .inbox-list-filters .filter-chip:hover {
@@ -496,7 +496,7 @@
 }
 
 .inbox-msg-sender-label {
-  font-size: var(--inbox-font-caption);
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
   margin-bottom: 4px;
@@ -507,7 +507,7 @@
 }
 
 .inbox-msg-sender-label--ai {
-  color: var(--v700, #534ab7);
+  color: var(--v500);
 }
 
 .inbox-msg-sender-label--human {
@@ -560,7 +560,7 @@
 }
 
 .inbox-bubble--ai {
-  background: var(--inbox-bubble-ai-bg);
+  background: var(--inbox-accent-bg, var(--inbox-bubble-ai-bg));
   border: 1px solid var(--inbox-bubble-ai-border);
   border-left: 3px solid var(--v400);
 }
@@ -572,7 +572,7 @@
 
 .inbox-bubble .inbox-msg + .inbox-msg {
   margin-top: 2px;
-  padding-top: 8px;
+  padding-top: 2px;
 }
 
 .inbox-msg-sender-label--ai::before {
@@ -1330,13 +1330,13 @@
   z-index: 3;
   width: 100%;
   box-sizing: border-box;
-  background: var(--inbox-section-bg);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  background: var(--inbox-section-bg, var(--surface-hover));
+  border-top: 1px solid var(--border-mid);
+  border-bottom: 1px solid var(--border-mid);
   padding: 4px 12px;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.5px;
   color: var(--mid);
   text-transform: uppercase;
 }
@@ -1402,7 +1402,7 @@
   box-sizing: border-box;
   border-radius: 8px;
   border-left: 3px solid var(--v500);
-  background: var(--v50);
+  background: var(--inbox-accent-bg, var(--v50));
 }
 
 .inbox-thread-handoff-banner--release {
@@ -1447,7 +1447,7 @@
 
 .inbox-thread-quick-toolbar {
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-mid);
   padding: 4px 12px;
   min-height: 36px;
   display: flex;
@@ -1489,6 +1489,10 @@
 
 .inbox-thread-composer {
   background: var(--bg);
+}
+
+.inbox-msg-meta .text-small {
+  color: var(--mid);
 }
 
 .inbox-thread-empty-actions {

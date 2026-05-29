@@ -39,6 +39,7 @@ export default function InboxThreadPanel(props) {
     leadByPhone,
     normalizePhone,
     pickDisplayName,
+    formatPhone,
     nowMs,
     handoffReleaseHint,
     editingContactName,
@@ -170,7 +171,11 @@ export default function InboxThreadPanel(props) {
                   </div>
                   <div className="inbox-thread-header__intro">
                     <div className="inbox-thread-header__title">{displayName}</div>
-                    {phone ? <div className="inbox-thread-header__phone">{phone}</div> : null}
+                    {phone ? (
+                      <div className="inbox-thread-header__phone">
+                        {typeof formatPhone === 'function' ? formatPhone(phone) : phone}
+                      </div>
+                    ) : null}
                     <span
                       role="status"
                       className="inbox-thread-handoff-pill"
@@ -457,7 +462,7 @@ export default function InboxThreadPanel(props) {
                         key={`${key}-${idx}`}
                         data-msgkey={key}
                         className={isSelected ? 'inbox-msg selected' : 'inbox-msg'}
-                        style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 10 }}
+                        style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 2 }}
                         onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
                       >
                         {idx === 0 && g.bubbleKind !== 'user' && (

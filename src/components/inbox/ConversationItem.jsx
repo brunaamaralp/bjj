@@ -1,7 +1,5 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { AlertTriangle, Flame, User } from 'lucide-react';
-import { useTerms } from '../../lib/terminology.js';
-
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
 
@@ -36,36 +34,19 @@ function ConversationItem({
   listFilter = 'all',
   minhaFilaOn = false,
 }) {
-  const terms = useTerms();
   const [rowHover, setRowHover] = useState(false);
   const hotLead = Boolean(item?._hotLead);
   const handoffActive = Boolean(item?._handoffActive);
   const aiSuggestHuman = Boolean(item?._aiSuggestHuman);
   const unreadCount = Number(item?._unreadCount || 0);
-  const contactType = String(item?._contactType || '').trim() === 'student' ? 'student' : 'lead';
-  const lastRole = String(item?._lastRole || '').trim();
-  const lastSender = String(item?._lastSender || '').trim();
   const isHighlighted = Boolean(item?._isHighlighted);
   const ticket = ticketChip(item?._ticketStatus, item?._transferTo);
   const ticketStatusLower = String(item?._ticketStatus ?? item?.ticket_status ?? '')
     .trim()
     .toLowerCase();
   const isWaitingCustomer = ticketStatusLower === 'waiting_customer';
-  const hasLinkedLead = Boolean(String(item?.lead_id || '').trim());
-  const showSemContatoChip = !hasLinkedLead;
 
-  const showContactChip =
-    listFilter === 'lead' ||
-    listFilter === 'student' ||
-    (listFilter === 'all' && !handoffActive && unreadCount <= 0);
-  const showHandoffChip =
-    handoffActive && (listFilter === 'need_human' || listFilter === 'needs_me' || minhaFilaOn);
-  const showIaChip =
-    !handoffActive &&
-    unreadCount <= 0 &&
-    lastRole === 'assistant' &&
-    lastSender !== 'human' &&
-    (listFilter === 'need_human' || listFilter === 'all');
+  const showHandoffChip = handoffActive;
 
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
   const preview = rawPrev.length > 52 ? `${rawPrev.slice(0, 52)}…` : rawPrev;
