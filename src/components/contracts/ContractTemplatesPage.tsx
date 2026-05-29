@@ -76,7 +76,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [purpose, setPurpose] = useState<ContractTemplatePurpose>('enrollment');
-  const [isDefault, setIsDefault] = useState(false);
   const [bodyHtml, setBodyHtml] = useState(DEFAULT_CONTRACT_TEMPLATE_HTML);
   const [signerLayout, setSignerLayout] = useState<ContractSignerLayout>(defaultContractSignerLayout());
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; body?: string }>({});
@@ -135,11 +134,10 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         name,
         description,
         purpose,
-        isDefault,
         bodyHtml,
         signerLayout,
       }),
-    [name, description, purpose, isDefault, bodyHtml, signerLayout]
+    [name, description, purpose, bodyHtml, signerLayout]
   );
 
   const plansLabelForTemplate = useCallback(
@@ -185,7 +183,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     name: string;
     description: string;
     purpose: ContractTemplatePurpose;
-    isDefault: boolean;
     bodyHtml: string;
     signerLayout: ContractSignerLayout;
   }) => {
@@ -194,7 +191,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     setName(state.name);
     setDescription(state.description);
     setPurpose(state.purpose);
-    setIsDefault(state.isDefault);
     setBodyHtml(state.bodyHtml);
     setSignerLayout(state.signerLayout);
     setFieldErrors({});
@@ -202,7 +198,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       name: state.name,
       description: state.description,
       purpose: state.purpose,
-      isDefault: state.isDefault,
       bodyHtml: state.bodyHtml,
       signerLayout: state.signerLayout,
     });
@@ -215,7 +210,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       name: '',
       description: '',
       purpose: 'enrollment',
-      isDefault: false,
       bodyHtml: DEFAULT_CONTRACT_TEMPLATE_HTML,
       signerLayout: defaultContractSignerLayout(),
     });
@@ -229,7 +223,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       name: '',
       description: '',
       purpose: 'enrollment',
-      isDefault: false,
       bodyHtml: DEFAULT_CONTRACT_TEMPLATE_HTML,
       signerLayout: defaultContractSignerLayout(),
     });
@@ -244,7 +237,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         name: t.name,
         description: t.description || '',
         purpose: normalizeTemplatePurpose(t.purpose) as ContractTemplatePurpose,
-        isDefault: Boolean(t.isDefault),
         bodyHtml: t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML,
         signerLayout: t.signerLayout || parseContractSignerLayout(t.signerLayoutJson),
       });
@@ -316,7 +308,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
           patch: {
             name: name.trim(),
             description: description.trim() || undefined,
-            isDefault,
             bodyHtml,
             signerLayoutJson: JSON.stringify(signerLayout),
           },
@@ -327,7 +318,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
           name: name.trim(),
           description: description.trim() || undefined,
           purpose,
-          isDefault,
           bodyHtml,
           signerLayoutJson: JSON.stringify(signerLayout),
         });
@@ -448,9 +438,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
               description={description}
               purpose={purpose}
               purposeLocked={editorMode === 'edit'}
-              isDefault={isDefault}
-              financeConfig={financeConfig}
-              editingTemplateId={editingId}
               nameError={fieldErrors.name}
               disabled={saving}
               onNameChange={(v) => {
@@ -459,7 +446,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
               }}
               onDescriptionChange={setDescription}
               onPurposeChange={setPurpose}
-              onIsDefaultChange={setIsDefault}
             />
 
             <ContractTemplateEditor

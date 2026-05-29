@@ -11,4 +11,7 @@ export {
 export {
   mapLeadDocToContractVariables,
   emptyContractVariableMap,
+  computeServiceMonths,
+  formatRescissionRequestDate,
+  formatServiceMonthsLabel,
 } from '../../lib/contracts/leadContractVariables.js';

@@ -1,7 +1,7 @@
 export interface ContractVariableDef {
   key: string;
   label: string;
-  group: 'aluno' | 'responsavel' | 'academia' | 'datas';
+  group: 'aluno' | 'responsavel' | 'academia' | 'datas' | 'rescisao';
 }
 
 export const CONTRACT_VARIABLE_GROUPS: { id: ContractVariableDef['group']; label: string }[] = [
@@ -9,6 +9,7 @@ export const CONTRACT_VARIABLE_GROUPS: { id: ContractVariableDef['group']; label
   { id: 'responsavel', label: 'Responsável' },
   { id: 'academia', label: 'Academia' },
   { id: 'datas', label: 'Datas' },
+  { id: 'rescisao', label: 'Rescisão' },
 ];
 
 export const CONTRACT_TEMPLATE_VARIABLES: ContractVariableDef[] = [
@@ -33,6 +34,12 @@ export const CONTRACT_TEMPLATE_VARIABLES: ContractVariableDef[] = [
   { key: 'nome_academia', label: 'Nome da academia', group: 'academia' },
   { key: 'data_hoje', label: 'Data de hoje', group: 'datas' },
   { key: 'data_aceite', label: 'Data do aceite (envio do contrato)', group: 'datas' },
+  {
+    key: 'data_solicitacao_rescisao',
+    label: 'Data da solicitação de rescisão',
+    group: 'rescisao',
+  },
+  { key: 'meses_servico_utilizados', label: 'Meses de serviço utilizados', group: 'rescisao' },
 ];
 
 export const DEFAULT_CONTRACT_TEMPLATE_HTML = `<h1>Contrato de matrícula</h1>
@@ -50,6 +57,9 @@ export const DEFAULT_RESCISSION_TEMPLATE_HTML = `<h1>Termo de rescisão</h1>
 <p><strong>Plano:</strong> {{plano}}</p>
 <p><strong>Aluno:</strong> {{nome_aluno}} · CPF {{cpf_aluno}} · Tel. {{telefone_aluno}}</p>
 <p><strong>Responsável:</strong> {{nome_responsavel}} · CPF {{cpf_responsavel}}</p>
+<p><strong>Data de ingresso:</strong> {{data_ingresso}}</p>
+<p><strong>Data da solicitação de rescisão:</strong> {{data_solicitacao_rescisao}}</p>
+<p><strong>Meses de serviço utilizados:</strong> {{meses_servico_utilizados}}</p>
 <p>Data do termo: {{data_hoje}}</p>
 <p>As partes declaram ciência das condições de rescisão acordadas entre academia e aluno (ou responsável).</p>
 <p>_________________________________________</p>

@@ -11,7 +11,6 @@ describe('contractTemplateEditorState', () => {
       name: 'A',
       description: '',
       purpose: 'enrollment',
-      isDefault: false,
       bodyHtml: '<p>x</p>',
       signerLayout: { slots: [] },
     });
@@ -19,7 +18,6 @@ describe('contractTemplateEditorState', () => {
       name: 'A',
       description: '',
       purpose: 'enrollment',
-      isDefault: false,
       bodyHtml: '<p>y</p>',
       signerLayout: { slots: [] },
     });
@@ -31,7 +29,6 @@ describe('contractTemplateEditorState', () => {
       name: 'A',
       description: 'd',
       purpose: 'rescission',
-      isDefault: true,
       bodyHtml: '<p>x</p>',
       signerLayout: { slots: [] },
     });

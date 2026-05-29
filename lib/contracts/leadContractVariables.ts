@@ -9,6 +9,45 @@ function formatDateField(raw: unknown): string {
   return formatContractDate(d);
 }
 
+/** dd / mm / yyyy — formato comum em termos de rescisão. */
+export function formatRescissionRequestDate(raw: unknown): string {
+  const s = String(raw || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  const [y, m, d] = s.split('-');
+  return `${d} / ${m} / ${y}`;
+}
+
+function todayYmdLocal(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Meses calendário entre ingresso e fim (inclusivo quando há pelo menos 1 dia no período). */
+export function computeServiceMonths(enrollmentYmd: unknown, endYmd: unknown): number {
+  const start = String(enrollmentYmd || '').trim().slice(0, 10);
+  const end = String(endYmd || '').trim().slice(0, 10) || todayYmdLocal();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return 0;
+  if (end < start) return 0;
+
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const [ey, em, ed] = end.split('-').map(Number);
+
+  let months = (ey - sy) * 12 + (em - sm);
+  if (ed >= sd) months += 1;
+
+  if (months <= 0 && end >= start) return 1;
+  return Math.max(0, months);
+}
+
+export function formatServiceMonthsLabel(months: number): string {
+  const n = Number(months);
+  if (!Number.isFinite(n) || n <= 0) return '0 meses';
+  return n === 1 ? '1 mês' : `${n} meses`;
+}
+
 function formatCpfDisplay(raw: unknown): string {
   const digits = String(raw || '').replace(/\D/g, '');
   if (digits.length !== 11) return String(raw || '').trim();
@@ -28,6 +67,7 @@ function formatPhoneDisplay(raw: unknown): string {
 
 export function emptyContractVariableMap(): ContractVariableMap {
   const today = formatContractDate();
+  const todayYmd = todayYmdLocal();
   return {
     nome_aluno: '',
     email_aluno: '',
@@ -50,6 +90,8 @@ export function emptyContractVariableMap(): ContractVariableMap {
     nome_academia: '',
     data_hoje: today,
     data_aceite: today,
+    data_solicitacao_rescisao: formatRescissionRequestDate(todayYmd),
+    meses_servico_utilizados: '0 meses',
   };
 }
 
@@ -88,6 +130,14 @@ export function mapLeadDocToContractVariables(
   vars.conta_pagamento_preferida = String(
     lead.preferred_payment_account || lead.preferredPaymentAccount || ''
   ).trim();
+
+  const exitYmd = String(lead.exit_date || lead.exitDate || '').trim().slice(0, 10);
+  const endYmd = exitYmd || todayYmdLocal();
+  vars.data_solicitacao_rescisao =
+    formatRescissionRequestDate(exitYmd) || formatRescissionRequestDate(endYmd);
+  vars.meses_servico_utilizados = formatServiceMonthsLabel(
+    computeServiceMonths(lead.enrollmentDate || lead.enrollment_date, endYmd)
+  );
 
   return vars;
 }

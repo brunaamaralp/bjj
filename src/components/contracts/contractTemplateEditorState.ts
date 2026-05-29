@@ -5,7 +5,6 @@ export type ContractTemplateEditorSnapshot = {
   name: string;
   description: string;
   purpose: ContractTemplatePurpose;
-  isDefault: boolean;
   bodyHtml: string;
   signerLayout: ContractSignerLayout;
 };
@@ -14,7 +13,6 @@ export function buildEditorSnapshot(input: {
   name: string;
   description: string;
   purpose: ContractTemplatePurpose;
-  isDefault: boolean;
   bodyHtml: string;
   signerLayout: ContractSignerLayout;
 }): ContractTemplateEditorSnapshot {
@@ -22,7 +20,6 @@ export function buildEditorSnapshot(input: {
     name: input.name.trim(),
     description: input.description.trim(),
     purpose: input.purpose,
-    isDefault: input.isDefault,
     bodyHtml: input.bodyHtml,
     signerLayout: JSON.parse(JSON.stringify(input.signerLayout)),
   };
@@ -36,7 +33,6 @@ export function isEditorDirty(
   if (current.name !== baseline.name) return true;
   if (current.description !== baseline.description) return true;
   if (current.purpose !== baseline.purpose) return true;
-  if (current.isDefault !== baseline.isDefault) return true;
   if (current.bodyHtml !== baseline.bodyHtml) return true;
   return JSON.stringify(current.signerLayout) !== JSON.stringify(baseline.signerLayout);
 }
