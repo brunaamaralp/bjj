@@ -1487,7 +1487,7 @@ export default function Inbox() {
       else setThreadLoading(true);
       const jwt = await getJwt();
       const params = new URLSearchParams();
-      params.set('limit', '50');
+      params.set('limit', '35');
       if (cursor) params.set('cursor', String(cursor));
       const qs = params.toString();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`, {
@@ -2565,24 +2565,19 @@ export default function Inbox() {
       String(it?._ticketStatus ?? it?.ticket_status ?? '')
         .trim()
         .toLowerCase() === 'resolved';
-    const unread = arr.filter((it) => unreadN(it) > 0);
-    const resolved = arr.filter((it) => isResolvedTicket(it));
-    const open = arr.filter((it) => unreadN(it) <= 0 && !isResolvedTicket(it));
-    const keyOf = (it) => String(it?._phone || it?.phone_number || it?.id || '').trim();
-    const placed = new Set();
-    for (const it of [...unread, ...resolved, ...open]) {
-      const k = keyOf(it);
-      if (k) placed.add(k);
+    const unread = [];
+    const resolved = [];
+    const open = [];
+    for (const it of arr) {
+      const u = unreadN(it);
+      if (u > 0) unread.push(it);
+      else if (isResolvedTicket(it)) resolved.push(it);
+      else open.push(it);
     }
-    const orphan = arr.filter((it) => {
-      const k = keyOf(it);
-      return k && !placed.has(k);
-    });
-    const openMerged = orphan.length ? [...open, ...orphan] : open;
     return [
       { key: 'unread', label: 'Não lidas', items: unread },
-      { key: 'open', label: 'Em atendimento', items: openMerged },
-      { key: 'resolved', label: 'Resolvidas', items: resolved }
+      { key: 'open', label: 'Em atendimento', items: open },
+      { key: 'resolved', label: 'Resolvidas', items: resolved },
     ];
   }, [filteredItems]);
 

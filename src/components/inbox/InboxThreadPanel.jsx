@@ -17,6 +17,7 @@ import {
   isOutboundImagePlaceholder
 } from '../../lib/inboxMediaUtils.js';
 import { getThreadHandoffBanner, getThreadHandoffPill } from '../../../lib/inboxHandoffPresentation.js';
+import { INBOX_MSG_TRUNCATE_CHARS } from '../../lib/inboxUiConstants.js';
 
 function inboxDisplayInitials(name) {
   const parts = String(name || '')
@@ -443,7 +444,11 @@ export default function InboxThreadPanel(props) {
                     const whatsAppChatUrl = buildWhatsAppChatUrl(selectedPhone);
                     const stopBubbleClick = (e) => e.stopPropagation();
                     const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
-                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
+                    const isLongMsg = contentRaw.length > INBOX_MSG_TRUNCATE_CHARS;
+                    const content =
+                      !expanded && isLongMsg
+                        ? `${contentRaw.slice(0, INBOX_MSG_TRUNCATE_CHARS)}…`
+                        : contentRaw;
                     const statusLower = String(m?.status || '').trim().toLowerCase();
                     const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
                     const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
@@ -502,11 +507,14 @@ export default function InboxThreadPanel(props) {
                             whatsAppChatUrl={whatsAppChatUrl}
                           />
                         ) : (
-                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
+                          <div
+                            className={`inbox-msg-text${!expanded && isLongMsg ? ' inbox-msg-text--truncated' : ''}`}
+                            style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}
+                          >
                             {content}
                           </div>
                         )}
-                        {!expanded && contentRaw.length > 600 && (
+                        {!expanded && isLongMsg && (
                           <button
                             className="btn btn-outline"
                             style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}
@@ -520,7 +528,7 @@ export default function InboxThreadPanel(props) {
                             Ver mais
                           </button>
                         )}
-                        {expanded && contentRaw.length > 600 && (
+                        {expanded && isLongMsg && (
                           <button
                             className="btn btn-outline"
                             style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}

@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { AlertTriangle, Flame, User } from 'lucide-react';
+import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
 
@@ -49,7 +50,8 @@ function ConversationItem({
   const showHandoffChip = handoffActive;
 
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-  const preview = rawPrev.length > 52 ? `${rawPrev.slice(0, 52)}…` : rawPrev;
+  const previewMax = compact ? INBOX_LIST_PREVIEW_MAX_COMPACT : 52;
+  const preview = rawPrev.length > previewMax ? `${rawPrev.slice(0, previewMax)}…` : rawPrev;
 
   const profileUrl = String(item?._profileImageUrl || item?.whatsapp_profile_image_url || '').trim();
   const [avatarOk, setAvatarOk] = useState(true);

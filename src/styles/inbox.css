@@ -491,6 +491,11 @@
   color: var(--text);
 }
 
+.inbox-msg-text--truncated {
+  max-height: 9.5rem;
+  overflow: hidden;
+}
+
 .inbox-msg-text--muted {
   color: var(--text-secondary);
 }
@@ -617,7 +622,8 @@
 }
 
 .inbox-conversation-item--compact {
-  padding: 10px 12px;
+  padding: 8px 10px;
+  min-height: 40px;
 }
 
 .inbox-conversation-item:hover {
@@ -679,8 +685,9 @@
 }
 
 .inbox-conversation-item__avatar--compact {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
+  margin-top: 0;
 }
 
 .inbox-conversation-item__avatar img {
@@ -766,7 +773,7 @@
 }
 
 .inbox-conversation-item__preview-row--compact {
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .inbox-conversation-item__preview {
@@ -1339,6 +1346,64 @@
   letter-spacing: 0.5px;
   color: var(--mid);
   text-transform: uppercase;
+}
+
+.inbox-group-title--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border-mid);
+  border-bottom: 1px solid var(--border-mid);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.12s ease;
+}
+
+.inbox-group-title--toggle:hover {
+  background: color-mix(in srgb, var(--inbox-section-bg, var(--v50)) 70%, var(--surface));
+}
+
+.inbox-group-title__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inbox-group-title__count {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.inbox-group-title__chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.inbox-list-section-more {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--v700);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--ff-ui, inherit);
+}
+
+.inbox-list-section-more:hover {
+  background: var(--inbox-row-hover-bg);
 }
 
 /* —— Thread header —— */
