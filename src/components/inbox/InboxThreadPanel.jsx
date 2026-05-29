@@ -74,6 +74,10 @@ export default function InboxThreadPanel(props) {
     isNarrowDesktop,
     setContextOpen,
     composerProps,
+    ticketChip,
+    listFilter,
+    unarchiveConversation,
+    handoffDurationPhrase,
   } = props;
 
   if (!selectedPhone) {

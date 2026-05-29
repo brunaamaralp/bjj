@@ -3138,6 +3138,10 @@ export default function Inbox() {
       isNarrowDesktop={isNarrowDesktop}
       setContextOpen={setContextOpen}
       composerProps={composerProps}
+      ticketChip={ticketChip}
+      listFilter={listFilter}
+      unarchiveConversation={unarchiveConversation}
+      handoffDurationPhrase={handoffDurationPhrase}
     />
   );
 

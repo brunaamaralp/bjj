@@ -1,17 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, MessageCircle, WifiOff } from 'lucide-react';
-import { account } from '../../lib/appwrite';
-import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
+import { MessageCircle, Sparkles, WifiOff } from 'lucide-react';
+import { useInboxConversation } from '../../hooks/useInboxConversation';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import ThreadSkeleton from './ThreadSkeleton';
-
-const POLL_MS = 30_000;
-const PAGE_LIMIT = 30;
-
-function normalizePhone(v) {
-  return String(v || '').replace(/\D/g, '');
-}
+import ProfileComposer from './ProfileComposer';
 
 function formatDayLabel(iso) {
   const s = String(iso || '').trim();
@@ -71,14 +64,10 @@ function buildBlocks(messages) {
       key: messageKey(m, i),
       m,
       outgoing: isOutgoingMessage(m),
+      pending: Boolean(m?._optimistic),
     });
   }
   return out;
-}
-
-async function getJwt() {
-  const jwt = await account.createJWT();
-  return String(jwt?.jwt || '').trim();
 }
 
 function ProfileConversationEmpty({ icon: Icon, title, description, action }) {
@@ -108,9 +97,58 @@ function ProfileConversationEmpty({ icon: Icon, title, description, action }) {
   );
 }
 
+function HandoffBanner({ onDismiss }) {
+  return (
+    <div
+      role="status"
+      style={{
+        flexShrink: 0,
+        margin: '0 12px 8px',
+        padding: '10px 12px',
+        borderRadius: 10,
+        background: 'var(--v50, #EEEDFE)',
+        color: 'var(--v700, #534AB7)',
+        fontSize: 12,
+        lineHeight: 1.4,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+      }}
+    >
+      <Sparkles size={16} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
+      <span style={{ flex: 1 }}>
+        Agente IA respondendo — ao enviar, você assume o atendimento
+      </span>
+      <button
+        type="button"
+        className="btn btn-outline"
+        style={{ minHeight: 28, padding: '2px 10px', fontSize: 11, flexShrink: 0 }}
+        onClick={onDismiss}
+      >
+        Ok
+      </button>
+    </div>
+  );
+}
+
 export default function ProfileConversationTab({ phone: rawPhone, academyId, leadName }) {
-  const phone = useMemo(() => normalizePhone(rawPhone), [rawPhone]);
   const displayName = String(leadName || '').trim() || 'o contato';
+  const phoneDigits = String(rawPhone || '').replace(/\D/g, '');
+
+  const {
+    messages,
+    summary,
+    loading,
+    loadingMore,
+    sending,
+    error,
+    sendError,
+    hasMore,
+    loadMore,
+    sendMessage,
+    markRead,
+    refresh,
+  } = useInboxConversation({ phone: rawPhone, academyId, enabled: Boolean(phoneDigits && academyId) });
 
   const { waStatus } = useZapsterWhatsAppConnection(academyId, {
     statusPollWhileMounted: true,
@@ -118,153 +156,26 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
   });
   const waConnected = String(waStatus || '').trim() === 'connected';
 
-  const [loading, setLoading] = useState(true);
-  const [paging, setPaging] = useState(false);
-  const [error, setError] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [nextCursor, setNextCursor] = useState('');
-  const [hasConversation, setHasConversation] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [handoffBannerDismissed, setHandoffBannerDismissed] = useState(false);
 
   const scrollRef = useRef(null);
-  const abortRef = useRef(null);
-  const requestSeqRef = useRef(0);
   const initialScrollDoneRef = useRef(false);
-
-  const loadThread = useCallback(
-    async ({ silent = false, cursor = '', append = false } = {}) => {
-      if (!phone || !academyId) return;
-      const reqSeq = ++requestSeqRef.current;
-
-      if (!append) {
-        try {
-          if (abortRef.current) abortRef.current.abort();
-        } catch {
-          void 0;
-        }
-        abortRef.current = new AbortController();
-      }
-
-      const signal = !append && abortRef.current ? abortRef.current.signal : undefined;
-
-      if (!silent) {
-        if (append) setPaging(true);
-        else setLoading(true);
-      }
-      if (!append) setError('');
-
-      try {
-        const jwt = await getJwt();
-        const params = new URLSearchParams();
-        params.set('limit', String(PAGE_LIMIT));
-        if (cursor) params.set('cursor', String(cursor));
-        const qs = params.toString();
-        const { blocked, res: resp } = await fetchWithBillingGuard(
-          `/api/conversations/${encodeURIComponent(phone)}${qs ? `?${qs}` : ''}`,
-          {
-            headers: {
-              Authorization: `Bearer ${jwt}`,
-              'x-academy-id': String(academyId || ''),
-            },
-            ...(signal ? { signal } : {}),
-          }
-        );
-        if (blocked || reqSeq !== requestSeqRef.current) return;
-        if (!resp) return;
-
-        const raw = await resp.text();
-        let data = {};
-        try {
-          data = raw ? JSON.parse(raw) : {};
-        } catch {
-          if (!silent) setError('Erro ao carregar conversa.');
-          return;
-        }
-
-        if (!resp.ok) {
-          if (!silent) setError(data?.erro || data?.error || 'Erro ao carregar conversa.');
-          return;
-        }
-
-        const incoming = Array.isArray(data?.messages) ? data.messages : [];
-        const nextCur = typeof data?.next_cursor === 'string' ? data.next_cursor : '';
-        const convId = typeof data?.conversation_id === 'string' ? data.conversation_id.trim() : '';
-
-        setHasConversation(Boolean(convId) || incoming.length > 0);
-        setNextCursor(nextCur);
-
-        setMessages((prev) => {
-          if (!append) return incoming;
-          const combined = [...incoming, ...(Array.isArray(prev) ? prev : [])];
-          const seen = new Set();
-          const deduped = [];
-          for (const m of combined) {
-            const mid = String(m?.message_id || '').trim();
-            const key = mid || `${String(m?.role || '')}:${String(m?.timestamp || '')}:${String(m?.content || '')}`;
-            if (!key || seen.has(key)) continue;
-            seen.add(key);
-            deduped.push(m);
-          }
-          return deduped;
-        });
-      } catch (e) {
-        if (e?.name === 'AbortError') return;
-        if (!silent) setError(e?.message || 'Erro ao carregar conversa.');
-      } finally {
-        if (reqSeq === requestSeqRef.current) {
-          setLoading(false);
-          setPaging(false);
-        }
-      }
-    },
-    [phone, academyId]
-  );
+  const markedReadRef = useRef(false);
 
   useEffect(() => {
     initialScrollDoneRef.current = false;
-    if (!phone || !academyId) {
-      setLoading(false);
-      setMessages([]);
-      setNextCursor('');
-      setHasConversation(false);
-      return undefined;
-    }
-    void loadThread({ silent: false });
-    return () => {
-      requestSeqRef.current += 1;
-      try {
-        if (abortRef.current) abortRef.current.abort();
-      } catch {
-        void 0;
-      }
-    };
-  }, [phone, academyId, loadThread]);
+    markedReadRef.current = false;
+    setHandoffBannerDismissed(false);
+  }, [phoneDigits]);
 
   useEffect(() => {
-    if (!phone || !academyId || loading) return undefined;
-
-    let timer = null;
-    const tick = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-      void loadThread({ silent: true });
-    };
-
-    const schedule = () => {
-      if (timer) clearInterval(timer);
-      timer = setInterval(tick, POLL_MS);
-    };
-
-    const onVis = () => {
-      if (document.visibilityState === 'visible') tick();
-      schedule();
-    };
-
-    schedule();
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      if (timer) clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [phone, academyId, loading, loadThread]);
+    if (loading || markedReadRef.current) return;
+    if ((summary?.unread_count ?? 0) > 0) {
+      markedReadRef.current = true;
+      void markRead();
+    }
+  }, [loading, summary?.unread_count, markRead]);
 
   useEffect(() => {
     if (loading || initialScrollDoneRef.current) return;
@@ -276,11 +187,28 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
     });
   }, [loading, messages]);
 
+  useEffect(() => {
+    if (loading) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [messages.length, sending, loading]);
+
   const blocks = useMemo(() => buildBlocks(messages), [messages]);
   const hasMessages = messages.length > 0;
-  const inboxHref = phone ? `/inbox?phone=${encodeURIComponent(phone)}` : '/inbox';
+  const showAiHandoffBanner = Boolean(summary?.handoff) && !handoffBannerDismissed;
+  const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
 
-  if (!phone) {
+  const handleSend = async () => {
+    const text = String(draft || '').trim();
+    if (!text) return;
+    const ok = await sendMessage(text);
+    if (ok) setDraft('');
+  };
+
+  if (!phoneDigits) {
     return (
       <ProfileConversationEmpty
         icon={MessageCircle}
@@ -315,6 +243,23 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
         background: 'var(--surface)',
       }}
     >
+      {!waConnected ? (
+        <div
+          role="status"
+          style={{
+            flexShrink: 0,
+            padding: '10px 14px',
+            background: 'var(--warning-light)',
+            color: 'var(--warning-text, #b45309)',
+            fontSize: 12,
+            fontWeight: 600,
+            borderBottom: '1px solid var(--border-light)',
+          }}
+        >
+          WhatsApp desconectado — não é possível enviar mensagens
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
         style={{
@@ -330,7 +275,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
         {!loading && error ? (
           <div style={{ textAlign: 'center', padding: 24 }}>
             <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>
-            <button type="button" className="btn btn-outline" onClick={() => void loadThread({ silent: false })}>
+            <button type="button" className="btn btn-outline" onClick={() => void refresh()}>
               Tentar novamente
             </button>
           </div>
@@ -342,23 +287,25 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
             title="Nenhuma conversa ainda"
             description={`Quando ${displayName} enviar uma mensagem, ela aparecerá aqui.`}
             action={
-              <Link to={inboxHref} className="btn btn-outline" style={{ marginTop: 8 }}>
-                Responder no Inbox
-              </Link>
+              waConnected ? null : (
+                <Link to={inboxHref} className="btn btn-outline" style={{ marginTop: 8 }}>
+                  Abrir no Inbox
+                </Link>
+              )
             }
           />
         ) : null}
 
-        {!loading && !error && hasMessages && nextCursor ? (
+        {!loading && !error && hasMessages && hasMore ? (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
             <button
               type="button"
               className="btn btn-outline"
               style={{ padding: '6px 12px', minHeight: 34, fontSize: 12 }}
-              disabled={paging}
-              onClick={() => void loadThread({ silent: true, cursor: nextCursor, append: true })}
+              disabled={loadingMore}
+              onClick={() => void loadMore()}
             >
-              {paging ? 'Carregando…' : 'Carregar mensagens anteriores'}
+              {loadingMore ? 'Carregando…' : 'Carregar mensagens anteriores'}
             </button>
           </div>
         ) : null}
@@ -393,9 +340,17 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
                     display: 'flex',
                     justifyContent: b.outgoing ? 'flex-end' : 'flex-start',
                     marginBottom: 10,
+                    opacity: b.pending ? 0.75 : 1,
                   }}
                 >
-                  <div style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: b.outgoing ? 'flex-end' : 'flex-start' }}>
+                  <div
+                    style={{
+                      maxWidth: '78%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: b.outgoing ? 'flex-end' : 'flex-start',
+                    }}
+                  >
                     <div
                       style={{
                         padding: '10px 12px',
@@ -414,6 +369,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
                     </div>
                     <span style={{ fontSize: 11, color: 'var(--faint, var(--text-muted))', marginTop: 4 }}>
                       {formatTimeOnly(b.m?.timestamp)}
+                      {b.pending ? ' · Enviando…' : ''}
                     </span>
                   </div>
                 </div>
@@ -422,32 +378,33 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
           : null}
       </div>
 
-      {hasMessages ? (
+      {sendError ? (
         <div
+          role="alert"
           style={{
             flexShrink: 0,
-            padding: 12,
-            borderTop: '1px solid var(--border-light, var(--border))',
-            background: 'var(--surface)',
+            padding: '8px 14px',
+            fontSize: 12,
+            color: 'var(--danger)',
+            background: 'var(--danger-light, #fef2f2)',
+            borderTop: '1px solid var(--border-light)',
           }}
         >
-          <Link
-            to={inboxHref}
-            className="btn btn-outline"
-            style={{
-              width: '100%',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              minHeight: 40,
-            }}
-          >
-            Responder no Inbox
-            <ExternalLink size={14} aria-hidden />
-          </Link>
+          {sendError}
         </div>
       ) : null}
+
+      {showAiHandoffBanner ? (
+        <HandoffBanner onDismiss={() => setHandoffBannerDismissed(true)} />
+      ) : null}
+
+      <ProfileComposer
+        value={draft}
+        onChange={setDraft}
+        onSend={handleSend}
+        sending={sending}
+        disabled={!waConnected}
+      />
     </div>
   );
 }
