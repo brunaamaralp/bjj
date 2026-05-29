@@ -10,6 +10,7 @@ import {
   createContractTemplateRequest,
   updateContractTemplateRequest,
   deleteContractTemplateRequest,
+  ensureAcademyContractSetupRequest,
 } from './templatesApi.js';
 import type { FetchContractsParams } from './api.js';
 import type { SignerInput } from './types.js';
@@ -97,6 +98,16 @@ export function useDeleteContractTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteContractTemplateRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: contractKeys.all });
+    },
+  });
+}
+
+export function useEnsureAcademyContractSetup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ensureAcademyContractSetupRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contractKeys.all });
     },

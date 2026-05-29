@@ -10,6 +10,7 @@ import {
   updateContractTemplate,
   type ContractTemplatePurpose,
 } from './contractTemplateService.js';
+import { ensureAcademyContractSetup } from './ensureAcademyContractSetup.js';
 
 function parseBoolField(raw: unknown): boolean {
   if (raw == null) return false;
@@ -67,6 +68,21 @@ export async function handlePostContractTemplate(
   }
 
   try {
+    const action = String(body.action || '').trim().toLowerCase();
+    if (action === 'ensure-setup') {
+      const result = await ensureAcademyContractSetup(auth.academyId);
+      return jsonResponse({
+        ok: true,
+        summary: {
+          templatesCreated: result.templatesCreated,
+          plansLinked: result.plansLinked,
+          financeConfigUpdated: result.financeConfigUpdated,
+        },
+        financeConfig: result.financeConfig,
+        templates: result.templates,
+      });
+    }
+
     const name = String(body.name || '').trim();
     if (!name) return jsonResponse({ ok: false, error: 'name_required' }, 400);
 

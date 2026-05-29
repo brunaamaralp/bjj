@@ -5,6 +5,7 @@ import {
   useContractTemplates,
   useCreateContractTemplate,
   useDeleteContractTemplate,
+  useEnsureAcademyContractSetup,
   useUpdateContractTemplate,
 } from '../../features/contracts/queries.js';
 import { useUiStore } from '../../store/useUiStore.js';
@@ -68,6 +69,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const createMutation = useCreateContractTemplate();
   const updateMutation = useUpdateContractTemplate();
   const deleteMutation = useDeleteContractTemplate();
+  const ensureSetupMutation = useEnsureAcademyContractSetup();
 
   const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -86,6 +88,46 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
 
   const templates = data?.templates || [];
   const configured = data?.configured !== false;
+
+  const hasEnrollmentTemplate = useMemo(
+    () => templates.some((t) => t.active && normalizeTemplatePurpose(t.purpose) === 'enrollment'),
+    [templates]
+  );
+  const hasRescissionTemplate = useMemo(
+    () => templates.some((t) => t.active && normalizeTemplatePurpose(t.purpose) === 'rescission'),
+    [templates]
+  );
+  const needsAutoSetup = configured && (!hasEnrollmentTemplate || !hasRescissionTemplate);
+
+  const handleEnsureSetup = async () => {
+    try {
+      const result = await ensureSetupMutation.mutateAsync();
+      if (result.financeConfig && typeof result.financeConfig === 'object') {
+        useLeadStore.getState().setFinanceConfig(result.financeConfig);
+      }
+      const parts: string[] = [];
+      if (result.summary.templatesCreated?.length) {
+        parts.push(
+          result.summary.templatesCreated
+            .map((p) => CONTRACT_TEMPLATE_PURPOSE_LABELS[p] || p)
+            .join(' e ')
+        );
+      }
+      if (result.summary.plansLinked > 0) {
+        parts.push(`${result.summary.plansLinked} plano(s) vinculado(s) no Financeiro`);
+      }
+      addToast({
+        type: 'success',
+        message: parts.length ? `Pronto: ${parts.join(' · ')}.` : 'Contratos já estavam configurados.',
+      });
+      refetch();
+    } catch (err) {
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao configurar contratos',
+      });
+    }
+  };
 
   const currentSnapshot = useMemo(
     () =>
@@ -368,6 +410,23 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         </div>
       ) : null}
 
+      {configured && needsAutoSetup && !editorMode ? (
+        <div className="card mt-4 contract-template-setup-banner" style={{ padding: 16 }}>
+          <p className="text-small text-muted" style={{ margin: '0 0 10px' }}>
+            Para usar contratos por plano, gere os modelos padrão de matrícula e rescisão e vincule os planos no
+            Financeiro automaticamente.
+          </p>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={ensureSetupMutation.isPending}
+            onClick={() => void handleEnsureSetup()}
+          >
+            {ensureSetupMutation.isPending ? 'Configurando…' : 'Gerar modelos padrão e vincular planos'}
+          </button>
+        </div>
+      ) : null}
+
       {editorMode ? (
         <section className="card mt-4 animate-in contract-template-editor-focus">
           <div className="contract-template-editor-focus__header">
@@ -445,17 +504,26 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
           {!isLoading && !isError && templates.length === 0 ? (
             <div className="card contract-template-empty">
               <p className="text-muted text-small" style={{ margin: 0 }}>
-                Nenhum modelo ainda. Crie o primeiro para enviar contratos pela Autentique.
+                Nenhum modelo ainda. Gere matrícula e rescisão padrão ou crie um modelo manualmente.
               </p>
-              <button
-                type="button"
-                className="btn-primary"
-                style={{ marginTop: 12 }}
-                onClick={openCreate}
-                disabled={!configured}
-              >
-                <Plus size={16} /> Criar primeiro modelo
-              </button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={!configured || ensureSetupMutation.isPending}
+                  onClick={() => void handleEnsureSetup()}
+                >
+                  {ensureSetupMutation.isPending ? 'Configurando…' : 'Gerar modelos padrão'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={openCreate}
+                  disabled={!configured}
+                >
+                  <Plus size={16} /> Criar manualmente
+                </button>
+              </div>
             </div>
           ) : null}
           {!isLoading && templates.length > 0 ? (

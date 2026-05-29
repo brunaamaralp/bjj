@@ -31,10 +31,11 @@ import {
 import { useContractTemplates } from '../../features/contracts/queries.js';
 import {
   defaultTemplateForPurpose,
-  migrateFinanceConfigFromLegacyPlanNames,
   templatesForPurpose,
   validateFinancePlansContractTemplates,
+  CONTRACT_TEMPLATE_PURPOSE_LABELS,
 } from '../../lib/contractPlanTemplates.js';
+import { useEnsureAcademyContractSetup } from '../../features/contracts/queries.js';
 import {
   serializeCollectionRules,
   parseOverdueLabel,
@@ -276,6 +277,8 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
   const addToast = useUiStore((s) => s.addToast);
   const { data: contractTemplatesData } = useContractTemplates(true);
   const contractTemplates = contractTemplatesData?.templates || [];
+  const contractTemplatesConfigured = contractTemplatesData?.configured !== false;
+  const ensureContractSetup = useEnsureAcademyContractSetup();
   const enrollmentTemplates = useMemo(
     () => templatesForPurpose(contractTemplates, 'enrollment'),
     [contractTemplates]
@@ -377,21 +380,81 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
       });
   }, [academyId, applyLoadedState, addToast]);
 
+  const applyEnsureSetupResult = useCallback(
+    (result) => {
+      const cfg = result?.financeConfig;
+      if (cfg && typeof cfg === 'object') {
+        const merged = mergeCollectionIntoFinanceConfig(cfg, {
+          collectionRules,
+          overdueLabel,
+        });
+        const withExceptions = mergeExceptionLabelsIntoFinanceConfig(merged, exceptionLabels);
+        setFinanceConfig(withExceptions);
+        useLeadStore.getState().setFinanceConfig(withExceptions);
+        if (result.summary?.financeConfigUpdated) {
+          setSavedDigests((prev) => ({
+            ...prev,
+            plans: digestPlans(withExceptions.plans),
+          }));
+        }
+      }
+    },
+    [collectionRules, overdueLabel, exceptionLabels]
+  );
+
+  const runEnsureContractSetup = useCallback(
+    async ({ showToast = true } = {}) => {
+      if (!academyId || !isOwner || !contractTemplatesConfigured) return null;
+      try {
+        const result = await ensureContractSetup.mutateAsync();
+        applyEnsureSetupResult(result);
+        if (showToast) {
+          const parts = [];
+          if (result.summary.templatesCreated?.length) {
+            parts.push(
+              result.summary.templatesCreated
+                .map((p) => CONTRACT_TEMPLATE_PURPOSE_LABELS[p] || p)
+                .join(' e ')
+            );
+          }
+          if (result.summary.plansLinked > 0) {
+            parts.push(`${result.summary.plansLinked} plano(s) vinculado(s)`);
+          }
+          const detail = parts.length ? parts.join(' · ') : 'Nada pendente — já estava configurado.';
+          addToast({
+            type: result.summary.financeConfigUpdated || result.summary.templatesCreated?.length
+              ? 'success'
+              : 'info',
+            message: `Contratos: ${detail}`,
+          });
+        }
+        return result;
+      } catch (e) {
+        console.error(e);
+        if (showToast) addToast({ type: 'error', message: friendlyError(e, 'action') });
+        return null;
+      }
+    },
+    [
+      academyId,
+      isOwner,
+      contractTemplatesConfigured,
+      ensureContractSetup,
+      applyEnsureSetupResult,
+      addToast,
+    ]
+  );
+
   useEffect(() => {
-    if (!academyId || !contractTemplates.length || !financeConfig?.plans?.length) return;
-    const key = `planContractMigrate:${academyId}`;
+    if (!isOwner || !academyId || !contractTemplatesConfigured) return;
+    const key = `contractSetupEnsured:${academyId}`;
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
-    const { config, changed } = migrateFinanceConfigFromLegacyPlanNames(financeConfig, contractTemplates);
-    if (changed) {
-      setFinanceConfig(config);
-      addToast({
-        type: 'info',
-        message:
-          'Vínculos antigos dos modelos foram aplicados aos planos. Revise e salve a seção Planos.',
-      });
-    }
-    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, '1');
-  }, [academyId, contractTemplates, financeConfig, addToast]);
+    void runEnsureContractSetup({ showToast: true }).then((result) => {
+      if (result && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(key, '1');
+      }
+    });
+  }, [isOwner, academyId, contractTemplatesConfigured, runEnsureContractSetup]);
 
   const dirty = useMemo(
     () => ({
@@ -525,6 +588,22 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
             Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos. Cada plano deve ter um
             contrato de matrícula e um termo de rescisão (modelos em Contratos).
           </p>
+          {isOwner && contractTemplatesConfigured && rescissionTemplates.length === 0 ? (
+            <div className="finance-config-setup-banner card" style={{ padding: 12, marginBottom: 12 }}>
+              <p className="text-small text-muted" style={{ margin: '0 0 10px' }}>
+                Falta o termo de rescisão padrão. Você pode gerar os modelos e vincular todos os planos
+                automaticamente.
+              </p>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={ensureContractSetup.isPending}
+                onClick={() => void runEnsureContractSetup({ showToast: true })}
+              >
+                {ensureContractSetup.isPending ? 'Configurando…' : 'Configurar contratos automaticamente'}
+              </button>
+            </div>
+          ) : null}
           <div className="finance-config-section__body">
             {(financeConfig.plans || []).map((pl, idx) => (
               <PlanRow

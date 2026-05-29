@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyDefaultPlanContractLinks,
   migrateFinanceConfigFromLegacyPlanNames,
   validateFinancePlansContractTemplates,
 } from '../lib/contractPlanTemplates.js';
@@ -18,6 +19,19 @@ describe('contractPlanTemplates', () => {
     const { config, changed } = migrateFinanceConfigFromLegacyPlanNames(financeConfig, templates);
     expect(changed).toBe(true);
     expect(config.plans[0].contractTemplateId).toBe('t1');
+  });
+
+  it('applies default template ids to plans without links', () => {
+    const financeConfig = { plans: [{ name: 'Mensal', price: 100 }] };
+    const templates = [
+      { $id: 'e1', active: true, purpose: 'enrollment', isDefault: true },
+      { $id: 'r1', active: true, purpose: 'rescission', isDefault: true },
+    ];
+    const { config, changed, plansLinked } = applyDefaultPlanContractLinks(financeConfig, templates);
+    expect(changed).toBe(true);
+    expect(plansLinked).toBe(1);
+    expect(config.plans[0].contractTemplateId).toBe('e1');
+    expect(config.plans[0].rescissionTemplateId).toBe('r1');
   });
 
   it('validates missing plan template links', () => {

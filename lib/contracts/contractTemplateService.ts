@@ -232,7 +232,8 @@ export async function createContractTemplate(input: {
     kind: 'html_editor',
     body_html: body.slice(0, 28000),
     signer_layout_json: layout.slice(0, 4096),
-    plan_names: JSON.stringify(input.plan_names || []),
+    plan_names: '[]',
+    purpose,
     is_default: Boolean(input.is_default),
     active: true,
   };

@@ -84,3 +84,32 @@ export function migrateFinanceConfigFromLegacyPlanNames(financeConfig, templates
   if (!changed) return { config: financeConfig, changed: false };
   return { config: { ...financeConfig, plans }, changed: true };
 }
+
+/** Preenche contractTemplateId e rescissionTemplateId vazios com os modelos padrão de cada tipo. */
+export function applyDefaultPlanContractLinks(financeConfig, templates) {
+  const defEnroll = defaultTemplateForPurpose(templates, 'enrollment');
+  const defRescind = defaultTemplateForPurpose(templates, 'rescission');
+  const plans = [...(financeConfig?.plans || [])];
+  let changed = false;
+  let plansLinked = 0;
+
+  for (const plan of plans) {
+    const name = String(plan.name || '').trim();
+    if (!name) continue;
+    let touched = false;
+    if (defEnroll && !String(plan.contractTemplateId || '').trim()) {
+      plan.contractTemplateId = defEnroll.$id;
+      touched = true;
+      changed = true;
+    }
+    if (defRescind && !String(plan.rescissionTemplateId || '').trim()) {
+      plan.rescissionTemplateId = defRescind.$id;
+      touched = true;
+      changed = true;
+    }
+    if (touched) plansLinked += 1;
+  }
+
+  if (!changed) return { config: financeConfig, changed: false, plansLinked: 0 };
+  return { config: { ...financeConfig, plans }, changed: true, plansLinked };
+}

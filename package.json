@@ -34,6 +34,7 @@
     "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",
     "cleanup:lead-student-attrs": "node --env-file=.env scripts/delete-lead-student-attrs.mjs",
     "provision:contract-templates": "node --env-file=.env scripts/provision-contract-templates-schema.mjs",
+    "ensure:contract-setup": "node --env-file=.env scripts/ensure-academy-contract-setup.mjs",
     "provision:webhook-logs": "node --env-file=.env scripts/provision-webhook-logs-schema.mjs",
     "cleanup:contract-templates-dup": "node --env-file=.env scripts/cleanup-duplicate-contract-templates.mjs",
     "start:server": "node server/index.js",

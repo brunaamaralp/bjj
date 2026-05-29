@@ -45,6 +45,16 @@ export const DEFAULT_CONTRACT_TEMPLATE_HTML = `<h1>Contrato de matrícula</h1>
 <p>_________________________________________</p>
 <p>Assinatura do aluno ou responsável</p>`;
 
+export const DEFAULT_RESCISSION_TEMPLATE_HTML = `<h1>Termo de rescisão</h1>
+<p>Pelo presente termo, <strong>{{nome_academia}}</strong> e o(a) aluno(a) <strong>{{nome_aluno}}</strong> registram o encerramento da matrícula:</p>
+<p><strong>Plano:</strong> {{plano}}</p>
+<p><strong>Aluno:</strong> {{nome_aluno}} · CPF {{cpf_aluno}} · Tel. {{telefone_aluno}}</p>
+<p><strong>Responsável:</strong> {{nome_responsavel}} · CPF {{cpf_responsavel}}</p>
+<p>Data do termo: {{data_hoje}}</p>
+<p>As partes declaram ciência das condições de rescisão acordadas entre academia e aluno (ou responsável).</p>
+<p>_________________________________________</p>
+<p>Assinatura do aluno ou responsável</p>`;
+
 export type ContractVariableMap = Record<string, string>;
 
 function escapeRegExp(s: string): string {
