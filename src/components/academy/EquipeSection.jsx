@@ -465,6 +465,54 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
     );
   };
 
+  const renderOwnerTableRow = () => {
+    if (!ownerMember) return null;
+    const roleLabel = membershipRoleDisplayLabel(ownerMember, academy?.ownerId);
+    const status = membershipStatusLabel(ownerMember);
+    const email =
+      membershipSecondaryEmail(ownerMember) || String(ownerMember.userEmail || ownerMember.email || '—');
+    const isYou = String(ownerMember.userId || '') === String(userId || '');
+    const name = membershipPrimaryLabel(ownerMember);
+
+    return (
+      <tr className="equipe-table__owner-row">
+        <td>
+          <div className="equipe-table__name-cell">
+            <span className="equipe-avatar equipe-avatar--owner" aria-hidden>
+              {memberInitial(ownerMember)}
+            </span>
+            <span className="equipe-table__name">
+              {name}
+              {isYou ? <span className="equipe-owner-card__you">Você</span> : null}
+            </span>
+          </div>
+        </td>
+        <td>
+          <span className={equipeRolePillClass(roleLabel)}>{roleLabel}</span>
+        </td>
+        <td className="text-small text-muted">{email}</td>
+        <td className="text-small text-muted navi-mono-date">{membershipJoinedDate(ownerMember)}</td>
+        <td>
+          <span className={equipeStatusPillClass(status)}>{status}</span>
+        </td>
+        {showActionsColumn ? <td className="equipe-table__actions" aria-hidden="true" /> : null}
+      </tr>
+    );
+  };
+
+  const equipeTableHead = (
+    <thead>
+      <tr>
+        <th className="equipe-table__col-name">Nome</th>
+        <th className="equipe-table__col-role">Papel</th>
+        <th className="equipe-table__col-email">E-mail</th>
+        <th className="equipe-table__col-date">Data de entrada</th>
+        <th className="equipe-table__col-status">Status</th>
+        {showActionsColumn ? <th className="equipe-table__actions-head equipe-table__col-actions">Ações</th> : null}
+      </tr>
+    </thead>
+  );
+
   const roleOptionsForAdd = isOwner
     ? ROLE_OPTIONS
     : ROLE_OPTIONS.filter((r) => r.value === 'receptionist');
@@ -584,16 +632,7 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
               ) : (
               <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">
                 <table className="navi-table equipe-table" aria-busy="true" aria-label="Carregando equipe">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Papel</th>
-                      <th>E-mail</th>
-                      <th>Data de entrada</th>
-                      <th>Status</th>
-                      {showActionsColumn ? <th className="equipe-table__actions-head">Ações</th> : null}
-                    </tr>
-                  </thead>
+                  {equipeTableHead}
                   <tbody>
                     {[0, 1, 2].map((i) => (
                       <tr key={`equipe-sk-${i}`} className="equipe-table__skeleton-row" aria-hidden>
@@ -697,21 +736,11 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
               </div>
               </>
             ) : (
-              <>
-                {renderOwnerCard()}
               <div className="navi-desktop-table-wrap equipe-desktop-table-wrap">
                 <table className="navi-table equipe-table">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Papel</th>
-                      <th>E-mail</th>
-                      <th>Data de entrada</th>
-                      <th>Status</th>
-                      {showActionsColumn ? <th className="equipe-table__actions-head">Ações</th> : null}
-                    </tr>
-                  </thead>
+                  {equipeTableHead}
                   <tbody>
+                    {renderOwnerTableRow()}
                     {staffMembers.map((m) => {
                       const roleLabel = membershipRoleDisplayLabel(m, academy?.ownerId);
                       const status = membershipStatusLabel(m);
@@ -755,7 +784,6 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
                   />
                 ) : null}
               </div>
-              </>
             )}
           </>
         )}
