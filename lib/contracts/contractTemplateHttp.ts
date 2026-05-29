@@ -6,27 +6,10 @@ import {
   getContractTemplateById,
   isContractTemplatesConfigured,
   listContractTemplates,
+  parseContractTemplatePurpose,
   updateContractTemplate,
+  type ContractTemplatePurpose,
 } from './contractTemplateService.js';
-
-function parsePlanNamesField(raw: unknown): string[] {
-  if (raw == null) return [];
-  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
-  const s = String(raw).trim();
-  if (!s) return [];
-  if (s.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(s);
-      return Array.isArray(parsed) ? parsed.map((x) => String(x).trim()).filter(Boolean) : [];
-    } catch {
-      return [];
-    }
-  }
-  return s
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
 
 function parseBoolField(raw: unknown): boolean {
   if (raw == null) return false;
@@ -52,6 +35,10 @@ export async function handleGetContractTemplates(
   try {
     const id = searchParams.get('id')?.trim();
     const activeOnly = searchParams.get('activeOnly') === 'true' || searchParams.get('active') === 'true';
+    const purposeRaw = searchParams.get('purpose')?.trim();
+    const purpose = purposeRaw
+      ? (parseContractTemplatePurpose(purposeRaw) as ContractTemplatePurpose)
+      : undefined;
 
     if (id) {
       const template = await getContractTemplateById(id, auth.academyId);
@@ -59,7 +46,7 @@ export async function handleGetContractTemplates(
       return jsonResponse({ ok: true, template, configured: true });
     }
 
-    const templates = await listContractTemplates(auth.academyId, { activeOnly });
+    const templates = await listContractTemplates(auth.academyId, { activeOnly, purpose });
     return jsonResponse({ ok: true, templates, configured: true });
   } catch (err) {
     console.error('[contract-templates GET]', err);
@@ -91,7 +78,7 @@ export async function handlePostContractTemplate(
       academy_id: auth.academyId,
       name,
       description: String(body.description || '').trim() || undefined,
-      plan_names: parsePlanNamesField(body.plan_names ?? body.planNames),
+      purpose: parseContractTemplatePurpose(body.purpose),
       is_default: parseBoolField(body.is_default ?? body.isDefault),
       body_html,
       signer_layout_json:
@@ -124,7 +111,7 @@ export async function handlePatchContractTemplate(
     const patch: {
       name?: string;
       description?: string;
-      plan_names?: string[];
+      purpose?: ContractTemplatePurpose;
       is_default?: boolean;
       active?: boolean;
       body_html?: string;
@@ -133,9 +120,7 @@ export async function handlePatchContractTemplate(
 
     if (body.name !== undefined) patch.name = String(body.name);
     if (body.description !== undefined) patch.description = String(body.description);
-    if (body.plan_names !== undefined || body.planNames !== undefined) {
-      patch.plan_names = parsePlanNamesField(body.plan_names ?? body.planNames);
-    }
+    if (body.purpose !== undefined) patch.purpose = parseContractTemplatePurpose(body.purpose);
     if (body.is_default !== undefined || body.isDefault !== undefined) {
       patch.is_default = parseBoolField(body.is_default ?? body.isDefault);
     }

@@ -88,7 +88,7 @@ export default function ContractsPageContent({ embedded = false }: ContractsPage
         className="btn-outline"
         onClick={() => refetch()}
         disabled={isFetching}
-        title="Atualizar lista (útil se o webhook ainda não estiver configurado)"
+        title="Recarregar lista local; para sincronizar status com a Autentique, abra o contrato e use Sincronizar Autentique"
       >
         <RefreshCw size={14} className={isFetching ? 'animate-spin' : undefined} />
         Atualizar

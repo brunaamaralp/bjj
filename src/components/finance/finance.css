@@ -1192,11 +1192,20 @@
 
 .academy-finance-config .finance-plan-row {
   display: grid;
-  grid-template-columns: 1fr minmax(100px, 140px) auto;
+  grid-template-columns:
+    minmax(120px, 1fr)
+    minmax(90px, 120px)
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    auto;
   gap: 10px;
   align-items: end;
   padding: 10px 0;
   border-bottom: 1px solid var(--border-light, #e8e8ef);
+}
+
+.academy-finance-config .finance-field-col--contract label {
+  font-size: 0.75rem;
 }
 
 .academy-finance-config .finance-plan-row__actions {

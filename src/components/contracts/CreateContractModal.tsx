@@ -11,7 +11,15 @@ import {
 } from './contractsSchema.js';
 import { useCreateContract, useContractTemplates } from '../../features/contracts/queries.js';
 import { previewContractRequest } from '../../features/contracts/api.js';
-import { resolveTemplateIdForPlan } from '../../features/contracts/templatesApi.js';
+import {
+  resolveTemplateIdForPlan,
+  type ContractTemplatePurpose,
+} from '../../features/contracts/templatesApi.js';
+import { templatesForPurpose } from '../../lib/contractPlanTemplates.js';
+import {
+  countEnabledSignerSlots,
+  type ContractSignerLayout,
+} from '../../../lib/contracts/contractSignerLayout.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
@@ -26,9 +34,20 @@ interface CreateContractModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   leadId?: string;
+  /** Matrícula (padrão) ou termo de rescisão. */
+  purpose?: ContractTemplatePurpose;
+  /** Permite envio para aluno desligado (ex.: rescisão após desligamento). */
+  allowInactiveStudent?: boolean;
 }
 
-export default function CreateContractModal({ open, onClose, onSuccess, leadId }: CreateContractModalProps) {
+export default function CreateContractModal({
+  open,
+  onClose,
+  onSuccess,
+  leadId,
+  purpose = 'enrollment',
+  allowInactiveStudent = false,
+}: CreateContractModalProps) {
   const [formError, setFormError] = React.useState('');
   const [step, setStep] = useState<Step>('template');
   const [showOptionalName, setShowOptionalName] = useState(false);
@@ -37,8 +56,13 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
   const addToast = useUiStore((s) => s.addToast);
   const createMutation = useCreateContract();
   const { data: templatesData, isLoading: templatesLoading } = useContractTemplates(true);
-  const templates = templatesData?.templates || [];
+  const allTemplates = templatesData?.templates || [];
+  const templates = useMemo(
+    () => templatesForPurpose(allTemplates, purpose),
+    [allTemplates, purpose]
+  );
   const templatesConfigured = templatesData?.configured !== false;
+  const isRescission = purpose === 'rescission';
   const leads = useLeadStore((s) => s.leads);
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const academyId = useLeadStore((s) => s.academyId);
@@ -48,6 +72,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
 
   const lead = leadId ? (leads || []).find((l) => String(l.id) === String(leadId)) : null;
   const studentInactive = lead ? isInactiveStudent(lead) : false;
+  const blockInactive = studentInactive && !allowInactiveStudent && !isRescission;
 
   const {
     register,
@@ -72,6 +97,48 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
   const templateId = watch('templateId');
   const signers = watch('signers');
 
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.$id === templateId) || null,
+    [templates, templateId]
+  );
+
+  const requiredSignerCount = useMemo(() => {
+    const layout = selectedTemplate?.signerLayout as ContractSignerLayout | undefined;
+    const count = countEnabledSignerSlots(layout);
+    return count > 0 ? count : 1;
+  }, [selectedTemplate]);
+
+  const buildInitialSigners = useCallback(() => {
+    const slots = selectedTemplate?.signerLayout?.slots || [];
+    const primary = lead
+      ? {
+          name: String(lead.name || '').trim(),
+          email: String(lead.email || '').trim(),
+          phone: String(lead.phone || '').trim(),
+          action: 'SIGN' as const,
+          delivery_method:
+            lead.phone && !lead.email
+              ? ('DELIVERY_METHOD_WHATSAPP' as const)
+              : ('DELIVERY_METHOD_EMAIL' as const),
+        }
+      : defaultSigner();
+
+    if (requiredSignerCount < 2) return [primary];
+
+    const secondaryLabel = slots[1]?.label || 'Contratada';
+    const secondary = {
+      name: secondaryLabel.toLowerCase().includes('contratada')
+        ? String(academyDoc?.name || 'Academia').trim()
+        : '',
+      email: String(academyDoc?.email || '').trim(),
+      phone: '',
+      action: 'SIGN' as const,
+      delivery_method: 'DELIVERY_METHOD_EMAIL' as const,
+    };
+
+    return [primary, { ...secondary, name: secondary.name || secondaryLabel }];
+  }, [academyDoc?.email, academyDoc?.name, lead, requiredSignerCount, selectedTemplate?.signerLayout?.slots]);
+
   const emailDeliveryWithoutLeadEmail = useMemo(() => {
     const leadEmail = String(lead?.email || '').trim();
     if (leadEmail) return false;
@@ -86,31 +153,32 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
     const planName = lead?.plan ? String(lead.plan) : '';
     const suggestedTemplateId =
       templates.length > 0
-        ? resolveTemplateIdForPlan(planName, templates, financeConfig?.plans || []) || ''
+        ? resolveTemplateIdForPlan(planName, templates, financeConfig?.plans || [], purpose) || ''
         : '';
 
+    const titlePrefix = isRescission ? 'Termo de rescisão' : 'Contrato';
     reset({
-      name: lead?.name ? `Contrato — ${String(lead.name).trim()}` : '',
+      name: lead?.name ? `${titlePrefix} — ${String(lead.name).trim()}` : '',
       sandbox: false,
-      signers: lead
-        ? [
-            {
-              name: String(lead.name || '').trim(),
-              email: String(lead.email || '').trim(),
-              phone: String(lead.phone || '').trim(),
-              action: 'SIGN',
-              delivery_method:
-                lead.phone && !lead.email ? 'DELIVERY_METHOD_WHATSAPP' : 'DELIVERY_METHOD_EMAIL',
-            },
-          ]
-        : [defaultSigner()],
+      signers: buildInitialSigners(),
       templateId: suggestedTemplateId,
     });
     setFormError('');
     setStep('template');
     setShowOptionalName(false);
     setPreviewUrl(null);
-  }, [open, leadId, leads, reset, templates, financeConfig?.plans, lead]);
+  }, [
+    open,
+    leadId,
+    leads,
+    reset,
+    templates,
+    financeConfig?.plans,
+    lead,
+    buildInitialSigners,
+    purpose,
+    isRescission,
+  ]);
 
   const close = useCallback(() => {
     if (createMutation.isPending) return;
@@ -132,6 +200,13 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
   const goNextFromSigners = async () => {
     const ok = await trigger('signers');
     if (!ok) return;
+    if ((signers || []).length !== requiredSignerCount) {
+      setFormError(
+        `Este modelo exige ${requiredSignerCount} signatário(s). Ajuste a lista antes de continuar.`
+      );
+      return;
+    }
+    setFormError('');
     setStep('send');
   };
 
@@ -227,7 +302,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
         <div className="contracts-modal-header">
           <div>
             <h2 id="create-contract-title" className="navi-section-heading contracts-modal-title">
-              Novo contrato
+              {isRescission ? 'Termo de rescisão' : 'Novo contrato'}
             </h2>
             <p className="text-small text-muted contracts-modal-steps">
               {stepLabels.template} → {stepLabels.signers} → {stepLabels.send}
@@ -238,7 +313,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
           </button>
         </div>
 
-        {studentInactive ? (
+        {blockInactive ? (
           <p className="contracts-form-error contracts-modal-inactive">
             Aluno desligado ou inativo — não é possível enviar novo contrato.
           </p>
@@ -247,7 +322,9 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
         <form className="contracts-modal-body" onSubmit={onSubmit} noValidate>
           {step === 'template' ? (
             <div className="contracts-form-block">
-              <span className="task-field-label">Modelo de contrato</span>
+              <span className="task-field-label">
+                {isRescission ? 'Modelo do termo de rescisão' : 'Modelo de contrato'}
+              </span>
               {templatesLoading ? (
                 <p className="text-small text-muted">Carregando modelos…</p>
               ) : !templatesConfigured ? (
@@ -323,16 +400,31 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                     type="button"
                     className="btn-outline contracts-add-signer"
                     onClick={() => append(defaultSigner())}
+                    disabled={(signers || []).length >= requiredSignerCount}
                   >
                     <Plus size={14} /> Adicionar signatário
                   </button>
                 </div>
 
+                <p className="text-small text-muted">
+                  Este modelo usa {requiredSignerCount} signatário(s)
+                  {selectedTemplate?.signerLayout?.slots
+                    ?.filter((s) => s.enabled !== false)
+                    .map((slot, i) => ` · ${i + 1}: ${slot.label}`)
+                    .join('') || ''}
+                  .
+                </p>
+
                 {fields.map((field, index) => (
                   <div key={field.id} className="contracts-signer-card">
                     <div className="contracts-signer-card-head">
                       <FileText size={16} aria-hidden />
-                      <span>Signatário {index + 1}</span>
+                      <span>
+                        Signatário {index + 1}
+                        {selectedTemplate?.signerLayout?.slots?.[index]?.label
+                          ? ` · ${selectedTemplate.signerLayout.slots[index].label}`
+                          : ''}
+                      </span>
                       {fields.length > 1 ? (
                         <button
                           type="button"
@@ -467,7 +559,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                 type="button"
                 className="btn-primary"
                 onClick={() => void goNextFromTemplate()}
-                disabled={templates.length === 0 || studentInactive}
+                disabled={templates.length === 0 || blockInactive}
               >
                 Próximo
                 <ChevronRight size={14} />
@@ -479,7 +571,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
                 type="button"
                 className="btn-primary"
                 onClick={() => void goNextFromSigners()}
-                disabled={studentInactive}
+                disabled={blockInactive}
               >
                 Revisar envio
                 <ChevronRight size={14} />
@@ -490,7 +582,7 @@ export default function CreateContractModal({ open, onClose, onSuccess, leadId }
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={createMutation.isPending || templates.length === 0 || studentInactive}
+                disabled={createMutation.isPending || templates.length === 0 || blockInactive}
               >
                 {createMutation.isPending ? 'Enviando…' : 'Enviar para assinatura'}
               </button>

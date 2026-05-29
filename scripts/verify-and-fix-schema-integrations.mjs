@@ -501,6 +501,7 @@ const CONTRACT_TEMPLATES_ATTRS = [
   { key: 'body', type: 'string', size: 28000 },
   { key: 'variables_json', type: 'string', size: 4096 },
   { key: 'plan_names', type: 'string', size: 2048 },
+  { key: 'purpose', type: 'string', size: 32 },
   { key: 'is_default', type: 'boolean' },
   { key: 'active', type: 'boolean', default: true },
   { key: 'is_active', type: 'boolean', default: true },

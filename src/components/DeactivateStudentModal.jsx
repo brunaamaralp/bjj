@@ -17,6 +17,7 @@ export default function DeactivateStudentModal({
   const [exitDate, setExitDate] = useState(() => todayYmdLocal());
   const [exitNotes, setExitNotes] = useState('');
   const [cancelFuturePayments, setCancelFuturePayments] = useState(false);
+  const [sendRescissionTerm, setSendRescissionTerm] = useState(false);
 
   const isOther = String(selectedReason || '').trim().toLowerCase() === 'outro';
   const resolvedReason = isOther ? otherReason.trim() : String(selectedReason || '').trim();
@@ -179,6 +180,33 @@ export default function DeactivateStudentModal({
           </span>
         </label>
 
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            marginBottom: 14,
+            fontSize: 13,
+            color: 'var(--text)',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy ? 0.7 : 1,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={sendRescissionTerm}
+            disabled={busy}
+            onChange={(e) => setSendRescissionTerm(e.target.checked)}
+            style={{ marginTop: 2, accentColor: 'var(--purple)' }}
+          />
+          <span>
+            <strong>Enviar termo de rescisão para assinatura</strong>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              Após o desligamento, abre o envio do termo vinculado ao plano do aluno (Financeiro → Planos).
+            </span>
+          </span>
+        </label>
+
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label className="text-small" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
             Observações (opcional)
@@ -209,6 +237,7 @@ export default function DeactivateStudentModal({
                 exitDate: String(exitDate || '').slice(0, 10),
                 exitNotes: String(exitNotes || '').trim(),
                 cancelFuturePayments,
+                sendRescissionTerm,
               })
             }
             style={{

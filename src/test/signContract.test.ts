@@ -47,4 +47,45 @@ describe('signContract', () => {
     expect(result.appwriteError).toBe('appwrite_fail');
     expect(saveSigners).not.toHaveBeenCalled();
   });
+
+  it('repassa positions e sortable para createDocument', async () => {
+    vi.mocked(createDocument).mockResolvedValue({
+      id: 'aut-2',
+      name: 'Test',
+      signatures: [
+        { public_id: 'sig-1', email: 'a@b.com' },
+        { public_id: 'sig-2', email: 'c@d.com' },
+      ],
+    });
+    vi.mocked(createContract).mockResolvedValue({ $id: 'c1' } as never);
+    vi.mocked(saveSigners).mockResolvedValue([] as never);
+
+    await signContract(
+      {
+        name: 'Test',
+        signers: [
+          {
+            email: 'a@b.com',
+            action: 'SIGN',
+            positions: [{ x: '25', y: '88', z: 2, element: 'SIGNATURE' }],
+          },
+          {
+            email: 'c@d.com',
+            action: 'SIGN',
+            positions: [{ x: '75', y: '88', z: 2, element: 'SIGNATURE' }],
+          },
+        ],
+      },
+      Buffer.from('pdf')
+    );
+
+    expect(createDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sortable: true,
+        signers: expect.arrayContaining([
+          expect.objectContaining({ positions: expect.any(Array) }),
+        ]),
+      })
+    );
+  });
 });

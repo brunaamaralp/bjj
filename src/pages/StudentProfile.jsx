@@ -61,6 +61,7 @@ import LabelPill from '../components/shared/LabelPill';
 import LabelSelector from '../components/shared/LabelSelector';
 import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
+import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
@@ -357,6 +358,7 @@ export default function StudentProfile() {
 
     const [deactivateOpen, setDeactivateOpen] = useState(false);
     const [deactivateBusy, setDeactivateBusy] = useState(false);
+    const [rescissionContractOpen, setRescissionContractOpen] = useState(false);
     const [reactivateBusy, setReactivateBusy] = useState(false);
     const [exitReasons, setExitReasons] = useState([]);
     const [freezeReasons, setFreezeReasons] = useState([]);
@@ -1123,7 +1125,13 @@ export default function StudentProfile() {
         }
     };
 
-    const handleConfirmDeactivate = async ({ exitReason, exitDate, exitNotes, cancelFuturePayments }) => {
+    const handleConfirmDeactivate = async ({
+        exitReason,
+        exitDate,
+        exitNotes,
+        cancelFuturePayments,
+        sendRescissionTerm,
+    }) => {
         if (deactivateBusy || !student) return;
         setDeactivateBusy(true);
         try {
@@ -1146,6 +1154,9 @@ export default function StudentProfile() {
                 academySettingsRaw: academyDoc?.settings,
             });
             setDeactivateOpen(false);
+            if (sendRescissionTerm) {
+                setRescissionContractOpen(true);
+            }
             let msg = `${terms.student} desligado com sucesso.`;
             if (paymentsCancelled > 0) {
                 msg += ` ${paymentsCancelled} cobrança(s) futura(s) cancelada(s).`;
@@ -3059,6 +3070,17 @@ export default function StudentProfile() {
                     busy={deactivateBusy}
                     onCancel={() => !deactivateBusy && setDeactivateOpen(false)}
                     onConfirm={handleConfirmDeactivate}
+                />
+            ) : null}
+
+            {student ? (
+                <CreateContractModal
+                    open={rescissionContractOpen}
+                    leadId={leadId}
+                    purpose="rescission"
+                    allowInactiveStudent
+                    onClose={() => setRescissionContractOpen(false)}
+                    onSuccess={() => setRescissionContractOpen(false)}
                 />
             ) : null}
 

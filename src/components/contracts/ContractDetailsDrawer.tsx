@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { X, ExternalLink, FileSignature, Copy, RefreshCw } from 'lucide-react';
 import { useContractDetail, useCancelContract } from '../../features/contracts/queries.js';
+import { syncContractById } from '../../features/contracts/api.js';
 import ContractStatusBadge, { SignerStatusBadge } from './ContractStatusBadge.js';
 import {
   mapContractDisplayStatusForRecord,
@@ -40,6 +41,24 @@ export default function ContractDetailsDrawer({
   const addToast = useUiStore((s) => s.addToast);
   const cancelMutation = useCancelContract();
   const { data: contract, isLoading, isError, error, refetch } = useContractDetail(contractId, Boolean(contractId));
+  const [syncing, setSyncing] = React.useState(false);
+
+  const syncFromAutentique = async () => {
+    if (!contractId) return;
+    setSyncing(true);
+    try {
+      await syncContractById(contractId);
+      await refetch();
+      addToast({ type: 'success', message: 'Status sincronizado com a Autentique.' });
+    } catch (e) {
+      addToast({
+        type: 'error',
+        message: e instanceof Error ? e.message : 'Falha ao sincronizar com a Autentique',
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!contractId) return undefined;
@@ -139,6 +158,15 @@ export default function ContractDetailsDrawer({
                   </p>
                 ) : null}
                 {contract.sandbox ? <span className="contracts-sandbox-tag">Sandbox (teste)</span> : null}
+                <button
+                  type="button"
+                  className="btn-outline contracts-drawer-sync"
+                  onClick={() => void syncFromAutentique()}
+                  disabled={syncing}
+                >
+                  <RefreshCw size={14} aria-hidden />
+                  {syncing ? 'Sincronizando…' : 'Sincronizar Autentique'}
+                </button>
                 {contract.metaStatus === 'signed_after_offboarding' ? (
                   <p className="text-small contracts-signed-after-offboarding">
                     Assinado após desligamento do aluno — revise o vínculo na academia.

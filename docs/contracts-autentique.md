@@ -8,6 +8,7 @@ Referência oficial: [Webhooks – Autentique](https://docs.autentique.com.br/ap
 |----------|-----------|
 | `AUTENTIQUE_TOKEN` ou `AUTENTIQUE_API_TOKEN` | Bearer da API Autentique |
 | `AUTENTIQUE_WEBHOOK_SECRET` | Segredo para validar HMAC do webhook (`x-autentique-signature`) |
+| `CHROMIUM_LOCAL` | `1` para forçar PDF via Chromium em dev local (opcional; em produção `VERCEL=1` já ativa) |
 | `APPWRITE_CONTRACTS_COLLECTION_ID` | Coleção `contracts` |
 | `APPWRITE_CONTRACT_SIGNERS_COLLECTION_ID` | Coleção `contract_signers` |
 | `APPWRITE_CONTRACT_EVENTS_COLLECTION_ID` | Coleção `contract_events` |
@@ -34,13 +35,11 @@ Schema amplo (integrações, inclui contratos + webhook_logs):
 node --env-file=.env scripts/verify-and-fix-schema-integrations.mjs
 ```
 
-### Coleção `webhook_logs` (handler)
+### Coleção `contract_templates`
 
-Atributos usados por `saveWebhookLog`:
-
-- `raw_payload`, `signature_valid`, `processed`, `event_type`, `error`
-
-Atributos legados (`payload`, `is_valid`, `signature_header`, …) podem coexistir; o código atual usa apenas os campos acima.
+- `body_html` — conteúdo HTML do modelo
+- `signer_layout_json` — posições dos campos de assinatura (Autentique `positions`)
+- `storage_file_id` / `file_url` — upload legado de PDF (opcional)
 
 ### Coleção `contracts` (opcionais)
 
@@ -49,67 +48,64 @@ Atributos legados (`payload`, `is_valid`, `signature_header`, …) podem coexist
 
 ## Modelos de contrato (editor HTML)
 
-- **UI:** Empresa → aba **Contratos** (`/empresa?tab=contratos`; legado `/contratos/modelos` redireciona)
+- **UI:** Empresa → aba **Contratos** (`/empresa?tab=contratos`)
 - **Novo modelo:** `/empresa?tab=contratos&new=1`
 - **Editar:** `/empresa?tab=contratos&edit={id}`
-- **API:** `GET/POST/PATCH/DELETE /api/contract-templates` (JSON com `body_html`)
-- **Envio:** modelo + variáveis do aluno → PDF no servidor → `createDocument` na Autentique
-- **Vínculo por plano:** prioridade em **Financeiro → Planos → Modelo de contrato**; fallback via checkboxes na aba Contratos
+- **API:** `GET/POST/PATCH/DELETE /api/contract-templates` (JSON com `body_html` e `signer_layout_json`)
+- **Envio:** modelo + variáveis → PDF (Chromium) → `createDocument` com `positions` → Autentique
+- **Vínculo por plano:** Financeiro → Planos → Modelo de contrato; fallback via checkboxes na aba Contratos
+
+## PDF e campos de assinatura
+
+1. O HTML do editor é renderizado em PDF A4 com **Chromium** (`@sparticuz/chromium` na Vercel).
+2. No modelo, configure **Campos de assinatura** (slots Contratante / Contratada) com coordenadas `x`, `y` em % na **última página** (`z: last`).
+3. No envio, cada signatário recebe `positions` na API Autentique (`SIGNATURE`, `NAME`, `DATE`, etc.).
+4. Modelos padrão exigem **2 signatários** (aluno/responsável + contratada), na ordem dos slots.
+
+**Não use `{{assinatura}}` no HTML** — assinatura digital é campo da Autentique, não variável de merge.
 
 ## Checklist de produção — webhook
 
-1. **Painel Autentique** → Webhooks → URL do deploy, por exemplo:
-   `https://www.navefit.com/api/webhooks/autentique`
-2. **Vercel:** `AUTENTIQUE_WEBHOOK_SECRET` = mesmo valor exibido no painel Autentique
-3. Habilitar eventos de **documento** e **assinatura** necessários (`document.finished`, `signature.accepted`, `signature.viewed`, etc.)
-4. Teste: contrato em sandbox (owner) → assinar no link Autentique → status no Nave em poucos segundos
-5. **Integrações** → aba Autentique: copiar URL do webhook para colar no painel
+1. **Painel Autentique** → Webhooks → `https://www.navefit.com/api/webhooks/autentique`
+2. **Vercel:** `AUTENTIQUE_WEBHOOK_SECRET` igual ao painel
+3. Eventos de documento e assinatura habilitados
+4. Teste sandbox: enviar → assinar → status atualizado via webhook
+5. **Integrações** → Autentique: URL do webhook
 
 ## Endpoint e segurança
 
-- `POST /api/webhooks/autentique` → `api/webhooks.js?provider=autentique` (rewrite em `vercel.json`)
-- Header: `x-autentique-signature` — HMAC SHA256 do **corpo bruto** com `AUTENTIQUE_WEBHOOK_SECRET`
-- O handler lê o body sem parser JSON prévio (obrigatório para o HMAC bater)
-
-### Payloads (formato Autentique)
-
-- **Documento** (`document.*`): `event.data.object` é um objeto com `id` e `object: "document"`
-- **Assinatura** (`signature.*`): `event.data.document` = ID do documento; `event.data.public_id` = signatário
-
-O extrator em `autentiqueWebhookHandler.ts` suporta ambos os formatos.
-
-### Boas práticas (Autentique)
-
-- Eventos podem chegar **fora de ordem** ou **duplicados** — o Nave não deduplica por `event.id` ainda
-- Responder **2xx** rapidamente; processamento pesado na mesma request pode estourar timeout em pico
-- Sem webhook configurado, o botão **Atualizar** em Alunos → Contratos só recarrega dados do Appwrite (não consulta a API Autentique)
+- `POST /api/webhooks/autentique` → `api/webhooks.js?provider=autentique`
+- Header: `x-autentique-signature` — HMAC SHA256 do corpo bruto
+- Webhooks **duplicados** (`event.id` já processado) retornam 200 sem reprocessar
 
 ## APIs autenticadas
 
-`GET` e `POST /api/contracts` exigem:
+`GET` e `POST /api/contracts` exigem `Authorization` + `x-academy-id`.
 
-- `Authorization: Bearer <JWT>`
-- `x-academy-id: <id da academia>`
-
-O `academyId` gravado no contrato **sempre** vem do header validado no servidor, nunca do FormData.
+- **Prévia PDF:** `POST /api/contracts?action=preview`
+- **Sync manual:** `GET /api/contracts?id={id}&sync=1` — consulta Autentique e atualiza status/signatários
+- **Cancelar:** `PATCH /api/contracts?id={id}` com `{ "action": "cancel" }` — remove na Autentique quando possível
 
 ## Variáveis do modelo
 
-No editor, use `{{nome_variavel}}` (ex.: `{{nome_aluno}}`, `{{plano}}`, `{{cpf_responsavel}}`).
-
-O **CPF do responsável** vem do cadastro do aluno; crie o atributo `cpf_responsavel` na coleção de leads/students no Appwrite se ainda não existir.
-
-O PDF enviado à Autentique é **texto simplificado** (HTML convertido); formatação rica pode não aparecer no documento final.
+Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores vêm do cadastro no envio.
 
 ## Fluxo de assinatura
 
-1. No Nave: modelo, signatário(s), entrega (e-mail ou WhatsApp).
-2. Autentique envia o link (ou **Copiar link** no drawer do contrato).
-3. Assinatura **sempre** na interface da Autentique (não há “aceitar” dentro do Nave).
-4. Webhook atualiza status e signatários no Appwrite; timeline no drawer.
+1. Nave: modelo, signatários (quantidade = slots ativos), entrega.
+2. Autentique envia link (e-mail/WhatsApp).
+3. Assinatura na interface Autentique (campos nas posições configuradas).
+4. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
 
-## Limitações conhecidas
+## Teste em sandbox
 
-- **Cancelar** no Nave só marca `cancelled` localmente — não cancela o documento na Autentique
-- **Atualizar** na listagem não sincroniza status com a API Autentique
-- Cancelamento/remoção na Autentique pode gerar `document.deleted` (mapeado no lead como expirado/cancelado conforme regras atuais)
+1. Owner marca **Modo sandbox** no envio.
+2. Assina pelo link da Autentique.
+3. Compare PDF assinado no painel Autentique com a prévia do Nave.
+4. Ajuste `x`/`y` dos slots se o campo não coincidir com o rodapé do contrato.
+
+## Limitações
+
+- Upload de PDF pronto (Canva) sem UI — apenas API legada (`storage_file_id`)
+- Verificações avançadas Autentique (SMS, biometria) não configuradas
+- Assinatura embarcada no Nave não é suportada (link Autentique obrigatório)

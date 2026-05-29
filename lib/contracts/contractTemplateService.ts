@@ -14,6 +14,15 @@ import {
   serializeContractSignerLayout,
   type ContractSignerLayout,
 } from './contractSignerLayout.js';
+import {
+  financePlanTemplateField,
+  parseContractTemplatePurpose,
+  type ContractTemplatePurpose,
+  type FinancePlanContractLink,
+} from './contractTemplatePurpose.js';
+
+export type { ContractTemplatePurpose, FinancePlanContractLink };
+export { parseContractTemplatePurpose, financePlanTemplateField };
 
 const TEMPLATES_COL = () =>
   String(process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || '').trim();
@@ -52,6 +61,7 @@ export interface ContractTemplateRecord {
   storageFileId: string | null;
   fileUrl: string | null;
   planNames: string[];
+  purpose: ContractTemplatePurpose;
   isDefault: boolean;
   active: boolean;
   signerLayout: ContractSignerLayout;
@@ -81,6 +91,7 @@ function mapTemplateDoc(doc: Models.Document | null): ContractTemplateRecord | n
     storageFileId: doc.storage_file_id ? String(doc.storage_file_id) : null,
     fileUrl: doc.file_url ? String(doc.file_url) : null,
     planNames: parsePlanNames(doc.plan_names),
+    purpose: parseContractTemplatePurpose(doc.purpose),
     isDefault: doc.is_default === true || doc.is_default === 'true',
     active: doc.active !== false && doc.active !== 'false',
     signerLayout: parseContractSignerLayout(doc.signer_layout_json),
@@ -104,7 +115,7 @@ async function clearOtherDefaults(academyId: string, exceptId?: string) {
 
 export async function listContractTemplates(
   academyId: string,
-  opts: { activeOnly?: boolean } = {}
+  opts: { activeOnly?: boolean; purpose?: ContractTemplatePurpose } = {}
 ): Promise<ContractTemplateRecord[]> {
   const databases = requireDb();
   const queries = [
@@ -115,9 +126,13 @@ export async function listContractTemplates(
   if (opts.activeOnly) queries.unshift(Query.equal('active', [true]));
 
   const list = await databases.listDocuments(DB_ID, TEMPLATES_COL(), queries);
-  return (list.documents || [])
+  let rows = (list.documents || [])
     .map((d) => mapTemplateDoc(d))
     .filter((t): t is ContractTemplateRecord => Boolean(t));
+  if (opts.purpose) {
+    rows = rows.filter((t) => t.purpose === opts.purpose);
+  }
+  return rows;
 }
 
 export async function getContractTemplateById(
@@ -167,24 +182,23 @@ export async function getContractTemplatePdfBuffer(
 export function resolveTemplateIdForPlan(
   planName: string | null | undefined,
   templates: ContractTemplateRecord[],
-  financePlans: Array<{ name?: string; contractTemplateId?: string }> = []
+  financePlans: FinancePlanContractLink[] = [],
+  purpose: ContractTemplatePurpose = 'enrollment'
 ): string | null {
+  const field = financePlanTemplateField(purpose);
+  const scoped = templates.filter((t) => t.active && t.purpose === purpose);
+
   const plan = String(planName || '').trim();
   if (!plan) {
-    const def = templates.find((t) => t.active && t.isDefault);
+    const def = scoped.find((t) => t.isDefault);
     return def?.$id || null;
   }
 
   const fin = financePlans.find((p) => String(p.name || '').trim() === plan);
-  const fromPlan = String(fin?.contractTemplateId || '').trim();
-  if (fromPlan && templates.some((t) => t.$id === fromPlan && t.active)) return fromPlan;
+  const fromPlan = String(fin?.[field] || '').trim();
+  if (fromPlan && scoped.some((t) => t.$id === fromPlan)) return fromPlan;
 
-  const linked = templates.find(
-    (t) => t.active && t.planNames.some((n) => String(n).trim().toLowerCase() === plan.toLowerCase())
-  );
-  if (linked) return linked.$id;
-
-  const def = templates.find((t) => t.active && t.isDefault);
+  const def = scoped.find((t) => t.isDefault);
   return def?.$id || null;
 }
 
@@ -192,7 +206,7 @@ export async function createContractTemplate(input: {
   academy_id: string;
   name: string;
   description?: string;
-  plan_names?: string[];
+  purpose?: ContractTemplatePurpose;
   is_default?: boolean;
   body_html: string;
   signer_layout_json?: string | ContractSignerLayout;
@@ -201,7 +215,8 @@ export async function createContractTemplate(input: {
   const body = String(input.body_html || '').trim();
   if (!body) throw new Error('contract_template_body_required');
 
-  if (input.is_default) await clearOtherDefaults(input.academy_id);
+  const purpose = parseContractTemplatePurpose(input.purpose);
+  if (input.is_default) await clearOtherDefaults(input.academy_id, purpose);
 
   const layout =
     typeof input.signer_layout_json === 'string'
@@ -240,7 +255,7 @@ export async function updateContractTemplate(
   patch: {
     name?: string;
     description?: string;
-    plan_names?: string[];
+    purpose?: ContractTemplatePurpose;
     is_default?: boolean;
     active?: boolean;
     body_html?: string;
@@ -251,12 +266,16 @@ export async function updateContractTemplate(
   const current = await getContractTemplateById(id, academyId);
   if (!current) return null;
 
-  if (patch.is_default) await clearOtherDefaults(academyId, id);
+  const purpose =
+    patch.purpose !== undefined
+      ? parseContractTemplatePurpose(patch.purpose)
+      : current.purpose;
+  if (patch.is_default) await clearOtherDefaults(academyId, purpose, id);
 
   const data: Record<string, unknown> = {};
   if (patch.name !== undefined) data.name = String(patch.name).trim();
   if (patch.description !== undefined) data.description = String(patch.description).slice(0, 500);
-  if (patch.plan_names !== undefined) data.plan_names = JSON.stringify(patch.plan_names);
+  if (patch.purpose !== undefined) data.purpose = purpose;
   if (patch.is_default !== undefined) data.is_default = Boolean(patch.is_default);
   if (patch.active !== undefined) data.active = Boolean(patch.active);
   if (patch.body_html !== undefined) {

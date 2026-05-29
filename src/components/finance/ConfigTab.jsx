@@ -30,6 +30,12 @@ import {
 } from '../../lib/paymentExceptions.js';
 import { useContractTemplates } from '../../features/contracts/queries.js';
 import {
+  defaultTemplateForPurpose,
+  migrateFinanceConfigFromLegacyPlanNames,
+  templatesForPurpose,
+  validateFinancePlansContractTemplates,
+} from '../../lib/contractPlanTemplates.js';
+import {
   serializeCollectionRules,
   parseOverdueLabel,
   DEFAULT_COLLECTION_RULES,
@@ -134,8 +140,9 @@ function FinanceSectionHeading({ icon, children }) {
   );
 }
 
-function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
+function PlanRow({ pl, idx, enrollmentTemplates, rescissionTemplates, onUpdate, onRemove }) {
   const [expanded, setExpanded] = useState(false);
+  const showContracts = enrollmentTemplates.length > 0 || rescissionTemplates.length > 0;
 
   return (
     <div className="finance-plan-row">
@@ -162,6 +169,48 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
           }}
         />
       </div>
+      {showContracts ? (
+        <>
+          {enrollmentTemplates.length > 0 ? (
+            <div className="finance-field-col finance-field-col--contract">
+              <label>Contrato de matrícula</label>
+              <select
+                className="form-input finance-compact-input"
+                value={pl.contractTemplateId || ''}
+                onChange={(e) =>
+                  onUpdate(idx, { contractTemplateId: e.target.value || undefined })
+                }
+              >
+                <option value="">Selecione…</option>
+                {enrollmentTemplates.map((t) => (
+                  <option key={t.$id} value={t.$id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {rescissionTemplates.length > 0 ? (
+            <div className="finance-field-col finance-field-col--contract">
+              <label>Termo de rescisão</label>
+              <select
+                className="form-input finance-compact-input"
+                value={pl.rescissionTemplateId || ''}
+                onChange={(e) =>
+                  onUpdate(idx, { rescissionTemplateId: e.target.value || undefined })
+                }
+              >
+                <option value="">Selecione…</option>
+                {rescissionTemplates.map((t) => (
+                  <option key={t.$id} value={t.$id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </>
+      ) : null}
       <div className="finance-plan-row__actions">
         <button
           type="button"
@@ -215,23 +264,6 @@ function PlanRow({ pl, idx, contractTemplates, onUpdate, onRemove }) {
               <option value="nao">Não</option>
             </select>
           </div>
-          {contractTemplates.length > 0 ? (
-            <div className="form-group finance-form-group--tight finance-form-group--medium">
-              <label>Modelo de contrato</label>
-              <select
-                className="form-input finance-compact-input"
-                value={pl.contractTemplateId || ''}
-                onChange={(e) => onUpdate(idx, { contractTemplateId: e.target.value || undefined })}
-              >
-                <option value="">— automático —</option>
-                {contractTemplates.map((t) => (
-                  <option key={t.$id} value={t.$id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>
@@ -244,6 +276,14 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
   const addToast = useUiStore((s) => s.addToast);
   const { data: contractTemplatesData } = useContractTemplates(true);
   const contractTemplates = contractTemplatesData?.templates || [];
+  const enrollmentTemplates = useMemo(
+    () => templatesForPurpose(contractTemplates, 'enrollment'),
+    [contractTemplates]
+  );
+  const rescissionTemplates = useMemo(
+    () => templatesForPurpose(contractTemplates, 'rescission'),
+    [contractTemplates]
+  );
   const [savingSection, setSavingSection] = useState(null);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
   const [collectionRules, setCollectionRules] = useState(() => DEFAULT_COLLECTION_RULES.map((r) => ({ ...r })));
@@ -337,6 +377,22 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
       });
   }, [academyId, applyLoadedState, addToast]);
 
+  useEffect(() => {
+    if (!academyId || !contractTemplates.length || !financeConfig?.plans?.length) return;
+    const key = `planContractMigrate:${academyId}`;
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
+    const { config, changed } = migrateFinanceConfigFromLegacyPlanNames(financeConfig, contractTemplates);
+    if (changed) {
+      setFinanceConfig(config);
+      addToast({
+        type: 'info',
+        message:
+          'Vínculos antigos dos modelos foram aplicados aos planos. Revise e salve a seção Planos.',
+      });
+    }
+    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, '1');
+  }, [academyId, contractTemplates, financeConfig, addToast]);
+
   const dirty = useMemo(
     () => ({
       accounts: digestBankAccounts(financeConfig.bankAccounts) !== savedDigests.accounts,
@@ -364,6 +420,20 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
 
   const persistConfig = async (sectionKey, successMessage) => {
     if (!academyId) return;
+    if (sectionKey === 'plans') {
+      const { ok, missing } = validateFinancePlansContractTemplates(financeConfig, contractTemplates);
+      if (!ok) {
+        const lines = missing.map((m) => {
+          const label = m.kind === 'rescission' ? 'termo de rescisão' : 'contrato de matrícula';
+          return `${m.planName} (${label})`;
+        });
+        addToast({
+          type: 'error',
+          message: `Defina o documento de cada plano: ${lines.join(', ')}.`,
+        });
+        return;
+      }
+    }
     setSavingSection(sectionKey);
     try {
       const mergedCfg = buildMergedConfig();
@@ -452,7 +522,8 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
           <FinanceSectionHeading icon={Wallet2}>Planos de mensalidade</FinanceSectionHeading>
           {lastSaved.plans ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.plans)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
-            Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos.
+            Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos. Cada plano deve ter um
+            contrato de matrícula e um termo de rescisão (modelos em Contratos).
           </p>
           <div className="finance-config-section__body">
             {(financeConfig.plans || []).map((pl, idx) => (
@@ -460,7 +531,8 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
                 key={idx}
                 pl={pl}
                 idx={idx}
-                contractTemplates={contractTemplates}
+                enrollmentTemplates={enrollmentTemplates}
+                rescissionTemplates={rescissionTemplates}
                 onUpdate={updatePlan}
                 onRemove={(i) => setPendingRemovePlan(i)}
               />
@@ -470,12 +542,16 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
               className="finance-config-add-link edit-link"
               onClick={() => {
                 const arr = [...(financeConfig.plans || [])];
+                const defEnrollment = defaultTemplateForPurpose(contractTemplates, 'enrollment');
+                const defRescission = defaultTemplateForPurpose(contractTemplates, 'rescission');
                 arr.push({
                   name: '',
                   price: 0,
                   durationDays: 30,
                   description: '',
                   applyCardFee: true,
+                  contractTemplateId: defEnrollment?.$id,
+                  rescissionTemplateId: defRescission?.$id,
                 });
                 setFinanceConfig({ ...financeConfig, plans: arr });
               }}

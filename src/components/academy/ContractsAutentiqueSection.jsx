@@ -55,8 +55,9 @@ export default function ContractsAutentiqueSection() {
         indicado por eles.
       </p>
       <p className="text-small text-muted" style={{ margin: 0, lineHeight: 1.45 }}>
-        Enquanto o webhook não estiver ativo, use o botão &quot;Atualizar&quot; em Alunos → Contratos para sincronizar
-        manualmente.
+        Enquanto o webhook não estiver ativo, abra um contrato em Alunos → Contratos e use{' '}
+        <strong>Sincronizar Autentique</strong> (ou &quot;Atualizar&quot; na lista) para buscar status e assinaturas
+        diretamente na Autentique.
       </p>
       <a
         href={AUTENTIQUE_HELP_URL}

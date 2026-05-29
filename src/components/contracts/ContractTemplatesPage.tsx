@@ -12,8 +12,13 @@ import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import {
   DEFAULT_CONTRACT_TEMPLATE_HTML,
-  mapLeadDocToContractVariables,
 } from '../../lib/contractTemplateVariables.js';
+import {
+  defaultContractSignerLayout,
+  parseContractSignerLayout,
+  type ContractSignerLayout,
+} from '../../../lib/contracts/contractSignerLayout.js';
+import ContractSignerLayoutForm from './ContractSignerLayoutForm.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
@@ -25,6 +30,12 @@ import {
   isEditorDirty,
   type ContractTemplateEditorSnapshot,
 } from './contractTemplateEditorState.js';
+import {
+  CONTRACT_TEMPLATE_PURPOSE_LABELS,
+  normalizeTemplatePurpose,
+  plansUsingTemplate,
+} from '../../lib/contractPlanTemplates.js';
+import type { ContractTemplatePurpose } from '../../features/contracts/templatesApi.js';
 import './contracts.css';
 import { friendlyError } from '../../lib/errorMessages.js';
 
@@ -36,10 +47,12 @@ type TemplateRow = {
   $id: string;
   name: string;
   description?: string;
-  planNames?: string[];
+  purpose?: ContractTemplatePurpose;
   isDefault?: boolean;
   active?: boolean;
   bodyHtml?: string;
+  signerLayoutJson?: string;
+  signerLayout?: ContractSignerLayout;
 };
 
 export default function ContractTemplatesPage({ embedded = false }: ContractTemplatesPageProps) {
@@ -60,9 +73,10 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedPlanNames, setSelectedPlanNames] = useState<string[]>([]);
+  const [purpose, setPurpose] = useState<ContractTemplatePurpose>('enrollment');
   const [isDefault, setIsDefault] = useState(false);
   const [bodyHtml, setBodyHtml] = useState(DEFAULT_CONTRACT_TEMPLATE_HTML);
+  const [signerLayout, setSignerLayout] = useState<ContractSignerLayout>(defaultContractSignerLayout());
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; body?: string }>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; label: string } | null>(null);
   const [discardConfirm, setDiscardConfirm] = useState(false);
@@ -73,50 +87,27 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
   const templates = data?.templates || [];
   const configured = data?.configured !== false;
 
-  const financePlanNames = useMemo(() => {
-    const names = (financeConfig?.plans || [])
-      .map((p: { name?: string }) => String(p?.name || '').trim())
-      .filter(Boolean);
-    return [...new Set(names)];
-  }, [financeConfig?.plans]);
-
-  const extraPlanNames = useMemo(() => {
-    const financeSet = new Set(financePlanNames.map((n) => n.toLowerCase()));
-    return selectedPlanNames.filter((n) => !financeSet.has(n.toLowerCase()));
-  }, [selectedPlanNames, financePlanNames]);
-
-  const previewVars = useMemo(
-    () =>
-      mapLeadDocToContractVariables(
-        {
-          name: 'João da Silva',
-          email: 'joao@email.com',
-          phone: '11999990000',
-          cpf: '12345678901',
-          responsavel: 'Maria da Silva',
-          cpf_responsavel: '98765432100',
-          plan: 'Mensal',
-          type: 'Adulto',
-          turma: 'Adulto — Noite',
-          belt: 'Azul',
-          enrollmentDate: '2024-03-15',
-          birthDate: '1990-05-20',
-        },
-        String(academyDoc?.name || 'Sua academia')
-      ),
-    [academyDoc?.name]
-  );
-
   const currentSnapshot = useMemo(
     () =>
       buildEditorSnapshot({
         name,
         description,
-        planNames: selectedPlanNames,
+        purpose,
         isDefault,
         bodyHtml,
+        signerLayout,
       }),
-    [name, description, selectedPlanNames, isDefault, bodyHtml]
+    [name, description, purpose, isDefault, bodyHtml, signerLayout]
+  );
+
+  const plansLabelForTemplate = useCallback(
+    (templateId: string, templatePurpose: ContractTemplatePurpose) => {
+      const field =
+        templatePurpose === 'rescission' ? 'rescissionTemplateId' : 'contractTemplateId';
+      const names = plansUsingTemplate(financeConfig, templateId, field);
+      return names.length ? names.join(', ') : '—';
+    },
+    [financeConfig]
   );
 
   const dirty = isEditorDirty(currentSnapshot, baselineRef.current);
@@ -151,24 +142,27 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     id: string | null;
     name: string;
     description: string;
-    planNames: string[];
+    purpose: ContractTemplatePurpose;
     isDefault: boolean;
     bodyHtml: string;
+    signerLayout: ContractSignerLayout;
   }) => {
     setEditorMode(state.mode);
     setEditingId(state.id);
     setName(state.name);
     setDescription(state.description);
-    setSelectedPlanNames(state.planNames);
+    setPurpose(state.purpose);
     setIsDefault(state.isDefault);
     setBodyHtml(state.bodyHtml);
+    setSignerLayout(state.signerLayout);
     setFieldErrors({});
     baselineRef.current = buildEditorSnapshot({
       name: state.name,
       description: state.description,
-      planNames: state.planNames,
+      purpose: state.purpose,
       isDefault: state.isDefault,
       bodyHtml: state.bodyHtml,
+      signerLayout: state.signerLayout,
     });
   }, []);
 
@@ -178,9 +172,10 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       id: null,
       name: '',
       description: '',
-      planNames: [],
+      purpose: 'enrollment',
       isDefault: false,
       bodyHtml: DEFAULT_CONTRACT_TEMPLATE_HTML,
+      signerLayout: defaultContractSignerLayout(),
     });
     syncEditorUrl(null, null);
   }, [applyEditorState, syncEditorUrl]);
@@ -191,9 +186,10 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       id: null,
       name: '',
       description: '',
-      planNames: [],
+      purpose: 'enrollment',
       isDefault: false,
       bodyHtml: DEFAULT_CONTRACT_TEMPLATE_HTML,
+      signerLayout: defaultContractSignerLayout(),
     });
     syncEditorUrl('create', null);
   }, [applyEditorState, syncEditorUrl]);
@@ -205,9 +201,10 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         id: t.$id,
         name: t.name,
         description: t.description || '',
-        planNames: [...(t.planNames || [])],
+        purpose: normalizeTemplatePurpose(t.purpose) as ContractTemplatePurpose,
         isDefault: Boolean(t.isDefault),
         bodyHtml: t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML,
+        signerLayout: t.signerLayout || parseContractSignerLayout(t.signerLayoutJson),
       });
       syncEditorUrl('edit', t.$id);
     },
@@ -221,18 +218,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     }
     closeEditor();
   }, [dirty, closeEditor]);
-
-  const handleTogglePlan = useCallback((planName: string, checked: boolean) => {
-    setSelectedPlanNames((prev) => {
-      const key = planName.trim();
-      if (!key) return prev;
-      if (checked) {
-        if (prev.some((p) => p.toLowerCase() === key.toLowerCase())) return prev;
-        return [...prev, key];
-      }
-      return prev.filter((p) => p.toLowerCase() !== key.toLowerCase());
-    });
-  }, []);
 
   useEffect(() => {
     if (!configured || isLoading || navRole !== 'owner') return;
@@ -282,8 +267,6 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
     }
     setFieldErrors({});
 
-    const plans = selectedPlanNames.map((p) => p.trim()).filter(Boolean);
-
     try {
       if (editorMode === 'edit' && editingId) {
         await updateMutation.mutateAsync({
@@ -291,9 +274,9 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
           patch: {
             name: name.trim(),
             description: description.trim() || undefined,
-            planNames: plans,
             isDefault,
             bodyHtml,
+            signerLayoutJson: JSON.stringify(signerLayout),
           },
         });
         addToast({ type: 'success', message: 'Modelo atualizado.' });
@@ -301,9 +284,10 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         await createMutation.mutateAsync({
           name: name.trim(),
           description: description.trim() || undefined,
-          planNames: plans,
+          purpose,
           isDefault,
           bodyHtml,
+          signerLayoutJson: JSON.stringify(signerLayout),
         });
         addToast({ type: 'success', message: 'Modelo criado.' });
       }
@@ -403,10 +387,11 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
             <ContractTemplateMetaForm
               name={name}
               description={description}
-              selectedPlanNames={selectedPlanNames}
+              purpose={purpose}
+              purposeLocked={editorMode === 'edit'}
               isDefault={isDefault}
-              financePlanNames={financePlanNames}
-              extraPlanNames={extraPlanNames}
+              financeConfig={financeConfig}
+              editingTemplateId={editingId}
               nameError={fieldErrors.name}
               disabled={saving}
               onNameChange={(v) => {
@@ -414,7 +399,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
                 if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
               }}
               onDescriptionChange={setDescription}
-              onTogglePlan={handleTogglePlan}
+              onPurposeChange={setPurpose}
               onIsDefaultChange={setIsDefault}
             />
 
@@ -424,9 +409,14 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
                 setBodyHtml(html);
                 if (fieldErrors.body) setFieldErrors((prev) => ({ ...prev, body: undefined }));
               }}
-              previewVars={previewVars}
               disabled={saving}
               bodyError={fieldErrors.body}
+            />
+
+            <ContractSignerLayoutForm
+              layout={signerLayout}
+              onChange={setSignerLayout}
+              disabled={saving}
             />
 
             <div className="contract-template-editor-focus__actions">
@@ -474,7 +464,8 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
                 <thead>
                   <tr>
                     <th>Nome</th>
-                    <th>Planos (fallback)</th>
+                    <th>Tipo</th>
+                    <th>Planos (Financeiro)</th>
                     <th>Status</th>
                     <th />
                   </tr>
@@ -491,7 +482,13 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
                         ) : null}
                       </td>
                       <td className="text-small text-muted">
-                        {t.planNames?.length ? t.planNames.join(', ') : '—'}
+                        {CONTRACT_TEMPLATE_PURPOSE_LABELS[normalizeTemplatePurpose(t.purpose)]}
+                      </td>
+                      <td className="text-small text-muted">
+                        {plansLabelForTemplate(
+                          t.$id,
+                          normalizeTemplatePurpose(t.purpose) as ContractTemplatePurpose
+                        )}
                       </td>
                       <td>{t.active ? 'Ativo' : 'Inativo'}</td>
                       <td className="contracts-table-actions">

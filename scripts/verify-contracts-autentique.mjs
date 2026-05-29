@@ -87,7 +87,7 @@ const COLLECTIONS = {
   },
   contract_templates: {
     id: () => process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || 'contract_templates',
-    required: ['academy_id', 'name', 'description', 'kind', 'body_html', 'plan_names', 'is_default', 'active'],
+    required: ['academy_id', 'name', 'description', 'kind', 'body_html', 'signer_layout_json', 'plan_names', 'is_default', 'active'],
   },
 };
 

@@ -1,8 +1,4 @@
-import React, { useMemo, useRef } from 'react';
-import { buildContractPreviewDocument } from '../../lib/contractPreviewHtml.js';
-import {
-  mergeContractTemplateHtml,
-} from '../../lib/contractTemplateVariables.js';
+import React, { useRef } from 'react';
 import ContractRichTextEditor, { type ContractRichTextEditorHandle } from './ContractRichTextEditor.jsx';
 import ContractVariableMenu from './ContractVariableMenu.jsx';
 import FieldError from '../shared/FieldError.jsx';
@@ -10,7 +6,6 @@ import FieldError from '../shared/FieldError.jsx';
 interface ContractTemplateEditorProps {
   bodyHtml: string;
   onChange: (html: string) => void;
-  previewVars?: Record<string, string>;
   disabled?: boolean;
   bodyError?: string;
 }
@@ -18,17 +13,10 @@ interface ContractTemplateEditorProps {
 export default function ContractTemplateEditor({
   bodyHtml,
   onChange,
-  previewVars,
   disabled = false,
   bodyError,
 }: ContractTemplateEditorProps) {
   const richRef = useRef<ContractRichTextEditorHandle>(null);
-
-  const previewDoc = useMemo(() => {
-    if (!previewVars) return null;
-    const merged = mergeContractTemplateHtml(bodyHtml, previewVars);
-    return buildContractPreviewDocument(merged);
-  }, [bodyHtml, previewVars]);
 
   const handleInsertVariable = (key: string) => {
     richRef.current?.insertVariable(key);
@@ -37,38 +25,21 @@ export default function ContractTemplateEditor({
 
   return (
     <div className="contract-template-editor">
-      <div className="contract-template-editor-content">
-        <p className="contract-template-pdf-notice" role="note">
-          O PDF da Autentique é gerado em texto simples. A formatação abaixo ajuda a editar com
-          clareza; nem todo estilo aparece no documento final.
-        </p>
+      <p className="contract-template-pdf-notice" role="note">
+        O PDF enviado à Autentique preserva o layout do editor. Configure abaixo onde cada signatário
+        assina na última página.
+      </p>
 
-        <ContractRichTextEditor
-          ref={richRef}
-          bodyHtml={bodyHtml}
-          onChange={onChange}
-          disabled={disabled}
-          toolbarExtra={
-            <ContractVariableMenu onInsert={handleInsertVariable} disabled={disabled} />
-          }
-        />
-        {bodyError ? <FieldError>{bodyError}</FieldError> : null}
-      </div>
-
-      {previewDoc != null ? (
-        <aside className="contract-template-preview card" aria-label="Pré-visualização do contrato">
-          <p className="task-field-label contract-template-preview__title">Como o aluno verá (exemplo)</p>
-          <p className="text-small text-muted contract-template-preview__subtitle">
-            Dados de exemplo — no envio real entram do cadastro.
-          </p>
-          <iframe
-            title="Pré-visualização do contrato"
-            className="contract-template-preview-iframe"
-            sandbox=""
-            srcDoc={previewDoc}
-          />
-        </aside>
-      ) : null}
+      <ContractRichTextEditor
+        ref={richRef}
+        bodyHtml={bodyHtml}
+        onChange={onChange}
+        disabled={disabled}
+        toolbarExtra={
+          <ContractVariableMenu onInsert={handleInsertVariable} disabled={disabled} />
+        }
+      />
+      {bodyError ? <FieldError>{bodyError}</FieldError> : null}
     </div>
   );
 }

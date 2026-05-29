@@ -43,13 +43,23 @@ export async function fetchContracts(params: FetchContractsParams = {}): Promise
   return data;
 }
 
-export async function fetchContractById(id: string): Promise<ContractDetailResponse['contract']> {
-  const res = await contractsFetch(`/api/contracts?id=${encodeURIComponent(id)}`);
+export async function fetchContractById(
+  id: string,
+  opts: { sync?: boolean } = {}
+): Promise<ContractDetailResponse['contract']> {
+  const qs = new URLSearchParams();
+  if (opts.sync) qs.set('sync', '1');
+  const suffix = qs.toString() ? `&${qs.toString()}` : '';
+  const res = await contractsFetch(`/api/contracts?id=${encodeURIComponent(id)}${suffix}`);
   const data = (await res.json()) as ContractDetailResponse;
   if (!res.ok || !data.ok || !data.contract) {
     throw new Error(data.error || `Erro HTTP ${res.status}`);
   }
   return data.contract;
+}
+
+export async function syncContractById(id: string): Promise<ContractDetailResponse['contract']> {
+  return fetchContractById(id, { sync: true });
 }
 
 export async function previewContractRequest(input: {

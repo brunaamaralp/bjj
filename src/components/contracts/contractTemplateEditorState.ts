@@ -1,24 +1,30 @@
+import type { ContractSignerLayout } from '../../../lib/contracts/contractSignerLayout.js';
+import type { ContractTemplatePurpose } from '../../features/contracts/templatesApi.js';
+
 export type ContractTemplateEditorSnapshot = {
   name: string;
   description: string;
-  planNames: string[];
+  purpose: ContractTemplatePurpose;
   isDefault: boolean;
   bodyHtml: string;
+  signerLayout: ContractSignerLayout;
 };
 
 export function buildEditorSnapshot(input: {
   name: string;
   description: string;
-  planNames: string[];
+  purpose: ContractTemplatePurpose;
   isDefault: boolean;
   bodyHtml: string;
+  signerLayout: ContractSignerLayout;
 }): ContractTemplateEditorSnapshot {
   return {
     name: input.name.trim(),
     description: input.description.trim(),
-    planNames: [...input.planNames].map((p) => p.trim()).filter(Boolean).sort(),
+    purpose: input.purpose,
     isDefault: input.isDefault,
     bodyHtml: input.bodyHtml,
+    signerLayout: JSON.parse(JSON.stringify(input.signerLayout)),
   };
 }
 
@@ -29,8 +35,8 @@ export function isEditorDirty(
   if (!baseline) return false;
   if (current.name !== baseline.name) return true;
   if (current.description !== baseline.description) return true;
+  if (current.purpose !== baseline.purpose) return true;
   if (current.isDefault !== baseline.isDefault) return true;
   if (current.bodyHtml !== baseline.bodyHtml) return true;
-  if (current.planNames.length !== baseline.planNames.length) return true;
-  return current.planNames.some((p, i) => p !== baseline.planNames[i]);
+  return JSON.stringify(current.signerLayout) !== JSON.stringify(baseline.signerLayout);
 }
