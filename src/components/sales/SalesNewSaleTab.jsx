@@ -6,7 +6,7 @@ import { Query } from 'appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
-import { suggestUnitPrice } from '../../lib/salesCatalog';
+import { suggestUnitPrice, findCatalogVariant, cartVariantOptions, parentNeedsVariantPicker, variantOptionLabel } from '../../lib/salesCatalog';
 import { readSalesSettings } from '../../lib/salesSettings';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import { maskPhone } from '../../lib/masks.js';
@@ -92,16 +92,21 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       setClienteNome(d.aluno_id ? '' : String(d.customer_name || '').trim());
       setClienteTelefone(String(d.customer_phone || '').trim());
 
-      const product = (products || []).find((p) => String(p.id) === String(d.stock_item_id || '').trim());
+      const match = findCatalogVariant(products, d.stock_item_id);
+      const product = match?.variant;
+      const parent = match?.parent;
       const qty = Math.max(1, Math.trunc(Number(d.quantity) || 1));
       const unit = Number(d.unit_price);
       if (product && Number.isFinite(unit) && unit > 0) {
         setCart([
           {
             item_estoque_id: product.id,
+            product_variant_id: product.id,
             display_label: product.display_label,
-            variacao: product.Tamanho || product.size || '',
-            image_url: product.image_url || '',
+            variacao: variantOptionLabel(product),
+            image_url: product.image_url || parent?.image_url || '',
+            parent_id: parent?.id || null,
+            variant_options: cartVariantOptions(parent),
             quantidade: qty,
             preco_unitario: unit,
             sale_price: product.sale_price,
@@ -124,6 +129,37 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
     };
     window.addEventListener(NL_SALE_PREFILL_EVENT, onNlPrefill);
     return () => window.removeEventListener(NL_SALE_PREFILL_EVENT, onNlPrefill);
+  }, [products]);
+
+  useEffect(() => {
+    if (!products?.length) return;
+    setCart((prev) => {
+      let changed = false;
+      const next = prev.map((line) => {
+        if (!line.parent_id) return line;
+        const parent = products.find((p) => String(p.id) === String(line.parent_id));
+        if (!parent) return line;
+        const variant_options = cartVariantOptions(parent);
+        const variant = (parent.variants || []).find(
+          (v) => String(v.id) === String(line.item_estoque_id)
+        );
+        const patch = {
+          variant_options,
+          disponivel: variant?.current_quantity ?? line.disponivel,
+          expected_quantity: variant?.current_quantity ?? line.expected_quantity,
+        };
+        if (
+          patch.variant_options === line.variant_options &&
+          patch.disponivel === line.disponivel &&
+          patch.expected_quantity === line.expected_quantity
+        ) {
+          return line;
+        }
+        changed = true;
+        return { ...line, ...patch };
+      });
+      return changed ? next : prev;
+    });
   }, [products]);
 
   useEffect(() => {
@@ -248,8 +284,32 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
 
   const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
+  const buildCartLine = useCallback(
+    (product, parent = null) => {
+      const { price } = suggestUnitPrice(product, { collaborator: vendaColaborador });
+      const unit = price != null ? price : null;
+      const multi = cartVariantOptions(parent);
+      return {
+        item_estoque_id: product.id,
+        product_variant_id: product.id,
+        display_label: multi ? parent.nome || parent.display_label : product.display_label,
+        variacao: variantOptionLabel(product),
+        image_url: product.image_url || parent?.image_url || '',
+        parent_id: parent?.id || product.product_id || null,
+        variant_options: cartVariantOptions(parent),
+        quantidade: 1,
+        preco_unitario: unit,
+        sale_price: product.sale_price,
+        cost_price: product.cost_price,
+        disponivel: product.current_quantity,
+        expected_quantity: product.current_quantity,
+      };
+    },
+    [vendaColaborador]
+  );
+
   const pickProduct = useCallback(
-    (product, parentId = null) => {
+    (product, parentId = null, parent = null) => {
       setLocalError('');
       const { price, warning } = suggestUnitPrice(product, { collaborator: vendaColaborador });
       if (warning) addToast({ type: 'warning', message: warning });
@@ -261,7 +321,6 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
         return;
       }
 
-      const unit = price != null ? price : null;
       const stockId = product.id;
       const idx = cart.findIndex(
         (c) => c.product_variant_id === stockId || c.item_estoque_id === stockId
@@ -280,22 +339,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
         };
         setCart(next);
       } else {
-        setCart((prev) => [
-          ...prev,
-          {
-            item_estoque_id: stockId,
-            product_variant_id: stockId,
-            display_label: product.display_label,
-            variacao: product.Tamanho || product.size || '',
-            image_url: product.image_url || '',
-            quantidade: 1,
-            preco_unitario: unit,
-            sale_price: product.sale_price,
-            cost_price: product.cost_price,
-            disponivel: product.current_quantity,
-            expected_quantity: product.current_quantity,
-          },
-        ]);
+        setCart((prev) => [...prev, buildCartLine(product, parent)]);
       }
 
       const flashId = parentId || stockId;
@@ -310,23 +354,76 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
         setMobilePanel('cart');
       }
     },
-    [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast]
+    [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast, buildCartLine]
   );
 
   const handleCatalogPick = useCallback(
     (parent) => {
-      if (parent._singleVariant) {
-        pickProduct(parent._singleVariant);
-        return;
-      }
-      if ((parent.variants || []).length > 1) {
+      if (parentNeedsVariantPicker(parent)) {
         setVariantPickerParent(parent);
         return;
       }
-      const only = parent.variants?.[0];
-      if (only) pickProduct(only);
+      const variant = parent._singleVariant || parent.variants?.[0];
+      if (variant) {
+        pickProduct(
+          { ...variant, image_url: variant.image_url || parent.image_url || '' },
+          parent.id,
+          parent
+        );
+      }
     },
     [pickProduct]
+  );
+
+  const changeCartVariant = useCallback(
+    (idx, variantId) => {
+      setCart((prev) => {
+        const line = prev[idx];
+        if (!line?.variant_options?.length) return prev;
+
+        const variant = line.variant_options.find((v) => String(v.id) === String(variantId));
+        if (!variant || String(variant.id) === String(line.item_estoque_id)) return prev;
+
+        const dupIdx = prev.findIndex(
+          (c, i) => i !== idx && String(c.item_estoque_id) === String(variant.id)
+        );
+        if (dupIdx >= 0) {
+          addToast({ type: 'warning', message: 'Este tamanho já está no carrinho' });
+          return prev;
+        }
+
+        if (!variant.canAdd) {
+          addToast({ type: 'error', message: 'Tamanho esgotado' });
+          return prev;
+        }
+
+        const { price, warning } = suggestUnitPrice(variant, { collaborator: vendaColaborador });
+        if (warning) addToast({ type: 'warning', message: warning });
+
+        const next = [...prev];
+        const maxQty =
+          variant.current_quantity > 0
+            ? Math.min(Number(line.quantidade), variant.current_quantity)
+            : Number(line.quantidade);
+
+        next[idx] = {
+          ...line,
+          item_estoque_id: variant.id,
+          product_variant_id: variant.id,
+          display_label: variant.display_label,
+          variacao: variantOptionLabel(variant),
+          image_url: variant.image_url || line.image_url || '',
+          preco_unitario: price != null ? price : line.preco_unitario,
+          sale_price: variant.sale_price,
+          cost_price: variant.cost_price,
+          disponivel: variant.current_quantity,
+          expected_quantity: variant.current_quantity,
+          quantidade: Math.max(1, maxQty),
+        };
+        return next;
+      });
+    },
+    [vendaColaborador, addToast]
   );
 
   const updateCartQty = (idx, val) => {
@@ -672,6 +769,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
                 lockPriceEdit={salesSettings.lockPriceEdit}
                 onQtyChange={updateCartQty}
                 onPriceChange={updateCartPrice}
+                onVariantChange={changeCartVariant}
                 onRemove={removeFromCart}
                 subtotalMasked={subtotalMasked}
                 descGeralMasked={descGeralMaskedOut}
@@ -769,7 +867,8 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
             setVariantPickerParent(null);
             pickProduct(
               { ...variant, image_url: variant.image_url || variantPickerParent.image_url || '' },
-              variantPickerParent.id
+              variantPickerParent.id,
+              variantPickerParent
             );
           }}
         />

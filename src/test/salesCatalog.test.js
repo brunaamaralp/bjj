@@ -3,6 +3,9 @@ import {
   catalogProductsForSale,
   enrichCatalogProduct,
   normalizeSalesCatalogFromApi,
+  variantOptionLabel,
+  parentNeedsVariantPicker,
+  cartVariantOptions,
 } from '../lib/salesCatalog';
 
 describe('salesCatalog', () => {
@@ -104,5 +107,20 @@ describe('salesCatalog', () => {
     expect(parents[0].variants).toHaveLength(2);
     expect(parents[0].variants[0].canAdd).toBe(true);
     expect(parents[0].variants[1].canAdd).toBe(false);
+  });
+
+  it('variantOptionLabel uses sku when size is empty', () => {
+    expect(variantOptionLabel({ sku: 'GG', color: 'Azul' })).toBe('GG / Azul');
+  });
+
+  it('parentNeedsVariantPicker and cartVariantOptions', () => {
+    const parent = {
+      id: 'p1',
+      nome: 'Kimono',
+      variants: [{ id: 'a' }, { id: 'b' }],
+    };
+    expect(parentNeedsVariantPicker(parent)).toBe(true);
+    expect(cartVariantOptions(parent)).toHaveLength(2);
+    expect(cartVariantOptions({ ...parent, variants: [parent.variants[0]] })).toBeNull();
   });
 });

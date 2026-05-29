@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { formatBRL, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 import ProductThumb from '../products/ProductThumb';
+import { variantOptionLabel } from '../../lib/salesCatalog';
 
 export default function SalesCart({
   cart,
   lockPriceEdit,
   onQtyChange,
   onPriceChange,
+  onVariantChange,
   onRemove,
   subtotalMasked,
   descGeralMasked,
@@ -54,7 +56,33 @@ export default function SalesCart({
                   <ProductThumb imageUrl={it.image_url} alt={it.display_label} size={40} />
                   <div className="sales-cart-row__info">
                     <span className="sales-cart-row__name">{it.display_label}</span>
-                    {it.variacao ? <span className="sales-cart-row__var">{it.variacao}</span> : null}
+                    {Array.isArray(it.variant_options) && it.variant_options.length > 1 ? (
+                      <div className="sales-cart-row__variant">
+                        <label className="text-xs" htmlFor={`sale-variant-${idx}`}>
+                          Tamanho
+                        </label>
+                        <select
+                          id={`sale-variant-${idx}`}
+                          className="form-input sales-cart-row__variant-select"
+                          value={it.item_estoque_id}
+                          onChange={(e) => onVariantChange?.(idx, e.target.value)}
+                        >
+                          {it.variant_options.map((v) => {
+                            const label = variantOptionLabel(v);
+                            const out = !v.canAdd && String(v.id) !== String(it.item_estoque_id);
+                            return (
+                              <option key={v.id} value={v.id} disabled={out}>
+                                {label}
+                                {out ? ' (esgotado)' : ''}
+                                {v.canAdd ? ` · disp. ${v.current_quantity}` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    ) : it.variacao ? (
+                      <span className="sales-cart-row__var">{it.variacao}</span>
+                    ) : null}
                   </div>
                   <button
                     type="button"

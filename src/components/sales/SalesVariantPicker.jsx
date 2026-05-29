@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
+import { variantOptionLabel } from '../../lib/salesCatalog';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import ProductThumb from '../products/ProductThumb';
 
@@ -11,26 +12,25 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
   if (!parent || typeof document === 'undefined') return null;
 
   const variants = (parent.variants || []).slice().sort((a, b) => {
-    const la = String(a.Tamanho || a.size || a.sku || '').trim();
-    const lb = String(b.Tamanho || b.size || b.sku || '').trim();
+    const la = variantOptionLabel(a);
+    const lb = variantOptionLabel(b);
     return la.localeCompare(lb, 'pt-BR', { numeric: true });
   });
 
   return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="navi-modal-overlay sales-variant-picker-overlay" role="presentation">
       <div
         className="card navi-modal-dialog sales-variant-picker"
         role="dialog"
         aria-modal="true"
-        aria-label="Escolher variante"
-        onClick={(e) => e.stopPropagation()}
+        aria-label="Escolher tamanho"
       >
         <div className="sales-variant-picker__head">
           <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={48} />
           <div className="sales-variant-picker__head-text">
             <h4 className="navi-section-heading sales-variant-picker__title">{parent.nome}</h4>
             <p className="text-small text-muted sales-variant-picker__subtitle">
-              Escolha tamanho ou cor
+              Toque no tamanho vendido
             </p>
           </div>
           <button type="button" className="btn-action-ghost" onClick={onClose} aria-label="Fechar">
@@ -42,7 +42,7 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
             <p className="text-small text-muted">Nenhuma variante cadastrada para este produto.</p>
           ) : (
             variants.map((v) => {
-              const label = [v.Tamanho || v.size, v.color].filter(Boolean).join(' / ') || 'Único';
+              const label = variantOptionLabel(v);
               const out = !v.canAdd;
               return (
                 <button
@@ -62,6 +62,11 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
               );
             })
           )}
+        </div>
+        <div className="sales-variant-picker__footer">
+          <button type="button" className="btn-outline sales-variant-picker__cancel" onClick={onClose}>
+            Cancelar
+          </button>
         </div>
       </div>
     </div>,

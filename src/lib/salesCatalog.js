@@ -26,6 +26,39 @@ export function catalogProductsForSale(products) {
   return (products || []).filter((p) => p.is_for_sale && p.is_active);
 }
 
+/** Rótulo de tamanho/cor/sku para picker e carrinho. */
+export function variantOptionLabel(variant) {
+  const size = String(variant?.Tamanho ?? variant?.size ?? variant?.sku ?? '').trim();
+  const color = String(variant?.color ?? '').trim();
+  const parts = [size, color].filter(Boolean);
+  return parts.join(' / ') || 'Único';
+}
+
+export function parentNeedsVariantPicker(parent) {
+  return (parent?.variants || []).length > 1;
+}
+
+/** Localiza produto pai e variante no catálogo agrupado. */
+export function findCatalogVariant(products, stockId) {
+  const id = String(stockId || '').trim();
+  if (!id) return null;
+  for (const parent of products || []) {
+    if (String(parent.id) === id) {
+      const variant = parent._singleVariant || parent.variants?.[0] || null;
+      return variant ? { parent, variant } : null;
+    }
+    const variant = (parent.variants || []).find((v) => String(v.id) === id);
+    if (variant) return { parent, variant };
+  }
+  return null;
+}
+
+/** Opções de variante para linha do carrinho (inclui esgotadas para exibir seleção). */
+export function cartVariantOptions(parent) {
+  if (!parent || (parent.variants || []).length <= 1) return null;
+  return parent.variants;
+}
+
 /** Agrupa variantes pelo produto pai para o catálogo de vendas. */
 /** Enriquece linha agrupada (pai + variantes) para o picker de vendas. */
 export function enrichSalesParentRow(parent) {
