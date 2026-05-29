@@ -18,6 +18,7 @@ export const config = {
   api: {
     bodyParser: false,
   },
+  maxDuration: 60,
 };
 
 async function readRawBody(req) {
@@ -146,7 +147,8 @@ export default async function handler(req, res) {
   const id = contractIdFromRequest(req);
 
   if (id && req.method === 'GET') {
-    return responseToVercel(res, await handleGetContractById(id, auth));
+    const url = new URL(req.url || '/api/contracts', `https://${req.headers.host || 'localhost'}`);
+    return responseToVercel(res, await handleGetContractById(id, auth, url.searchParams));
   }
 
   if (id && req.method === 'PATCH') {

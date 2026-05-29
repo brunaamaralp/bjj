@@ -12,6 +12,8 @@ import {
   paymentsUiValid,
   rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
+import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
+import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 
 export default function SaleDetailModal({
   open,
@@ -156,6 +158,15 @@ export default function SaleDetailModal({
             <div className="mt-3 text-small">
               <strong>Total:</strong> {formatBRL(sale.total)}
             </div>
+
+            {isConcluida ? (
+              <div className="mt-3">
+                <ReceiptPdfButton
+                  onDownload={() => downloadSaleReceiptPdf(sale.id)}
+                  variant="outline"
+                />
+              </div>
+            ) : null}
 
             {isPendente && !liquidateOpen ? (
               <button

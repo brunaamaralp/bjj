@@ -86,6 +86,7 @@ export async function handlePostContractTemplate(
     const body_html = String(body.body_html || body.bodyHtml || '').trim();
     if (!body_html) return jsonResponse({ ok: false, error: 'body_html_required' }, 400);
 
+    const signerLayoutRaw = body.signer_layout_json ?? body.signerLayoutJson;
     const template = await createContractTemplate({
       academy_id: auth.academyId,
       name,
@@ -93,6 +94,10 @@ export async function handlePostContractTemplate(
       plan_names: parsePlanNamesField(body.plan_names ?? body.planNames),
       is_default: parseBoolField(body.is_default ?? body.isDefault),
       body_html,
+      signer_layout_json:
+        signerLayoutRaw != null && String(signerLayoutRaw).trim()
+          ? String(signerLayoutRaw)
+          : undefined,
     });
 
     return jsonResponse({ ok: true, template });
@@ -123,6 +128,7 @@ export async function handlePatchContractTemplate(
       is_default?: boolean;
       active?: boolean;
       body_html?: string;
+      signer_layout_json?: string;
     } = {};
 
     if (body.name !== undefined) patch.name = String(body.name);
@@ -136,6 +142,9 @@ export async function handlePatchContractTemplate(
     if (body.active !== undefined) patch.active = parseBoolField(body.active);
     if (body.body_html !== undefined || body.bodyHtml !== undefined) {
       patch.body_html = String(body.body_html ?? body.bodyHtml ?? '');
+    }
+    if (body.signer_layout_json !== undefined || body.signerLayoutJson !== undefined) {
+      patch.signer_layout_json = String(body.signer_layout_json ?? body.signerLayoutJson ?? '');
     }
 
     const template = await updateContractTemplate(id, auth.academyId, patch);

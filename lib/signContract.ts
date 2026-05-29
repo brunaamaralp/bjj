@@ -1,6 +1,7 @@
 import { createDocument, deleteDocument } from './autentique/autentiqueService.js';
 import { createContract, saveSigners } from './contracts/contractService.js';
 import { buildSignersLinks } from './contracts/signersLinks.js';
+import { matchInputSignerToAutentiqueSignature } from './contracts/contractAutentiqueSync.js';
 import type { SignContractData, SignContractResult, SignerInput, SignerSaveInput } from './contracts/types.js';
 import type { AutentiqueDocument, AutentiqueSignature } from './autentique/types.js';
 
@@ -9,16 +10,30 @@ function mapAutentiqueSignersToSave(
   inputSigners: SignerInput[]
 ): SignerSaveInput[] {
   const signatures = autentiqueDoc.signatures || [];
+  const usedIds = new Set<string>();
 
-  return signatures.map((sig: AutentiqueSignature, index: number) => {
-    const input = inputSigners[index] || {};
+  return inputSigners.map((input) => {
+    const matched = matchInputSignerToAutentiqueSignature(input, signatures, usedIds);
+    const sig: AutentiqueSignature | undefined = matched
+      ? signatures.find((s) => s.public_id === matched.public_id)
+      : undefined;
+
+    if (sig?.public_id) usedIds.add(sig.public_id);
+
+    if (!sig) {
+      console.warn('[contracts] signer_match_miss', {
+        inputEmail: input.email || null,
+        inputName: input.name || null,
+      });
+    }
+
     return {
-      autentique_public_id: sig.public_id,
+      autentique_public_id: sig?.public_id,
       autentique_document_id: autentiqueDoc.id,
-      email: sig.email ?? input.email ?? null,
-      name: sig.name ?? input.name ?? null,
+      email: sig?.email ?? input.email ?? null,
+      name: sig?.name ?? input.name ?? null,
       phone: input.phone ?? null,
-      action: sig.action?.name ?? input.action ?? 'SIGN',
+      action: sig?.action?.name ?? input.action ?? 'SIGN',
       delivery_method: input.delivery_method ?? null,
       status: 'pending',
     };
@@ -39,6 +54,7 @@ export async function signContract(
     signers: contractData.signers,
     file: fileBuffer,
     sandbox: Boolean(contractData.sandbox),
+    sortable: contractData.signers.length > 1,
   });
 
   try {

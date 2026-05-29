@@ -1,5 +1,6 @@
 import type { AutentiqueDocument } from '../autentique/types.js';
 import type { SignerInput } from './types.js';
+import { matchInputSignerToAutentiqueSignature } from './contractAutentiqueSync.js';
 
 export interface SignerLinkEntry {
   name?: string | null;
@@ -14,14 +15,19 @@ export function buildSignersLinks(
   inputSigners: SignerInput[]
 ): SignerLinkEntry[] {
   const signatures = autentiqueDoc.signatures || [];
-  return signatures.map((sig, index) => {
-    const input = inputSigners[index] || {};
+  const usedIds = new Set<string>();
+
+  return inputSigners.map((input) => {
+    const matched = matchInputSignerToAutentiqueSignature(input, signatures, usedIds);
+    const sig = matched ? signatures.find((s) => s.public_id === matched.public_id) : undefined;
+    if (sig?.public_id) usedIds.add(sig.public_id);
+
     return {
-      name: sig.name ?? input.name ?? null,
-      email: sig.email ?? input.email ?? null,
+      name: sig?.name ?? input.name ?? null,
+      email: sig?.email ?? input.email ?? null,
       phone: input.phone ?? null,
-      public_id: sig.public_id ?? null,
-      short_link: sig.link?.short_link ?? null,
+      public_id: sig?.public_id ?? null,
+      short_link: sig?.link?.short_link ?? null,
     };
   });
 }

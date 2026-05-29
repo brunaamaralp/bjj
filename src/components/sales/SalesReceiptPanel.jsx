@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Copy } from 'lucide-react';
 import { buildReceiptText } from '../../lib/salesReceipt';
+import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
+import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 import { formatBRL } from '../../lib/moneyBr';
 import { channelLabel, paymentLabel } from '../../lib/salesSettings';
 import { formatSaleIdShort } from '../../lib/salesHistory';
@@ -31,6 +33,11 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
     if (!paymentSection) return base;
     return `${base}\n\n${paymentSection}`.trim();
   }, [receipt, settings, academyName]);
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!receipt?.vendaId) return;
+    await downloadSaleReceiptPdf(receipt.vendaId);
+  }, [receipt?.vendaId]);
 
   if (!receipt) return null;
 
@@ -97,6 +104,9 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
         <button type="button" className="btn-outline" onClick={() => window.print()}>
           Imprimir
         </button>
+        {receipt.vendaId ? (
+          <ReceiptPdfButton onDownload={handleDownloadPdf} variant="outline" />
+        ) : null}
       </div>
       <pre
         className="text-small mt-3"

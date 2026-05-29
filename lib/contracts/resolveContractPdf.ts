@@ -1,12 +1,17 @@
 import { MAX_CONTRACT_PDF_BYTES, ContractFormError } from './parseContractForm.js';
-import { getContractTemplatePdfBuffer } from './contractTemplateService.js';
+import { getContractTemplatePdfBuffer, type ContractTemplateRecord } from './contractTemplateService.js';
 import { buildContractVariableMap } from './contractTemplateVars.js';
 
 export async function resolveContractPdfBuffer(input: {
   academyId: string;
   templateId?: string;
   leadId?: string;
-}): Promise<{ buffer: Buffer; templateId?: string }> {
+}): Promise<{
+  buffer: Buffer;
+  pageCount: number;
+  templateId?: string;
+  template: ContractTemplateRecord;
+}> {
   const templateId = String(input.templateId || '').trim();
   if (!templateId) {
     throw new ContractFormError('Selecione um modelo de contrato');
@@ -17,7 +22,7 @@ export async function resolveContractPdfBuffer(input: {
     leadId: input.leadId,
   });
 
-  const { buffer, template } = await getContractTemplatePdfBuffer(
+  const { buffer, pageCount, template } = await getContractTemplatePdfBuffer(
     templateId,
     input.academyId,
     variableMap
@@ -25,5 +30,5 @@ export async function resolveContractPdfBuffer(input: {
   if (buffer.length > MAX_CONTRACT_PDF_BYTES) {
     throw new ContractFormError('PDF do modelo excede 10 MB');
   }
-  return { buffer, templateId: template.$id };
+  return { buffer, pageCount, templateId: template.$id, template };
 }

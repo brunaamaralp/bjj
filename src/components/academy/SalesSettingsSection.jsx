@@ -21,7 +21,7 @@ const TEMPLATE_VARIABLES = [
   { key: 'items_lines', label: 'Lista de itens' },
   { key: 'total', label: 'Valor total' },
   { key: 'payment', label: 'Forma de pagamento' },
-  { key: 'footer', label: 'Rodapé do comprovante' },
+  { key: 'footer', label: 'Rodapé dos comprovantes (vendas e pagamentos)' },
 ];
 
 function buildDigest(receiptTemplate, receiptFooter, lockPriceEdit) {
@@ -156,7 +156,7 @@ export default function SalesSettingsSection({ academyId }) {
         </details>
 
         <div className="form-group mt-3">
-          <label>Rodapé do comprovante</label>
+          <label>Rodapé dos comprovantes</label>
           <input
             className="form-input"
             value={receiptFooter}

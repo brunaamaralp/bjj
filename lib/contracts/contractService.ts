@@ -355,6 +355,18 @@ export async function listContracts(filters: ListContractsFilters = {}): Promise
 }
 
 /** @internal webhook */
+export async function hasContractEventByAutentiqueEventId(eventId: string): Promise<boolean> {
+  const id = String(eventId || '').trim();
+  if (!id) return false;
+  const databases = requireDb();
+  const list = await databases.listDocuments(DB_ID, EVENTS_COL(), [
+    Query.equal('autentique_event_id', [id]),
+    Query.limit(1),
+  ]);
+  return (list.documents || []).length > 0;
+}
+
+/** @internal webhook */
 export async function saveContractEvent(data: {
   contract_id: string;
   event_type: string;

@@ -24,4 +24,6 @@ export interface CreateDocumentParams {
   signers: SignerInput[];
   file: Buffer | Blob;
   sandbox?: boolean;
+  refusable?: boolean;
+  sortable?: boolean;
 }

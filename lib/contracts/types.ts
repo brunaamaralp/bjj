@@ -1,11 +1,19 @@
 import type { SignerLinkEntry } from './signersLinks.js';
 
+export interface AutentiquePosition {
+  x: string;
+  y: string;
+  z: number;
+  element: 'SIGNATURE' | 'NAME' | 'DATE' | 'CPF' | 'INITIALS';
+}
+
 export interface SignerInput {
   email?: string;
   name?: string;
   phone?: string;
   action?: string;
   delivery_method?: string;
+  positions?: AutentiquePosition[];
 }
 
 export interface ContractCreateInput {

@@ -1,4 +1,5 @@
 import { signContract } from '../signContract.js';
+import { deleteDocument } from '../autentique/autentiqueService.js';
 import {
   getContractById,
   listContracts,
@@ -7,6 +8,8 @@ import {
 } from './contractService.js';
 import { ContractFormError, parseContractFormData } from './parseContractForm.js';
 import { resolveContractPdfBuffer } from './resolveContractPdf.js';
+import { applyLayoutToSigners, countEnabledSignerSlots } from './contractSignerLayout.js';
+import { syncContractFromAutentique } from './contractAutentiqueSync.js';
 import { fetchLeadPersonForContract, fetchAcademyDoc } from './contractLeadAccess.js';
 import {
   resolveSignatureDeadlineDays,
@@ -120,20 +123,33 @@ export async function handlePostContract(
 
     const expiresAt = await resolveExpiresAt(auth.academyId);
 
-    const { buffer, templateId } = await resolveContractPdfBuffer({
+    const { buffer, pageCount, template } = await resolveContractPdfBuffer({
       academyId: auth.academyId,
       templateId: parsed.template_id,
       leadId: parsed.lead_id,
     });
 
+    const requiredSigners = countEnabledSignerSlots(template.signerLayout);
+    if (requiredSigners > 0 && parsed.signers.length !== requiredSigners) {
+      throw new ContractFormError(
+        `Este modelo exige ${requiredSigners} signatário(s). Você informou ${parsed.signers.length}.`
+      );
+    }
+
+    const signersWithPositions = applyLayoutToSigners(
+      parsed.signers,
+      template.signerLayout,
+      pageCount
+    );
+
     const result = await signContract(
       {
         name: parsed.name,
-        signers: parsed.signers,
+        signers: signersWithPositions,
         sandbox,
         academy_id: auth.academyId,
         lead_id: parsed.lead_id,
-        template_id: templateId,
+        template_id: template.$id,
         expires_at: expiresAt || undefined,
       },
       buffer
@@ -212,6 +228,10 @@ export async function handlePatchContract(
       return jsonResponse({ ok: false, error: 'forbidden' }, 403);
     }
 
+    if (existing.autentiqueId) {
+      await deleteDocument(String(existing.autentiqueId));
+    }
+
     const updated = await cancelContractById(contractId);
     logContractStructured('contract_cancelled', {
       academy_id: auth.academyId,
@@ -268,7 +288,8 @@ export async function handleGetContracts(
 
 export async function handleGetContractById(
   id: string,
-  auth: ContractAuthContext
+  auth: ContractAuthContext,
+  searchParams?: URLSearchParams
 ): Promise<Response> {
   if (!isContractStoreConfigured()) {
     return jsonResponse({ ok: false, error: 'contract_store_not_configured' }, 500);
@@ -280,6 +301,15 @@ export async function handleGetContractById(
   }
 
   try {
+    const shouldSync =
+      searchParams?.get('sync') === '1' || searchParams?.get('sync') === 'true';
+    if (shouldSync) {
+      const syncResult = await syncContractFromAutentique(contractId, auth.academyId);
+      if (!syncResult.ok) {
+        return jsonResponse({ ok: false, error: syncResult.error }, syncResult.error === 'forbidden' ? 403 : 404);
+      }
+    }
+
     const contract = await getContractById(contractId);
     if (!contract) {
       return jsonResponse({ ok: false, error: 'contract_not_found' }, 404);
@@ -288,7 +318,7 @@ export async function handleGetContractById(
       return jsonResponse({ ok: false, error: 'forbidden' }, 403);
     }
 
-    return jsonResponse({ ok: true, contract });
+    return jsonResponse({ ok: true, contract, synced: shouldSync });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);

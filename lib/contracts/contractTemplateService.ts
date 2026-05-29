@@ -8,6 +8,12 @@ import {
   uploadTemplatePdf,
 } from './contractTemplateStorage.js';
 import { API_KEY, DB_ID, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
+import {
+  defaultContractSignerLayout,
+  parseContractSignerLayout,
+  serializeContractSignerLayout,
+  type ContractSignerLayout,
+} from './contractSignerLayout.js';
 
 const TEMPLATES_COL = () =>
   String(process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || '').trim();
@@ -48,6 +54,7 @@ export interface ContractTemplateRecord {
   planNames: string[];
   isDefault: boolean;
   active: boolean;
+  signerLayout: ContractSignerLayout;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -76,6 +83,7 @@ function mapTemplateDoc(doc: Models.Document | null): ContractTemplateRecord | n
     planNames: parsePlanNames(doc.plan_names),
     isDefault: doc.is_default === true || doc.is_default === 'true',
     active: doc.active !== false && doc.active !== 'false',
+    signerLayout: parseContractSignerLayout(doc.signer_layout_json),
     createdAt: doc.$createdAt ?? null,
     updatedAt: doc.$updatedAt ?? null,
   };
@@ -131,28 +139,29 @@ export async function getContractTemplatePdfBuffer(
   templateId: string,
   academyId: string,
   variableMap?: import('./contractVariables.js').ContractVariableMap
-): Promise<{ buffer: Buffer; template: ContractTemplateRecord }> {
+): Promise<{ buffer: Buffer; pageCount: number; template: ContractTemplateRecord }> {
   const template = await getContractTemplateById(templateId, academyId);
   if (!template) throw new Error('contract_template_not_found');
   if (!template.active) throw new Error('contract_template_inactive');
 
   const { mergeContractTemplateHtml } = await import('./contractVariables.js');
-  const { htmlToPdfBuffer } = await import('./htmlToPdf.js');
+  const { renderContractHtmlToPdf, countPdfBufferPages } = await import('./renderContractHtmlToPdf.js');
 
   if (template.bodyHtml?.trim() || template.kind === 'html_editor') {
     const html = mergeContractTemplateHtml(
       template.bodyHtml || '',
       variableMap || { data_hoje: new Date().toLocaleDateString('pt-BR') }
     );
-    const buffer = await htmlToPdfBuffer(html);
+    const { buffer, pageCount } = await renderContractHtmlToPdf(html);
     if (!buffer.length) throw new Error('contract_template_render_empty');
-    return { buffer, template };
+    return { buffer, pageCount, template };
   }
 
   if (!template.storageFileId) throw new Error('contract_template_content_missing');
   const buffer = await downloadTemplatePdf(template.storageFileId);
   if (!buffer.length) throw new Error('contract_template_file_empty');
-  return { buffer, template };
+  const pageCount = await countPdfBufferPages(buffer);
+  return { buffer, pageCount, template };
 }
 
 export function resolveTemplateIdForPlan(
@@ -186,6 +195,7 @@ export async function createContractTemplate(input: {
   plan_names?: string[];
   is_default?: boolean;
   body_html: string;
+  signer_layout_json?: string | ContractSignerLayout;
 }): Promise<ContractTemplateRecord> {
   const databases = requireDb();
   const body = String(input.body_html || '').trim();
@@ -193,12 +203,20 @@ export async function createContractTemplate(input: {
 
   if (input.is_default) await clearOtherDefaults(input.academy_id);
 
+  const layout =
+    typeof input.signer_layout_json === 'string'
+      ? input.signer_layout_json
+      : serializeContractSignerLayout(
+          input.signer_layout_json || defaultContractSignerLayout()
+        );
+
   const payload: Record<string, unknown> = {
     academy_id: String(input.academy_id),
     name: String(input.name || '').trim(),
     description: input.description ? String(input.description).slice(0, 500) : '',
     kind: 'html_editor',
     body_html: body.slice(0, 28000),
+    signer_layout_json: layout.slice(0, 4096),
     plan_names: JSON.stringify(input.plan_names || []),
     is_default: Boolean(input.is_default),
     active: true,
@@ -226,6 +244,7 @@ export async function updateContractTemplate(
     is_default?: boolean;
     active?: boolean;
     body_html?: string;
+    signer_layout_json?: string | ContractSignerLayout;
   }
 ): Promise<ContractTemplateRecord | null> {
   const databases = requireDb();
@@ -243,6 +262,13 @@ export async function updateContractTemplate(
   if (patch.body_html !== undefined) {
     data.body_html = String(patch.body_html).slice(0, 28000);
     data.kind = 'html_editor';
+  }
+  if (patch.signer_layout_json !== undefined) {
+    const layout =
+      typeof patch.signer_layout_json === 'string'
+        ? patch.signer_layout_json
+        : serializeContractSignerLayout(patch.signer_layout_json);
+    data.signer_layout_json = layout.slice(0, 4096);
   }
 
   const doc = await databases.updateDocument(DB_ID, TEMPLATES_COL(), id, data);

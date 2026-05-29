@@ -202,6 +202,15 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     });
   };
 
+  const copyReceipt = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      addToast({ type: 'success', message: 'Comprovante copiado' });
+    } catch {
+      addToast({ type: 'error', message: 'Não foi possível copiar' });
+    }
+  };
+
   if (receipt) {
     return (
       <div>
@@ -209,7 +218,7 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
           receipt={receipt}
           settings={salesSettings}
           academyName={academyName}
-          onCopy={() => {}}
+          onCopy={copyReceipt}
         />
         <button
           type="button"

@@ -1,5 +1,5 @@
 import type { CreateDocumentParams, AutentiqueDocument } from './types.js';
-import type { SignerInput } from '../contracts/types.js';
+import type { AutentiquePosition, SignerInput } from '../contracts/types.js';
 import { normalizePhoneForAutentique } from '../contracts/normalizePhone.js';
 
 const GRAPHQL_URL = 'https://api.autentique.com.br/v2/graphql';
@@ -45,6 +45,25 @@ function toUploadBlob(file: Buffer | Blob): Blob {
   throw new Error('file_must_be_buffer_or_blob');
 }
 
+function normalizePositions(positions: AutentiquePosition[] | undefined): AutentiquePosition[] | undefined {
+  if (!Array.isArray(positions) || positions.length === 0) return undefined;
+  const out: AutentiquePosition[] = [];
+  for (const p of positions) {
+    const x = Number(String(p.x ?? '').trim());
+    const y = Number(String(p.y ?? '').trim());
+    const z = Number(p.z);
+    const element = String(p.element || 'SIGNATURE').trim().toUpperCase() as AutentiquePosition['element'];
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) || z < 1) continue;
+    out.push({
+      x: String(Math.min(100, Math.max(0, x))),
+      y: String(Math.min(100, Math.max(0, y))),
+      z: Math.floor(z),
+      element,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
 function normalizeSigners(signers: SignerInput[]): SignerInput[] {
   if (!Array.isArray(signers) || signers.length === 0) {
     throw new Error('signers_required');
@@ -58,6 +77,8 @@ function normalizeSigners(signers: SignerInput[]): SignerInput[] {
       if (normalized) row.phone = normalized;
     }
     if (s.delivery_method) row.delivery_method = String(s.delivery_method).trim();
+    const positions = normalizePositions(s.positions);
+    if (positions) row.positions = positions;
     if (!row.email && !row.name && !row.phone) {
       throw new Error('signer_must_have_email_name_or_phone');
     }
@@ -70,17 +91,20 @@ export async function createDocument({
   signers,
   file,
   sandbox = false,
+  refusable = false,
+  sortable,
 }: CreateDocumentParams): Promise<AutentiqueDocument> {
   const docName = String(name || '').trim();
   if (!docName) throw new Error('name_required');
 
   const uploadBlob = toUploadBlob(file);
   const normalizedSigners = normalizeSigners(signers);
+  const useSortable = sortable ?? normalizedSigners.length > 1;
 
   const operations = {
     query: CREATE_DOCUMENT_MUTATION,
     variables: {
-      document: { name: docName },
+      document: { name: docName, refusable: Boolean(refusable), sortable: useSortable },
       signers: normalizedSigners,
       file: null,
       sandbox: Boolean(sandbox),
@@ -162,4 +186,69 @@ export async function deleteDocument(documentId: string): Promise<boolean> {
 
   if (!res.ok || data?.errors?.length) return false;
   return Boolean(data?.data?.deleteDocument?.id);
+}
+
+const GET_DOCUMENT_QUERY = `query GetAutentiqueDocument($id: UUID!) {
+  document(id: $id) {
+    id
+    name
+    created_at
+    signatures {
+      public_id
+      name
+      email
+      created_at
+      action { name }
+      link { short_link }
+      signed { created_at }
+      viewed { created_at }
+      rejected { created_at }
+    }
+  }
+}`;
+
+export interface AutentiqueDocumentSync {
+  id: string;
+  name?: string;
+  signatures: Array<{
+    public_id: string;
+    name?: string | null;
+    email?: string | null;
+    action?: { name?: string } | null;
+    link?: { short_link?: string } | null;
+    signed?: { created_at?: string } | null;
+    viewed?: { created_at?: string } | null;
+    rejected?: { created_at?: string } | null;
+  }>;
+}
+
+export async function getDocument(documentId: string): Promise<AutentiqueDocumentSync | null> {
+  const id = String(documentId || '').trim();
+  if (!id) return null;
+
+  const res = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getApiToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: GET_DOCUMENT_QUERY,
+      variables: { id },
+    }),
+  });
+
+  const text = await res.text();
+  let data: { data?: { document?: AutentiqueDocumentSync }; errors?: Array<{ message?: string }> } | null =
+    null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+
+  if (!res.ok || data?.errors?.length) return null;
+  const doc = data?.data?.document;
+  if (!doc?.id) return null;
+  return doc;
 }

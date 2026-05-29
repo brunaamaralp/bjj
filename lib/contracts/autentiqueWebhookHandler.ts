@@ -8,6 +8,7 @@ import {
   saveWebhookLog,
   updateWebhookLog,
   updateContractMeta,
+  hasContractEventByAutentiqueEventId,
 } from './contractService.js';
 import { fetchLeadPersonForContract } from './contractLeadAccess.js';
 import {
@@ -221,6 +222,15 @@ export async function processAutentiqueWebhook(
   if (!contract) {
     await updateWebhookLog(log.$id, { processed: true, error: 'contract_not_found' });
     return { ok: false as const, error: 'contract_not_found', logId: log.$id, autentiqueId };
+  }
+
+  const autentiqueEventId = parsedBody?.event?.id ? String(parsedBody.event.id).trim() : '';
+  if (autentiqueEventId) {
+    const duplicate = await hasContractEventByAutentiqueEventId(autentiqueEventId);
+    if (duplicate) {
+      await updateWebhookLog(log.$id, { processed: true, error: 'duplicate_event' });
+      return { ok: true as const, duplicate: true, logId: log.$id, autentiqueId };
+    }
   }
 
   try {

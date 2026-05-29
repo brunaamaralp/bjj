@@ -33,6 +33,13 @@ import {
 } from '../../lib/bundleCoverage.js';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
 import { centsToNumber, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
+import {
+  downloadSaleReceiptPdf,
+  downloadPaymentReceiptPdf,
+  canDownloadSaleReceipt,
+  canDownloadPaymentReceipt,
+} from '../../lib/receiptDownload.js';
+import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 
 function fmtMoney(n) {
   try {
@@ -92,8 +99,10 @@ function TimelineRow({
   canManagePayments,
   onEditPayment,
   onDeletePayment,
+  receiptPdf,
 }) {
   const showActions = Boolean(payment && canManagePayments && onEditPayment && onDeletePayment);
+  const showReceiptPdf = Boolean(receiptPdf?.enabled && receiptPdf?.onDownload);
 
   return (
     <div
@@ -140,13 +149,23 @@ function TimelineRow({
           </div>
         ) : null}
       </button>
+      {showReceiptPdf ? (
+        <div
+          style={{
+            padding: '0 14px 12px 46px',
+            borderTop: !showActions && !(expanded && children) ? '0.5px solid var(--border-light)' : 'none',
+          }}
+        >
+          <ReceiptPdfButton onDownload={receiptPdf.onDownload} variant="outline" />
+        </div>
+      ) : null}
       {showActions ? (
         <div
           style={{
             display: 'flex',
             gap: 8,
             padding: '0 14px 12px 46px',
-            borderTop: children || expanded ? '0.5px solid var(--border-light)' : 'none',
+            borderTop: children || expanded || showReceiptPdf ? '0.5px solid var(--border-light)' : 'none',
           }}
         >
           <button
@@ -213,6 +232,14 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
             </div>
           ))}
       </div>
+      {canDownloadPaymentReceipt(item.anchor) ? (
+        <div style={{ marginBottom: 10 }}>
+          <ReceiptPdfButton
+            onDownload={() => downloadPaymentReceiptPdf(item.anchor.$id)}
+            variant="outline"
+          />
+        </div>
+      ) : null}
       {futureCovered.length > 0 && onCancelCoverage ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <select
@@ -285,6 +312,14 @@ function ProductTimelineRow({ item }) {
           <span>{fmtMoney(it.subtotal)}</span>
         </div>
       ))}
+      {sale && canDownloadSaleReceipt(sale) ? (
+        <div style={{ marginTop: 10 }}>
+          <ReceiptPdfButton
+            onDownload={() => downloadSaleReceiptPdf(sale.id)}
+            variant="outline"
+          />
+        </div>
+      ) : null}
     </TimelineRow>
   );
 }
@@ -596,16 +631,25 @@ export default function StudentFinancialTimeline({
             }
             const Icon = item.kind === 'fee' ? Receipt : Calendar;
             const iconColor = item.kind === 'fee' ? '#B45309' : '#5B3FBF';
+            const payment = item.payment;
+            const receiptPdf =
+              payment && canDownloadPaymentReceipt(payment)
+                ? {
+                    enabled: true,
+                    onDownload: () => downloadPaymentReceiptPdf(payment.$id),
+                  }
+                : null;
             return (
               <TimelineRow
                 key={item.id}
                 icon={Icon}
                 iconColor={iconColor}
                 item={item}
-                payment={item.payment}
+                payment={payment}
                 canManagePayments={canManagePayments}
                 onEditPayment={onEditPayment}
                 onDeletePayment={onDeletePayment}
+                receiptPdf={receiptPdf}
               />
             );
           })}
