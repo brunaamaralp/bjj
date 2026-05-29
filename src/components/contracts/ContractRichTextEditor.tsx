@@ -1,4 +1,13 @@
-import React, { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef, type ReactNode } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+  forwardRef,
+  type ReactNode,
+} from 'react';
 import {
   Bold,
   Italic,
@@ -11,6 +20,7 @@ import {
   Code,
   Eye,
 } from 'lucide-react';
+import { mergeVisualIntoSource, prepareVisualEditorHtml } from '../../lib/contractPreviewHtml.js';
 
 type EditorMode = 'visual' | 'source';
 
@@ -32,21 +42,74 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
     const sourceRef = useRef<HTMLTextAreaElement>(null);
     const syncingRef = useRef(false);
     const lastEmittedRef = useRef(bodyHtml);
+    const prevModeRef = useRef<EditorMode>('visual');
+    const savedSelectionRef = useRef<Range | null>(null);
     const [mode, setMode] = useState<EditorMode>('visual');
     const [sourceDraft, setSourceDraft] = useState(bodyHtml);
+
+    const hydrateVisualEditor = useCallback((html: string) => {
+      const el = editorRef.current;
+      if (!el) return;
+      el.innerHTML = prepareVisualEditorHtml(html);
+    }, []);
+
+    useLayoutEffect(() => {
+      const prev = prevModeRef.current;
+      prevModeRef.current = mode;
+
+      if (mode !== 'visual') return;
+
+      const shouldHydrate = prev !== 'visual' || !editorRef.current?.innerHTML.trim();
+      if (shouldHydrate) {
+        hydrateVisualEditor(sourceDraft || bodyHtml);
+      }
+    }, [mode, sourceDraft, bodyHtml, hydrateVisualEditor]);
 
     useEffect(() => {
       if (bodyHtml === lastEmittedRef.current) return;
       lastEmittedRef.current = bodyHtml;
       if (mode === 'visual') {
-        const el = editorRef.current;
-        if (el && el.innerHTML !== bodyHtml) {
-          el.innerHTML = bodyHtml || '';
-        }
+        hydrateVisualEditor(bodyHtml || '');
       } else {
         setSourceDraft(bodyHtml || '');
       }
-    }, [bodyHtml, mode]);
+    }, [bodyHtml, mode, hydrateVisualEditor]);
+
+    const saveVisualSelection = useCallback(() => {
+      const el = editorRef.current;
+      if (!el) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!el.contains(range.commonAncestorContainer)) return;
+      savedSelectionRef.current = range.cloneRange();
+    }, []);
+
+    const restoreVisualSelection = useCallback(() => {
+      const range = savedSelectionRef.current;
+      const sel = window.getSelection();
+      if (!range || !sel) return;
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }, []);
+
+    useEffect(() => {
+      if (mode !== 'visual') return;
+      const save = () => saveVisualSelection();
+      document.addEventListener('selectionchange', save);
+      return () => document.removeEventListener('selectionchange', save);
+    }, [mode, saveVisualSelection]);
+
+    const handleToolbarMouseDown = useCallback(
+      (e: React.MouseEvent) => {
+        if (mode !== 'visual' || disabled) return;
+        if (e.target instanceof Element && e.target.closest('button')) {
+          e.preventDefault();
+          saveVisualSelection();
+        }
+      },
+      [disabled, mode, saveVisualSelection]
+    );
 
     const commitHtml = useCallback(
       (html: string) => {
@@ -63,8 +126,25 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
     const emitChange = useCallback(() => {
       const el = editorRef.current;
       if (!el) return;
-      commitHtml(el.innerHTML);
-    }, [commitHtml]);
+      const merged = mergeVisualIntoSource(sourceDraft, el.innerHTML);
+      setSourceDraft(merged);
+      commitHtml(merged);
+    }, [commitHtml, sourceDraft]);
+
+    const refreshVisualHighlights = useCallback(() => {
+      const el = editorRef.current;
+      if (!el) return;
+      const merged = mergeVisualIntoSource(sourceDraft, el.innerHTML);
+      const prepared = prepareVisualEditorHtml(merged);
+      if (el.innerHTML !== prepared) {
+        el.innerHTML = prepared;
+      }
+    }, [sourceDraft]);
+
+    const handleVisualBlur = useCallback(() => {
+      emitChange();
+      refreshVisualHighlights();
+    }, [emitChange, refreshVisualHighlights]);
 
     const handleSourceChange = useCallback(
       (value: string) => {
@@ -75,23 +155,18 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
     );
 
     const switchToVisual = useCallback(() => {
-      const html = sourceDraft;
-      lastEmittedRef.current = html;
-      syncingRef.current = true;
-      if (editorRef.current) {
-        editorRef.current.innerHTML = html;
-      }
       setMode('visual');
-      requestAnimationFrame(() => {
-        syncingRef.current = false;
-      });
-    }, [sourceDraft]);
+    }, []);
 
     const switchToSource = useCallback(() => {
-      const html = editorRef.current?.innerHTML ?? bodyHtml;
-      setSourceDraft(html);
+      const el = editorRef.current;
+      if (el) {
+        const merged = mergeVisualIntoSource(sourceDraft, el.innerHTML);
+        setSourceDraft(merged);
+        commitHtml(merged);
+      }
       setMode('source');
-    }, [bodyHtml]);
+    }, [commitHtml, sourceDraft]);
 
     const exec = useCallback(
       (command: string, value?: string) => {
@@ -126,15 +201,17 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
           return;
         }
         editorRef.current?.focus();
+        restoreVisualSelection();
+        const highlighted = `<span class="contract-var-token" contenteditable="false" data-contract-var="1">${token}</span>`;
         try {
-          document.execCommand('insertText', false, token);
+          document.execCommand('insertHTML', false, highlighted);
         } catch {
           const el = editorRef.current;
-          if (el) el.innerHTML = `${el.innerHTML}${token}`;
+          if (el) el.innerHTML = `${el.innerHTML}${highlighted}`;
         }
         emitChange();
       },
-      [disabled, emitChange, handleSourceChange, mode, sourceDraft]
+      [disabled, emitChange, handleSourceChange, mode, restoreVisualSelection, sourceDraft]
     );
 
     useImperativeHandle(
@@ -154,7 +231,12 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
 
     return (
       <div className="contract-rich-editor">
-        <div className="contract-rich-editor-toolbar" role="toolbar" aria-label="Formatação do texto">
+        <div
+          className="contract-rich-editor-toolbar"
+          role="toolbar"
+          aria-label="Formatação do texto"
+          onMouseDown={handleToolbarMouseDown}
+        >
           {mode === 'visual' ? (
             <>
               <button type="button" className="contract-rich-editor-btn" title="Negrito" disabled={disabled} onClick={() => exec('bold')}>
@@ -239,7 +321,7 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
             aria-multiline="true"
             data-placeholder="Escreva o contrato aqui…"
             onInput={emitChange}
-            onBlur={emitChange}
+            onBlur={handleVisualBlur}
           />
         ) : (
           <textarea

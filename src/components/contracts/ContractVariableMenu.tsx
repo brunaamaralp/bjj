@@ -93,7 +93,7 @@ export default function ContractVariableMenu({ onInsert, disabled = false }: Con
           </div>
 
           <p className="contract-variable-menu__hint text-small text-muted">
-            Insere no cursor. Valores vêm do cadastro do aluno ao enviar.
+            Insere no cursor (destacado em roxo no modo Visual). Valores vêm do cadastro ao enviar.
           </p>
         </DropdownMenuPanel>
       ) : null}

@@ -409,11 +409,13 @@
   }
 
   .contract-template-preview {
-    flex: 0 0 min(360px, 38%);
+    flex: 0 0 min(440px, 44%);
+    min-width: 0;
     position: sticky;
     top: 72px;
     margin-top: 0 !important;
     padding: 16px;
+    overflow: hidden;
   }
 }
 
@@ -647,12 +649,26 @@
 .contract-rich-editor-surface {
   min-height: 280px;
   max-height: 420px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 14px 16px;
   font-size: 14px;
   line-height: 1.6;
   color: var(--text);
   outline: none;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.contract-rich-editor-surface table {
+  width: 100% !important;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+.contract-rich-editor-surface img {
+  max-width: 100%;
+  height: auto;
 }
 
 .contract-rich-editor-surface:empty::before {
@@ -702,16 +718,28 @@
   cursor: not-allowed;
 }
 
-.contract-template-preview-body {
-  font-size: 14px;
-  line-height: 1.6;
-  max-height: 320px;
-  overflow: auto;
+.contract-template-preview-iframe {
+  display: block;
+  width: 100%;
+  height: min(420px, 55vh);
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: #fff;
 }
 
-.contract-template-preview-body h1 {
-  font-size: 1.25rem;
-  margin: 0 0 12px;
+.contract-var-token {
+  display: inline;
+  padding: 1px 6px;
+  margin: 0 1px;
+  border-radius: 4px;
+  background: rgba(123, 99, 212, 0.14);
+  color: #5b45b5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  font-weight: 700;
+  border: 1px solid rgba(123, 99, 212, 0.35);
+  white-space: nowrap;
+  cursor: default;
 }
 
 .contracts-upload-zone {

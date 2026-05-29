@@ -1,4 +1,5 @@
 import React, { useMemo, useRef } from 'react';
+import { buildContractPreviewDocument } from '../../lib/contractPreviewHtml.js';
 import {
   mergeContractTemplateHtml,
 } from '../../lib/contractTemplateVariables.js';
@@ -23,9 +24,10 @@ export default function ContractTemplateEditor({
 }: ContractTemplateEditorProps) {
   const richRef = useRef<ContractRichTextEditorHandle>(null);
 
-  const previewHtml = useMemo(() => {
+  const previewDoc = useMemo(() => {
     if (!previewVars) return null;
-    return mergeContractTemplateHtml(bodyHtml, previewVars);
+    const merged = mergeContractTemplateHtml(bodyHtml, previewVars);
+    return buildContractPreviewDocument(merged);
   }, [bodyHtml, previewVars]);
 
   const handleInsertVariable = (key: string) => {
@@ -53,15 +55,17 @@ export default function ContractTemplateEditor({
         {bodyError ? <FieldError>{bodyError}</FieldError> : null}
       </div>
 
-      {previewHtml != null ? (
+      {previewDoc != null ? (
         <aside className="contract-template-preview card" aria-label="Pré-visualização do contrato">
           <p className="task-field-label contract-template-preview__title">Como o aluno verá (exemplo)</p>
           <p className="text-small text-muted contract-template-preview__subtitle">
             Dados de exemplo — no envio real entram do cadastro.
           </p>
-          <div
-            className="contract-template-preview-body"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          <iframe
+            title="Pré-visualização do contrato"
+            className="contract-template-preview-iframe"
+            sandbox=""
+            srcDoc={previewDoc}
           />
         </aside>
       ) : null}
