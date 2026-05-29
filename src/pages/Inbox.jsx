@@ -19,14 +19,15 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { AlertTriangle, Bell, BellOff, ChevronDown, ChevronUp, Filter, Flame, Loader2, MessageSquare, Sparkles, User, X, Zap } from 'lucide-react';
-import ConversationList from '../components/inbox/ConversationList';
-import ConversationNotesPanel from '../components/inbox/ConversationNotesPanel';
+import { Bell, BellOff, User, X, Zap } from 'lucide-react';
+import InboxListPanel from '../components/inbox/InboxListPanel';
+import InboxContextPanel, { InboxContextPanelContent } from '../components/inbox/InboxContextPanel';
+import InboxThreadPanel from '../components/inbox/InboxThreadPanel';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
-import ThreadState from '../components/inbox/ThreadState';
-import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import SearchField from '../components/shared/SearchField.jsx';
+import StatusBanner from '../components/shared/StatusBanner.jsx';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
@@ -2983,265 +2984,38 @@ export default function Inbox() {
     !['unread', 'need_human', 'waiting_customer'].includes(String(listFilter || '')) || Boolean(labelFilter);
 
   const listPanel = (
-    <div
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        background: 'var(--surface)',
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-        maxHeight: '100%'
-      }}
-    >
-      <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
-          title={
-            isMobile
-              ? undefined
-              : 'Atalhos (fora de campos de texto): J / K conversas, R focar resposta, E resolver, Ctrl+R recarregar histórico, Ctrl+K alternar resolvido.'
-          }
-        >
-          <span>Conversas</span>
-          {!isMobile ? (
-            <span className="text-small" style={{ color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              J · K
-            </span>
-          ) : null}
-        </div>
-        {!searchQuery && (
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-            {hasMore ? 'Role para carregar mais' : 'Fim'}
-          </div>
-        )}
-      </div>
-      <div
-        className="filter-bar filter-bar--compact"
-        style={{
-          padding: 10,
-          borderBottom: '1px solid var(--border)',
-          flexDirection: 'row',
-          flexWrap: 'nowrap',
-          alignItems: 'center',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          minWidth: 0,
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        <button
-          type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'needs_me' ? 'is-active' : ''}`}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, fontWeight: 700, boxSizing: 'border-box' }}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('needs_me');
-          }}
-          title="Handoff ativo com mensagens não lidas"
-        >
-          Precisa de mim
-        </button>
-        <button
-          type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'unread' ? 'is-active' : ''}`}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' }}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('unread');
-          }}
-        >
-          <span>Não lidas</span>
-          {Number(stats?.unreadBacklog || 0) > 0 ? (
-            <span
-              className="text-small"
-              style={{
-                background: !minhaFilaOn && listFilter === 'unread' ? 'rgba(255,255,255,0.25)' : 'var(--danger-light)',
-                color: !minhaFilaOn && listFilter === 'unread' ? 'inherit' : 'var(--danger)',
-                padding: '1px 7px',
-                borderRadius: 999,
-                fontWeight: 800,
-                lineHeight: 1.2
-              }}
-              title="Conversas com mensagens não lidas"
-            >
-              {Number(stats.unreadBacklog)}
-            </span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'need_human' ? 'is-active' : ''}`}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, boxSizing: 'border-box' }}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('need_human');
-          }}
-        >
-          Com você agora
-        </button>
-        <button
-          type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'waiting_customer' ? 'is-active' : ''}`}
-          style={{ flexShrink: 0, padding: '6px 10px', minHeight: 44, boxSizing: 'border-box' }}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('waiting_customer');
-          }}
-          title="Ticket aguardando resposta do cliente"
-        >
-          Aguardando cliente
-        </button>
-        <div ref={listExtraFiltersRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            type="button"
-            className={`filter-chip ${extraFiltersMenuOpen || inboxExtraFilterActive ? 'is-active' : ''}`}
-            style={{ padding: '6px 10px', minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, boxSizing: 'border-box' }}
-            onClick={() => setExtraFiltersMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={extraFiltersMenuOpen}
-            title="Mais filtros"
-          >
-            <Filter size={16} strokeWidth={2} aria-hidden />
-            Mais filtros
-          </button>
-          {extraFiltersMenuOpen ? (
-            <div
-              role="menu"
-              className="navi-menu__panel inbox-extra-filters-menu"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'all' ? 'is-active' : ''}`}
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
-                    setMinhaFilaOn(false);
-                    setListFilter('all');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Todos
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'resolved' ? 'is-active' : ''}`}
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
-                    setMinhaFilaOn(false);
-                    setListFilter('resolved');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Resolvidos
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'archived' ? 'is-active' : ''}`}
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
-                    setMinhaFilaOn(false);
-                    setListFilter('archived');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Arquivadas
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'hot' ? 'is-active' : ''}`}
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
-                    setMinhaFilaOn(false);
-                    setListFilter('hot');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Contato quente
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'transferred' ? 'is-active' : ''}`}
-                  style={{ padding: '6px 10px', minHeight: 34 }}
-                  onClick={() => {
-                    setMinhaFilaOn(false);
-                    setListFilter('transferred');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Transferidas
-                </button>
-              </div>
-              {inboxLabels.length > 0 ? (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <label className="text-small" style={{ display: 'block', marginBottom: 6, fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    Etiqueta
-                  </label>
-                  <select
-                    value={labelFilter || ''}
-                    onChange={(e) => setLabelFilter(e.target.value || null)}
-                    aria-label="Filtrar por etiqueta"
-                    style={{
-                      width: '100%',
-                      padding: '6px 10px',
-                      minHeight: 34,
-                      border: labelFilter ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      borderRadius: 8,
-                      background: labelFilter ? 'var(--accent-light)' : 'var(--surface)',
-                      color: labelFilter ? 'var(--accent)' : 'var(--text-primary)',
-                      fontSize: 'var(--inbox-font-secondary)',
-                      cursor: 'pointer',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="">Todas as etiquetas</option>
-                    {inboxLabels.map((l) => (
-                      <option key={l.$id} value={l.$id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          maxHeight: '100%',
-          overflow: 'auto'
-        }}
-        onScroll={onConversationListScroll}
-      >
-        <ConversationList
-          groupedItems={groupedFilteredItems}
-          loading={loading}
-          totalItems={items.length}
-          whatsAppConnected={waChatConnected}
-          loadingMore={loadingMore}
-          onSelectConversation={handleSelectConversation}
-          selectedPhone={selectedPhone}
-          ticketChip={ticketChip}
-          formatTimeOnly={formatTimeOnly}
-          formatWhen={formatWhen}
-          formatActivityLabel={formatListActivityLabel}
-          isMobile={isMobile}
-          onClearListFilters={handleClearInboxListFilters}
-          onConversationLongPress={(it) => {
-            if (!isMobile) return;
-            setConversationSheet({ item: it });
-          }}
-          handoffNowMs={nowMs}
-          listFilter={listFilter}
-          minhaFilaOn={minhaFilaOn}
-        />
-      </div>
-    </div>
+    <InboxListPanel
+      searchQuery={searchQuery}
+      hasMore={hasMore}
+      listFilter={listFilter}
+      minhaFilaOn={minhaFilaOn}
+      stats={stats}
+      extraFiltersMenuOpen={extraFiltersMenuOpen}
+      setExtraFiltersMenuOpen={setExtraFiltersMenuOpen}
+      inboxExtraFilterActive={inboxExtraFilterActive}
+      listExtraFiltersRef={listExtraFiltersRef}
+      setMinhaFilaOn={setMinhaFilaOn}
+      setListFilter={setListFilter}
+      inboxLabels={inboxLabels}
+      labelFilter={labelFilter}
+      setLabelFilter={setLabelFilter}
+      onConversationListScroll={onConversationListScroll}
+      groupedFilteredItems={groupedFilteredItems}
+      loading={loading}
+      itemsLength={items.length}
+      waChatConnected={waChatConnected}
+      loadingMore={loadingMore}
+      handleSelectConversation={handleSelectConversation}
+      selectedPhone={selectedPhone}
+      ticketChip={ticketChip}
+      formatTimeOnly={formatTimeOnly}
+      formatWhen={formatWhen}
+      formatListActivityLabel={formatListActivityLabel}
+      isMobile={isMobile}
+      handleClearInboxListFilters={handleClearInboxListFilters}
+      setConversationSheet={setConversationSheet}
+      nowMs={nowMs}
+    />
   );
 
   const threadMessagesEmptyUi = Boolean(
@@ -3252,1241 +3026,119 @@ export default function Inbox() {
     (!Array.isArray(selected?.messages) || selected.messages.length === 0)
   );
 
-  const threadPanel = !selectedPhone ? (
-    <div
-      className="inbox-empty-thread-placeholder"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}
-    >
-      <EmptyState
-        variant="embedded"
-        tone="dashed"
-        icon={MessageSquare}
-        title="Nenhuma conversa selecionada"
-        description="Escolha uma conversa à esquerda para ver o histórico e responder o contato."
-        role="status"
-      />
-    </div>
-  ) : (
-    <div
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        background: 'var(--surface)',
-        flex: 1,
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}
-    >
-      <div
-        className="inbox-thread-header"
-        style={{
-          padding: 10,
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          flexShrink: 0
-        }}
-      >
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, width: '100%' }}>
-          {isMobile && (
-            <button
-              className="btn btn-secondary"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => {
-                setSelectedPhone('');
-                setDetailsOpen(false);
-              }}
-              type="button"
-            >
-              Voltar
-            </button>
-          )}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto' }}>
-            <div
-              style={{
-                fontWeight: 800,
-                fontSize: 'var(--inbox-font-thread-title)',
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {(() => {
-                const phone = String(selectedPhone || '').trim();
-                const leadId = String(selected?.lead_id || '').trim();
-                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const name = pickDisplayName({
-                  leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
-                  manualContactName: selected?.contact_name,
-                  whatsappProfileName: selected?.whatsapp_profile_name,
-                  phone
-                });
-                return name || phone || '—';
-              })()}
-            </div>
-            {(() => {
-              const pill = getThreadHandoffPill({
-                needHuman: Boolean(selected?.need_human),
-                humanHandoffUntil: selected?.human_handoff_until,
-                nowMs,
-              });
-              const banner = getThreadHandoffBanner({
-                needHuman: Boolean(selected?.need_human),
-                humanHandoffUntil: selected?.human_handoff_until,
-                nowMs,
-              });
-              return (
-                <>
-                  <span
-                    role="status"
-                    style={{
-                      display: 'inline-block',
-                      marginTop: 8,
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      borderRadius: 999,
-                      background: pill.bg,
-                      color: pill.color,
-                      border: pill.border,
-                    }}
-                  >
-                    {pill.label}
-                  </span>
-                  <div
-                    role="status"
-                    style={{
-                      marginTop: 8,
-                      padding: '8px 12px',
-                      fontSize: 'var(--inbox-font-secondary)',
-                      lineHeight: 1.35,
-                      width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      borderRadius: 8,
-                      background: handoffReleaseHint ? 'var(--v50, #EEEDFE)' : banner.bg,
-                      color: handoffReleaseHint ? 'var(--v700, #534AB7)' : banner.color,
-                    }}
-                  >
-                    {handoffReleaseHint
-                      ? 'A IA voltará a responder automaticamente'
-                      : banner.text}
-                  </div>
-                </>
-              );
-            })()}
-            {!selected?.lead_id && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                <span
-                  className="text-small"
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: 'var(--v50, #EEEDFE)',
-                    color: 'var(--v700, #534AB7)',
-                  }}
-                >
-                  Sem contato
-                </span>
-                {editingContactName ? (
-                  <>
-                    <input
-                      className="input"
-                      value={contactNameDraft}
-                      onChange={(e) => setContactNameDraft(e.target.value)}
-                      placeholder="Nome do contato"
-                      style={{ minWidth: 170, height: 30, padding: '4px 8px' }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ padding: '4px 8px', minHeight: 30 }}
-                      onClick={() => void saveContactName()}
-                      disabled={savingContactName}
-                    >
-                      {savingContactName ? 'Salvando…' : 'Salvar'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ padding: '4px 8px', minHeight: 30 }}
-                      onClick={() => {
-                        setEditingContactName(false);
-                        setContactNameDraft('');
-                      }}
-                      disabled={savingContactName}
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{ padding: '4px 8px', minHeight: 30 }}
-                    onClick={() => {
-                      const seed = String(selected?.contact_name || '').trim() || String(selected?.whatsapp_profile_name || '').trim();
-                      setContactNameDraft(seed);
-                      setEditingContactName(true);
-                    }}
-                  >
-                    {String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
-                  </button>
-                )}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-              {(() => {
-                const phone = String(selectedPhone || '').trim();
-                const leadId = String(selected?.lead_id || '').trim();
-                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const name = pickDisplayName({
-                  leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
-                  manualContactName: selected?.contact_name,
-                  whatsappProfileName: selected?.whatsapp_profile_name,
-                  phone
-                });
-                const showPhone = Boolean(name) && Boolean(phone);
-                if (!showPhone) return null;
-                return (
-                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                    {phone}
-                  </span>
-                );
-              })()}
-              {(() => {
-                const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
-                return (
-                  <span className="text-small" style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }} title="Status do ticket">
-                    {chip.label}
-                  </span>
-                );
-              })()}
-              {(() => {
-                const phone = String(selectedPhone || '').trim();
-                const leadId = String(selected?.lead_id || '').trim();
-                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const aiSuggestHuman = Boolean(lead?.needHuman);
-                if (selected?.need_human || !aiSuggestHuman) return null;
-                return (
-                  <span
-                    className="text-small"
-                    style={{
-                      background: 'var(--warning-light)',
-                      color: 'var(--warning-text)',
-                      padding: '4px 10px',
-                      borderRadius: 999,
-                      maxWidth: '100%',
-                      boxSizing: 'border-box'
-                    }}
-                    title={`Sugestão com base no ${contactLabel.toLowerCase()}`}
-                  >
-                    Vale a pena alguém da equipe ver esta conversa
-                  </span>
-                );
-              })()}
-            </div>
-            </div>
-        </div>
+  const composerProps = {
+    isMobile,
+    inboxVvInset,
+    composerExpanded,
+    selectedPhone,
+    selected,
+    templatesOpen,
+    setTemplatesOpen,
+    setEmojiOpen,
+    quickTemplates,
+    terms,
+    leads,
+    academyNameForTemplates,
+    setDraft,
+    textareaRef,
+    emojiOpen,
+    emojis,
+    insertAtCursor,
+    scheduleOn,
+    setScheduleOn,
+    sending,
+    scheduleAtLocal,
+    setScheduleAtLocal,
+    improveDraftWithAi,
+    improvingDraft,
+    draft,
+    draftBeforeImprove,
+    setDraftBeforeImprove,
+    slashOpen,
+    slashPopupRef,
+    inboxSlashMaxHeight,
+    slashFilteredTemplates,
+    slashIndex,
+    setSlashIndex,
+    slashActiveItemRef,
+    applySlashTemplate,
+    handleDraftChange,
+    applyWrapToDraft,
+    sendManual,
+    setComposerExpanded,
+    setSlashOpen,
+    setSlashQuery,
+  };
 
-        <div
-          className="inbox-thread-header-actions"
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 8,
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}
-        >
-          {String(selected?.ticket_status || '') === 'resolved' ? (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => updateTicket({ status: 'open' })}
-              disabled={!selectedPhone || ticketUpdating}
-              type="button"
-              title="Reabre o ticket; use o filtro Em atendimento para acompanhar conversas abertas"
-            >
-              Reabrir
-            </button>
-          ) : null}
-          {listFilter === 'archived' && selectedPhone ? (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => void unarchiveConversation(selectedPhone)}
-              disabled={!selectedPhone}
-              type="button"
-            >
-              Desarquivar
-            </button>
-          ) : null}
-          {!selected?.need_human ? (
-            <button
-              className="btn btn-primary"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => setHandoffActive(true)}
-              disabled={!selectedPhone}
-              type="button"
-              title={`Pausa o agente por ${handoffDurationPhrase}`}
-            >
-              Assumir
-            </button>
-          ) : (
-            <button
-              className="btn btn-primary"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => {
-                setHandoffReleaseHint(true);
-                void setHandoffActive(false);
-              }}
-              disabled={!selectedPhone}
-              type="button"
-              title="Reativa o agente agora"
-            >
-              Devolver
-            </button>
-          )}
-          <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-            onClick={() => {
-              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-              else setContextOpen((v) => !v);
-            }}
-            disabled={!selectedPhone}
-            title="Abrir painel de detalhes"
-            type="button"
-          >
-            Detalhes
-          </button>
-          <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900, flexShrink: 0 }}
-            onClick={(e) => openMenu('thread', e.currentTarget, { phone: String(selectedPhone || '').trim() })}
-            disabled={!selectedPhone}
-            title={!selectedPhone ? 'Selecione uma conversa para ver as ações' : 'Mais ações'}
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menu?.kind === 'thread'}
-          >
-            {'\u22EF'}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div
-          ref={threadScrollRef}
-          onScroll={onThreadScroll}
-          style={{
-            padding: 14,
-            flex: 1,
-            minHeight: 0,
-            overflow: 'auto',
-            overflowAnchor: 'none',
-            WebkitOverflowScrolling: 'touch',
-            background: 'rgba(91,63,191,0.04)'
-          }}
-        >
-          {threadHasMore && !threadLoading && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-              <button
-                className="btn btn-outline"
-                style={{ padding: '6px 10px', minHeight: 34 }}
-                onClick={() => loadThread(selectedPhoneRef.current, { silent: true, cursor: String(threadCursor || ''), append: true })}
-                disabled={threadPaging || !threadCursor}
-                type="button"
-              >
-                {threadPaging ? 'Carregando…' : 'Carregar mensagens anteriores'}
-              </button>
-            </div>
-          )}
-          {threadLoading && <ThreadSkeleton />}
-          {!threadLoading && (error || threadError) && (
-            <ThreadState
-              type="error"
-              errorText={error || threadError}
-              onRetry={() => loadThread(selectedPhone)}
-            />
-          )}
-          {threadMessagesEmptyUi && !waChatConnected && <ThreadState type="empty" />}
-
-          {Array.isArray(threadBlocks) && threadBlocks.map((b) => {
-            if (b.type === 'day') {
-              return (
-                <div key={b.key} style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
-                  <span className="text-small" style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 999, color: 'var(--text-secondary)' }}>
-                    {b.label}
-                  </span>
-                </div>
-              );
-            }
-            const g = b;
-            const bubbleStyle =
-              g.bubbleKind === 'human'
-                ? {
-                    background: '#FFFBEB',
-                    border: '1px solid #FCD34D',
-                  }
-                : g.bubbleKind === 'ai'
-                  ? {
-                      background: 'var(--surface)',
-                      border: '1px solid var(--v200, #DDD6FE)',
-                    }
-                  : {
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                    };
-            return (
-              <div
-                key={g.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: g.alignEnd ? 'flex-end' : 'flex-start',
-                  marginBottom: 10,
-                }}
-              >
-                <div
-                  className={`inbox-bubble inbox-bubble--${g.bubbleKind || 'user'}`}
-                  style={{
-                    maxWidth: '72%',
-                    width: 'fit-content',
-                    padding: '10px 12px',
-                    borderRadius: 14,
-                    boxShadow: 'var(--shadow-sm)',
-                    ...bubbleStyle,
-                  }}
-                >
-                  {g.items.map(({ key, m }, idx) => {
-                    const contentRaw = String(m?.content || '');
-                    const mediaUrlNorm = inboxMessageMediaUrl(m);
-                    const typeLower = String(m?.type || '').toLowerCase();
-                    const audioPlaceholder = inboxContentIsAudioPlaceholder(contentRaw);
-                    const showAudioPlayer =
-                      Boolean(mediaUrlNorm) &&
-                      (typeLower === 'audio' || typeLower === 'ptt' || audioPlaceholder);
-                    const showImage = typeLower === 'image' && Boolean(mediaUrlNorm);
-                    const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
-                    const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
-                    const statusLower = String(m?.status || '').trim().toLowerCase();
-                    const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
-                    const canceledAt = typeof m?.canceled_at === 'string' ? String(m.canceled_at) : '';
-                    const isScheduled = statusLower === 'scheduled' && !!scheduledAt;
-                    const isCanceled = statusLower === 'canceled';
-                    const mine = m?.role === 'assistant';
-                    const mid = String(m?.message_id || '').trim();
-                    const canCancel = mine && (statusLower === 'scheduled' || statusLower === 'pending') && !!mid;
-                    const isSelected = String(selectedMsgKey || '') === key;
-                    const pinned = Boolean(selectedPhoneFlags?.pinned && selectedPhoneFlags.pinned[key]);
-                    const important = Boolean(selectedPhoneFlags?.important && selectedPhoneFlags.important[key]);
-                    const senderKind = senderKindFromMessage(m);
-                    const senderLabel = senderKind === 'ai' ? 'Agente IA' : senderKind === 'human' ? 'Humano' : 'Cliente';
-                    return (
-                      <div
-                        key={`${key}-${idx}`}
-                        data-msgkey={key}
-                        className={isSelected ? 'inbox-msg selected' : 'inbox-msg'}
-                        style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 10 }}
-                        onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
-                      >
-                        {idx === 0 && g.bubbleKind !== 'user' && (
-                          <div
-                            className="inbox-msg-sender-label"
-                            style={{
-                              color:
-                                g.bubbleKind === 'ai'
-                                  ? 'var(--v700, #534AB7)'
-                                  : '#B45309',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                          >
-                            {g.bubbleKind === 'ai' ? (
-                              <>
-                                <Sparkles size={12} aria-hidden /> Agente IA
-                              </>
-                            ) : (
-                              'Você'
-                            )}
-                          </div>
-                        )}
-                        {showAudioPlayer ? (
-                          <div className="inbox-msg-audio" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                            <audio
-                              controls
-                              src={mediaUrlNorm}
-                              preload="metadata"
-                              style={{ width: '100%', maxWidth: 320, minWidth: 200, verticalAlign: 'middle' }}
-                            />
-                            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-muted)' }}>
-                              Se não reproduzir, o link pode ter expirado — abra no WhatsApp.
-                            </p>
-                            {String(content || '').trim() &&
-                            !String(content || '')
-                              .trim()
-                              .startsWith('🎵') ? (
-                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', marginTop: 8 }}>
-                                {content}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : audioPlaceholder && !mediaUrlNorm ? (
-                          <div className="inbox-msg-text" style={{ color: 'var(--text-secondary)' }}>
-                            <span aria-hidden>🎵</span> Áudio recebido — link não disponível no painel. Use <strong>Sincronizar WhatsApp</strong> ou abra no app do WhatsApp.
-                          </div>
-                        ) : showImage ? (
-                          <div className="inbox-msg-image">
-                            <img
-                              src={mediaUrlNorm}
-                              alt="Imagem"
-                              loading="lazy"
-                              decoding="async"
-                              style={{
-                                maxWidth: '100%',
-                                maxHeight: 300,
-                                borderRadius: 8,
-                                cursor: 'pointer',
-                                objectFit: 'cover',
-                                display: 'block'
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                setImageLightboxUrl(mediaUrlNorm);
-                              }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                const el = e.target.nextSibling;
-                                if (el && el.style) el.style.display = 'flex';
-                              }}
-                            />
-                            <div
-                              style={{
-                                display: 'none',
-                                alignItems: 'center',
-                                gap: 8,
-                                color: 'var(--text-muted)',
-                                fontSize: 'var(--inbox-font-secondary)',
-                                padding: '8px 0'
-                              }}
-                            >
-                              Imagem indisponível (link expirado ou bloqueado)
-                            </div>
-                            {String(content || '').trim() && String(content || '').trim() !== '[imagem]' ? (
-                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', marginTop: 8 }}>
-                                {content}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
-                            {content}
-                          </div>
-                        )}
-                        {!expanded && contentRaw.length > 600 && (
-                          <button
-                            className="btn btn-outline"
-                            style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setExpandedMsgs((prev) => ({ ...(prev && typeof prev === 'object' ? prev : {}), [key]: true }));
-                            }}
-                          >
-                            Ver mais
-                          </button>
-                        )}
-                        <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                          <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                            {formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}
-                            {pinned ? ' • Fixada' : ''}
-                            {important ? ' • Importante' : ''}
-                          </span>
-                          <div className="inbox-msg-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <button
-                              className="btn btn-outline inbox-mini-btn"
-                              style={{ minHeight: 28, padding: '0 10px' }}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const base = contentRaw.replace(/\s+/g, ' ').trim();
-                                const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
-                                if (snippet) {
-                                  setDraft((prev) => {
-                                    const p = String(prev || '');
-                                    const prefix = p.trim() ? `${p}\n\n` : '';
-                                    return `${prefix}Respondendo: "${snippet}"\n\n`;
-                                  });
-                                  try {
-                                    textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
-                                  } catch {
-                                    void 0;
-                                  }
-                                }
-                              }}
-                            >
-                              Responder
-                            </button>
-                            <button
-                              className="btn btn-outline inbox-mini-btn"
-                              style={{ minHeight: 28, padding: '0 10px' }}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                copyToClipboard(contentRaw);
-                              }}
-                            >
-                              Copiar
-                            </button>
-                            <button
-                              className="btn btn-outline inbox-mini-btn"
-                              style={{ minHeight: 28, padding: '0 10px', fontWeight: 900 }}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                openMenu('message', e.currentTarget, { key, phone: String(selectedPhoneRef.current || '').trim(), m, canCancel });
-                              }}
-                              aria-haspopup="menu"
-                              aria-expanded={menu?.kind === 'message' && menu?.payload?.key === key}
-                            >
-                              {'\u22EF'}
-                            </button>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                              {senderLabel}
-                            </span>
-                            {!!String(statusLower || '').trim() && (
-                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Status: {statusLower}
-                              </span>
-                            )}
-                            {isScheduled && (
-                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Agendada: {formatWhen(scheduledAt)}
-                              </span>
-                            )}
-                            {isCanceled && (
-                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Cancelada: {canceledAt ? formatWhen(canceledAt) : '—'}
-                              </span>
-                            )}
-                            {canCancel && (
-                              <button
-                                className="btn btn-outline"
-                                style={{ minHeight: 28, padding: '0 10px' }}
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  cancelScheduledMessage(mid);
-                                }}
-                                disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
-                              >
-                                {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar agendamento'}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          {threadMessagesEmptyUi && waChatConnected && (
-            <div style={{ color: 'var(--text-secondary)', padding: 24, textAlign: 'center' }}>
-              <EmptyState
-                variant="embedded"
-                tone="dashed"
-                icon={MessageSquare}
-                title="Nenhuma mensagem carregada"
-                description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar as últimas 24h (limite do plano Zapster).'
-                role="status"
-              />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-primary"
-                  style={{ padding: '6px 14px', minHeight: 34 }}
-                  type="button"
-                  disabled={waSyncing}
-                  onClick={reconcileLast24h}
-                >
-                  {waSyncing ? 'Sincronizando…' : '↻ Sincronizar com WhatsApp'}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 12px', minHeight: 34 }}
-                  type="button"
-                  onClick={() => {
-                    setDraft((prev) => String(prev || '').trim() ? prev : 'Olá! Como posso te ajudar hoje?');
-                    try {
-                      textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
-                    } catch {
-                      void 0;
-                    }
-                  }}
-                >
-                  Enviar primeira mensagem
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {!threadAtBottom && newMsgCount > 0 && (
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-            <button
-              className="btn btn-secondary"
-              style={{ padding: '6px 12px', minHeight: 34, pointerEvents: 'auto' }}
-              type="button"
-              onClick={() => scrollThreadToBottom({ clearNew: true })}
-              title="Ir para o mais recente"
-            >
-              {newMsgCount} novas • Ir para o mais recente
-            </button>
-          </div>
-        )}
-      </div>
-
-      {String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved' ? (
-        <div
-          role="toolbar"
-          aria-label="Ações rápidas da conversa"
-          style={{
-            flexShrink: 0,
-            borderTop: '1px solid var(--border)',
-            padding: '6px 10px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 8,
-            minHeight: 38,
-            boxSizing: 'border-box',
-            background: 'var(--surface)'
-          }}
-        >
-          <button
-            type="button"
-            disabled={!selectedPhone || ticketUpdating}
-            onClick={() => void updateTicket({ status: 'resolved' })}
-            title="Resolver conversa"
-            style={{
-              height: 28,
-              padding: '0 10px',
-              fontSize: 12,
-              lineHeight: '26px',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              background: 'transparent',
-              color: 'var(--text)',
-              fontWeight: 600,
-              cursor: !selectedPhone || ticketUpdating ? 'not-allowed' : 'pointer',
-              opacity: !selectedPhone || ticketUpdating ? 0.5 : 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              boxSizing: 'border-box',
-              fontFamily: 'var(--ff-ui, inherit)'
-            }}
-          >
-            Resolver
-            {showInboxKeyHints ? (
-              <span
-                aria-hidden
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  fontVariantNumeric: 'tabular-nums'
-                }}
-              >
-                E
-              </span>
-            ) : null}
-          </button>
-          {!inboxThreadNarrow767 ? (
-            <button
-              type="button"
-              disabled={!selectedPhone || ticketUpdating}
-              onClick={() => void updateTicket({ status: 'waiting_customer' })}
-              title="Marcar ticket como aguardando cliente"
-              style={{
-                height: 28,
-                padding: '0 10px',
-                fontSize: 12,
-                lineHeight: '26px',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                background: 'transparent',
-                color: 'var(--text)',
-                fontWeight: 600,
-                cursor: !selectedPhone || ticketUpdating ? 'not-allowed' : 'pointer',
-                opacity: !selectedPhone || ticketUpdating ? 0.5 : 1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-                fontFamily: 'var(--ff-ui, inherit)'
-              }}
-            >
-              Aguardando cliente
-            </button>
-          ) : null}
-          <button
-            type="button"
-            disabled={!selectedPhone}
-            onClick={() => {
-              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-              else setContextOpen(true);
-            }}
-            title="Abrir painel de dados do contato"
-            style={{
-              height: 28,
-              padding: '0 10px',
-              fontSize: 12,
-              lineHeight: '26px',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              background: 'transparent',
-              color: 'var(--text)',
-              fontWeight: 600,
-              cursor: !selectedPhone ? 'not-allowed' : 'pointer',
-              opacity: !selectedPhone ? 0.5 : 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              boxSizing: 'border-box',
-              fontFamily: 'var(--ff-ui, inherit)'
-            }}
-          >
-            Ver ficha
-          </button>
-        </div>
-      ) : null}
-
-      <div
-        style={{
-          padding: 12,
-          paddingBottom: isMobile
-            ? `calc(12px + ${inboxVvInset}px + env(safe-area-inset-bottom, 0px))`
-            : 12,
-          borderTop: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          flexShrink: 0
-        }}
-      >
-        {composerExpanded && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {selectedPhone && (
-                <div style={{ position: 'relative' }}>
-                  <button
-                    className={`inbox-composer-action-btn ${templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}`}
-                    style={{ padding: '0 10px', fontSize: 'var(--inbox-font-list-title)' }}
-                    onClick={() => {
-                      setTemplatesOpen((v) => !v);
-                      setEmojiOpen(false);
-                    }}
-                    type="button"
-                    title="Mensagens prontas"
-                  >
-                    {'\u26A1'}
-                  </button>
-                  {templatesOpen && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: 36,
-                        left: 0,
-                        width: 280,
-                        background: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 12,
-                        boxShadow: 'var(--shadow)',
-                        padding: 8,
-                        zIndex: 50,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4
-                      }}
-                    >
-                      <div className="navi-section-heading" style={{ padding: '2px 6px 6px' }}>
-                        Mensagens prontas
-                      </div>
-                      {quickTemplates.length === 0 && (
-                        <EmptyState
-                          variant="bare"
-                          title={`Nenhum template da ${terms.workspaceNoun}.`}
-                          description="Configure em Automações no menu."
-                          role="status"
-                          className="inbox-quick-templates-empty"
-                        />
-                      )}
-                      {quickTemplates.map((tpl) => {
-                        const lid = String(selected?.lead_id || '').trim();
-                        const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
-                        const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
-                        return (
-                          <button
-                            key={tpl.key}
-                            type="button"
-                            className="btn btn-outline"
-                            style={{ textAlign: 'left', padding: '6px 10px', minHeight: 32, whiteSpace: 'normal', lineHeight: '18px' }}
-                            onClick={() => {
-                              const out = applyWhatsappTemplatePlaceholders(tpl.text, {
-                                lead: leadForTpl,
-                                academyName: academyNameForTemplates
-                              });
-                              setDraft(out);
-                              setTemplatesOpen(false);
-                              try {
-                                textareaRef.current?.focus();
-                              } catch {
-                                void 0;
-                              }
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: 'block',
-                                fontWeight: 700,
-                                fontSize: 'var(--inbox-font-caption)',
-                                marginBottom: 2
-                              }}
-                            >
-                              {tpl.label}
-                            </span>
-                            <span style={{ fontSize: 'var(--inbox-font-secondary)', color: 'var(--text-secondary)' }}>
-                              {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div style={{ position: 'relative' }}>
-                <button
-                  className="btn btn-outline inbox-composer-action-btn"
-                  style={{ padding: '0 10px', fontSize: '1.125rem' }}
-                  onClick={() => {
-                    setEmojiOpen((v) => !v);
-                    setTemplatesOpen(false);
-                  }}
-                  type="button"
-                  aria-expanded={emojiOpen}
-                  title="Inserir emoji"
-                >
-                  {'\u{1F60A}'}
-                </button>
-                {emojiOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 36,
-                      left: 0,
-                      width: 260,
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 12,
-                      boxShadow: 'var(--shadow)',
-                      padding: 10,
-                      zIndex: 50
-                    }}
-                  >
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
-                      {emojis.map((em) => (
-                        <button
-                          key={em}
-                          type="button"
-                          className="inbox-composer-emoji-grid-btn"
-                          onClick={() => {
-                            insertAtCursor(em);
-                            setEmojiOpen(false);
-                          }}
-                          style={{
-                            padding: 0,
-                            borderRadius: 10,
-                            background: 'transparent',
-                            border: '1px solid var(--border)'
-                          }}
-                        >
-                          <span style={{ fontSize: '1.125rem', lineHeight: 1 }}>{em}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {(composerExpanded || scheduleOn) && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            <button
-              className={scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'}
-              style={{ padding: '6px 10px' }}
-              onClick={() => setScheduleOn((v) => !v)}
-              disabled={sending || !selectedPhone}
-              type="button"
-            >
-              Agendar
-            </button>
-            {scheduleOn && (
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={scheduleAtLocal}
-                onChange={(e) => setScheduleAtLocal(e.target.value)}
-                disabled={sending || !selectedPhone}
-                style={{ width: 210 }}
-              />
-            )}
-          </div>
-        )}
-
-        {composerExpanded && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34, minWidth: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={improveDraftWithAi}
-              disabled={sending || improvingDraft || !selectedPhone || String(draft || '').trim().length <= 3}
-              type="button"
-              title={improvingDraft ? 'Melhorando…' : 'Melhorar texto com IA (usa o contexto da conversa)'}
-              aria-label={improvingDraft ? 'Melhorando texto com IA' : 'Melhorar texto com IA'}
-              aria-busy={improvingDraft}
-            >
-              {improvingDraft ? (
-                <Loader2 size={18} className="inbox-improve-spin" aria-hidden />
-              ) : (
-                <Sparkles size={18} strokeWidth={2} aria-hidden />
-              )}
-            </button>
-            {draftBeforeImprove != null && (
-              <button
-                className="btn btn-outline"
-                style={{ padding: '6px 10px', minHeight: 34 }}
-                onClick={() => {
-                  setDraft(String(draftBeforeImprove));
-                  setDraftBeforeImprove(null);
-                  try {
-                    setTimeout(() => textareaRef.current?.focus?.(), 0);
-                  } catch {
-                    void 0;
-                  }
-                }}
-                disabled={sending || improvingDraft}
-                type="button"
-                title="Voltar ao texto antes da melhoria"
-              >
-                {'\u21A9'} Desfazer
-              </button>
-            )}
-            {String(draft || '').length > 160 && (
-              <div className="text-small" style={{ color: String(draft || '').length > 800 ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                {String(draft || '').length} chars
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-            {slashOpen && selectedPhone && (
-              <div ref={slashPopupRef} className="inbox-slash-templates" style={{ maxHeight: inboxSlashMaxHeight }} role="listbox" aria-label="Templates rápidos">
-                {slashFilteredTemplates.length === 0 ? (
-                  <EmptyState variant="bare" title="Nenhum template encontrado" role="status" className="inbox-slash-empty" />
-                ) : (
-                  slashFilteredTemplates.map((tpl, idx) => {
-                    const rawPrev = String(tpl.text || '').replace(/\s+/g, ' ').trim();
-                    const preview = rawPrev.length > 60 ? `${rawPrev.slice(0, 60)}…` : rawPrev;
-                    return (
-                      <button
-                        key={tpl.key}
-                        type="button"
-                        role="option"
-                        aria-selected={idx === slashIndex}
-                        ref={idx === slashIndex ? slashActiveItemRef : undefined}
-                        className={`inbox-slash-templates-row${idx === slashIndex ? ' active' : ''}`}
-                        onMouseDown={(ev) => {
-                          ev.preventDefault();
-                          applySlashTemplate(tpl);
-                        }}
-                      >
-                        <span style={{ display: 'block', fontWeight: 700, fontSize: 'var(--inbox-font-secondary)' }}>{tpl.label}</span>
-                        <span className="text-small" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 2 }}>
-                          {preview}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={handleDraftChange}
-              onKeyDown={(e) => {
-                if (slashOpen) {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setSlashIndex((i) => {
-                      const n = slashFilteredTemplates.length;
-                      if (n <= 0) return 0;
-                      return Math.min(i + 1, n - 1);
-                    });
-                    return;
-                  }
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setSlashIndex((i) => Math.max(0, i - 1));
-                    return;
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setSlashOpen(false);
-                    setSlashQuery('');
-                    return;
-                  }
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (slashFilteredTemplates.length > 0) {
-                      const n = slashFilteredTemplates.length;
-                      const idx = Math.min(Math.max(0, slashIndex), n - 1);
-                      applySlashTemplate(slashFilteredTemplates[idx]);
-                    } else {
-                      setSlashOpen(false);
-                      setSlashQuery('');
-                    }
-                    return;
-                  }
-                }
-                if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-                  const k = String(e.key || '').toLowerCase();
-                  if (k === 'b') {
-                    e.preventDefault();
-                    applyWrapToDraft('*');
-                    return;
-                  }
-                  if (k === 'i') {
-                    e.preventDefault();
-                    applyWrapToDraft('_');
-                    return;
-                  }
-                  if (k === 'enter') {
-                    e.preventDefault();
-                    sendManual();
-                    return;
-                  }
-                }
-                if (e.key === 'Escape') setEmojiOpen(false);
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  sendManual();
-                }
-              }}
-              placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
-              className="form-input"
-              rows={3}
-              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 88 }}
-              onFocus={(e) => {
-                if (!isMobile) setComposerExpanded(true);
-                if (isMobile) {
-                  const el = e.currentTarget;
-                  setTimeout(() => {
-                    try {
-                      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    } catch {
-                      void 0;
-                    }
-                  }, 100);
-                }
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
-            {draftBeforeImprove != null && !composerExpanded && (
-              <button
-                className="btn btn-outline"
-                style={{ padding: '6px 10px', minHeight: 34, whiteSpace: 'nowrap' }}
-                onClick={() => {
-                  setDraft(String(draftBeforeImprove));
-                  setDraftBeforeImprove(null);
-                  try {
-                    setTimeout(() => textareaRef.current?.focus?.(), 0);
-                  } catch {
-                    void 0;
-                  }
-                }}
-                disabled={sending || improvingDraft}
-                type="button"
-                title="Voltar ao texto antes da melhoria"
-              >
-                {'\u21A9'} Desfazer
-              </button>
-            )}
-            <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
-              {sending ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <Loader2 size={16} className="navi-async-btn__spin" aria-hidden />
-                  Enviar
-                </span>
-              ) : (
-                'Enviar'
-              )}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline inbox-composer-action-btn"
-              aria-label="Mais opções"
-              aria-expanded={composerExpanded}
-              onClick={() => setComposerExpanded((v) => !v)}
-              title={composerExpanded ? 'Ocultar opções avançadas' : 'Mais opções: templates, emoji, agendar, IA'}
-              style={{
-                minHeight: 44,
-                minWidth: 44,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 10px',
-                alignSelf: 'stretch'
-              }}
-            >
-              {composerExpanded ? <ChevronDown size={20} strokeWidth={2} aria-hidden /> : <ChevronUp size={20} strokeWidth={2} aria-hidden />}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+  const threadPanel = (
+    <InboxThreadPanel
+      selectedPhone={selectedPhone}
+      setSelectedPhone={setSelectedPhone}
+      setDetailsOpen={setDetailsOpen}
+      isMobile={isMobile}
+      selected={selected}
+      leadById={leadById}
+      leadByPhone={leadByPhone}
+      normalizePhone={normalizePhone}
+      pickDisplayName={pickDisplayName}
+      nowMs={nowMs}
+      handoffReleaseHint={handoffReleaseHint}
+      editingContactName={editingContactName}
+      contactNameDraft={contactNameDraft}
+      setContactNameDraft={setContactNameDraft}
+      saveContactName={saveContactName}
+      savingContactName={savingContactName}
+      setEditingContactName={setEditingContactName}
+      navigate={navigate}
+      contactLabel={contactLabel}
+      terms={terms}
+      menu={menu}
+      openMenu={openMenu}
+      closeMenu={closeMenu}
+      threadScrollRef={threadScrollRef}
+      onThreadScroll={onThreadScroll}
+      threadHasMore={threadHasMore}
+      threadLoading={threadLoading}
+      loadThread={loadThread}
+      selectedPhoneRef={selectedPhoneRef}
+      threadPaging={threadPaging}
+      threadCursor={threadCursor}
+      error={error}
+      threadError={threadError}
+      threadMessagesEmptyUi={threadMessagesEmptyUi}
+      waChatConnected={waChatConnected}
+      threadBlocks={threadBlocks}
+      expandedMsgs={expandedMsgs}
+      setExpandedMsgs={setExpandedMsgs}
+      inboxMessageMediaUrl={inboxMessageMediaUrl}
+      inboxContentIsAudioPlaceholder={inboxContentIsAudioPlaceholder}
+      selectedMsgKey={selectedMsgKey}
+      setSelectedMsgKey={setSelectedMsgKey}
+      selectedPhoneFlags={selectedPhoneFlags}
+      senderKindFromMessage={senderKindFromMessage}
+      setImageLightboxUrl={setImageLightboxUrl}
+      formatWhen={formatWhen}
+      formatTimeOnly={formatTimeOnly}
+      copyToClipboard={copyToClipboard}
+      setHandoffActive={setHandoffActive}
+      setHandoffReleaseHint={setHandoffReleaseHint}
+      cancelScheduledMessage={cancelScheduledMessage}
+      cancelingMsgId={cancelingMsgId}
+      waSyncing={waSyncing}
+      reconcileLast24h={reconcileLast24h}
+      setDraft={setDraft}
+      textareaRef={textareaRef}
+      threadAtBottom={threadAtBottom}
+      newMsgCount={newMsgCount}
+      scrollThreadToBottom={scrollThreadToBottom}
+      ticketUpdating={ticketUpdating}
+      updateTicket={updateTicket}
+      showInboxKeyHints={showInboxKeyHints}
+      inboxThreadNarrow767={inboxThreadNarrow767}
+      isNarrowDesktop={isNarrowDesktop}
+      setContextOpen={setContextOpen}
+      composerProps={composerProps}
+    />
   );
 
   const scrollToMsgKey = (k) => {
@@ -4507,678 +3159,72 @@ export default function Inbox() {
     }
   };
 
-  const contextPanelContent = (
-    <div style={{ padding: 12, display: 'grid', gap: 12 }}>
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-        <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-          Conversa
-        </div>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-            <span className="ctx-label" style={{ marginBottom: 0 }}>Telefone</span>
-            <span className="navi-ui-count" style={{ textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
-              {selectedPhone || '—'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-            <span className="ctx-label" style={{ marginBottom: 0 }}>Status</span>
-            {(() => {
-              const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
-              return (
-                <span className="text-small" style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }}>
-                  {chip.label}
-                </span>
-              );
-            })()}
-          </div>
-          {!!String(selected?.transfer_to || '').trim() && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-              <span className="ctx-label" style={{ marginBottom: 0 }}>Transferido para</span>
-              <span className="navi-ui-count" style={{ textAlign: 'right', color: 'var(--ink)' }}>
-                {String(selected?.transfer_to || '').trim()}
-              </span>
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-          <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34 }}
-            type="button"
-            onClick={() => updateTicket({ status: 'waiting_customer' })}
-            disabled={!selectedPhone || ticketUpdating}
-            title="Marca como aguardando resposta do cliente"
-          >
-            Aguardando cliente
-          </button>
-          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
-            Recarregar
-          </button>
-          <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34 }}
-            type="button"
-            onClick={() => setLeadPanel((v) => (v === 'transfer' ? null : 'transfer'))}
-            disabled={!selectedPhone || ticketUpdating}
-          >
-            Transferir
-          </button>
-          {canConfigureAgenteIa && (
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
-              Configurar IA
-            </button>
-          )}
-        </div>
-      </div>
-
-      <ConversationNotesPanel academyId={academyId} conversationId={conversationIdForFlags} addToast={toast.addToast} />
-
-      {(() => {
-        const phone = String(selectedPhone || '').trim();
-        const leadId = String(selected?.lead_id || '').trim();
-        const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-        if (!lead && !phone) return null;
-        const name = pickDisplayName({
-          leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
-          manualContactName: selected?.contact_name,
-          whatsappProfileName: selected?.whatsapp_profile_name,
-          phone
-        });
-        const status = String(lead?.status || '').trim();
-        const intention = String(lead?.intention || '').trim();
-        const priority = String(lead?.priority || '').trim();
-        const hotLead = Boolean(lead?.hotLead);
-        return (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-            <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-              {`Contato / ${contactLabel}`}
-            </div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
-              {!!phone && (
-                <div className="navi-subtitle" style={{ marginTop: 0 }}>
-                  {phone}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {!!status && (
-                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
-                    {status}
-                  </span>
-                )}
-                {!!intention && (
-                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
-                    {intention}
-                  </span>
-                )}
-                {!!priority && (
-                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
-                    {priority}
-                  </span>
-                )}
-                {hotLead && (
-                  <span className="text-small inbox-hot-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
-                    <Flame size={12} aria-hidden />
-                    Quente
-                  </span>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {!selected?.lead_id && (
-                  <>
-                    <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))} disabled={!selectedPhone || linkingLead}>
-                      Converter em contato
-                    </button>
-                    <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))} disabled={!selectedPhone || linkingLead}>
-                      Associar contato
-                    </button>
-                  </>
-                )}
-                {!!selected?.lead_id && (
-                  <>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 10px', minHeight: 34 }}
-                      onClick={() => navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`)}
-                      type="button"
-                    >
-                      {`Ver ${contactLabel.toLowerCase()}`}
-                    </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => navigate('/pipeline')} type="button">
-                      Kanban
-                    </button>
-                  </>
-                )}
-                {!!lead?.id && (
-                  <button
-                    className="btn btn-outline"
-                    style={{ padding: '6px 10px', minHeight: 34 }}
-                    onClick={() => navigate(`/lead/${encodeURIComponent(String(lead.id))}`)}
-                    type="button"
-                  >
-                    Perfil completo
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {leadPanel === 'convert' && !selected?.lead_id && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            {`Converter em ${contactLabel.toLowerCase()}`}
-          </div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div>
-              <div className="ctx-label" style={{ marginBottom: 6 }}>
-                Nome
-              </div>
-              <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
-            </div>
-            <div>
-              <div className="ctx-label" style={{ marginBottom: 6 }}>
-                Tipo
-              </div>
-              <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
-                <option value="Adulto">Adulto</option>
-                <option value="Criança">Criança</option>
-                <option value="Juniores">Juniores</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
-                Fechar
-              </button>
-              <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={convertToLead} disabled={linkingLead} type="button">
-                {linkingLead ? 'Convertendo…' : 'Converter'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {leadPanel === 'transfer' && selectedPhone ? (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Transferir conversa
-          </div>
-          <p className="navi-subtitle" style={{ marginTop: 0, marginBottom: 10 }}>
-            O destinatário verá o status &quot;Transferido&quot; no ticket desta conversa.
-          </p>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div>
-              <div className="ctx-label" style={{ marginBottom: 6 }}>
-                Atendente
-              </div>
-              <select
-                className="input"
-                value={transferToDraft}
-                onChange={(e) => setTransferToDraft(e.target.value)}
-                disabled={ticketUpdating || teamMembers.length === 0}
-              >
-                <option value="">Selecione…</option>
-                {teamMembers.map((m) => {
-                  const label = membershipPrimaryLabel(m);
-                  return (
-                    <option key={String(m.userId || m.$id || label)} value={label}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-              {teamMembers.length === 0 ? (
-                <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>
-                  Nenhum membro ativo na equipe.
-                </p>
-              ) : null}
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-outline"
-                style={{ padding: '6px 10px', minHeight: 34 }}
-                type="button"
-                onClick={() => {
-                  setLeadPanel(null);
-                  setTransferToDraft('');
-                }}
-                disabled={ticketUpdating}
-              >
-                Fechar
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ padding: '6px 10px', minHeight: 34 }}
-                type="button"
-                onClick={() => void confirmTransferConversation()}
-                disabled={ticketUpdating || !transferToDraft}
-              >
-                {ticketUpdating ? 'Transferindo…' : 'Confirmar transferência'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {leadPanel === 'associate' && !selected?.lead_id && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Associar contato
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-            <input className="input" value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="Buscar por nome ou telefone" style={{ flex: 1, minWidth: 220 }} />
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => fetchLeads()} disabled={leadsLoading || linkingLead} type="button">
-              Atualizar
-            </button>
-          </div>
-          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
-          {!leadsLoading && leadCandidates.length === 0 && (
-            <EmptyState variant="compact" tone="dashed" title="Nenhuma conversa encontrada." role="status" />
-          )}
-          {!leadsLoading && leadCandidates.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {leadCandidates.map((l) => (
-                <button
-                  key={l.id}
-                  className="btn btn-outline"
-                  style={{ justifyContent: 'space-between', display: 'flex', minHeight: 44 }}
-                  onClick={() => linkLeadToConversation({ leadId: l.id })}
-                  disabled={linkingLead}
-                  type="button"
-                >
-                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                    <span style={{ fontWeight: 800 }}>{l.name || 'Sem nome'}</span>
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || ''}</span>
-                  </span>
-                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.pipelineStage || l.status || ''}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {selected?.summary?.text && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Resumo
-          </div>
-          <div className="navi-subtitle" style={{ whiteSpace: 'pre-wrap', color: 'var(--ink)', marginTop: 0 }}>{selected.summary.text}</div>
-        </div>
-      )}
-
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-          <div className="navi-section-heading">
-            Fixadas
-          </div>
-          <span className="navi-ui-count">{pinnedMessages.length}</span>
-        </div>
-        {pinnedMessages.length === 0 ? (
-          <EmptyState variant="bare" title="Nenhuma mensagem fixada." role="status" />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {pinnedMessages.map((pm) => (
-              <button
-                key={pm.key}
-                type="button"
-                className="btn btn-outline"
-                style={{ justifyContent: 'space-between', display: 'flex', minHeight: 40, textAlign: 'left' }}
-                onClick={() => {
-                  setSelectedMsgKey(pm.key);
-                  scrollToMsgKey(pm.key);
-                  if (isMobile) setDetailsOpen(false);
-                }}
-              >
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || '—'}</span>
-                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                  Ver
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-        <div style={{ marginTop: 10 }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-            Importantes: {Object.keys(selectedPhoneFlags?.important || {}).length}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const contextPanelProps = {
+    selectedPhone,
+    selected,
+    ticketChip,
+    updateTicket,
+    ticketUpdating,
+    loadThread,
+    setLeadPanel,
+    canConfigureAgenteIa,
+    openPromptSettings,
+    academyId,
+    conversationIdForFlags,
+    toast,
+    leadById,
+    leadByPhone,
+    normalizePhone,
+    pickDisplayName,
+    contactLabel,
+    navigate,
+    linkingLead,
+    leadPanel,
+    leadNameDraft,
+    setLeadNameDraft,
+    leadTypeDraft,
+    setLeadTypeDraft,
+    convertToLead,
+    transferToDraft,
+    setTransferToDraft,
+    teamMembers,
+    confirmTransferConversation,
+    leadSearch,
+    setLeadSearch,
+    fetchLeads,
+    leadsLoading,
+    leadCandidates,
+    linkLeadToConversation,
+    pinnedMessages,
+    setSelectedMsgKey,
+    scrollToMsgKey,
+    isMobile,
+    setDetailsOpen,
+    selectedPhoneFlags,
+    membershipPrimaryLabel,
+  };
 
   const contextPanel = (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
-      <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        <div className="navi-section-heading">Detalhes</div>
-        {!isMobile && (
-          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setContextOpen(false)}>
-            Ocultar painel
-          </button>
-        )}
-      </div>
-      <div className="inbox-context-panel-scroll">{contextPanelContent}</div>
-    </div>
+    <InboxContextPanel
+      isMobile={isMobile}
+      setContextOpen={setContextOpen}
+      {...contextPanelProps}
+    />
   );
 
   const contextPanelVisible = contextOpen && !isNarrowDesktop;
 
   return (
-    <div
-      className="container inbox-page"
-      style={{
-        paddingTop: 18,
-        paddingBottom: 30,
-        maxWidth: '100%',
-        width: '100%',
-        flex: '1 1 0%',
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        boxSizing: 'border-box'
-      }}
-    >
+    <div className="container inbox-page">
       {showWaDisconnectBanner ? (
-        <div
-          role="status"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 10,
-            padding: '10px 14px',
-            marginBottom: 12,
-            borderRadius: 10,
-            background: 'rgba(245, 158, 11, 0.12)',
-            border: '1px solid rgba(245, 158, 11, 0.35)',
-            color: 'var(--text)',
-            fontSize: '0.9rem',
-            lineHeight: 1.45
-          }}
+        <StatusBanner
+          variant="warning"
+          className="inbox-global-error"
+          action={{ label: 'Reconectar →', onClick: () => navigate('/agente-ia') }}
         >
-          <AlertTriangle size={18} style={{ flexShrink: 0, color: '#b45309' }} aria-hidden />
-          <span style={{ flex: '1 1 auto', minWidth: 0 }}>
-            WhatsApp desconectado — as mensagens não estão chegando.{' '}
-            <button
-              type="button"
-              onClick={() => navigate('/agente-ia')}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                margin: 0,
-                color: 'var(--accent, #5b3fbf)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                font: 'inherit'
-              }}
-            >
-              Reconectar →
-            </button>
-          </span>
-        </div>
+          WhatsApp desconectado — as mensagens não estão chegando.
+        </StatusBanner>
       ) : null}
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .inbox-msg { border-radius: 12px; padding: 8px; margin: -6px; transition: var(--transition); }
-        .inbox-msg.selected { background: var(--v50); outline: 2px solid rgba(91, 63, 191, 0.35); }
-        .inbox-msg-actions { opacity: 0; pointer-events: none; transition: var(--transition); }
-        .inbox-msg:hover .inbox-msg-actions, .inbox-msg.selected .inbox-msg-actions { opacity: 1; pointer-events: auto; }
-        .inbox-extra-filters-menu {
-          left: 0;
-          right: auto;
-          z-index: 45;
-          min-width: 280px;
-          max-width: min(360px, 92vw);
-          padding: 10px;
-        }
-        .inbox-menu-overlay { position: fixed; inset: 0; background: var(--overlay-menu); z-index: 80; }
-        .inbox-menu-panel { width: 260px; padding: var(--menu-padding) 0; }
-        .inbox-menu-item { border-radius: 0; font-size: var(--inbox-font-secondary); font-weight: 700; justify-content: space-between; min-height: 42px; }
-        .inbox-menu-item.navi-menu__item--danger { color: var(--danger); }
-        .inbox-menu-item.navi-menu__item--danger:hover { background: var(--danger-light); }
-        .inbox-menu-item.navi-menu__item--muted { color: var(--text-secondary); font-weight: 600; }
-        .inbox-empty-thread-placeholder {
-          min-height: 62vh;
-          min-height: 62dvh;
-        }
-        .inbox-context-panel-scroll {
-          max-height: 70vh;
-          max-height: 70dvh;
-          overflow: auto;
-        }
-        .inbox-details-modal-shell {
-          max-height: 92vh;
-          max-height: 92dvh;
-        }
-        .inbox-details-modal-scroll {
-          max-height: calc(92vh - 56px);
-          max-height: calc(92dvh - 56px);
-          overflow: auto;
-        }
-        .inbox-conversation-item {
-          transition: background .16s ease, border-color .16s ease;
-          appearance: none;
-          -webkit-appearance: none;
-          border-radius: 0;
-          font: inherit;
-          line-height: 1.25;
-          min-height: 44px;
-        }
-        .inbox-conversation-item:hover { background: rgba(15, 23, 42, 0.04) !important; }
-        .inbox-conversation-item.active { box-shadow: inset 3px 0 0 var(--v500); }
-        .inbox-msg-text {
-          font-size: var(--inbox-font-body);
-          line-height: var(--inbox-line-body);
-        }
-        .inbox-msg-sender-label {
-          font-size: var(--inbox-font-caption);
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          margin-bottom: 4px;
-          line-height: 1.25;
-        }
-        .inbox-group-title {
-          position: sticky; top: 0; z-index: 3;
-          background: var(--surface); border-bottom: 1px solid var(--border);
-          padding: 6px 12px; font-size: var(--inbox-font-group-label); font-weight: 800; letter-spacing: .03em;
-          color: var(--text-secondary); text-transform: uppercase;
-        }
-        .inbox-list-skeleton {
-          height: 58px; border-radius: 10px; margin-bottom: 10px;
-          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
-          background-size: 200% 100%;
-          animation: inboxSk 1.2s ease-in-out infinite;
-        }
-        .inbox-chat-skeleton {
-          height: 34px; border-radius: 12px; margin-bottom: 10px; width: 52%;
-          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
-          background-size: 200% 100%;
-          animation: inboxSk 1.2s ease-in-out infinite;
-        }
-        .inbox-chat-skeleton.right { margin-left: auto; width: 46%; }
-        .inbox-chat-skeleton.left { margin-right: auto; }
-        @keyframes inboxSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-        @keyframes inbox-improve-spin { to { transform: rotate(360deg); } }
-        .inbox-improve-spin { animation: inbox-improve-spin 0.75s linear infinite; }
-        @keyframes inbox-slash-pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        .inbox-slash-templates {
-          position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 8px; z-index: 55;
-          background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow);
-          max-height: 288px; overflow-y: auto; padding: 4px;
-          animation: inbox-slash-pop 120ms ease-out;
-        }
-        @media (max-width: 1023px) {
-          .inbox-thread-header-actions .btn {
-            min-height: 44px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            box-sizing: border-box;
-          }
-          .inbox-thread-header-actions .btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-          }
-          .inbox-composer-action-btn {
-            min-width: 44px !important;
-            min-height: 44px !important;
-            display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
-          }
-          .inbox-composer-emoji-grid-btn {
-            min-width: 44px;
-            min-height: 44px;
-          }
-        }
-        .inbox-note-delete-btn {
-          min-width: 44px;
-          min-height: 44px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .inbox-slash-templates-row {
-          width: 100%; text-align: left; padding: 8px 10px; border: none; border-radius: 6px;
-          background: transparent; cursor: pointer; font: inherit; color: var(--text);
-          display: block; box-sizing: border-box;
-        }
-        .inbox-slash-templates-row:hover, .inbox-slash-templates-row.active { background: rgba(91, 63, 191, 0.08); }
-        .agent-header { margin-bottom: 24px; }
-        .agent-subtitle { color: var(--text-muted); font-size: var(--inbox-font-list-title); margin: 0; line-height: 1.45; }
-        .agent-toggle-block {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 16px;
-          margin-bottom: 24px;
-        }
-        .agent-toggle-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .agent-toggle-label { font-weight: 600; font-size: var(--inbox-font-body); color: var(--text); }
-        .agent-toggle-hint {
-          font-size: var(--inbox-font-secondary);
-          color: var(--text-muted);
-          margin: 8px 0 0;
-          padding: 8px 12px;
-          background: var(--surface-hover, var(--v50));
-          border-radius: 8px;
-          border-left: 3px solid var(--warning);
-          line-height: 1.45;
-        }
-        .agent-toggle-hint strong { color: var(--text); font-weight: 700; }
-        .agent-toggle-btn {
-          min-height: 36px;
-          padding: 8px 16px;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          background: var(--surface-hover);
-          color: var(--text);
-          font-weight: 600;
-          font-size: var(--inbox-font-list-title);
-          cursor: pointer;
-        }
-        .agent-toggle-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        .agent-toggle-btn.active {
-          background: var(--purple);
-          color: #fff;
-          border-color: var(--purple);
-        }
-        .agent-instructions-panel {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          background: var(--surface);
-          padding: 16px;
-          margin-bottom: 24px;
-        }
-        .agent-field { margin-bottom: 16px; }
-        .agent-field label {
-          display: block;
-          font-weight: 600;
-          margin-bottom: 6px;
-          font-size: var(--inbox-font-list-title);
-        }
-        .agent-field-textarea {
-          width: 100%;
-          box-sizing: border-box;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: var(--inbox-font-list-title);
-          resize: vertical;
-          font-family: inherit;
-        }
-        .agent-actions {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 16px;
-        }
-        .agent-actions-right { display: flex; gap: 8px; flex-wrap: wrap; }
-        .unsaved-indicator { color: var(--warning); font-size: var(--inbox-font-secondary); font-weight: 600; }
-        .agent-accordion {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 12px 16px;
-          margin-bottom: 24px;
-          background: var(--surface);
-        }
-        .agent-accordion summary { cursor: pointer; font-weight: 600; font-size: var(--inbox-font-list-title); }
-        .agent-accordion-content { margin-top: 14px; }
-        .agent-warning { color: var(--danger); font-size: var(--inbox-font-secondary); margin: 8px 0 0; line-height: 1.45; }
-        .agent-info { color: var(--text-muted); font-size: var(--inbox-font-secondary); margin: 8px 0 0; line-height: 1.45; }
-        .agent-field-hint { color: var(--text-muted); font-size: var(--inbox-font-secondary); margin: 0 0 8px; line-height: 1.45; }
-        .agent-instructions-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-        .wizard-agente-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 2100;
-          background: rgba(0, 0, 0, 0.45);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 16px;
-        }
-        .wizard-agente-panel {
-          width: min(560px, 100%);
-          max-height: min(90vh, 820px);
-          overflow: auto;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          padding: 16px;
-          box-shadow: var(--shadow-lg);
-        }
-        .wizard-agente-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
-        .wizard-agente-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 16px;
-          padding-top: 12px;
-          border-top: 1px solid var(--border);
-        }
-        .wizard-agente-checks, .wizard-agente-radios { display: flex; flex-wrap: wrap; gap: 12px 16px; }
-        .wizard-agente-radios--col { flex-direction: column; align-items: flex-start; }
-        .wizard-agente-check { display: inline-flex; align-items: center; gap: 8px; font-size: var(--inbox-font-list-title); cursor: pointer; }
-        .agent-field-label-block { display: block; font-weight: 600; margin-bottom: 8px; font-size: var(--inbox-font-list-title); }
-      ` }} />
 
       <PageHeader
         className="inbox-page-header"
@@ -5199,100 +3245,71 @@ export default function Inbox() {
                   </span>
                 </>
               ) : null}
+              {!isMobile ? (
+                <span
+                  className="inbox-shortcut-hint"
+                  title="Atalhos (fora de campos de texto): J / K conversas, R focar resposta, E resolver, Ctrl+R recarregar histórico, Ctrl+K alternar resolvido."
+                >
+                  {' '}
+                  · J · K
+                </span>
+              ) : null}
             </>
           )
         }
-        actions={
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'stretch',
-                flex: '1 1 300px',
-                minWidth: 220,
-                maxWidth: 520
-              }}
+        toolbar={
+          <div className="page-header-row navi-toolbar inbox-page-header__toolbar">
+            <SearchField
+              className="inbox-toolbar-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por telefone ou nome…"
+              aria-label="Buscar conversas"
+            />
+            <button
+              type="button"
+              className={minhaFilaOn ? 'btn-action-primary inbox-minha-fila-btn' : 'btn-action-ghost inbox-minha-fila-btn'}
+              aria-pressed={minhaFilaOn}
+              onClick={() => setMinhaFilaOn((v) => !v)}
+              title="Quando ativo: só conversas com handoff humano e não lidas. Preferência salva neste aparelho."
             >
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por telefone ou nome…"
-                className="form-input"
-                style={{ flex: 1, minWidth: 160, minHeight: 34, boxSizing: 'border-box' }}
-              />
-              <button
-                type="button"
-                className={minhaFilaOn ? 'btn btn-primary' : 'btn btn-outline'}
-                aria-pressed={minhaFilaOn}
-                onClick={() => setMinhaFilaOn((v) => !v)}
-                title="Quando ativo: só conversas com handoff humano e não lidas. Preferência salva neste aparelho."
-                style={{
-                  flexShrink: 0,
-                  padding: '6px 12px',
-                  minHeight: 34,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  boxSizing: 'border-box'
-                }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                    width: 22,
-                    height: 20
-                  }}
-                >
-                  <User size={17} strokeWidth={2} style={{ opacity: 0.92 }} />
-                  <Zap
-                    size={11}
-                    strokeWidth={2.75}
-                    style={{
-                      position: 'absolute',
-                      right: -3,
-                      bottom: -2,
-                      color: minhaFilaOn ? 'rgba(255,255,255,0.95)' : 'var(--warning)'
-                    }}
-                  />
-                </span>
-                <span style={{ whiteSpace: 'nowrap' }}>Minha fila</span>
-              </button>
-            </div>
-            <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-              <button
-                className="btn btn-primary"
-                style={{ padding: '6px 10px', minHeight: 34 }}
-                onClick={reconcileLast24h}
-                disabled={waSyncing}
-                type="button"
-              >
-                {waSyncing ? 'Sincronizando…' : 'Sincronizar WhatsApp'}
-              </button>
-<button
-                className={desktopNotify ? 'btn btn-secondary' : 'btn btn-outline'}
-                onClick={() => void toggleDesktopNotifyPreference()}
-                title={
-                  desktopNotify
-                    ? 'Notificações do sistema ativas (Windows/macOS)'
-                    : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
-                }
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', minHeight: 34 }}
-                type="button"
-              >
-                {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-                Notificações
-              </button>
-            </div>
+              <span className="inbox-minha-fila-icon" aria-hidden>
+                <User size={17} strokeWidth={2} style={{ opacity: 0.92 }} />
+                <Zap
+                  size={11}
+                  strokeWidth={2.75}
+                  className={minhaFilaOn ? 'inbox-minha-fila-zap inbox-minha-fila-zap--active' : 'inbox-minha-fila-zap inbox-minha-fila-zap--idle'}
+                />
+              </span>
+              Minha fila
+            </button>
+            <div style={{ flex: 1 }} />
+            <button
+              type="button"
+              className="btn-action-primary"
+              onClick={reconcileLast24h}
+              disabled={waSyncing}
+            >
+              {waSyncing ? 'Sincronizando…' : 'Sincronizar WhatsApp'}
+            </button>
+            <button
+              type="button"
+              className={desktopNotify ? 'btn-action-ghost' : 'btn-action-ghost'}
+              onClick={() => void toggleDesktopNotifyPreference()}
+              title={
+                desktopNotify
+                  ? 'Notificações do sistema ativas (Windows/macOS)'
+                  : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
+              }
+            >
+              {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+              Notificações
+            </button>
           </div>
         }
       />
 
-      <div className="inbox-body-grow" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div className="inbox-body-grow">
 
       {menu && (
         <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
@@ -5648,36 +3665,13 @@ export default function Inbox() {
           role="dialog"
           aria-modal="true"
           aria-label="Imagem ampliada"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 96,
-            background: 'rgba(0, 0, 0, 0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 12,
-            boxSizing: 'border-box',
-          }}
+          className="inbox-image-lightbox"
           onClick={() => setImageLightboxUrl('')}
         >
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary inbox-image-lightbox__close"
             aria-label="Fechar imagem"
-            style={{
-              position: 'fixed',
-              top: 16,
-              right: 16,
-              zIndex: 97,
-              minWidth: 44,
-              minHeight: 44,
-              padding: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 999,
-            }}
             onClick={(e) => {
               e.stopPropagation();
               setImageLightboxUrl('');
@@ -5688,15 +3682,7 @@ export default function Inbox() {
           <img
             src={String(imageLightboxUrl).trim()}
             alt=""
-            style={{
-              maxWidth: '100%',
-              maxHeight: '100%',
-              width: 'auto',
-              height: 'auto',
-              objectFit: 'contain',
-              borderRadius: 4,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            }}
+            className="inbox-image-lightbox__img"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
@@ -5704,22 +3690,20 @@ export default function Inbox() {
 
       {(isMobile || isNarrowDesktop) && detailsOpen && selectedPhone && (
         <div
-          style={{ position: 'fixed', zIndex: 70, inset: 0, background: 'rgba(18,16,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
+          className="inbox-details-modal-overlay"
           onClick={() => setDetailsOpen(false)}
           role="presentation"
         >
-          <div
-            className="inbox-details-modal-shell"
-            style={{ width: 'min(560px, 96vw)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: 10, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontWeight: 900 }}>Detalhes</div>
-              <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setDetailsOpen(false)}>
+          <div className="inbox-details-modal-shell inbox-details-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="inbox-details-modal__header">
+              <div className="inbox-details-modal__title">Detalhes</div>
+              <button className="btn btn-outline navi-btn--toolbar" type="button" onClick={() => setDetailsOpen(false)}>
                 Fechar
               </button>
             </div>
-            <div className="inbox-details-modal-scroll">{contextPanelContent}</div>
+            <div className="inbox-details-modal-scroll">
+              <InboxContextPanelContent {...contextPanelProps} />
+            </div>
           </div>
         </div>
       )}
@@ -5731,46 +3715,10 @@ export default function Inbox() {
         const sheetUnread = Number(it?._unreadCount ?? it?.unread_count ?? 0);
         if (!phone) return null;
         return (
-          <div
-            style={{
-              position: 'fixed',
-              zIndex: 72,
-              inset: 0,
-              background: 'rgba(18,16,42,0.45)',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-            }}
-            onClick={() => setConversationSheet(null)}
-            role="presentation"
-          >
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 560,
-                background: 'var(--surface)',
-                borderTopLeftRadius: 16,
-                borderTopRightRadius: 16,
-                border: '1px solid var(--border)',
-                borderBottom: 'none',
-                padding: '12px 16px 20px',
-                boxShadow: '0 -8px 32px rgba(0,0,0,0.12)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ width: 40, height: 4, borderRadius: 4, background: 'var(--border)', margin: '0 auto 14px' }} aria-hidden />
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 'var(--inbox-font-body)',
-                  marginBottom: 14,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {title}
-              </div>
+          <div className="inbox-sheet-overlay" onClick={() => setConversationSheet(null)} role="presentation">
+            <div className="inbox-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="inbox-sheet__handle" aria-hidden />
+              <div className="inbox-sheet__title">{title}</div>
               {sheetUnread === 0 ? (
                 <button
                   type="button"
@@ -5820,32 +3768,21 @@ export default function Inbox() {
       })()}
 
 
-      {error && (
-        <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: 10, borderRadius: 10, marginBottom: 12, flexShrink: 0 }}>
-          {error}
-        </div>
-      )}
+      {error ? <StatusBanner variant="error" message={error} className="inbox-global-error" /> : null}
 
       {
                 isMobile ? (
-                  <div className="inbox-mobile-split" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <div className="inbox-mobile-split">
                     <div
                       className="inbox-mobile-list-slot"
-                      style={{ display: selectedPhone ? 'none' : 'flex', flex: 1, minHeight: 0, flexDirection: 'column' }}
+                      style={{ display: selectedPhone ? 'none' : 'flex' }}
                       aria-hidden={selectedPhone ? true : undefined}
                     >
                       {listPanel}
                     </div>
                     <div
                       className="inbox-mobile-thread-slot"
-                      style={{
-                        display: selectedPhone ? 'flex' : 'none',
-                        flex: 1,
-                        minHeight: 0,
-                        minWidth: 0,
-                        flexDirection: 'column',
-                        overflow: 'hidden'
-                      }}
+                      style={{ display: selectedPhone ? 'flex' : 'none' }}
                       aria-hidden={!selectedPhone ? true : undefined}
                     >
                       {threadPanel}
@@ -5853,64 +3790,34 @@ export default function Inbox() {
                   </div>
                 ) : (
                   <div
+                    className="inbox-layout-grid"
                     style={{
-                      display: 'grid',
-                      width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      flex: 1,
-                      minHeight: 0,
-                      gridTemplateColumns: contextPanelVisible ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)` : `${listWidth}px 10px minmax(0, 1fr)`,
-                      gap: 0,
-                      alignItems: 'stretch'
+                      gridTemplateColumns: contextPanelVisible
+                        ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)`
+                        : `${listWidth}px 10px minmax(0, 1fr)`,
                     }}
                   >
-                    <div
-                      style={{
-                        paddingRight: 10,
-                        minWidth: 0,
-                        minHeight: 0,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        zIndex: 2
-                      }}
-                    >
-                      {listPanel}
-                    </div>
+                    <div className="inbox-layout-list-col">{listPanel}</div>
                     <div
                       role="separator"
                       aria-orientation="vertical"
                       onMouseDown={startResize}
                       onDoubleClick={() => setListWidth(420)}
-                      style={{
-                        cursor: 'col-resize',
-                        width: 10,
-                        borderRadius: 999,
-                        background: 'transparent',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        alignSelf: 'stretch'
-                      }}
+                      className="inbox-layout-resize-handle"
                       title="Arraste para ajustar a largura"
                     >
-                      <div style={{ width: 2, flex: 1, minHeight: 200, background: 'var(--border)', borderRadius: 999 }} />
+                      <div className="inbox-layout-resize-handle__bar" />
                     </div>
                     <div
-                      style={{
-                        paddingLeft: 10,
-                        paddingRight: contextPanelVisible ? 10 : 0,
-                        minWidth: 0,
-                        minHeight: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden'
-                      }}
+                      className={
+                        contextPanelVisible
+                          ? 'inbox-layout-thread-col inbox-layout-thread-col--with-context'
+                          : 'inbox-layout-thread-col'
+                      }
                     >
                       {threadPanel}
                     </div>
-                    {contextPanelVisible && <div style={{ paddingLeft: 10, minHeight: 0, overflow: 'auto' }}>{contextPanel}</div>}
+                    {contextPanelVisible ? <div className="inbox-layout-context-col">{contextPanel}</div> : null}
                   </div>
                 )
       }

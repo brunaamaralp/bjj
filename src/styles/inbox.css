@@ -88,6 +88,18 @@
   border-radius: 999px;
   align-self: stretch;
   flex-shrink: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.inbox-layout-resize-handle__bar {
+  width: 2px;
+  flex: 1;
+  min-height: 200px;
+  background: var(--border);
+  border-radius: 999px;
 }
 
 .inbox-layout-thread-col {
@@ -218,12 +230,12 @@
   border-top: 1px solid var(--border);
 }
 
-.inbox-list-filters__label-heading {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 700;
-  color: var(--text-secondary);
+.inbox-list-filters__label-section .inbox-label-filter--active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
 }
+
 
 .inbox-unread-badge {
   padding: 1px 7px;
@@ -308,6 +320,7 @@
   overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   background: var(--surface);
+  padding: 14px;
 }
 
 .inbox-thread-composer {
@@ -826,6 +839,15 @@
   max-height: 92vh;
   max-height: 92dvh;
 }
+
+.inbox-details-modal {
+  width: min(560px, 96vw);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
 
 .inbox-details-modal-scroll {
   max-height: calc(92vh - 56px);
