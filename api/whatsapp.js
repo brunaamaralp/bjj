@@ -10,6 +10,7 @@ import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
 import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/server/zapsterInstanceLookup.js';
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
+import { detectMediaTypeFromMime, sendZapsterMedia } from '../lib/server/zapsterSend.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -372,6 +373,47 @@ async function sendZapsterTextWithOptionalRecover({ recipient, text, academyId, 
   throw new Error('Falha ao enviar');
 }
 
+async function sendZapsterMediaWithOptionalRecover({
+  recipient,
+  mediaUrl,
+  mimeType,
+  caption,
+  fileName,
+  academyId,
+  initialInstanceId
+}) {
+  let instanceId = String(initialInstanceId || '').trim();
+  const transientRetryMs = [350, 900];
+  for (let attempt = 0; attempt < transientRetryMs.length + 1; attempt++) {
+    try {
+      return await sendZapsterMedia({
+        recipient,
+        instanceId,
+        mediaUrl,
+        mimeType,
+        caption,
+        fileName
+      });
+    } catch (e) {
+      const raw = String(e?.zapsterRaw || '');
+      if (isZapsterInstanceNotFound(raw)) {
+        const recovered = await recoverZapsterInstanceIdFromList(academyId);
+        if (recovered && recovered !== instanceId) {
+          await persistAcademyZapsterInstanceId(academyId, recovered);
+          instanceId = recovered;
+          continue;
+        }
+      }
+      if (attempt < transientRetryMs.length && isTransientZapsterSendError(e)) {
+        await sleep(transientRetryMs[attempt]);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('Falha ao enviar mídia');
+}
+
 async function findLeadByPhone(phone, academyId) {
   if (!LEADS_COL) return null;
   const candidates = [];
@@ -394,17 +436,35 @@ async function findLeadByPhone(phone, academyId) {
   return null;
 }
 
-async function appendOutboundToConversation(phone, academyId, academyDoc, text, { sendAtIso = '', messageId = '', status = 'sent' }) {
+async function appendOutboundToConversation(
+  phone,
+  academyId,
+  academyDoc,
+  text,
+  { sendAtIso = '', messageId = '', status = 'sent', mediaUrl = '', mimeType = '', fileName = '' } = {}
+) {
   const { doc } = await getOrCreateConversationDoc(phone, academyId, academyDoc);
   const messages = safeParseMessages(doc.messages);
   const nowIso = new Date().toISOString();
+  const media = String(mediaUrl || '').trim();
+  const mime = String(mimeType || '').trim();
+  const mt = media ? detectMediaTypeFromMime(mime) : '';
   const row = {
     role: 'assistant',
-    content: text,
+    content: String(text || '').trim(),
     timestamp: nowIso,
     sender: 'human',
     ...(sendAtIso ? { status: 'scheduled', send_at: sendAtIso } : { status: status || 'sent' }),
-    ...(messageId ? { message_id: String(messageId) } : {})
+    ...(messageId ? { message_id: String(messageId) } : {}),
+    ...(media
+      ? {
+          type: mt,
+          mediaUrl: media,
+          mimeType: mime || null,
+          media_stored: true,
+          ...(mt === 'document' && fileName ? { fileName: String(fileName).trim() } : {})
+        }
+      : {})
   };
   messages.push(row);
   await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
@@ -766,8 +826,20 @@ export default async function handler(req, res) {
     if (!ensureJson(req, res)) return;
     const phone = normalizePhone(req.body?.phone || '');
     const text = String(req.body?.text || '').trim();
+    const mediaUrl = String(req.body?.mediaUrl || req.body?.media_url || '').trim();
+    const mimeType = String(req.body?.mimeType || req.body?.mime_type || '').trim();
+    const caption = String(req.body?.caption || '').trim();
+    const fileName = String(req.body?.fileName || req.body?.file_name || '').trim();
     const sendAtRaw = String(req.body?.send_at || '').trim();
-    if (!phone || !text) return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
+    if (!phone || (!text && !mediaUrl)) {
+      return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
+    }
+    if (mediaUrl && sendAtRaw) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: 'Agendamento não está disponível para envio de mídia nesta versão.'
+      });
+    }
     let sendAtIso = '';
     try {
       waDebug({
@@ -775,6 +847,7 @@ export default async function handler(req, res) {
         phoneLen: phone.length,
         phoneSuffix4: phone.length >= 4 ? phone.slice(-4) : '',
         textLen: text.length,
+        hasMediaUrl: Boolean(mediaUrl),
         hasSendAtRaw: Boolean(sendAtRaw),
       });
       const instanceId = await getZapsterInstanceIdForAcademy(academyDoc, academyId);
@@ -794,10 +867,10 @@ export default async function handler(req, res) {
       }
 
       if (!String(instanceId || '').trim()) {
-        if (sendAtIso) {
+        if (sendAtIso || mediaUrl) {
           return res.status(400).json({
             sucesso: false,
-            erro: 'Para agendar o envio é preciso conectar o WhatsApp (instância Zapster) em Agente IA.'
+            erro: 'Para enviar mídia ou agendar mensagens é preciso conectar o WhatsApp (instância Zapster) em Agente IA.'
           });
         }
         const waMeUrl = buildWaMeUrl(phone, text);
@@ -812,6 +885,50 @@ export default async function handler(req, res) {
           status: 'wa_me',
           send_at: null,
           message_id: null
+        });
+      }
+
+      const outboundText = text || caption || '';
+      const persistOpts = {
+        sendAtIso,
+        messageId: '',
+        mediaUrl: mediaUrl || '',
+        mimeType: mimeType || '',
+        fileName: fileName || ''
+      };
+
+      if (mediaUrl) {
+        waDebug({ step: 'send_channel', channel: 'zapster_api_media' });
+        const sent = await sendZapsterMediaWithOptionalRecover({
+          recipient: phone,
+          mediaUrl,
+          mimeType: mimeType || 'image/jpeg',
+          caption: caption || text,
+          fileName,
+          academyId,
+          initialInstanceId: instanceId
+        });
+        persistOpts.messageId = sent?.message_id ? String(sent.message_id) : '';
+        const contentForStore =
+          outboundText ||
+          (detectMediaTypeFromMime(mimeType) === 'image'
+            ? '[imagem]'
+            : detectMediaTypeFromMime(mimeType) === 'audio'
+              ? '🎵 [Áudio enviado]'
+              : '📄 [Documento enviado]');
+        await appendOutboundToConversation(phone, academyId, academyDoc, contentForStore, persistOpts);
+        waDebug({
+          step: 'send_ok',
+          status: 'sent',
+          hasMessageId: Boolean(sent?.message_id),
+          media: true
+        });
+        return res.status(200).json({
+          sucesso: true,
+          enviado: true,
+          status: 'sent',
+          send_at: null,
+          message_id: sent?.message_id ? String(sent.message_id) : null
         });
       }
 

@@ -5,16 +5,8 @@ import { useTerms } from '../../lib/terminology.js';
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
 
-function resolvePrimaryChip({
-  showHandoffChip,
-  showL2WaitingChip,
-  ticket,
-  showSemContatoChip,
-  showIaChip,
-  showContactChip,
-  contactType,
-  terms,
-}) {
+/** Apenas chips de ação (handoff / aguardando) — sem decoração na lista. */
+function resolvePrimaryChip({ showHandoffChip, showL2WaitingChip, ticket }) {
   if (showHandoffChip) {
     return { kind: 'handoff', label: 'Com você', className: 'inbox-status-chip-handoff' };
   }
@@ -24,24 +16,6 @@ function resolvePrimaryChip({
       label: ticket.label,
       className: 'inbox-ticket-chip-inline',
       style: { background: ticket.bg, color: ticket.fg },
-    };
-  }
-  if (showSemContatoChip) {
-    return {
-      kind: 'unlinked',
-      label: 'Sem contato',
-      className: 'inbox-status-chip-unlinked',
-      title: 'Conversa sem contato vinculado no funil',
-    };
-  }
-  if (showIaChip) {
-    return { kind: 'ia', label: 'IA', className: 'inbox-status-chip-ia' };
-  }
-  if (showContactChip) {
-    return {
-      kind: 'contact',
-      label: contactType === 'student' ? terms.student : 'Lead',
-      className: 'inbox-conversation-item__contact-type',
     };
   }
   return null;
@@ -118,11 +92,6 @@ function ConversationItem({
     showHandoffChip,
     showL2WaitingChip,
     ticket,
-    showSemContatoChip,
-    showIaChip,
-    showContactChip,
-    contactType,
-    terms,
   });
 
   const longPressTimerRef = useRef(null);
@@ -245,21 +214,13 @@ function ConversationItem({
                 {String(item?._displayTitle || '-')}
               </span>
               {primaryChip ? (
-                primaryChip.kind === 'contact' ? (
-                  <span
-                    className={`inbox-conversation-item__contact-type${compact ? ' inbox-conversation-item__contact-type--compact' : ''}`}
-                  >
-                    {primaryChip.label}
-                  </span>
-                ) : (
-                  <span
-                    className={`inbox-status-chip ${primaryChip.className}`}
-                    title={primaryChip.title}
-                    style={primaryChip.style}
-                  >
-                    {primaryChip.label}
-                  </span>
-                )
+                <span
+                  className={`inbox-status-chip ${primaryChip.className}`}
+                  title={primaryChip.title}
+                  style={primaryChip.style}
+                >
+                  {primaryChip.label}
+                </span>
               ) : null}
             </div>
             <div

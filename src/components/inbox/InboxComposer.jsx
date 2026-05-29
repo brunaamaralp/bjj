@@ -1,7 +1,14 @@
-import React from 'react';
-import { ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp, Loader2, Paperclip, Sparkles, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import { applyWhatsappTemplatePlaceholders } from '../../../lib/whatsappTemplateDefaults.js';
+
+function attachmentKindFromFile(file) {
+  const mime = String(file?.type || '').toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('audio/')) return 'audio';
+  return 'document';
+}
 
 export default function InboxComposer(props) {
   const {
@@ -46,13 +53,157 @@ export default function InboxComposer(props) {
     setComposerExpanded,
     setSlashOpen,
     setSlashQuery,
+    toast
   } = props;
+
+  const fileInputRef = useRef(null);
+  const [attachment, setAttachment] = useState(null);
+  const [mediaCaption, setMediaCaption] = useState('');
+  const [audioDuration, setAudioDuration] = useState('');
+
+  function clearAttachment() {
+    setAttachment((prev) => {
+      if (prev?.previewUrl) {
+        try {
+          URL.revokeObjectURL(prev.previewUrl);
+        } catch {
+          void 0;
+        }
+      }
+      return null;
+    });
+    setMediaCaption('');
+    setAudioDuration('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  useEffect(() => () => {
+    if (attachment?.previewUrl) {
+      try {
+        URL.revokeObjectURL(attachment.previewUrl);
+      } catch {
+        void 0;
+      }
+    }
+  }, [attachment?.previewUrl]);
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const kind = attachmentKindFromFile(file);
+    let previewUrl = '';
+    if (kind === 'image') previewUrl = URL.createObjectURL(file);
+    setAttachment((prev) => {
+      if (prev?.previewUrl) {
+        try {
+          URL.revokeObjectURL(prev.previewUrl);
+        } catch {
+          void 0;
+        }
+      }
+      return { file, previewUrl, kind, name: file.name };
+    });
+    setMediaCaption('');
+    setAudioDuration('');
+    if (kind === 'audio') {
+      try {
+        const probe = document.createElement('audio');
+        probe.preload = 'metadata';
+        probe.onloadedmetadata = () => {
+          const d = probe.duration;
+          if (Number.isFinite(d) && d > 0) {
+            const m = Math.floor(d / 60);
+            const s = Math.floor(d % 60);
+            setAudioDuration(`${m}:${String(s).padStart(2, '0')}`);
+          }
+          try {
+            URL.revokeObjectURL(probe.src);
+          } catch {
+            void 0;
+          }
+        };
+        probe.src = URL.createObjectURL(file);
+      } catch {
+        void 0;
+      }
+    }
+    setComposerExpanded(true);
+  }
+
+  async function handleComposerSend() {
+    if (attachment?.file) {
+      if (scheduleOn) {
+        toast?.show?.({ type: 'error', message: 'Agendamento não está disponível para envio de mídia.' });
+        return;
+      }
+      try {
+        await sendManual({
+          file: attachment.file,
+          caption: mediaCaption || draft
+        });
+        clearAttachment();
+      } catch {
+        void 0;
+      }
+      return;
+    }
+    sendManual();
+  }
+
+  const canSend = Boolean(selectedPhone) && (String(draft || '').trim() || attachment?.file);
+  const showImageCaption = attachment?.kind === 'image';
 
   return (
     <div
       className={`inbox-thread-composer${isMobile ? ' inbox-thread-composer--mobile-safe' : ''}`}
       style={{ '--inbox-vv-inset': `${inboxVvInset}px` }}
     >
+      {attachment ? (
+        <div className="inbox-composer-attachment-preview">
+          <div className="inbox-composer-attachment-preview__main">
+            {attachment.kind === 'image' && attachment.previewUrl ? (
+              <img
+                src={attachment.previewUrl}
+                alt=""
+                className="inbox-composer-attachment-preview__thumb"
+              />
+            ) : (
+              <div className="inbox-composer-attachment-preview__icon" aria-hidden>
+                {attachment.kind === 'audio' ? '🎵' : '📄'}
+              </div>
+            )}
+            <div className="inbox-composer-attachment-preview__meta">
+              <div className="inbox-composer-attachment-preview__name">{attachment.name}</div>
+              {attachment.kind === 'audio' && audioDuration ? (
+                <div className="inbox-composer-attachment-preview__sub">{audioDuration}</div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline inbox-composer-attachment-preview__remove"
+              aria-label="Remover anexo"
+              onClick={clearAttachment}
+              disabled={sending}
+            >
+              <X size={16} aria-hidden />
+            </button>
+          </div>
+          {showImageCaption ? (
+            <label className="inbox-composer-attachment-preview__caption">
+              <span className="inbox-composer-attachment-preview__caption-label">Caption:</span>
+              <input
+                type="text"
+                className="form-input"
+                value={mediaCaption}
+                onChange={(e) => setMediaCaption(e.target.value)}
+                placeholder="Legenda opcional"
+                disabled={sending}
+              />
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+
       {composerExpanded && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -197,6 +348,28 @@ export default function InboxComposer(props) {
                 </div>
               )}
             </div>
+            {selectedPhone ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,audio/*,application/pdf"
+                  hidden
+                  onChange={handleFileChange}
+                />
+                <button
+                  className="btn btn-outline inbox-composer-action-btn"
+                  style={{ padding: '0 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  type="button"
+                  title="Anexar imagem, áudio ou PDF"
+                  aria-label="Anexar arquivo"
+                  disabled={sending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       )}
@@ -207,8 +380,9 @@ export default function InboxComposer(props) {
             className={scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'}
             style={{ padding: '6px 10px' }}
             onClick={() => setScheduleOn((v) => !v)}
-            disabled={sending || !selectedPhone}
+            disabled={sending || !selectedPhone || Boolean(attachment)}
             type="button"
+            title={attachment ? 'Remova o anexo para agendar' : undefined}
           >
             Agendar
           </button>
@@ -357,14 +531,14 @@ export default function InboxComposer(props) {
                 }
                 if (k === 'enter') {
                   e.preventDefault();
-                  sendManual();
+                  handleComposerSend();
                   return;
                 }
               }
               if (e.key === 'Escape') setEmojiOpen(false);
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                sendManual();
+                handleComposerSend();
               }
             }}
             placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
@@ -407,7 +581,12 @@ export default function InboxComposer(props) {
               {'\u21A9'} Desfazer
             </button>
           )}
-          <button className="btn btn-primary" onClick={sendManual} disabled={sending || !draft.trim() || !selectedPhone} type="button">
+          <button
+            className="btn btn-primary"
+            onClick={handleComposerSend}
+            disabled={sending || !canSend}
+            type="button"
+          >
             {sending ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <Loader2 size={16} className="navi-async-btn__spin" aria-hidden />

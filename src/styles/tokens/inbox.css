@@ -14,10 +14,13 @@
   --inbox-chip-hot-fg: #b45309;
 
   /* Bubbles de mensagem */
-  --inbox-bubble-human-bg: #fffbeb;
-  --inbox-bubble-human-border: #fcd34d;
+  --inbox-bubble-human-bg: var(--v100);
+  --inbox-bubble-human-border: var(--v200, #ddd6fe);
+  --inbox-bubble-ai-bg: var(--v50);
   --inbox-bubble-ai-border: var(--v200, #ddd6fe);
+  --inbox-bubble-user-bg: var(--surface);
   --inbox-bubble-user-border: var(--border);
+  --inbox-section-bg: var(--v50, #f2f0fd);
   --inbox-bubble-human-label: #b45309;
   --inbox-msg-selected-outline: rgba(91, 63, 191, 0.35);
   --inbox-row-hover-bg: rgba(15, 23, 42, 0.04);

@@ -23,6 +23,8 @@ import { Bell, BellOff, User, X, Zap } from 'lucide-react';
 import InboxListPanel from '../components/inbox/InboxListPanel';
 import InboxContextPanel, { InboxContextPanelContent } from '../components/inbox/InboxContextPanel';
 import InboxThreadPanel from '../components/inbox/InboxThreadPanel';
+import InboxImageLightbox from '../components/inbox/InboxImageLightbox.jsx';
+import { uploadInboxMedia, InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -151,7 +153,8 @@ function formatListActivityLabel(iso) {
     return `Há ${m} min`;
   }
   if (startOfMsg.getTime() === startOfToday.getTime()) {
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const t = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `hoje ${t}`;
   }
   const yesterday = new Date(startOfToday);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -1825,19 +1828,45 @@ export default function Inbox() {
     return dt.toISOString();
   }
 
-  async function sendManual() {
+  async function sendManual({ file, mediaUrl: mediaUrlArg, mimeType: mimeTypeArg, caption: captionArg, fileName: fileNameArg } = {}) {
     const phone = String(selectedPhone || '').trim();
     const text = String(draft || '').trim();
-    if (!phone || !text) return;
+    const caption = String(captionArg ?? '').trim();
+    let mediaUrl = String(mediaUrlArg || '').trim();
+    let mimeType = String(mimeTypeArg || '').trim();
+    let fileName = String(fileNameArg || '').trim();
+
+    if (!phone || (!text && !caption && !mediaUrl && !file)) return;
+    if (file && scheduleOn) {
+      toast.show({ type: 'error', message: 'Agendamento não está disponível para envio de mídia.' });
+      return;
+    }
     setError('');
     setSending(true);
     try {
-      const sendAtIso = scheduleOn ? toIsoFromLocalDatetime(scheduleAtLocal) : '';
-      if (scheduleOn && !sendAtIso) {
+      if (file) {
+        try {
+          const uploaded = await uploadInboxMedia(file);
+          mediaUrl = uploaded.mediaUrl;
+          mimeType = uploaded.mimeType;
+          fileName = uploaded.fileName;
+        } catch (e) {
+          if (e instanceof InboxMediaUploadError) {
+            if (e.code === 'too_large') toast.show({ type: 'error', message: 'Arquivo muito grande. Máximo: 16MB.' });
+            else if (e.code === 'unsupported') toast.show({ type: 'error', message: 'Tipo de arquivo não suportado.' });
+            else toast.show({ type: 'error', message: e.message || 'Erro ao enviar arquivo.' });
+          } else {
+            toast.show({ type: 'error', message: 'Erro ao enviar arquivo. Tente novamente.' });
+          }
+          return;
+        }
+      }
+      const sendAtIso = scheduleOn && !mediaUrl ? toIsoFromLocalDatetime(scheduleAtLocal) : '';
+      if (scheduleOn && !mediaUrl && !sendAtIso) {
         toast.show({ type: 'error', message: 'Escolha data e hora para agendar' });
         return;
       }
-      if (scheduleOn && sendAtIso) {
+      if (scheduleOn && !mediaUrl && sendAtIso) {
         const sendMs = new Date(sendAtIso).getTime();
         if (!Number.isFinite(sendMs) || sendMs <= Date.now()) {
           toast.show({ type: 'error', message: 'Selecione um horário posterior ao atual para agendar.' });
@@ -1849,6 +1878,15 @@ export default function Inbox() {
         await setHandoffActive(true);
       }
       const jwt = await getJwt();
+      const body = mediaUrl
+        ? {
+            phone,
+            mediaUrl,
+            mimeType: mimeType || 'image/jpeg',
+            caption: caption || text,
+            ...(fileName ? { fileName } : {})
+          }
+        : { phone, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) };
       const resp = await fetch('/api/whatsapp?action=send', {
         method: 'POST',
         headers: {
@@ -1856,7 +1894,7 @@ export default function Inbox() {
           'x-academy-id': String(academyIdRef.current || ''),
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ phone, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) })
+        body: JSON.stringify(body)
       });
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao enviar'));
@@ -1873,17 +1911,44 @@ export default function Inbox() {
       const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
       const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
       const nowIso = new Date().toISOString();
+      const mime = mimeType || '';
+      const mediaType = mime.startsWith('image/')
+        ? 'image'
+        : mime.startsWith('audio/')
+          ? 'audio'
+          : mediaUrl
+            ? 'document'
+            : '';
+      const displayContent =
+        caption ||
+        text ||
+        (mediaType === 'image'
+          ? '[imagem]'
+          : mediaType === 'audio'
+            ? '🎵 [Áudio enviado]'
+            : mediaType === 'document'
+              ? '📄 [Documento enviado]'
+              : '');
       setSelected((prev) => {
         if (!prev || prev.phone !== phone) return prev;
         const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
         msgs.push({
           role: 'assistant',
-          content: text,
+          content: displayContent,
           timestamp: nowIso,
           sender: 'human',
           ...(status ? { status } : {}),
           ...(sendAt ? { send_at: sendAt } : {}),
-          ...(msgId ? { message_id: msgId } : {})
+          ...(msgId ? { message_id: msgId } : {}),
+          ...(mediaUrl
+            ? {
+                type: mediaType,
+                mediaUrl,
+                mimeType: mime || null,
+                media_stored: true,
+                ...(mediaType === 'document' && fileName ? { fileName } : {})
+              }
+            : {})
         });
         return { ...prev, messages: msgs.slice(-AGENT_HISTORY_WINDOW) };
       });
@@ -1899,7 +1964,9 @@ export default function Inbox() {
             ? 'Sem instância API: abrimos o WhatsApp para você concluir o envio.'
             : status === 'scheduled'
               ? 'Agendado'
-              : 'Enviado'
+              : mediaUrl
+                ? 'Mídia enviada'
+                : 'Enviado'
       });
       await loadList({ reset: true, silent: true });
       try {
@@ -3068,6 +3135,7 @@ export default function Inbox() {
     setComposerExpanded,
     setSlashOpen,
     setSlashQuery,
+    toast,
   };
 
   const threadPanel = (
@@ -3664,33 +3732,7 @@ export default function Inbox() {
         </div>
       )}
 
-      {String(imageLightboxUrl || '').trim() ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Imagem ampliada"
-          className="inbox-image-lightbox"
-          onClick={() => setImageLightboxUrl('')}
-        >
-          <button
-            type="button"
-            className="btn btn-secondary inbox-image-lightbox__close"
-            aria-label="Fechar imagem"
-            onClick={(e) => {
-              e.stopPropagation();
-              setImageLightboxUrl('');
-            }}
-          >
-            <X size={22} aria-hidden />
-          </button>
-          <img
-            src={String(imageLightboxUrl).trim()}
-            alt=""
-            className="inbox-image-lightbox__img"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      ) : null}
+      <InboxImageLightbox imageUrl={imageLightboxUrl} onClose={() => setImageLightboxUrl('')} />
 
       {(isMobile || isNarrowDesktop) && detailsOpen && selectedPhone && (
         <div

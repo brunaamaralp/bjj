@@ -1,10 +1,32 @@
 import React from 'react';
-import { MessageSquare, Sparkles } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import ThreadState from './ThreadState';
 import ThreadSkeleton from './ThreadSkeleton';
 import InboxComposer from './InboxComposer';
+import InboxMediaImage from './InboxMediaImage.jsx';
+import InboxAudioPlayer from './InboxAudioPlayer.jsx';
+import InboxMediaPlaceholder from './InboxMediaPlaceholder.jsx';
+import InboxMediaTempLinkBadge from './InboxMediaTempLinkBadge.jsx';
+import {
+  buildWhatsAppChatUrl,
+  inboxMessageMediaStored,
+  inboxMessageMimeType,
+  inboxOtherMediaPlaceholderKind,
+  isOutboundAudioPlaceholder,
+  isOutboundImagePlaceholder
+} from '../../lib/inboxMediaUtils.js';
 import { getThreadHandoffBanner, getThreadHandoffPill } from '../../../lib/inboxHandoffPresentation.js';
+
+function inboxDisplayInitials(name) {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+  const one = parts[0] || '?';
+  return one.slice(0, 2).toUpperCase();
+}
 
 export default function InboxThreadPanel(props) {
   const {
@@ -112,22 +134,21 @@ export default function InboxThreadPanel(props) {
               Voltar
             </button>
           )}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto' }}>
-            <div className="inbox-thread-header__title">
-              {(() => {
-                const phone = String(selectedPhone || '').trim();
-                const leadId = String(selected?.lead_id || '').trim();
-                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const name = pickDisplayName({
-                  leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
-                  manualContactName: selected?.contact_name,
-                  whatsappProfileName: selected?.whatsapp_profile_name,
-                  phone
-                });
-                return name || phone || '—';
-              })()}
-            </div>
+            <div className="inbox-thread-header__identity">
             {(() => {
+              const phone = String(selectedPhone || '').trim();
+              const leadId = String(selected?.lead_id || '').trim();
+              const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+              const name = pickDisplayName({
+                leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+                manualContactName: selected?.contact_name,
+                whatsappProfileName: selected?.whatsapp_profile_name,
+                phone,
+              });
+              const displayName = name || phone || '—';
+              const profileUrl = String(
+                selected?.whatsapp_profile_image_url || lead?.whatsapp_profile_image_url || ''
+              ).trim();
               const pill = getThreadHandoffPill({
                 needHuman: Boolean(selected?.need_human),
                 humanHandoffUntil: selected?.human_handoff_until,
@@ -140,157 +161,124 @@ export default function InboxThreadPanel(props) {
               });
               return (
                 <>
-                  <span
-                    role="status"
-                    style={{
-                      display: 'inline-block',
-                      marginTop: 8,
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      borderRadius: 999,
-                      background: pill.bg,
-                      color: pill.color,
-                      border: pill.border,
-                    }}
-                  >
-                    {pill.label}
-                  </span>
-                  <div
-                    role="status"
-                    style={{
-                      marginTop: 8,
-                      padding: '8px 12px',
-                      fontSize: 'var(--inbox-font-secondary)',
-                      lineHeight: 1.35,
-                      width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      borderRadius: 8,
-                      background: handoffReleaseHint ? 'var(--v50, #EEEDFE)' : banner.bg,
-                      color: handoffReleaseHint ? 'var(--v700, #534AB7)' : banner.color,
-                    }}
-                  >
-                    {handoffReleaseHint
-                      ? 'A IA voltará a responder automaticamente'
-                      : banner.text}
+                  <div className="inbox-thread-header__avatar" aria-hidden>
+                    {profileUrl ? (
+                      <img src={profileUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                    ) : (
+                      inboxDisplayInitials(displayName)
+                    )}
+                  </div>
+                  <div className="inbox-thread-header__intro">
+                    <div className="inbox-thread-header__title">{displayName}</div>
+                    {phone ? <div className="inbox-thread-header__phone">{phone}</div> : null}
+                    <span
+                      role="status"
+                      className="inbox-thread-handoff-pill"
+                      style={{
+                        background: pill.bg,
+                        color: pill.color,
+                        border: pill.border,
+                      }}
+                    >
+                      {pill.label}
+                    </span>
+                    <div
+                      role="status"
+                      className={`inbox-thread-handoff-banner${handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''}`}
+                      style={
+                        handoffReleaseHint
+                          ? undefined
+                          : { background: banner.bg, color: banner.color, borderLeftColor: 'var(--v500)' }
+                      }
+                    >
+                      {handoffReleaseHint
+                        ? 'A IA voltará a responder automaticamente'
+                        : banner.text}
+                    </div>
+                    {!selected?.lead_id ? (
+                      <div className="inbox-thread-header__unlink">
+                        <span className="inbox-thread-header__unlink-badge">Sem contato</span>
+                        {editingContactName ? (
+                          <>
+                            <input
+                              className="input"
+                              value={contactNameDraft}
+                              onChange={(e) => setContactNameDraft(e.target.value)}
+                              placeholder="Nome do contato"
+                              style={{ minWidth: 170, height: 30, padding: '4px 8px' }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '4px 8px', minHeight: 30 }}
+                              onClick={() => void saveContactName()}
+                              disabled={savingContactName}
+                            >
+                              {savingContactName ? 'Salvando…' : 'Salvar'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '4px 8px', minHeight: 30 }}
+                              onClick={() => {
+                                setEditingContactName(false);
+                                setContactNameDraft('');
+                              }}
+                              disabled={savingContactName}
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ padding: '4px 8px', minHeight: 30 }}
+                            onClick={() => {
+                              const seed =
+                                String(selected?.contact_name || '').trim() ||
+                                String(selected?.whatsapp_profile_name || '').trim();
+                              setContactNameDraft(seed);
+                              setEditingContactName(true);
+                            }}
+                          >
+                            {String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+                    <div className="inbox-thread-header__chips">
+                      {(() => {
+                        const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
+                        return (
+                          <span
+                            className="text-small"
+                            style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }}
+                            title="Status do ticket"
+                          >
+                            {chip.label}
+                          </span>
+                        );
+                      })()}
+                      {(() => {
+                        const leadId = String(selected?.lead_id || '').trim();
+                        const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
+                        const aiSuggestHuman = Boolean(lead?.needHuman);
+                        if (selected?.need_human || !aiSuggestHuman) return null;
+                        return (
+                          <span
+                            className="text-small inbox-thread-header__suggest"
+                            title={`Sugestão com base no ${contactLabel.toLowerCase()}`}
+                          >
+                            Vale a pena alguém da equipe ver esta conversa
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </>
               );
             })()}
-            {!selected?.lead_id && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                <span
-                  className="text-small"
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: 'var(--v50, #EEEDFE)',
-                    color: 'var(--v700, #534AB7)',
-                  }}
-                >
-                  Sem contato
-                </span>
-                {editingContactName ? (
-                  <>
-                    <input
-                      className="input"
-                      value={contactNameDraft}
-                      onChange={(e) => setContactNameDraft(e.target.value)}
-                      placeholder="Nome do contato"
-                      style={{ minWidth: 170, height: 30, padding: '4px 8px' }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ padding: '4px 8px', minHeight: 30 }}
-                      onClick={() => void saveContactName()}
-                      disabled={savingContactName}
-                    >
-                      {savingContactName ? 'Salvando…' : 'Salvar'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ padding: '4px 8px', minHeight: 30 }}
-                      onClick={() => {
-                        setEditingContactName(false);
-                        setContactNameDraft('');
-                      }}
-                      disabled={savingContactName}
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{ padding: '4px 8px', minHeight: 30 }}
-                    onClick={() => {
-                      const seed = String(selected?.contact_name || '').trim() || String(selected?.whatsapp_profile_name || '').trim();
-                      setContactNameDraft(seed);
-                      setEditingContactName(true);
-                    }}
-                  >
-                    {String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
-                  </button>
-                )}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-              {(() => {
-                const phone = String(selectedPhone || '').trim();
-                const leadId = String(selected?.lead_id || '').trim();
-                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const name = pickDisplayName({
-                  leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
-                  manualContactName: selected?.contact_name,
-                  whatsappProfileName: selected?.whatsapp_profile_name,
-                  phone
-                });
-                const showPhone = Boolean(name) && Boolean(phone);
-                if (!showPhone) return null;
-                return (
-                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                    {phone}
-                  </span>
-                );
-              })()}
-              {(() => {
-                const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
-                return (
-                  <span className="text-small" style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }} title="Status do ticket">
-                    {chip.label}
-                  </span>
-                );
-              })()}
-              {(() => {
-                const phone = String(selectedPhone || '').trim();
-                const leadId = String(selected?.lead_id || '').trim();
-                const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                const aiSuggestHuman = Boolean(lead?.needHuman);
-                if (selected?.need_human || !aiSuggestHuman) return null;
-                return (
-                  <span
-                    className="text-small"
-                    style={{
-                      background: 'var(--warning-light)',
-                      color: 'var(--warning-text)',
-                      padding: '4px 10px',
-                      borderRadius: 999,
-                      maxWidth: '100%',
-                      boxSizing: 'border-box'
-                    }}
-                    title={`Sugestão com base no ${contactLabel.toLowerCase()}`}
-                  >
-                    Vale a pena alguém da equipe ver esta conversa
-                  </span>
-                );
-              })()}
-            </div>
             </div>
         </div>
 
@@ -436,10 +424,19 @@ export default function InboxThreadPanel(props) {
                     const mediaUrlNorm = inboxMessageMediaUrl(m);
                     const typeLower = String(m?.type || '').toLowerCase();
                     const audioPlaceholder = inboxContentIsAudioPlaceholder(contentRaw);
-                    const showAudioPlayer =
-                      Boolean(mediaUrlNorm) &&
-                      (typeLower === 'audio' || typeLower === 'ptt' || audioPlaceholder);
-                    const showImage = typeLower === 'image' && Boolean(mediaUrlNorm);
+                    const otherMediaKind = inboxOtherMediaPlaceholderKind(m, contentRaw);
+                    const isImageMsg = typeLower === 'image' || isOutboundImagePlaceholder(contentRaw);
+                    const isAudioMsg =
+                      typeLower === 'audio' ||
+                      typeLower === 'ptt' ||
+                      audioPlaceholder ||
+                      isOutboundAudioPlaceholder(contentRaw);
+                    const mediaStored = inboxMessageMediaStored(m);
+                    const mimeType = inboxMessageMimeType(m);
+                    const showTempBadge =
+                      mediaStored === false && Boolean(mediaUrlNorm) && (isImageMsg || isAudioMsg);
+                    const whatsAppChatUrl = buildWhatsAppChatUrl(selectedPhone);
+                    const stopBubbleClick = (e) => e.stopPropagation();
                     const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
                     const content = !expanded && contentRaw.length > 600 ? `${contentRaw.slice(0, 600)}…` : contentRaw;
                     const statusLower = String(m?.status || '').trim().toLowerCase();
@@ -469,83 +466,36 @@ export default function InboxThreadPanel(props) {
                               g.bubbleKind === 'ai' ? 'inbox-msg-sender-label--ai' : 'inbox-msg-sender-label--human'
                             }`}
                           >
-                            {g.bubbleKind === 'ai' ? (
-                              <>
-                                <Sparkles size={12} aria-hidden /> Agente IA
-                              </>
-                            ) : (
-                              'Você'
-                            )}
+                            {g.bubbleKind === 'ai' ? 'IA' : 'Você'}
                           </div>
                         )}
-                        {showAudioPlayer ? (
-                          <div className="inbox-msg-audio" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                            <audio
-                              controls
-                              src={mediaUrlNorm}
-                              preload="metadata"
-                              style={{ width: '100%', maxWidth: 320, minWidth: 200, verticalAlign: 'middle' }}
-                            />
-                            <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-muted)' }}>
-                              Se não reproduzir, o link pode ter expirado — abra no WhatsApp.
-                            </p>
-                            {String(content || '').trim() &&
-                            !String(content || '')
-                              .trim()
-                              .startsWith('🎵') ? (
-                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', marginTop: 8 }}>
-                                {content}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : audioPlaceholder && !mediaUrlNorm ? (
-                          <div className="inbox-msg-text" style={{ color: 'var(--text-secondary)' }}>
-                            <span aria-hidden>🎵</span> Áudio recebido — link não disponível no painel. Use <strong>Sincronizar WhatsApp</strong> ou abra no app do WhatsApp.
-                          </div>
-                        ) : showImage ? (
-                          <div className="inbox-msg-image">
-                            <img
-                              src={mediaUrlNorm}
-                              alt="Imagem"
-                              loading="lazy"
-                              decoding="async"
-                              style={{
-                                maxWidth: '100%',
-                                maxHeight: 300,
-                                borderRadius: 8,
-                                cursor: 'pointer',
-                                objectFit: 'cover',
-                                display: 'block'
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                setImageLightboxUrl(mediaUrlNorm);
-                              }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                const el = e.target.nextSibling;
-                                if (el && el.style) el.style.display = 'flex';
-                              }}
-                            />
-                            <div
-                              style={{
-                                display: 'none',
-                                alignItems: 'center',
-                                gap: 8,
-                                color: 'var(--text-muted)',
-                                fontSize: 'var(--inbox-font-secondary)',
-                                padding: '8px 0'
-                              }}
-                            >
-                              Imagem indisponível (link expirado ou bloqueado)
-                            </div>
-                            {String(content || '').trim() && String(content || '').trim() !== '[imagem]' ? (
-                              <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', marginTop: 8 }}>
-                                {content}
-                              </div>
-                            ) : null}
-                          </div>
+                        {showTempBadge ? <InboxMediaTempLinkBadge /> : null}
+                        {otherMediaKind ? (
+                          <InboxMediaPlaceholder
+                            kind={otherMediaKind}
+                            mediaUrl={mediaUrlNorm}
+                            fileName={m?.fileName}
+                            onClickStop={stopBubbleClick}
+                          />
+                        ) : isAudioMsg ? (
+                          <InboxAudioPlayer
+                            mediaUrl={mediaUrlNorm}
+                            mimeType={mimeType}
+                            mediaStored={mediaStored}
+                            content={contentRaw}
+                            duration={m?.duration}
+                            onReconcile={reconcileLast24h}
+                            reconciling={waSyncing}
+                            whatsAppChatUrl={whatsAppChatUrl}
+                          />
+                        ) : isImageMsg ? (
+                          <InboxMediaImage
+                            mediaUrl={mediaUrlNorm}
+                            mediaStored={mediaStored}
+                            content={contentRaw}
+                            onOpenLightbox={setImageLightboxUrl}
+                            whatsAppChatUrl={whatsAppChatUrl}
+                          />
                         ) : (
                           <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
                             {content}
@@ -563,6 +513,24 @@ export default function InboxThreadPanel(props) {
                             }}
                           >
                             Ver mais
+                          </button>
+                        )}
+                        {expanded && contentRaw.length > 600 && (
+                          <button
+                            className="btn btn-outline"
+                            style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExpandedMsgs((prev) => {
+                                const next = { ...(prev && typeof prev === 'object' ? prev : {}) };
+                                delete next[key];
+                                return next;
+                              });
+                            }}
+                          >
+                            Ver menos
                           </button>
                         )}
                         <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
@@ -676,11 +644,11 @@ export default function InboxThreadPanel(props) {
                 variant="embedded"
                 tone="dashed"
                 icon={MessageSquare}
-                title="Nenhuma mensagem carregada"
+                title="Nenhuma mensagem ainda"
                 description='Se já há mensagens no WhatsApp, clique em "Sincronizar" para importar as últimas 24h (limite do plano Zapster).'
                 role="status"
               />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+              <div className="inbox-thread-empty-actions">
                 <button
                   className="btn btn-primary"
                   style={{ padding: '6px 14px', minHeight: 34 }}
@@ -726,45 +694,13 @@ export default function InboxThreadPanel(props) {
       </div>
 
       {String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved' ? (
-        <div
-          role="toolbar"
-          aria-label="Ações rápidas da conversa"
-          style={{
-            flexShrink: 0,
-            borderTop: '1px solid var(--border)',
-            padding: '6px 10px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 8,
-            minHeight: 38,
-            boxSizing: 'border-box',
-            background: 'var(--surface)'
-          }}
-        >
+        <div className="inbox-thread-quick-toolbar" role="toolbar" aria-label="Ações rápidas da conversa">
           <button
             type="button"
+            className="inbox-thread-quick-toolbar__btn"
             disabled={!selectedPhone || ticketUpdating}
             onClick={() => void updateTicket({ status: 'resolved' })}
             title="Resolver conversa"
-            style={{
-              height: 28,
-              padding: '0 10px',
-              fontSize: 12,
-              lineHeight: '26px',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              background: 'transparent',
-              color: 'var(--text)',
-              fontWeight: 600,
-              cursor: !selectedPhone || ticketUpdating ? 'not-allowed' : 'pointer',
-              opacity: !selectedPhone || ticketUpdating ? 0.5 : 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              boxSizing: 'border-box',
-              fontFamily: 'var(--ff-ui, inherit)'
-            }}
           >
             Resolver
             {showInboxKeyHints ? (
@@ -774,7 +710,7 @@ export default function InboxThreadPanel(props) {
                   fontSize: 11,
                   fontWeight: 700,
                   color: 'var(--text-muted)',
-                  fontVariantNumeric: 'tabular-nums'
+                  fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 E
@@ -784,55 +720,23 @@ export default function InboxThreadPanel(props) {
           {!inboxThreadNarrow767 ? (
             <button
               type="button"
+              className="inbox-thread-quick-toolbar__btn"
               disabled={!selectedPhone || ticketUpdating}
               onClick={() => void updateTicket({ status: 'waiting_customer' })}
               title="Marcar ticket como aguardando cliente"
-              style={{
-                height: 28,
-                padding: '0 10px',
-                fontSize: 12,
-                lineHeight: '26px',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                background: 'transparent',
-                color: 'var(--text)',
-                fontWeight: 600,
-                cursor: !selectedPhone || ticketUpdating ? 'not-allowed' : 'pointer',
-                opacity: !selectedPhone || ticketUpdating ? 0.5 : 1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-                fontFamily: 'var(--ff-ui, inherit)'
-              }}
             >
               Aguardando cliente
             </button>
           ) : null}
           <button
             type="button"
+            className="inbox-thread-quick-toolbar__btn"
             disabled={!selectedPhone}
             onClick={() => {
               if (isMobile || isNarrowDesktop) setDetailsOpen(true);
               else setContextOpen(true);
             }}
             title="Abrir painel de dados do contato"
-            style={{
-              height: 28,
-              padding: '0 10px',
-              fontSize: 12,
-              lineHeight: '26px',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              background: 'transparent',
-              color: 'var(--text)',
-              fontWeight: 600,
-              cursor: !selectedPhone ? 'not-allowed' : 'pointer',
-              opacity: !selectedPhone ? 0.5 : 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              boxSizing: 'border-box',
-              fontFamily: 'var(--ff-ui, inherit)'
-            }}
           >
             Ver ficha
           </button>
