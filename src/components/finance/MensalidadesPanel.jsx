@@ -1286,7 +1286,6 @@ export default function MensalidadesPanel({ embedded = false }) {
                   </button>
                   <button
                     type="button"
-                    className="btn-primary"
                     disabled={savingPayment}
                     onClick={() => void handleSavePayment()}
                     className={`btn-primary mensalidades-modal-footer__confirm${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}

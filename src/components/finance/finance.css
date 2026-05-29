@@ -17,6 +17,8 @@
  *        reutilizadas em outra aba (criar alias genérico).
  */
 
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
+
 /* === Tokens semânticos do módulo financeiro === */
 :root {
   --finance-space-1: 4px;
@@ -1510,7 +1512,6 @@
 }
 
 /* MensalidadesPanel — estilos extraídos do bloco inline */
-@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
 
 .mensalidades-page .mensal-modal-field-label,
 .mensalidades-modal-scope .mensal-modal-field-label {
