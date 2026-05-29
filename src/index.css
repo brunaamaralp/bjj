@@ -2,6 +2,7 @@
 @import './styles/tokens/core.css';
 @import './styles/tokens/menu.css';
 @import './styles/tokens/inbox.css';
+@import './styles/inbox.css';
 @import './styles/tokens/finance.css';
 @import './styles/equipe.css';
 
@@ -8074,8 +8075,23 @@ input[type='datetime-local'].form-input:focus {
 
 .sales-catalog__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
   gap: 10px;
+}
+
+.sales-catalog__card-media {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0 4px;
+}
+
+.sales-catalog__card-media .product-thumb,
+.sales-catalog__card-media .product-thumb--image {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
 }
 
 .sales-catalog__card {
@@ -8257,7 +8273,12 @@ input[type='datetime-local'].form-input:focus {
 .sales-cart-row__head {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
+}
+
+.sales-cart-row__info {
+  flex: 1;
+  min-width: 0;
 }
 
 .sales-cart-row__name {
@@ -8454,6 +8475,11 @@ input[type='datetime-local'].form-input:focus {
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.sales-variant-picker__head-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .sales-variant-picker__title {

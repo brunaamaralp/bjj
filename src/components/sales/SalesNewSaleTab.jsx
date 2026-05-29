@@ -100,7 +100,8 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
           {
             item_estoque_id: product.id,
             display_label: product.display_label,
-            variacao: product.Tamanho || '',
+            variacao: product.Tamanho || product.size || '',
+            image_url: product.image_url || '',
             quantidade: qty,
             preco_unitario: unit,
             sale_price: product.sale_price,
@@ -286,6 +287,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
             product_variant_id: stockId,
             display_label: product.display_label,
             variacao: product.Tamanho || product.size || '',
+            image_url: product.image_url || '',
             quantidade: 1,
             preco_unitario: unit,
             sale_price: product.sale_price,
@@ -765,7 +767,10 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
           onClose={() => setVariantPickerParent(null)}
           onSelect={(variant) => {
             setVariantPickerParent(null);
-            pickProduct(variant, variantPickerParent.id);
+            pickProduct(
+              { ...variant, image_url: variant.image_url || variantPickerParent.image_url || '' },
+              variantPickerParent.id
+            );
           }}
         />
       ) : null}

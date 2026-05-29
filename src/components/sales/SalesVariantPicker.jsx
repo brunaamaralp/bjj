@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
+import ProductThumb from '../products/ProductThumb';
 
 export default function SalesVariantPicker({ parent, onSelect, onClose }) {
   useModalA11y({ isOpen: Boolean(parent), onClose });
@@ -25,7 +26,8 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sales-variant-picker__head">
-          <div>
+          <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={48} />
+          <div className="sales-variant-picker__head-text">
             <h4 className="navi-section-heading sales-variant-picker__title">{parent.nome}</h4>
             <p className="text-small text-muted sales-variant-picker__subtitle">
               Escolha tamanho ou cor

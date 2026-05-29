@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
 import { filterCatalogProducts, groupByCategory } from '../../lib/salesCatalog';
 import { formatBRL } from '../../lib/moneyBr';
+import ProductThumb from '../products/ProductThumb';
 
 const CATALOG_PAGE_SIZE = 80;
 
@@ -34,6 +35,9 @@ function CatalogCard({ p, flashProductId, onPick }) {
       onClick={() => p.canAdd && onPick(p)}
       title={p.canAdd ? (p.variant_count > 1 ? 'Escolher variante' : 'Adicionar ao carrinho') : 'Sem estoque'}
     >
+      <div className="sales-catalog__card-media" aria-hidden={!p.image_url}>
+        <ProductThumb imageUrl={p.image_url} alt={p.display_label || p.nome} size={64} />
+      </div>
       <div className="sales-catalog__card-top">
         <div className="sales-catalog__card-name">{p.display_label || p.nome}</div>
         {variantHint ? <span className="sales-catalog__card-var">{variantHint}</span> : null}

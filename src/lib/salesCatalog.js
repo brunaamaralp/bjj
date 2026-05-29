@@ -42,6 +42,7 @@ export function enrichSalesParentRow(parent) {
     variants: vars,
     variant_count: vars.length,
     display_label: String(parent.display_label || parent.nome || '').trim(),
+    image_url: String(parent.image_url || vars.find((v) => v.image_url)?.image_url || '').trim(),
     current_quantity: totalQty,
     canAdd,
     stockLevel,

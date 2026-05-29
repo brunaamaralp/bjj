@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { formatBRL, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
+import ProductThumb from '../products/ProductThumb';
 
 export default function SalesCart({
   cart,
@@ -50,6 +51,7 @@ export default function SalesCart({
                 className={`sales-cart-row${isRemoving ? ' sales-cart-row--removing' : ''}`}
               >
                 <div className="sales-cart-row__head">
+                  <ProductThumb imageUrl={it.image_url} alt={it.display_label} size={40} />
                   <div className="sales-cart-row__info">
                     <span className="sales-cart-row__name">{it.display_label}</span>
                     {it.variacao ? <span className="sales-cart-row__var">{it.variacao}</span> : null}
