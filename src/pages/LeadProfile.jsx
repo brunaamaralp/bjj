@@ -46,6 +46,7 @@ import {
     getLeadAutomationBadges,
 } from '../lib/automationUx.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
+import ProfileConversationTab from '../components/inbox/ProfileConversationTab.jsx';
 import {
   useTerms,
   contactLabelSingular,
@@ -172,6 +173,7 @@ const LeadProfile = () => {
     const toast = useToast();
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
+    const modules = useLeadStore((s) => s.modules);
 
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -320,6 +322,7 @@ const LeadProfile = () => {
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
     const [timelineOpen, setTimelineOpen] = useState(true);
+    const [activeProfileTab, setActiveProfileTab] = useState('dados');
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -449,6 +452,17 @@ const LeadProfile = () => {
         zapsterInstanceId: waZapHook,
         automationsRaw: waAutoHook,
     } = useWhatsappTemplates(academyId);
+    const showConversationTab =
+        modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
+
+    useEffect(() => {
+        if (activeProfileTab === 'timeline' || activeProfileTab === 'conversation') {
+            setTimelineOpen(true);
+        } else if (activeProfileTab === 'dados') {
+            setTimelineOpen(false);
+        }
+    }, [activeProfileTab]);
+
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [profileQuickTimes, setProfileQuickTimes] = useState([]);
@@ -1108,8 +1122,34 @@ const LeadProfile = () => {
         })
     );
 
+    const profilePanelOpen =
+        activeProfileTab === 'timeline' || activeProfileTab === 'conversation' || timelineOpen;
+
+    const profileTabBtn = (id, label) => (
+        <button
+            key={id}
+            type="button"
+            onClick={() => setActiveProfileTab(id)}
+            style={{
+                flexShrink: 0,
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: 'none',
+                background: activeProfileTab === id ? 'var(--surface)' : 'transparent',
+                color: activeProfileTab === id ? 'var(--text)' : 'var(--text-secondary)',
+                fontWeight: activeProfileTab === id ? 800 : 600,
+                fontSize: 13,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: activeProfileTab === id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+            }}
+        >
+            {label}
+        </button>
+    );
+
     return (
-        <div className={`lead-profile-container ${timelineOpen ? 'timeline-open' : 'timeline-closed'}`}>
+        <div className={`lead-profile-container ${profilePanelOpen ? 'timeline-open' : 'timeline-closed'}`}>
             <div className="lead-profile-left-col">
                 <div className="left-col-header">
                     <button type="button" className="icon-btn" onClick={() => navigate(-1)}>
@@ -1132,6 +1172,23 @@ const LeadProfile = () => {
                     </div>
                 </div>
 
+                <div
+                    style={{
+                        padding: '8px 16px',
+                        display: 'flex',
+                        gap: 6,
+                        borderBottom: '1px solid var(--border-light)',
+                        flexShrink: 0,
+                        overflowX: 'auto',
+                        WebkitOverflowScrolling: 'touch',
+                    }}
+                >
+                    {profileTabBtn('dados', 'Dados')}
+                    {profileTabBtn('timeline', 'Timeline')}
+                    {showConversationTab ? profileTabBtn('conversation', 'Conversa') : null}
+                </div>
+
+                {activeProfileTab === 'dados' ? (
                 <div className="left-col-content">
                     {/* Lead Header */}
                     <div className="profile-main-header">
@@ -1664,16 +1721,35 @@ const LeadProfile = () => {
                         {`Excluir ${contactLabel.toLowerCase()}`}
                     </button>
                 </div>
+                ) : null}
 
+                {activeProfileTab === 'dados' ? (
                 <div className="left-col-footer">
-                    <button type="button" className="btn-toggle-timeline" onClick={() => setTimelineOpen(prev => !prev)}>
-                        {timelineOpen ? <ArrowLeft size={16} /> : <span style={{ order: 2 }}><ArrowRight size={16} /></span>}
-                        {timelineOpen ? '← Fechar linha do tempo' : 'Abrir histórico →'}
+                    <button
+                        type="button"
+                        className="btn-toggle-timeline"
+                        onClick={() => {
+                            setActiveProfileTab('timeline');
+                            setTimelineOpen(true);
+                        }}
+                    >
+                        <span style={{ order: 2 }}><ArrowRight size={16} /></span>
+                        Abrir histórico →
                     </button>
                 </div>
+                ) : null}
             </div>
 
-            <div className={`lead-profile-right-panel ${timelineOpen ? 'open' : 'closed'}`}>
+            <div className={`lead-profile-right-panel ${profilePanelOpen ? 'open' : 'closed'}`}>
+                {activeProfileTab === 'conversation' && showConversationTab ? (
+                    <ProfileConversationTab
+                        phone={lead.phone}
+                        academyId={academyId}
+                        leadName={lead.name}
+                    />
+                ) : null}
+                {activeProfileTab === 'timeline' ? (
+                <>
                 <div className="timeline-header">
                     <h2 className="timeline-title">Linha do tempo</h2>
                     <div className="filter-strip">
@@ -1785,6 +1861,8 @@ const LeadProfile = () => {
                         </div>
                     )}
                 </div>
+                </>
+                ) : null}
             </div>
 
             <ConfirmDialog

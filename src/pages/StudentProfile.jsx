@@ -74,6 +74,7 @@ import {
     applyRegisteredEmergencyToForm,
     emergencyMatchesRegistered,
 } from '../lib/studentEmergencyContact.js';
+import ProfileConversationTab from '../components/inbox/ProfileConversationTab.jsx';
 import { validateBankAccountForPayment, validatePreferredPaymentAccount } from '../lib/bankAccounts.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
@@ -227,7 +228,7 @@ const PAYMENT_HABIT_FIELDS = [
 
 const BG_SECONDARY = 'var(--surface-hover)';
 
-const STUDENT_PROFILE_TABS = ['frequency', 'payments', 'contracts', 'timeline'];
+const STUDENT_PROFILE_TABS = ['frequency', 'payments', 'contracts', 'timeline', 'conversation'];
 
 function readInitialTimelineOpen() {
     if (typeof window === 'undefined') return false;
@@ -394,6 +395,8 @@ export default function StudentProfile() {
     });
     const { templates: waTemplatesHook, academyName: waNameHook, zapsterInstanceId: waZapHook } =
         useWhatsappTemplates(academyId);
+    const showConversationTab =
+        modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [note, setNote] = useState('');
@@ -574,9 +577,16 @@ export default function StudentProfile() {
         if (!tab || !STUDENT_PROFILE_TABS.includes(tab)) return;
         if (tab === 'payments' && !canViewFinance) return;
         if (tab === 'contracts' && modules?.finance !== true) return;
+        if (tab === 'conversation' && !showConversationTab) return;
         setActiveTab(tab);
         setTimelineOpen(true);
-    }, [searchParams, canViewFinance, modules?.finance]);
+    }, [searchParams, canViewFinance, modules?.finance, showConversationTab]);
+
+    useEffect(() => {
+        if (activeTab === 'timeline' || activeTab === 'conversation') {
+            setTimelineOpen(true);
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         setTemplateMenuOpen(false);
@@ -2545,9 +2555,19 @@ export default function StudentProfile() {
                 {canViewFinance ? tabBtn('payments', 'Pagamentos') : null}
                 {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}
                 {tabBtn('timeline', 'Linha do tempo')}
+                {showConversationTab ? tabBtn('conversation', 'Conversa') : null}
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16, minHeight: 0 }}>
+            <div
+                style={{
+                    flex: 1,
+                    overflowY: activeTab === 'conversation' ? 'hidden' : 'auto',
+                    padding: activeTab === 'conversation' ? 0 : 16,
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+            >
                 {activeTab === 'frequency' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 120 }}>
                         {loadingFreq ? (
@@ -2709,6 +2729,16 @@ export default function StudentProfile() {
 
                 {activeTab === 'contracts' && modules?.finance === true && student ? (
                     <StudentContractsSection leadId={student.id} />
+                ) : null}
+
+                {activeTab === 'conversation' && showConversationTab && student ? (
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                        <ProfileConversationTab
+                            phone={student.phone}
+                            academyId={academyId}
+                            leadName={student.name}
+                        />
+                    </div>
                 ) : null}
 
                 {activeTab === 'timeline' ? (
