@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
@@ -6,23 +7,27 @@ import { useModalA11y } from '../../hooks/useModalA11y.js';
 export default function SalesVariantPicker({ parent, onSelect, onClose }) {
   useModalA11y({ isOpen: Boolean(parent), onClose });
 
-  if (!parent) return null;
-  const variants = (parent.variants || []).filter((v) => v.canAdd);
+  if (!parent || typeof document === 'undefined') return null;
 
-  return (
+  const variants = (parent.variants || []).slice().sort((a, b) => {
+    const la = String(a.Tamanho || a.size || a.sku || '').trim();
+    const lb = String(b.Tamanho || b.size || b.sku || '').trim();
+    return la.localeCompare(lb, 'pt-BR', { numeric: true });
+  });
+
+  return createPortal(
     <div className="navi-modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="card navi-modal-dialog"
+        className="card navi-modal-dialog sales-variant-picker"
         role="dialog"
         aria-modal="true"
         aria-label="Escolher variante"
-        style={{ maxWidth: 420, padding: 16 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center gap-2" style={{ marginBottom: 12 }}>
+        <div className="sales-variant-picker__head">
           <div>
-            <h4 className="navi-section-heading" style={{ margin: 0 }}>{parent.nome}</h4>
-            <p className="text-small text-muted" style={{ margin: '4px 0 0' }}>
+            <h4 className="navi-section-heading sales-variant-picker__title">{parent.nome}</h4>
+            <p className="text-small text-muted sales-variant-picker__subtitle">
               Escolha tamanho ou cor
             </p>
           </div>
@@ -32,21 +37,23 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
         </div>
         <div className="sales-variant-picker__chips" role="list">
           {variants.length === 0 ? (
-            <p className="text-small text-muted">Nenhuma variante com estoque disponível.</p>
+            <p className="text-small text-muted">Nenhuma variante cadastrada para este produto.</p>
           ) : (
             variants.map((v) => {
               const label = [v.Tamanho || v.size, v.color].filter(Boolean).join(' / ') || 'Único';
+              const out = !v.canAdd;
               return (
                 <button
                   key={v.id}
                   type="button"
                   role="listitem"
-                  className="sales-variant-picker__chip"
-                  onClick={() => onSelect(v)}
+                  className={`sales-variant-picker__chip${out ? ' sales-variant-picker__chip--out' : ''}`}
+                  disabled={out}
+                  onClick={() => !out && onSelect(v)}
                 >
                   <span className="sales-variant-picker__chip-label">{label}</span>
                   <span className="sales-variant-picker__chip-meta text-small text-muted">
-                    Disp. {v.current_quantity}
+                    {out ? 'Esgotado' : `Disp. ${v.current_quantity}`}
                     {v.sale_price != null ? ` · ${formatBRL(v.sale_price)}` : ''}
                   </span>
                 </button>
@@ -55,18 +62,7 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
           )}
         </div>
       </div>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .sales-variant-picker__chips { display: flex; flex-wrap: wrap; gap: 8px; }
-          .sales-variant-picker__chip {
-            display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-            padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
-            background: var(--surface); cursor: pointer; min-width: 72px;
-          }
-          .sales-variant-picker__chip:hover { border-color: var(--accent); background: var(--accent-light); }
-          .sales-variant-picker__chip-label { font-weight: 700; font-size: 14px; }
-        `,
-      }} />
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -8443,6 +8443,74 @@ input[type='datetime-local'].form-input:focus {
   cursor: not-allowed;
 }
 
+.sales-variant-picker {
+  max-width: 420px;
+  padding: 16px;
+}
+
+.sales-variant-picker__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sales-variant-picker__title {
+  margin: 0;
+}
+
+.sales-variant-picker__subtitle {
+  margin: 4px 0 0;
+}
+
+.sales-variant-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sales-variant-picker__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-mid);
+  background: var(--surface);
+  cursor: pointer;
+  min-width: 72px;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sales-variant-picker__chip:hover:not(:disabled) {
+  border-color: var(--v300);
+  background: var(--v50);
+}
+
+.sales-variant-picker__chip:focus-visible {
+  outline: 2px solid var(--v500);
+  outline-offset: 2px;
+}
+
+.sales-variant-picker__chip--out {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sales-variant-picker__chip-label {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.sales-variant-picker__chip-meta {
+  line-height: 1.3;
+}
+
 .sales-panel--active {
   display: block;
 }

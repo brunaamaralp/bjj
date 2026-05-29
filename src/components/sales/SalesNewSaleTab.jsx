@@ -26,6 +26,7 @@ import {
 } from '../../lib/salePayments';
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
+import { refreshStockStores } from '../../lib/syncStockStores.js';
 
 export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
   const createSale = useSalesStore((s) => s.createSale);
@@ -247,7 +248,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
   const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
   const pickProduct = useCallback(
-    (product) => {
+    (product, parentId = null) => {
       setLocalError('');
       const { price, warning } = suggestUnitPrice(product, { collaborator: vendaColaborador });
       if (warning) addToast({ type: 'warning', message: warning });
@@ -295,8 +296,17 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
         ]);
       }
 
-      setFlashProductId(stockId);
+      const flashId = parentId || stockId;
+      setFlashProductId(flashId);
       window.setTimeout(() => setFlashProductId(null), 420);
+
+      addToast({
+        type: 'success',
+        message: `${product.display_label || product.nome} adicionado ao carrinho`,
+      });
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+        setMobilePanel('cart');
+      }
     },
     [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast]
   );
@@ -483,6 +493,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       setMobilePanel('catalog');
       resetSaleSession();
       void reloadCatalog();
+      void refreshStockStores();
       onSaleComplete?.();
       return;
     }
@@ -521,6 +532,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
     setMobilePanel('catalog');
     resetSaleSession();
     void reloadCatalog();
+    void refreshStockStores();
   };
 
   const copyReceipt = async (text) => {
@@ -753,7 +765,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
           onClose={() => setVariantPickerParent(null)}
           onSelect={(variant) => {
             setVariantPickerParent(null);
-            pickProduct(variant);
+            pickProduct(variant, variantPickerParent.id);
           }}
         />
       ) : null}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
-import { catalogParentsFromVariants } from '../lib/salesCatalog';
+import { normalizeSalesCatalogFromApi } from '../lib/salesCatalog';
 import { REFRESH_SALES_CATALOG_EVENT } from '../lib/salesCatalogRefresh';
 
 async function fetchProductsViaApi(academyId) {
@@ -9,18 +9,33 @@ async function fetchProductsViaApi(academyId) {
   if (!jwt) throw new Error('session_required');
   if (!academyId) throw new Error('academy_required');
 
-  const res = await fetch('/api/products', {
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-      'Content-Type': 'application/json',
-      'x-academy-id': academyId,
-    },
-  });
-  const data = await res.json().catch(() => ({}));
+  const headers = {
+    Authorization: `Bearer ${jwt}`,
+    'Content-Type': 'application/json',
+    'x-academy-id': academyId,
+  };
+
+  let res = await fetch('/api/products', { headers });
+  let data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.erro || data.error || `error_${res.status}`);
   }
-  return data.variants || data.products || [];
+
+  if (data.needs_migration) {
+    try {
+      const migrateRes = await fetch('/api/products', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'migrate' }),
+      });
+      const migrated = await migrateRes.json().catch(() => ({}));
+      if (migrateRes.ok) data = migrated;
+    } catch {
+      void 0;
+    }
+  }
+
+  return data;
 }
 
 export function useSalesCatalog(academyId) {
@@ -36,8 +51,8 @@ export function useSalesCatalog(academyId) {
     setLoading(true);
     setError(null);
     try {
-      const list = await fetchProductsViaApi(academyId);
-      const mapped = catalogParentsFromVariants(list);
+      const data = await fetchProductsViaApi(academyId);
+      const mapped = normalizeSalesCatalogFromApi(data);
       setProducts(mapped);
       return mapped;
     } catch (e) {

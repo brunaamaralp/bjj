@@ -1,4 +1,5 @@
 import { mapStockProductDoc } from './stockProducts.js';
+import { legacyStockItemsAsParents } from './productCatalog.js';
 
 /** Enriquece produto já mapeado (API) ou documento bruto para o picker de vendas. */
 export function enrichCatalogProduct(p) {
@@ -26,6 +27,28 @@ export function catalogProductsForSale(products) {
 }
 
 /** Agrupa variantes pelo produto pai para o catálogo de vendas. */
+/** Enriquece linha agrupada (pai + variantes) para o picker de vendas. */
+export function enrichSalesParentRow(parent) {
+  const vars = (parent.variants || []).map((v) => enrichCatalogProduct(v));
+  const totalQty = vars.reduce((n, x) => n + Number(x.current_quantity || 0), 0);
+  const canAdd = vars.some((x) => x.canAdd);
+  const stockLevel = vars.some((x) => x.stockLevel === 'ok')
+    ? 'ok'
+    : vars.some((x) => x.stockLevel === 'low')
+      ? 'low'
+      : 'out';
+  return {
+    ...parent,
+    variants: vars,
+    variant_count: vars.length,
+    display_label: String(parent.display_label || parent.nome || '').trim(),
+    current_quantity: totalQty,
+    canAdd,
+    stockLevel,
+    _singleVariant: vars.length === 1 ? vars[0] : null,
+  };
+}
+
 export function catalogParentsFromVariants(variants) {
   const list = catalogProductsForSale(variants);
   const byParent = new Map();
@@ -51,24 +74,40 @@ export function catalogParentsFromVariants(variants) {
       const vars = parent.variants.sort((a, b) =>
         a.display_label.localeCompare(b.display_label, 'pt-BR')
       );
-      const totalQty = vars.reduce((n, x) => n + Number(x.current_quantity || 0), 0);
-      const canAdd = vars.some((x) => x.canAdd);
-      const stockLevel = vars.some((x) => x.stockLevel === 'ok')
-        ? 'ok'
-        : vars.some((x) => x.stockLevel === 'low')
-          ? 'low'
-          : 'out';
-      return {
-        ...parent,
-        variants: vars,
-        variant_count: vars.length,
-        display_label: parent.nome,
-        current_quantity: totalQty,
-        canAdd,
-        stockLevel,
-        _singleVariant: vars.length === 1 ? vars[0] : null,
-      };
+      return enrichSalesParentRow({ ...parent, variants: vars });
     })
+    .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+}
+
+/** Normaliza resposta de GET /api/products para o catálogo de vendas. */
+export function normalizeSalesCatalogFromApi(data) {
+  const catalogMode = data?.catalog_mode || 'legacy';
+  const rawList = data?.variants || data?.products || [];
+
+  if (catalogMode === 'parent_variant') {
+    if (
+      Array.isArray(data?.products) &&
+      data.products.length > 0 &&
+      Array.isArray(data.products[0]?.variants)
+    ) {
+      const parents = data.products
+        .filter((p) => p.is_for_sale !== false && p.is_active !== false)
+        .map((p) => ({
+          ...p,
+          variants: catalogProductsForSale(p.variants || []),
+        }))
+        .filter((p) => p.variants.length > 0);
+      return parents
+        .map(enrichSalesParentRow)
+        .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+    }
+    return catalogParentsFromVariants(rawList);
+  }
+
+  const mapped = rawList.map((v) => (v?.id != null && v?.$id == null ? v : mapStockProductDoc(v)));
+  const forSale = catalogProductsForSale(mapped);
+  return legacyStockItemsAsParents(forSale)
+    .map(enrichSalesParentRow)
     .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
 }
 

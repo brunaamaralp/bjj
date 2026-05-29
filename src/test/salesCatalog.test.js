@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { catalogProductsForSale, enrichCatalogProduct } from '../lib/salesCatalog';
+import {
+  catalogProductsForSale,
+  enrichCatalogProduct,
+  normalizeSalesCatalogFromApi,
+} from '../lib/salesCatalog';
 
 describe('salesCatalog', () => {
   it('enrichCatalogProduct marks out of stock', () => {
@@ -26,5 +30,79 @@ describe('salesCatalog', () => {
       { id: '3', is_for_sale: true, is_active: false, current_quantity: 5, minimum_level: 0 },
     ].map(enrichCatalogProduct);
     expect(catalogProductsForSale(rows).map((p) => p.id)).toEqual(['1']);
+  });
+
+  it('normalizeSalesCatalogFromApi groups legacy sizes under one parent', () => {
+    const parents = normalizeSalesCatalogFromApi({
+      catalog_mode: 'legacy',
+      variants: [
+        {
+          id: 'v1',
+          nome: 'Kimono · P',
+          categoria: 'Vestuário',
+          Tamanho: 'P',
+          current_quantity: 3,
+          is_for_sale: true,
+          is_active: true,
+          sale_price: 200,
+        },
+        {
+          id: 'v2',
+          nome: 'Kimono · M',
+          categoria: 'Vestuário',
+          Tamanho: 'M',
+          current_quantity: 5,
+          is_for_sale: true,
+          is_active: true,
+          sale_price: 200,
+        },
+      ],
+    });
+    expect(parents).toHaveLength(1);
+    expect(parents[0].variant_count).toBe(2);
+    expect(parents[0].variants.map((v) => v.id)).toEqual(['v1', 'v2']);
+    expect(parents[0].canAdd).toBe(true);
+    expect(parents[0]._singleVariant).toBeNull();
+  });
+
+  it('normalizeSalesCatalogFromApi enriches parent_variant products from API', () => {
+    const parents = normalizeSalesCatalogFromApi({
+      catalog_mode: 'parent_variant',
+      products: [
+        {
+          id: 'p1',
+          nome: 'Faixa',
+          is_for_sale: true,
+          is_active: true,
+          variants: [
+            {
+              id: 'v1',
+              product_id: 'p1',
+              nome: 'Faixa',
+              size: 'A1',
+              current_quantity: 2,
+              is_for_sale: true,
+              is_active: true,
+              display_label: 'Faixa · A1',
+            },
+            {
+              id: 'v2',
+              product_id: 'p1',
+              nome: 'Faixa',
+              size: 'A2',
+              current_quantity: 0,
+              is_for_sale: true,
+              is_active: true,
+              display_label: 'Faixa · A2',
+            },
+          ],
+        },
+      ],
+      variants: [],
+    });
+    expect(parents).toHaveLength(1);
+    expect(parents[0].variants).toHaveLength(2);
+    expect(parents[0].variants[0].canAdd).toBe(true);
+    expect(parents[0].variants[1].canAdd).toBe(false);
   });
 });
