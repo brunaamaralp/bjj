@@ -1,21 +1,26 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { AlertTriangle, Flame, User } from 'lucide-react';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
+
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
 
-/** Apenas chips de ação (handoff / aguardando) — sem decoração na lista. */
-function resolvePrimaryChip({ showHandoffChip, showL2WaitingChip, ticket }) {
+/** Máximo 1 chip acionável por item na lista. */
+function resolvePrimaryChip({ showHandoffChip, showWaitingChip, showIaChip, ticket }) {
   if (showHandoffChip) {
     return { kind: 'handoff', label: 'Com você', className: 'inbox-status-chip-handoff' };
   }
-  if (showL2WaitingChip && ticket?.label) {
+  if (showWaitingChip) {
+    const label = String(ticket?.label || '').trim() || 'Aguardando cliente';
     return {
-      kind: 'ticket',
-      label: ticket.label,
+      kind: 'waiting',
+      label,
       className: 'inbox-ticket-chip-inline',
-      style: { background: ticket.bg, color: ticket.fg },
+      style: ticket?.bg && ticket?.fg ? { background: ticket.bg, color: ticket.fg } : undefined,
     };
+  }
+  if (showIaChip) {
+    return { kind: 'ia', label: 'IA respondendo', className: 'inbox-status-chip-ia' };
   }
   return null;
 }
@@ -32,12 +37,11 @@ function ConversationItem({
   enableLongPress = false,
   onLongPress,
   handoffNowMs,
-  listFilter = 'all',
-  minhaFilaOn = false,
+  agentIaActive = false,
 }) {
   const [rowHover, setRowHover] = useState(false);
   const hotLead = Boolean(item?._hotLead);
-  const handoffActive = Boolean(item?._handoffActive);
+  const needHuman = Boolean(item?.need_human ?? item?._handoffActive);
   const aiSuggestHuman = Boolean(item?._aiSuggestHuman);
   const unreadCount = Number(item?._unreadCount || 0);
   const isHighlighted = Boolean(item?._isHighlighted);
@@ -45,9 +49,20 @@ function ConversationItem({
   const ticketStatusLower = String(item?._ticketStatus ?? item?.ticket_status ?? '')
     .trim()
     .toLowerCase();
+  const isResolved = ticketStatusLower === 'resolved';
   const isWaitingCustomer = ticketStatusLower === 'waiting_customer';
+  const lastRole = String(item?._lastRole || '').trim();
+  const lastSender = String(item?._lastSender || '').trim();
 
-  const showHandoffChip = handoffActive;
+  const showHandoffChip = needHuman && !isResolved;
+  const showWaitingChip = !needHuman && isWaitingCustomer && !isResolved;
+  const showIaChip =
+    !needHuman &&
+    !isResolved &&
+    !isWaitingCustomer &&
+    agentIaActive &&
+    lastRole === 'assistant' &&
+    lastSender !== 'human';
 
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
   const previewMax = compact ? INBOX_LIST_PREVIEW_MAX_COMPACT : 52;
@@ -59,21 +74,20 @@ function ConversationItem({
     setAvatarOk(true);
   }, [profileUrl]);
 
-  const showL2WaitingChip =
-    !handoffActive && isWaitingCustomer && Boolean(ticket?.label) && !ticket?.isDefault;
-
   const showLevel3 = !enableLongPress && rowHover;
   const showL3Hot = showLevel3 && hotLead;
-  const showL3AiAlert = showLevel3 && !handoffActive && aiSuggestHuman;
+  const showL3AiAlert = showLevel3 && !needHuman && aiSuggestHuman;
   const showL3Ticket =
     showLevel3 &&
     Boolean(ticket?.label) &&
     !ticket?.isDefault &&
-    !(isWaitingCustomer && !handoffActive);
+    !showWaitingChip &&
+    !showHandoffChip;
 
   const primaryChip = resolvePrimaryChip({
     showHandoffChip,
-    showL2WaitingChip,
+    showWaitingChip,
+    showIaChip,
     ticket,
   });
 
@@ -146,7 +160,7 @@ function ConversationItem({
     'inbox-conversation-item',
     compact ? 'inbox-conversation-item--compact' : '',
     active ? 'active' : '',
-    handoffActive && !active ? 'inbox-conversation-item--handoff' : '',
+    needHuman && !active ? 'inbox-conversation-item--handoff' : '',
     isHighlighted && !active ? 'inbox-conversation-item--highlighted' : '',
   ]
     .filter(Boolean)

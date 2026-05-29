@@ -7,7 +7,31 @@ export const INBOX_LIST_SECTION_MORE_STEP = 24;
 export const INBOX_LIST_PREVIEW_MAX_COMPACT = 36;
 
 /** Texto da bolha antes de "Ver mais". */
-export const INBOX_MSG_TRUNCATE_CHARS = 280;
+export const INBOX_MSG_TRUNCATE_CHARS = 600;
 
 /** Grupos recolhidos por padrão na lista (ex.: resolvidas). */
 export const INBOX_LIST_DEFAULT_COLLAPSED_GROUPS = ['resolved'];
+
+/**
+ * Trunca em limite de caracteres, preferindo quebra em espaço ou newline.
+ * @param {string} text
+ * @param {number} [maxChars=INBOX_MSG_TRUNCATE_CHARS]
+ */
+export function truncateInboxMessageText(text, maxChars = INBOX_MSG_TRUNCATE_CHARS) {
+  const raw = String(text ?? '');
+  if (raw.length <= maxChars) return raw;
+  let cut = raw.slice(0, maxChars);
+  const lastSpace = cut.lastIndexOf(' ');
+  const lastNewline = cut.lastIndexOf('\n');
+  const breakAt = Math.max(lastSpace, lastNewline);
+  if (breakAt > maxChars * 0.75) cut = cut.slice(0, breakAt);
+  return `${cut.trimEnd()}…`;
+}
+
+/** Mensagem truncável: texto puro, sem mídia. */
+export function isInboxTruncatableTextMessage(m, { isImageMsg, isAudioMsg, otherMediaKind }) {
+  if (otherMediaKind || isImageMsg || isAudioMsg) return false;
+  const typeLower = String(m?.type || '').trim().toLowerCase();
+  if (!typeLower || typeLower === 'text' || typeLower === 'chat') return true;
+  return !['image', 'audio', 'ptt', 'document', 'video', 'sticker', 'file'].includes(typeLower);
+}

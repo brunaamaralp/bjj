@@ -294,6 +294,7 @@ export default function Inbox() {
   const listExtraFiltersRef = useRef(null);
   const [labelFilter, setLabelFilter] = useState(null); // string id | null
   const [inboxLabels, setInboxLabels] = useState([]);
+  const [agentIaActive, setAgentIaActive] = useState(false);
   const [stats, setStats] = useState({
     resolvedCount: 0,
     transferredCount: 0
@@ -550,6 +551,32 @@ export default function Inbox() {
         void 0;
       }
     })();
+  }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId) {
+      setAgentIaActive(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getJwt();
+        const { blocked, res } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
+          headers: { Authorization: `Bearer ${token}`, 'x-academy-id': academyId },
+        });
+        if (blocked || !res?.ok) return;
+        const data = await res.json();
+        if (!cancelled && data && typeof data === 'object') {
+          setAgentIaActive(data.ia_ativa === true);
+        }
+      } catch {
+        if (!cancelled) setAgentIaActive(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [academyId]);
 
   useEffect(() => {
@@ -3077,6 +3104,7 @@ export default function Inbox() {
       handleClearInboxListFilters={handleClearInboxListFilters}
       setConversationSheet={setConversationSheet}
       nowMs={nowMs}
+      agentIaActive={agentIaActive}
     />
   );
 

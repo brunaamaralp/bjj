@@ -496,6 +496,23 @@
   overflow: hidden;
 }
 
+.inbox-bubble-expand {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--v500);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--ff-ui, inherit);
+  font-weight: 600;
+}
+
+.inbox-bubble-expand:hover {
+  text-decoration: underline;
+}
+
 .inbox-msg-text--muted {
   color: var(--text-secondary);
 }

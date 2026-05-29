@@ -35,6 +35,7 @@ export default function InboxListPanel({
   handleClearInboxListFilters,
   setConversationSheet,
   nowMs,
+  agentIaActive = false,
 }) {
   const labelOptions = (inboxLabels || []).map((l) => ({ value: l.$id, label: l.name }));
 
@@ -219,8 +220,7 @@ export default function InboxListPanel({
             setConversationSheet({ item: it });
           }}
           handoffNowMs={nowMs}
-          listFilter={listFilter}
-          minhaFilaOn={minhaFilaOn}
+          agentIaActive={agentIaActive}
         />
       </div>
     </div>

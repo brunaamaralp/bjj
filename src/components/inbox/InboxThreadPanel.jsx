@@ -17,7 +17,7 @@ import {
   isOutboundImagePlaceholder
 } from '../../lib/inboxMediaUtils.js';
 import { getThreadHandoffBanner, getThreadHandoffPill } from '../../../lib/inboxHandoffPresentation.js';
-import { INBOX_MSG_TRUNCATE_CHARS } from '../../lib/inboxUiConstants.js';
+import { INBOX_MSG_TRUNCATE_CHARS, isInboxTruncatableTextMessage, truncateInboxMessageText } from '../../lib/inboxUiConstants.js';
 
 function inboxDisplayInitials(name) {
   const parts = String(name || '')
@@ -444,10 +444,16 @@ export default function InboxThreadPanel(props) {
                     const whatsAppChatUrl = buildWhatsAppChatUrl(selectedPhone);
                     const stopBubbleClick = (e) => e.stopPropagation();
                     const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
-                    const isLongMsg = contentRaw.length > INBOX_MSG_TRUNCATE_CHARS;
+                    const isTextMsg = isInboxTruncatableTextMessage(m, {
+                      isImageMsg,
+                      isAudioMsg,
+                      otherMediaKind,
+                    });
+                    const isLongMsg =
+                      isTextMsg && contentRaw.length > INBOX_MSG_TRUNCATE_CHARS;
                     const content =
                       !expanded && isLongMsg
-                        ? `${contentRaw.slice(0, INBOX_MSG_TRUNCATE_CHARS)}…`
+                        ? truncateInboxMessageText(contentRaw, INBOX_MSG_TRUNCATE_CHARS)
                         : contentRaw;
                     const statusLower = String(m?.status || '').trim().toLowerCase();
                     const scheduledAt = typeof m?.send_at === 'string' ? String(m.send_at) : '';
@@ -507,43 +513,26 @@ export default function InboxThreadPanel(props) {
                             whatsAppChatUrl={whatsAppChatUrl}
                           />
                         ) : (
-                          <div
-                            className={`inbox-msg-text${!expanded && isLongMsg ? ' inbox-msg-text--truncated' : ''}`}
-                            style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}
-                          >
+                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
                             {content}
                           </div>
                         )}
-                        {!expanded && isLongMsg && (
+                        {isLongMsg && (
                           <button
-                            className="btn btn-outline"
-                            style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setExpandedMsgs((prev) => ({ ...(prev && typeof prev === 'object' ? prev : {}), [key]: true }));
-                            }}
-                          >
-                            Ver mais
-                          </button>
-                        )}
-                        {expanded && isLongMsg && (
-                          <button
-                            className="btn btn-outline"
-                            style={{ minHeight: 28, padding: '0 10px', marginTop: 8 }}
+                            className="inbox-bubble-expand"
                             type="button"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               setExpandedMsgs((prev) => {
-                                const next = { ...(prev && typeof prev === 'object' ? prev : {}) };
-                                delete next[key];
-                                return next;
+                                const base = prev && typeof prev === 'object' ? { ...prev } : {};
+                                if (expanded) delete base[key];
+                                else base[key] = true;
+                                return base;
                               });
                             }}
                           >
-                            Ver menos
+                            {expanded ? 'Ver menos ↑' : 'Ver mais ↓'}
                           </button>
                         )}
                         <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
