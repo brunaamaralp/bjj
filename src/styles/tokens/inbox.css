@@ -13,19 +13,19 @@
   --inbox-chip-hot-bg: rgba(245, 158, 11, 0.18);
   --inbox-chip-hot-fg: #b45309;
 
-  /* Bubbles de mensagem */
-  --inbox-bubble-human-bg: var(--v100);
-  --inbox-bubble-human-border: var(--v200, #ddd6fe);
-  --inbox-bubble-ai-bg: var(--v50);
-  --inbox-bubble-ai-border: var(--v200, #ddd6fe);
+  /* Bubbles de mensagem — neutros; cor só no acento IA */
+  --inbox-bubble-human-bg: #f3f3f6;
+  --inbox-bubble-human-border: rgba(15, 23, 42, 0.08);
+  --inbox-bubble-ai-bg: #f7f8fa;
+  --inbox-bubble-ai-border: rgba(15, 23, 42, 0.08);
   --inbox-bubble-user-bg: var(--surface);
-  --inbox-bubble-user-border: var(--border-mid);
-  --inbox-section-bg: var(--v50, #f2f0fd);
-  --inbox-accent-bg: var(--v50, #f2f0fd);
-  --inbox-bubble-human-label: #b45309;
-  --inbox-msg-selected-outline: rgba(91, 63, 191, 0.35);
+  --inbox-bubble-user-border: rgba(15, 23, 42, 0.1);
+  --inbox-section-bg: #f3f3f6;
+  --inbox-accent-bg: #f5f7fb;
+  --inbox-bubble-human-label: #9a3412;
+  --inbox-msg-selected-outline: rgba(15, 23, 42, 0.12);
   --inbox-row-hover-bg: rgba(15, 23, 42, 0.04);
-  --inbox-row-highlight-bg: rgba(91, 63, 191, 0.08);
+  --inbox-row-highlight-bg: rgba(15, 23, 42, 0.06);
 
   /* Atendimento (Inbox) — escala tipográfica */
   --inbox-font-meta: 0.6875rem;

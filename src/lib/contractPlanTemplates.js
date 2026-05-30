@@ -17,6 +17,18 @@ export function templatesForPurpose(templates, purpose) {
   );
 }
 
+export function financePlanTemplateField(purpose) {
+  return normalizeTemplatePurpose(purpose) === 'rescission'
+    ? 'rescissionTemplateId'
+    : 'contractTemplateId';
+}
+
+export function namedFinancePlans(financeConfig) {
+  return (financeConfig?.plans || [])
+    .map((pl) => String(pl?.name || '').trim())
+    .filter(Boolean);
+}
+
 export function plansUsingTemplate(financeConfig, templateId, field = 'contractTemplateId') {
   const id = String(templateId || '').trim();
   if (!id) return [];
@@ -24,6 +36,43 @@ export function plansUsingTemplate(financeConfig, templateId, field = 'contractT
     .filter((pl) => String(pl?.[field] || '').trim() === id)
     .map((pl) => String(pl.name || '').trim())
     .filter(Boolean);
+}
+
+/** Atualiza vínculos plano ↔ modelo a partir da seleção no editor de contrato. */
+export function applyTemplatePlanLinks(financeConfig, { templateId, purpose, selectedPlanNames, templates }) {
+  const field = financePlanTemplateField(purpose);
+  const tid = String(templateId || '').trim();
+  if (!tid) return { config: financeConfig, changed: false };
+
+  const selectedKeys = new Set(
+    (selectedPlanNames || []).map((n) => String(n).trim().toLowerCase()).filter(Boolean)
+  );
+  const fallbackId = defaultTemplateForPurpose(templates, purpose)?.$id;
+  const plans = [...(financeConfig?.plans || [])];
+  let changed = false;
+
+  for (let i = 0; i < plans.length; i += 1) {
+    const plan = plans[i];
+    const name = String(plan?.name || '').trim();
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    const current = String(plan[field] || '').trim();
+
+    if (selectedKeys.has(key)) {
+      if (current !== tid) {
+        plans[i] = { ...plan, [field]: tid };
+        changed = true;
+      }
+    } else if (current === tid) {
+      const next = fallbackId && fallbackId !== tid ? fallbackId : undefined;
+      plans[i] = { ...plan, [field]: next };
+      changed = true;
+    }
+  }
+
+  if (!changed) return { config: financeConfig, changed: false };
+  return { config: { ...financeConfig, plans }, changed: true };
 }
 
 /** Planos nomeados sem vínculo obrigatório quando existem modelos ativos do tipo. */

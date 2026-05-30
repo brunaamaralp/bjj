@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyDefaultPlanContractLinks,
+  applyTemplatePlanLinks,
   migrateFinanceConfigFromLegacyPlanNames,
   validateFinancePlansContractTemplates,
 } from '../lib/contractPlanTemplates.js';
@@ -43,5 +44,37 @@ describe('contractPlanTemplates', () => {
     const { ok, missing } = validateFinancePlansContractTemplates(financeConfig, templates);
     expect(ok).toBe(false);
     expect(missing).toHaveLength(2);
+  });
+
+  it('links and unlinks plans from template editor selection', () => {
+    const financeConfig = {
+      plans: [
+        { name: 'Mensal', contractTemplateId: 'old' },
+        { name: 'Anual', contractTemplateId: 'old' },
+      ],
+    };
+    const templates = [
+      { $id: 'old', active: true, purpose: 'enrollment', isDefault: true },
+      { $id: 'new', active: true, purpose: 'enrollment', isDefault: false },
+    ];
+
+    const linked = applyTemplatePlanLinks(financeConfig, {
+      templateId: 'new',
+      purpose: 'enrollment',
+      selectedPlanNames: ['Mensal'],
+      templates,
+    });
+    expect(linked.changed).toBe(true);
+    expect(linked.config.plans[0].contractTemplateId).toBe('new');
+    expect(linked.config.plans[1].contractTemplateId).toBe('old');
+
+    const unlinked = applyTemplatePlanLinks(linked.config, {
+      templateId: 'new',
+      purpose: 'enrollment',
+      selectedPlanNames: [],
+      templates,
+    });
+    expect(unlinked.changed).toBe(true);
+    expect(unlinked.config.plans[0].contractTemplateId).toBe('old');
   });
 });

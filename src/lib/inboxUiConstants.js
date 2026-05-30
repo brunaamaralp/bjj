@@ -12,6 +12,11 @@ export const INBOX_MSG_TRUNCATE_CHARS = 600;
 /** Grupos recolhidos por padrão na lista (ex.: resolvidas). */
 export const INBOX_LIST_DEFAULT_COLLAPSED_GROUPS = ['resolved'];
 
+/** Virtualizar lista acima deste número de linhas renderizadas. */
+export const INBOX_LIST_VIRTUALIZE_THRESHOLD = 35;
+
+export const INBOX_LIST_LEGEND_DISMISSED_KEY = 'inbox_list_legend_dismissed';
+
 /**
  * Trunca em limite de caracteres, preferindo quebra em espaço ou newline.
  * @param {string} text

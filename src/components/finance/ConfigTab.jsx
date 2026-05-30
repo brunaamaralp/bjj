@@ -141,9 +141,8 @@ function FinanceSectionHeading({ icon, children }) {
   );
 }
 
-function PlanRow({ pl, idx, enrollmentTemplates, rescissionTemplates, onUpdate, onRemove }) {
+function PlanRow({ pl, idx, onUpdate, onRemove }) {
   const [expanded, setExpanded] = useState(false);
-  const showContracts = enrollmentTemplates.length > 0 || rescissionTemplates.length > 0;
 
   return (
     <div className="finance-plan-row">
@@ -170,48 +169,6 @@ function PlanRow({ pl, idx, enrollmentTemplates, rescissionTemplates, onUpdate, 
           }}
         />
       </div>
-      {showContracts ? (
-        <>
-          {enrollmentTemplates.length > 0 ? (
-            <div className="finance-field-col finance-field-col--contract">
-              <label>Contrato de matrícula</label>
-              <select
-                className="form-input finance-compact-input"
-                value={pl.contractTemplateId || ''}
-                onChange={(e) =>
-                  onUpdate(idx, { contractTemplateId: e.target.value || undefined })
-                }
-              >
-                <option value="">Selecione…</option>
-                {enrollmentTemplates.map((t) => (
-                  <option key={t.$id} value={t.$id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          {rescissionTemplates.length > 0 ? (
-            <div className="finance-field-col finance-field-col--contract">
-              <label>Termo de rescisão</label>
-              <select
-                className="form-input finance-compact-input"
-                value={pl.rescissionTemplateId || ''}
-                onChange={(e) =>
-                  onUpdate(idx, { rescissionTemplateId: e.target.value || undefined })
-                }
-              >
-                <option value="">Selecione…</option>
-                {rescissionTemplates.map((t) => (
-                  <option key={t.$id} value={t.$id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-        </>
-      ) : null}
       <div className="finance-plan-row__actions">
         <button
           type="button"
@@ -585,8 +542,11 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
           <FinanceSectionHeading icon={Wallet2}>Planos de mensalidade</FinanceSectionHeading>
           {lastSaved.plans ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.plans)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
-            Mensalidades dos alunos — usados em Mensalidades, matrícula e contratos. Cada plano deve ter um
-            contrato de matrícula e um termo de rescisão (modelos em Contratos).
+            Mensalidades dos alunos — usados em Mensalidades e matrícula. Vincule contratos por plano em{' '}
+            <Link to="/empresa?tab=contratos" className="edit-link">
+              Empresa → Contratos
+            </Link>
+            .
           </p>
           {isOwner && contractTemplatesConfigured && rescissionTemplates.length === 0 ? (
             <div className="finance-config-setup-banner card" style={{ padding: 12, marginBottom: 12 }}>
@@ -610,8 +570,6 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
                 key={idx}
                 pl={pl}
                 idx={idx}
-                enrollmentTemplates={enrollmentTemplates}
-                rescissionTemplates={rescissionTemplates}
                 onUpdate={updatePlan}
                 onRemove={(i) => setPendingRemovePlan(i)}
               />

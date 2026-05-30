@@ -16,7 +16,7 @@ import {
   isOutboundAudioPlaceholder,
   isOutboundImagePlaceholder
 } from '../../lib/inboxMediaUtils.js';
-import { getThreadHandoffBanner, getThreadHandoffPill } from '../../../lib/inboxHandoffPresentation.js';
+import { getThreadHandoffBanner } from '../../../lib/inboxHandoffPresentation.js';
 import { INBOX_MSG_TRUNCATE_CHARS, isInboxTruncatableTextMessage, truncateInboxMessageText } from '../../lib/inboxUiConstants.js';
 
 function inboxDisplayInitials(name) {
@@ -97,6 +97,7 @@ export default function InboxThreadPanel(props) {
     inboxThreadNarrow767,
     isNarrowDesktop,
     setContextOpen,
+    contextOpen = false,
     composerProps,
     ticketChip,
     listFilter,
@@ -151,16 +152,16 @@ export default function InboxThreadPanel(props) {
               const profileUrl = String(
                 selected?.whatsapp_profile_image_url || lead?.whatsapp_profile_image_url || ''
               ).trim();
-              const pill = getThreadHandoffPill({
-                needHuman: Boolean(selected?.need_human),
-                humanHandoffUntil: selected?.human_handoff_until,
-                nowMs,
-              });
+              const ticket = ticketChip(selected?.ticket_status, selected?.transfer_to);
               const banner = getThreadHandoffBanner({
                 needHuman: Boolean(selected?.need_human),
                 humanHandoffUntil: selected?.human_handoff_until,
                 nowMs,
               });
+              const leadIdForHint = String(selected?.lead_id || '').trim();
+              const leadForHint = leadIdForHint ? leadById.get(leadIdForHint) : leadByPhone.get(normalizePhone(phone));
+              const aiSuggestHuman = Boolean(leadForHint?.needHuman);
+              const showTicketLine = Boolean(ticket?.label) && !ticket?.isDefault;
               return (
                 <>
                   <div className="inbox-thread-header__avatar" aria-hidden>
@@ -177,17 +178,9 @@ export default function InboxThreadPanel(props) {
                         {typeof formatPhone === 'function' ? formatPhone(phone) : phone}
                       </div>
                     ) : null}
-                    <span
-                      role="status"
-                      className="inbox-thread-handoff-pill"
-                      style={{
-                        background: pill.bg,
-                        color: pill.color,
-                        border: pill.border,
-                      }}
-                    >
-                      {pill.label}
-                    </span>
+                    {showTicketLine ? (
+                      <div className="inbox-thread-header__status-line">{ticket.label}</div>
+                    ) : null}
                     <div
                       role="status"
                       className={`inbox-thread-handoff-banner${handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''}`}
@@ -201,6 +194,11 @@ export default function InboxThreadPanel(props) {
                         ? 'A IA voltará a responder automaticamente'
                         : banner.text}
                     </div>
+                    {!selected?.need_human && aiSuggestHuman ? (
+                      <p className="inbox-thread-header__hint">
+                        Vale a pena alguém da equipe ver esta conversa
+                      </p>
+                    ) : null}
                     {!selected?.lead_id ? (
                       <div className="inbox-thread-header__unlink">
                         <span className="inbox-thread-header__unlink-badge">Sem contato</span>
@@ -253,34 +251,6 @@ export default function InboxThreadPanel(props) {
                         )}
                       </div>
                     ) : null}
-                    <div className="inbox-thread-header__chips">
-                      {(() => {
-                        const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
-                        return (
-                          <span
-                            className="text-small"
-                            style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }}
-                            title="Status do ticket"
-                          >
-                            {chip.label}
-                          </span>
-                        );
-                      })()}
-                      {(() => {
-                        const leadId = String(selected?.lead_id || '').trim();
-                        const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-                        const aiSuggestHuman = Boolean(lead?.needHuman);
-                        if (selected?.need_human || !aiSuggestHuman) return null;
-                        return (
-                          <span
-                            className="text-small inbox-thread-header__suggest"
-                            title={`Sugestão com base no ${contactLabel.toLowerCase()}`}
-                          >
-                            Vale a pena alguém da equipe ver esta conversa
-                          </span>
-                        );
-                      })()}
-                    </div>
                   </div>
                 </>
               );
@@ -350,7 +320,7 @@ export default function InboxThreadPanel(props) {
             </button>
           )}
           <button
-            className="btn btn-outline"
+            className={`btn btn-outline inbox-thread-header__btn-context${contextOpen && !isMobile && !isNarrowDesktop ? ' is-active' : ''}`}
             style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
             onClick={() => {
               if (isMobile || isNarrowDesktop) setDetailsOpen(true);

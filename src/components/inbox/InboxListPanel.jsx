@@ -1,20 +1,17 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Filter } from 'lucide-react';
 import ConversationList from './ConversationList';
-import FilterBar from '../shared/FilterBar.jsx';
 import FormSelect from '../shared/FormSelect.jsx';
 
 export default function InboxListPanel({
   searchQuery,
   hasMore,
   listFilter,
-  minhaFilaOn,
   stats,
   extraFiltersMenuOpen,
   setExtraFiltersMenuOpen,
   inboxExtraFilterActive,
   listExtraFiltersRef,
-  setMinhaFilaOn,
   setListFilter,
   inboxLabels,
   labelFilter,
@@ -38,82 +35,67 @@ export default function InboxListPanel({
   agentIaActive = false,
 }) {
   const labelOptions = (inboxLabels || []).map((l) => ({ value: l.$id, label: l.name }));
+  const unreadBacklog = Number(stats?.unreadBacklog || 0);
+  const listScrollRef = useRef(null);
 
   return (
     <div className="inbox-list-panel">
-      {!searchQuery ? (
-        <div className="inbox-list-panel__scroll-hint">
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
-            {hasMore ? 'Role para carregar mais' : 'Fim'}
-          </div>
+      {!searchQuery && hasMore ? (
+        <div className="inbox-list-panel__scroll-hint" aria-hidden>
+          <span className="text-small inbox-list-panel__scroll-hint-text">Role para carregar mais</span>
         </div>
       ) : null}
-      <FilterBar compact dense className="inbox-list-filters">
+      <div className="inbox-list-filters-segments" role="tablist" aria-label="Filtro principal da lista">
         <button
           type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'needs_me' ? 'is-active' : ''}`}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('needs_me');
-          }}
+          role="tab"
+          aria-selected={listFilter === 'all'}
+          className={`inbox-list-filters-segments__btn${listFilter === 'all' ? ' is-active' : ''}`}
+          onClick={() => setListFilter('all')}
+        >
+          Todas
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listFilter === 'needs_me'}
+          className={`inbox-list-filters-segments__btn${listFilter === 'needs_me' ? ' is-active' : ''}`}
+          onClick={() => setListFilter('needs_me')}
           title="Handoff ativo com mensagens não lidas"
         >
           Precisa de mim
         </button>
         <button
           type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'unread' ? 'is-active' : ''}`}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('unread');
-          }}
+          role="tab"
+          aria-selected={listFilter === 'unread'}
+          className={`inbox-list-filters-segments__btn${listFilter === 'unread' ? ' is-active' : ''}`}
+          onClick={() => setListFilter('unread')}
         >
           <span>Não lidas</span>
-          {Number(stats?.unreadBacklog || 0) > 0 ? (
+          {unreadBacklog > 0 ? (
             <span
               className={`text-small inbox-unread-badge ${
-                !minhaFilaOn && listFilter === 'unread'
-                  ? 'inbox-unread-badge--active-chip'
-                  : 'inbox-unread-badge--inactive'
+                listFilter === 'unread' ? 'inbox-unread-badge--active-chip' : 'inbox-unread-badge--inactive'
               }`}
-              title="Conversas com mensagens não lidas"
             >
-              {Number(stats.unreadBacklog)}
+              {unreadBacklog}
             </span>
           ) : null}
         </button>
-        <button
-          type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'need_human' ? 'is-active' : ''}`}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('need_human');
-          }}
-        >
-          Com você agora
-        </button>
-        <button
-          type="button"
-          className={`filter-chip ${!minhaFilaOn && listFilter === 'waiting_customer' ? 'is-active' : ''}`}
-          onClick={() => {
-            setMinhaFilaOn(false);
-            setListFilter('waiting_customer');
-          }}
-          title="Ticket aguardando resposta do cliente"
-        >
-          Aguardando cliente
-        </button>
-        <div ref={listExtraFiltersRef} className="inbox-list-filters__extra">
+        <div ref={listExtraFiltersRef} className="inbox-list-filters__extra inbox-list-filters-segments__more">
           <button
             type="button"
-            className={`filter-chip ${extraFiltersMenuOpen || inboxExtraFilterActive ? 'is-active' : ''}`}
+            className={`inbox-list-filters-segments__btn inbox-list-filters-segments__btn--more${
+              extraFiltersMenuOpen || inboxExtraFilterActive ? ' is-active' : ''
+            }`}
             onClick={() => setExtraFiltersMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={extraFiltersMenuOpen}
             title="Mais filtros"
           >
-            <Filter size={16} strokeWidth={2} aria-hidden />
-            Mais filtros
+            <Filter size={14} strokeWidth={2} aria-hidden />
+            Mais
           </button>
           {extraFiltersMenuOpen ? (
             <div
@@ -124,20 +106,28 @@ export default function InboxListPanel({
               <div className="inbox-list-filters__extra-menu-chips">
                 <button
                   type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'all' ? 'is-active' : ''}`}
+                  className={`filter-chip ${listFilter === 'need_human' ? 'is-active' : ''}`}
                   onClick={() => {
-                    setMinhaFilaOn(false);
-                    setListFilter('all');
+                    setListFilter('need_human');
                     setExtraFiltersMenuOpen(false);
                   }}
                 >
-                  Todos
+                  Com você agora
                 </button>
                 <button
                   type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'resolved' ? 'is-active' : ''}`}
+                  className={`filter-chip ${listFilter === 'waiting_customer' ? 'is-active' : ''}`}
                   onClick={() => {
-                    setMinhaFilaOn(false);
+                    setListFilter('waiting_customer');
+                    setExtraFiltersMenuOpen(false);
+                  }}
+                >
+                  Aguardando cliente
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${listFilter === 'resolved' ? 'is-active' : ''}`}
+                  onClick={() => {
                     setListFilter('resolved');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -146,9 +136,8 @@ export default function InboxListPanel({
                 </button>
                 <button
                   type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'archived' ? 'is-active' : ''}`}
+                  className={`filter-chip ${listFilter === 'archived' ? 'is-active' : ''}`}
                   onClick={() => {
-                    setMinhaFilaOn(false);
                     setListFilter('archived');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -157,9 +146,8 @@ export default function InboxListPanel({
                 </button>
                 <button
                   type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'hot' ? 'is-active' : ''}`}
+                  className={`filter-chip ${listFilter === 'hot' ? 'is-active' : ''}`}
                   onClick={() => {
-                    setMinhaFilaOn(false);
                     setListFilter('hot');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -168,9 +156,8 @@ export default function InboxListPanel({
                 </button>
                 <button
                   type="button"
-                  className={`filter-chip ${!minhaFilaOn && listFilter === 'transferred' ? 'is-active' : ''}`}
+                  className={`filter-chip ${listFilter === 'transferred' ? 'is-active' : ''}`}
                   onClick={() => {
-                    setMinhaFilaOn(false);
                     setListFilter('transferred');
                     setExtraFiltersMenuOpen(false);
                   }}
@@ -199,9 +186,10 @@ export default function InboxListPanel({
             </div>
           ) : null}
         </div>
-      </FilterBar>
-      <div className="inbox-list-panel__scroll" onScroll={onConversationListScroll}>
+      </div>
+      <div ref={listScrollRef} className="inbox-list-panel__scroll" onScroll={onConversationListScroll}>
         <ConversationList
+          listScrollRef={listScrollRef}
           groupedItems={groupedFilteredItems}
           loading={loading}
           totalItems={itemsLength}

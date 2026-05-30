@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { account, realtime, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
-import { getThreadHandoffBanner, getThreadHandoffPill } from '../../lib/inboxHandoffPresentation.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import {
   WHATSAPP_TEMPLATE_LABELS,
@@ -19,7 +18,13 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { Bell, BellOff, User, X, Zap } from 'lucide-react';
+import { Bell, BellOff, MoreHorizontal, RefreshCw, X } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuDivider,
+  DropdownMenuItem,
+  DropdownMenuPanel,
+} from '../components/shared/menu';
 import InboxListPanel from '../components/inbox/InboxListPanel';
 import InboxContextPanel, { InboxContextPanelContent } from '../components/inbox/InboxContextPanel';
 import InboxThreadPanel from '../components/inbox/InboxThreadPanel';
@@ -34,8 +39,9 @@ const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
 const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
-/** Filtro inicial da lista — fila completa (Todos), não "Precisa de mim". */
+/** Filtro inicial da lista — fila completa (Todos), salvo preferência legada de "Minha fila". */
 const DEFAULT_INBOX_LIST_FILTER = 'all';
+const INBOX_PRIMARY_FILTERS = new Set(['all', 'needs_me', 'unread']);
 const MAX_INBOX_LIST_ITEMS = 150;
 
 /** Mantém no máximo MAX_INBOX_LIST_ITEMS; preserva conversa selecionada se sair da janela. */
@@ -58,15 +64,15 @@ function capInboxListItems(items, selectedPhone) {
   return trimmed;
 }
 
-function readMinhaFilaFromStorage() {
-  if (typeof window === 'undefined') return true;
+function readInitialInboxListFilter() {
+  if (typeof window === 'undefined') return DEFAULT_INBOX_LIST_FILTER;
   try {
     const v = window.localStorage.getItem(MINHA_FILA_STORAGE_KEY);
-    if (v === null) return false;
-    return v === '1' || String(v).toLowerCase() === 'true';
+    if (v === '1' || String(v).toLowerCase() === 'true') return 'needs_me';
   } catch {
-    return false;
+    void 0;
   }
+  return DEFAULT_INBOX_LIST_FILTER;
 }
 
 function readComposerExpandedFromStorage() {
@@ -285,9 +291,9 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
 
-  const [listFilter, setListFilter] = useState(DEFAULT_INBOX_LIST_FILTER);
-  const [minhaFilaOn, setMinhaFilaOn] = useState(() => readMinhaFilaFromStorage());
+  const [listFilter, setListFilter] = useState(() => readInitialInboxListFilter());
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
+  const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const listFilterRef = useRef(DEFAULT_INBOX_LIST_FILTER);
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
@@ -333,11 +339,11 @@ export default function Inbox() {
   const [threadHasMore, setThreadHasMore] = useState(false);
   const [ticketUpdating, setTicketUpdating] = useState(false);
   const [contextOpen, setContextOpen] = useState(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const raw = window.localStorage.getItem('inbox_context_open');
-    if (raw === '0') return false;
     if (raw === '1') return true;
-    return true;
+    if (raw === '0') return false;
+    return false;
   });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [menu, setMenu] = useState(null);
@@ -503,11 +509,11 @@ export default function Inbox() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(MINHA_FILA_STORAGE_KEY, minhaFilaOn ? '1' : '0');
+      window.localStorage.setItem(MINHA_FILA_STORAGE_KEY, listFilter === 'needs_me' ? '1' : '0');
     } catch {
       void 0;
     }
-  }, [minhaFilaOn]);
+  }, [listFilter]);
 
   useEffect(() => {
     if (listFilter === 'my_queue') setListFilter('needs_me');
@@ -2552,7 +2558,7 @@ export default function Inbox() {
       });
     };
 
-    if (minhaFilaOn || listFilter === 'needs_me') {
+    if (listFilter === 'needs_me') {
       return applyLabel(arr.filter((it) => Boolean(it?._handoffActive) && unreadN(it) > 0));
     }
 
@@ -2580,7 +2586,7 @@ export default function Inbox() {
       });
     }
     return result;
-  }, [prioritizedItems, listFilter, labelFilter, minhaFilaOn]);
+  }, [prioritizedItems, listFilter, labelFilter]);
 
   const groupedFilteredItems = useMemo(() => {
     const arr = Array.isArray(filteredItems) ? filteredItems : [];
@@ -3024,7 +3030,6 @@ export default function Inbox() {
   };
 
   const handleClearInboxListFilters = useCallback(() => {
-    setMinhaFilaOn(false);
     setListFilter('all');
     setLabelFilter(null);
     setExtraFiltersMenuOpen(false);
@@ -3070,20 +3075,18 @@ export default function Inbox() {
   }, [isMobile]);
 
   const inboxExtraFilterActive =
-    !['unread', 'need_human', 'waiting_customer'].includes(String(listFilter || '')) || Boolean(labelFilter);
+    !INBOX_PRIMARY_FILTERS.has(String(listFilter || '')) || Boolean(labelFilter);
 
   const listPanel = (
     <InboxListPanel
       searchQuery={searchQuery}
       hasMore={hasMore}
       listFilter={listFilter}
-      minhaFilaOn={minhaFilaOn}
       stats={stats}
       extraFiltersMenuOpen={extraFiltersMenuOpen}
       setExtraFiltersMenuOpen={setExtraFiltersMenuOpen}
       inboxExtraFilterActive={inboxExtraFilterActive}
       listExtraFiltersRef={listExtraFiltersRef}
-      setMinhaFilaOn={setMinhaFilaOn}
       setListFilter={setListFilter}
       inboxLabels={inboxLabels}
       labelFilter={labelFilter}
@@ -3229,6 +3232,7 @@ export default function Inbox() {
       inboxThreadNarrow767={inboxThreadNarrow767}
       isNarrowDesktop={isNarrowDesktop}
       setContextOpen={setContextOpen}
+      contextOpen={contextOpen}
       composerProps={composerProps}
       ticketChip={ticketChip}
       listFilter={listFilter}
@@ -3341,15 +3345,6 @@ export default function Inbox() {
                   </span>
                 </>
               ) : null}
-              {!isMobile ? (
-                <span
-                  className="inbox-shortcut-hint"
-                  title="Atalhos (fora de campos de texto): J / K conversas, R focar resposta, E resolver, Ctrl+R recarregar histórico, Ctrl+K alternar resolvido."
-                >
-                  {' '}
-                  · J · K
-                </span>
-              ) : null}
             </>
           )
         }
@@ -3361,46 +3356,45 @@ export default function Inbox() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por telefone ou nome…"
               aria-label="Buscar conversas"
+              title="Atalhos: J/K conversas, R responder, E resolver"
             />
-            <button
-              type="button"
-              className={minhaFilaOn ? 'btn-action-primary inbox-minha-fila-btn' : 'btn-action-ghost inbox-minha-fila-btn'}
-              aria-pressed={minhaFilaOn}
-              onClick={() => setMinhaFilaOn((v) => !v)}
-              title="Quando ativo: só conversas com handoff humano e não lidas. Preferência salva neste aparelho."
-            >
-              <span className="inbox-minha-fila-icon" aria-hidden>
-                <User size={17} strokeWidth={2} style={{ opacity: 0.92 }} />
-                <Zap
-                  size={11}
-                  strokeWidth={2.75}
-                  className={minhaFilaOn ? 'inbox-minha-fila-zap inbox-minha-fila-zap--active' : 'inbox-minha-fila-zap inbox-minha-fila-zap--idle'}
-                />
-              </span>
-              Minha fila
-            </button>
-            <div style={{ flex: 1 }} />
-            <button
-              type="button"
-              className="btn-action-primary"
-              onClick={reconcileLast24h}
-              disabled={waSyncing}
-            >
-              {waSyncing ? 'Sincronizando…' : 'Sincronizar WhatsApp'}
-            </button>
-            <button
-              type="button"
-              className={desktopNotify ? 'btn-action-ghost' : 'btn-action-ghost'}
-              onClick={() => void toggleDesktopNotifyPreference()}
-              title={
-                desktopNotify
-                  ? 'Notificações do sistema ativas (Windows/macOS)'
-                  : 'Ativar notificação do sistema ao receber mensagem (além do aviso no app)'
-              }
-            >
-              {desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-              Notificações
-            </button>
+            <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
+              <button
+                type="button"
+                className="btn-action-ghost inbox-page-actions-menu__trigger"
+                aria-haspopup="menu"
+                aria-expanded={pageActionsOpen}
+                aria-label="Mais ações do inbox"
+                onClick={() => setPageActionsOpen((v) => !v)}
+              >
+                <MoreHorizontal size={18} aria-hidden />
+              </button>
+              {pageActionsOpen ? (
+                <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
+                  <DropdownMenuItem
+                    icon={<RefreshCw size={16} aria-hidden />}
+                    disabled={waSyncing}
+                    onClick={() => {
+                      setPageActionsOpen(false);
+                      void reconcileLast24h();
+                    }}
+                  >
+                    {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
+                  </DropdownMenuItem>
+                  <DropdownMenuDivider />
+                  <DropdownMenuItem
+                    icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+                    active={desktopNotify}
+                    onClick={() => {
+                      setPageActionsOpen(false);
+                      void toggleDesktopNotifyPreference();
+                    }}
+                  >
+                    {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
+                  </DropdownMenuItem>
+                </DropdownMenuPanel>
+              ) : null}
+            </DropdownMenu>
           </div>
         }
       />

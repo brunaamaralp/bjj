@@ -1,14 +1,17 @@
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import ConversationItem from './ConversationItem';
 import EmptyState from '../shared/EmptyState.jsx';
+import { buildInboxListRows, estimateInboxListRowHeight } from '../../lib/inboxListRows.js';
 import {
   INBOX_LIST_DEFAULT_COLLAPSED_GROUPS,
   INBOX_LIST_SECTION_INITIAL,
   INBOX_LIST_SECTION_MORE_STEP,
+  INBOX_LIST_VIRTUALIZE_THRESHOLD,
+  INBOX_LIST_LEGEND_DISMISSED_KEY,
 } from '../../lib/inboxUiConstants.js';
 
-/** Aceita array ou (defensivo) objeto tipo mapa id→linha — antes virava [] e sumiam todos os cards. */
 function normalizeGroupItems(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw == null) return [];
@@ -39,6 +42,49 @@ function conversationPhone(it) {
   return String(it?._phone || it?.phone_number || '').trim();
 }
 
+function readLegendDismissed() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(INBOX_LIST_LEGEND_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function ListGroupHeader({ row, onToggle }) {
+  const titleClass = `inbox-group-title inbox-group-title--virtual${
+    row.collapsible ? ' inbox-group-title--toggle' : ''
+  }${row.collapsed ? ' inbox-group-title--collapsed' : ''}`;
+  const inner = (
+    <>
+      <span className="inbox-group-title__label">
+        {row.label}
+        <span className="inbox-group-title__count">({row.count})</span>
+      </span>
+      {row.collapsible ? (
+        row.collapsed ? (
+          <ChevronRight size={14} aria-hidden className="inbox-group-title__chevron" />
+        ) : (
+          <ChevronDown size={14} aria-hidden className="inbox-group-title__chevron" />
+        )
+      ) : null}
+    </>
+  );
+
+  if (row.collapsible) {
+    return (
+      <button type="button" className={titleClass} onClick={() => onToggle(row.groupKey)} aria-expanded={!row.collapsed}>
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <div className={titleClass} role="presentation">
+      {inner}
+    </div>
+  );
+}
+
 export default function ConversationList(props) {
   const {
     groupedItems,
@@ -55,9 +101,12 @@ export default function ConversationList(props) {
     isMobile = false,
     onConversationLongPress,
     onClearListFilters,
-    handoffNowMs,
     agentIaActive = false,
+    listScrollRef,
   } = props;
+
+  const fallbackScrollRef = useRef(null);
+  const scrollRef = listScrollRef || fallbackScrollRef;
 
   const groups = useMemo(() => safeGrouped(groupedItems).filter((g) => g.items.length > 0), [groupedItems]);
   const flatCount = useMemo(() => groups.reduce((n, g) => n + g.items.length, 0), [groups]);
@@ -66,6 +115,20 @@ export default function ConversationList(props) {
     () => new Set(INBOX_LIST_DEFAULT_COLLAPSED_GROUPS)
   );
   const [visibleByGroup, setVisibleByGroup] = useState({});
+  const [legendDismissed, setLegendDismissed] = useState(() => readLegendDismissed());
+
+  const rows = useMemo(
+    () => buildInboxListRows(groups, collapsedGroups, visibleByGroup),
+    [groups, collapsedGroups, visibleByGroup]
+  );
+  const shouldVirtualize = rows.length > INBOX_LIST_VIRTUALIZE_THRESHOLD;
+
+  const virtualizer = useVirtualizer({
+    count: shouldVirtualize ? rows.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => estimateInboxListRowHeight(rows[index]),
+    overscan: 10,
+  });
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
@@ -104,10 +167,89 @@ export default function ConversationList(props) {
     });
   }, []);
 
+  const dismissLegend = useCallback(() => {
+    setLegendDismissed(true);
+    try {
+      window.localStorage.setItem(INBOX_LIST_LEGEND_DISMISSED_KEY, '1');
+    } catch {
+      void 0;
+    }
+  }, []);
+
   const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
+  const showLegend = !legendDismissed && flatCount > 0 && !loading;
+
+  const renderRow = (row) => {
+    if (row.type === 'header') {
+      return <ListGroupHeader key={row.id} row={row} onToggle={toggleGroupCollapsed} />;
+    }
+    if (row.type === 'collapsed') {
+      return (
+        <button
+          key={row.id}
+          type="button"
+          className="inbox-list-section-more"
+          onClick={() => toggleGroupCollapsed(row.groupKey)}
+        >
+          Mostrar {row.hiddenCount} conversa{row.hiddenCount === 1 ? '' : 's'}
+        </button>
+      );
+    }
+    if (row.type === 'more') {
+      const group = groups.find((g) => g.key === row.groupKey);
+      return (
+        <button
+          key={row.id}
+          type="button"
+          className="inbox-list-section-more"
+          onClick={() => showMoreInGroup(row.groupKey, group?.items?.length || 0)}
+        >
+          Ver mais {row.hiddenCount} conversa{row.hiddenCount === 1 ? '' : 's'}
+        </button>
+      );
+    }
+    if (row.type === 'item') {
+      const it = row.item;
+      const phone = conversationPhone(it);
+      return (
+        <ConversationItem
+          key={row.id}
+          item={it}
+          active={phone === selectedPhone}
+          onSelectConversation={handleSelectConversation}
+          ticketChip={ticketChip}
+          formatTimeOnly={formatTimeOnly}
+          formatWhen={formatWhen}
+          formatActivityLabel={formatActivityLabel}
+          compact
+          enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
+          onLongPress={() => onConversationLongPress?.(it)}
+          agentIaActive={agentIaActive}
+        />
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="inbox-conversation-list-root" data-testid="inbox-conversation-list">
+      {showLegend ? (
+        <div className="inbox-list-legend" role="note">
+          <span className="inbox-list-legend__chip inbox-status-chip-handoff">Com você</span>
+          <span className="inbox-list-legend__text">handoff ativo</span>
+          <span className="inbox-list-legend__sep" aria-hidden>
+            ·
+          </span>
+          <span className="inbox-list-legend__text">Aguardando</span>
+          <span className="inbox-list-legend__sep" aria-hidden>
+            ·
+          </span>
+          <span className="inbox-list-legend__chip inbox-status-chip-ia">IA respondendo</span>
+          <button type="button" className="inbox-list-legend__dismiss" onClick={dismissLegend} aria-label="Fechar dica">
+            <X size={14} aria-hidden />
+          </button>
+        </div>
+      ) : null}
       {showSkeleton && (
         <div style={{ padding: 12 }}>
           {[0, 1, 2, 3, 4].map((idx) => (
@@ -115,87 +257,30 @@ export default function ConversationList(props) {
           ))}
         </div>
       )}
-      {groups.map((group) => {
-        const collapsed = collapsedGroups.has(group.key);
-        const visibleLimit = Number(visibleByGroup[group.key]) || INBOX_LIST_SECTION_INITIAL;
-        const visibleItems = collapsed ? [] : group.items.slice(0, visibleLimit);
-        const hiddenCount = collapsed ? group.items.length : Math.max(0, group.items.length - visibleItems.length);
-        const canExpandSection = !collapsed && hiddenCount > 0;
-        const isCollapsible = group.key === 'resolved' || group.items.length > INBOX_LIST_SECTION_INITIAL;
-        const titleClass = `inbox-group-title${isCollapsible ? ' inbox-group-title--toggle' : ''}${collapsed ? ' inbox-group-title--collapsed' : ''}`;
-        const titleInner = (
-          <>
-            <span className="inbox-group-title__label">
-              {group.label}
-              <span className="inbox-group-title__count">({group.items.length})</span>
-            </span>
-            {isCollapsible ? (
-              collapsed ? (
-                <ChevronRight size={14} aria-hidden className="inbox-group-title__chevron" />
-              ) : (
-                <ChevronDown size={14} aria-hidden className="inbox-group-title__chevron" />
-              )
-            ) : null}
-          </>
-        );
-
-        return (
-          <div key={group.key} className="inbox-conversation-group">
-            {isCollapsible ? (
-              <button
-                type="button"
-                className={titleClass}
-                onClick={() => toggleGroupCollapsed(group.key)}
-                aria-expanded={!collapsed}
+      {shouldVirtualize ? (
+        <div className="inbox-conversation-list-virtual" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+          {virtualizer.getVirtualItems().map((vRow) => {
+            const row = rows[vRow.index];
+            return (
+              <div
+                key={row.id}
+                className="inbox-conversation-list-virtual__row"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${vRow.start}px)`,
+                }}
               >
-                {titleInner}
-              </button>
-            ) : (
-              <div className={titleClass} role="presentation">
-                {titleInner}
+                {renderRow(row)}
               </div>
-            )}
-            {visibleItems.map((it, idx) => {
-              const phone = conversationPhone(it);
-              return (
-                <ConversationItem
-                  key={`${group.key}:${String(it?.id || phone || idx)}`}
-                  item={it}
-                  active={phone === selectedPhone}
-                  onSelectConversation={handleSelectConversation}
-                  ticketChip={ticketChip}
-                  formatTimeOnly={formatTimeOnly}
-                  formatWhen={formatWhen}
-                  formatActivityLabel={formatActivityLabel}
-                  compact
-                  enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
-                  onLongPress={() => onConversationLongPress?.(it)}
-                  handoffNowMs={handoffNowMs}
-                  agentIaActive={agentIaActive}
-                />
-              );
-            })}
-            {canExpandSection ? (
-              <button
-                type="button"
-                className="inbox-list-section-more"
-                onClick={() => showMoreInGroup(group.key, group.items.length)}
-              >
-                Ver mais {hiddenCount} conversa{hiddenCount === 1 ? '' : 's'}
-              </button>
-            ) : null}
-            {collapsed && hiddenCount > 0 ? (
-              <button
-                type="button"
-                className="inbox-list-section-more"
-                onClick={() => toggleGroupCollapsed(group.key)}
-              >
-                Mostrar {hiddenCount} conversa{hiddenCount === 1 ? '' : 's'}
-              </button>
-            ) : null}
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      ) : (
+        rows.map((row) => renderRow(row))
+      )}
       {!loading && totalItems === 0 && !whatsAppConnected && (
         <div style={{ padding: 12 }}>
           <EmptyState

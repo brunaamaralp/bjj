@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
-import { AlertTriangle, Flame, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
 
 const LONG_PRESS_MS = 520;
@@ -36,13 +36,9 @@ function ConversationItem({
   compact = false,
   enableLongPress = false,
   onLongPress,
-  handoffNowMs,
   agentIaActive = false,
 }) {
-  const [rowHover, setRowHover] = useState(false);
-  const hotLead = Boolean(item?._hotLead);
   const needHuman = Boolean(item?.need_human ?? item?._handoffActive);
-  const aiSuggestHuman = Boolean(item?._aiSuggestHuman);
   const unreadCount = Number(item?._unreadCount || 0);
   const isHighlighted = Boolean(item?._isHighlighted);
   const ticket = ticketChip(item?._ticketStatus, item?._transferTo);
@@ -73,16 +69,6 @@ function ConversationItem({
   useEffect(() => {
     setAvatarOk(true);
   }, [profileUrl]);
-
-  const showLevel3 = !enableLongPress && rowHover;
-  const showL3Hot = showLevel3 && hotLead;
-  const showL3AiAlert = showLevel3 && !needHuman && aiSuggestHuman;
-  const showL3Ticket =
-    showLevel3 &&
-    Boolean(ticket?.label) &&
-    !ticket?.isDefault &&
-    !showWaitingChip &&
-    !showHandoffChip;
 
   const primaryChip = resolvePrimaryChip({
     showHandoffChip,
@@ -171,8 +157,6 @@ function ConversationItem({
       type="button"
       data-inbox-conversation-item
       onClick={handleClick}
-      onMouseEnter={() => setRowHover(true)}
-      onMouseLeave={() => setRowHover(false)}
       onTouchStart={enableLongPress ? handleTouchStart : undefined}
       onTouchMove={enableLongPress ? handleTouchMove : undefined}
       onTouchEnd={enableLongPress ? handleTouchEnd : undefined}
@@ -213,7 +197,6 @@ function ConversationItem({
               {primaryChip ? (
                 <span
                   className={`inbox-status-chip ${primaryChip.className}`}
-                  title={primaryChip.title}
                   style={primaryChip.style}
                 >
                   {primaryChip.label}
@@ -229,27 +212,6 @@ function ConversationItem({
                 {preview || '—'}
               </span>
             </div>
-            {showL3Hot || showL3AiAlert || showL3Ticket ? (
-              <div
-                className={`inbox-conversation-item__l3${compact ? ' inbox-conversation-item__l3--compact' : ''}`}
-              >
-                {showL3Hot ? (
-                  <span title="Lead quente" className="inbox-conversation-item__l3-icon inbox-conversation-item__l3-icon--hot">
-                    <Flame size={compact ? 12 : 13} aria-hidden />
-                  </span>
-                ) : null}
-                {showL3AiAlert ? (
-                  <span title="IA sugere intervenção" className="inbox-conversation-item__l3-icon inbox-conversation-item__l3-icon--ai">
-                    <AlertTriangle size={compact ? 12 : 13} aria-hidden />
-                  </span>
-                ) : null}
-                {showL3Ticket ? (
-                  <span className="text-small inbox-ticket-chip-inline" style={{ background: ticket.bg, color: ticket.fg }}>
-                    {ticket.label}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </div>
         <div className={`inbox-conversation-item__meta${compact ? ' inbox-conversation-item__meta--compact' : ''}`}>
@@ -262,7 +224,7 @@ function ConversationItem({
               : formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
           </span>
           {unreadCount > 0 ? (
-            <span className="text-small inbox-conversation-item__unread" title="Mensagens não lidas (unread_count)">
+            <span className="text-small inbox-conversation-item__unread" title="Mensagens não lidas">
               {unreadCount}
             </span>
           ) : null}

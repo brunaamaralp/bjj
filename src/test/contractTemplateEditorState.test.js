@@ -13,6 +13,7 @@ describe('contractTemplateEditorState', () => {
       purpose: 'enrollment',
       bodyHtml: '<p>x</p>',
       signerLayout: { slots: [] },
+      selectedPlanNames: [],
     });
     const current = buildEditorSnapshot({
       name: 'A',
@@ -20,6 +21,27 @@ describe('contractTemplateEditorState', () => {
       purpose: 'enrollment',
       bodyHtml: '<p>y</p>',
       signerLayout: { slots: [] },
+      selectedPlanNames: [],
+    });
+    expect(isEditorDirty(current, baseline)).toBe(true);
+  });
+
+  it('detects dirty when linked plans change', () => {
+    const baseline = buildEditorSnapshot({
+      name: 'A',
+      description: '',
+      purpose: 'enrollment',
+      bodyHtml: '<p>x</p>',
+      signerLayout: { slots: [] },
+      selectedPlanNames: ['Mensal'],
+    });
+    const current = buildEditorSnapshot({
+      name: 'A',
+      description: '',
+      purpose: 'enrollment',
+      bodyHtml: '<p>x</p>',
+      signerLayout: { slots: [] },
+      selectedPlanNames: ['Anual'],
     });
     expect(isEditorDirty(current, baseline)).toBe(true);
   });
@@ -31,6 +53,7 @@ describe('contractTemplateEditorState', () => {
       purpose: 'rescission',
       bodyHtml: '<p>x</p>',
       signerLayout: { slots: [] },
+      selectedPlanNames: [],
     });
     expect(isEditorDirty(snap, snap)).toBe(false);
   });

@@ -227,3 +227,111 @@
   padding-top: 12px;
   border-top: 1px solid var(--border-light);
 }
+
+/* Foco no passo atual da configuração */
+.agent-ia-card--focus {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--v500, #5b3fbf) 35%, transparent);
+}
+
+.agent-ia-card--deferred {
+  opacity: 0.72;
+  position: relative;
+}
+
+.agent-ia-card--deferred::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 40%, transparent);
+}
+
+.agent-ia-card--compact .agent-ia-connected-summary {
+  margin-bottom: 0;
+}
+
+.agent-ia-deferred-hint {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  border: 0.5px solid var(--border-light);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agent-ia-connected-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agent-ia-connected-summary__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-ia-connected-summary__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.agent-ia-connected-summary__meta {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agent-ia-activate-cta {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-ia-activate-cta__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agent-ia-activate-cta .btn-primary {
+  width: 100%;
+  max-width: 360px;
+}
+
+.agent-ia-wa-steps-compact {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.agent-ia-setup-panel__subtitle {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.agent-ia-section-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
