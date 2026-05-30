@@ -25,6 +25,7 @@ export function mapAppwriteDocToStudent(doc) {
     _isStudent: true,
     name: doc.name,
     phone: doc.phone,
+    email: String(doc.email || '').trim(),
     type: doc.type || 'Adulto',
     turma: turmaRaw,
     className: turmaRaw,

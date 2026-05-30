@@ -26,6 +26,7 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
   const payload = {
     name: String(d.name || '').trim(),
     phone: String(d.phone || '').trim(),
+    email: String(d.email || '').trim().slice(0, 128),
     type: String(d.type || 'Adulto').trim() || 'Adulto',
     academyId: String(d.academyId || d.academy_id || '').trim(),
     source_origin: String(d.source_origin ?? d.origin ?? '').trim().slice(0, 128),

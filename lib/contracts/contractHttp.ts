@@ -119,7 +119,9 @@ export async function handlePostContract(
     const parsed = await parseContractFormData(formData, { skipSignerValidation: true });
     const sandbox = auth.isOwner ? parsed.sandbox : false;
 
-    if (parsed.lead_id) {
+    const isRescission = parsed.contract_purpose === 'rescission';
+
+    if (parsed.lead_id && !isRescission) {
       const person = await fetchLeadPersonForContract(parsed.lead_id);
       if (person?.inactive) {
         logContractStructured('contract_create_blocked', {
@@ -145,6 +147,12 @@ export async function handlePostContract(
       templateId: parsed.template_id,
       leadId: parsed.lead_id,
     });
+
+    if (isRescission && template.purpose !== 'rescission') {
+      throw new ContractFormError(
+        'Selecione um modelo de termo de rescisão (finalidade Rescisão em Empresa → Contratos).'
+      );
+    }
 
     const requiredSigners = countEnabledSignerSlots(template.signerLayout);
     if (requiredSigners > 0 && parsed.signers.length !== requiredSigners) {

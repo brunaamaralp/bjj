@@ -5,6 +5,7 @@ import { useContractsList } from '../../features/contracts/queries.js';
 import { mapContractDisplayStatusForRecord } from '../../features/contracts/status.js';
 import { isInactiveStudent } from '../../lib/studentStatus.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
+import { useStudentStore } from '../../store/useStudentStore.js';
 import ContractStatusBadge from '../contracts/ContractStatusBadge.js';
 import CreateContractModal from '../contracts/CreateContractModal.js';
 import ContractDetailsDrawer from '../contracts/ContractDetailsDrawer.js';
@@ -20,12 +21,17 @@ function formatDate(iso) {
 
 export default function StudentContractsSection({ leadId }) {
   const [createOpen, setCreateOpen] = useState(false);
+  const [createPurpose, setCreatePurpose] = useState('enrollment');
   const [selectedId, setSelectedId] = useState(null);
   const leads = useLeadStore((s) => s.leads);
-  const lead = useMemo(
-    () => (leads || []).find((l) => String(l.id) === String(leadId)),
-    [leads, leadId]
-  );
+  const students = useStudentStore((s) => s.students);
+  const lead = useMemo(() => {
+    const id = String(leadId || '');
+    if (!id) return null;
+    const fromLeads = (leads || []).find((l) => String(l.id) === id);
+    if (fromLeads) return fromLeads;
+    return (students || []).find((s) => String(s.id) === id) || null;
+  }, [leads, students, leadId]);
   const studentInactive = lead ? isInactiveStudent(lead) : false;
 
   const { data, isLoading, isError, error, refetch } = useContractsList({
@@ -49,22 +55,52 @@ export default function StudentContractsSection({ leadId }) {
         <p className="text-small text-muted student-contracts-intro">
           Contratos digitais enviados para este aluno assinar via Autentique.
         </p>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => setCreateOpen(true)}
-          disabled={studentInactive}
-          title={studentInactive ? 'Aluno desligado — não é possível enviar novo contrato' : undefined}
-        >
-          <Plus size={16} />
-          Novo contrato
-        </button>
+        <div className="student-contracts-section-actions">
+          {studentInactive ? (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setCreatePurpose('rescission');
+                setCreateOpen(true);
+              }}
+            >
+              <Plus size={16} />
+              Termo de rescisão
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setCreatePurpose('enrollment');
+                  setCreateOpen(true);
+                }}
+              >
+                <Plus size={16} />
+                Novo contrato
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => {
+                  setCreatePurpose('rescission');
+                  setCreateOpen(true);
+                }}
+              >
+                Termo de rescisão
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {studentInactive ? (
         <p className="text-small text-muted student-contracts-inactive-hint">
-          Aluno desligado ou inativo: novos contratos estão bloqueados. Contratos já enviados continuam
-          sendo atualizados pela Autentique.
+          Aluno desligado: novos contratos de matrícula estão bloqueados. Use &quot;Termo de rescisão&quot;
+          para enviar o documento de desligamento. Contratos já enviados continuam sendo atualizados pela
+          Autentique.
         </p>
       ) : null}
 
@@ -83,8 +119,17 @@ export default function StudentContractsSection({ leadId }) {
           icon={FileSignature}
           primaryAction={
             studentInactive
-              ? undefined
-              : { label: 'Criar contrato', onClick: () => setCreateOpen(true) }
+              ? {
+                  label: 'Enviar termo de rescisão',
+                  onClick: () => {
+                    setCreatePurpose('rescission');
+                    setCreateOpen(true);
+                  },
+                }
+              : { label: 'Criar contrato', onClick: () => {
+                  setCreatePurpose('enrollment');
+                  setCreateOpen(true);
+                } }
           }
         />
       ) : (
@@ -113,6 +158,8 @@ export default function StudentContractsSection({ leadId }) {
       <CreateContractModal
         open={createOpen}
         leadId={leadId}
+        purpose={createPurpose}
+        allowInactiveStudent={createPurpose === 'rescission'}
         onClose={() => setCreateOpen(false)}
         onSuccess={() => {
           refetch();

@@ -415,6 +415,7 @@ const STUDENTS_ATTRS = [
   { key: 'academyId', type: 'string', size: 64 },
   { key: 'name', type: 'string', size: 128 },
   { key: 'phone', type: 'string', size: 32 },
+  { key: 'email', type: 'string', size: 128 },
   { key: 'cpf', type: 'string', size: 20 },
   { key: 'birth_date', type: 'string', size: 16 },
   { key: 'plan', type: 'string', size: 128 },

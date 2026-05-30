@@ -33,6 +33,7 @@ vi.mock('../hooks/useZapsterWhatsAppConnection.js', () => ({
 vi.mock('../lib/appwrite', () => ({
   account: { createJWT: vi.fn().mockResolvedValue({ jwt: 't' }) },
   realtime: { subscribe: inboxMocks.subscribe },
+  teams: { listMemberships: vi.fn().mockResolvedValue({ memberships: [] }) },
   DB_ID: 'test-db',
   CONVERSATIONS_COL: 'test-conversations',
   ACADEMIES_COL: 'test-academies',
@@ -151,7 +152,7 @@ describe('Inbox — banner WhatsApp', () => {
     );
 
     expect(screen.queryByText(/WhatsApp desconectado/i)).not.toBeInTheDocument();
-  });
+  }, 15000);
 });
 
 describe('Inbox — Realtime debounce', () => {

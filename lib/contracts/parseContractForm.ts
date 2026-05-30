@@ -1,4 +1,5 @@
 import type { SignerInput } from './types.js';
+import { parseContractTemplatePurpose, type ContractTemplatePurpose } from './contractTemplatePurpose.js';
 import { validateContractSigners, ContractFormError } from './validateContractSigners.js';
 
 export { ContractFormError };
@@ -10,6 +11,7 @@ export interface ParsedContractForm {
   template_id: string;
   sandbox: boolean;
   lead_id?: string;
+  contract_purpose: ContractTemplatePurpose;
 }
 
 function parseSandbox(value: FormDataEntryValue | null): boolean {
@@ -67,5 +69,7 @@ export async function parseContractFormData(
   const lead_id =
     leadRaw != null && String(leadRaw).trim() ? String(leadRaw).trim() : undefined;
 
-  return { name, signers, template_id, sandbox, lead_id };
+  const contract_purpose = parseContractTemplatePurpose(formData.get('contract_purpose'));
+
+  return { name, signers, template_id, sandbox, lead_id, contract_purpose };
 }

@@ -99,6 +99,7 @@ const Students = ({ embedded = false }) => {
     const [newStudent, setNewStudent] = useState({
         name: '',
         phone: '',
+        email: '',
         type: 'Adulto',
         origin: LEAD_ORIGIN[0] || 'Cadastro manual',
         parentName: '',
@@ -106,6 +107,7 @@ const Students = ({ embedded = false }) => {
         plan: '',
     });
     const [phoneError, setPhoneError] = useState('');
+    const [emailError, setEmailError] = useState('');
 
     const planOptions = useMemo(() => {
         const names = (financeConfig?.plans || [])
@@ -298,12 +300,19 @@ const Students = ({ embedded = false }) => {
             setPhoneError('Telefone obrigatório (mínimo 10 dígitos)');
             return;
         }
+        const emailTrim = String(newStudent.email || '').trim();
+        if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+            setEmailError('E-mail inválido');
+            return;
+        }
+        setEmailError('');
         setPhoneError('');
         setCreatingStudent(true);
         try {
             const created = await addStudent({
                 name,
                 phone: cleanPhone,
+                email: emailTrim,
                 type: normalizeLeadProfileType(newStudent.type || 'Adulto') || 'Adulto',
                 origin: newStudent.origin || 'Cadastro manual',
                 parentName: String(newStudent.parentName || '').trim(),
@@ -905,6 +914,20 @@ const Students = ({ embedded = false }) => {
                                     required
                                 />
                                 {phoneError ? <FieldError>{phoneError}</FieldError> : null}
+                            </label>
+                            <label>
+                                E-mail
+                                <input
+                                    type="email"
+                                    value={newStudent.email}
+                                    onChange={(e) => {
+                                        setEmailError('');
+                                        setNewStudent((prev) => ({ ...prev, email: e.target.value.trim() }));
+                                    }}
+                                    placeholder="nome@email.com"
+                                    autoComplete="email"
+                                />
+                                {emailError ? <FieldError>{emailError}</FieldError> : null}
                             </label>
                             <label>
                                 Perfil

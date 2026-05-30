@@ -115,6 +115,13 @@
   margin-bottom: 12px;
 }
 
+.student-contracts-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .student-contracts-intro {
   margin: 0;
   flex: 1 1 200px;

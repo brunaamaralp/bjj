@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft } from 'lucide-react';
+import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
@@ -192,6 +192,12 @@ const STUDENT_DATA_FIELDS = [
     { key: 'sexo', label: 'Sexo', type: 'sexo' },
     { key: 'turma', label: 'Turma', type: 'turma' },
     { key: 'phone', label: 'Telefone (WhatsApp)', type: 'tel', placeholder: '(00) 00000-0000' },
+    {
+        key: 'email',
+        label: 'E-mail',
+        type: 'email',
+        placeholder: 'nome@email.com',
+    },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
     { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
     { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00' },
@@ -359,6 +365,7 @@ export default function StudentProfile() {
     const [deactivateOpen, setDeactivateOpen] = useState(false);
     const [deactivateBusy, setDeactivateBusy] = useState(false);
     const [rescissionContractOpen, setRescissionContractOpen] = useState(false);
+    const [rescissionLeadOverrides, setRescissionLeadOverrides] = useState(null);
     const [reactivateBusy, setReactivateBusy] = useState(false);
     const [exitReasons, setExitReasons] = useState([]);
     const [freezeReasons, setFreezeReasons] = useState([]);
@@ -374,6 +381,7 @@ export default function StudentProfile() {
         enrollmentDate: '',
         birthDate: '',
         phone: '',
+        email: '',
         cpf: '',
         responsavel: '',
         cpfResponsavel: '',
@@ -526,6 +534,7 @@ export default function StudentProfile() {
             enrollmentDate: defaultEnrollmentDateIso(student),
             birthDate: student.birthDate || '',
             phone: maskPhone(String(student.phone || '')),
+            email: String(student.email || '').trim(),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
             cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
@@ -583,6 +592,21 @@ export default function StudentProfile() {
         setActiveTab(tab);
         setTimelineOpen(true);
     }, [searchParams, canViewFinance, modules?.finance, showConversationTab]);
+
+    useEffect(() => {
+        if (searchParams.get('sendRescission') !== '1' || !id || modules?.finance !== true) return;
+        setActiveTab('contracts');
+        setTimelineOpen(true);
+        void fetchStudentById(id).finally(() => setRescissionContractOpen(true));
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('sendRescission');
+                return next;
+            },
+            { replace: true }
+        );
+    }, [searchParams, id, modules?.finance, fetchStudentById, setSearchParams]);
 
     useEffect(() => {
         if (activeTab === 'timeline' || activeTab === 'conversation') {
@@ -962,6 +986,7 @@ export default function StudentProfile() {
             enrollmentDate: defaultEnrollmentDateIso(student),
             birthDate: student.birthDate || '',
             phone: maskPhone(String(student.phone || '')),
+            email: String(student.email || '').trim(),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
             cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
@@ -1025,6 +1050,13 @@ export default function StudentProfile() {
                 return;
             }
 
+            const emailTrim = String(dataForm.email || '').trim();
+            if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+                toast.show({ type: 'error', message: 'E-mail inválido.' });
+                setSavingData(false);
+                return;
+            }
+
             await updateStudent(leadId, {
                 name,
                 type: dataForm.type || 'Adulto',
@@ -1042,6 +1074,7 @@ export default function StudentProfile() {
                 dueDay,
                 cpf: String(dataForm.cpf || '').replace(/\D/g, ''),
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
+                email: String(dataForm.email || '').trim(),
             });
             setEditingData(false);
             toast.success('Dados salvos com sucesso.');
@@ -1155,9 +1188,18 @@ export default function StudentProfile() {
             });
             setDeactivateOpen(false);
             if (sendRescissionTerm) {
-                setRescissionContractOpen(true);
+                setRescissionLeadOverrides({
+                    exitDate: String(exitDate || '').slice(0, 10),
+                    exitReason: String(exitReason || '').trim(),
+                });
+                setActiveTab('contracts');
+                setTimelineOpen(true);
+                void fetchStudentById(leadId).finally(() => setRescissionContractOpen(true));
             }
             let msg = `${terms.student} desligado com sucesso.`;
+            if (sendRescissionTerm) {
+                msg += ' Envie o termo de rescisão no passo a seguir.';
+            }
             if (paymentsCancelled > 0) {
                 msg += ` ${paymentsCancelled} cobrança(s) futura(s) cancelada(s).`;
             }
@@ -1487,6 +1529,9 @@ export default function StudentProfile() {
         if (key === 'phone') {
             return formatPhone(raw) || '';
         }
+        if (key === 'email') {
+            return String(raw ?? '').trim();
+        }
         if (key === 'preferredPaymentMethod') {
             const v = String(raw ?? '').trim();
             return v ? METHOD_PAYMENT_LABELS[v] || v : '';
@@ -1611,6 +1656,18 @@ export default function StudentProfile() {
                         </option>
                     ))}
                 </select>
+            ) : field.type === 'email' ? (
+                <input
+                    id={`student-data-${field.key}`}
+                    type="email"
+                    className="student-profile-data-input"
+                    placeholder={field.placeholder}
+                    disabled={savingData || field.disabled}
+                    value={dataForm[field.key] ?? ''}
+                    onChange={(e) => setDataForm((p) => ({ ...p, [field.key]: e.target.value.trim() }))}
+                    style={dataFormInputStyle}
+                    autoComplete="email"
+                />
             ) : field.type === 'date' ? (
                 <DateInputField
                     id={`student-data-${field.key}`}
@@ -1664,6 +1721,11 @@ export default function StudentProfile() {
             {field.key === 'enrollmentDate' ? (
                 <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                     Padrão: data do cadastro. Altere se a matrícula for retroativa.
+                </p>
+            ) : null}
+            {field.key === 'email' ? (
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    Usado em contratos digitais e comunicações por e-mail.
                 </p>
             ) : null}
         </div>
@@ -1740,9 +1802,43 @@ export default function StudentProfile() {
                             Trancamento disponível para planos anuais (até 90 dias por ano do plano).
                         </p>
                     ) : null}
+                </>
+            ) : isInactiveStudent(student) ? (
+                <>
+                    {modules?.finance === true ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setRescissionLeadOverrides(null);
+                                setActiveTab('contracts');
+                                setTimelineOpen(true);
+                                void fetchStudentById(leadId).finally(() => setRescissionContractOpen(true));
+                            }}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                padding: '10px 12px',
+                                marginBottom: 8,
+                                borderRadius: 10,
+                                border: '1px solid var(--purple)',
+                                background: 'var(--v50, #f3f0ff)',
+                                color: 'var(--purple)',
+                                fontWeight: 700,
+                                fontSize: 13,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                            }}
+                        >
+                            <FileSignature size={16} /> Enviar termo de rescisão
+                        </button>
+                    ) : null}
                     <button
                         type="button"
-                        onClick={() => setDeactivateOpen(true)}
+                        onClick={() => void handleReactivate()}
+                        disabled={reactivateBusy}
                         style={{
                             width: '100%',
                             display: 'flex',
@@ -1752,44 +1848,19 @@ export default function StudentProfile() {
                             padding: '10px 12px',
                             marginBottom: 8,
                             borderRadius: 10,
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface)',
-                            color: 'var(--text)',
+                            border: '1px solid var(--success)',
+                            background: 'var(--success-light)',
+                            color: 'var(--success)',
                             fontWeight: 700,
                             fontSize: 13,
-                            cursor: 'pointer',
+                            cursor: reactivateBusy ? 'not-allowed' : 'pointer',
                             fontFamily: 'inherit',
+                            opacity: reactivateBusy ? 0.7 : 1,
                         }}
                     >
-                        <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
+                        {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
                     </button>
                 </>
-            ) : isInactiveStudent(student) ? (
-                <button
-                    type="button"
-                    onClick={() => void handleReactivate()}
-                    disabled={reactivateBusy}
-                    style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        padding: '10px 12px',
-                        marginBottom: 8,
-                        borderRadius: 10,
-                        border: '1px solid var(--success)',
-                        background: 'var(--success-light)',
-                        color: 'var(--success)',
-                        fontWeight: 700,
-                        fontSize: 13,
-                        cursor: reactivateBusy ? 'not-allowed' : 'pointer',
-                        fontFamily: 'inherit',
-                        opacity: reactivateBusy ? 0.7 : 1,
-                    }}
-                >
-                    {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
-                </button>
             ) : null}
         </div>
     );
@@ -1805,6 +1876,34 @@ export default function StudentProfile() {
             }}
         >
             <p style={sectionEyebrowStyle}>Zona de risco</p>
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Ações de saída ou remoção definitiva — use com cuidado.
+            </p>
+            {isActiveStudent(student) ? (
+                <button
+                    type="button"
+                    onClick={() => setDeactivateOpen(true)}
+                    style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                        borderRadius: 10,
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
+                        color: 'var(--text-secondary)',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                    }}
+                >
+                    <AlertTriangle size={16} /> Desligar {terms.student.toLowerCase()}
+                </button>
+            ) : null}
             <button
                 type="button"
                 onClick={() => setConfirmDeleteOpen(true)}
@@ -1962,6 +2061,11 @@ export default function StudentProfile() {
                     ) : null}
 
                     <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
+                    {String(student.email || '').trim() ? (
+                        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+                            {String(student.email).trim()}
+                        </p>
+                    ) : null}
                     {String(student.turma || student.className || '').trim() ? (
                         <span
                             style={{
@@ -3089,8 +3193,15 @@ export default function StudentProfile() {
                     leadId={leadId}
                     purpose="rescission"
                     allowInactiveStudent
-                    onClose={() => setRescissionContractOpen(false)}
-                    onSuccess={() => setRescissionContractOpen(false)}
+                    leadOverrides={rescissionLeadOverrides || undefined}
+                    onClose={() => {
+                        setRescissionContractOpen(false);
+                        setRescissionLeadOverrides(null);
+                    }}
+                    onSuccess={() => {
+                        setRescissionContractOpen(false);
+                        setRescissionLeadOverrides(null);
+                    }}
                 />
             ) : null}
 

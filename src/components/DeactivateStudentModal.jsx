@@ -202,7 +202,8 @@ export default function DeactivateStudentModal({
           <span>
             <strong>Enviar termo de rescisão para assinatura</strong>
             <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              Após o desligamento, abre o envio do termo vinculado ao plano do aluno (Financeiro → Planos).
+              Após salvar o desligamento, abre o envio do termo (modelo de rescisão do plano em Financeiro →
+              Planos). Você também pode enviar depois em Contratos no perfil do aluno.
             </span>
           </span>
         </label>

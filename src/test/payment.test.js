@@ -17,10 +17,24 @@ function mockAppwriteModule(overrides = {}) {
     },
     DB_ID: 'db-pay',
     FINANCIAL_TX_COL: '',
+    JOURNAL_COL: '',
     createSessionJwt: paymentMocks.createSessionJwt,
     ...overrides,
   };
 }
+
+vi.mock('../store/useAccountingStore.js', () => ({
+  useAccountingStore: {
+    getState: () => ({
+      academyId: '',
+      accounts: [],
+      journal: [],
+      loadByAcademy: vi.fn(),
+      addEntry: vi.fn(),
+      updateEntryId: vi.fn(),
+    }),
+  },
+}));
 
 vi.mock('appwrite', () => ({
   ID: { unique: vi.fn(() => 'id-1') },
@@ -173,17 +187,22 @@ describe('Pagamentos de mensalidade', () => {
         .mockRejectedValueOnce(new Error('mirror-fail'));
       vi.doMock('../lib/appwrite.js', () => mockAppwriteModule({ FINANCIAL_TX_COL: 'tx-col' }));
       const { createPayment } = await import('../lib/studentPayments.js');
-      await expect(
-        createPayment({
-          lead_id: 'lead-1',
-          academy_id: 'acad-1',
-          amount: 150,
-          method: 'pix',
-          status: 'paid',
-          reference_month: '2026-04',
-        })
-      ).resolves.toEqual({ $id: 'pay-10' });
-      expect(paymentMocks.updateDocument).not.toHaveBeenCalled();
+      const result = await createPayment({
+        lead_id: 'lead-1',
+        academy_id: 'acad-1',
+        amount: 150,
+        method: 'pix',
+        status: 'paid',
+        reference_month: '2026-04',
+      });
+      expect(result).toMatchObject({ $id: 'pay-10' });
+      expect(result.warning).toContain('problema ao lançar no caixa');
+      expect(paymentMocks.updateDocument).toHaveBeenCalledWith(
+        'db-pay',
+        'payments-col',
+        'pay-10',
+        { financial_tx_sync_pending: true }
+      );
     });
 
     it('com espelho FINANCIAL_TX e writeback desligado, não chama updateDocument com financial_tx_id', async () => {

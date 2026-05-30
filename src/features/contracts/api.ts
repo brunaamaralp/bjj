@@ -4,6 +4,7 @@ import type {
   CreateContractResponse,
 } from './types.js';
 import type { SignerInput } from '../../../lib/contracts/types.js';
+import type { ContractTemplatePurpose } from '../../../lib/contracts/contractTemplatePurpose.js';
 import { createSessionJwt } from '../../lib/appwrite.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 
@@ -101,12 +102,14 @@ export async function createContractRequest(input: {
   templateId: string;
   sandbox: boolean;
   leadId?: string;
+  contractPurpose?: ContractTemplatePurpose;
 }): Promise<CreateContractResponse> {
   const formData = new FormData();
   formData.append('name', input.name);
   formData.append('signers', JSON.stringify(input.signers));
   formData.append('template_id', input.templateId);
   formData.append('sandbox', input.sandbox ? 'true' : 'false');
+  if (input.contractPurpose) formData.append('contract_purpose', input.contractPurpose);
   if (input.leadId) formData.append('lead_id', input.leadId);
 
   const res = await contractsFetch('/api/contracts', { method: 'POST', body: formData });

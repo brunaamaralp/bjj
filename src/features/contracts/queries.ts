@@ -14,6 +14,7 @@ import {
 } from './templatesApi.js';
 import type { FetchContractsParams } from './api.js';
 import type { SignerInput } from './types.js';
+import type { ContractTemplatePurpose } from '../../../lib/contracts/contractTemplatePurpose.js';
 
 export const contractKeys = {
   all: ['contracts'] as const,
@@ -57,6 +58,7 @@ export function useCreateContract() {
       templateId: string;
       sandbox: boolean;
       leadId?: string;
+      contractPurpose?: ContractTemplatePurpose;
     }) => createContractRequest(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contractKeys.all });

@@ -37,6 +37,7 @@ import {
 import { maskPhone } from '../../lib/masks.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
+import { useStudentStore } from '../../store/useStudentStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { isInactiveStudent } from '../../lib/studentStatus.js';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
@@ -59,6 +60,8 @@ interface CreateContractModalProps {
   purpose?: ContractTemplatePurpose;
   /** Permite envio para aluno desligado (ex.: rescisão após desligamento). */
   allowInactiveStudent?: boolean;
+  /** Dados de desligamento recém-salvos (antes do refresh do cadastro). */
+  leadOverrides?: { exitDate?: string; exitReason?: string };
 }
 
 export default function CreateContractModal({
@@ -68,6 +71,7 @@ export default function CreateContractModal({
   leadId,
   purpose = 'enrollment',
   allowInactiveStudent = false,
+  leadOverrides,
 }: CreateContractModalProps) {
   const [formError, setFormError] = React.useState('');
   const [step, setStep] = useState<Step>('template');
@@ -85,6 +89,8 @@ export default function CreateContractModal({
   const templatesConfigured = templatesData?.configured !== false;
   const isRescission = purpose === 'rescission';
   const leads = useLeadStore((s) => s.leads);
+  const students = useStudentStore((s) => s.students);
+  const fetchStudentById = useStudentStore((s) => s.fetchStudentById);
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -96,7 +102,19 @@ export default function CreateContractModal({
   const [inlineAcademyEmail, setInlineAcademyEmail] = useState('');
   const [savingAcademyEmail, setSavingAcademyEmail] = useState(false);
 
-  const lead = leadId ? (leads || []).find((l) => String(l.id) === String(leadId)) : null;
+  const lead = useMemo(() => {
+    const id = String(leadId || '');
+    if (!id) return null;
+    const fromLeads = (leads || []).find((l) => String(l.id) === id);
+    const base = fromLeads || (students || []).find((s) => String(s.id) === id) || null;
+    if (!base) return null;
+    if (!leadOverrides) return base;
+    return {
+      ...base,
+      ...(leadOverrides.exitDate != null ? { exitDate: leadOverrides.exitDate } : {}),
+      ...(leadOverrides.exitReason != null ? { exitReason: leadOverrides.exitReason } : {}),
+    };
+  }, [leadId, leads, students, leadOverrides]);
   const studentInactive = lead ? isInactiveStudent(lead) : false;
   const blockInactive = studentInactive && !allowInactiveStudent && !isRescission;
 
@@ -246,12 +264,12 @@ export default function CreateContractModal({
   );
 
   const openSessionRef = useRef<string | null>(null);
-  const leadContactSyncedRef = useRef(false);
+  const lastLeadContactFingerprintRef = useRef('');
 
   useEffect(() => {
     if (!open) {
       openSessionRef.current = null;
-      leadContactSyncedRef.current = false;
+      lastLeadContactFingerprintRef.current = '';
       return;
     }
 
@@ -273,10 +291,21 @@ export default function CreateContractModal({
     setInlineAcademyEmail('');
   }, [open, leadId, purpose, isRescission, lead?.name, lead?.email, lead?.phone, reset, buildSignersForTemplate]);
 
-  /** Preenche signatário 1 com e-mail/telefone do cadastro (formatados) quando o lead estiver disponível. */
   useEffect(() => {
-    if (!open || !leadId || !lead || leadContactSyncedRef.current) return;
-    leadContactSyncedRef.current = true;
+    if (!open || !leadId) return;
+    const inStore =
+      (leads || []).some((l) => String(l.id) === String(leadId)) ||
+      (students || []).some((s) => String(s.id) === String(leadId));
+    if (!inStore) void fetchStudentById(leadId);
+  }, [open, leadId, leads, students, fetchStudentById]);
+
+  /** Preenche signatário 1 com e-mail/telefone do cadastro (formatados) quando o aluno estiver disponível. */
+  useEffect(() => {
+    if (!open || !leadId || !lead) return;
+    const fingerprint = `${lead.id}|${lead.email || ''}|${lead.phone || ''}|${lead.name || ''}`;
+    if (lastLeadContactFingerprintRef.current === fingerprint) return;
+    lastLeadContactFingerprintRef.current = fingerprint;
+
     const primary = buildPrimarySignerFromLead(lead);
     setValue('signers.0.name', primary.name, { shouldDirty: false, shouldValidate: true });
     if (primary.email) {
@@ -445,8 +474,14 @@ export default function CreateContractModal({
         templateId: parsed.data.templateId,
         sandbox: navRole === 'owner' ? parsed.data.sandbox : false,
         leadId,
+        contractPurpose: purpose,
       });
-      addToast({ type: 'success', message: 'Contrato enviado para assinatura.' });
+      addToast({
+        type: 'success',
+        message: isRescission
+          ? 'Termo de rescisão enviado para assinatura.'
+          : 'Contrato enviado para assinatura.',
+      });
       onSuccess?.();
       close();
     } catch (e) {
@@ -509,7 +544,9 @@ export default function CreateContractModal({
               ) : templates.length === 0 ? (
                 <div className="card contracts-empty-templates">
                   <p className="text-small">
-                    Nenhum modelo cadastrado.
+                    {isRescission
+                      ? 'Nenhum modelo de rescisão ativo. Crie um modelo com finalidade "Rescisão" e vincule-o ao plano em Financeiro → Planos.'
+                      : 'Nenhum modelo cadastrado.'}
                     {navRole === 'owner' ? (
                       <>
                         {' '}

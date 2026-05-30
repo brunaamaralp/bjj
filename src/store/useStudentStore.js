@@ -63,6 +63,7 @@ function updatesToStudentPatch(updates, current) {
 
   if (u.name !== undefined) copyIf('name', u.name);
   if (u.phone !== undefined) copyIf('phone', u.phone);
+  if (u.email !== undefined) copyIf('email', String(u.email || '').trim().slice(0, 128));
   if (u.type !== undefined) copyIf('type', u.type);
   if (u.turma !== undefined && STUDENT_TURMA_KEY) {
     patch[STUDENT_TURMA_KEY] = String(u.turma || '').trim().slice(0, 64);
