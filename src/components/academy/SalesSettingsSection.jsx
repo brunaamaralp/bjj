@@ -109,7 +109,7 @@ export default function SalesSettingsSection({ academyId }) {
   };
 
   return (
-    <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
+    <section className="empresa-section animate-in" style={{ marginTop: 0 }}>
       <h3 className="navi-section-heading mb-2">Modelo de comprovante</h3>
       <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
         Texto enviado ao copiar o comprovante para o WhatsApp. Use as variáveis do painel abaixo para montar o

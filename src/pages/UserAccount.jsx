@@ -14,7 +14,7 @@ import { useTerms } from '../lib/terminology.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
 
-const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'seguranca', 'dados']);
+const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'dados']);
 const MIN_PWD = 8;
 
 const UserAccount = ({ user }) => {
@@ -36,6 +36,10 @@ const UserAccount = ({ user }) => {
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
+    if (t === 'seguranca') {
+      setSearchParams({ tab: 'perfil' }, { replace: true });
+      return;
+    }
     if (!ACCOUNT_TABS.has(t)) {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
@@ -114,8 +118,7 @@ const UserAccount = ({ user }) => {
   const tabs = [
     { id: 'perfil', label: 'Perfil' },
     { id: 'assinatura', label: 'Assinatura' },
-    { id: 'seguranca', label: 'Segurança' },
-    { id: 'dados', label: 'Dados' },
+    { id: 'dados', label: 'Avançado' },
   ];
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
@@ -125,7 +128,7 @@ const UserAccount = ({ user }) => {
       <PageHeader
         className="navi-page-header--flush"
         title="Minha conta"
-        subtitle="Gerencie perfil, assinatura e segurança."
+        subtitle="Perfil, assinatura e preferências da conta."
         meta={email || displayName}
       />
 
@@ -155,21 +158,7 @@ const UserAccount = ({ user }) => {
               >
                 Mostrar checklist
               </button>
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'assinatura' && <PlansTabContent />}
-
-        {activeTab === 'dados' && (
-          <section className="animate-in">
-            <AvancadoSection academy={academyForRole} leads={leads} showAutentique={false} />
-          </section>
-        )}
-
-        {activeTab === 'seguranca' && (
-          <section className="animate-in">
-            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div
                   style={{
@@ -197,6 +186,14 @@ const UserAccount = ({ user }) => {
                 Alterar senha
               </button>
             </div>
+          </section>
+        )}
+
+        {activeTab === 'assinatura' && <PlansTabContent />}
+
+        {activeTab === 'dados' && (
+          <section className="animate-in">
+            <AvancadoSection academy={academyForRole} leads={leads} showAutentique={false} />
           </section>
         )}
 

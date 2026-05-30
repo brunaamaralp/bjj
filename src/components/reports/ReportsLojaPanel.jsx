@@ -79,11 +79,11 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
           variant="compact"
           tone="solid"
           title="Módulo de vendas desativado"
-          description="Ative vendas nas configurações da academia para ver relatórios da loja aqui."
+          description="O módulo de vendas não está ativo nesta academia."
           role="status"
           primaryAction={{
-            label: 'Configurar vendas',
-            onClick: () => navigate('/empresa?tab=vendas'),
+            label: 'Ver assinatura',
+            onClick: () => navigate('/conta?tab=assinatura'),
           }}
         />
       </div>

@@ -19,6 +19,7 @@ export default function EnrollmentFollowUpSection({
   academyId,
   hasEnrollmentTemplate = false,
   templatesConfigurado = true,
+  embedded = false,
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const [enabled, setEnabled] = useState(false);
@@ -27,6 +28,7 @@ export default function EnrollmentFollowUpSection({
   const [saving, setSaving] = useState(false);
   const [hasExtraTask, setHasExtraTask] = useState(false);
   const [showExtraTask, setShowExtraTask] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!academyId) return;
@@ -51,6 +53,8 @@ export default function EnrollmentFollowUpSection({
         }
       } catch (e) {
         console.error('[EnrollmentFollowUp]', e);
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
     })();
     return () => {
@@ -58,9 +62,8 @@ export default function EnrollmentFollowUpSection({
     };
   }, [academyId]);
 
-  if (hasEnrollmentTemplate) {
-    return null;
-  }
+  if (!loaded) return null;
+  if (hasEnrollmentTemplate && !hasExtraTask) return null;
 
   const save = async () => {
     if (!academyId) return;
@@ -113,36 +116,46 @@ export default function EnrollmentFollowUpSection({
   return (
     <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
       <div className="card" style={{ padding: 16, border: '1px solid var(--border-light)' }}>
-        <h3 className="navi-section-heading" style={{ marginBottom: 6 }}>
-          Processo ao matricular
-        </h3>
-        <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-          Ao concluir a matrícula, o sistema aplica o template com gatilho <strong>Matrícula</strong> (várias
-          tarefas com prazos em dias). Edite os passos em{' '}
-          <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
-            Automações → Processos
-          </Link>
-          — por exemplo: boas-vindas, grupo de WhatsApp, check-in em 30 dias.
-        </p>
-        {templatesConfigurado ? (
-          <p className="text-small text-muted" style={{ marginBottom: 0, lineHeight: 1.45 }}>
-            Se a academia ainda não tiver o processo de onboarding, use <strong>Restaurar padrões</strong> em{' '}
-            <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
-              Automações → Processos
-            </Link>
-            .
-          </p>
+        {!embedded && !hasExtraTask ? (
+          <>
+            <h3 className="navi-section-heading" style={{ marginBottom: 6 }}>
+              Processo ao matricular
+            </h3>
+            <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+              Ao concluir a matrícula, o sistema aplica o template com gatilho <strong>Matrícula</strong> (várias
+              tarefas com prazos em dias). Edite os passos em{' '}
+              <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
+                Automações → Processos
+              </Link>
+              — por exemplo: boas-vindas, grupo de WhatsApp, check-in em 30 dias.
+            </p>
+            {templatesConfigurado ? (
+              <p className="text-small text-muted" style={{ marginBottom: 0, lineHeight: 1.45 }}>
+                Se a academia ainda não tiver o processo de onboarding, use <strong>Restaurar padrões</strong> na
+                lista acima.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+        {embedded && !hasExtraTask ? (
+          <>
+            <h3 className="navi-section-heading" style={{ marginBottom: 6 }}>
+              Tarefa adicional ao matricular
+            </h3>
+            <p className="text-small text-muted" style={{ marginBottom: 0, lineHeight: 1.45 }}>
+              Opcional: crie <strong>uma</strong> tarefa fixa além dos templates com gatilho Matrícula. Para vários
+              passos, prefira adicionar um template acima.
+            </p>
+          </>
         ) : null}
 
         {hasExtraTask ? (
           <StatusBanner variant="warning" className="enrollment-followup-extra-task-banner">
             <p style={{ margin: 0 }}>
-              Há uma tarefa adicional configurada fora dos templates. Recomendamos usar um template com gatilho{' '}
-              <strong>Matrícula</strong> em{' '}
-              <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
-                Automações → Processos
-              </Link>{' '}
-              e remover a tarefa adicional abaixo.
+              Há uma tarefa adicional configurada fora dos templates. Recomendamos migrar para um template com
+              gatilho <strong>Matrícula</strong>
+              {embedded ? ' na lista acima' : ''} e remover a tarefa adicional abaixo.
             </p>
             <button type="button" className="btn-outline" disabled={saving} onClick={() => void clearExtraTask()}>
               Remover tarefa adicional
@@ -150,21 +163,25 @@ export default function EnrollmentFollowUpSection({
           </StatusBanner>
         ) : null}
 
-        <button
-          type="button"
-          className="btn-ghost text-small"
-          style={{ marginTop: 12, padding: 0, minHeight: 0 }}
-          onClick={() => setShowExtraTask((v) => !v)}
-        >
-          {showExtraTask ? 'Ocultar tarefa adicional ao matricular' : 'Tarefa adicional ao matricular…'}
-        </button>
+        {!hasExtraTask || showExtraTask ? (
+          <button
+            type="button"
+            className="btn-ghost text-small"
+            style={{ marginTop: 12, padding: 0, minHeight: 0 }}
+            onClick={() => setShowExtraTask((v) => !v)}
+          >
+            {showExtraTask ? 'Ocultar tarefa adicional ao matricular' : 'Tarefa adicional ao matricular…'}
+          </button>
+        ) : null}
 
         {showExtraTask ? (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
-            <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-              Cria <strong>uma</strong> tarefa fixa após a matrícula (ex.: check-in em 7 dias), além do processo
-              com template Matrícula. Prefira processos em Automações → Processos quando precisar de vários passos.
-            </p>
+            {!embedded ? (
+              <p className="text-small text-muted" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+                Cria <strong>uma</strong> tarefa fixa após a matrícula (ex.: check-in em 7 dias), além do processo
+                com template Matrícula. Prefira templates quando precisar de vários passos.
+              </p>
+            ) : null}
 
             <label className="flex items-center gap-2" style={{ marginBottom: 12, fontSize: 14 }}>
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />

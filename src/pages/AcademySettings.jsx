@@ -18,10 +18,6 @@ import RouteFallback from '../components/shared/RouteFallback.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
 const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
-import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
-import ProcessosMovedNotice from '../components/academy/ProcessosMovedNotice.jsx';
-import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
-import { TASK_TEMPLATE_TRIGGERS } from '../lib/taskTemplates.js';
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
@@ -39,10 +35,8 @@ const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', subtitle: 'Dados e identidade' },
     { id: 'funil', label: 'Funil', subtitle: 'Perguntas e etiquetas' },
     { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e desligamento' },
-    { id: 'tarefas', label: 'Tarefas', subtitle: 'Pós-matrícula' },
     { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas, régua e plano de contas' },
     { id: 'contratos', label: 'Contratos', subtitle: 'Modelos para assinatura' },
-    { id: 'vendas', label: 'Vendas', subtitle: 'PDV e comissões' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -51,10 +45,8 @@ const TAB_SKELETON_HEIGHT = {
     estudio: 420,
     funil: 480,
     alunos: 400,
-    tarefas: 460,
     financeiro: 520,
     contratos: 480,
-    vendas: 320,
 };
 
 function getTabDisabledState(tabId, { role, modules }) {
@@ -68,9 +60,6 @@ function getTabDisabledState(tabId, { role, modules }) {
         if (modules?.finance !== true) {
             return { disabled: true, title: 'Módulo financeiro inativo — ative em Configurações de módulos' };
         }
-    }
-    if (tabId === 'vendas' && modules?.sales !== true) {
-        return { disabled: true, title: 'Módulo inativo — ative em Configurações de módulos' };
     }
     return { disabled: false, title: undefined };
 }
@@ -122,11 +111,6 @@ const AcademySettings = () => {
         teamId: '',
         ownerId: '',
     });
-    const [tasksTemplatesMeta, setTasksTemplatesMeta] = useState({
-        configurado: true,
-        hasEnrollmentTemplate: false,
-    });
-
     const focus = searchParams.get('focus');
     const autoEditTax = focus === 'tax';
 
@@ -146,39 +130,6 @@ const AcademySettings = () => {
 
     const rawTab = searchParams.get('tab') || '';
     const activeTab = VALID_TAB_IDS.has(rawTab) ? rawTab : 'estudio';
-
-    useEffect(() => {
-        if (activeTab !== 'tarefas' || !academyId) return;
-        let cancelled = false;
-        (async () => {
-            try {
-                const jwt = await createSessionJwt();
-                if (!jwt || cancelled) return;
-                const res = await fetch('/api/task-templates?include_disabled=1', {
-                    headers: {
-                        Authorization: `Bearer ${jwt}`,
-                        'x-academy-id': academyId,
-                    },
-                });
-                const data = await res.json().catch(() => ({}));
-                if (cancelled) return;
-                const list = data.templates || [];
-                setTasksTemplatesMeta({
-                    configurado: data.configurado !== false,
-                    hasEnrollmentTemplate: list.some(
-                        (t) => t.trigger === TASK_TEMPLATE_TRIGGERS.ENROLLMENT && t.enabled !== false
-                    ),
-                });
-            } catch {
-                if (!cancelled) {
-                    setTasksTemplatesMeta({ configurado: false, hasEnrollmentTemplate: false });
-                }
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [activeTab, academyId]);
 
     const activeTabMeta = useMemo(
         () => TABS_ALL.find((t) => t.id === activeTab) || TABS_ALL[0],
@@ -457,7 +408,7 @@ const AcademySettings = () => {
         <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
             <PageHeader
                 title={terms.myWorkspace}
-                subtitle="Ajuste dados, funil e módulos da academia."
+                subtitle="Dados da academia, funil, alunos e financeiro."
                 meta={
                     academy.name ? (
                         <span className="academy-settings-page-name">{academy.name}</span>
@@ -567,21 +518,6 @@ const AcademySettings = () => {
                         <ContractTemplatesPage embedded />
                     </React.Suspense>
                 </div>
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'tarefas' && academyId && (
-                <>
-                    <ProcessosMovedNotice />
-                    <EnrollmentFollowUpSection
-                        academyId={academyId}
-                        hasEnrollmentTemplate={tasksTemplatesMeta.hasEnrollmentTemplate}
-                        templatesConfigurado={tasksTemplatesMeta.configurado}
-                    />
-                </>
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'vendas' && academyId && (
-                <SalesSettingsSection academyId={academyId} />
             )}
 
             <style dangerouslySetInnerHTML={{

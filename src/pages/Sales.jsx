@@ -1,7 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
+import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { useLeadStore } from '../store/useLeadStore';
 import {
@@ -29,6 +31,13 @@ const Sales = () => {
     []
   );
   const subtab = resolveSalesSubtab(searchParams);
+  const wantsConfig = String(searchParams.get('config') || '').trim() === '1';
+  const [salesConfigOpen, setSalesConfigOpen] = useState(wantsConfig);
+
+  useEffect(() => {
+    if (wantsConfig) setSalesConfigOpen(true);
+  }, [wantsConfig]);
+
   useEffect(() => {
     if (!salesSubtabNeedsNormalize(searchParams)) return;
     setSearchParams(lojaVendasTabParams(resolveSalesSubtab(searchParams), searchParams), {
@@ -69,6 +78,26 @@ const Sales = () => {
         academyName={academyName}
         context="vendas"
       />
+
+      {academyId ? (
+        <div className="mt-4" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => setSalesConfigOpen((v) => !v)}
+            aria-expanded={salesConfigOpen}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            Configurações de vendas
+            {salesConfigOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+          </button>
+          {salesConfigOpen ? (
+            <div className="mt-3 animate-in">
+              <SalesSettingsSection academyId={academyId} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };
