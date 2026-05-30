@@ -1918,7 +1918,9 @@
 }
 
 .mensalidades-page input[type='date'].mensal-modal-in,
-.mensalidades-modal-scope input[type='date'].mensal-modal-in {
+.mensalidades-modal-scope input[type='date'].mensal-modal-in,
+.mensalidades-page input.navi-typable-date.mensal-modal-in,
+.mensalidades-modal-scope input.navi-typable-date.mensal-modal-in {
   min-height: 48px;
 }
 

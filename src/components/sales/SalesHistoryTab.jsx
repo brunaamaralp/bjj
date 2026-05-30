@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, ShoppingBag, ChevronRight } from 'lucide-react';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import { DateInputField } from '../DateInput';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
@@ -186,7 +187,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
           <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
             <label className="text-xs">De</label>
-            <input
+            <DateInputField
               type="date"
               className="form-input"
               value={period.from}
@@ -195,7 +196,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
           </div>
           <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
             <label className="text-xs">Até</label>
-            <input
+            <DateInputField
               type="date"
               className="form-input"
               value={period.to}

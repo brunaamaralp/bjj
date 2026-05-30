@@ -52,7 +52,7 @@ import { useTerms, contactLabelSingular, operationalStatusDisplayLabel, pipeline
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { NL_PAYMENT_PREFILL_EVENT } from '../lib/nlCorrect.js';
 import { formatBRLFromCents } from '../lib/moneyBr';
-import { DateInput } from '../components/DateInput';
+import { DateInputField } from '../components/DateInput';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import { formatCollectionResultLabel } from '../lib/collectionRules.js';
@@ -1611,6 +1611,16 @@ export default function StudentProfile() {
                         </option>
                     ))}
                 </select>
+            ) : field.type === 'date' ? (
+                <DateInputField
+                    id={`student-data-${field.key}`}
+                    type="date"
+                    className="student-profile-data-input form-input"
+                    placeholder={field.placeholder}
+                    disabled={savingData || field.disabled}
+                    value={dataForm[field.key] ?? ''}
+                    onChange={(e) => setDataForm((p) => ({ ...p, [field.key]: e.target.value }))}
+                />
             ) : (
                 <input
                     id={`student-data-${field.key}`}

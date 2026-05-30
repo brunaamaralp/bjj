@@ -32,6 +32,7 @@ import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
+import { DateInputField } from '../components/DateInput';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
@@ -1287,7 +1288,7 @@ const LeadProfile = () => {
                                             <div className="flex-col gap-2">
                                                 <div className="flex-col gap-1">
                                                     <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data da aula</span>
-                                                    <input
+                                                    <DateInputField
                                                         className="form-input-sm"
                                                         type="date"
                                                         value={form.scheduledDate}
@@ -1312,7 +1313,7 @@ const LeadProfile = () => {
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                                             <div className="flex-col gap-1">
                                                 <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data de nascimento</span>
-                                                <input
+                                                <DateInputField
                                                     className="form-input-sm"
                                                     type="date"
                                                     value={form.birthDate}

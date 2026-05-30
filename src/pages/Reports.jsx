@@ -5,6 +5,7 @@ import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
+import { DateInputField } from '../components/DateInput';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 import { useUserRole } from '../lib/useUserRole';
 import { hasAnyActivity } from '../lib/reportActivity.js';
@@ -661,9 +662,9 @@ const Reports = () => {
                         ))}
                         {preset === 'custom' && (
                             <>
-                                <input type="date" className="form-input navi-date-filter navi-control--toolbar" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" />
+                                <DateInputField type="date" className="form-input navi-date-filter navi-control--toolbar" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Data inicial" />
                                 <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
-                                <input type="date" className="form-input navi-date-filter navi-control--toolbar" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
+                                <DateInputField type="date" className="form-input navi-date-filter navi-control--toolbar" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Data final" />
                             </>
                         )}
                     </FilterBar>

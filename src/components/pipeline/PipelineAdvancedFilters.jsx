@@ -1,5 +1,6 @@
 import React from 'react';
 import { LEAD_ORIGIN } from '../../store/useLeadStore';
+import { DateInputField } from '../DateInput';
 
 /**
  * Painel de filtros avançados do funil (perfil, origem, período customizado, escopo de busca).
@@ -78,7 +79,7 @@ export default function PipelineAdvancedFilters({
       <div className="pipeline-filters-panel__section">
         <span className="pipeline-filters-panel__label">Período customizado</span>
         <div className="pipeline-filters-panel__date-row">
-          <input
+          <DateInputField
             type="date"
             className="navi-date-filter pipeline-filters-panel__date"
             value={filterDateFrom}
@@ -91,7 +92,7 @@ export default function PipelineAdvancedFilters({
           <span className="pipeline-filters-panel__date-sep" aria-hidden>
             —
           </span>
-          <input
+          <DateInputField
             type="date"
             className="navi-date-filter pipeline-filters-panel__date"
             value={filterDateTo}

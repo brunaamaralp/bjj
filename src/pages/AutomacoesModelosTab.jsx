@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Save, RotateCcw, Send, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
+import { DateInputField } from '../components/DateInput';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { account, teams } from '../lib/appwrite';
@@ -430,7 +431,7 @@ export default function AutomacoesModelosTab() {
               onChange={(e) => setSampleManual((p) => ({ ...p, phone: e.target.value }))}
               style={{ width: 170 }}
             />
-            <input
+            <DateInputField
               className="form-input"
               type="date"
               value={sampleManual.scheduledDate}

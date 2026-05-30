@@ -10,6 +10,7 @@ import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx
 import { maskPhone } from '../lib/masks.js';
 import { turmaValueFromForm } from '../lib/academyTurmas.js';
 import FieldError from '../components/shared/FieldError.jsx';
+import { DateInputField } from '../components/DateInput';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
 
 const TYPE_ICONS = {
@@ -198,7 +199,7 @@ export default function PublicStudentEnrollment() {
 
                 <div className="form-group">
                   <label>Data de nascimento</label>
-                  <input {...register('birthDate')} type="date" className="form-input" />
+                  <DateInputField {...register('birthDate')} type="date" className="form-input" />
                 </div>
               </div>
 

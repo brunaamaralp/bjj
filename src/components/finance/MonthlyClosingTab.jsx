@@ -13,6 +13,7 @@ import useDebounce from '../../hooks/useDebounce.js';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import { DateInputField } from '../DateInput';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
@@ -606,7 +607,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             </div>
             <div className="form-group" style={{ margin: 0, width: 130 }}>
               <label className="text-xs">Data</label>
-              <input
+              <DateInputField
                 type="date"
                 className="form-input navi-date-filter"
                 value={manualForm.date}

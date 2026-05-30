@@ -17,6 +17,7 @@ import { afterExperimentalScheduled } from '../lib/automationDispatch.js';
 import { notifyAutomationFeedback } from '../lib/automationUx.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
+import { DateInputField } from '../components/DateInput';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
 
 const TYPE_ICONS = {
@@ -338,7 +339,7 @@ const NewLead = () => {
                     <div className="flex gap-2">
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Data</label>
-                            <input
+                            <DateInputField
                                 {...register('scheduledDate', { required: false })}
                                 type="date"
                                 className="form-input"

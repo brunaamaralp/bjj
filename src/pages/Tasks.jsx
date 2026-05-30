@@ -14,6 +14,7 @@ import { teams } from '../lib/appwrite';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { DateInputField } from '../components/DateInput';
 import {
   CheckSquare,
   PlusCircle,
@@ -1327,7 +1328,7 @@ export default function Tasks() {
               <div className="task-field-row">
                 <div className="task-field">
                   <label className="task-field-label">Prazo</label>
-                  <input
+                  <DateInputField
                     type="date"
                     className="form-input"
                     value={form.due_date}

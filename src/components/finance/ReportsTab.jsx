@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { DateInputField } from '../DateInput';
 import { databases, DB_ID, JOURNAL_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { useAccountingStore } from '../../store/useAccountingStore';
@@ -146,11 +147,11 @@ export default function ReportsTab({
           <>
             <div className="form-group" style={{ width: 138 }}>
               <label>De</label>
-              <input className="form-input navi-date-filter" type="date" value={fromLocal} onChange={(e) => setFromLocal(e.target.value)} />
+              <DateInputField className="form-input navi-date-filter" type="date" value={fromLocal} onChange={(e) => setFromLocal(e.target.value)} />
             </div>
             <div className="form-group" style={{ width: 138 }}>
               <label>Até</label>
-              <input className="form-input navi-date-filter" type="date" value={toLocal} onChange={(e) => setToLocal(e.target.value)} />
+              <DateInputField className="form-input navi-date-filter" type="date" value={toLocal} onChange={(e) => setToLocal(e.target.value)} />
             </div>
           </>
         ) : null}

@@ -14,6 +14,7 @@ import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
 import { Receipt, Repeat, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { DateInputField } from '../DateInput';
 import {
   RECURRENCE_TYPES,
   WEEKDAY_OPTIONS,
@@ -591,11 +592,11 @@ export default function TransacoesTab({
             <div className="flex gap-2 finance-tx-date-filters">
               <div className="form-group finance-tx-date-group">
                 <label>De</label>
-                <input className="form-input navi-date-filter" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                <DateInputField className="form-input navi-date-filter" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
               </div>
               <div className="form-group finance-tx-date-group">
                 <label>Até</label>
-                <input className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                <DateInputField className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </div>
             </div>
             <div className="filter-bar finance-tx-filters">
@@ -1173,7 +1174,7 @@ export default function TransacoesTab({
               </div>
               <div className="form-group">
                 <label>Mês de competência</label>
-                <input
+                <DateInputField
                   type="month"
                   className="form-input"
                   value={txForm.competence_month || currentCompetenceMonth()}

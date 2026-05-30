@@ -5,6 +5,7 @@ import { PlusCircle, Trash2, Receipt } from 'lucide-react';
 import { fmt } from './financeFmt.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import { DateInputField } from '../DateInput';
 
 export default function JournalTab({
   academyId,
@@ -164,7 +165,7 @@ export default function JournalTab({
         <div className="finance-journal-meta">
           <div className="form-group">
             <label>Data</label>
-            <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInputField className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="form-group">
             <label>Histórico</label>
@@ -297,8 +298,8 @@ export default function JournalTab({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <input className="form-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          <input className="form-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          <DateInputField className="form-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <DateInputField className="form-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           <select className="form-input" value={direction} onChange={(e) => setDirection(e.target.value)}>
             <option value="all">Todos</option>
             <option value="debit">Débito</option>

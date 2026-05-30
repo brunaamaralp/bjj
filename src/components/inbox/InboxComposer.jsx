@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Paperclip, Sparkles, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
+import { DateInputField } from '../DateInput';
 import { applyWhatsappTemplatePlaceholders } from '../../../lib/whatsappTemplateDefaults.js';
 
 function attachmentKindFromFile(file) {
@@ -387,7 +388,7 @@ export default function InboxComposer(props) {
             Agendar
           </button>
           {scheduleOn && (
-            <input
+            <DateInputField
               type="datetime-local"
               className="form-input"
               value={scheduleAtLocal}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { DateInputField } from '../DateInput';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import { mapDbStatusFromGridForm } from '../../lib/paymentStatus';
 
@@ -108,7 +109,7 @@ export default function PaymentStatusPopover({
         {status !== 'awaiting' ? (
           <div>
             <label className="text-xs" style={{ display: 'block', marginBottom: 4 }}>Data</label>
-            <input type="date" className="form-input" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} style={{ fontSize: 13 }} />
+            <DateInputField type="date" className="form-input" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} style={{ fontSize: 13 }} />
           </div>
         ) : null}
 
