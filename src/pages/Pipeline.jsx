@@ -2183,7 +2183,7 @@ const Pipeline = () => {
                     aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
                 >
                     {displayStages.map((col, idx) => {
-                        const color = getPipelineStageColor(stage.id, idx);
+                        const color = getPipelineStageColor(col.id, idx);
                         if (showKanbanInitialLoading) {
                             return (
                                 <div key={col.id} className="kanban-column pipeline-kanban-skeleton-col">
