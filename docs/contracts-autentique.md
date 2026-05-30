@@ -59,6 +59,7 @@ node --env-file=.env scripts/verify-and-fix-schema-integrations.mjs
 ## PDF e campos de assinatura
 
 1. O HTML do editor é renderizado em PDF A4 com **Chromium** (`@sparticuz/chromium` na Vercel).
+   O **rodapé de assinaturas** (Contratante / Contratada) é incluído automaticamente ao salvar o modelo e ao gerar PDF (prévia ou envio), se ainda não existir no texto.
 2. No modelo, configure **Campos de assinatura** (slots Contratante / Contratada) com coordenadas `x`, `y` em % na **última página** (`z: last`).
 3. No envio, cada signatário recebe `positions` na API Autentique (`SIGNATURE`, `NAME`, `DATE`, etc.).
 4. Modelos padrão exigem **2 signatários** (aluno/responsável + contratada), na ordem dos slots.

@@ -20,6 +20,7 @@ import {
   type ContractTemplatePurpose,
   type FinancePlanContractLink,
 } from './contractTemplatePurpose.js';
+import { ensureContractSignatureFooter } from './contractSignatureFooter.js';
 
 export type { ContractTemplatePurpose, FinancePlanContractLink };
 export { parseContractTemplatePurpose, financePlanTemplateField };
@@ -163,8 +164,9 @@ export async function getContractTemplatePdfBuffer(
   const { renderContractHtmlToPdf, countPdfBufferPages } = await import('./renderContractHtmlToPdf.js');
 
   if (template.bodyHtml?.trim() || template.kind === 'html_editor') {
+    const { html: bodyWithFooter } = ensureContractSignatureFooter(template.bodyHtml || '');
     const html = mergeContractTemplateHtml(
-      template.bodyHtml || '',
+      bodyWithFooter,
       variableMap || { data_hoje: new Date().toLocaleDateString('pt-BR') }
     );
     const { buffer, pageCount } = await renderContractHtmlToPdf(html);
@@ -212,8 +214,9 @@ export async function createContractTemplate(input: {
   signer_layout_json?: string | ContractSignerLayout;
 }): Promise<ContractTemplateRecord> {
   const databases = requireDb();
-  const body = String(input.body_html || '').trim();
-  if (!body) throw new Error('contract_template_body_required');
+  const rawBody = String(input.body_html || '').trim();
+  if (!rawBody) throw new Error('contract_template_body_required');
+  const { html: body } = ensureContractSignatureFooter(rawBody);
 
   const purpose = parseContractTemplatePurpose(input.purpose);
   if (input.is_default) await clearOtherDefaults(input.academy_id, purpose);
@@ -280,7 +283,8 @@ export async function updateContractTemplate(
   if (patch.is_default !== undefined) data.is_default = Boolean(patch.is_default);
   if (patch.active !== undefined) data.active = Boolean(patch.active);
   if (patch.body_html !== undefined) {
-    data.body_html = String(patch.body_html).slice(0, 28000);
+    const { html } = ensureContractSignatureFooter(String(patch.body_html));
+    data.body_html = html.slice(0, 28000);
     data.kind = 'html_editor';
   }
   if (patch.signer_layout_json !== undefined) {

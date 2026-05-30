@@ -33,14 +33,18 @@ async function paymentsFetch(path, options = {}, academyId) {
   return data;
 }
 
-export async function apiListStudentPayments({ referenceMonth, page = 1, limit = 100, academyId }) {
+export async function apiListStudentPayments({ referenceMonth, page = 1, limit = 100, cursor, academyId }) {
   const qs = new URLSearchParams({
     reference_month: String(referenceMonth || ''),
     page: String(page),
-    limit: String(limit),
+    limit: String(Math.min(200, Math.max(1, limit))),
   });
+  if (cursor) qs.set('cursor', String(cursor));
   const data = await paymentsFetch(`/api/student-payments?${qs}`, {}, academyId);
-  return data.payments || [];
+  return {
+    payments: data.payments || [],
+    next_cursor: data.next_cursor || null,
+  };
 }
 
 export async function apiCreateStudentPayment(payload) {

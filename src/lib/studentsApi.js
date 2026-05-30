@@ -42,3 +42,11 @@ export async function freezeStudentApi(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+/** Histórico de trancamentos via API (evita 401 no client Appwrite). */
+export async function listPlanFreezesApi(leadId, { limit = 50 } = {}) {
+  const id = encodeURIComponent(String(leadId || '').trim());
+  const lim = Math.min(Math.max(1, limit), 100);
+  const data = await studentsFetch(`/api/students/plan-freezes?student_id=${id}&limit=${lim}`);
+  return data.plan_freezes || [];
+}

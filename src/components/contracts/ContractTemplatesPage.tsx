@@ -15,6 +15,7 @@ import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite.js';
 import {
   DEFAULT_CONTRACT_TEMPLATE_HTML,
 } from '../../lib/contractTemplateVariables.js';
+import { ensureContractSignatureFooter } from '../../lib/contractSignatureFooter.js';
 import {
   defaultContractSignerLayout,
   parseContractSignerLayout,
@@ -272,7 +273,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         name: t.name,
         description: t.description || '',
         purpose: templatePurpose,
-        bodyHtml: t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML,
+        bodyHtml: ensureContractSignatureFooter(t.bodyHtml || DEFAULT_CONTRACT_TEMPLATE_HTML).html,
         signerLayout: t.signerLayout || parseContractSignerLayout(t.signerLayoutJson),
         selectedPlanNames: plansUsingTemplate(financeConfig, t.$id, field),
       });

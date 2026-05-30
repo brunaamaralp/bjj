@@ -3,7 +3,7 @@ import { databases, DB_ID } from './appwrite.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
-import { freezeStudentApi } from './studentsApi.js';
+import { freezeStudentApi, listPlanFreezesApi } from './studentsApi.js';
 import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';
 import {
   findPaymentForMonthUpsert,
@@ -68,14 +68,24 @@ export function formatFreezeDateBr(ymd) {
 }
 
 export async function listPlanFreezes(leadId, academyId, { limit = 50 } = {}) {
-  if (!PLAN_FREEZES_COL || !leadId || !academyId) return [];
-  const res = await databases.listDocuments(DB_ID, PLAN_FREEZES_COL, [
-    Query.equal('lead_id', String(leadId).trim()),
-    Query.equal('academy_id', String(academyId).trim()),
-    Query.orderDesc('start_date'),
-    Query.limit(Math.min(limit, 100)),
-  ]);
-  return res.documents || [];
+  if (!leadId || !academyId) return [];
+  try {
+    return await listPlanFreezesApi(leadId, { limit });
+  } catch (e) {
+    console.warn('[listPlanFreezes] API:', e?.message || e);
+    if (!PLAN_FREEZES_COL) return [];
+    try {
+      const res = await databases.listDocuments(DB_ID, PLAN_FREEZES_COL, [
+        Query.equal('lead_id', String(leadId).trim()),
+        Query.equal('academy_id', String(academyId).trim()),
+        Query.orderDesc('start_date'),
+        Query.limit(Math.min(limit, 100)),
+      ]);
+      return res.documents || [];
+    } catch {
+      return [];
+    }
+  }
 }
 
 async function markPaymentsFrozen({ leadId, academyId, startYmd, endYmd, planName, teamId, userId }) {

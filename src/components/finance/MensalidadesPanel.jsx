@@ -12,7 +12,7 @@ import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError } from '../../lib/errorMessages';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ChevronDown } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
@@ -903,75 +903,7 @@ export default function MensalidadesPanel({ embedded = false }) {
 
       </header>
 
-      {viewMode === 'list' && !loading ? (
-        <section className="mensal-summary-block mensal-month-kpis" aria-label="Resumo do mês">
-          <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
-            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
-              <div className="mensal-summary-card__value mensal-summary-card__value--money">
-                {fmtMoney(monthKpis.expectedTotal)}
-              </div>
-              <div className="mensal-summary-card__label">Esperado</div>
-            </div>
-            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
-              <div className="mensal-summary-card__value mensal-summary-card__value--money">
-                {fmtMoney(monthKpis.receivedTotal)}
-              </div>
-              <div className="mensal-summary-card__label">Recebido</div>
-            </div>
-            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--pending">
-              <div className="mensal-summary-card__value mensal-summary-card__value--money">
-                {fmtMoney(monthOpenTotal)}
-              </div>
-              <div className="mensal-summary-card__label">Em aberto</div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {viewMode === 'list' && collectionDashboard.total > 0 ? (
-        <section className="mensal-collection-dashboard card">
-          <h2 className="mensal-collection-dashboard__title">
-            Régua de cobrança · {formatMonthTitleCapitalized(currentMonth)}
-          </h2>
-          <div className="mensal-collection-dashboard__grid">
-            <div>
-              <div className="mensal-collection-dashboard__value mensal-collection-dashboard__value--alert">
-                {collectionDashboard.total}
-              </div>
-              <div className="mensal-collection-dashboard__label">Inadimplentes (D+1+)</div>
-            </div>
-            <div>
-              <div className="mensal-collection-dashboard__value">{fmtMoney(collectionDashboard.totalOpen)}</div>
-              <div className="mensal-collection-dashboard__label">Valor em aberto</div>
-            </div>
-            {collectionRules.map((rule) => (
-              <div key={rule.day}>
-                <div className="mensal-collection-dashboard__value">
-                  {collectionDashboard.byStage[String(rule.day)] || 0}
-                </div>
-                <div className="mensal-collection-dashboard__label">
-                  D+{rule.day} · {rule.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {viewMode === 'list' && collectionDashboard.total > 0 ? (
-        <CollectionInadimplenciaPanel
-          students={students}
-          studentOverdueMeta={studentOverdueMeta}
-          paymentMap={paymentMap}
-          collectionRules={collectionRules}
-          currentMonth={currentMonth}
-          financeConfig={financeConfig}
-        />
-      ) : null}
-
       {viewMode === 'grid' && modules?.finance === true ? (
-        <>
-        <p className="mensal-tab-subtitle">Marque pagamentos enquanto confere o extrato</p>
         <MonthlyPaymentGrid
           students={students}
           paymentMap={paymentMap}
@@ -990,12 +922,9 @@ export default function MensalidadesPanel({ embedded = false }) {
           friendlyError={friendlyError}
           loading={loading}
         />
-        </>
       ) : null}
 
       {viewMode === 'exceptions' && modules?.finance === true ? (
-        <>
-        <p className="mensal-tab-subtitle">Casos que precisam de atenção ativa</p>
         <PaymentExceptionsView
           students={students}
           paymentMap={paymentMap}
@@ -1012,55 +941,58 @@ export default function MensalidadesPanel({ embedded = false }) {
           friendlyError={friendlyError}
           loading={loading}
         />
-        </>
       ) : null}
 
       {viewMode === 'list' ? (
       <>
-      <p className="mensal-tab-subtitle">Prioridades do dia — clique no card para ver na lista</p>
-      {!loading ? (
-      <section className="mensal-summary-block">
-﻿        <div className="mensal-summary-grid mensal-summary-grid--reception">
-          <button
-            type="button"
-            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--today${filter === 'due_today' ? ' mensal-summary-card--active' : ''}`}
-            onClick={() => toggleReceptionFilter('due_today')}
-          >
-            <div className="mensal-summary-card__value">{receptionSummary.dueToday}</div>
-            <div className="mensal-summary-card__label">Vencendo hoje</div>
-          </button>
-          <button
-            type="button"
-            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--soon${filter === 'due_week' ? ' mensal-summary-card--active' : ''}`}
-            onClick={() => toggleReceptionFilter('due_week')}
-          >
-            <div className="mensal-summary-card__value">{receptionSummary.dueWeek}</div>
-            <div className="mensal-summary-card__label">Vence em até 7 dias</div>
-          </button>
-          <button
-            type="button"
-            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--pending${filter === 'overdue' ? ' mensal-summary-card--active' : ''}`}
-            onClick={() => toggleReceptionFilter('overdue')}
-          >
-            <div className="mensal-summary-card__value">{receptionSummary.overdue}</div>
-            <div className="mensal-summary-card__label">Em atraso</div>
-          </button>
-          <button
-            type="button"
-            className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--paid${filter === 'paid' ? ' mensal-summary-card--active' : ''}`}
-            onClick={() => toggleReceptionFilter('paid')}
-          >
-            <div className="mensal-summary-card__value">{receptionSummary.paid}</div>
-            <div className="mensal-summary-card__label">Pagos no mês</div>
-          </button>
-        </div>
-        <p className="mensal-reception-hint">
-          Para alterar um pagamento já registrado: use <strong>Estornar</strong> na linha paga e registre de novo.
-          Na aba <strong>Grade</strong>, clique no status para ajustar valor e data.
-          Totais recebidos: <strong>Relatórios</strong> ou <strong>Caixa</strong>.
-        </p>
+      <section className="mensal-summary-block mensal-priorities-block" aria-label="Prioridades do dia">
+        {loading ? (
+          <div className="mensal-summary-grid mensal-summary-grid--reception mensal-priorities-skeleton" aria-hidden>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="mensal-summary-card mensal-summary-card--static mensal-priorities-skeleton__card" />
+            ))}
+          </div>
+        ) : (
+          <div className="mensal-summary-grid mensal-summary-grid--reception">
+            <button
+              type="button"
+              aria-pressed={filter === 'due_today'}
+              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--today${filter === 'due_today' ? ' mensal-summary-card--active' : ''}`}
+              onClick={() => toggleReceptionFilter('due_today')}
+            >
+              <div className="mensal-summary-card__value">{receptionSummary.dueToday}</div>
+              <div className="mensal-summary-card__label">Vencendo hoje</div>
+            </button>
+            <button
+              type="button"
+              aria-pressed={filter === 'due_week'}
+              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--soon${filter === 'due_week' ? ' mensal-summary-card--active' : ''}`}
+              onClick={() => toggleReceptionFilter('due_week')}
+            >
+              <div className="mensal-summary-card__value">{receptionSummary.dueWeek}</div>
+              <div className="mensal-summary-card__label">Vence em até 7 dias</div>
+            </button>
+            <button
+              type="button"
+              aria-pressed={filter === 'overdue'}
+              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--pending${filter === 'overdue' ? ' mensal-summary-card--active' : ''}`}
+              onClick={() => toggleReceptionFilter('overdue')}
+            >
+              <div className="mensal-summary-card__value">{receptionSummary.overdue}</div>
+              <div className="mensal-summary-card__label">Em atraso</div>
+            </button>
+            <button
+              type="button"
+              aria-pressed={filter === 'paid'}
+              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--paid${filter === 'paid' ? ' mensal-summary-card--active' : ''}`}
+              onClick={() => toggleReceptionFilter('paid')}
+            >
+              <div className="mensal-summary-card__value">{receptionSummary.paid}</div>
+              <div className="mensal-summary-card__label">Pagos no mês</div>
+            </button>
+          </div>
+        )}
       </section>
-      ) : null}
 
       {loadingError ? (
         <ErrorBanner
@@ -1107,7 +1039,85 @@ export default function MensalidadesPanel({ embedded = false }) {
         configuredTurmas={configuredTurmas}
         canReverse={canReversePayment}
         navRole={navRole}
-      />      </>
+      />
+
+      {!loading ? (
+        <details className="mensal-collapsible-section">
+          <summary className="mensal-collapsible-section__summary">
+            <span>Resumo do mês · {formatMonthTitleCapitalized(currentMonth)}</span>
+            <ChevronDown size={16} className="mensal-collapsible-section__chevron" aria-hidden />
+          </summary>
+          <section className="mensal-summary-block mensal-month-kpis" aria-label="Resumo do mês">
+            <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
+              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
+                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                  {fmtMoney(monthKpis.expectedTotal)}
+                </div>
+                <div className="mensal-summary-card__label">Esperado</div>
+              </div>
+              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
+                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                  {fmtMoney(monthKpis.receivedTotal)}
+                </div>
+                <div className="mensal-summary-card__label">Recebido</div>
+              </div>
+              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--pending">
+                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                  {fmtMoney(monthOpenTotal)}
+                </div>
+                <div className="mensal-summary-card__label">Em aberto</div>
+              </div>
+            </div>
+          </section>
+        </details>
+      ) : null}
+
+      {!loading && collectionDashboard.total > 0 ? (
+        <details className="mensal-collapsible-section mensal-collapsible-section--collection">
+          <summary className="mensal-collapsible-section__summary">
+            <span>
+              Régua de cobrança · {collectionDashboard.total} inadimplente
+              {collectionDashboard.total !== 1 ? 's' : ''}
+            </span>
+            <ChevronDown size={16} className="mensal-collapsible-section__chevron" aria-hidden />
+          </summary>
+          <section className="mensal-collection-dashboard card">
+            <div className="mensal-collection-dashboard__grid">
+              <div>
+                <div className="mensal-collection-dashboard__value mensal-collection-dashboard__value--alert">
+                  {collectionDashboard.total}
+                </div>
+                <div className="mensal-collection-dashboard__label">Inadimplentes (D+1+)</div>
+              </div>
+              <div>
+                <div className="mensal-collection-dashboard__value finance-data">
+                  {fmtMoney(collectionDashboard.totalOpen)}
+                </div>
+                <div className="mensal-collection-dashboard__label">Valor em aberto</div>
+              </div>
+              {collectionRules.map((rule) => (
+                <div key={rule.day}>
+                  <div className="mensal-collection-dashboard__value">
+                    {collectionDashboard.byStage[String(rule.day)] || 0}
+                  </div>
+                  <div className="mensal-collection-dashboard__label">
+                    D+{rule.day} · {rule.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+          <CollectionInadimplenciaPanel
+            students={students}
+            studentOverdueMeta={studentOverdueMeta}
+            paymentMap={paymentMap}
+            collectionRules={collectionRules}
+            currentMonth={currentMonth}
+            financeConfig={financeConfig}
+          />
+        </details>
+      ) : null}
+      </>
       ) : null}
 
       {showModal && selectedStudent && typeof document !== 'undefined'

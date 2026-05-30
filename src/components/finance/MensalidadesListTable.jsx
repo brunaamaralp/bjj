@@ -14,6 +14,9 @@ import {
   ChevronRight,
   Loader2,
   Users,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { getPaymentRowStatus } from '../../lib/collectionOverdue.js';
 import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
@@ -200,15 +203,13 @@ export default function MensalidadesListTable({
       badgeLabel = 'Coberto';
     } else if (statusKey === 'paid' && payment) {
       badgeVariant = 'paid';
-      const m = METHOD_LABELS[payment.method] || payment.method;
-      const pd = payment.paid_at ? formatDdMm(parseYmdLocal(String(payment.paid_at).slice(0, 10))) : '';
-      badgeLabel = `Pago · ${m}${pd ? ` · ${pd}` : ''}`;
+      badgeLabel = 'Pago';
     } else if (dbStatus === 'cancelled') {
       badgeVariant = 'cancelled';
       badgeLabel = 'Cancelado';
     } else if (statusKey === 'pending') {
       badgeVariant = 'pending';
-      badgeLabel = 'Inadimplente';
+      badgeLabel = 'Em atraso';
     } else if (statusKey === 'soon') {
       badgeVariant = 'soon';
       badgeLabel = 'A vencer';
@@ -216,11 +217,6 @@ export default function MensalidadesListTable({
 
     const isPaid = statusKey === 'paid' && payment?.status === 'paid';
     const isActiveAttention = dbStatus === 'awaiting' || dbStatus === 'partial';
-    const isHoverPayOnly =
-      !studentFrozen &&
-      !isPaid &&
-      !isActiveAttention &&
-      (statusKey === 'none' || statusKey === 'pending');
     const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
 
     const paidTooltip =
@@ -236,7 +232,6 @@ export default function MensalidadesListTable({
       'mensal-row',
       rowIndex % 2 === 1 ? 'mensal-row--zebra' : '',
       `mensal-row--${rowTone}`,
-      isHoverPayOnly ? 'mensal-row--hover-pay' : '',
       isActiveAttention ? 'mensal-row--attention' : '',
     ]
       .filter(Boolean)
@@ -314,15 +309,12 @@ export default function MensalidadesListTable({
             </div>
           ) : (
             <div className="mensal-action-pay-wrap">
-              <span className="mensal-pending-icon" aria-hidden>
-                <CircleDashed size={16} strokeWidth={2} />
-              </span>
               <button
                 type="button"
-                className="mensal-btn-pay mensal-btn-pay--hover mensal-btn-pay--compact"
+                className="mensal-btn-pay mensal-btn-pay--compact"
                 onClick={() => openPaymentModal(student)}
               >
-                Registrar
+                <Banknote size={14} strokeWidth={2} /> Registrar
               </button>
             </div>
           )}
@@ -364,7 +356,7 @@ export default function MensalidadesListTable({
       badgeLabel = 'Cancelado';
     } else if (statusKey === 'pending') {
       badgeVariant = 'pending';
-      badgeLabel = 'Inadimplente';
+      badgeLabel = 'Em atraso';
     } else if (statusKey === 'soon') {
       badgeVariant = 'soon';
       badgeLabel = 'A vencer';
@@ -522,7 +514,13 @@ export default function MensalidadesListTable({
                 >
                   <span>Vencimento</span>
                   <span className="mensal-th-sort__icon" aria-hidden>
-                    {dueSortOrder === 'asc' ? '↑' : dueSortOrder === 'desc' ? '↓' : '↕'}
+                    {dueSortOrder === 'asc' ? (
+                      <ArrowUp size={14} />
+                    ) : dueSortOrder === 'desc' ? (
+                      <ArrowDown size={14} />
+                    ) : (
+                      <ArrowUpDown size={14} />
+                    )}
                   </span>
                 </button>
               </th>

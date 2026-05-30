@@ -555,23 +555,35 @@ export async function getMonthlyPayments(academyId, referenceMonth, opts = {}) {
 
   const useApi = import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false';
   if (useApi) {
-    const activeCount = Number(opts.activeStudentCount) || 0;
-    const pageSize = activeCount > 200 ? 100 : 500;
+    const pageSize = 200;
     let page = 1;
+    let cursor = null;
     let all = [];
-    for (;;) {
-      const batch = await apiListStudentPayments({
-        referenceMonth: ym,
-        page,
-        limit: pageSize,
-        academyId,
-      });
-      all = all.concat(batch);
-      if (batch.length < pageSize) break;
-      page += 1;
-      if (page > 50) break;
+    try {
+      for (;;) {
+        const { payments: batch, next_cursor: nextCursor } = await apiListStudentPayments({
+          referenceMonth: ym,
+          page,
+          limit: pageSize,
+          cursor,
+          academyId,
+        });
+        all = all.concat(batch);
+        if (batch.length < pageSize) break;
+        if (nextCursor) {
+          cursor = nextCursor;
+          page = 1;
+        } else {
+          page += 1;
+          cursor = null;
+        }
+        if (page > 50 && !cursor) break;
+      }
+      return all.filter(isMensalidadesGridPayment);
+    } catch (err) {
+      console.warn('[getMonthlyPayments] API indisponível, fallback Appwrite:', err?.message || err);
+      if (!PAYMENTS_COL) throw err;
     }
-    return all.filter(isMensalidadesGridPayment);
   }
 
   if (!PAYMENTS_COL) return [];

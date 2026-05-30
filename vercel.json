@@ -64,6 +64,7 @@
     { "source": "/api/students/freeze", "destination": "/api/leads.js?route=students&action=freeze" },
     { "source": "/api/students/deactivate", "destination": "/api/leads.js?route=students&action=deactivate" },
     { "source": "/api/students/collection-snooze", "destination": "/api/leads.js?route=students&action=collection-snooze" },
+    { "source": "/api/students/plan-freezes", "destination": "/api/leads.js?route=students&action=plan-freezes" },
     { "source": "/api/student-payments", "destination": "/api/finance.js?route=student-payments" },
     { "source": "/api/finance-tx", "destination": "/api/finance.js?route=tx" },
     { "source": "/api/finance/summary", "destination": "/api/finance.js?route=summary" },

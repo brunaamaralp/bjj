@@ -2031,6 +2031,95 @@
   color: var(--text-secondary);
 }
 
+.mensal-collapsible-section {
+  margin-top: var(--finance-space-6, 24px);
+  border-top: 1px solid var(--border-light, #e8e8ef);
+  padding-top: var(--finance-space-4, 16px);
+}
+
+.mensal-collapsible-section--collection {
+  margin-top: var(--finance-space-4, 16px);
+}
+
+.mensal-collapsible-section__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  list-style: none;
+  padding: 8px 0;
+  user-select: none;
+}
+
+.mensal-collapsible-section__summary::-webkit-details-marker {
+  display: none;
+}
+
+.mensal-collapsible-section[open] .mensal-collapsible-section__chevron {
+  transform: rotate(180deg);
+}
+
+.mensal-collapsible-section__chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform var(--motion-fast, 0.15s ease);
+}
+
+.mensal-priorities-block {
+  margin-bottom: var(--finance-space-4, 16px);
+}
+
+.mensal-priorities-skeleton__card {
+  min-height: 72px;
+  animation: mensal-pulse 1.2s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover, #f4f4f8) 0%,
+    var(--surface, #fff) 50%,
+    var(--surface-hover, #f4f4f8) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes mensal-pulse {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.mensal-collapsible-section .mensal-month-kpis {
+  margin-top: var(--finance-space-3, 12px);
+  margin-bottom: 0;
+}
+
+.mensal-collapsible-section .mensal-collection-dashboard {
+  margin-top: var(--finance-space-3, 12px);
+  margin-bottom: var(--finance-space-3, 12px);
+}
+
+.mensal-collapsible-section .mensal-inadimplencia-panel {
+  margin-top: 0;
+}
+
+.mensal-action-pay-wrap .mensal-btn-pay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mensalidades-page .mensal-th-sort__icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--text-secondary);
+}
+
+.mensalidades-page .mensal-th-sort--active .mensal-th-sort__icon {
+  color: var(--v500);
+}
+
 .mensal-estorno-caixa-banner {
   display: flex;
   flex-wrap: wrap;
