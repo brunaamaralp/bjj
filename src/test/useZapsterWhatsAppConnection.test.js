@@ -38,7 +38,7 @@ vi.mock('../lib/billingBlockedFetch', () => ({
               instance_id: 'inst-1',
               status: 'qrcode',
               zapster_status: 'open',
-              qrcode: null
+              qrcode: null,
             })
         }
       };

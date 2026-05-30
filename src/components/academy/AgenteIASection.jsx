@@ -20,6 +20,7 @@ import ModalShell from '../shared/ModalShell.jsx';
 import PageHeader from '../layout/PageHeader.jsx';
 import AgentIASidePanel from './AgentIASidePanel.jsx';
 import { useToast } from '../../hooks/useToast';
+import { formatWaPhoneDisplay } from '../../../lib/zapsterInstancePhone.js';
 import './agent-ia.css';
 
 async function getJwt() {
@@ -1180,7 +1181,9 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         </>
     );
 
-    const renderWaConnectedSummary = () => (
+    const renderWaConnectedSummary = () => {
+        const waPhoneDisplay = formatWaPhoneDisplay(zap.waInfo?.phone);
+        return (
         <div className="agent-ia-connected-summary">
             <div className="agent-ia-connected-summary__row">
                 <span className="agent-ia-connected-summary__status">
@@ -1189,6 +1192,11 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 </span>
                 {renderWaRefreshButton()}
             </div>
+            {waPhoneDisplay ? (
+                <p className="agent-ia-connected-summary__meta">
+                    Número conectado: <strong>{waPhoneDisplay}</strong>
+                </p>
+            ) : null}
             {waLastCheckedAt ? (
                 <p className="agent-ia-connected-summary__meta">
                     Status verificado em {formatWaLastChecked(waLastCheckedAt)}.
@@ -1199,7 +1207,8 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 Ver conversas
             </Link>
         </div>
-    );
+        );
+    };
 
     const renderActivateCta = () => {
         if (!promptConfigurado || iaAtiva || !canEditPrompt) return null;

@@ -2,6 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { account, realtime, ACADEMIES_COL, DB_ID } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useUiStore } from '../store/useUiStore';
+import { normalizeWaPhoneDigits } from '../../lib/zapsterInstancePhone.js';
+
+function waPhoneForStatus(status, phoneRaw, prevPhone) {
+  const st = String(status || '').trim().toLowerCase();
+  if (st !== 'connected' && st !== 'online') return null;
+  return normalizeWaPhoneDigits(phoneRaw || '') || prevPhone || null;
+}
+
+function waInfoSnapshotEqual(a, b) {
+  return (
+    a.instance_id === b.instance_id &&
+    a.status === b.status &&
+    a.qrcode === b.qrcode &&
+    a.phone === b.phone
+  );
+}
 
 async function getJwt() {
   const jwt = await account.createJWT();
@@ -180,7 +196,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const waPersistFailedRef = useRef(false);
   const isCreatingRef = useRef(false);
   const isFetchingWaInfoRef = useRef(false);
-  const waInfoRef = useRef({ instance_id: null, status: 'disconnected', qrcode: null });
+  const waInfoRef = useRef({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
   const hookMountedRef = useRef(true);
   const deferredTimersRef = useRef([]);
 
@@ -188,7 +204,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     onRegisterWebhooksResultRef.current = options?.onRegisterWebhooksResult;
   }, [options?.onRegisterWebhooksResult]);
   const [waLoading, setWaLoading] = useState(false);
-  const [waInfo, setWaInfo] = useState({ instance_id: null, status: 'disconnected', qrcode: null });
+  const [waInfo, setWaInfo] = useState({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
   const [waTokenMissing, setWaTokenMissing] = useState(false);
   const [waQrError, setWaQrError] = useState(false);
   const [waQrTick, setWaQrTick] = useState(0);
@@ -217,7 +233,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   /** Instância órfã (Zapster sem o id): limpa UI sem toast nem connectionError. */
   const resetWaToNoInstanceSilently = useCallback(() => {
     setWaPersistFailed(false);
-    setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+    setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
     setAcademyWaStatus('disconnected');
     setWaTokenMissing(false);
     setWaQrError(false);
@@ -328,6 +344,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       const incomingId = data?.instance_id ?? null;
       let status = String(data?.status || '').trim() || 'unknown';
       let qrcode = data?.qrcode ?? null;
+      let waPhoneFromApi = normalizeWaPhoneDigits(data?.wa_phone || '');
       const zapsterStatusFromApi = String(data?.zapster_status || '').trim();
       if (zapsterStatusFromApi) {
         setAcademyWaStatus(zapsterStatusFromApi);
@@ -355,6 +372,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
               status = st;
               qrcode = probeData.qrcode ?? null;
             }
+            if (probeData.wa_phone) {
+              waPhoneFromApi = normalizeWaPhoneDigits(probeData.wa_phone) || waPhoneFromApi;
+            }
           }
         }
       }
@@ -369,18 +389,30 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
 
       const finalStatus = status;
       const finalQrcode = qrcode;
-
       setWaInfo((prev) => {
         if (incomingId) {
-          if (prev.instance_id === incomingId && prev.status === finalStatus && prev.qrcode === finalQrcode) return prev;
-          return { instance_id: incomingId, status: finalStatus, qrcode: finalQrcode };
+          const next = {
+            instance_id: incomingId,
+            status: finalStatus,
+            qrcode: finalQrcode,
+            phone: waPhoneForStatus(finalStatus, waPhoneFromApi, prev.phone),
+          };
+          if (waInfoSnapshotEqual(prev, next)) return prev;
+          return next;
         }
         if (waPersistFailedRef.current && prev.instance_id) {
-          if (prev.status === finalStatus && prev.qrcode === finalQrcode) return prev;
-          return { ...prev, status: finalStatus, qrcode: finalQrcode };
+          const next = {
+            ...prev,
+            status: finalStatus,
+            qrcode: finalQrcode,
+            phone: waPhoneForStatus(finalStatus, waPhoneFromApi, prev.phone),
+          };
+          if (waInfoSnapshotEqual(prev, next)) return prev;
+          return next;
         }
-        if (prev.instance_id === null && prev.status === finalStatus && prev.qrcode === finalQrcode) return prev;
-        return { instance_id: null, status: 'disconnected', qrcode: null };
+        const empty = { instance_id: null, status: 'disconnected', qrcode: null, phone: null };
+        if (waInfoSnapshotEqual(prev, empty)) return prev;
+        return empty;
       });
       if (incomingId) {
         setWaPersistFailed(false);
@@ -480,7 +512,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       const instance_id = data?.instance_id || null;
       const status = String(data?.status || '').trim() || 'unknown';
       const qrcode = data?.qrcode ?? null;
-      setWaInfo({ instance_id, status, qrcode });
+      const phone = waPhoneForStatus(status, data?.wa_phone, null);
+      setWaInfo({ instance_id, status, qrcode, phone });
       if (data.persist_failed) {
         setWaPersistFailed(true);
         useUiStore.getState().addToast({
@@ -586,7 +619,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         }
 
         if (resp.status === 404 && String(errJson?.error || '').trim() === 'instance_not_found') {
-          setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+          setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
           setWaQrShown(false);
           setWaQrError(false);
           setWaQrLoadFailedOnce(false);
@@ -698,7 +731,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       }
       useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo desconectado' });
       setWaPersistFailed(false);
-      setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null });
+      setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
       setWaTokenMissing(false);
       setWaQrError(false);
       setWaQrTick(0);
