@@ -21,6 +21,8 @@ export interface AutentiqueDocument {
 
 export interface CreateDocumentParams {
   name: string;
+  /** Mensagem customizada no convite (e-mail / WhatsApp conforme template Autentique). */
+  message?: string;
   signers: SignerInput[];
   file: Buffer | Blob;
   sandbox?: boolean;

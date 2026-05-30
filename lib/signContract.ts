@@ -51,6 +51,7 @@ export async function signContract(
 ): Promise<SignContractResult> {
   const autentiqueDocument = await createDocument({
     name: contractData.name,
+    message: contractData.message,
     signers: contractData.signers,
     file: fileBuffer,
     sandbox: Boolean(contractData.sandbox),

@@ -109,6 +109,7 @@ function normalizeSigners(signers: SignerInput[]): SignerInput[] {
 
 export async function createDocument({
   name,
+  message,
   signers,
   file,
   sandbox = false,
@@ -122,10 +123,18 @@ export async function createDocument({
   const normalizedSigners = normalizeSigners(signers);
   const useSortable = sortable ?? normalizedSigners.length > 1;
 
+  const documentInput: Record<string, unknown> = {
+    name: docName,
+    refusable: Boolean(refusable),
+    sortable: useSortable,
+  };
+  const customMessage = String(message || '').trim();
+  if (customMessage) documentInput.message = customMessage;
+
   const operations = {
     query: CREATE_DOCUMENT_MUTATION,
     variables: {
-      document: { name: docName, refusable: Boolean(refusable), sortable: useSortable },
+      document: documentInput,
       signers: normalizedSigners,
       file: null,
       sandbox: Boolean(sandbox),

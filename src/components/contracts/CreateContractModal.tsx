@@ -48,6 +48,7 @@ import {
 } from '../../lib/academyContactEmail.js';
 import { saveAcademySettingsApi } from '../../lib/academySettingsApi.js';
 import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
+import { buildAutentiqueDocumentName } from '../../../lib/contracts/buildAutentiqueDocumentMeta.js';
 
 type Step = 'template' | 'signers' | 'send';
 
@@ -278,8 +279,10 @@ export default function CreateContractModal({
     openSessionRef.current = session;
 
     const titlePrefix = isRescission ? 'Termo de rescisão' : 'Contrato';
+    const academyName = String(academyDoc?.name || '').trim();
+    const baseTitle = lead?.name ? `${titlePrefix} — ${String(lead.name).trim()}` : titlePrefix;
     reset({
-      name: lead?.name ? `${titlePrefix} — ${String(lead.name).trim()}` : '',
+      name: buildAutentiqueDocumentName({ academyName, baseName: baseTitle }),
       sandbox: false,
       signers: buildSignersForTemplate(null),
       templateId: '',
@@ -289,7 +292,18 @@ export default function CreateContractModal({
     setShowOptionalName(false);
     setPreviewUrl(null);
     setInlineAcademyEmail('');
-  }, [open, leadId, purpose, isRescission, lead?.name, lead?.email, lead?.phone, reset, buildSignersForTemplate]);
+  }, [
+    open,
+    leadId,
+    purpose,
+    isRescission,
+    lead?.name,
+    lead?.email,
+    lead?.phone,
+    academyDoc?.name,
+    reset,
+    buildSignersForTemplate,
+  ]);
 
   useEffect(() => {
     if (!open || !leadId) return;
@@ -456,10 +470,13 @@ export default function CreateContractModal({
       return;
     }
 
-    const contractName =
+    const academyName = String(academyDoc?.name || '').trim();
+    const titlePrefix = isRescission ? 'Termo de rescisão' : 'Contrato';
+    const baseTitle =
       String(parsed.data.name || '').trim() ||
-      (lead?.name ? `Contrato — ${String(lead.name).trim()}` : '') ||
-      `Contrato ${new Date().toLocaleDateString('pt-BR')}`;
+      (lead?.name ? `${titlePrefix} — ${String(lead.name).trim()}` : '') ||
+      `${titlePrefix} ${new Date().toLocaleDateString('pt-BR')}`;
+    const contractName = buildAutentiqueDocumentName({ academyName, baseName: baseTitle });
 
     try {
       await createMutation.mutateAsync({
@@ -884,6 +901,17 @@ export default function CreateContractModal({
                     );
                   })}
                 </ul>
+                {academyDoc?.name ? (
+                  <p className="text-small text-muted contracts-send-summary__autentique-hint">
+                    Na Autentique, o documento aparecerá como{' '}
+                    <strong>{buildAutentiqueDocumentName({
+                      academyName: String(academyDoc.name).trim(),
+                      baseName: watch('name') || (isRescission ? 'Termo de rescisão' : 'Contrato'),
+                    })}</strong>
+                    , com mensagem informando que o envio é da academia. O criador no painel
+                    Autentique segue sendo a conta vinculada à integração.
+                  </p>
+                ) : null}
                 {sendDiagnostics.warnings.length > 0 ? (
                   <p className="text-small contracts-send-summary__warn">
                     {sendDiagnostics.warnings.join(' ')}

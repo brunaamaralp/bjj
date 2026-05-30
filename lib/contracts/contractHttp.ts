@@ -22,6 +22,10 @@ import { applyLayoutToSigners, countEnabledSignerSlots } from './contractSignerL
 import { syncContractFromAutentique } from './contractAutentiqueSync.js';
 import { fetchLeadPersonForContract, fetchAcademyDoc } from './contractLeadAccess.js';
 import {
+  buildAutentiqueDocumentName,
+  buildAutentiqueSignerMessage,
+} from './buildAutentiqueDocumentMeta.js';
+import {
   resolveSignatureDeadlineDays,
   computeContractExpiresAt,
 } from './contractSignaturePolicy.js';
@@ -186,9 +190,21 @@ export async function handlePostContract(
       pageCount
     );
 
+    const academyDoc = await fetchAcademyDoc(auth.academyId);
+    const academyName = String(academyDoc?.name || academyDoc?.academy_name || '').trim();
+    const autentiqueDocumentName = buildAutentiqueDocumentName({
+      academyName,
+      baseName: parsed.name,
+    });
+    const autentiqueMessage = buildAutentiqueSignerMessage({
+      academyName,
+      purpose: parsed.contract_purpose,
+    });
+
     const result = await signContract(
       {
-        name: parsed.name,
+        name: autentiqueDocumentName,
+        message: autentiqueMessage,
         signers: signersWithPositions,
         sandbox,
         academy_id: auth.academyId,

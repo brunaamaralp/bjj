@@ -94,8 +94,12 @@ Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores v�
 
 1. Nave: modelo, signatários (quantidade = slots ativos), **como enviar o link** (e-mail ou WhatsApp por signatário).
 2. **Autentique** envia o link no canal escolhido (não é o WhatsApp da academia — é mensagem da Autentique).
-3. Assinatura na interface Autentique (campos nas posições configuradas).
-4. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
+3. No envio, o Nave define automaticamente:
+   - **Nome do documento:** `{nome da academia} — {título}` (ex.: `Gracie Barra Lagoa da Prata — Contrato — Bruna`)
+   - **Mensagem customizada** (`message` na API): texto informando que a academia enviou o contrato/termo para assinatura
+4. O texto *“fulano enviou via Autentique”* e **Criador do documento** continuam vinculados à **conta Autentique** (titular do token). Para aparecer só a marca da academia, use organização/modelo corporativo no painel Autentique.
+5. Assinatura na interface Autentique (campos nas posições configuradas).
+6. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
 
 ## Teste em sandbox
 

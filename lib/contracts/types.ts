@@ -106,6 +106,7 @@ export interface PaginatedContracts {
 
 export interface SignContractData {
   name: string;
+  message?: string;
   signers: SignerInput[];
   sandbox?: boolean;
   academy_id?: string;
