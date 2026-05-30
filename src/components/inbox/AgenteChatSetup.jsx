@@ -39,6 +39,18 @@ const STEPS = [
 
 export const AGENTE_CHAT_STEP_COUNT = STEPS.length;
 
+const WIZARD_BLOCK_LABELS = {
+  1: 'Identidade da academia',
+  2: 'Horários e turmas',
+  3: 'Planos e valores',
+  4: 'Estrutura e uniforme',
+  5: 'Experimental e agendamento',
+  6: 'Regras finais',
+};
+
+/** Estimativa de duração da configuração guiada (minutos). */
+export const AGENTE_WIZARD_ESTIMATE_MIN = Math.max(5, Math.round(STEPS.length * 0.4));
+
 const SEGMENT_OPTS = [
   'Musculação / academia',
   'Estúdio (yoga, pilates, dança)',
@@ -977,7 +989,11 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
           <div>
             <div className="agent-chat-title">Configuração do assistente</div>
             <div className="agent-chat-subtitle">
-              Nave · Passo {started && !done && !generating ? stepIndex + 1 : done ? STEPS.length : '—'} de {STEPS.length}
+              {currentStep && WIZARD_BLOCK_LABELS[currentStep.block]
+                ? `${WIZARD_BLOCK_LABELS[currentStep.block]} · `
+                : ''}
+              Passo {started && !done && !generating ? stepIndex + 1 : done ? STEPS.length : '—'} de {STEPS.length}
+              {started && !done && !generating ? ` · ~${AGENTE_WIZARD_ESTIMATE_MIN} min` : ''}
             </div>
           </div>
         </div>

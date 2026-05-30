@@ -18,6 +18,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import PageHeader from '../layout/PageHeader.jsx';
+import AgentIASidePanel from './AgentIASidePanel.jsx';
 import { useToast } from '../../hooks/useToast';
 import './agent-ia.css';
 
@@ -569,15 +570,58 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (!canEditPrompt) return null;
         return (
         <details className="agent-accordion" style={{ marginTop: 20 }}>
-            <summary>Opções avançadas</summary>
+            <summary>Personalização e suporte</summary>
             <div className="agent-accordion-content">
+                <div className="agent-ia-personalization-grid">
+                    <div className="agent-ia-personalization-card">
+                        <p className="agent-ia-personalization-card__title">Mensagem de aniversário</p>
+                        <p className="agent-ia-personalization-card__hint">
+                            Referência no dia do aniversário. Use {'{primeiroNome}'}.
+                        </p>
+                        <textarea
+                            className="agent-prompt-textarea agent-prompt-textarea--sm"
+                            value={birthdayMessage}
+                            onChange={(e) => setBirthdayMessage(e.target.value)}
+                            {...textareaScrollLockProps}
+                            rows={3}
+                            disabled={loadingPrompt}
+                            placeholder="Ex: Feliz aniversário, {primeiroNome}!…"
+                            spellCheck
+                        />
+                        <button
+                            type="button"
+                            onClick={() => void handleSaveBirthdayMessage()}
+                            className="btn btn-outline"
+                            style={{ marginTop: 8 }}
+                            disabled={savingBirthdayMessage || loadingPrompt}
+                        >
+                            {savingBirthdayMessage ? 'Salvando…' : 'Salvar'}
+                        </button>
+                    </div>
+                    <div className="agent-ia-personalization-card">
+                        <p className="agent-ia-personalization-card__title">Perguntas frequentes</p>
+                        <p className="agent-ia-personalization-card__hint">
+                            Pares pergunta/resposta como referência factual do assistente.
+                        </p>
+                        <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ marginTop: 0 }}
+                            onClick={() => setFaqItems((prev) => [...prev, { q: '', a: '' }])}
+                            disabled={loadingPrompt}
+                        >
+                            + Adicionar pergunta
+                        </button>
+                    </div>
+                </div>
+
                 <details className="agent-accordion agent-accordion-nested" style={{ marginBottom: 16 }}>
                     <summary className="text-small" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}>
                         Detalhes para suporte
                     </summary>
                     <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
                         {`O assistente também recebe dados técnicos do ${contactLabel.toLowerCase()} junto com o texto. Use `}
-                        <strong>Ver instruções completas</strong> abaixo para inspecionar o conteúdo enviado ao assistente.
+                        <strong>Ver instruções completas</strong> para inspecionar o conteúdo enviado ao assistente.
                     </p>
                 </details>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -592,36 +636,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     </button>
                 </div>
 
-                <div className="agent-field" style={{ marginBottom: 16 }}>
-                    <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Mensagem de aniversário</div>
-                    <p className="agent-field-hint">
-                        Texto de referência para quando o aluno escreve no <strong>dia do aniversário</strong>. Use {'{primeiroNome}'} para personalizar.
-                    </p>
-                    <textarea
-                        className="agent-prompt-textarea agent-prompt-textarea--sm"
-                        value={birthdayMessage}
-                        onChange={(e) => setBirthdayMessage(e.target.value)}
-                        {...textareaScrollLockProps}
-                        rows={3}
-                        disabled={loadingPrompt}
-                        placeholder="Ex: Feliz aniversário, {primeiroNome}! A equipe deseja um dia incrível…"
-                        spellCheck
-                    />
-                    <button
-                        type="button"
-                        onClick={() => void handleSaveBirthdayMessage()}
-                        className="btn btn-outline"
-                        style={{ marginTop: 8 }}
-                        disabled={savingBirthdayMessage || loadingPrompt}
-                    >
-                        {savingBirthdayMessage ? 'Salvando…' : 'Salvar mensagem'}
-                    </button>
-                </div>
-
-                <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Perguntas frequentes</div>
-                <p className="agent-field-hint">
-                    Pares pergunta/resposta entram na base de respostas do assistente como referência factual.
-                </p>
+                <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Lista de perguntas</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {faqItems.map((item, idx) => (
                         <div
@@ -873,7 +888,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
 
         const handleClose = () => {
             setShowTestChat(false);
-            if (!iaAtiva) setShowEditor(true);
         };
 
         const handleActivate = async () => {
@@ -1319,6 +1333,80 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         );
     };
 
+    const closeAgentSidePanel = useCallback(() => {
+        setShowWizard(false);
+        setShowEditor(false);
+        setShowTestChat(false);
+    }, []);
+
+    const agentSidePanelOpen =
+        showTestChat || (showEditor && canEditPrompt) || (showWizard && canEditPrompt);
+
+    const agentSidePanelMeta = useMemo(() => {
+        if (showTestChat) {
+            return {
+                title: 'Chat de teste',
+                subtitle: 'Mensagens não são enviadas a contatos reais.',
+                wide: true,
+            };
+        }
+        if (showEditor && canEditPrompt) {
+            return {
+                title: 'Editar instruções',
+                subtitle: 'Identidade, conhecimento e regras do assistente.',
+                wide: true,
+            };
+        }
+        if (showWizard && canEditPrompt) {
+            return {
+                title: 'Configuração guiada',
+                subtitle: 'Responda no seu ritmo — as instruções são geradas ao final.',
+                wide: true,
+            };
+        }
+        return null;
+    }, [showTestChat, showEditor, showWizard, canEditPrompt]);
+
+    const renderAgentSidePanelBody = () => {
+        if (showWizard && canEditPrompt) {
+            return (
+                <AgenteChatSetup
+                    academyId={String(academyId || '')}
+                    getJwt={getJwt}
+                    wizardInitial={wizardAgenteInitial}
+                    loading={loadingPrompt}
+                    onWizardReset={() => {
+                        setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() });
+                        setShowWizard(true);
+                    }}
+                    onComplete={async ({ intro, body, suffix, wizardPayload }) => {
+                        setEditIntro(intro);
+                        setEditBody(body);
+                        setPromptSuffix(suffix);
+                        setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
+                        setShowWizard(false);
+                        setShowEditor(true);
+                    }}
+                />
+            );
+        }
+        if (showEditor && canEditPrompt) return <EditorDePrompt />;
+        if (showTestChat) return <ChatDeTeste />;
+        return null;
+    };
+
+    const renderAgentSidePanelHint = () => {
+        if (!agentSidePanelOpen) return null;
+        return (
+            <div className="agent-ia-sheet-inline-hint" role="status">
+                <p>A configuração continua no painel à direita. Feche o painel para ver o resumo aqui.</p>
+                <button type="button" className="btn btn-outline btn-sm" onClick={closeAgentSidePanel}>
+                    Fechar painel
+                </button>
+            </div>
+        );
+    };
+
     const pageHeaderPrefix = showPageHeader ? (
         <Link
             to="/inbox"
@@ -1689,34 +1777,9 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     <div className="empresa-skeleton-block" style={{ height: 80 }} aria-busy="true" aria-label="Carregando configurações do assistente" />
                 ) : (
                     <>
-                        {showWizard && canEditPrompt && (
-                            <div style={{ marginTop: 12 }}>
-                                <AgenteChatSetup
-                                    academyId={String(academyId || '')}
-                                    getJwt={getJwt}
-                                    wizardInitial={wizardAgenteInitial}
-                                    loading={loadingPrompt}
-                                    onWizardReset={() => {
-                                        setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() });
-                                        setShowWizard(true);
-                                    }}
-                                    onComplete={async ({ intro, body, suffix, wizardPayload }) => {
-                                        setEditIntro(intro);
-                                        setEditBody(body);
-                                        setPromptSuffix(suffix);
-                                        setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
-                                        setShowWizard(false);
-                                        setShowEditor(true);
-                                    }}
-                                />
-                            </div>
-                        )}
+                        {renderAgentSidePanelHint()}
 
-                        {showEditor && canEditPrompt && <EditorDePrompt />}
-
-                        {showTestChat && <ChatDeTeste />}
-
-                        {!showWizard && !showEditor && !showTestChat && !promptConfigurado && (
+                        {!agentSidePanelOpen && !promptConfigurado && (
                             <div>
                                 <span className="text-small" style={{ display: 'inline-block', background: 'var(--border-light)', color: 'var(--text-secondary)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
                                     Não configurado
@@ -1737,7 +1800,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                             </div>
                         )}
 
-                        {!showWizard && !showEditor && !showTestChat && promptConfigurado && !iaAtiva && (
+                        {!agentSidePanelOpen && promptConfigurado && !iaAtiva && (
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                                     <div>
@@ -1798,7 +1861,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                             </div>
                         )}
 
-                        {!showWizard && !showEditor && !showTestChat && promptConfigurado && iaAtiva && (
+                        {!agentSidePanelOpen && promptConfigurado && iaAtiva && (
                             <div>
                                 {(!zap.waConnected) && (
                                     <div
@@ -1905,6 +1968,16 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 onClose={() => (zap.waLoading ? undefined : setWaConfirm(null))}
             />
 
+            <AgentIASidePanel
+                open={agentSidePanelOpen}
+                title={agentSidePanelMeta?.title || ''}
+                subtitle={agentSidePanelMeta?.subtitle}
+                wide={agentSidePanelMeta?.wide}
+                onClose={closeAgentSidePanel}
+            >
+                {renderAgentSidePanelBody()}
+            </AgentIASidePanel>
+
             <ModalShell
                 open={showPromptPreview}
                 title="Instruções completas do assistente"
@@ -1930,7 +2003,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 </pre>
             </ModalShell>
 
-            {/* Wizard foi migrado para inline no card (showWizard), sem overlay modal antigo. */}
         </section>
         </>
     );

@@ -3,6 +3,7 @@
 @import './styles/tokens/menu.css';
 @import './styles/tokens/inbox.css';
 @import './styles/inbox.css';
+@import './styles/pipeline.css';
 @import './styles/tokens/finance.css';
 @import './styles/equipe.css';
 
@@ -6705,28 +6706,6 @@ button.funil-color-swatch {
     display: flex;
     flex-direction: column;
   }
-}
-
-/* Funil (/pipeline): largura das colunas + flex min-width:auto do conteúdo */
-.pipeline-container .kanban-column {
-  --kanban-col-w: min(236px, calc(100vw - 40px));
-  flex: 0 0 var(--kanban-col-w);
-  width: var(--kanban-col-w);
-  max-width: var(--kanban-col-w);
-  min-width: 0;
-  box-sizing: border-box;
-}
-.pipeline-container .kanban-wrapper {
-  gap: 10px;
-}
-.pipeline-container .col-content {
-  min-width: 0;
-}
-.pipeline-container .card.lead-card {
-  padding: 10px 11px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 /* Assistente IA — chat de configuração (AgenteChatSetup) */

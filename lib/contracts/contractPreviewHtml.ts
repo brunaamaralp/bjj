@@ -1,3 +1,5 @@
+import { CONTRACT_SIGNATURE_FOOTER_CSS } from './contractSignatureFooter.js';
+
 const CONTRACT_VAR_TOKEN_RE = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
 
 export function highlightContractVariableTokens(html: string): string {
@@ -63,6 +65,7 @@ const PREVIEW_RESPONSIVE_CSS = `
   @media print {
     html, body { padding: 0; }
   }
+  ${CONTRACT_SIGNATURE_FOOTER_CSS}
 `;
 
 export function extractContractPreviewParts(html: string): { body: string; styles: string[] } {

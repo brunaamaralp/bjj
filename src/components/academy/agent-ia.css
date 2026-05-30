@@ -335,3 +335,138 @@
   gap: 10px;
   margin-bottom: 4px;
 }
+
+/* Painel lateral — wizard, editor, teste */
+.agent-ia-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet, 1100);
+  background: rgba(18, 16, 42, 0.35);
+}
+
+.agent-ia-sheet-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: calc(var(--z-sheet, 1100) + 10);
+  width: min(440px, 100vw);
+  height: 100vh;
+  max-height: 100dvh;
+  background: var(--surface);
+  box-shadow: -8px 0 32px rgba(18, 16, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-ia-sheet-panel--wide {
+  width: min(640px, 100vw);
+}
+
+.agent-ia-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 0.5px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.agent-ia-sheet-header__text {
+  min-width: 0;
+}
+
+.agent-ia-sheet-heading {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.agent-ia-sheet-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agent-ia-sheet-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.agent-ia-sheet-close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.agent-ia-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  overscroll-behavior: contain;
+}
+
+.agent-ia-sheet-body .agent-chat-container,
+.agent-ia-sheet-body .agent-prompt-editor {
+  margin-top: 0;
+}
+
+.agent-ia-sheet-inline-hint {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 0.5px dashed var(--border);
+  background: var(--surface-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-ia-sheet-inline-hint p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agent-ia-personalization-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 560px) {
+  .agent-ia-personalization-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.agent-ia-personalization-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-light);
+  background: var(--surface);
+}
+
+.agent-ia-personalization-card__title {
+  margin: 0 0 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.agent-ia-personalization-card__hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}

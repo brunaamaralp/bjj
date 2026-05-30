@@ -5,13 +5,13 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, ChevronDown, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2 } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
 import ImportSheet from '../components/ImportSheet';
-import ExportButton from '../components/ExportButton';
+import { exportLeadsSpreadsheet } from '../lib/exportLeadsSpreadsheet.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import MatriculaModal from '../components/MatriculaModal';
 import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
@@ -47,6 +47,15 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import Hint from '../components/shared/Hint.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
+import { getPipelineStageColor } from '../lib/pipelineStageColors.js';
+import { partitionLeadAttributePills } from '../lib/pipelineLeadPills.js';
+import PipelineAdvancedFilters from '../components/pipeline/PipelineAdvancedFilters.jsx';
+import {
+    DropdownMenu,
+    DropdownMenuPanel,
+    DropdownMenuItem,
+    DropdownMenuDivider,
+} from '../components/shared/menu';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -84,6 +93,10 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
     const automationBadges = useMemo(
         () => getLeadAutomationBadges(lead, automationConfig),
         [lead, automationConfig]
+    );
+    const { visible: attrPills, hiddenCount: hiddenAttrPillCount } = useMemo(
+        () => partitionLeadAttributePills(lead),
+        [lead]
     );
     const slaClass =
         slaAlert?.urgency === 'critical'
@@ -135,12 +148,18 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     </Link>
                 ) : null}
             </div>
-            <div className="lead-meta mt-1 flex items-center gap-2">
-                {lead.hotLead ? <span className="type-pill">🔥</span> : null}
-                {lead.needHuman ? <span className="type-pill">Precisa resposta</span> : null}
-                {lead.intention ? <span className="type-pill">{lead.intention}</span> : null}
-                {lead.priority ? <span className="type-pill">{lead.priority}</span> : null}
-            </div>
+            {attrPills.length > 0 ? (
+                <div className="lead-meta mt-1 flex items-center gap-2 flex-wrap">
+                    {attrPills.map((pill) => (
+                        <span key={pill.key} className="type-pill">{pill.label}</span>
+                    ))}
+                    {hiddenAttrPillCount > 0 ? (
+                        <span className="type-pill type-pill--more" title={`+${hiddenAttrPillCount} atributo(s)`}>
+                            +{hiddenAttrPillCount}
+                        </span>
+                    ) : null}
+                </div>
+            ) : null}
             {lead.scheduledDate && (
                 <div className="lead-meta mt-1 flex items-center gap-2">
                     <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
@@ -222,9 +241,10 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                             setWaDropdownOpenId(null);
                         }}
                         title="Mais ações"
+                        aria-label="Mais ações"
                         className="action-btn navi-menu-trigger--icon"
                     >
-                        ⋯
+                        <MoreHorizontal size={16} aria-hidden />
                     </button>
                     {openMenuId === lead.id && (
                         <div className="navi-menu__panel navi-menu--elevated action-menu-panel" onClick={(e) => e.stopPropagation()}>
@@ -290,7 +310,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                 </button>
                                 {canDeleteLead ? (
                                     <button type="button" className="navi-menu__item navi-menu__item--danger" onClick={(e) => handleDeleteLead(e, lead.id)}>
-                                        <StickyNote size={16} className="text-danger" /> Excluir lead
+                                        <Trash2 size={16} className="text-danger" /> Excluir lead
                                     </button>
                                 ) : null}
                             </div>
@@ -458,14 +478,6 @@ function buildDefaultStages(t) {
         { id: LEAD_STATUS.LOST, label: 'Perdidos' },
     ];
 }
-const STAGE_COLORS = [
-    { color: 'var(--accent)', bg: 'var(--accent-light)' },
-    { color: 'var(--warning)', bg: 'var(--warning-light)' },
-    { color: 'var(--danger)', bg: 'var(--danger-light)' },
-    { color: 'var(--v500)', bg: 'rgba(99, 102, 241, 0.12)' },
-    { color: 'var(--success)', bg: 'var(--success-light)' },
-    { color: 'var(--purple)', bg: 'var(--purple-light)' },
-];
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const KANBAN_SCROLL_EDGE = 36;
 const KANBAN_SCROLL_MAX_STEP = 14;
@@ -520,7 +532,6 @@ const MobileLeadList = React.memo(function MobileLeadList({
     stages,
     leadsForBoard,
     originFilter,
-    STAGE_COLORS,
     navigate,
     mapLeadToStageId,
     handleSplitWaMain,
@@ -546,19 +557,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
     }, [defaultOpenStageId]);
 
     return (
-        <div
-            className="pipeline-mobile-list-root"
-            style={{
-                padding: '0 16px 80px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                flex: '1 1 0',
-                minHeight: 0,
-                overflowY: 'auto',
-                WebkitOverflowScrolling: 'touch',
-            }}
-        >
+        <div className="pipeline-mobile-list-root">
             {showLoading ? (
                 <div className="pipeline-kanban-loading-hint" role="status" style={{ padding: '8px 0 0' }}>
                     Carregando leads do funil…
@@ -569,82 +568,30 @@ const MobileLeadList = React.memo(function MobileLeadList({
                     .filter((l) => mapLeadToStageId(l) === stage.id)
                     .filter((l) => (originFilter === 'all' ? true : (l.origin || '') === originFilter))
                     .sort((a, b) => mobileListToDateTime(a) - mobileListToDateTime(b));
-                const color = STAGE_COLORS[idx % STAGE_COLORS.length];
+                const color = getPipelineStageColor(stage.id, idx);
                 const isOpen = Object.prototype.hasOwnProperty.call(expanded, stage.id)
                     ? Boolean(expanded[stage.id])
                     : stage.id === defaultOpenStageId;
 
                 return (
-                    <div
-                        key={stage.id}
-                        style={{
-                            background: 'var(--surface)',
-                            border: '0.5px solid var(--border-light)',
-                            borderRadius: 12,
-                            overflow: 'hidden',
-                        }}
-                    >
+                    <div key={stage.id} className="pipeline-mobile-stage-block">
                         <button
                             type="button"
+                            className="pipeline-mobile-stage-toggle"
                             onClick={() => toggleStage(stage.id)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 14px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                                minHeight: 44,
-                                border: 'none',
-                                background: 'transparent',
-                                fontFamily: 'inherit',
-                                textAlign: 'left',
-                            }}
                         >
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <span className="pipeline-mobile-stage-label">
                                 <span
-                                    style={{
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: '50%',
-                                        background: color.color,
-                                        flexShrink: 0,
-                                    }}
+                                    className="pipeline-mobile-stage-dot"
+                                    style={{ background: color.color }}
                                 />
-                                <span
-                                    style={{
-                                        fontSize: 13,
-                                        fontWeight: 500,
-                                        color: 'var(--text)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    {stage.label}
-                                </span>
+                                <span className="pipeline-mobile-stage-name">{stage.label}</span>
                                 <Hint text={hintForPipelineStage(stage.id, stage.label)} position="left" />
                             </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <span className="pipeline-mobile-stage-meta">
+                                <span className="pipeline-mobile-stage-count">{stageLeads.length}</span>
                                 <span
-                                    style={{
-                                        background: 'var(--surface-hover)',
-                                        fontSize: 11,
-                                        padding: '2px 8px',
-                                        borderRadius: 20,
-                                        fontWeight: 700,
-                                        color: 'var(--text-secondary)',
-                                    }}
-                                >
-                                    {stageLeads.length}
-                                </span>
-                                <span
-                                    className="pipeline-mobile-stage-chevron"
-                                    style={{
-                                        display: 'inline-flex',
-                                        transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                                        transition: 'transform 200ms ease',
-                                    }}
+                                    className={`pipeline-mobile-stage-chevron${isOpen ? ' is-open' : ''}`}
                                     aria-hidden
                                 >
                                     <ChevronRight size={18} color="var(--text-muted)" />
@@ -653,7 +600,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                         </button>
 
                         {isOpen ? (
-                            <div style={{ borderTop: '0.5px solid var(--border-light)' }}>
+                            <div className="pipeline-mobile-stage-body">
                                 {stageLeads.length === 0 ? (
                                     <div style={{ padding: '8px 12px 12px' }}>
                                         <EmptyState variant="compact" tone="dashed" title={emptyStageHint} role="none" />
@@ -673,6 +620,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                         <div
                                             role="button"
                                             tabIndex={0}
+                                            className="pipeline-mobile-lead-row"
                                             onMouseEnter={() => { void preloadLeadProfile(); }}
                                             onClick={() => navigate(`/lead/${lead.id}`)}
                                             onKeyDown={(e) => {
@@ -681,70 +629,28 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                     navigate(`/lead/${lead.id}`);
                                                 }
                                             }}
-                                            style={{
-                                                padding: '12px 14px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 10,
-                                                cursor: 'pointer',
-                                                minHeight: 44,
-                                            }}
                                         >
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div
-                                                    style={{
-                                                        fontSize: 13,
-                                                        fontWeight: 500,
-                                                        color: 'var(--text)',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
+                                            <div className="pipeline-mobile-lead-main">
+                                                <div className="pipeline-mobile-lead-name">
                                                     {lead.name}
                                                 </div>
-                                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                                <div className="pipeline-mobile-lead-phone">
                                                     {lead.phone || '—'}
                                                 </div>
                                                 {lead.scheduledDate ? (
-                                                    <span
-                                                        style={{
-                                                            fontSize: 10,
-                                                            background: '#FAEEDA',
-                                                            color: '#854F0B',
-                                                            padding: '2px 6px',
-                                                            borderRadius: 6,
-                                                            marginTop: 3,
-                                                            display: 'inline-block',
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
+                                                    <span className="pipeline-mobile-schedule-badge">
                                                         {`${formatMobileListScheduleDate(lead.scheduledDate)}${lead.scheduledTime ? ` às ${lead.scheduledTime}` : ''}`}
                                                     </span>
                                                 ) : null}
                                             </div>
-                                            <div style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+                                            <div className="pipeline-mobile-lead-actions">
                                                 <button
                                                     type="button"
                                                     title="WhatsApp"
+                                                    className="pipeline-mobile-wa-btn"
                                                     onClick={(e) => handleSplitWaMain(e, lead)}
-                                                    style={{
-                                                        minWidth: 44,
-                                                        minHeight: 44,
-                                                        width: 44,
-                                                        height: 44,
-                                                        background: '#25D366',
-                                                        border: 'none',
-                                                        borderRadius: 8,
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        flexShrink: 0,
-                                                        boxSizing: 'border-box',
-                                                    }}
                                                 >
-                                                    <MessageCircle size={16} color="#fff" />
+                                                    <MessageCircle size={16} aria-hidden />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -953,6 +859,8 @@ const Pipeline = () => {
     const [noteError, setNoteError] = useState('');
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
     const [nlOpen, setNlOpen] = useState(false);
+    const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
+    const [pageActionsMenuOpen, setPageActionsMenuOpen] = useState(false);
     const hiddenAtRef = useRef(null);
 
     useEffect(() => {
@@ -1575,6 +1483,129 @@ const Pipeline = () => {
     }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
+    const pipelineHeaderMeta = useMemo(() => {
+        const total = leadsForBoard.length;
+        const needHumanCount = leadsForBoard.filter((l) => l.needHuman).length;
+        const slaCriticalCount = Object.values(slaAlerts).filter((a) => a?.urgency === 'critical').length;
+        return { total, needHumanCount, slaCriticalCount };
+    }, [leadsForBoard, slaAlerts]);
+
+    const advancedFiltersActive =
+        profileFilter !== 'all' ||
+        originFilter !== 'all' ||
+        Boolean(filterDateFrom || filterDateTo) ||
+        searchStageScope !== 'all';
+
+    const clearAdvancedFilters = useCallback(() => {
+        setProfileFilter('all');
+        setOriginFilter('all');
+        setFilterDateFrom('');
+        setFilterDateTo('');
+        setSearchStageScope('all');
+    }, []);
+
+    const pipelineHeaderMetaNode = showKanbanInitialLoading ? (
+        'Carregando…'
+    ) : (
+        <>
+            <span className="navi-ui-count">{pipelineHeaderMeta.total}</span>{' '}
+            {singular(labels.leads || 'Leads').toLowerCase()}
+            {pipelineHeaderMeta.slaCriticalCount > 0 ? (
+                <>
+                    {' '}
+                    · <span className="navi-ui-count">{pipelineHeaderMeta.slaCriticalCount}</span> SLA crítico
+                </>
+            ) : null}
+            {pipelineHeaderMeta.needHumanCount > 0 ? (
+                <>
+                    {' '}
+                    · <span className="navi-ui-count">{pipelineHeaderMeta.needHumanCount}</span> precisam resposta
+                </>
+            ) : null}
+        </>
+    );
+
+    const renderAdvancedFiltersPanel = () => (
+        <PipelineAdvancedFilters
+            profileFilter={profileFilter}
+            setProfileFilter={setProfileFilter}
+            originFilter={originFilter}
+            setOriginFilter={setOriginFilter}
+            filterDateFrom={filterDateFrom}
+            setFilterDateFrom={setFilterDateFrom}
+            filterDateTo={filterDateTo}
+            setFilterDateTo={setFilterDateTo}
+            setQuickFilter={setQuickFilter}
+            searchStageScope={searchStageScope}
+            setSearchStageScope={setSearchStageScope}
+            searchStageScopeOptions={searchStageScopeOptions}
+            onClear={clearAdvancedFilters}
+        />
+    );
+
+    const renderPageActionsMenu = (panelClassName = 'pipeline-page-actions-menu__panel') => (
+        <>
+            <button
+                type="button"
+                className="btn-action-ghost"
+                aria-haspopup="menu"
+                aria-expanded={pageActionsMenuOpen}
+                aria-label="Mais ações do funil"
+                onClick={() => setPageActionsMenuOpen((v) => !v)}
+            >
+                <MoreHorizontal size={18} aria-hidden />
+            </button>
+            {pageActionsMenuOpen ? (
+                <DropdownMenuPanel className={panelClassName} aria-label="Ações do funil">
+                    <DropdownMenuItem
+                        icon={<Upload size={16} aria-hidden />}
+                        onClick={() => {
+                            setPageActionsMenuOpen(false);
+                            setShowImport(true);
+                        }}
+                    >
+                        {`Importar ${labels.leads}`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        icon={<SlidersHorizontal size={16} aria-hidden />}
+                        onClick={() => {
+                            setPageActionsMenuOpen(false);
+                            setEditStages((prev) => !prev);
+                            setTempStages(stages);
+                        }}
+                    >
+                        Editar etapas
+                    </DropdownMenuItem>
+                    <DropdownMenuDivider />
+                    <DropdownMenuItem
+                        icon={<Download size={16} aria-hidden />}
+                        disabled={!leadsForBoard.length}
+                        onClick={() => {
+                            setPageActionsMenuOpen(false);
+                            void exportLeadsSpreadsheet(leadsForBoard, 'funil-export');
+                        }}
+                    >
+                        Exportar leads
+                    </DropdownMenuItem>
+                    {leadsHasMore ? (
+                        <>
+                            <DropdownMenuDivider />
+                            <DropdownMenuItem
+                                disabled={loadingMore || leadsLoading}
+                                onClick={() => {
+                                    setPageActionsMenuOpen(false);
+                                    void handleLoadMoreLeads();
+                                }}
+                            >
+                                {loadingMore ? 'Carregando…' : 'Carregar mais leads'}
+                            </DropdownMenuItem>
+                        </>
+                    ) : null}
+                </DropdownMenuPanel>
+            ) : null}
+        </>
+    );
+
     const handleDragStart = (event) => {
         setActiveId(event.active.id);
     };
@@ -1921,6 +1952,7 @@ const Pipeline = () => {
                             className="navi-page-header--flush"
                             title={labels.pipeline || 'Funil'}
                             subtitle="Mova leads entre etapas e registre follow-ups."
+                            meta={pipelineHeaderMetaNode}
                             toolbar={
                             <>
                             <div className="page-header-row navi-toolbar">
@@ -1934,26 +1966,37 @@ const Pipeline = () => {
                                     aria-label="Buscar no funil"
                                 />
                                 {searchingServer ? (
-                                    <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>Buscando...</span>
+                                    <span className="pipeline-search-status" role="status">Buscando…</span>
                                 ) : null}
                                 <div style={{ flex: 1 }} />
-                                {leadsHasMore ? (
+                                <DropdownMenu
+                                    open={filtersMenuOpen}
+                                    onOpenChange={setFiltersMenuOpen}
+                                    className="pipeline-filters-menu"
+                                >
                                     <button
                                         type="button"
-                                        className="btn-action-ghost"
-                                        onClick={handleLoadMoreLeads}
-                                        disabled={loadingMore || leadsLoading}
-                                        title="Carregar próximos leads do servidor"
+                                        className={`btn-action-ghost pipeline-filters-trigger${advancedFiltersActive ? ' is-active' : ''}`}
+                                        aria-haspopup="dialog"
+                                        aria-expanded={filtersMenuOpen}
+                                        onClick={() => setFiltersMenuOpen((v) => !v)}
                                     >
-                                        {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                                        <SlidersHorizontal size={14} aria-hidden /> Filtros
                                     </button>
-                                ) : null}
-                                <button type="button" className="btn-action-ghost" onClick={() => setShowImport(true)}>
-                                    <Upload size={14} /> {`Importar ${labels.leads}`}
-                                </button>
-                                <button type="button" className="btn-action-ghost" onClick={() => { setEditStages(prev => !prev); setTempStages(stages); }}>
-                                    <SlidersHorizontal size={14} /> Etapas
-                                </button>
+                                    {filtersMenuOpen ? (
+                                        <DropdownMenuPanel className="pipeline-filters-menu__panel" aria-label="Filtros do funil">
+                                            {renderAdvancedFiltersPanel()}
+                                        </DropdownMenuPanel>
+                                    ) : null}
+                                </DropdownMenu>
+                                <DropdownMenu
+                                    open={pageActionsMenuOpen}
+                                    onOpenChange={setPageActionsMenuOpen}
+                                    className="pipeline-page-actions-menu"
+                                    align="end"
+                                >
+                                    {renderPageActionsMenu()}
+                                </DropdownMenu>
                                 <button
                                     type="button"
                                     className="btn-action-primary"
@@ -1967,34 +2010,6 @@ const Pipeline = () => {
                                 <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
                                 <button type="button" className={`filter-chip${quickFilter === 'month' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
                                 <button type="button" className={`filter-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' is-active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
-                                <input
-                                    type="date"
-                                    className="navi-date-filter"
-                                    value={filterDateFrom}
-                                    onChange={(e) => { setFilterDateFrom(e.target.value); setQuickFilter(null); }}
-                                />
-                                <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>—</span>
-                                <input
-                                    type="date"
-                                    className="navi-date-filter"
-                                    value={filterDateTo}
-                                    onChange={(e) => { setFilterDateTo(e.target.value); setQuickFilter(null); }}
-                                />
-                                <div className="page-header-sep" />
-                                <div className="filter-group">
-                                    <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
-                                        <option value="all">Todos os perfis</option>
-                                        <option value="Adulto">Adulto</option>
-                                        <option value="Criança">Criança</option>
-                                        <option value="Juniores">Juniores</option>
-                                    </select>
-                                    <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)}>
-                                        <option value="all">Todas as origens</option>
-                                        {LEAD_ORIGIN.map((o) => (
-                                            <option key={o} value={o}>{o}</option>
-                                        ))}
-                                    </select>
-                                </div>
                             </FilterBar>
                             </>
                             }
@@ -2006,8 +2021,9 @@ const Pipeline = () => {
                             className="navi-page-header--flush"
                             title={labels.pipeline || 'Funil'}
                             subtitle="Mova leads entre etapas e registre follow-ups."
+                            meta={pipelineHeaderMetaNode}
                         />
-                        <div className="navi-toolbar" style={{ padding: '12px 0' }}>
+                        <div className="navi-toolbar pipeline-mobile-toolbar">
                             <SearchField
                                 className="navi-search--fluid"
                                 value={kanbanSearch}
@@ -2015,26 +2031,49 @@ const Pipeline = () => {
                                 placeholder="Buscar nome ou telefone..."
                                 aria-label="Buscar no funil"
                             />
+                            <DropdownMenu
+                                open={filtersMenuOpen}
+                                onOpenChange={setFiltersMenuOpen}
+                                className="pipeline-filters-menu"
+                            >
+                                <button
+                                    type="button"
+                                    className={`btn-action-ghost pipeline-mobile-filters-trigger${advancedFiltersActive ? ' is-active' : ''}`}
+                                    aria-haspopup="dialog"
+                                    aria-expanded={filtersMenuOpen}
+                                    aria-label="Filtros do funil"
+                                    onClick={() => setFiltersMenuOpen((v) => !v)}
+                                >
+                                    <SlidersHorizontal size={16} aria-hidden />
+                                </button>
+                                {filtersMenuOpen ? (
+                                    <DropdownMenuPanel className="pipeline-filters-menu__panel" aria-label="Filtros do funil">
+                                        {renderAdvancedFiltersPanel()}
+                                    </DropdownMenuPanel>
+                                ) : null}
+                            </DropdownMenu>
+                            <DropdownMenu
+                                open={pageActionsMenuOpen}
+                                onOpenChange={setPageActionsMenuOpen}
+                                className="pipeline-page-actions-menu"
+                                align="end"
+                            >
+                                {renderPageActionsMenu()}
+                            </DropdownMenu>
                             <button
                                 type="button"
+                                className="btn-action-primary"
                                 onClick={() => navigate('/new-lead')}
-                                style={{
-                                    padding: '10px 14px',
-                                    background: '#5B3FBF',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: 8,
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap',
-                                    minHeight: 44,
-                                    cursor: 'pointer',
-                                    fontFamily: 'inherit',
-                                }}
                             >
-                                + Novo lead
+                                <PlusCircle size={14} aria-hidden /> Novo lead
                             </button>
                         </div>
+                        <FilterBar className="page-header-row" style={{ paddingBottom: 8 }}>
+                            <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
+                            <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
+                            <button type="button" className={`filter-chip${quickFilter === 'month' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
+                            <button type="button" className={`filter-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' is-active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
+                        </FilterBar>
                     </div>
                 )}
                 {editStages && (
@@ -2120,7 +2159,6 @@ const Pipeline = () => {
                     stages={displayStages}
                     leadsForBoard={leadsForBoard}
                     originFilter={originFilter}
-                    STAGE_COLORS={STAGE_COLORS}
                     navigate={navigate}
                     mapLeadToStageId={mapLeadToStageId}
                     handleSplitWaMain={handleSplitWaMain}
@@ -2145,7 +2183,7 @@ const Pipeline = () => {
                     aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
                 >
                     {displayStages.map((col, idx) => {
-                        const color = STAGE_COLORS[idx % STAGE_COLORS.length];
+                        const color = getPipelineStageColor(stage.id, idx);
                         if (showKanbanInitialLoading) {
                             return (
                                 <div key={col.id} className="kanban-column pipeline-kanban-skeleton-col">
@@ -2452,421 +2490,6 @@ const Pipeline = () => {
                 />
             )}
 
-            <style dangerouslySetInnerHTML={{
-                __html: `
-        .main-content.pipeline-active { overflow-x: hidden !important; overflow-y: auto !important; padding: 0 !important; }
-        .pipeline-container { width: 100%; display: flex; flex-direction: column; flex: 1 1 0 !important; min-height: 0; overflow: hidden; }
-        .pipeline-header {
-          position: sticky;
-          top: 0;
-          z-index: 20;
-          padding: 12px 0 8px;
-          background: var(--surface);
-          border-bottom: 1px solid var(--border-light);
-          overflow-x: hidden;
-        }
-        .pipeline-header .container { max-width: none; margin: 0; padding: 0 16px; }
-        .header-layout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-        .header-left { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .pipeline-title-block .navi-page-title { margin: 0; }
-        .pipeline-search-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1 1 220px; min-width: 0; }
-        .pipeline-search-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 10px; background: var(--surface); min-height: 30px; flex: 1 1 140px; min-width: 0; max-width: 22rem; }
-        .pipeline-search-icon { color: var(--text-muted); flex-shrink: 0; }
-        .pipeline-search-input { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; width: 100%; min-width: 8rem; max-width: 100%; }
-        .pipeline-search-scope-group { flex: 0 1 auto; max-width: 100%; }
-        .pipeline-search-scope-label { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
-        .pipeline-search-scope-select { max-width: min(11rem, 42vw); }
-        .pipeline-search-input::placeholder { color: var(--text-muted); font-weight: 500; }
-        .pipeline-load-more { background: var(--surface-hover) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important; }
-        .header-right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .filters { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; flex-wrap: wrap; }
-        .filters-mobile-toggle-wrap { display: none; }
-        @media (max-width: 1024px) {
-          .header-layout { align-items: flex-start; }
-          .header-left { width: 100%; }
-          .filters { width: 100%; margin-right: 0; }
-          .header-right { width: 100%; justify-content: flex-start; }
-        }
-        @media (max-width: 640px) {
-          .filters-mobile-toggle-wrap { display: block; width: 100%; margin-top: 4px; }
-          .filters-mobile-toggle { width: 100%; min-height: 44px; }
-          .filters.filters-collapsed-mobile { display: none; }
-        }
-        .pipeline-kanban-loading-hint {
-          padding: 8px 16px 0;
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: var(--text-secondary);
-        }
-        .pipeline-desktop-kanban-host {
-          min-height: 0;
-          flex: 1 1 0;
-          display: flex;
-        }
-        .kanban-wrapper {
-          display: flex; gap: 10px; overflow-x: scroll; overflow-y: hidden; padding: 10px 12px 8px 20px; flex: 1 1 0;
-          min-height: 0;
-          align-items: stretch;
-          scroll-snap-type: x mandatory;
-          scrollbar-width: thin;
-          scrollbar-gutter: stable both-edges;
-        }
-        .kanban-wrapper::-webkit-scrollbar {
-          height: 6px;
-        }
-        .kanban-wrapper::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .kanban-wrapper::-webkit-scrollbar-thumb {
-          background: var(--border-secondary);
-          border-radius: 4px;
-        }
-        .kanban-wrapper:hover { scrollbar-width: thin; }
-        .kanban-wrapper:hover::-webkit-scrollbar { height: 6px; }
-        .kanban-wrapper:hover::-webkit-scrollbar-track { background: transparent; }
-        .kanban-wrapper:hover::-webkit-scrollbar-thumb {
-          background: var(--border-secondary);
-          border-radius: 4px;
-        }
-        .pipeline-mobile-profile-link {
-          border: 0.5px solid var(--border-light);
-          background: var(--surface-hover);
-          border-radius: 8px;
-          padding: 6px 10px;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--v500);
-          cursor: pointer;
-          font-family: inherit;
-          flex-shrink: 0;
-          white-space: nowrap;
-        }
-        .pipeline-mobile-move-row {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px;
-          padding: 0 14px 12px;
-        }
-        .pipeline-mobile-move-select {
-          flex: 1 1 140px;
-          min-width: 0;
-          min-height: 36px;
-          font-size: 13px;
-        }
-        @media (max-width: 1023px) {
-          .kanban-wrapper {
-            scrollbar-width: thin;
-            -webkit-overflow-scrolling: touch;
-          }
-          .kanban-wrapper::-webkit-scrollbar {
-            height: 3px;
-          }
-          .kanban-wrapper::after {
-            content: '';
-            position: sticky;
-            right: 0;
-            width: 24px;
-            background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.06));
-            pointer-events: none;
-            flex-shrink: 0;
-          }
-        }
-        .kanban-column { 
-          --kanban-col-w: min(236px, calc(100vw - 40px));
-          position: relative;
-          z-index: 1;
-          flex: 0 0 var(--kanban-col-w);
-          width: var(--kanban-col-w);
-          max-width: var(--kanban-col-w);
-          min-width: 0;
-          box-sizing: border-box;
-          display: flex; flex-direction: column;
-          gap: 8px; scroll-snap-align: start;
-          overflow-y: auto;
-          overflow-x: visible;
-          padding-bottom: 12px;
-          border-radius: var(--radius-sm);
-          transition: background 0.12s ease, outline 0.12s ease;
-        }
-        .kanban-column--overlay-open {
-          z-index: 6000;
-        }
-        .pipeline-kanban-skeleton-col {
-          pointer-events: none;
-          opacity: 0.92;
-        }
-        .pipeline-kanban-skeleton-count {
-          display: inline-block;
-          min-width: 28px;
-          height: 22px;
-          border-radius: 999px;
-          background: linear-gradient(90deg, rgba(148,163,184,0.14) 25%, rgba(148,163,184,0.28) 50%, rgba(148,163,184,0.14) 75%);
-          background-size: 200% 100%;
-          animation: pipelineKanbanSk 1.15s ease-in-out infinite;
-        }
-        .pipeline-kanban-skeleton-card {
-          height: 88px;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--border-light);
-          background: linear-gradient(90deg, rgba(148,163,184,0.1) 25%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.1) 75%);
-          background-size: 200% 100%;
-          animation: pipelineKanbanSk 1.15s ease-in-out infinite;
-        }
-        .pipeline-kanban-skeleton-card--short { height: 72px; }
-        @keyframes pipelineKanbanSk {
-          from { background-position: 200% 0; }
-          to { background-position: -200% 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .pipeline-kanban-skeleton-count,
-          .pipeline-kanban-skeleton-card {
-            animation: none;
-            background: rgba(148,163,184,0.16);
-          }
-        }
-        .col-header { 
-          display: flex; justify-content: space-between; align-items: flex-start; 
-          padding-bottom: 10px; margin-bottom: 4px; gap: 8px;
-        }
-        .col-header-titles { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-        .col-content {
-          flex: 1 1 auto; min-width: 0; min-height: 40px;
-          display: flex; flex-direction: column; gap: 8px;
-          overflow: visible;
-        }
-        .drop-target { background: var(--accent-light) !important; outline: 2px dashed var(--accent); outline-offset: -2px; }
-        .col-header .pipeline-col-heading { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
-        .col-dot { width: 8px; height: 8px; border-radius: 50%; }
-        .col-count { 
-          flex-shrink: 0;
-          padding: 2px 10px; border-radius: var(--radius-full); 
-          font-size: 0.75rem; font-weight: 800; 
-        }
-        .lead-card { 
-          cursor: pointer; padding: 10px 11px; 
-          border-left: 3px solid var(--border); 
-          transition: var(--transition);
-          position: relative;
-          min-width: 0;
-          overflow-wrap: anywhere;
-          word-break: break-word;
-        }
-        .lead-card--menu-open {
-          z-index: 7000 !important;
-        }
-        .lead-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow); }
-        .lead-card--sla-warning {
-          border-left: 3px solid var(--color-background-warning, #f59e0b);
-        }
-        .lead-card--sla-critical {
-          border-left: 3px solid var(--color-background-danger, #ef4444);
-        }
-        .lead-sla-badge {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          font-size: 11px;
-          font-weight: 500;
-          padding: 2px 6px;
-          border-radius: 4px;
-          line-height: 1.2;
-        }
-        .lead-card-title-row {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          align-items: center;
-          gap: 8px;
-          width: 100%;
-          min-width: 0;
-        }
-        .lead-card-title-row--name-only {
-          display: block;
-        }
-        .lead-card-name {
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 0.84rem;
-          font-weight: 700;
-          color: var(--text);
-          word-break: normal;
-          overflow-wrap: normal;
-        }
-        .type-pill { 
-          font-size: 0.58rem; background: var(--border-light); 
-          padding: 2px 6px; border-radius: var(--radius-full); 
-          color: var(--text-secondary); font-weight: 700; text-transform: uppercase; 
-          white-space: nowrap;
-          flex: 0 0 auto;
-          flex-shrink: 0;
-          word-break: normal;
-          overflow-wrap: normal;
-          max-width: 100%;
-        }
-        .lead-card-title-row .type-pill {
-          max-width: none;
-          justify-self: end;
-        }
-        .type-pill--lead-kind {
-          flex-shrink: 0;
-        }
-        .lead-meta { font-size: 0.72rem; color: var(--text-secondary); }
-        .lead-inbox-link {
-          font-size: 0.72rem; font-weight: 700; color: var(--accent);
-          text-decoration: none; margin-left: 4px;
-        }
-        .lead-inbox-link:hover { text-decoration: underline; }
-        .import-btn-pipe {
-          background: var(--accent); color: white; padding: 0 14px; min-height: 38px;
-          border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
-          gap: 6px; white-space: nowrap;
-        }
-        .import-btn-pipe:hover { filter: brightness(1.1); }
-        .pipeline-btn-secondary,
-        .pipeline-btn-outline {
-          min-height: 38px;
-          padding: 0 14px;
-          border-radius: var(--radius-sm);
-          font-size: 0.8rem;
-          font-weight: 600;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          white-space: nowrap;
-        }
-        .pipeline-btn-secondary {
-          background: var(--surface-hover);
-          border: 1px solid var(--border);
-          color: var(--text-secondary);
-        }
-        .pipeline-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-        .pipeline-btn-outline {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          color: var(--text-secondary);
-        }
-        .pipeline-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-        .header-right .export-btn {
-          min-height: 34px;
-          padding: 0 10px;
-          border: 1px solid var(--border);
-          background: transparent;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text-muted);
-        }
-        .header-right .export-btn:hover {
-          background: var(--surface-hover);
-          border-color: var(--border-secondary);
-          color: var(--text-secondary);
-        }
-        .origin-group { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-full); padding: 2px 8px; background: var(--surface); }
-        .origin-select { border: none; outline: none; background: transparent; color: var(--text-secondary); font-weight: 700; }
-        .stage-editor { margin-top: 10px; padding-bottom: 10px; }
-        .stage-editor-head {
-          display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-bottom: 6px;
-          font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
-        }
-        .stage-row { display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-bottom: 8px; }
-        .stage-input, .stage-sla { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--surface); color: var(--text); }
-        .stage-actions { display: flex; align-items: center; gap: 8px; }
-        .btn-primary { background: var(--accent); color: white; border: 1px solid var(--accent); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 700; }
-        .btn-secondary { background: var(--surface-hover); color: var(--text-secondary); border: 1px solid var(--border); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-outline { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 700; }
-        .grow { flex: 1 1 auto; }
-        .quick-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .quick-btn {
-          min-height: 30px; padding: 4px 10px; border-radius: var(--radius-full);
-          font-size: 0.78rem; font-weight: 700; border: 1px solid var(--border);
-          background: var(--surface-hover); color: var(--text-secondary);
-        }
-        .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .whatsapp-btn {
-          border-color: #30f26f;
-          color: #0f6d33;
-          background: color-mix(in srgb, #30f26f 22%, var(--surface));
-        }
-        .whatsapp-btn:hover {
-          border-color: #22df60;
-          color: #0c5a2a;
-          background: color-mix(in srgb, #30f26f 30%, var(--surface));
-        }
-        .quick-block { display: flex; flex-direction: column; gap: 4px; }
-        .quick-label { font-size: 0.72rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.03em; text-transform: uppercase; }
-        .quick-times { display: flex; gap: 6px; flex-wrap: wrap; }
-        .time-chip-mini {
-          min-height: 28px; padding: 4px 8px; border-radius: var(--radius-full);
-          background: var(--surface-hover); border: 1px solid var(--border);
-          font-size: 0.72rem; font-weight: 700; color: var(--text-secondary);
-        }
-        .time-chip-mini:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-        .more-btn {
-          min-height: 28px; padding: 4px 10px; border-radius: var(--radius-full);
-          font-size: 0.72rem; font-weight: 800; border: 1px dashed var(--border);
-          background: var(--surface); color: var(--text-muted);
-        }
-        .more-btn:hover { border-color: var(--accent); color: var(--accent); }
-         .action-bar--reorganized { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-        .wa-split-btn {
-          display: flex;
-          align-items: stretch;
-          border: 1px solid #20db5a;
-          border-radius: var(--radius-sm);
-          overflow: visible;
-          position: relative;
-          background: linear-gradient(135deg, #30f26f 0%, #1cd45a 100%);
-          box-shadow: 0 0 0 1px color-mix(in srgb, #30f26f 35%, transparent), 0 4px 12px rgba(22, 178, 75, 0.28);
-        }
-        .wa-main-btn {
-          background: transparent;
-          color: #ffffff;
-          border: none;
-          padding: 0 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-        }
-        .wa-main-btn:hover { background: color-mix(in srgb, #000 10%, transparent); }
-        .wa-drop-toggle {
-          background: color-mix(in srgb, #000 12%, transparent);
-          color: white;
-          border: none;
-          border-left: 1px solid rgba(255,255,255,0.3);
-          padding: 0 6px;
-          cursor: pointer;
-          border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-          display: flex;
-          align-items: center;
-        }
-        .wa-templates-dropdown { left: 0; right: auto; min-width: 180px; z-index: 100; }
-        .action-menu-panel { min-width: 220px; padding: var(--menu-padding) 0; }
-        .action-menu-panel .navi-menu__item { color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; border-radius: 0; }
-        .action-menu-panel .navi-menu__item svg { color: var(--text-muted); }
-        .action-menu-panel .navi-menu__item:hover { color: var(--accent); }
-        .action-menu-panel .navi-menu__item:hover svg { color: var(--accent); }
-        .menu-group { display: flex; flex-direction: column; }
-        @media (max-width: 1023px) {
-          .wa-main-btn { min-width: 44px; min-height: 44px; padding: 0; }
-          .wa-drop-toggle { min-height: 44px; }
-        }
-        .reason-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .reason-chip { padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; text-align: center; }
-        .reason-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-
-        /* Estilos D&D Kit */
-        .kanban-column { transition: background 0.2s, border-color 0.2s; border: 1px solid transparent; }
-        .kanban-col--drag-over { background: rgba(91, 63, 191, 0.04); border-color: rgba(91, 63, 191, 0.3); }
-        .lead-card { cursor: grab; }
-        .lead-card:active { cursor: grabbing; }
-        .lead-card--dragging { opacity: 0.4; border: 2px dashed var(--border-secondary); background: var(--surface-hover); cursor: grabbing; }
-        .lead-card--overlay { opacity: 0.95; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2); transform: rotate(2deg) scale(1.02); cursor: grabbing; z-index: 500; pointer-events: none; }
-        .lead-card--placeholder { height: 80px; border: 2px dashed var(--border); background: var(--surface-hover); border-radius: var(--radius-sm); opacity: 0.5; margin-bottom: 8px; }
-        .lead-card--moving { pointer-events: none; }
-      `}} />
             {confirmModal && (
                 <div className="note-overlay" onClick={() => setConfirmModal(null)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>
