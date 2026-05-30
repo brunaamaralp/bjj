@@ -27,7 +27,7 @@ import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.j
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import EstudioSection from '../components/academy/EstudioSection';
 import FunilSection from '../components/academy/FunilSection';
-import FinanceiroMovedNotice from '../components/finance/FinanceiroMovedNotice.jsx';
+import FinanceiroConfigTab from '../components/finance/FinanceiroConfigTab.jsx';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
@@ -40,7 +40,7 @@ const TABS_ALL = [
     { id: 'funil', label: 'Funil', subtitle: 'Perguntas e etiquetas' },
     { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e desligamento' },
     { id: 'tarefas', label: 'Tarefas', subtitle: 'Pós-matrícula' },
-    { id: 'financeiro', label: 'Financeiro', subtitle: 'Configurações no hub Financeiro' },
+    { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas e contabilidade' },
     { id: 'contratos', label: 'Contratos', subtitle: 'Modelos para assinatura' },
     { id: 'vendas', label: 'Vendas', subtitle: 'PDV e comissões' },
 ];
@@ -556,8 +556,8 @@ const AcademySettings = () => {
             )}
 
             {!contentLoading && !tabDisabledState.disabled && activeTab === 'financeiro' && academyId && (
-                <div className="empresa-section empresa-section--finance-moved">
-                    <FinanceiroMovedNotice />
+                <div className="empresa-section">
+                    <FinanceiroConfigTab academyId={academyId} isOwner={role === 'owner'} />
                 </div>
             )}
 

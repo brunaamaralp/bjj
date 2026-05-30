@@ -1018,6 +1018,69 @@
   gap: 12px;
 }
 
+.contracts-signer-grid__full {
+  grid-column: 1 / -1;
+}
+
+.contracts-signer-field-hint {
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+
+.contracts-delivery-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contracts-delivery-picker__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.contracts-delivery-picker__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.contracts-delivery-picker__option:hover:not(:disabled) {
+  border-color: var(--v400, #8b5cf6);
+}
+
+.contracts-delivery-picker__option--active {
+  border-color: var(--v500, #7c3aed);
+  background: rgba(123, 99, 212, 0.08);
+  box-shadow: 0 0 0 1px rgba(123, 99, 212, 0.18);
+}
+
+.contracts-delivery-picker__option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.contracts-delivery-picker__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contracts-delivery-picker__option-text strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .contracts-sandbox {
   display: flex;
   align-items: center;

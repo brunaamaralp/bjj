@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { buildPlanSelectOptions } from '../../lib/academyPlans.js';
+import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import FormSelect from './FormSelect.jsx';
-
 export default function PlanSelect({
   financeConfig,
   value,
@@ -39,8 +39,8 @@ export default function PlanSelect({
       {showConfigHint && !hasConfigured ? (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
           Nenhum plano cadastrado. Configure em{' '}
-          <Link to="/financeiro?tab=configuracao" className="edit-link">
-            Configurações → Financeiro → Planos
+          <Link to={EMPRESA_FINANCE_CONFIG_PATH} className="edit-link">
+            Minha academia → Financeiro
           </Link>
           .
         </p>

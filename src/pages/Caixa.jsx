@@ -4,7 +4,7 @@ import { fetchFinanceSummary } from '../lib/financeTxApi.js';
 
 import { getFinanceRegime } from '../lib/financeCompetence.js';
 
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Navigate } from 'react-router-dom';
 
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
@@ -24,6 +24,10 @@ import {
 
   FINANCEIRO_SECTIONS,
 
+  isFinanceiroConfigTabSlug,
+
+  EMPRESA_FINANCE_CONFIG_PATH,
+
 } from '../lib/financeiroHubTabs.js';
 
 import { useUserRole } from '../lib/useUserRole';
@@ -39,7 +43,6 @@ import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
 import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
-import FinanceiroConfigTab from '../components/finance/FinanceiroConfigTab.jsx';
 
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -75,8 +78,6 @@ const TAB_SUBTITLES = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Resumo financeiro da academia',
 
   [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Cobrança e controle de mensalidades',
-
-  [FINANCEIRO_SECTIONS.CONFIG]: 'Planos de mensalidade, taxas, contas, régua e contabilidade',
 
   movimentacoes: 'Movimentações e lançamentos do dia a dia',
 
@@ -136,19 +137,21 @@ export default function Caixa() {
   const navRole = useUserRole(academyDoc);
 
   const isOwner = navRole === 'owner';
-  const isAdmin = navRole === 'admin';
-  const canAccessConfig = isOwner || isAdmin;
 
   const financeModule = modules?.finance === true;
 
 
 
   const allowedLeafTabs = useMemo(
-    () => new Set(buildFinanceiroManagerLeafTabs({ isOwner, isAdmin, financeModule })),
-    [isOwner, isAdmin, financeModule]
+    () => new Set(buildFinanceiroManagerLeafTabs({ isOwner, financeModule })),
+    [isOwner, financeModule]
   );
 
   const rawTab = financeiroLegacyTabToSlug(searchParams.get('tab'));
+
+  if (isFinanceiroConfigTabSlug(rawTab)) {
+    return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
+  }
 
   const activeTab = resolveHubTab(rawTab, allowedLeafTabs, FINANCEIRO_SECTIONS.OVERVIEW);
 
@@ -381,12 +384,6 @@ export default function Caixa() {
 
         {activeTab === FINANCEIRO_SECTIONS.MENSALIDADES && academyId ? (
           <MensalidadesPanel embedded />
-        ) : null}
-
-
-
-        {activeTab === FINANCEIRO_SECTIONS.CONFIG && canAccessConfig && academyId ? (
-          <FinanceiroConfigTab academyId={academyId} isOwner={isOwner} />
         ) : null}
 
 

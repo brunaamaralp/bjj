@@ -201,6 +201,8 @@ export function onboardingStepPath(stepId) {
       return '/agente-ia';
     case 'connect_whatsapp':
       return '/agente-ia';
+    case 'setup_finance':
+      return '/empresa?tab=financeiro';
     case 'company_tax':
       return '/empresa?focus=tax';
     case 'install_pwa':

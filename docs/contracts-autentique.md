@@ -92,8 +92,8 @@ Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores v�
 
 ## Fluxo de assinatura
 
-1. Nave: modelo, signatários (quantidade = slots ativos), entrega.
-2. Autentique envia link (e-mail/WhatsApp).
+1. Nave: modelo, signatários (quantidade = slots ativos), **como enviar o link** (e-mail ou WhatsApp por signatário).
+2. **Autentique** envia o link no canal escolhido (não é o WhatsApp da academia — é mensagem da Autentique).
 3. Assinatura na interface Autentique (campos nas posições configuradas).
 4. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
 

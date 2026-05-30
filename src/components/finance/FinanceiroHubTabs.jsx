@@ -22,9 +22,6 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
     if (access?.isOwner && access?.financeModule) {
       tabs.push({ id: 'conciliacao', label: 'Conciliação' });
     }
-    if (access?.isOwner) {
-      tabs.push({ id: FINANCEIRO_SECTIONS.CONFIG, label: 'Configurações financeiras' });
-    }
     return tabs;
   }, [access?.financeModule, access?.isOwner]);
 

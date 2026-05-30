@@ -13,9 +13,8 @@ export const LEGACY_ROUTE_REDIRECTS = [
   {
     id: 'finance',
     from: '/finance',
-    to: '/financeiro',
-    defaultTab: 'plano',
-    mapTab: 'financeLegacyTabToFinanceiro',
+    to: '/empresa',
+    defaultTab: 'financeiro',
   },
   {
     id: 'contratos',

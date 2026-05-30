@@ -2,11 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { X, Plus, Trash2, FileText, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import ContractSignerDeliveryPicker, {
+  isEmailDelivery,
+  isWhatsAppDelivery,
+} from './ContractSignerDeliveryPicker.js';
 import {
   createContractSchema,
   defaultSigner,
   ACTION_OPTIONS,
-  DELIVERY_OPTIONS,
   type CreateContractFormValues,
 } from './contractsSchema.js';
 import { useCreateContract, useContractTemplates } from '../../features/contracts/queries.js';
@@ -117,7 +120,7 @@ export default function CreateContractModal({
           phone: String(lead.phone || '').trim(),
           action: 'SIGN' as const,
           delivery_method:
-            lead.phone && !lead.email
+            String(lead.phone || '').replace(/\D/g, '').length >= 10
               ? ('DELIVERY_METHOD_WHATSAPP' as const)
               : ('DELIVERY_METHOD_EMAIL' as const),
         }
@@ -139,13 +142,23 @@ export default function CreateContractModal({
     return [primary, { ...secondary, name: secondary.name || secondaryLabel }];
   }, [academyDoc?.email, academyDoc?.name, lead, requiredSignerCount, selectedTemplate?.signerLayout?.slots]);
 
-  const emailDeliveryWithoutLeadEmail = useMemo(() => {
-    const leadEmail = String(lead?.email || '').trim();
-    if (leadEmail) return false;
-    return (signers || []).some(
-      (s) => String(s?.delivery_method || '') === 'DELIVERY_METHOD_EMAIL'
-    );
-  }, [lead?.email, signers]);
+  const deliveryWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    (signers || []).forEach((s, index) => {
+      const label = `Signatário ${index + 1}`;
+      if (isWhatsAppDelivery(s?.delivery_method)) {
+        const digits = String(s?.phone || '').replace(/\D/g, '');
+        if (digits.length < 10) {
+          warnings.push(`${label}: informe o WhatsApp antes de enviar.`);
+        }
+        return;
+      }
+      if (!String(s?.email || '').trim()) {
+        warnings.push(`${label}: informe o e-mail antes de enviar.`);
+      }
+    });
+    return warnings;
+  }, [signers]);
 
   useEffect(() => {
     if (!open) return;
@@ -378,18 +391,16 @@ export default function CreateContractModal({
             <>
               <div className="contracts-autentique-help card">
                 <p className="text-small contracts-autentique-help-text">
-                  <strong>Como funciona:</strong> a Autentique envia um link por e-mail ou WhatsApp. O
-                  signatário assina na plataforma da Autentique — não é um botão dentro do Nave.
+                  <strong>Como funciona:</strong> escolha <strong>E-mail</strong> ou <strong>WhatsApp</strong> para
+                  cada signatário. A Autentique envia o link automaticamente — a pessoa assina na plataforma deles,
+                  não dentro do Nave.
                 </p>
               </div>
 
-              {emailDeliveryWithoutLeadEmail ? (
+              {deliveryWarnings.length > 0 ? (
                 <div className="contracts-email-warning" role="alert">
                   <AlertTriangle size={16} aria-hidden />
-                  <span>
-                    Confira o e-mail no cadastro antes de enviar — o aluno está sem e-mail e a entrega
-                    selecionada é por e-mail.
-                  </span>
+                  <span>{deliveryWarnings.join(' ')}</span>
                 </div>
               ) : null}
 
@@ -415,7 +426,12 @@ export default function CreateContractModal({
                   .
                 </p>
 
-                {fields.map((field, index) => (
+                {fields.map((field, index) => {
+                  const deliveryMethod = watch(`signers.${index}.delivery_method`);
+                  const whatsapp = isWhatsAppDelivery(deliveryMethod);
+                  const email = isEmailDelivery(deliveryMethod);
+
+                  return (
                   <div key={field.id} className="contracts-signer-card">
                     <div className="contracts-signer-card-head">
                       <FileText size={16} aria-hidden />
@@ -437,35 +453,91 @@ export default function CreateContractModal({
                       ) : null}
                     </div>
                     <div className="contracts-signer-grid">
-                      <div>
+                      <div className="contracts-signer-grid__full">
                         <label className="task-field-label">Nome</label>
                         <input className="form-input" {...register(`signers.${index}.name`)} />
                         {errors.signers?.[index]?.name ? (
                           <FieldError>{errors.signers[index]?.name?.message}</FieldError>
                         ) : null}
                       </div>
-                      <div>
-                        <label className="task-field-label">E-mail</label>
-                        <input
-                          className="form-input"
-                          type="email"
-                          {...register(`signers.${index}.email`)}
-                          placeholder={
-                            watch(`signers.${index}.delivery_method`) === 'DELIVERY_METHOD_WHATSAPP'
-                              ? 'Opcional para WhatsApp'
-                              : ''
-                          }
+
+                      <div className="contracts-signer-grid__full">
+                        <ContractSignerDeliveryPicker
+                          value={deliveryMethod}
+                          onChange={(method) => {
+                            setValue(`signers.${index}.delivery_method`, method, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                            void trigger(`signers.${index}`);
+                          }}
                         />
-                        {errors.signers?.[index]?.email ? (
-                          <FieldError>{errors.signers[index]?.email?.message}</FieldError>
-                        ) : null}
                       </div>
+
+                      {whatsapp ? (
+                        <div className="contracts-signer-grid__full">
+                          <label className="task-field-label">WhatsApp</label>
+                          <input
+                            className="form-input"
+                            {...register(`signers.${index}.phone`)}
+                            placeholder="(11) 99999-9999"
+                            inputMode="tel"
+                          />
+                          {errors.signers?.[index]?.phone ? (
+                            <FieldError>{errors.signers[index]?.phone?.message}</FieldError>
+                          ) : (
+                            <p className="text-small text-muted contracts-signer-field-hint">
+                              A Autentique envia o link neste número. Use o celular do aluno ou responsável.
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {email ? (
+                        <div className="contracts-signer-grid__full">
+                          <label className="task-field-label">E-mail</label>
+                          <input
+                            className="form-input"
+                            type="email"
+                            {...register(`signers.${index}.email`)}
+                            placeholder="nome@email.com"
+                          />
+                          {errors.signers?.[index]?.email ? (
+                            <FieldError>{errors.signers[index]?.email?.message}</FieldError>
+                          ) : (
+                            <p className="text-small text-muted contracts-signer-field-hint">
+                              A Autentique envia o link para esta caixa de entrada.
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {whatsapp ? (
+                        <div>
+                          <label className="task-field-label">E-mail (opcional)</label>
+                          <input
+                            className="form-input"
+                            type="email"
+                            {...register(`signers.${index}.email`)}
+                            placeholder="Opcional"
+                          />
+                        </div>
+                      ) : null}
+
+                      {email ? (
+                        <div>
+                          <label className="task-field-label">Telefone (opcional)</label>
+                          <input
+                            className="form-input"
+                            {...register(`signers.${index}.phone`)}
+                            placeholder="+55..."
+                            inputMode="tel"
+                          />
+                        </div>
+                      ) : null}
+
                       <div>
-                        <label className="task-field-label">Telefone (opcional)</label>
-                        <input className="form-input" {...register(`signers.${index}.phone`)} placeholder="+55..." />
-                      </div>
-                      <div>
-                        <label className="task-field-label">Ação</label>
+                        <label className="task-field-label">Tipo de assinatura</label>
                         <select className="form-input" {...register(`signers.${index}.action`)}>
                           {ACTION_OPTIONS.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -474,19 +546,10 @@ export default function CreateContractModal({
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="task-field-label">Método de entrega</label>
-                        <select className="form-input" {...register(`signers.${index}.delivery_method`)}>
-                          {DELIVERY_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
             </>
           ) : null}

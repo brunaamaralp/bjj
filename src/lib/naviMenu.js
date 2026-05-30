@@ -122,8 +122,6 @@ export function getAccordionIdForLocation({ pathname, search }) {
   return null;
 }
 
-const CONTABILIDADE_TAB_IDS = new Set(['plano', 'razao', 'dre', 'contabilidade']);
-
 export function isAccordionChildActive(child, location) {
   if (child.action) return false;
   if (child.id === 'agente' && location.pathname === '/agente-ia') return true;
@@ -138,10 +136,6 @@ export function isAccordionChildActive(child, location) {
     const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
     if (child.id === 'visao-geral') return tab === FINANCEIRO_SECTIONS.OVERVIEW || !tab;
     if (child.id === 'mensalidades') return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
-    if (child.id === 'configuracao') {
-      if (tab === FINANCEIRO_SECTIONS.CONFIG) return true;
-      return CONTABILIDADE_TAB_IDS.has(tab);
-    }
     if (child.group === 'Contabilidade') return child.id === tab;
     if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) return child.id === tab;
   }
@@ -256,15 +250,6 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
       iconKey: 'conciliacao',
       group: FINANCEIRO_NAV_GROUP_OPERACOES,
-    });
-  }
-
-  if (isOwner) {
-    children.push({
-      id: 'configuracao',
-      label: 'Configurações financeiras',
-      to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.CONFIG}`,
-      iconKey: 'configuracaoFinanceira',
     });
   }
 

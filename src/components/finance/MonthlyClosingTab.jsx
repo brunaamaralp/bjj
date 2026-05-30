@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, ChevronLeft, ChevronRight, Clock, Download, Plus, Receipt } from 'lucide-react';
+import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { fetchMonthlyClosing, createFinanceTx, recordCashClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -496,7 +496,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         >
           <strong>{unclassifiedCount}</strong> lançamento(s) com categoria não mapeada no plano fixo. Revise em
           Movimentações ou ajuste o diário contábil.{' '}
-          <Link to="/financeiro?tab=configuracao">Ver Configuração →</Link>
+          <Link to={EMPRESA_FINANCE_CONFIG_PATH}>Ver Configuração →</Link>
         </div>
       ) : null}
       {pendingInMonth > 0 ? (

@@ -11,6 +11,10 @@ export const FINANCEIRO_SECTIONS = {
   CONFIG: 'configuracao',
 };
 
+/** Destino das configurações financeiras (Minha academia). */
+export const EMPRESA_FINANCE_TAB = 'financeiro';
+export const EMPRESA_FINANCE_CONFIG_PATH = `/empresa?tab=${EMPRESA_FINANCE_TAB}`;
+
 /** Abas folha sob a seção Operações (legado; hub usa abas planas). */
 export const FINANCEIRO_CAIXA_LEAF_TABS = ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'];
 
@@ -48,13 +52,15 @@ export function financeiroLegacyTabToSlug(raw) {
   return t;
 }
 
-/** Mapeia /finance legado para aba do hub financeiro. */
-export function financeLegacyTabToFinanceiro(raw) {
-  const t = String(raw || '').trim().toLowerCase();
-  if (t === 'lancamentos') return FINANCEIRO_SECTIONS.CONFIG;
-  if (t === 'relatorios') return FINANCEIRO_SECTIONS.CONFIG;
-  if (t === 'plano') return FINANCEIRO_SECTIONS.CONFIG;
-  return FINANCEIRO_SECTIONS.CONFIG;
+/** Slugs de ?tab= que pertencem às configurações (agora em Minha academia). */
+export function isFinanceiroConfigTabSlug(tab) {
+  const t = String(tab || '').trim().toLowerCase();
+  return t === FINANCEIRO_SECTIONS.CONFIG || REDIRECT_TO_CONFIG_TABS.has(t);
+}
+
+/** Mapeia /finance legado — redirecionado para Minha academia → Financeiro. */
+export function financeLegacyTabToFinanceiro() {
+  return EMPRESA_FINANCE_TAB;
 }
 
 export function getFinanceiroSectionForTab(tab) {
@@ -76,16 +82,14 @@ export function buildFinanceiroOwnerLeafTabs({ financeModule }) {
 
 export function buildFinanceiroAllowedLeafTabs({ isOwner, financeModule }) {
   const base = [FINANCEIRO_SECTIONS.OVERVIEW, FINANCEIRO_SECTIONS.MENSALIDADES];
-  if (isOwner) base.push(FINANCEIRO_SECTIONS.CONFIG);
   const operational = isOwner
     ? buildFinanceiroOwnerLeafTabs({ financeModule })
     : buildFinanceiroMemberLeafTabs({ financeModule });
   return [...base, ...operational];
 }
 
-export function buildFinanceiroManagerLeafTabs({ isOwner, isAdmin, financeModule }) {
+export function buildFinanceiroManagerLeafTabs({ isOwner, financeModule }) {
   const base = [FINANCEIRO_SECTIONS.OVERVIEW, FINANCEIRO_SECTIONS.MENSALIDADES];
-  if (isOwner || isAdmin) base.push(FINANCEIRO_SECTIONS.CONFIG);
   const operational = isOwner
     ? buildFinanceiroOwnerLeafTabs({ financeModule })
     : buildFinanceiroMemberLeafTabs({ financeModule });

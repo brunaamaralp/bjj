@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { Download, Wallet2, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAccountingStore } from '../../store/useAccountingStore';
@@ -203,7 +204,7 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
           role="status"
           primaryAction={{
             label: 'Configurar financeiro',
-            onClick: () => navigate('/financeiro?tab=configuracao'),
+            onClick: () => navigate(EMPRESA_FINANCE_CONFIG_PATH),
           }}
         />
       </div>
@@ -229,7 +230,7 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
               periodFrom={from}
               periodTo={to}
               embedded
-              onGoToLancamentos={() => navigate('/financeiro?tab=configuracao')}
+              onGoToLancamentos={() => navigate(EMPRESA_FINANCE_CONFIG_PATH)}
             />
           </>
         ) : (

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Check,
@@ -461,7 +462,7 @@ export default function MensalidadesListTable({
               : 'Nenhum plano cadastrado. Peça ao responsável pela academia para configurar os planos.'
           }
           primaryAction={
-            isOwner ? { label: 'Configurar planos', href: '/financeiro?tab=configuracao' } : undefined
+            isOwner ? { label: 'Configurar planos', href: EMPRESA_FINANCE_CONFIG_PATH } : undefined
           }
           role="status"
         />

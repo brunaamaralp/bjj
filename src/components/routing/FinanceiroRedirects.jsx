@@ -1,19 +1,25 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { financeLegacyTabToFinanceiro, financeiroLegacyTabToSlug } from '../../lib/financeiroHubTabs.js';
+import {
+  financeiroLegacyTabToSlug,
+  isFinanceiroConfigTabSlug,
+  EMPRESA_FINANCE_CONFIG_PATH,
+} from '../../lib/financeiroHubTabs.js';
 
-/** /caixa → /financeiro preservando ?tab= */
+/** /caixa → /financeiro preservando ?tab= (configuração → Minha academia) */
 export function CaixaRedirect() {
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab');
-  const qs = tab ? `?tab=${encodeURIComponent(financeiroLegacyTabToSlug(tab))}` : '';
+  const slug = financeiroLegacyTabToSlug(tab);
+  if (isFinanceiroConfigTabSlug(slug)) {
+    return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
+  }
+  const qs = tab ? `?tab=${encodeURIComponent(slug)}` : '';
   return <Navigate to={`/financeiro${qs}`} replace />;
 }
 
-/** /finance → /financeiro (mapeia abas legadas de contabilidade) */
+/** /finance → Minha academia → Financeiro */
 export function FinanceRedirect() {
-  const [searchParams] = useSearchParams();
-  const tab = financeLegacyTabToFinanceiro(searchParams.get('tab'));
-  return <Navigate to={`/financeiro?tab=${tab}`} replace />;
+  return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
 }
 
 /** /mensalidades → /financeiro?tab=mensalidades (preserva query) */

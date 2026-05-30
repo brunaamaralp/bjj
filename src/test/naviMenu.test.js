@@ -44,17 +44,11 @@ describe('naviMenu', () => {
     expect(isDirectNavPath('/automacoes')).toBe(false);
   });
 
-  it('isAccordionChildActive for agente, contabilidade e grupos do financeiro', () => {
+  it('isAccordionChildActive for agente e grupos do financeiro', () => {
     expect(
       isAccordionChildActive(
         { id: 'agente', to: '/agente-ia' },
         { pathname: '/agente-ia', search: '' }
-      )
-    ).toBe(true);
-    expect(
-      isAccordionChildActive(
-        { id: 'configuracao', to: '/financeiro?tab=configuracao' },
-        { pathname: '/financeiro', search: '?tab=plano' }
       )
     ).toBe(true);
     expect(
@@ -110,7 +104,7 @@ describe('naviMenu', () => {
     expect(financeiro.children.some((c) => c.id === 'mensalidades')).toBe(true);
     expect(financeiro.children.some((c) => c.group === 'Operações' && c.id === 'movimentacoes')).toBe(true);
     expect(financeiro.children.some((c) => c.group === 'Contabilidade' && c.id === 'plano')).toBe(false);
-    expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'movimentacoes' && c.label === 'Caixa')).toBe(true);
     expect(model.financeDirect).toEqual([]);
   });
